@@ -1,0 +1,260 @@
+﻿name: Build and Release AZRAR Desktop
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  # =====================================
+  # Job 1: Test and Lint
+  # =====================================
+  test:
+    name: Test and Lint
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ESLint
+      run: npm run lint
+      continue-on-error: true
+
+    - name: Run Tests
+      run: npm test
+      continue-on-error: true
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+      continue-on-error: true
+
+  # =====================================
+  # Job 2: Security Scan
+  # =====================================
+  security:
+    name: Security Scan
+    runs-on: windows-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run npm audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+
+    - name: Run Snyk Security Scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      continue-on-error: true
+
+  # =====================================
+  # Job 3: Build Application
+  # =====================================
+  build:
+    name: Build AZRAR Desktop
+    runs-on: windows-latest
+    needs: [test, security]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build Vite App
+      run: npm run desktop:build
+
+    - name: Build Electron
+      run: npm run electron:build
+
+    # البناء بدون توقيع (للـ PRs والفروع)
+    - name: Build Installer (Unsigned)
+      if: github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+      run: npm run desktop:dist:skipWU
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # البناء مع التوقيع (للـ Tags فقط)
+    - name: Build Installer (Signed)
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: npm run desktop:dist:signed
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        CSC_LINK: ${{ secrets.CSC_LINK }}
+        CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: azrar-desktop-windows
+        path: |
+          release2_build/*.exe
+          release2_build/*.blockmap
+          release2_build/latest.yml
+        retention-days: 30
+
+    - name: Calculate File Hashes
+      shell: pwsh
+      run: |
+        $files = Get-ChildItem release2_build -Filter "*.exe"
+        foreach ($file in $files) {
+          $hash = Get-FileHash $file.FullName -Algorithm SHA256
+          Write-Output "$($file.Name): $($hash.Hash)" >> release2_build/checksums.txt
+        }
+
+    - name: Upload Checksums
+      uses: actions/upload-artifact@v4
+      with:
+        name: checksums
+        path: release2_build/checksums.txt
+
+  # =====================================
+  # Job 4: Create Release (Tags only)
+  # =====================================
+  release:
+    name: Create GitHub Release
+    runs-on: windows-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: azrar-desktop-windows
+        path: ./artifacts
+
+    - name: Download Checksums
+      uses: actions/download-artifact@v4
+      with:
+        name: checksums
+        path: ./artifacts
+
+    - name: Extract Version
+      id: version
+      shell: pwsh
+      run: |
+        $version = "${{ github.ref_name }}".TrimStart('v')
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+
+    - name: Generate Release Notes
+      id: notes
+      shell: pwsh
+      run: |
+        $notes = @"
+        ## 🎉 AZRAR Desktop v${{ steps.version.outputs.VERSION }}
+        
+        ### ✨ المميزات الجديدة
+        - [أضف المميزات الجديدة هنا]
+        
+        ### 🐛 إصلاحات
+        - [أضف الإصلاحات هنا]
+        
+        ### 📦 التحميلات
+        - **Windows (64-bit):** AZRAR Setup ${{ steps.version.outputs.VERSION }}.exe
+        
+        ### 🔐 التحقق
+        راجع ملف checksums.txt للتحقق من صحة التحميل.
+        
+        ### 📝 ملاحظات
+        - يتطلب Windows 10/11 (64-bit)
+        - التحديثات التلقائية مفعّلة
+        
+        **التحميل الكامل:** [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+        "@
+        
+        $notes | Out-File -FilePath release_notes.md -Encoding UTF8
+        echo "NOTES_FILE=release_notes.md" >> $env:GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: AZRAR v${{ steps.version.outputs.VERSION }}
+        body_path: ${{ steps.notes.outputs.NOTES_FILE }}
+        draft: false
+        prerelease: false
+        files: |
+          ./artifacts/*.exe
+          ./artifacts/*.blockmap
+          ./artifacts/latest.yml
+          ./artifacts/checksums.txt
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =====================================
+  # Job 5: Notify (Optional)
+  # =====================================
+  notify:
+    name: Send Notifications
+    runs-on: windows-latest
+    needs: [build, release]
+    if: always()
+    
+    steps:
+    - name: Notify Discord
+      if: success()
+      uses: sarisia/actions-status-discord@v1
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "✅ AZRAR Build Success"
+        description: "تم بناء وإصدار AZRAR بنجاح!"
+        color: 0x00ff00
+      continue-on-error: true
+
+    - name: Notify Discord on Failure
+      if: failure()
+      uses: sarisia/actions-status-discord@v1
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "❌ AZRAR Build Failed"
+        description: "فشل بناء AZRAR!"
+        color: 0xff0000
+      continue-on-error: true

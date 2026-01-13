@@ -1,0 +1,1167 @@
+﻿/**
+ * © 2025 - Developed by Mahmoud Qattoush
+ * AZRAR Real Estate Management System - All Rights Reserved
+ *
+ * صفحة إدارة الأشخاص (People Management Page)
+ * - عرض وإدارة جميع الأشخاص (مالكين، مستأجرين، كفلاء)
+ * - البحث والفلترة المتقدمة
+ * - إدارة القائمة السوداء
+ * - التكامل الكامل مع DbService فقط (لا اعتماد عكسي)
+ *
+ * 📊 مصدر البيانات:
+ * - DbService.getPeople() - جلب جميع الأشخاص
+ * - DbService.getProperties() - للتحقق من حالة العقارات
+ * - DbService.getLookupsByCategory('person_roles') - الأدوار المتاحة
+ *
+ * 🎯 متى يظهر EmptyState:
+ * - عند عدم وجود أشخاص في النظام (people.length === 0)
+ * - عند عدم وجود نتائج بحث (filtered.length === 0 && searchTerm)
+ * - عند عدم وجود نتائج فلترة (filtered.length === 0 && activeRoleTab !== 'all')
+ *
+ * ⚠️ DataGuard:
+ * - غير مستخدم في هذه الصفحة (لا توجد بيانات مطلوبة مسبقاً)
+ */
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { DbService } from '@/services/mockDb';
+import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { الأشخاص_tbl, SystemLookup, العقارات_tbl, العقود_tbl, DynamicFormField } from '@/types';
+import {
+    Plus, Search, Trash2, Edit2, Phone, Users, Eye, Filter, Ban, ShieldAlert, ArrowRight, Download, SlidersHorizontal, ListTodo
+} from 'lucide-react';
+import { useSmartModal } from '@/context/ModalContext';
+import { useToast } from '@/context/ToastContext';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
+import { useDbSignal } from '@/hooks/useDbSignal';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { DS } from '@/constants/designSystem';
+import { RBACGuard } from '@/components/shared/RBACGuard';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { SearchEngine, FilterRule } from '@/services/searchEngine';
+import { formatContractNumberShort } from '@/utils/contractNumber';
+import { getPersonColorClasses, getPersonSeedFromPerson } from '@/utils/personColor';
+import { isTenancyRelevant } from '@/utils/tenancy';
+import { formatDynamicValue, isEmptyDynamicValue } from '@/components/dynamic/dynamicValue';
+import { exportToXlsx, readSpreadsheet } from '@/utils/xlsx';
+import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
+import { domainCountsSmart, peoplePickerSearchPagedSmart } from '@/services/domainQueries';
+
+const PAGE_SIZE = 48;
+
+export const People: React.FC = () => {
+  const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
+  const [properties, setProperties] = useState<العقارات_tbl[]>([]);
+    const [contracts, setContracts] = useState<العقود_tbl[]>([]);
+
+                const isDesktop = typeof window !== 'undefined' && !!(window as any)?.desktopDb;
+                const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainPeoplePickerSearch;
+                const desktopUnsupported = isDesktop && !isDesktopFast;
+        const [desktopRows, setDesktopRows] = useState<Array<{ person: any; roles?: string[]; isBlacklisted?: boolean; link?: any }>>([]);
+        const [desktopTotal, setDesktopTotal] = useState(0);
+        const [desktopPage, setDesktopPage] = useState(0);
+        const [desktopLoading, setDesktopLoading] = useState(false);
+        const [desktopCounts, setDesktopCounts] = useState<{ people: number; properties: number; contracts: number } | null>(null);
+
+                const warnedUnsupportedRef = useRef(false);
+
+    const [showDynamicColumns, setShowDynamicColumns] = useState(false);
+    const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
+  
+  // Search State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeRoleTab, setActiveRoleTab] = useState<string>('all');
+  const [showOnlyIdleOwners, setShowOnlyIdleOwners] = useState(false);
+  
+  // Advanced Search
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advFilters, setAdvFilters] = useState({
+      address: '',
+      nationalId: '',
+      classification: 'All',
+      minRating: 0
+  });
+
+  const [availableRoles, setAvailableRoles] = useState<SystemLookup[]>([]);
+
+  const { openPanel } = useSmartModal();
+  const toast = useToast();
+    const dialogs = useAppDialogs();
+    const importRef = useRef<HTMLInputElement | null>(null);
+
+    const todayYMD = useMemo(() => {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }, []);
+
+    const dbSignal = useDbSignal();
+
+  useEffect(() => {
+        void loadData();
+    }, [dbSignal]);
+
+      const loadData = async () => {
+          if (isDesktopFast) {
+              setDesktopLoading(true);
+              try {
+                  const counts = await domainCountsSmart();
+                  setDesktopCounts(counts);
+
+                  setAvailableRoles(DbService.getLookupsByCategory('person_roles') || []);
+                  try {
+                      const f = DbService.getFormFields?.('people') || [];
+                      setDynamicFields(Array.isArray(f) ? f : []);
+                  } catch {
+                      setDynamicFields([]);
+                  }
+
+                  const res = await peoplePickerSearchPagedSmart({
+                      query: String(searchTerm || ''),
+                      role: String(activeRoleTab || ''),
+                      onlyIdleOwners: activeRoleTab === 'مالك' ? showOnlyIdleOwners : false,
+                      address: showAdvanced ? String(advFilters.address || '') : '',
+                      nationalId: showAdvanced ? String(advFilters.nationalId || '') : '',
+                      classification: showAdvanced ? String(advFilters.classification || '') : 'All',
+                      minRating: showAdvanced ? Number(advFilters.minRating || 0) : 0,
+                      offset: desktopPage * PAGE_SIZE,
+                      limit: PAGE_SIZE,
+                  });
+
+                  setDesktopRows(Array.isArray(res.items) ? res.items : []);
+                  setDesktopTotal(Number(res.total || 0) || 0);
+
+                  // Keep legacy state empty to avoid heavy render work on Desktop.
+                  setPeople([]);
+                  setProperties([]);
+                  setContracts([]);
+              } finally {
+                  setDesktopLoading(false);
+              }
+              return;
+          }
+
+          // Desktop focus: never load huge arrays in renderer.
+          if (desktopUnsupported) {
+              if (!warnedUnsupportedRef.current) {
+                  warnedUnsupportedRef.current = true;
+                  toast.warning('صفحة الأشخاص تحتاج وضع السرعة/SQL في نسخة الديسكتوب');
+              }
+              setDesktopCounts(null);
+              setDesktopRows([]);
+              setDesktopTotal(0);
+              setPeople([]);
+              setProperties([]);
+              setContracts([]);
+              setAvailableRoles(DbService.getLookupsByCategory('person_roles') || []);
+              try {
+                  const f = DbService.getFormFields?.('people') || [];
+                  setDynamicFields(Array.isArray(f) ? f : []);
+              } catch {
+                  setDynamicFields([]);
+              }
+              return;
+          }
+
+          setPeople(DbService.getPeople());
+          setProperties(DbService.getProperties());
+          setContracts(DbService.getContracts());
+          setAvailableRoles(DbService.getLookupsByCategory('person_roles') || []);
+          try {
+              const f = DbService.getFormFields?.('people') || [];
+              setDynamicFields(Array.isArray(f) ? f : []);
+          } catch {
+              setDynamicFields([]);
+          }
+      };
+
+  const getRoles = (id: string) => DbService.getPersonRoles(id);
+
+  const peopleById = useMemo(() => {
+      const m = new Map<string, الأشخاص_tbl>();
+      for (const p of people) m.set(p.رقم_الشخص, p);
+      return m;
+  }, [people]);
+
+  const rolePalette = [
+      { badge: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800', avatar: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
+      { badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800', avatar: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+      { badge: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800', avatar: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+      { badge: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800', avatar: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+      { badge: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800', avatar: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' },
+      { badge: 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-300 dark:border-cyan-800', avatar: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
+      { badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800', avatar: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+  ] as const;
+
+  const hashRole = (s: string) => {
+      let h = 0;
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return h;
+  };
+
+  const getRoleClasses = (role: string) => {
+      // Keep explicit, recognizable colors for common business roles
+      if (role === 'مالك') return rolePalette[1];
+      if (role === 'مستأجر') return rolePalette[0];
+      if (role === 'كفيل') return rolePalette[2];
+      if (role === 'مشتري') return rolePalette[3];
+
+      const idx = hashRole(String(role || '')) % rolePalette.length;
+      return rolePalette[idx];
+  };
+
+  const getPrimaryRole = (roles: string[]) => {
+      const priority = ['مالك', 'مستأجر', 'كفيل', 'مشتري'];
+      for (const r of priority) if (roles.includes(r)) return r;
+      return roles[0] || '';
+  };
+
+    const isActiveContract = (c: any) => isTenancyRelevant(c);
+
+  const handleOpenForm = (id?: string) => {
+      openPanel('PERSON_FORM', id || 'new', {
+          onSuccess: () => setTimeout(() => void loadData(), 500)
+      });
+  };
+
+  const handleOpenCompanyForm = () => {
+      openPanel('PERSON_FORM', 'new', {
+          initialType: 'منشأة',
+          onSuccess: () => setTimeout(() => void loadData(), 500)
+      });
+  };
+
+  const handleDelete = async (id: string) => {
+      const ok = await toast.confirm({
+        title: 'حذف',
+        message: 'هل أنت متأكد من حذف هذا الملف؟',
+        confirmText: 'حذف',
+        cancelText: 'إلغاء',
+        isDangerous: true,
+      });
+      if (!ok) return;
+
+      const res = DbService.deletePerson(id);
+      if(res.success) {
+          toast.success(res.message);
+          void loadData();
+      } else {
+          toast.error(res.message);
+      }
+  };
+
+  const handleBlacklist = (id: string) => {
+      openPanel('BLACKLIST_FORM', id, {
+          onSuccess: () => void loadData()
+      });
+  };
+
+  const handleQuickReminderForPerson = async (person: الأشخاص_tbl) => {
+      const personId = String(person?.رقم_الشخص || '').trim();
+      if (!personId) return;
+
+      const defaultTitle = `متابعة: ${String(person?.الاسم || '').trim() || personId}`;
+      const title = await dialogs.prompt({
+          title: 'تذكير / متابعة',
+          message: 'ما هي المتابعة المطلوبة؟',
+          inputType: 'text',
+          defaultValue: defaultTitle,
+          required: true,
+      });
+      if (!title) return;
+
+      const dueDate = await dialogs.prompt({
+          title: 'تاريخ التذكير',
+          message: 'اختر تاريخ التذكير',
+          inputType: 'date',
+          defaultValue: todayYMD,
+          required: true,
+      });
+      if (!dueDate) return;
+
+      const note = await dialogs.prompt({
+          title: 'ملاحظة (اختياري)',
+          inputType: 'textarea',
+          defaultValue: '',
+          placeholder: 'اكتب ملاحظة مختصرة تساعدك عند المتابعة...',
+      });
+      if (note === null) return;
+
+      DbService.addFollowUp({
+          task: title,
+          clientName: String(person?.الاسم || '').trim() || undefined,
+          phone: String(person?.رقم_الهاتف || '').trim() || undefined,
+          type: 'Task',
+          dueDate,
+          priority: 'Medium',
+          personId,
+          note: String(note || '').trim() || undefined,
+      } as any);
+
+      dialogs.toast.success('تم حفظ التذكير');
+      openPanel('CALENDAR_EVENTS', dueDate, { title: 'مهام اليوم' });
+  };
+
+    const handleExport = async () => {
+      if (isDesktopFast) {
+          if (desktopTotal === 0) return toast.warning('لا توجد بيانات للتصدير');
+
+          const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
+
+          const all: Array<{ person: any; roles?: string[]; isBlacklisted?: boolean; link?: any }> = [];
+          let offset = 0;
+          const limit = 500;
+          while (true) {
+              const res = await peoplePickerSearchPagedSmart({
+                  query: String(searchTerm || ''),
+                  role: String(activeRoleTab || ''),
+                  onlyIdleOwners: activeRoleTab === 'مالك' ? showOnlyIdleOwners : false,
+                  address: showAdvanced ? String(advFilters.address || '') : '',
+                  nationalId: showAdvanced ? String(advFilters.nationalId || '') : '',
+                  classification: showAdvanced ? String(advFilters.classification || '') : 'All',
+                  minRating: showAdvanced ? Number(advFilters.minRating || 0) : 0,
+                  offset,
+                  limit,
+              });
+              const items = Array.isArray(res.items) ? res.items : [];
+              if (!items.length) break;
+              all.push(...items);
+              offset += items.length;
+              if (items.length < limit) break;
+          }
+
+          const rows = all.map((it) => {
+              const p = (it?.person || {}) as any;
+              const roles = Array.isArray(it?.roles) ? it.roles : [];
+              return {
+                  ID: p.رقم_الشخص,
+                  Name: p.الاسم,
+                  Phone: p.رقم_الهاتف,
+                  ExtraPhone: p.رقم_هاتف_اضافي || '',
+                  NationalID: p.الرقم_الوطني || '',
+                  Address: p.العنوان || '',
+                  Role: roles.join(' | '),
+              };
+          });
+
+          await exportToXlsx(
+              'People',
+              [
+                  { key: 'ID', header: 'ID' },
+                  { key: 'Name', header: 'Name' },
+                  { key: 'Phone', header: 'Phone' },
+                  { key: 'ExtraPhone', header: 'ExtraPhone' },
+                  { key: 'NationalID', header: 'NationalID' },
+                  { key: 'Address', header: 'Address' },
+                  { key: 'Role', header: 'Role' },
+              ],
+              rows,
+              `people_export_${new Date().toISOString().slice(0, 10)}.xlsx`,
+              {
+                  extraSheets: companySheet ? [companySheet] : [],
+              }
+          );
+
+          DbService.logEvent('User', 'Export', 'People', `Exported ${rows.length} records`);
+          toast.success('تم تصدير البيانات بنجاح');
+          return;
+      }
+
+      if (filtered.length === 0) return toast.warning('لا توجد بيانات للتصدير');
+
+      const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
+
+      const rows = filtered.map(p => ({
+          ID: p.رقم_الشخص,
+          Name: p.الاسم,
+          Phone: p.رقم_الهاتف,
+          ExtraPhone: (p as any).رقم_هاتف_اضافي || '',
+          NationalID: p.الرقم_الوطني || '',
+          Address: p.العنوان || '',
+          Role: getRoles(p.رقم_الشخص).join(' | '),
+      }));
+
+      await exportToXlsx(
+          'People',
+          [
+              { key: 'ID', header: 'ID' },
+              { key: 'Name', header: 'Name' },
+              { key: 'Phone', header: 'Phone' },
+              { key: 'ExtraPhone', header: 'ExtraPhone' },
+              { key: 'NationalID', header: 'NationalID' },
+              { key: 'Address', header: 'Address' },
+              { key: 'Role', header: 'Role' },
+          ],
+          rows,
+                    `people_export_${new Date().toISOString().slice(0, 10)}.xlsx`,
+                    {
+                        extraSheets: companySheet ? [companySheet] : [],
+                    }
+      );
+      
+      // Log Export
+      DbService.logEvent('User', 'Export', 'People', `Exported ${filtered.length} records`);
+      toast.success('تم تصدير البيانات بنجاح');
+  };
+
+  const handleDownloadTemplate = async () => {
+      const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
+      await exportToXlsx(
+          'People',
+          [
+              { key: 'Name', header: 'Name' },
+              { key: 'Phone', header: 'Phone' },
+              { key: 'ExtraPhone', header: 'ExtraPhone' },
+              { key: 'NationalID', header: 'NationalID' },
+              { key: 'Address', header: 'Address' },
+              { key: 'Role', header: 'Role' },
+          ],
+          [
+              {
+                  Name: 'مثال: أحمد محمد',
+                  Phone: '0790000000',
+                  ExtraPhone: '',
+                  NationalID: '0123456789',
+                  Address: 'عمان - ...',
+                  Role: 'مالك | مستأجر',
+              },
+                                                                 ],
+                    `people_template.xlsx`,
+                    {
+                        extraSheets: companySheet ? [companySheet] : [],
+                    }
+      );
+      toast.success('تم تنزيل قالب الأشخاص');
+  };
+
+  const handlePickImportFile = () => {
+      importRef.current?.click();
+  };
+
+  const normalize = (v: any) => String(v ?? '').trim();
+
+  const handleImportFile = async (file: File) => {
+      const ok = await toast.confirm({
+          title: 'استيراد الأشخاص',
+          message:
+              'سيتم استيراد البيانات وإضافة السجلات الجديدة وتحديث الموجود حسب (الرقم الوطني ثم الهاتف). هل تريد المتابعة؟',
+          confirmText: 'متابعة',
+          cancelText: 'إلغاء',
+      });
+      if (!ok) return;
+
+      let rows: Array<Record<string, any>> = [];
+      try {
+          rows = await readSpreadsheet(file);
+      } catch (e: any) {
+          toast.error(e?.message || 'فشل قراءة ملف الاستيراد');
+          return;
+      }
+      if (!rows.length) {
+          toast.warning('الملف فارغ');
+          return;
+      }
+
+      const pick = (row: Record<string, any>, keys: string[]) => {
+          for (const k of keys) {
+              const v = row[k];
+              if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+          }
+          return '';
+      };
+
+      const existing = DbService.getPeople();
+      const byNationalId = new Map<string, any>();
+      const byPhone = new Map<string, any>();
+      for (const p of existing) {
+          const nid = normalize((p as any).الرقم_الوطني);
+          if (nid) byNationalId.set(nid, p);
+          const ph = normalize((p as any).رقم_الهاتف);
+          if (ph) byPhone.set(ph, p);
+          const ex = normalize((p as any).رقم_هاتف_اضافي);
+          if (ex) byPhone.set(ex, p);
+      }
+
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
+
+      for (const row of rows) {
+          const name = pick(row, ['Name', 'الاسم']);
+          const phone = pick(row, ['Phone', 'رقم_الهاتف', 'الهاتف']);
+          const extraPhone = pick(row, ['ExtraPhone', 'رقم_هاتف_اضافي', 'الهاتف_الاضافي', 'رقم_هاتف_آخر']);
+          const nationalId = pick(row, ['NationalID', 'الرقم_الوطني']);
+          const address = pick(row, ['Address', 'العنوان']);
+          const roleRaw = pick(row, ['Role', 'الدور', 'الأدوار']);
+
+          if (!name || !phone) {
+              skipped++;
+              continue;
+          }
+
+          const roles = roleRaw
+              ? roleRaw
+                    .split(/\||,|\/|؛|\n/)
+                    .map(r => r.trim())
+                    .filter(Boolean)
+              : [];
+
+          const match = (nationalId && byNationalId.get(nationalId)) || byPhone.get(phone);
+          if (match) {
+              DbService.updatePerson(match.رقم_الشخص, {
+                  الاسم: name,
+                  رقم_الهاتف: phone,
+                  رقم_هاتف_اضافي: extraPhone || (match as any).رقم_هاتف_اضافي,
+                  الرقم_الوطني: nationalId || match.الرقم_الوطني,
+                  العنوان: address || match.العنوان,
+              } as any);
+              if (roles.length) DbService.updatePersonRoles(match.رقم_الشخص, roles);
+              updated++;
+          } else {
+              const res = DbService.addPerson(
+                  {
+                      الاسم: name,
+                      رقم_الهاتف: phone,
+                      رقم_هاتف_اضافي: extraPhone || undefined,
+                      الرقم_الوطني: nationalId || undefined,
+                      العنوان: address || undefined,
+                      تقييم: 0,
+                      تصنيف: 'عادي',
+                  } as any,
+                  roles.length ? roles : ['مالك']
+              );
+              if (res.success) created++;
+              else skipped++;
+          }
+      }
+
+      void loadData();
+      toast.success(`تم الاستيراد: إضافة ${created} • تحديث ${updated} • تخطي ${skipped}`);
+  };
+
+  const filtered = useMemo(() => {
+      // 1. Base Filter (Role & Idle)
+      let result = people.filter((p) => {
+        if (activeRoleTab === 'blacklisted') {
+            return DbService.getPersonBlacklistStatus(p.رقم_الشخص);
+        }
+
+        const roles = getRoles(p.رقم_الشخص);
+        const matchesRole = activeRoleTab === 'all' || roles.includes(activeRoleTab);
+        if (!matchesRole) return false;
+        
+        if (activeRoleTab === 'مالك' && showOnlyIdleOwners) {
+            const ownerProps = properties.filter(prop => prop.رقم_المالك === p.رقم_الشخص);
+            return !ownerProps.some(prop => prop.حالة_العقار === 'مؤجر');
+        }
+        return true;
+      });
+
+      // 2. Quick Search
+      if (searchTerm.trim()) {
+          const term = searchTerm.toLowerCase();
+          result = result.filter(p =>
+            (p.الاسم || '').toLowerCase().includes(term) ||
+            (p.الرقم_الوطني || '').includes(term) ||
+                        (p.رقم_الهاتف || '').includes(term) ||
+                        String((p as any).رقم_هاتف_اضافي || '').includes(term)
+          );
+      }
+
+      // 3. Advanced Search (Using Engine)
+      if (showAdvanced) {
+          const rules: FilterRule[] = [];
+          if (advFilters.address) rules.push({ field: 'العنوان', operator: 'contains', value: advFilters.address });
+          if (advFilters.nationalId) rules.push({ field: 'الرقم_الوطني', operator: 'contains', value: advFilters.nationalId });
+          if (advFilters.classification !== 'All') rules.push({ field: 'تصنيف', operator: 'equals', value: advFilters.classification });
+          if (advFilters.minRating > 0) rules.push({ field: 'تقييم', operator: 'gte', value: advFilters.minRating });
+          
+          result = SearchEngine.applyFilters(result, rules);
+      }
+
+      return result;
+  }, [people, searchTerm, activeRoleTab, showOnlyIdleOwners, properties, showAdvanced, advFilters]);
+
+    const desktopPageCount = isDesktopFast ? Math.max(1, Math.ceil(desktopTotal / PAGE_SIZE)) : 1;
+
+    useEffect(() => {
+        if (!isDesktopFast) return;
+        // Reset to first page when filters/search change.
+        if (desktopPage !== 0) {
+            setDesktopPage(0);
+        } else {
+            void loadData();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, isDesktopFast]);
+
+    useEffect(() => {
+        if (!isDesktopFast) return;
+        void loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [desktopPage, isDesktopFast]);
+
+  const renderCard = (person: الأشخاص_tbl) => {
+      const roles = getRoles(person.رقم_الشخص);
+      const isBlacklisted = DbService.getPersonBlacklistStatus(person.رقم_الشخص);
+      const primaryRole = getPrimaryRole(roles);
+      const accent = getRoleClasses(primaryRole);
+      const personColor = getPersonColorClasses(getPersonSeedFromPerson(person));
+
+            // Contract linkage summary (tenant / guarantor / owner)
+            const tenantContract = contracts
+                    .filter(c => isActiveContract(c) && c.رقم_المستاجر === person.رقم_الشخص)
+                    .sort((a, b) => String(b.تاريخ_البداية || '').localeCompare(String(a.تاريخ_البداية || '')))[0];
+            const guarantorContract = contracts
+                    .filter(c => isActiveContract(c) && c.رقم_الكفيل === person.رقم_الشخص)
+                    .sort((a, b) => String(b.تاريخ_البداية || '').localeCompare(String(a.تاريخ_البداية || '')))[0];
+
+            const ownerPropertyIds = new Set(properties.filter(p => p.رقم_المالك === person.رقم_الشخص).map(p => p.رقم_العقار));
+            const ownerContract = contracts
+                    .filter(c => isActiveContract(c) && ownerPropertyIds.has(c.رقم_العقار))
+                    .sort((a, b) => String(b.تاريخ_البداية || '').localeCompare(String(a.تاريخ_البداية || '')))[0];
+
+            const pick = tenantContract || guarantorContract || ownerContract;
+            const linkedProperty = pick ? properties.find(p => p.رقم_العقار === pick.رقم_العقار) : undefined;
+            const tenantName = pick?.رقم_المستاجر ? (peopleById.get(pick.رقم_المستاجر)?.الاسم || 'غير معروف') : '';
+            const guarantorName = pick?.رقم_الكفيل ? (peopleById.get(pick.رقم_الكفيل)?.الاسم || 'غير معروف') : '';
+
+            const isLinkedToContract = Boolean(pick);
+            const contractBoxClass = isLinkedToContract
+                ? 'border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/20'
+                : 'border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/40';
+            const contractTitleClass = isLinkedToContract
+                ? 'text-indigo-700 dark:text-indigo-200'
+                : 'text-slate-700 dark:text-slate-200';
+
+      return (
+          <Card key={person.رقم_الشخص} className={`group animate-slide-up ${isBlacklisted ? 'ring-2 ring-red-500/20 border-red-500/30' : ''}`}>
+              <div className={`h-1 w-full ${isBlacklisted ? 'bg-red-500/25 dark:bg-red-400/20' : personColor.stripe}`}></div>
+              <div className="p-5 flex flex-col h-full">
+                  <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold shadow-inner ${isBlacklisted ? 'bg-red-100 text-red-600' : accent.avatar}`}>
+                              {(person.الاسم || 'غ').charAt(0)}
+                          </div>
+                          <div>
+                              <h3 className="font-bold text-slate-800 dark:text-white leading-tight flex items-center gap-2">
+                                  <span className={`inline-block w-2.5 h-2.5 rounded-full ${isBlacklisted ? 'bg-red-500' : personColor.dot}`}></span>
+                                  {person.الاسم || 'غير محدد'}
+                                                                    {(person as any).نوع_الملف === 'منشأة' && (
+                                                                        <span className="text-[10px] px-2 py-0.5 rounded-lg border bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-700">
+                                                                            منشأة
+                                                                        </span>
+                                                                    )}
+                                  {isBlacklisted && <ShieldAlert size={16} className="text-red-600" />}
+                              </h3>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{person.رقم_الهاتف || 'لا يوجد'}</p>
+                              {(person as any).رقم_هاتف_اضافي ? (
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{String((person as any).رقم_هاتف_اضافي)}</p>
+                              ) : null}
+                          </div>
+                      </div>
+                      {person.تصنيف && <StatusBadge status={person.تصنيف} />}
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-1.5 mb-5 flex-1 content-start">
+                      {roles.map(r => (
+                                                    <span
+                                                        key={r}
+                                                        className={`text-[10px] px-2.5 py-1 rounded-lg border font-medium ${getRoleClasses(r).badge}`}
+                                                    >
+                                                        {r}
+                                                    </span>
+                      ))}
+                  </div>
+
+                                    <div className={`mb-4 rounded-xl border p-3 ${contractBoxClass}`}>
+                                            {pick ? (
+                                                <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                                                    <div className={`font-bold ${contractTitleClass}`}>مرتبط بعقد</div>
+                                                    <div>
+                                                        رقم العقد: <span className="font-mono">#{formatContractNumberShort(pick.رقم_العقد)}</span>
+                                                        {linkedProperty?.الكود_الداخلي ? (
+                                                            <> • الكود الداخلي: <span className="font-mono">{linkedProperty.الكود_الداخلي}</span></>
+                                                        ) : null}
+                                                    </div>
+                                                    {(ownerContract || guarantorContract) ? (
+                                                        <div>
+                                                            المستأجر: <span className="font-semibold">{tenantName}</span>
+                                                            {guarantorName ? <> • الكفيل: <span className="font-semibold">{guarantorName}</span></> : null}
+                                                        </div>
+                                                    ) : tenantContract ? (
+                                                        <div>
+                                                            {guarantorName ? <>الكفيل: <span className="font-semibold">{guarantorName}</span></> : 'الكفيل: —'}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            ) : (
+                                                <div className="text-xs text-slate-500 dark:text-slate-400">غير مرتبط بعقد حالياً</div>
+                                            )}
+                                    </div>
+
+                  {showDynamicColumns && dynamicFields.length > 0 ? (
+                      (() => {
+                          const values = (person as any)?.حقول_ديناميكية || {};
+                          const visible = dynamicFields
+                              .map((f) => ({ f, v: values?.[f.name] }))
+                              .filter(({ v }) => !isEmptyDynamicValue(v));
+
+                          if (!visible.length) return null;
+
+                          return (
+                              <div className="mb-4 rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                                  <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">حقول إضافية</div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      {visible.map(({ f, v }) => (
+                                          <div key={f.id} className="text-xs text-slate-600 dark:text-slate-300">
+                                              <span className="font-bold text-slate-500 dark:text-slate-400">{f.label}:</span>{' '}
+                                              <span className="font-semibold text-slate-800 dark:text-white">{formatDynamicValue(f.type, v)}</span>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          );
+                      })()
+                  ) : null}
+
+                                    <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-slate-700 md:flex-row md:items-center">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                                                className="flex-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100"
+                        onClick={() => openPanel('PERSON_DETAILS', person.رقم_الشخص)}
+                        leftIcon={<Eye size={14} />}
+                      >
+                          التفاصيل
+                      </Button>
+                      
+                                            <div className="flex flex-wrap justify-end gap-1">
+                        <RBACGuard requiredPermission="EDIT_PERSON">
+                                                        <Button size="icon" variant="ghost" title="تعديل" aria-label="تعديل" onClick={() => handleOpenForm(person.رقم_الشخص)}><Edit2 size={16} /></Button>
+                        </RBACGuard>
+
+                                                <RBACGuard requiredPermission="DELETE_PERSON">
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                            title="حذف"
+                                                            aria-label="حذف"
+                                                            onClick={() => handleDelete(person.رقم_الشخص)}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </Button>
+                                                </RBACGuard>
+                        
+                        <RBACGuard requiredRole="Admin">
+                            {!isBlacklisted && (
+                                <Button size="icon" variant="ghost" className="text-red-400 hover:text-red-600 hover:bg-red-50" title="إضافة للقائمة السوداء" aria-label="إضافة للقائمة السوداء" onClick={() => handleBlacklist(person.رقم_الشخص)}><Ban size={16} /></Button>
+                            )}
+                        </RBACGuard>
+
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="text-green-500 hover:text-green-600 hover:bg-green-50"
+                                                    title="واتساب / اتصال"
+                                                    aria-label="واتساب / اتصال"
+                                                    onClick={() => void openWhatsAppForPhones('', [person.رقم_الهاتف, (person as any).رقم_هاتف_اضافي], { defaultCountryCode: '962', delayMs: 10_000 })}
+                                                >
+                                                    <Phone size={16} />
+                                                </Button>
+
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                            title="تذكير مرتبط بتاريخ وملاحظة"
+                            onClick={() => void handleQuickReminderForPerson(person)}
+                        >
+                            <span className="inline-flex items-center gap-2">
+                                <ListTodo size={16} /> تذكير
+                            </span>
+                        </Button>
+                      </div>
+                  </div>
+              </div>
+          </Card>
+      );
+  };
+
+    const renderDesktopCard = (row: { person: any; roles?: string[]; isBlacklisted?: boolean; link?: any }) => {
+        const person = (row?.person || {}) as الأشخاص_tbl;
+        const roles = Array.isArray(row?.roles) ? (row.roles as string[]) : [];
+        const isBlacklisted = !!row?.isBlacklisted;
+        const primaryRole = getPrimaryRole(roles);
+        const accent = getRoleClasses(primaryRole);
+        const personColor = getPersonColorClasses(getPersonSeedFromPerson(person));
+
+        const link = row?.link || null;
+        const isLinkedToContract = !!link?.contractId;
+        const contractBoxClass = isLinkedToContract
+            ? 'border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/20'
+            : 'border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/40';
+        const contractTitleClass = isLinkedToContract ? 'text-indigo-700 dark:text-indigo-200' : 'text-slate-700 dark:text-slate-200';
+
+        const contractNo = link?.contractId ? formatContractNumberShort(String(link.contractId)) : '';
+        const propertyCode = String(link?.propertyCode || '').trim();
+        const tenantName = String(link?.tenantName || '').trim();
+        const guarantorName = String(link?.guarantorName || '').trim();
+        const source = String(link?.source || '').trim();
+
+        return (
+            <Card key={person.رقم_الشخص} className={`group animate-slide-up ${isBlacklisted ? 'ring-2 ring-red-500/20 border-red-500/30' : ''}`}>
+                <div className={`h-1 w-full ${isBlacklisted ? 'bg-red-500/25 dark:bg-red-400/20' : personColor.stripe}`}></div>
+                <div className="p-5 flex flex-col h-full">
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold shadow-inner ${isBlacklisted ? 'bg-red-100 text-red-600' : accent.avatar}`}>
+                                {(person.الاسم || 'غ').charAt(0)}
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-white leading-tight flex items-center gap-2">
+                                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${isBlacklisted ? 'bg-red-500' : personColor.dot}`}></span>
+                                    {person.الاسم || 'غير محدد'}
+                                    {(person as any).نوع_الملف === 'منشأة' && (
+                                        <span className="text-[10px] px-2 py-0.5 rounded-lg border bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-700">
+                                            منشأة
+                                        </span>
+                                    )}
+                                    {isBlacklisted && <ShieldAlert size={16} className="text-red-600" />}
+                                </h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{person.رقم_الهاتف || 'لا يوجد'}</p>
+                                {(person as any).رقم_هاتف_اضافي ? (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{String((person as any).رقم_هاتف_اضافي)}</p>
+                                ) : null}
+                            </div>
+                        </div>
+                        {person.تصنيف && <StatusBadge status={person.تصنيف} />}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mb-5 flex-1 content-start">
+                        {roles.map((r) => (
+                            <span key={r} className={`text-[10px] px-2.5 py-1 rounded-lg border font-medium ${getRoleClasses(r).badge}`}>{r}</span>
+                        ))}
+                    </div>
+
+                    <div className={`mb-4 rounded-xl border p-3 ${contractBoxClass}`}>
+                        {isLinkedToContract ? (
+                            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                                <div className={`font-bold ${contractTitleClass}`}>مرتبط بعقد</div>
+                                <div>
+                                    رقم العقد: <span className="font-mono">#{contractNo}</span>
+                                    {propertyCode ? <> • الكود الداخلي: <span className="font-mono">{propertyCode}</span></> : null}
+                                </div>
+                                {source === 'owner' || source === 'guarantor' ? (
+                                    <div>
+                                        المستأجر: <span className="font-semibold">{tenantName || 'غير معروف'}</span>
+                                        {guarantorName ? <> • الكفيل: <span className="font-semibold">{guarantorName}</span></> : null}
+                                    </div>
+                                ) : source === 'tenant' ? (
+                                    <div>{guarantorName ? <>الكفيل: <span className="font-semibold">{guarantorName}</span></> : 'الكفيل: —'}</div>
+                                ) : null}
+                            </div>
+                        ) : (
+                            <div className="text-xs text-slate-500 dark:text-slate-400">غير مرتبط بعقد حالياً</div>
+                        )}
+                    </div>
+
+                    {showDynamicColumns && dynamicFields.length > 0 ? (
+                        (() => {
+                            const values = (person as any)?.حقول_ديناميكية || {};
+                            const visible = dynamicFields
+                                .map((f) => ({ f, v: values?.[f.name] }))
+                                .filter(({ v }) => !isEmptyDynamicValue(v));
+                            if (!visible.length) return null;
+                            return (
+                                <div className="mb-4 rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                                    <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">حقول إضافية</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {visible.map(({ f, v }) => (
+                                            <div key={f.id} className="text-xs text-slate-600 dark:text-slate-300">
+                                                <span className="font-bold text-slate-500 dark:text-slate-400">{f.label}:</span>{' '}
+                                                <span className="font-semibold text-slate-800 dark:text-white">{formatDynamicValue(f.type, v)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()
+                    ) : null}
+
+                    <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-slate-700 md:flex-row md:items-center">
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="flex-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100"
+                            onClick={() => openPanel('PERSON_DETAILS', person.رقم_الشخص)}
+                            leftIcon={<Eye size={14} />}
+                        >
+                            التفاصيل
+                        </Button>
+
+                        <div className="flex flex-wrap justify-end gap-1">
+                            <RBACGuard requiredPermission="EDIT_PERSON">
+                                <Button size="icon" variant="ghost" title="تعديل" aria-label="تعديل" onClick={() => handleOpenForm(person.رقم_الشخص)}><Edit2 size={16} /></Button>
+                            </RBACGuard>
+
+                            <RBACGuard requiredPermission="DELETE_PERSON">
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    title="حذف"
+                                    aria-label="حذف"
+                                    onClick={() => handleDelete(person.رقم_الشخص)}
+                                >
+                                    <Trash2 size={16} />
+                                </Button>
+                            </RBACGuard>
+
+                            <RBACGuard requiredRole="Admin">
+                                {!isBlacklisted && (
+                                    <Button size="icon" variant="ghost" className="text-red-400 hover:text-red-600 hover:bg-red-50" title="إضافة للقائمة السوداء" aria-label="إضافة للقائمة السوداء" onClick={() => handleBlacklist(person.رقم_الشخص)}><Ban size={16} /></Button>
+                                )}
+                            </RBACGuard>
+
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-green-500 hover:text-green-600 hover:bg-green-50"
+                                title="واتساب / اتصال"
+                                aria-label="واتساب / اتصال"
+                                onClick={() => void openWhatsAppForPhones('', [person.رقم_الهاتف, (person as any).رقم_هاتف_اضافي], { defaultCountryCode: '962', delayMs: 10_000 })}
+                            >
+                                <Phone size={16} />
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                title="تذكير مرتبط بتاريخ وملاحظة"
+                                onClick={() => void handleQuickReminderForPerson(person)}
+                            >
+                                <span className="inline-flex items-center gap-2"><ListTodo size={16} /> تذكير</span>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        );
+    };
+
+  return (
+    <div className="space-y-6">
+      <div className={DS.components.pageHeader}>
+        <div>
+            <h2 className={DS.components.pageTitle}>إدارة الأشخاص</h2>
+            <p className={DS.components.pageSubtitle}>سجل العملاء، الملاك، والمستأجرين</p>
+        </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+            <input
+                ref={importRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = '';
+                    if (f) void handleImportFile(f);
+                }}
+            />
+
+            <Button variant="secondary" onClick={handleDownloadTemplate} leftIcon={<Download size={18}/>}>قالب Excel</Button>
+            <RBACGuard requiredPermission="ADD_PERSON">
+                <Button variant="secondary" onClick={handlePickImportFile} leftIcon={<Download size={18}/>}>استيراد</Button>
+            </RBACGuard>
+            <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18}/>}>تصدير</Button>
+            <RBACGuard requiredPermission="ADD_PERSON">
+                <Button onClick={() => handleOpenForm()} leftIcon={<Plus size={18} />}>ملف جديد</Button>
+                <Button variant="secondary" onClick={handleOpenCompanyForm} leftIcon={<Plus size={18} />}>منشأة جديدة</Button>
+            </RBACGuard>
+        </div>
+      </div>
+
+      <Card className="p-3 space-y-4">
+          <div className="flex flex-col md:flex-row gap-3 items-center">
+            {/* Role Tabs */}
+            <div className="flex w-full md:w-auto overflow-x-auto no-scrollbar">
+                <div className="inline-flex items-center gap-2 bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800 p-1 rounded-2xl">
+                    <Button
+                        size="sm"
+                        variant={activeRoleTab === 'all' ? 'secondary' : 'ghost'}
+                        className="whitespace-nowrap"
+                        onClick={() => setActiveRoleTab('all')}
+                        leftIcon={<Users size={16} />}
+                    >
+                        الكل
+                    </Button>
+
+                    {availableRoles.map((role) => (
+                        <Button
+                            key={role.id}
+                            size="sm"
+                            variant={activeRoleTab === role.label ? 'secondary' : 'ghost'}
+                            className="whitespace-nowrap"
+                            onClick={() => setActiveRoleTab(role.label)}
+                        >
+                            {role.label}
+                        </Button>
+                    ))}
+
+                    <Button
+                        size="sm"
+                        variant={activeRoleTab === 'blacklisted' ? 'danger' : 'ghost'}
+                        className="whitespace-nowrap"
+                        onClick={() => setActiveRoleTab('blacklisted')}
+                        leftIcon={<ShieldAlert size={16} />}
+                    >
+                        القائمة السوداء
+                    </Button>
+                </div>
+            </div>
+            
+            {/* Search Input */}
+            <div className="flex-1 w-full flex gap-2">
+                <Input placeholder="بحث سريع..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} icon={<Search size={18} />} />
+                <Button 
+                    variant={showAdvanced ? 'outline' : 'secondary'}
+                    onClick={() => setShowAdvanced(!showAdvanced)} 
+                    leftIcon={<SlidersHorizontal size={18}/>}
+                >
+                    متقدم
+                </Button>
+            </div>
+          </div>
+
+          {/* Advanced Search Panel */}
+          {showAdvanced && (
+              <div className="pt-3 border-t border-gray-100 dark:border-slate-700 grid grid-cols-1 md:grid-cols-4 gap-4 animate-slide-up">
+                  <Input 
+                      placeholder="العنوان (يحتوي على)" 
+                      value={advFilters.address} 
+                      onChange={e => setAdvFilters({...advFilters, address: e.target.value})} 
+                  />
+                  <Input 
+                      placeholder="الرقم الوطني" 
+                      value={advFilters.nationalId} 
+                      onChange={e => setAdvFilters({...advFilters, nationalId: e.target.value})} 
+                  />
+                  <Select
+                      value={advFilters.classification}
+                      onChange={(e) => setAdvFilters({ ...advFilters, classification: e.target.value })}
+                      options={[
+                          { value: 'All', label: 'كل التصنيفات' },
+                          { value: 'VIP', label: 'VIP' },
+                          { value: 'Standard', label: 'Standard' },
+                      ]}
+                  />
+                  <Select
+                      value={String(advFilters.minRating)}
+                      onChange={(e) => setAdvFilters({ ...advFilters, minRating: Number(e.target.value) })}
+                      options={[
+                          { value: '0', label: 'كل التقييمات' },
+                          { value: '3', label: '3 نجوم فأكثر' },
+                          { value: '4', label: '4 نجوم فأكثر' },
+                          { value: '5', label: '5 نجوم فقط' },
+                      ]}
+                  />
+              </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+              {activeRoleTab === 'مالك' && (
+                  <Button
+                      variant={showOnlyIdleOwners ? 'danger' : 'secondary'}
+                      size="sm"
+                      onClick={() => setShowOnlyIdleOwners(!showOnlyIdleOwners)}
+                      leftIcon={<Filter size={14}/>}
+                  >
+                      ملاك عقاراتهم شاغرة
+                  </Button>
+              )}
+
+              <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowDynamicColumns((v) => !v)}
+              >
+                  {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
+              </Button>
+          </div>
+      </Card>
+
+      {/* عرض EmptyState حسب الحالة */}
+      {(isDesktopFast
+          ? ((desktopCounts?.people ?? desktopTotal) === 0 && !desktopLoading && !searchTerm.trim() && (activeRoleTab === 'all' || !activeRoleTab))
+          : people.length === 0) ? (
+          // حالة: لا يوجد أشخاص في النظام
+          <EmptyState
+              type="people"
+              onAction={() => handleOpenForm()}
+          />
+      ) : (isDesktopFast ? (!desktopLoading && desktopTotal === 0) : filtered.length === 0) ? (
+          // حالة: لا توجد نتائج بحث أو فلترة
+          <EmptyState
+              type={searchTerm ? "search" : "filter"}
+              title={searchTerm ? "لا توجد نتائج بحث" : "لا توجد نتائج"}
+              message={searchTerm
+                  ? `لم يتم العثور على أشخاص يطابقون "${searchTerm}"`
+                  : activeRoleTab === 'blacklisted'
+                      ? "لا يوجد أشخاص في القائمة السوداء"
+                      : `لا يوجد أشخاص بدور "${activeRoleTab}"`
+              }
+              actionLabel={searchTerm ? "مسح البحث" : "مسح الفلاتر"}
+              onAction={() => {
+                  setSearchTerm('');
+                  setActiveRoleTab('all');
+                  setShowOnlyIdleOwners(false);
+                  setShowAdvanced(false);
+                  setAdvFilters({ address: '', nationalId: '', classification: 'All', minRating: 0 });
+              }}
+          />
+      ) : (
+          // حالة: عرض البيانات
+          <>
+              {isDesktopFast ? (
+                  <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                          {desktopLoading ? '...' : desktopTotal.toLocaleString()} نتيجة
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={desktopLoading || desktopPage <= 0}
+                              onClick={() => setDesktopPage((p) => Math.max(0, p - 1))}
+                          >
+                              السابق
+                          </Button>
+                          <div className="text-sm text-slate-600 dark:text-slate-300">
+                              {desktopPage + 1} / {desktopPageCount}
+                          </div>
+                          <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
+                              onClick={() => setDesktopPage((p) => p + 1)}
+                          >
+                              التالي
+                          </Button>
+                      </div>
+                  </div>
+              ) : null}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {isDesktopFast ? desktopRows.map((r) => renderDesktopCard(r)) : filtered.map((person) => renderCard(person))}
+              </div>
+          </>
+      )}
+    </div>
+  );
+};
+

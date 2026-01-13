@@ -1,0 +1,642 @@
+﻿
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { DbService } from '@/services/mockDb';
+import { تذاكر_الصيانة_tbl, العقارات_tbl, الأشخاص_tbl, العقود_tbl, DynamicFormField } from '@/types';
+import { Wrench, Plus, CheckCircle, Clock, AlertTriangle, User, Home, Filter, ChevronDown, DollarSign, Search, Key, Trash2 } from 'lucide-react';
+import { DatePicker } from '@/components/ui/DatePicker';
+import { useSmartModal } from '@/context/ModalContext';
+import { PersonPicker } from '@/components/shared/PersonPicker';
+import { PropertyPicker } from '@/components/shared/PropertyPicker';
+import { useToast } from '@/context/ToastContext';
+import { Button } from '@/components/ui/Button';
+import { DS } from '@/constants/designSystem';
+import { pickBestTenancyContract } from '@/utils/tenancy';
+import { RBACGuard } from '@/components/shared/RBACGuard';
+import { useAuth } from '@/context/AuthContext';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
+import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
+import { formatDynamicValue, isEmptyDynamicValue } from '@/components/dynamic/dynamicValue';
+import { useDbSignal } from '@/hooks/useDbSignal';
+import { storage } from '@/services/storage';
+import { domainGetSmart, propertyContractsSmart } from '@/services/domainQueries';
+
+export const Maintenance: React.FC = () => {
+  const [tickets, setTickets] = useState<تذاكر_الصيانة_tbl[]>([]);
+  const [properties, setProperties] = useState<العقارات_tbl[]>([]);
+  const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
+  const [contracts, setContracts] = useState<العقود_tbl[]>([]);
+
+  const isDesktopFast = typeof window !== 'undefined' && storage.isDesktop() && !!(window as any)?.desktopDb?.domainGet;
+
+  const [showDynamicColumns, setShowDynamicColumns] = useState(false);
+  const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('all');
+  
+  const { openPanel } = useSmartModal();
+  const toast = useToast();
+  const dialogs = useAppDialogs();
+  const { user } = useAuth();
+
+  const dbSignal = useDbSignal();
+
+  const canEdit = !!user && DbService.userHasPermission(user.id, 'EDIT_MAINTENANCE');
+  const canClose = !!user && DbService.userHasPermission(user.id, 'CLOSE_MAINTENANCE');
+  const canDelete = !!user && DbService.userHasPermission(user.id, 'DELETE_MAINTENANCE');
+
+  const [formData, setFormData] = useState<Partial<تذاكر_الصيانة_tbl>>({
+    تاريخ_الطلب: new Date().toISOString().split('T')[0],
+    الأولوية: 'متوسطة',
+    الجهة_المسؤولة: 'المالك',
+    الحالة: 'مفتوح'
+  });
+
+  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    refreshData();
+  }, [dbSignal]);
+
+  const refreshData = () => {
+    setTickets(DbService.getMaintenanceTickets());
+    // Desktop focus: never load full people/properties/contracts arrays.
+    if (isDesktopFast) {
+      setProperties([]);
+      setPeople([]);
+      setContracts([]);
+    } else {
+      setProperties(DbService.getProperties());
+      setPeople(DbService.getPeople());
+      setContracts(DbService.getContracts());
+    }
+    try {
+      const f = DbService.getFormFields?.('maintenance') || [];
+      setDynamicFields(Array.isArray(f) ? f : []);
+    } catch {
+      setDynamicFields([]);
+    }
+  };
+
+  type PropertyContext = {
+    prop: any | null;
+    owner: any | null;
+    tenant: any | null;
+    ownerName: string;
+    tenantName: string | null;
+  };
+
+  const fastCtxRef = useRef<Map<string, PropertyContext>>(new Map());
+  const [fastCtxTick, setFastCtxTick] = useState(0);
+
+  // Reset cached contexts when DB changes.
+  useEffect(() => {
+    if (!isDesktopFast) return;
+    fastCtxRef.current = new Map();
+    setFastCtxTick((x) => x + 1);
+  }, [dbSignal, isDesktopFast]);
+
+  // Desktop: resolve only the properties referenced by tickets (plus the currently selected form property).
+  useEffect(() => {
+    if (!isDesktopFast) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const ids = new Set<string>();
+      for (const t of tickets || []) {
+        const pid = String((t as any)?.رقم_العقار || '').trim();
+        if (pid) ids.add(pid);
+      }
+      const selectedPid = String((formData as any)?.رقم_العقار || '').trim();
+      if (selectedPid) ids.add(selectedPid);
+
+      const pending = Array.from(ids)
+        .filter((pid) => !fastCtxRef.current.has(pid))
+        .slice(0, 300);
+
+      for (const pid of pending) {
+        if (cancelled) return;
+
+        try {
+          const prop = await domainGetSmart('properties', pid);
+          if (cancelled) return;
+
+          const ownerId = prop?.رقم_المالك ? String(prop.رقم_المالك) : '';
+          const owner = ownerId ? await domainGetSmart('people', ownerId) : null;
+          if (cancelled) return;
+
+          let tenant: any | null = null;
+          let tenantName: string | null = null;
+          try {
+            const items = (await propertyContractsSmart(pid, 200)) || [];
+            const contractObjs = items.map((x) => x.contract).filter(Boolean);
+            const active = pickBestTenancyContract(contractObjs as any);
+            if (active?.رقم_المستاجر) {
+              const tid = String(active.رقم_المستاجر);
+              tenant = (await domainGetSmart('people', tid)) as any;
+              const meta = items.find((x) => String(x?.contract?.رقم_العقد) === String(active.رقم_العقد));
+              tenantName = String(meta?.tenantName || (tenant as any)?.الاسم || '').trim() || null;
+            }
+          } catch {
+            // ignore
+          }
+
+          const ctx: PropertyContext = {
+            prop: (prop as any) || (pid ? ({ رقم_العقار: pid } as any) : null),
+            owner: (owner as any) || null,
+            tenant: (tenant as any) || null,
+            ownerName: String((owner as any)?.الاسم || '').trim() || 'غير معروف',
+            tenantName,
+          };
+
+          fastCtxRef.current.set(pid, ctx);
+          setFastCtxTick((x) => x + 1);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDesktopFast, tickets, (formData as any)?.رقم_العقار, fastCtxTick]);
+
+  const handleOpenModal = (ticket?: تذاكر_الصيانة_tbl) => {
+    if (ticket) {
+      setFormData(ticket);
+      setDynamicValues((ticket as any).حقول_ديناميكية || {});
+      setEditingId(ticket.رقم_التذكرة);
+    } else {
+      setFormData({
+        تاريخ_الطلب: new Date().toISOString().split('T')[0],
+        الأولوية: 'متوسطة',
+        الجهة_المسؤولة: 'المالك',
+        الحالة: 'مفتوح',
+        رقم_العقار: ''
+      });
+      setDynamicValues({});
+      setEditingId(null);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.رقم_العقار || !formData.الوصف) {
+      toast.warning('يرجى تعبئة الحقول الإجبارية');
+      return;
+    }
+
+    if (!canEdit) {
+      toast.error('ليس لديك صلاحية تعديل/إضافة تذاكر الصيانة');
+      return;
+    }
+    
+    try {
+      if (editingId) {
+        DbService.updateMaintenanceTicket(editingId, { ...formData, حقول_ديناميكية: Object.keys(dynamicValues || {}).length ? dynamicValues : undefined } as any);
+      } else {
+        DbService.addMaintenanceTicket({ ...(formData as تذاكر_الصيانة_tbl), حقول_ديناميكية: Object.keys(dynamicValues || {}).length ? dynamicValues : undefined } as any);
+      }
+      refreshData();
+      setIsModalOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'فشل حفظ التذكرة');
+    }
+  };
+
+  const handleFinishTicket = async (ticketId: string) => {
+    if (!canClose) {
+      toast.error('ليس لديك صلاحية إنهاء تذاكر الصيانة');
+      return;
+    }
+
+    const ok = await toast.confirm({
+      title: 'تأكيد',
+      message: 'هل تريد إنهاء هذه التذكرة وتغيير حالتها إلى (مغلق)؟',
+      confirmText: 'إنهاء',
+      cancelText: 'إلغاء',
+      isDangerous: false,
+    });
+    if (!ok) return;
+    try {
+      const notes = (await dialogs.prompt({
+        title: 'ملاحظات الإنهاء',
+        message: 'ملاحظات الإنهاء (اختياري):',
+        inputType: 'textarea',
+        placeholder: 'اكتب الملاحظات هنا...',
+        required: false,
+      }))?.trim() || '';
+      DbService.updateMaintenanceTicket(ticketId, { الحالة: 'مغلق', ملاحظات_الإنهاء: notes || undefined } as any);
+      refreshData();
+      toast.success('تم إنهاء التذكرة');
+    } catch (err: any) {
+      toast.error(err?.message || 'فشل إنهاء التذكرة');
+    }
+  };
+
+  const handleDeleteTicket = async (ticketId: string) => {
+    if (!canDelete) {
+      toast.error('ليس لديك صلاحية حذف تذاكر الصيانة');
+      return;
+    }
+
+    const ok = await toast.confirm({
+      title: 'تحذير',
+      message: 'هل أنت متأكد من حذف هذه التذكرة نهائياً؟ لا يمكن التراجع.',
+      confirmText: 'حذف',
+      cancelText: 'إلغاء',
+      isDangerous: true,
+    });
+    if (!ok) return;
+    try {
+      const res = (DbService as any).deleteMaintenanceTicket?.(ticketId);
+      if (res?.success === false) {
+        toast.error(res.message || 'فشل حذف التذكرة');
+        return;
+      }
+      refreshData();
+      toast.success('تم حذف التذكرة');
+    } catch (err: any) {
+      toast.error(err?.message || 'فشل حذف التذكرة');
+    }
+  };
+
+  const getPropName = (id: string) => {
+    const pid = String(id || '').trim();
+    if (isDesktopFast) {
+      const ctx = fastCtxRef.current.get(pid);
+      return String(ctx?.prop?.الكود_الداخلي || '').trim() || pid;
+    }
+    return properties.find(p => p.رقم_العقار === id)?.الكود_الداخلي || id;
+  };
+
+  // Helper to get Owner and Current Tenant
+  const getPropertyContext = (propId: string) => {
+    const pid = String(propId || '').trim();
+    if (!pid) return null;
+
+    if (isDesktopFast) {
+      const ctx = fastCtxRef.current.get(pid);
+      if (ctx) return ctx as any;
+      // Provide a minimal placeholder so UI can still open property details.
+      return { prop: { رقم_العقار: pid }, owner: null, tenant: null, ownerName: '...', tenantName: null } as any;
+    }
+
+    const prop = properties.find(p => p.رقم_العقار === propId);
+    if (!prop) return null;
+
+    const owner = people.find(p => p.رقم_الشخص === prop.رقم_المالك);
+
+    const activeContract = pickBestTenancyContract(contracts.filter(c => c.رقم_العقار === propId));
+    const tenant = activeContract ? people.find(p => p.رقم_الشخص === activeContract.رقم_المستاجر) : null;
+
+    return {
+      prop,
+      owner,
+      tenant,
+      ownerName: owner?.الاسم || 'غير معروف',
+      tenantName: tenant?.الاسم || null,
+    };
+  };
+
+  const filteredTickets = tickets.filter(t => {
+    if (filter === 'open') return t.الحالة !== 'مغلق';
+    if (filter === 'closed') return t.الحالة === 'مغلق';
+    return true;
+  });
+
+  const selectClass = "w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer";
+  const selectWrapper = "relative";
+  const selectIcon = "absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500 dark:text-slate-400";
+
+  return (
+    <div className="animate-fade-in space-y-6">
+       <div className={DS.components.pageHeader}>
+         <div>
+            <h2 className={`${DS.components.pageTitle} flex items-center gap-2`}>
+              <Wrench className="text-indigo-600" /> الصيانة والدعم الفني
+            </h2>
+            <p className={DS.components.pageSubtitle}>إدارة طلبات الصيانة وتكاليف الإصلاح</p>
+         </div>
+         <div className="flex flex-wrap items-center justify-end gap-2">
+            <RBACGuard requiredPermission="EDIT_MAINTENANCE">
+              <Button onClick={() => handleOpenModal()} leftIcon={<Plus size={18} />}>تذكرة جديدة</Button>
+            </RBACGuard>
+         </div>
+       </div>
+
+       {/* Filters */}
+       <div className="flex flex-wrap items-center gap-2 mb-4 bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 w-fit">
+          <Button size="sm" variant={filter === 'all' ? 'secondary' : 'ghost'} onClick={() => setFilter('all')}>الكل</Button>
+          <Button size="sm" variant={filter === 'open' ? 'secondary' : 'ghost'} onClick={() => setFilter('open')}>قيد العمل</Button>
+          <Button size="sm" variant={filter === 'closed' ? 'secondary' : 'ghost'} onClick={() => setFilter('closed')}>مغلقة</Button>
+          <Button size="sm" variant={showDynamicColumns ? 'secondary' : 'ghost'} onClick={() => setShowDynamicColumns(v => !v)}>
+            {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
+          </Button>
+       </div>
+
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+         {filteredTickets.map(ticket => {
+             const context = getPropertyContext(ticket.رقم_العقار);
+             return (
+            <div key={ticket.رقم_التذكرة} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-5 hover:shadow-md transition group">
+               <div className="flex justify-between items-start mb-3">
+                <span className={`px-2 py-1 rounded text-xs font-bold ${ticket.الأولوية === 'عالية' ? 'bg-red-100 text-red-600' : ticket.الأولوية === 'متوسطة' ? 'bg-yellow-100 text-yellow-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                     {ticket.الأولوية}
+                  </span>
+                  <span className={`flex items-center gap-1 text-xs font-bold ${ticket.الحالة === 'مغلق' ? 'text-green-600' : 'text-orange-600'}`}>
+                     {ticket.الحالة === 'مغلق' ? <CheckCircle size={14}/> : <Clock size={14}/>} {ticket.الحالة}
+                  </span>
+               </div>
+               
+               <h3 
+                 className="font-bold text-slate-800 dark:text-white mb-2 line-clamp-2 cursor-pointer hover:text-indigo-600"
+                 onClick={() => handleOpenModal(ticket)}
+               >
+                 {ticket.الوصف}
+               </h3>
+               
+               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400 mb-2">
+                  <Home size={14} /> 
+                  <span 
+                    className="font-bold cursor-pointer hover:text-indigo-600 transition"
+                    onClick={() => context?.prop && openPanel('PROPERTY_DETAILS', context.prop.رقم_العقار)}
+                  >
+                    {getPropName(ticket.رقم_العقار)}
+                  </span>
+               </div>
+               
+               {/* Owner & Tenant Context */}
+               <div className="flex flex-col gap-1 mb-4 text-xs text-slate-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-900/40 p-2 rounded-lg">
+                   <div className="flex items-center gap-2">
+                        <Key size={12} className="text-purple-500" /> 
+                        <span>
+                          المالك: 
+                          <span 
+                            className="font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 cursor-pointer transition mr-1"
+                            onClick={() => context?.owner && openPanel('PERSON_DETAILS', context.owner.رقم_الشخص)}
+                          >
+                            {context?.ownerName}
+                          </span>
+                        </span>
+                   </div>
+                   {context?.tenantName && (
+                        <div className="flex items-center gap-2">
+                             <User size={12} className="text-indigo-500" /> 
+                             <span>
+                               المستأجر: 
+                               <span 
+                                 className="font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 cursor-pointer transition mr-1"
+                                 onClick={() => context?.tenant && openPanel('PERSON_DETAILS', context.tenant.رقم_الشخص)}
+                               >
+                                 {context.tenantName}
+                               </span>
+                             </span>
+                        </div>
+                   )}
+               </div>
+
+                 {showDynamicColumns && dynamicFields.length > 0 ? (
+                   (() => {
+                     const values = (ticket as any)?.حقول_ديناميكية || {};
+                     const visible = dynamicFields
+                       .map((f) => ({ f, v: values?.[f.name] }))
+                       .filter(({ v }) => !isEmptyDynamicValue(v));
+
+                     if (!visible.length) return null;
+
+                     return (
+                       <div className="mb-4 rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                         <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">حقول إضافية</div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                           {visible.map(({ f, v }) => (
+                             <div key={f.id} className="text-xs text-slate-600 dark:text-slate-300">
+                               <span className="font-bold text-slate-500 dark:text-slate-400">{f.label}:</span>{' '}
+                               <span className="font-semibold text-slate-800 dark:text-white">{formatDynamicValue(f.type, v)}</span>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     );
+                   })()
+                 ) : null}
+
+               <div className="pt-3 border-t border-gray-100 dark:border-slate-700 flex justify-between items-center text-xs text-gray-400">
+                  <span>{ticket.تاريخ_الطلب}</span>
+                  <div className="flex items-center gap-2">
+                     {ticket.التكلفة_الفعلية ? <span className="font-bold text-slate-700 dark:text-white">{ticket.التكلفة_الفعلية} د.أ</span> : <span>--</span>}
+                     <span className="bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300">{ticket.الجهة_المسؤولة}</span>
+                     <RBACGuard requiredPermission="CLOSE_MAINTENANCE">
+                       <button
+                         type="button"
+                         onClick={() => handleFinishTicket(ticket.رقم_التذكرة)}
+                         disabled={ticket.الحالة === 'مغلق'}
+                         className="px-2 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100 font-bold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                         title="إنهاء"
+                       >
+                         <CheckCircle size={14} /> إنهاء
+                       </button>
+                     </RBACGuard>
+                     <RBACGuard requiredPermission="DELETE_MAINTENANCE">
+                       <button
+                         type="button"
+                         onClick={() => handleDeleteTicket(ticket.رقم_التذكرة)}
+                         className="px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100 font-bold transition flex items-center gap-1"
+                         title="حذف"
+                       >
+                         <Trash2 size={14} /> حذف
+                       </button>
+                     </RBACGuard>
+                  </div>
+               </div>
+            </div>
+         )})}
+       </div>
+
+       {/* Add/Edit Modal */}
+       {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-2xl animate-scale-up border border-gray-200 dark:border-slate-700 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">{editingId ? 'تعديل تذكرة' : 'طلب صيانة جديد'}</h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-2 rounded-lg text-slate-500 hover:bg-black/10 hover:text-slate-700 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white transition"
+                title="إغلاق"
+                aria-label="إغلاق"
+              >
+                <span className="text-2xl leading-none">&times;</span>
+              </button>
+            </div>
+              <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto min-h-0">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">العقار <span className="text-red-500">*</span></label>
+                
+                {/* REPLACED WITH PROPERTY PICKER */}
+                <PropertyPicker 
+                    value={formData.رقم_العقار}
+                    onChange={(id) => setFormData({...formData, رقم_العقار: id})}
+                    required
+                    placeholder="اختر العقار لفتح تذكرة صيانة..."
+                  disabled={!canEdit && !canClose}
+                />
+                
+                {/* Property Context Info */}
+                {formData.رقم_العقار && (
+                  <div className="mt-3 bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800 text-xs">
+                        {(() => {
+                           const ctx = getPropertyContext(formData.رقم_العقار);
+                           return (
+                               <div className="flex justify-between items-center">
+                                   <div>
+                                       <span className="block text-slate-500 dark:text-slate-400">المالك</span>
+                                       <span className="font-bold text-slate-800 dark:text-white">{ctx?.ownerName}</span>
+                                   </div>
+                                   {ctx?.tenantName && (
+                                       <div className="text-left">
+                                           <span className="block text-slate-500 dark:text-slate-400">المستأجر الحالي</span>
+                                         <span className="font-bold text-indigo-600 dark:text-indigo-300">{ctx.tenantName}</span>
+                                       </div>
+                                   )}
+                               </div>
+                           );
+                        })()}
+                    </div>
+                )}
+              </div>
+              
+              <div>
+                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">المستأجر (إن وجد)</label>
+                 <PersonPicker 
+                    value={formData.رقم_المستاجر}
+                    onChange={(id) => setFormData({...formData, رقم_المستاجر: id})}
+                    defaultRole="مستأجر"
+                    placeholder="يمكن اختيار مستأجر لربطه بالتذكرة (اختياري)"
+                    disabled={!canEdit && !canClose}
+                 />
+              </div>
+
+              <div>
+                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">وصف المشكلة <span className="text-red-500">*</span></label>
+                     <textarea required className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none h-24"
+                    value={formData.الوصف} onChange={e => setFormData({...formData, الوصف: e.target.value})} disabled={!canEdit && !canClose} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">تاريخ الطلب</label>
+                    <DatePicker value={formData.تاريخ_الطلب} onChange={d => setFormData({...formData, تاريخ_الطلب: d})} />
+                 </div>
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">الأولوية</label>
+                    <div className={selectWrapper}>
+                      <select className={selectClass} value={formData.الأولوية} onChange={e => setFormData({...formData, الأولوية: e.target.value as any})}>
+                         <option value="منخفضة">منخفضة</option>
+                         <option value="متوسطة">متوسطة</option>
+                         <option value="عالية">عالية</option>
+                      </select>
+                      <div className={selectIcon}><ChevronDown size={16}/></div>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-slate-700/30 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">الحالة</label>
+                    <div className={selectWrapper}>
+                       <select className={selectClass} value={formData.الحالة} onChange={e => setFormData({...formData, الحالة: e.target.value as any})} disabled={!canEdit && !canClose}>
+                         <option value="مفتوح">مفتوح</option>
+                         <option value="قيد التنفيذ">قيد التنفيذ</option>
+                         <option value="مغلق">مغلق (تم الإنجاز)</option>
+                      </select>
+                      <div className={selectIcon}><ChevronDown size={16}/></div>
+                    </div>
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">المسؤول عن الدفع</label>
+                    <div className={selectWrapper}>
+                      <select className={selectClass} value={formData.الجهة_المسؤولة} onChange={e => setFormData({...formData, الجهة_المسؤولة: e.target.value as any})}>
+                         <option value="المالك">المالك</option>
+                         <option value="المستأجر">المستأجر</option>
+                         <option value="مشترك">مشترك</option>
+                      </select>
+                      <div className={selectIcon}><ChevronDown size={16}/></div>
+                    </div>
+                 </div>
+                 <div className="col-span-2">
+                    <label className="block text-xs font-bold text-slate-500 mb-1">التكلفة الفعلية (د.أ)</label>
+                    <div className="relative">
+                        <input type="number" className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                         value={formData.التكلفة_الفعلية || ''} onChange={e => setFormData({...formData, التكلفة_الفعلية: Number(e.target.value)})} placeholder="0.00" disabled={!canEdit && !canClose} />
+                       <DollarSign className="absolute left-3 top-3 text-gray-400" size={16} />
+                    </div>
+                 </div>
+              </div>
+
+              {(formData.الحالة === 'مغلق' || !!formData.تاريخ_الإغلاق || !!formData.ملاحظات_الإنهاء) && (
+                <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-900/30 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-green-700 dark:text-green-300">بيانات الإنهاء</span>
+                    {formData.تاريخ_الإغلاق && (
+                      <span className="text-slate-600 dark:text-slate-300">تاريخ الإغلاق: {formData.تاريخ_الإغلاق}</span>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">ملاحظات الإنهاء (اختياري)</label>
+                    <textarea
+                      className="w-full border border-green-200 dark:border-green-900/30 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-green-500 outline-none h-20"
+                      value={formData.ملاحظات_الإنهاء || ''}
+                      onChange={e => setFormData({ ...formData, ملاحظات_الإنهاء: e.target.value })}
+                      disabled={!canEdit && !canClose}
+                      placeholder="اكتب ملاحظات الإنهاء هنا (إن وجدت)"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <DynamicFieldsSection formId="maintenance" values={dynamicValues} onChange={setDynamicValues} />
+
+              <div className="flex justify-end gap-3 pt-4">
+                 {editingId && (
+                   <div className="flex-1 flex items-center gap-2">
+                     <RBACGuard requiredPermission="CLOSE_MAINTENANCE">
+                       <button
+                         type="button"
+                         onClick={() => handleFinishTicket(editingId)}
+                         disabled={formData.الحالة === 'مغلق'}
+                         className="px-4 py-2.5 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 font-bold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                       >
+                         <CheckCircle size={18} /> إنهاء
+                       </button>
+                     </RBACGuard>
+                     <RBACGuard requiredPermission="DELETE_MAINTENANCE">
+                       <button
+                         type="button"
+                         onClick={() => handleDeleteTicket(editingId)}
+                         className="px-4 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 font-bold transition flex items-center gap-2"
+                       >
+                         <Trash2 size={18} /> حذف
+                       </button>
+                     </RBACGuard>
+                   </div>
+                 )}
+                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl font-medium transition">إلغاء</button>
+                 <RBACGuard requiredPermission="EDIT_MAINTENANCE">
+                   <button type="submit" className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 font-bold transition">حفظ التذكرة</button>
+                 </RBACGuard>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+

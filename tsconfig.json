@@ -1,0 +1,50 @@
+﻿{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ],
+    "ignoreDeprecations": "5.0",
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "Backend",
+    "cleanup-verification.js",
+    "src/**/*test*.ts",
+    "src/**/*Test*.ts",
+    "src/**/*tests*.ts",
+    "src/**/*Tests*.ts",
+    "src/services/comprehensiveTests.ts",
+    "src/services/testSuite.ts",
+    "src/services/indexesTests.ts",
+    "src/services/testRunner.ts"
+  ]
+}

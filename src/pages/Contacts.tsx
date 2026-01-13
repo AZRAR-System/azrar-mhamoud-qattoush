@@ -1,0 +1,378 @@
+/**
+ * © 2025 - Developed by Mahmoud Qattoush
+ * Contacts - phonebook-like view powered by People
+ */
+
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, MessageCircle, Phone, Users } from 'lucide-react';
+import { DbService } from '@/services/mockDb';
+import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { DS } from '@/constants/designSystem';
+import { Button } from '@/components/ui/Button';
+import { useToast } from '@/context/ToastContext';
+import { exportToXlsx, readSpreadsheet } from '@/utils/xlsx';
+import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
+import { useSmartModal } from '@/context/ModalContext';
+import { useDbSignal } from '@/hooks/useDbSignal';
+
+type PersonRow = {
+  id: string;
+  name: string;
+  phone?: string;
+  extraPhone?: string;
+  source?: 'person' | 'local';
+  roles?: string[];
+};
+
+const normalizePhone = (raw?: string): string => {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+
+  // Remove control chars (incl. bidi control chars) and whitespace
+  const noControls = value.replace(/[\u0000-\u001F\u007F-\u009F\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '');
+  const compact = noControls.replace(/\s+/g, '');
+
+  // Keep digits and a single leading + only
+  const cleaned = compact.replace(/(?!^)\+/g, '').replace(/[^\d+]/g, '');
+  const digits = cleaned.replace(/\D/g, '');
+  if (!digits) return '';
+
+  // E.164 max is 15 digits; minimum here is conservative to avoid junk.
+  if (digits.length < 6 || digits.length > 15) return '';
+
+  return cleaned.startsWith('+') ? `+${digits}` : digits;
+};
+
+export const Contacts: React.FC = () => {
+  const [directory, setDirectory] = useState<PersonRow[]>([]);
+  const importRef = useRef<HTMLInputElement | null>(null);
+  const toast = useToast();
+  const { openPanel } = useSmartModal();
+  const dbSignal = useDbSignal();
+
+  const reload = () => {
+    try {
+      const rows = (DbService.getContactsDirectory?.() || []) as PersonRow[];
+      setDirectory(rows);
+    } catch {
+      setDirectory([]);
+    }
+  };
+
+  useEffect(() => {
+    reload();
+  }, [dbSignal]);
+
+  const rows: PersonRow[] = useMemo(() => {
+    return (directory || [])
+      .map((r: any) => ({
+        id: String(r?.id ?? r?.phone ?? r?.name ?? ''),
+        name: String(r?.name || '').trim() || 'غير محدد',
+        phone: String(r?.phone || '').trim() || undefined,
+        extraPhone: String(r?.extraPhone || '').trim() || undefined,
+        source: r?.source,
+        roles: Array.isArray(r?.roles) ? r.roles : undefined,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [directory]);
+
+  const grouped = useMemo(() => {
+    const locals: PersonRow[] = [];
+    const noRole: PersonRow[] = [];
+    const roleGroups = new Map<string, PersonRow[]>();
+
+    const addToRole = (role: string, row: PersonRow) => {
+      const key = String(role || '').trim();
+      if (!key) return;
+      const list = roleGroups.get(key) || [];
+      list.push(row);
+      roleGroups.set(key, list);
+    };
+
+    for (const r of rows) {
+      if (r.source === 'local') {
+        locals.push(r);
+        continue;
+      }
+
+      const roles = (r.roles || []).map((x) => String(x || '').trim()).filter(Boolean);
+      if (roles.length === 0) {
+        noRole.push(r);
+        continue;
+      }
+
+      // A person may have multiple roles; show them under each role.
+      for (const role of roles) addToRole(role, r);
+    }
+
+    const roleSections = Array.from(roleGroups.entries())
+      .map(([role, list]) => ({ role, list: list.sort((a, b) => a.name.localeCompare(b.name)) }))
+      .sort((a, b) => a.role.localeCompare(b.role));
+
+    return {
+      roleSections,
+      locals: locals.sort((a, b) => a.name.localeCompare(b.name)),
+      noRole: noRole.sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }, [rows]);
+
+  const renderGroup = (title: string, list: PersonRow[]) => {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 dark:border-slate-700">
+          <div className="font-black text-slate-800 dark:text-white">{title}</div>
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <Users size={16} />
+            {list.length}
+          </div>
+        </div>
+
+        {list.length === 0 ? (
+          <div className="p-6 text-center text-slate-600 dark:text-slate-400">لا توجد بيانات</div>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-slate-700">
+            {list.map((r) => {
+              const hasPhone = !!(normalizePhone(r.phone) || normalizePhone(r.extraPhone));
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-800 dark:text-white truncate">{r.name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-mono dir-ltr truncate">{r.phone || 'لا يوجد رقم'}</div>
+                    {r.extraPhone ? (
+                      <div className="text-xs text-slate-500 dark:text-slate-400 font-mono dir-ltr truncate">{r.extraPhone}</div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleCall(r.phone, r.extraPhone)}
+                      disabled={!hasPhone}
+                      className={`px-3 py-2 rounded-lg border text-sm font-bold transition flex items-center gap-2 ${
+                        hasPhone
+                          ? 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                          : 'border-gray-200 dark:border-slate-700 opacity-50 cursor-not-allowed text-slate-500 dark:text-slate-400'
+                      }`}
+                      title={hasPhone ? 'اتصال' : 'لا يوجد رقم هاتف'}
+                    >
+                      <Phone size={16} />
+                      اتصال
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleWhatsApp(r.phone, r.extraPhone)}
+                      disabled={!hasPhone}
+                      className={`px-3 py-2 rounded-lg border text-sm font-bold transition flex items-center gap-2 ${
+                        hasPhone
+                          ? 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                          : 'border-gray-200 dark:border-slate-700 opacity-50 cursor-not-allowed text-slate-500 dark:text-slate-400'
+                      }`}
+                      title={hasPhone ? 'إرسال رسالة واتساب' : 'لا يوجد رقم هاتف'}
+                    >
+                      <MessageCircle size={16} />
+                      واتساب
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleCall = (phone?: string, extraPhone?: string) => {
+    const normalized = normalizePhone(phone) || normalizePhone(extraPhone);
+    if (!normalized) {
+      toast.warning('رقم الهاتف غير صالح');
+      return;
+    }
+    // In desktop environments, this will use the OS handler if available.
+    window.location.href = `tel:${normalized}`;
+  };
+
+  const handleWhatsApp = (phone?: string, extraPhone?: string) => {
+    const p1 = normalizePhone(phone);
+    const p2 = normalizePhone(extraPhone);
+    if (!p1 && !p2) return;
+    void openWhatsAppForPhones('', [p1, p2], { defaultCountryCode: '962', delayMs: 10_000 });
+  };
+
+  const handleExport = async () => {
+    if (rows.length === 0) return toast.warning('لا توجد بيانات للتصدير');
+
+    const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
+    const outRows = rows.map((r) => ({
+      Name: r.name,
+      Phone: r.phone || '',
+      ExtraPhone: r.extraPhone || '',
+    }));
+
+    await exportToXlsx(
+      'Contacts',
+      [
+        { key: 'Name', header: 'Name' },
+        { key: 'Phone', header: 'Phone' },
+        { key: 'ExtraPhone', header: 'ExtraPhone' },
+      ],
+      outRows,
+      `contacts_export_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      {
+        extraSheets: companySheet ? [companySheet] : [],
+      }
+    );
+
+    DbService.logEvent('User', 'Export', 'Contacts', `Exported ${rows.length} records`);
+    toast.success('تم تصدير البيانات بنجاح');
+  };
+
+  const handleDownloadTemplate = async () => {
+    const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
+    await exportToXlsx(
+      'Contacts',
+      [
+        { key: 'Name', header: 'Name' },
+        { key: 'Phone', header: 'Phone' },
+        { key: 'ExtraPhone', header: 'ExtraPhone' },
+      ],
+      [
+        {
+          Name: 'مثال: أحمد محمد',
+          Phone: '0790000000',
+          ExtraPhone: '',
+        },
+      ],
+      'contacts_template.xlsx',
+      {
+        extraSheets: companySheet ? [companySheet] : [],
+      }
+    );
+    toast.success('تم تنزيل قالب الاستيراد');
+  };
+
+  const handlePickImportFile = () => {
+    importRef.current?.click();
+  };
+
+  const handleImportFile = async (file: File) => {
+    const ok = await toast.confirm({
+      title: 'استيراد الاتصالات',
+      message: 'سيتم استيراد الأسماء وأرقام الهواتف وإضافة الجديد وتحديث الموجود حسب رقم الهاتف. هل تريد المتابعة؟',
+      confirmText: 'متابعة',
+      cancelText: 'إلغاء',
+    });
+    if (!ok) return;
+
+    let sheetRows: Array<Record<string, any>> = [];
+    try {
+      sheetRows = await readSpreadsheet(file);
+    } catch (e: any) {
+      toast.error(e?.message || 'فشل قراءة ملف الاستيراد');
+      return;
+    }
+
+    if (!sheetRows.length) {
+      toast.warning('الملف فارغ');
+      return;
+    }
+
+    const pick = (row: Record<string, any>, keys: string[]) => {
+      for (const k of keys) {
+        const v = row[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    };
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const row of sheetRows) {
+      const name = pick(row, ['Name', 'الاسم', 'اسم']);
+      const phoneRaw = pick(row, ['Phone', 'رقم_الهاتف', 'الهاتف']);
+      const extraPhoneRaw = pick(row, ['ExtraPhone', 'رقم_هاتف_اضافي', 'الهاتف_الاضافي', 'رقم_هاتف_آخر']);
+
+      const phone = normalizePhone(phoneRaw);
+      const extraPhone = normalizePhone(extraPhoneRaw);
+
+      if (!name || !phone) {
+        skipped++;
+        continue;
+      }
+
+      const res = DbService.upsertContact?.({
+        name,
+        phone,
+        extraPhone: extraPhone || undefined,
+      });
+      if (!res?.success) {
+        skipped++;
+        continue;
+      }
+      if (res?.data?.created) created++;
+      else updated++;
+    }
+
+    reload();
+    toast.success(`تم الاستيراد: إضافة ${created} • تحديث ${updated} • تخطي ${skipped}`);
+  };
+
+  const handleImportChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    if (file) void handleImportFile(file);
+    e.target.value = '';
+  };
+
+  const handleOpenBulkWhatsApp = () => {
+    openPanel('BULK_WHATSAPP');
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className={DS.components.pageHeader}>
+        <div>
+          <h2 className={DS.components.pageTitle}>اتصالات</h2>
+          <p className={DS.components.pageSubtitle}>سجل هاتف مُستمد من الأشخاص مع اتصال وواتساب</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            ref={importRef}
+            type="file"
+            accept=".xlsx,.csv"
+            className="hidden"
+            onChange={handleImportChange}
+          />
+
+          <Button variant="secondary" onClick={handlePickImportFile} leftIcon={<Download size={18} />}>
+            استيراد
+          </Button>
+          <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18} />}>
+            تصدير
+          </Button>
+          <Button variant="secondary" onClick={handleDownloadTemplate} leftIcon={<Download size={18} />}>
+            نموذج الاستيراد
+          </Button>
+
+          <Button variant="secondary" onClick={handleOpenBulkWhatsApp} leftIcon={<MessageCircle size={18} />}>
+            واتساب جماعي
+          </Button>
+
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 ms-2">
+            <Users size={16} />
+            {rows.length}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        {grouped.roleSections.map((sec) => renderGroup(sec.role, sec.list))}
+        {renderGroup('بدون دور', grouped.noRole)}
+        {renderGroup('محليين', grouped.locals)}
+      </div>
+    </div>
+  );
+};

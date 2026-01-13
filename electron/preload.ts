@@ -1,0 +1,152 @@
+﻿import { contextBridge, ipcRenderer } from 'electron';
+
+export type DbChannel =
+  | 'db:get'
+  | 'db:set'
+  | 'db:delete'
+  | 'db:keys'
+  | 'db:resetAll'
+  | 'db:export'
+  | 'db:import'
+  | 'db:getPath'
+  | 'db:getBackupDir'
+  | 'db:chooseBackupDir'
+  | 'domain:status'
+  | 'domain:migrate'
+  | 'domain:searchGlobal'
+  | 'domain:search'
+  | 'domain:get'
+  | 'domain:counts'
+  | 'domain:dashboard:summary'
+  | 'domain:dashboard:performance'
+  | 'domain:dashboard:highlights'
+  | 'domain:notifications:paymentTargets'
+  | 'domain:person:details'
+  | 'domain:person:tenancyContracts'
+  | 'domain:property:contracts'
+  | 'domain:contract:details'
+  | 'domain:picker:properties'
+  | 'domain:picker:contracts'
+  | 'domain:picker:people'
+  | 'domain:installments:contracts'
+  | 'reports:run'
+  | 'sql:getSettings'
+  | 'sql:saveSettings'
+  | 'sql:test'
+  | 'sql:connect'
+  | 'sql:disconnect'
+  | 'sql:status'
+  | 'sql:provision'
+  | 'sql:exportBackup'
+  | 'sql:importBackup'
+  | 'sql:restoreBackup'
+  | 'sql:syncNow'
+  | 'sql:getSyncLog'
+  | 'sql:clearSyncLog';
+
+contextBridge.exposeInMainWorld('desktopDb', {
+  get: (key: string) => ipcRenderer.invoke('db:get', key),
+  set: (key: string, value: string) => ipcRenderer.invoke('db:set', key, value),
+  delete: (key: string) => ipcRenderer.invoke('db:delete', key),
+  keys: () => ipcRenderer.invoke('db:keys'),
+  resetAll: () => ipcRenderer.invoke('db:resetAll'),
+  export: () => ipcRenderer.invoke('db:export'),
+  import: () => ipcRenderer.invoke('db:import'),
+  getPath: () => ipcRenderer.invoke('db:getPath'),
+  getBackupDir: () => ipcRenderer.invoke('db:getBackupDir'),
+  chooseBackupDir: () => ipcRenderer.invoke('db:chooseBackupDir'),
+
+  // Domain schema + SQL reports (Desktop)
+  domainStatus: () => ipcRenderer.invoke('domain:status'),
+  domainMigrate: () => ipcRenderer.invoke('domain:migrate'),
+  runReport: (id: string) => ipcRenderer.invoke('reports:run', { id }),
+
+  // Domain queries (Desktop)
+  domainSearchGlobal: (query: string) => ipcRenderer.invoke('domain:searchGlobal', { query }),
+  domainSearch: (payload: { entity: 'people' | 'properties' | 'contracts'; query: string; limit?: number }) =>
+    ipcRenderer.invoke('domain:search', payload),
+  domainGet: (payload: { entity: 'people' | 'properties' | 'contracts'; id: string }) => ipcRenderer.invoke('domain:get', payload),
+
+  domainCounts: () => ipcRenderer.invoke('domain:counts'),
+
+  domainDashboardSummary: (payload: { todayYMD: string; weekYMD: string }) => ipcRenderer.invoke('domain:dashboard:summary', payload),
+  domainDashboardPerformance: (payload: { monthKey: string; prevMonthKey: string }) => ipcRenderer.invoke('domain:dashboard:performance', payload),
+  domainDashboardHighlights: (payload: { todayYMD: string }) => ipcRenderer.invoke('domain:dashboard:highlights', payload),
+
+  domainPaymentNotificationTargets: (payload: { daysAhead: number; todayYMD?: string }) =>
+    ipcRenderer.invoke('domain:notifications:paymentTargets', payload),
+
+  domainPersonDetails: (payload: { personId: string }) => ipcRenderer.invoke('domain:person:details', payload),
+  domainPersonTenancyContracts: (payload: { personId: string }) => ipcRenderer.invoke('domain:person:tenancyContracts', payload),
+
+  domainPropertyContracts: (payload: { propertyId: string; limit?: number }) => ipcRenderer.invoke('domain:property:contracts', payload),
+
+  domainContractDetails: (payload: { contractId: string }) => ipcRenderer.invoke('domain:contract:details', payload),
+
+  domainPropertyPickerSearch: (payload: { query: string; status?: string; type?: string; forceVacant?: boolean; offset?: number; limit?: number }) =>
+    ipcRenderer.invoke('domain:picker:properties', payload),
+  domainContractPickerSearch: (payload: { query: string; tab?: string; offset?: number; limit?: number }) => ipcRenderer.invoke('domain:picker:contracts', payload),
+  domainPeoplePickerSearch: (payload: { query: string; role?: string; onlyIdleOwners?: boolean; offset?: number; limit?: number }) =>
+    ipcRenderer.invoke('domain:picker:people', payload),
+
+  domainInstallmentsContractsSearch: (payload: { query?: string; filter?: string; offset?: number; limit?: number }) =>
+    ipcRenderer.invoke('domain:installments:contracts', payload),
+
+  // SQL Server Sync (Desktop only)
+  sqlGetSettings: () => ipcRenderer.invoke('sql:getSettings'),
+  sqlSaveSettings: (settings: any) => ipcRenderer.invoke('sql:saveSettings', settings),
+  sqlTestConnection: (settings: any) => ipcRenderer.invoke('sql:test', settings),
+  sqlConnect: () => ipcRenderer.invoke('sql:connect'),
+  sqlDisconnect: () => ipcRenderer.invoke('sql:disconnect'),
+  sqlStatus: () => ipcRenderer.invoke('sql:status'),
+  sqlProvision: (payload: any) => ipcRenderer.invoke('sql:provision', payload),
+  sqlExportBackup: () => ipcRenderer.invoke('sql:exportBackup'),
+  sqlImportBackup: () => ipcRenderer.invoke('sql:importBackup'),
+  sqlRestoreBackup: () => ipcRenderer.invoke('sql:restoreBackup'),
+  sqlSyncNow: () => ipcRenderer.invoke('sql:syncNow'),
+  sqlGetSyncLog: () => ipcRenderer.invoke('sql:getSyncLog'),
+  sqlClearSyncLog: () => ipcRenderer.invoke('sql:clearSyncLog'),
+
+  onRemoteUpdate: (handler: (evt: { key: string; value?: string; isDeleted?: boolean; updatedAt?: string }) => void) => {
+    const listener = (_e: any, payload: any) => handler(payload);
+    ipcRenderer.on('db:remoteUpdate', listener);
+    return () => ipcRenderer.removeListener('db:remoteUpdate', listener);
+  },
+
+  onSqlSyncEvent: (handler: (evt: any) => void) => {
+    const listener = (_e: any, payload: any) => handler(payload);
+    ipcRenderer.on('sql:syncEvent', listener);
+    return () => ipcRenderer.removeListener('sql:syncEvent', listener);
+  },
+
+  // Attachments (filesystem)
+  saveAttachmentFile: (payload: { referenceType: string; entityFolder: string; originalFileName: string; bytes: ArrayBuffer }) =>
+    ipcRenderer.invoke('attachments:save', payload),
+  readAttachmentFile: (relativePath: string) => ipcRenderer.invoke('attachments:read', relativePath),
+  deleteAttachmentFile: (relativePath: string) => ipcRenderer.invoke('attachments:delete', relativePath),
+
+  // Word templates
+  readTemplateFile: (payload: { templateName: string }) => ipcRenderer.invoke('templates:read', payload),
+  listTemplates: () => ipcRenderer.invoke('templates:list'),
+  importTemplate: () => ipcRenderer.invoke('templates:import'),
+});
+
+contextBridge.exposeInMainWorld('desktopUpdater', {
+  getVersion: () => ipcRenderer.invoke('updater:getVersion'),
+  getStatus: () => ipcRenderer.invoke('updater:getStatus'),
+  setFeedUrl: (url: string) => ipcRenderer.invoke('updater:setFeedUrl', url),
+  check: () => ipcRenderer.invoke('updater:check'),
+  download: () => ipcRenderer.invoke('updater:download'),
+  install: () => ipcRenderer.invoke('updater:install'),
+  installFromFile: () => ipcRenderer.invoke('updater:installFromFile'),
+  getPendingRestore: () => ipcRenderer.invoke('updater:getPendingRestore'),
+  clearPendingRestore: () => ipcRenderer.invoke('updater:clearPendingRestore'),
+  restorePending: () => ipcRenderer.invoke('updater:restorePending'),
+  onEvent: (handler: (evt: any) => void) => {
+    const listener = (_e: any, payload: any) => handler(payload);
+    ipcRenderer.on('updater:event', listener);
+    return () => ipcRenderer.removeListener('updater:event', listener);
+  },
+});
+
+export {}; // ensure this is treated as a module

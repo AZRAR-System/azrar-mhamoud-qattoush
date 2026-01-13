@@ -1,0 +1,99 @@
+/* Shared print stylesheet for all unified print templates */
+
+:root {
+  --fg: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --bg: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  padding: 0;
+  margin: 0;
+  color: var(--fg);
+  background: var(--bg);
+  font-family: "Tajawal", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Let Chromium paginate naturally; avoid position:fixed headers */
+@page {
+  size: A4;
+  margin: 12mm 10mm;
+}
+
+h1, h2, h3 { margin: 0; }
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.header .company {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.header .meta {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.footer {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.section {
+  margin: 10px 0;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 4px 10px;
+}
+
+.kv .k { color: var(--muted); }
+.kv .v { font-weight: 600; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.table th, .table td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.table th {
+  background: #f9fafb;
+  font-weight: 800;
+}
+
+/* Try to keep rows together when possible */
+tr { break-inside: avoid; page-break-inside: avoid; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.no-print { display: none !important; }

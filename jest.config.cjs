@@ -1,0 +1,1 @@
+module.exports = { testEnvironment: "jsdom", roots: ["<rootDir>/tests"], testMatch: ["**/?(*.)+(spec|test).[jt]s?(x)"], testPathIgnorePatterns: ["/node_modules/"], setupFilesAfterEnv: ["<rootDir>/tests/setup.js"], moduleNameMapper: { "\\.(css)$": "identity-obj-proxy", "\\.(svg)$": "<rootDir>/tests/__mocks__/fileMock.js" }, verbose: true };

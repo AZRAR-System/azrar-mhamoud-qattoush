@@ -1,0 +1,1255 @@
+import { app, safeStorage } from 'electron';
+import path from 'node:path';
+import fsp from 'node:fs/promises';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import dns from 'node:dns/promises';
+import { fileURLToPath } from 'node:url';
+import sql from 'mssql';
+import { getDbPath } from './db';
+
+export type SqlAuthMode = 'sql' | 'windows';
+
+export type SqlSettings = {
+  enabled: boolean;
+  server: string;
+  port?: number;
+  database: string;
+  authMode: SqlAuthMode;
+  user?: string;
+  password?: string;
+  encrypt?: boolean;
+  trustServerCertificate?: boolean;
+};
+
+export type SqlProvisionRequest = {
+  server: string;
+  port?: number;
+  database?: string;
+  encrypt?: boolean;
+  trustServerCertificate?: boolean;
+  adminUser: string;
+  adminPassword: string;
+  managerUser: string;
+  managerPassword: string;
+  employeeUser: string;
+  employeePassword: string;
+};
+
+type StoredSqlSettings = Omit<SqlSettings, 'password'> & { passwordEnc?: string };
+
+type SqlStatus = {
+  configured: boolean;
+  enabled: boolean;
+  connected: boolean;
+  lastError?: string;
+  lastSyncAt?: string;
+};
+
+const SETTINGS_FILE = 'sql-settings.json';
+const STATE_FILE = 'sql-state.json';
+const DEVICE_ID_FILE = 'device-id.txt';
+
+let pool: sql.ConnectionPool | null = null;
+let poolKey: string | null = null;
+let currentStatus: SqlStatus = {
+  configured: false,
+  enabled: false,
+  connected: false,
+};
+
+let syncTimer: NodeJS.Timeout | null = null;
+let syncInProgress = false;
+
+let ignoreNextLocalWrites = 0;
+
+const ATTACHMENTS_KV_KEY = 'db_attachments';
+const ATTACHMENT_UPLOAD_MAX_BYTES = 50 * 1024 * 1024; // 50MB
+
+function normalizeRelPath(relRaw: string): string {
+  let raw = String(relRaw || '').trim();
+  if (!raw) throw new Error('Invalid attachment path');
+
+  if (/^file:\/\//i.test(raw)) {
+    try {
+      raw = fileURLToPath(raw);
+    } catch {
+      // ignore
+    }
+  }
+
+  const root = getStableAttachmentsRoot();
+  const normalize = (p: string) => String(p || '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  const looksAbsolute = path.isAbsolute(raw) || /^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\');
+
+  if (looksAbsolute) {
+    const abs = path.normalize(raw);
+    ensureInsideRoot(root, abs);
+    const relFromAbs = normalize(path.relative(root, abs));
+    if (!relFromAbs) throw new Error('Invalid attachment path');
+    if (relFromAbs.includes('..')) throw new Error('Invalid attachment path');
+    return relFromAbs;
+  }
+
+  const rel = normalize(raw);
+  if (!rel) throw new Error('Invalid attachment path');
+  if (rel.includes('..')) throw new Error('Invalid attachment path');
+  return rel;
+}
+
+function getStableAttachmentsRoot(): string {
+  return path.join(path.dirname(getDbPath()), 'attachments');
+}
+
+function ensureInsideRoot(root: string, target: string) {
+  const rootResolved = path.resolve(root);
+  const targetResolved = path.resolve(target);
+  if (targetResolved === rootResolved) return;
+  if (!targetResolved.startsWith(rootResolved + path.sep)) {
+    throw new Error('Invalid attachment path');
+  }
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fsp.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureAttachmentFilesTable(p: sql.ConnectionPool): Promise<void> {
+  await p
+    .request()
+    .query(
+      `IF OBJECT_ID('dbo.AttachmentFiles', 'U') IS NULL
+       BEGIN
+         CREATE TABLE dbo.AttachmentFiles (
+           [path] NVARCHAR(700) NOT NULL PRIMARY KEY,
+           [bytes] VARBINARY(MAX) NOT NULL,
+           [mime] NVARCHAR(100) NULL,
+           [size] INT NOT NULL,
+           [sha256] CHAR(64) NULL,
+           [updatedAt] DATETIME2(3) NOT NULL,
+           [updatedBy] NVARCHAR(80) NULL
+         );
+       END
+
+       IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AttachmentFiles_updatedAt' AND object_id = OBJECT_ID('dbo.AttachmentFiles'))
+       BEGIN
+         CREATE INDEX IX_AttachmentFiles_updatedAt ON dbo.AttachmentFiles(updatedAt);
+       END`
+    );
+}
+
+type AttachmentLike = {
+  filePath?: string;
+  fileType?: string;
+  fileExtension?: string;
+  fileName?: string;
+};
+
+function extractAttachmentPathsFromJson(jsonRaw: string): Array<{ relPath: string; mime?: string }> {
+  try {
+    const parsed = JSON.parse(String(jsonRaw || ''));
+    const arr: AttachmentLike[] = Array.isArray(parsed) ? parsed : [];
+    const seen = new Set<string>();
+    const out: Array<{ relPath: string; mime?: string }> = [];
+    for (const a of arr) {
+      const fp = a?.filePath;
+      if (!fp) continue;
+      try {
+        const relPath = normalizeRelPath(fp);
+        if (!relPath) continue;
+        if (seen.has(relPath)) continue;
+        seen.add(relPath);
+        out.push({ relPath, mime: a?.fileType ? String(a.fileType) : undefined });
+      } catch {
+        // Skip invalid path, do not fail entire extraction
+        continue;
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+async function uploadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw: string, mime: string | undefined): Promise<'uploaded' | 'skipped' | 'missingLocal'> {
+  const relPath = normalizeRelPath(relPathRaw);
+  const root = getStableAttachmentsRoot();
+  const abs = path.join(root, relPath);
+  ensureInsideRoot(root, abs);
+
+  if (!(await fileExists(abs))) return 'missingLocal';
+
+  const buf = await fsp.readFile(abs);
+  if (buf.byteLength > ATTACHMENT_UPLOAD_MAX_BYTES) {
+    throw new Error(`حجم المرفق كبير جداً لرفعه (${Math.round(buf.byteLength / (1024 * 1024))}MB)`);
+  }
+
+  const sha256 = crypto.createHash('sha256').update(buf).digest('hex');
+
+  const check = await p
+    .request()
+    .input('path', sql.NVarChar(700), relPath)
+    .query(`SELECT TOP 1 sha256, size FROM dbo.AttachmentFiles WHERE [path] = @path;`);
+  const existing = (check.recordset || [])[0] as { sha256?: string; size?: number } | undefined;
+  if (existing?.sha256 && String(existing.sha256).toLowerCase() === sha256.toLowerCase() && Number(existing.size || 0) === buf.byteLength) {
+    return 'skipped';
+  }
+
+  const deviceId = await getOrCreateDeviceId();
+  const req = p.request();
+  (req as any).timeout = 60000;
+  await req
+    .input('path', sql.NVarChar(700), relPath)
+    .input('bytes', sql.VarBinary(sql.MAX), buf)
+    .input('mime', sql.NVarChar(100), mime ? String(mime).slice(0, 100) : null)
+    .input('size', sql.Int, buf.byteLength)
+    .input('sha256', sql.Char(64), sha256)
+    .input('updatedAt', sql.DateTime2(3), new Date())
+    .input('updatedBy', sql.NVarChar(80), deviceId)
+    .query(
+      `MERGE dbo.AttachmentFiles AS T
+       USING (SELECT @path AS [path]) AS S
+       ON (T.[path] = S.[path])
+       WHEN MATCHED THEN
+         UPDATE SET [bytes]=@bytes, [mime]=@mime, [size]=@size, [sha256]=@sha256, [updatedAt]=@updatedAt, [updatedBy]=@updatedBy
+       WHEN NOT MATCHED THEN
+         INSERT ([path], [bytes], [mime], [size], [sha256], [updatedAt], [updatedBy])
+         VALUES (@path, @bytes, @mime, @size, @sha256, @updatedAt, @updatedBy);
+      `
+    );
+
+  return 'uploaded';
+}
+
+async function downloadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw: string): Promise<'downloaded' | 'skipped' | 'missingRemote'> {
+  const relPath = normalizeRelPath(relPathRaw);
+  const root = getStableAttachmentsRoot();
+  const abs = path.join(root, relPath);
+  ensureInsideRoot(root, abs);
+
+  if (await fileExists(abs)) return 'skipped';
+
+  const res = await p
+    .request()
+    .input('path', sql.NVarChar(700), relPath)
+    .query(`SELECT TOP 1 [bytes] FROM dbo.AttachmentFiles WHERE [path] = @path;`);
+  const row = (res.recordset || [])[0] as { bytes?: Buffer } | undefined;
+  const bytes = row?.bytes;
+  if (!bytes || !(bytes instanceof Buffer) || bytes.byteLength === 0) return 'missingRemote';
+
+  await fsp.mkdir(path.dirname(abs), { recursive: true });
+  await fsp.writeFile(abs, bytes);
+  return 'downloaded';
+}
+
+export async function pushAttachmentFilesForAttachmentsJson(attachmentsJson: string): Promise<{ uploaded: number; skipped: number; missingLocal: number }> {
+  const settings = await loadSqlSettings();
+  if (!settings.enabled) return { uploaded: 0, skipped: 0, missingLocal: 0 };
+
+  const p = await ensureConnected(settings);
+  await ensureAttachmentFilesTable(p);
+
+  const paths = extractAttachmentPathsFromJson(attachmentsJson);
+  let uploaded = 0;
+  let skipped = 0;
+  let missingLocal = 0;
+
+  for (const it of paths) {
+    const r = await uploadAttachmentFileIfNeeded(p, it.relPath, it.mime);
+    if (r === 'uploaded') uploaded += 1;
+    else if (r === 'skipped') skipped += 1;
+    else missingLocal += 1;
+  }
+
+  return { uploaded, skipped, missingLocal };
+}
+
+export async function pullAttachmentFilesForAttachmentsJson(attachmentsJson: string): Promise<{ downloaded: number; skipped: number; missingRemote: number }> {
+  const settings = await loadSqlSettings();
+  if (!settings.enabled) return { downloaded: 0, skipped: 0, missingRemote: 0 };
+
+  const p = await ensureConnected(settings);
+  await ensureAttachmentFilesTable(p);
+
+  const paths = extractAttachmentPathsFromJson(attachmentsJson);
+  let downloaded = 0;
+  let skipped = 0;
+  let missingRemote = 0;
+
+  for (const it of paths) {
+    const r = await downloadAttachmentFileIfNeeded(p, it.relPath);
+    if (r === 'downloaded') downloaded += 1;
+    else if (r === 'skipped') skipped += 1;
+    else missingRemote += 1;
+  }
+
+  return { downloaded, skipped, missingRemote };
+}
+
+function getSettingsPath(): string {
+  return path.join(app.getPath('userData'), SETTINGS_FILE);
+}
+
+function getStatePath(): string {
+  return path.join(app.getPath('userData'), STATE_FILE);
+}
+
+function getDeviceIdPath(): string {
+  return path.join(app.getPath('userData'), DEVICE_ID_FILE);
+}
+
+async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+  try {
+    const raw = await fsp.readFile(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    return (parsed ?? fallback) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeJsonFile(filePath: string, obj: any): Promise<void> {
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+  await fsp.writeFile(filePath, JSON.stringify(obj, null, 2), 'utf8');
+}
+
+function encryptPassword(plain: string): string {
+  if (!plain) return '';
+  if (safeStorage?.isEncryptionAvailable?.() !== true) {
+    // Fallback: obfuscate (NOT secure) but better than failing.
+    return Buffer.from(plain, 'utf8').toString('base64');
+  }
+  const enc = safeStorage.encryptString(plain);
+  return enc.toString('base64');
+}
+
+function decryptPassword(encB64: string): string {
+  if (!encB64) return '';
+  try {
+    if (safeStorage?.isEncryptionAvailable?.() !== true) {
+      return Buffer.from(encB64, 'base64').toString('utf8');
+    }
+    const buf = Buffer.from(encB64, 'base64');
+    return safeStorage.decryptString(buf);
+  } catch {
+    return '';
+  }
+}
+
+export async function getOrCreateDeviceId(): Promise<string> {
+  try {
+    if (fs.existsSync(getDeviceIdPath())) {
+      const raw = await fsp.readFile(getDeviceIdPath(), 'utf8');
+      const id = raw.trim();
+      if (id) return id;
+    }
+  } catch {
+    // ignore
+  }
+
+  const id = crypto.randomUUID();
+  await fsp.mkdir(path.dirname(getDeviceIdPath()), { recursive: true });
+  await fsp.writeFile(getDeviceIdPath(), id, 'utf8');
+  return id;
+}
+
+export async function loadSqlSettings(): Promise<SqlSettings> {
+  const stored = await readJsonFile<StoredSqlSettings>(getSettingsPath(), {
+    enabled: false,
+    server: '',
+    port: 1433,
+    database: 'AZRAR',
+    authMode: 'sql',
+    encrypt: true,
+    trustServerCertificate: true,
+  });
+
+  return {
+    enabled: !!stored.enabled,
+    server: String(stored.server || ''),
+    port: typeof (stored as any).port === 'number' ? (stored as any).port : Number((stored as any).port || 1433) || 1433,
+    database: String(stored.database || 'AZRAR'),
+    authMode: stored.authMode === 'windows' ? 'windows' : 'sql',
+    user: stored.user ? String(stored.user) : '',
+    password: stored.passwordEnc ? decryptPassword(String(stored.passwordEnc)) : '',
+    encrypt: stored.encrypt !== false,
+    trustServerCertificate: stored.trustServerCertificate !== false,
+  };
+}
+
+export async function loadSqlSettingsRedacted(): Promise<Omit<SqlSettings, 'password'> & { hasPassword: boolean }> {
+  const stored = await readJsonFile<StoredSqlSettings>(getSettingsPath(), {
+    enabled: false,
+    server: '',
+    port: 1433,
+    database: 'AZRAR',
+    authMode: 'sql',
+    encrypt: true,
+    trustServerCertificate: true,
+  });
+
+  return {
+    enabled: !!stored.enabled,
+    server: String(stored.server || ''),
+    port: typeof (stored as any).port === 'number' ? (stored as any).port : Number((stored as any).port || 1433) || 1433,
+    database: String(stored.database || 'AZRAR'),
+    authMode: stored.authMode === 'windows' ? 'windows' : 'sql',
+    user: stored.user ? String(stored.user) : '',
+    encrypt: stored.encrypt !== false,
+    trustServerCertificate: stored.trustServerCertificate !== false,
+    hasPassword: !!stored.passwordEnc,
+  };
+}
+
+export async function saveSqlSettings(next: SqlSettings): Promise<void> {
+  const stored: StoredSqlSettings = {
+    enabled: !!next.enabled,
+    server: String(next.server || '').trim(),
+    port: Number(next.port || 1433) || 1433,
+    database: String(next.database || 'AZRAR').trim() || 'AZRAR',
+    authMode: next.authMode === 'windows' ? 'windows' : 'sql',
+    user: next.user ? String(next.user).trim() : '',
+    encrypt: next.encrypt !== false,
+    trustServerCertificate: next.trustServerCertificate !== false,
+    passwordEnc: next.password ? encryptPassword(String(next.password)) : undefined,
+  };
+
+  await writeJsonFile(getSettingsPath(), stored);
+
+  currentStatus = {
+    ...currentStatus,
+    configured: !!stored.server && !!stored.database,
+    enabled: !!stored.enabled,
+  };
+}
+
+function toSqlConfig(settings: SqlSettings, dbOverride?: string): sql.config {
+  const encrypt = settings.encrypt !== false;
+  const trustServerCertificate = settings.trustServerCertificate !== false;
+
+  if (!settings.server?.trim()) throw new Error('اسم السيرفر مطلوب');
+
+  const database = (dbOverride ?? settings.database ?? 'AZRAR').trim() || 'AZRAR';
+
+  if (settings.authMode === 'windows') {
+    // NOTE: True Windows/Integrated auth in Node typically requires msnodesqlv8.
+    // We keep a placeholder error to avoid a confusing half-working mode.
+    throw new Error('وضع Windows Auth غير مدعوم حالياً. استخدم SQL Login.');
+  }
+
+  const user = String(settings.user || '').trim();
+  const password = String(settings.password || '');
+
+  if (!user) throw new Error('اسم المستخدم مطلوب');
+  if (!password) throw new Error('كلمة المرور مطلوبة');
+
+  const normalized = normalizeSqlServerInput({ server: settings.server, port: settings.port });
+  // Avoid Node.js DEP0123: TLS SNI servername MUST NOT be an IP.
+  // Tedious may also route connections using an IP (routingData.server), so we provide a stable hostname.
+  const sniServerName = looksLikeIpv4(normalized.server) ? 'localhost' : normalized.server;
+
+  return {
+    server: normalized.server,
+    port: normalized.port,
+    database,
+    user,
+    password,
+    options: {
+      encrypt,
+      trustServerCertificate,
+      ...(encrypt ? { serverName: sniServerName } : {}),
+      ...(normalized.instanceName ? { instanceName: normalized.instanceName } : {}),
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      idleTimeoutMillis: 30000,
+    },
+    requestTimeout: 15000,
+    connectionTimeout: 8000,
+  };
+}
+
+function looksLikeIpv4(host: string): boolean {
+  return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host);
+}
+
+function normalizeSqlServerInput(input: { server: string; port?: number }): { server: string; port: number; instanceName?: string } {
+  let serverRaw = String(input.server || '').trim();
+  if (!serverRaw) throw new Error('اسم السيرفر مطلوب');
+
+  // Support common prefixes.
+  serverRaw = serverRaw.replace(/^tcp:\/\//i, '').replace(/^tcp:/i, '');
+
+  // Support "HOST,PORT" pattern (common in SQL Server connection strings).
+  let portFromServer: number | undefined;
+  if (serverRaw.includes(',') && !serverRaw.startsWith('\\\\')) {
+    const [left, right] = serverRaw.split(',', 2);
+    const maybePort = Number(String(right || '').trim());
+    if (Number.isFinite(maybePort) && maybePort > 0) {
+      serverRaw = String(left || '').trim();
+      portFromServer = maybePort;
+    }
+  }
+
+  // Support "HOST\\INSTANCE" by mapping to tedious option instanceName.
+  let instanceName: string | undefined;
+  if (serverRaw.includes('\\') && !serverRaw.startsWith('\\\\')) {
+    const [host, instance] = serverRaw.split('\\', 2);
+    if (host?.trim() && instance?.trim()) {
+      serverRaw = host.trim();
+      instanceName = instance.trim();
+    }
+  }
+
+  const port = Number(input.port || 0) || portFromServer || 1433;
+  return { server: serverRaw, port, instanceName };
+}
+
+async function resolveServerPreferIpv4(server: string): Promise<string> {
+  const s = String(server || '').trim();
+  if (!s) return s;
+  if (looksLikeIpv4(s)) return s;
+
+  try {
+    const res = await dns.lookup(s, { family: 4 });
+    return res?.address || s;
+  } catch {
+    return s;
+  }
+}
+
+async function toSqlConfigResolved(settings: SqlSettings, dbOverride?: string): Promise<sql.config> {
+  const normalized = normalizeSqlServerInput({ server: settings.server, port: settings.port });
+  const resolvedServer = await resolveServerPreferIpv4(normalized.server);
+  const serverForConfig = normalized.instanceName ? `${resolvedServer}\\${normalized.instanceName}` : resolvedServer;
+  return toSqlConfig({ ...settings, server: serverForConfig, port: normalized.port }, dbOverride);
+}
+
+function toSqlConfigRaw(opts: {
+  server: string;
+  port?: number;
+  database: string;
+  user: string;
+  password: string;
+  encrypt?: boolean;
+  trustServerCertificate?: boolean;
+}): sql.config {
+  const server = String(opts.server || '').trim();
+  const database = String(opts.database || '').trim();
+  const user = String(opts.user || '').trim();
+  const password = String(opts.password || '');
+  if (!server) throw new Error('اسم السيرفر مطلوب');
+  if (!database) throw new Error('اسم قاعدة البيانات مطلوب');
+  if (!user) throw new Error('اسم المستخدم مطلوب');
+  if (!password) throw new Error('كلمة المرور مطلوبة');
+
+  const normalized = normalizeSqlServerInput({ server, port: opts.port });
+  const sniServerName = looksLikeIpv4(normalized.server) ? 'localhost' : normalized.server;
+
+  return {
+    server: normalized.server,
+    port: normalized.port,
+    database,
+    user,
+    password,
+    options: {
+      encrypt: opts.encrypt !== false,
+      trustServerCertificate: opts.trustServerCertificate !== false,
+      ...(opts.encrypt !== false ? { serverName: sniServerName } : {}),
+      ...(normalized.instanceName ? { instanceName: normalized.instanceName } : {}),
+    },
+    pool: {
+      max: 3,
+      min: 0,
+      idleTimeoutMillis: 15000,
+    },
+    requestTimeout: 20000,
+    connectionTimeout: 10000,
+  };
+}
+
+async function toSqlConfigRawResolved(opts: {
+  server: string;
+  port?: number;
+  database: string;
+  user: string;
+  password: string;
+  encrypt?: boolean;
+  trustServerCertificate?: boolean;
+}): Promise<sql.config> {
+  const normalized = normalizeSqlServerInput({ server: opts.server, port: opts.port });
+  const resolvedServer = await resolveServerPreferIpv4(normalized.server);
+  const serverForConfig = normalized.instanceName ? `${resolvedServer}\\${normalized.instanceName}` : resolvedServer;
+  return toSqlConfigRaw({ ...opts, server: serverForConfig, port: normalized.port });
+}
+
+function safeDateFromIso(value: string | undefined, fallback = new Date()): Date {
+  const d = value ? new Date(String(value)) : new Date('');
+  if (Number.isNaN(d.getTime())) return fallback;
+  return d;
+}
+
+function passwordKeyFragment(password: string | undefined): string {
+  // Avoid storing plaintext password in memory keys while still detecting changes.
+  const raw = String(password || '');
+  return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 12);
+}
+
+async function ensureConnected(settings: SqlSettings): Promise<sql.ConnectionPool> {
+  const desiredDb = String(settings.database || 'AZRAR').trim() || 'AZRAR';
+  const normalized = normalizeSqlServerInput({ server: String(settings.server || '').trim(), port: settings.port });
+  const resolvedServer = await resolveServerPreferIpv4(normalized.server);
+  const desiredKey = [
+    resolvedServer,
+    String(Number(normalized.port || 1433) || 1433),
+    String(normalized.instanceName || ''),
+    desiredDb,
+    String(settings.user || '').trim(),
+    passwordKeyFragment(settings.password),
+  ].join('|');
+
+  if (pool && pool.connected && poolKey === desiredKey) return pool;
+
+  await disconnectSql();
+
+  const serverForConfig = normalized.instanceName ? `${resolvedServer}\\${normalized.instanceName}` : resolvedServer;
+  const cfg = await toSqlConfigResolved({ ...settings, server: serverForConfig, port: normalized.port });
+  const newPool = new sql.ConnectionPool(cfg);
+  pool = await newPool.connect();
+  poolKey = desiredKey;
+  currentStatus = { ...currentStatus, connected: true, lastError: undefined };
+  return pool;
+}
+
+export async function disconnectSql(): Promise<void> {
+  if (syncTimer) {
+    clearInterval(syncTimer);
+    syncTimer = null;
+  }
+  try {
+    await pool?.close();
+  } catch {
+    // ignore
+  }
+  pool = null;
+  poolKey = null;
+  currentStatus = { ...currentStatus, connected: false };
+}
+
+export async function testSqlConnection(settings: SqlSettings): Promise<{ ok: boolean; message: string }> {
+  try {
+    // connect to the requested DB (may not exist yet; that's okay for test if DB exists)
+    const cfg = await toSqlConfigResolved(settings);
+    const p = await new sql.ConnectionPool(cfg).connect();
+    await p.close();
+    return { ok: true, message: 'تم الاتصال بنجاح' };
+  } catch (e: any) {
+    return { ok: false, message: e?.message || 'فشل الاتصال' };
+  }
+}
+
+export async function connectAndEnsureDatabase(settings: SqlSettings): Promise<{ ok: boolean; message: string }> {
+  try {
+    // First connect to master and create DB if missing
+    const dbName = String(settings.database || 'AZRAR').trim() || 'AZRAR';
+
+    // NOTE: In many deployments, the app user does NOT have permission to connect to master
+    // or create databases. We try this step, but we don't fail the whole sync if it errors.
+    try {
+      const cfgMaster = await toSqlConfigResolved({ ...settings, database: 'master' }, 'master');
+      const masterPool = await new sql.ConnectionPool(cfgMaster).connect();
+
+      await masterPool
+        .request()
+        .input('dbName', sql.NVarChar(128), dbName)
+        .query(
+          `IF DB_ID(@dbName) IS NULL
+           BEGIN
+             DECLARE @sql NVARCHAR(MAX) = N'CREATE DATABASE [' + REPLACE(@dbName, ']', ']]') + N']';
+             EXEC(@sql);
+           END`
+        );
+
+      await masterPool.close();
+    } catch {
+      // Ignore: we'll attempt to connect to the target DB directly.
+    }
+
+    // Now connect to target DB and ensure schema
+    const p = await ensureConnected({ ...settings, database: dbName });
+
+    await p
+      .request()
+      .query(
+        `IF OBJECT_ID('dbo.KvStore', 'U') IS NULL
+         BEGIN
+           CREATE TABLE dbo.KvStore (
+             [k] NVARCHAR(300) NOT NULL PRIMARY KEY,
+             [v] NVARCHAR(MAX) NOT NULL,
+             [updatedAt] DATETIME2(3) NOT NULL,
+             [updatedBy] NVARCHAR(80) NULL,
+             [isDeleted] BIT NOT NULL CONSTRAINT DF_KvStore_isDeleted DEFAULT(0)
+           );
+         END
+
+         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KvStore_updatedAt' AND object_id = OBJECT_ID('dbo.KvStore'))
+         BEGIN
+           CREATE INDEX IX_KvStore_updatedAt ON dbo.KvStore(updatedAt);
+         END
+
+         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KvStore_isDeleted_updatedAt' AND object_id = OBJECT_ID('dbo.KvStore'))
+         BEGIN
+           CREATE INDEX IX_KvStore_isDeleted_updatedAt ON dbo.KvStore(isDeleted, updatedAt);
+         END`
+      );
+
+    await ensureAttachmentFilesTable(p);
+
+    currentStatus = { ...currentStatus, configured: true, enabled: !!settings.enabled, connected: true, lastError: undefined };
+    return { ok: true, message: 'تم الاتصال وتجهيز قاعدة البيانات' };
+  } catch (e: any) {
+    currentStatus = { ...currentStatus, connected: false, lastError: e?.message || 'فشل الاتصال/التجهيز' };
+    return { ok: false, message: currentStatus.lastError || 'فشل الاتصال/التجهيز' };
+  }
+}
+
+export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok: boolean; message: string }> {
+  try {
+    const server = String(req.server || '').trim();
+    const port = Number((req as any).port || 1433) || 1433;
+    const database = String(req.database || '').trim() || 'AZRAR_DB';
+    const adminUser = String(req.adminUser || '').trim();
+    const adminPassword = String(req.adminPassword || '');
+    const managerUser = String(req.managerUser || '').trim() || 'azrar_manager';
+    const managerPassword = String(req.managerPassword || '');
+    const employeeUser = String(req.employeeUser || '').trim() || 'azrar_employee';
+    const employeePassword = String(req.employeePassword || '');
+
+    if (!server) throw new Error('اسم السيرفر مطلوب');
+    if (!adminUser || !adminPassword) throw new Error('بيانات المدير (SQL) مطلوبة');
+    if (!managerUser || !managerPassword) throw new Error('بيانات حساب المدير (داخل قاعدة البيانات) مطلوبة');
+    if (!employeeUser || !employeePassword) throw new Error('بيانات حساب الموظفين مطلوبة');
+
+    // 1) Connect to master with admin credentials
+    const adminMasterCfg = await toSqlConfigRawResolved({
+      server,
+      port,
+      database: 'master',
+      user: adminUser,
+      password: adminPassword,
+      encrypt: req.encrypt,
+      trustServerCertificate: req.trustServerCertificate,
+    });
+
+    const adminMasterPool = await new sql.ConnectionPool(adminMasterCfg).connect();
+
+    // 2) Create DB if missing
+    await adminMasterPool
+      .request()
+      .input('dbName', sql.NVarChar(128), database)
+      .query(
+        `IF DB_ID(@dbName) IS NULL
+         BEGIN
+           DECLARE @sql NVARCHAR(MAX) = N'CREATE DATABASE [' + REPLACE(@dbName, ']', ']]') + N']';
+           EXEC(@sql);
+         END`
+      );
+
+    // 3) Create SQL logins for manager+employee (if missing)
+    for (const login of [
+      { name: managerUser, pwd: managerPassword },
+      { name: employeeUser, pwd: employeePassword },
+    ]) {
+      await adminMasterPool
+        .request()
+        .input('loginName', sql.NVarChar(128), login.name)
+        .input('pwd', sql.NVarChar(256), login.pwd)
+        .query(
+          `IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = @loginName)
+           BEGIN
+             DECLARE @sql NVARCHAR(MAX) = N'CREATE LOGIN ' + QUOTENAME(@loginName) + N' WITH PASSWORD = @pwd, CHECK_POLICY = OFF, CHECK_EXPIRATION = OFF';
+             EXEC sp_executesql @sql, N'@pwd NVARCHAR(256)', @pwd=@pwd;
+           END`
+        );
+    }
+
+    await adminMasterPool.close();
+
+    // 4) Connect to target DB with admin and ensure table + user permissions
+    const adminDbCfg = await toSqlConfigRawResolved({
+      server,
+      port,
+      database,
+      user: adminUser,
+      password: adminPassword,
+      encrypt: req.encrypt,
+      trustServerCertificate: req.trustServerCertificate,
+    });
+    const adminDbPool = await new sql.ConnectionPool(adminDbCfg).connect();
+
+    // Ensure schema/table
+    await adminDbPool
+      .request()
+      .query(
+        `IF OBJECT_ID('dbo.KvStore', 'U') IS NULL
+         BEGIN
+           CREATE TABLE dbo.KvStore (
+             [k] NVARCHAR(300) NOT NULL PRIMARY KEY,
+             [v] NVARCHAR(MAX) NOT NULL,
+             [updatedAt] DATETIME2(3) NOT NULL,
+             [updatedBy] NVARCHAR(80) NULL,
+             [isDeleted] BIT NOT NULL CONSTRAINT DF_KvStore_isDeleted DEFAULT(0)
+           );
+         END
+
+         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KvStore_updatedAt' AND object_id = OBJECT_ID('dbo.KvStore'))
+         BEGIN
+           CREATE INDEX IX_KvStore_updatedAt ON dbo.KvStore(updatedAt);
+         END
+
+         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KvStore_isDeleted_updatedAt' AND object_id = OBJECT_ID('dbo.KvStore'))
+         BEGIN
+           CREATE INDEX IX_KvStore_isDeleted_updatedAt ON dbo.KvStore(isDeleted, updatedAt);
+         END`
+      );
+
+    await ensureAttachmentFilesTable(adminDbPool);
+
+    // Create DB users if missing
+    for (const loginName of [managerUser, employeeUser]) {
+      await adminDbPool
+        .request()
+        .input('loginName', sql.NVarChar(128), loginName)
+        .query(
+          `IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = @loginName)
+           BEGIN
+             DECLARE @sql NVARCHAR(MAX) = N'CREATE USER ' + QUOTENAME(@loginName) + N' FOR LOGIN ' + QUOTENAME(@loginName);
+             EXEC(@sql);
+           END`
+        );
+    }
+
+    // Permissions by role
+    // - Employee: only CRUD on dbo.KvStore
+    // - Manager: CRUD on dbo.KvStore (same as employee for now; keep server-level admin separate)
+    for (const loginName of [employeeUser, managerUser]) {
+      await adminDbPool
+        .request()
+        .input('loginName', sql.NVarChar(128), loginName)
+        .query(
+          `DECLARE @sql NVARCHAR(MAX) =
+             N'GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.KvStore TO ' + QUOTENAME(@loginName) + N';'
+             + N' GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.AttachmentFiles TO ' + QUOTENAME(@loginName) + N';';
+           EXEC(@sql);`
+        );
+    }
+
+    await adminDbPool.close();
+
+    // 5) Save app settings for normal usage (employees)
+    await saveSqlSettings({
+      enabled: true,
+      server,
+      port,
+      database,
+      authMode: 'sql',
+      user: employeeUser,
+      password: employeePassword,
+      encrypt: req.encrypt !== false,
+      trustServerCertificate: req.trustServerCertificate !== false,
+    });
+
+    // 6) Validate app login works
+    const appCfg = await toSqlConfigRawResolved({
+      server,
+      port,
+      database,
+      user: employeeUser,
+      password: employeePassword,
+      encrypt: req.encrypt,
+      trustServerCertificate: req.trustServerCertificate,
+    });
+    const appPool = await new sql.ConnectionPool(appCfg).connect();
+    await appPool.request().query('SELECT TOP 1 k FROM dbo.KvStore;');
+    await appPool.close();
+
+    return { ok: true, message: `تم إنشاء قاعدة البيانات والحسابات بنجاح (${database})` };
+  } catch (e: any) {
+    return { ok: false, message: e?.message || 'فشل تهيئة المخدم' };
+  }
+}
+
+export async function getSqlStatus(): Promise<SqlStatus> {
+  const redacted = await loadSqlSettingsRedacted();
+  currentStatus = {
+    ...currentStatus,
+    configured: !!redacted.server && !!redacted.database,
+    enabled: !!redacted.enabled,
+  };
+  return currentStatus;
+}
+
+export async function exportServerBackupToFile(
+  filePath: string,
+  overrideSettings?: SqlSettings
+): Promise<{ ok: boolean; message: string; filePath?: string; rowCount?: number }> {
+  try {
+    const settings = overrideSettings ?? (await loadSqlSettings());
+    if (!settings.server?.trim()) return { ok: false, message: 'اسم السيرفر مطلوب' };
+    if (!settings.database?.trim()) return { ok: false, message: 'اسم قاعدة البيانات مطلوب' };
+
+    // Ensure DB & schema exist and connect
+    const ensured = await connectAndEnsureDatabase({ ...settings, enabled: true });
+    if (!ensured.ok) return { ok: false, message: ensured.message };
+
+    const p = await ensureConnected({ ...settings, enabled: true });
+    const result = await p
+      .request()
+      .query(
+        `SELECT k, v, updatedAt, updatedBy, isDeleted
+         FROM dbo.KvStore
+         ORDER BY updatedAt ASC;`
+      );
+
+    const rows = (result.recordset || []) as Array<{ k: string; v: string; updatedAt: Date; updatedBy?: string; isDeleted: boolean }>;
+
+    const payload = {
+      kind: 'AZRAR_SQL_BACKUP',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      database: String(settings.database || ''),
+      server: String(settings.server || ''),
+      port: Number(settings.port || 1433) || 1433,
+      rowCount: rows.length,
+      rows: rows.map(r => ({
+        k: String(r.k),
+        v: typeof r.v === 'string' ? r.v : String(r.v ?? ''),
+        updatedAt: new Date(r.updatedAt).toISOString(),
+        updatedBy: r.updatedBy ? String(r.updatedBy) : undefined,
+        isDeleted: !!r.isDeleted,
+      })),
+    };
+
+    await fsp.mkdir(path.dirname(filePath), { recursive: true });
+    await fsp.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
+
+    return { ok: true, message: 'تم إنشاء نسخة احتياطية من المخدم', filePath, rowCount: rows.length };
+  } catch (e: any) {
+    return { ok: false, message: e?.message || 'فشل إنشاء النسخة الاحتياطية من المخدم' };
+  }
+}
+
+type ServerBackupRow = {
+  k: string;
+  v: string;
+  updatedAt: string;
+  updatedBy?: string;
+  isDeleted: boolean;
+};
+
+type ServerBackupFileV1 = {
+  kind: 'AZRAR_SQL_BACKUP';
+  version: 1;
+  exportedAt: string;
+  database?: string;
+  server?: string;
+  port?: number;
+  rowCount?: number;
+  rows: ServerBackupRow[];
+};
+
+function isBackupFileV1(obj: any): obj is ServerBackupFileV1 {
+  return !!obj && obj.kind === 'AZRAR_SQL_BACKUP' && obj.version === 1 && Array.isArray(obj.rows);
+}
+
+function normalizeBackupRow(r: any): ServerBackupRow {
+  const k = String(r?.k || '');
+  if (!k) throw new Error('ملف النسخة الاحتياطية يحتوي على صف بدون مفتاح');
+  const updatedAtRaw = r?.updatedAt;
+  const updatedAt = new Date(updatedAtRaw).toISOString();
+  const isDeleted = !!r?.isDeleted;
+  const v = isDeleted ? '' : String(r?.v ?? '');
+  const updatedBy = r?.updatedBy ? String(r.updatedBy) : undefined;
+  return { k, v, updatedAt, updatedBy, isDeleted };
+}
+
+async function bulkToTempTable(tx: sql.Transaction, rows: ServerBackupRow[]): Promise<void> {
+  // Use a temp table to efficiently MERGE.
+  await new sql.Request(tx)
+    .query(
+      `IF OBJECT_ID('tempdb..#KvImport') IS NOT NULL DROP TABLE #KvImport;
+       CREATE TABLE #KvImport (
+         k NVARCHAR(300) NOT NULL,
+         v NVARCHAR(MAX) NOT NULL,
+         updatedAt DATETIME2(3) NOT NULL,
+         updatedBy NVARCHAR(80) NULL,
+         isDeleted BIT NOT NULL
+       );`
+    );
+
+  const table = new sql.Table('#KvImport');
+  table.create = false;
+  table.columns.add('k', sql.NVarChar(300), { nullable: false });
+  table.columns.add('v', sql.NVarChar(sql.MAX), { nullable: false });
+  table.columns.add('updatedAt', sql.DateTime2(3), { nullable: false });
+  table.columns.add('updatedBy', sql.NVarChar(80), { nullable: true });
+  table.columns.add('isDeleted', sql.Bit, { nullable: false });
+
+  for (const r of rows) {
+    table.rows.add(r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
+  }
+
+  await (tx as any).bulk(table);
+}
+
+export async function importServerBackupFromFile(
+  filePath: string,
+  mode: 'merge' | 'replace'
+): Promise<{ ok: boolean; message: string; filePath?: string; rowCount?: number; applied?: number }> {
+  try {
+    const settings = await loadSqlSettings();
+    if (!settings.server?.trim()) return { ok: false, message: 'اسم السيرفر مطلوب' };
+    if (!settings.database?.trim()) return { ok: false, message: 'اسم قاعدة البيانات مطلوب' };
+
+    const raw = await fsp.readFile(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!isBackupFileV1(parsed)) return { ok: false, message: 'ملف النسخة الاحتياطية غير صالح' };
+
+    const rows = (parsed.rows || []).map(normalizeBackupRow);
+
+    // Ensure DB & schema exist and connect
+    const ensured = await connectAndEnsureDatabase({ ...settings, enabled: true });
+    if (!ensured.ok) return { ok: false, message: ensured.message };
+
+    const p = await ensureConnected({ ...settings, enabled: true });
+
+    // Transaction for atomic apply
+    const tx = new sql.Transaction(p);
+    await tx.begin();
+    try {
+      const req = new sql.Request(tx);
+
+      if (mode === 'replace') {
+        await req.query('DELETE FROM dbo.KvStore;');
+
+        // For replace, bulk directly into dbo.KvStore
+        const table = new sql.Table('dbo.KvStore');
+        table.create = false;
+        table.columns.add('k', sql.NVarChar(300), { nullable: false });
+        table.columns.add('v', sql.NVarChar(sql.MAX), { nullable: false });
+        table.columns.add('updatedAt', sql.DateTime2(3), { nullable: false });
+        table.columns.add('updatedBy', sql.NVarChar(80), { nullable: true });
+        table.columns.add('isDeleted', sql.Bit, { nullable: false });
+
+        for (const r of rows) {
+          table.rows.add(r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
+        }
+
+        await (tx as any).bulk(table);
+        await tx.commit();
+        return { ok: true, message: 'تمت الاستعادة الكاملة من النسخة الاحتياطية', filePath, rowCount: rows.length, applied: rows.length };
+      }
+
+      // Merge mode
+      await bulkToTempTable(tx, rows);
+      const mergeRes = await req.query(
+        `MERGE dbo.KvStore AS T
+         USING #KvImport AS S
+         ON (T.k = S.k)
+         WHEN MATCHED AND T.updatedAt < S.updatedAt THEN
+           UPDATE SET
+             v = CASE WHEN S.isDeleted = 1 THEN N'' ELSE S.v END,
+             updatedAt = S.updatedAt,
+             updatedBy = S.updatedBy,
+             isDeleted = S.isDeleted
+         WHEN NOT MATCHED THEN
+           INSERT (k, v, updatedAt, updatedBy, isDeleted)
+           VALUES (S.k, CASE WHEN S.isDeleted = 1 THEN N'' ELSE S.v END, S.updatedAt, S.updatedBy, S.isDeleted);
+         SELECT @@ROWCOUNT AS affected;`
+      );
+
+      const affected = Number((mergeRes as any)?.recordset?.[0]?.affected ?? 0) || 0;
+      await tx.commit();
+      return { ok: true, message: 'تم دمج النسخة الاحتياطية مع بيانات المخدم', filePath, rowCount: rows.length, applied: affected };
+    } catch (e) {
+      try {
+        await tx.rollback();
+      } catch {
+        // ignore
+      }
+      throw e;
+    }
+  } catch (e: any) {
+    return { ok: false, message: e?.message || 'فشل استيراد النسخة الاحتياطية إلى المخدم' };
+  }
+}
+
+type State = {
+  lastPullAt?: string;
+};
+
+async function loadState(): Promise<State> {
+  return await readJsonFile<State>(getStatePath(), {});
+}
+
+async function saveState(next: State): Promise<void> {
+  await writeJsonFile(getStatePath(), next);
+}
+
+export async function resetSqlPullState(): Promise<void> {
+  await saveState({});
+}
+
+export function beginIgnoreLocalWrites(count = 1) {
+  ignoreNextLocalWrites = Math.max(ignoreNextLocalWrites, count);
+}
+
+function shouldIgnoreLocalWrite(): boolean {
+  if (ignoreNextLocalWrites > 0) {
+    ignoreNextLocalWrites -= 1;
+    return true;
+  }
+  return false;
+}
+
+export async function pushKvUpsert(payload: { key: string; value: string; updatedAt: string }): Promise<void> {
+  if (shouldIgnoreLocalWrite()) return;
+
+  const settings = await loadSqlSettings();
+  if (!settings.enabled) return;
+
+  const p = await ensureConnected(settings);
+  const deviceId = await getOrCreateDeviceId();
+  const updatedAt = safeDateFromIso(payload.updatedAt, new Date());
+
+  await p
+    .request()
+    .input('k', sql.NVarChar(300), payload.key)
+    .input('v', sql.NVarChar(sql.MAX), payload.value)
+    .input('updatedAt', sql.DateTime2(3), updatedAt)
+    .input('updatedBy', sql.NVarChar(80), deviceId)
+    .query(
+      `MERGE dbo.KvStore AS T
+       USING (SELECT @k AS k) AS S
+       ON (T.k = S.k)
+       WHEN MATCHED AND T.updatedAt < @updatedAt THEN
+         UPDATE SET v=@v, updatedAt=@updatedAt, updatedBy=@updatedBy, isDeleted=0
+       WHEN NOT MATCHED THEN
+         INSERT (k, v, updatedAt, updatedBy, isDeleted)
+         VALUES (@k, @v, @updatedAt, @updatedBy, 0);
+      `
+    );
+
+  // If attachments metadata changed, also push the actual files to SQL.
+  if (payload.key === ATTACHMENTS_KV_KEY) {
+    await pushAttachmentFilesForAttachmentsJson(payload.value);
+  }
+}
+
+export async function pushKvDelete(payload: { key: string; deletedAt: string }): Promise<void> {
+  if (shouldIgnoreLocalWrite()) return;
+
+  const settings = await loadSqlSettings();
+  if (!settings.enabled) return;
+
+  const p = await ensureConnected(settings);
+  const deviceId = await getOrCreateDeviceId();
+  const deletedAt = safeDateFromIso(payload.deletedAt, new Date());
+
+  await p
+    .request()
+    .input('k', sql.NVarChar(300), payload.key)
+    .input('updatedAt', sql.DateTime2(3), deletedAt)
+    .input('updatedBy', sql.NVarChar(80), deviceId)
+    .query(
+      `MERGE dbo.KvStore AS T
+       USING (SELECT @k AS k) AS S
+       ON (T.k = S.k)
+       WHEN MATCHED AND T.updatedAt < @updatedAt THEN
+         UPDATE SET v=N'', updatedAt=@updatedAt, updatedBy=@updatedBy, isDeleted=1
+       WHEN NOT MATCHED THEN
+         INSERT (k, v, updatedAt, updatedBy, isDeleted)
+         VALUES (@k, N'', @updatedAt, @updatedBy, 1);
+      `
+    );
+}
+
+export async function startBackgroundPull(
+  applyRemoteChange: (row: { k: string; v: string; updatedAt: string; isDeleted: boolean }) => Promise<void>,
+  opts?: { runImmediately?: boolean; forceFullPull?: boolean }
+): Promise<void> {
+  const settings = await loadSqlSettings();
+  if (!settings.enabled) return;
+
+  // Ensure connected and schema exists
+  const ensured = await connectAndEnsureDatabase(settings);
+  if (!ensured.ok) {
+    currentStatus = { ...currentStatus, lastError: ensured.message || 'فشل الاتصال/التجهيز' };
+    return;
+  }
+
+  if (syncTimer) return;
+
+  if (opts?.runImmediately !== false) {
+    try {
+      await pullOnce(applyRemoteChange, opts?.forceFullPull ? new Date(0) : undefined);
+    } catch (e: any) {
+      currentStatus = { ...currentStatus, lastError: e?.message || 'فشل المزامنة' };
+    }
+  }
+
+  syncTimer = setInterval(() => {
+    if (syncInProgress) return;
+    syncInProgress = true;
+    void pullOnce(applyRemoteChange)
+      .catch((e: any) => {
+        currentStatus = { ...currentStatus, lastError: e?.message || 'فشل المزامنة' };
+      })
+      .finally(() => {
+        syncInProgress = false;
+      });
+  }, 5000);
+}
+
+async function pullOnce(
+  applyRemoteChange: (row: { k: string; v: string; updatedAt: string; isDeleted: boolean }) => Promise<void>,
+  sinceOverride?: Date
+): Promise<void> {
+  const settings = await loadSqlSettings();
+  if (!settings.enabled) return;
+
+  const st = await loadState();
+  const parsedSince = st.lastPullAt ? new Date(st.lastPullAt) : new Date(0);
+  const since = sinceOverride ?? (Number.isNaN(parsedSince.getTime()) ? new Date(0) : parsedSince);
+
+  const p = await ensureConnected(settings);
+  const result = await p
+    .request()
+    .input('since', sql.DateTime2(3), since)
+    .query(
+      `SELECT k, v, updatedAt, isDeleted
+       FROM dbo.KvStore
+       WHERE updatedAt > @since
+       ORDER BY updatedAt ASC;`
+    );
+
+  const rows = (result.recordset || []) as Array<{ k: string; v: string; updatedAt: Date; isDeleted: boolean }>;
+  let maxUpdatedAt = since;
+
+  for (const r of rows) {
+    const updatedAtIso = new Date(r.updatedAt).toISOString();
+    await applyRemoteChange({ k: r.k, v: r.v ?? '', updatedAt: updatedAtIso, isDeleted: !!r.isDeleted });
+    if (r.updatedAt > maxUpdatedAt) maxUpdatedAt = r.updatedAt;
+  }
+
+  if (maxUpdatedAt > since) {
+    await saveState({ ...st, lastPullAt: maxUpdatedAt.toISOString() });
+    currentStatus = { ...currentStatus, lastSyncAt: new Date().toISOString(), lastError: undefined };
+  }
+}
