@@ -16,6 +16,7 @@ import {
   importDatabase,
   domainMigrateFromKvIfNeeded,
   domainStatus,
+  domainCounts,
   runSqlReport,
   domainSearchGlobal,
   domainSearch,
@@ -143,7 +144,21 @@ type SqlSyncLogEntry = {
   id: string;
   ts: string;
   direction: 'push' | 'pull' | 'system';
-  action: 'upsert' | 'delete' | 'connect' | 'syncNow' | 'importBackup' | 'restoreBackup' | 'exportBackup' | 'provision' | 'attachments:pull';
+  action:
+    | 'upsert'
+    | 'delete'
+    | 'connect'
+    | 'syncNow'
+    | 'importBackup'
+    | 'restoreBackup'
+    | 'exportBackup'
+    | 'provision'
+    | 'attachments:pull'
+    | 'createServerBackup'
+    | 'restoreServerBackup'
+    | 'dailyBackup'
+    | 'mergeUpsert'
+    | 'mergePublish';
   key?: string;
   status: 'ok' | 'error';
   message?: string;
@@ -1504,6 +1519,9 @@ export function registerIpcHandlers() {
 
         if (!l && !r) continue;
 
+        // At this point, both local and remote exist.
+        if (!l) continue;
+
         const localMs = toMs(l?.localBestTs);
         const remoteMs = toMs(r?.remoteUpdatedAt);
         const localIsDel = !!l?.localIsDeleted;
@@ -1631,9 +1649,10 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('sql:saveBackupAutomationSettings', async (_e, payload: unknown) => {
     try {
+      const enabledRaw = getField(payload, 'enabled');
       const next = await saveSqlBackupAutomationSettings({
-        enabled: typeof getField(payload, 'enabled') === 'boolean' ? (getField(payload, 'enabled') as boolean) : undefined,
-        retentionDays: getField(payload, 'retentionDays'),
+        enabled: typeof enabledRaw === 'boolean' ? enabledRaw : undefined,
+        retentionDays: getOptionalNumberField(payload, 'retentionDays'),
       });
       return { ok: true, settings: next };
     } catch (e: unknown) {
