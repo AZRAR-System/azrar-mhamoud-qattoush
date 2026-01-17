@@ -38,10 +38,8 @@ import {
   ChevronDown,
   Home,
   FileText,
-  Search,
   Lock,
   Clock,
-  RefreshCcw,
   X,
   Calendar,
   MessageSquare,
@@ -62,6 +60,8 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MessageComposer } from "@/components/MessageComposer";
 import { DataGuard } from "@/components/shared/DataGuard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
+import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import { compareDateOnlySafe, daysBetweenDateOnlySafe, isBeforeTodayDateOnly, parseDateOnly, todayDateOnlyISO, toDateOnlyISO } from '@/utils/dateOnly';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
 import { formatDynamicValue } from '@/components/dynamic/dynamicValue';
@@ -296,8 +296,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ installment, tenant, onClos
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md">
+    <div className="modal-overlay app-modal-overlay bg-black/50 dark:bg-black/60">
+      <Card className="modal-content app-modal-content w-full max-w-md">
         <div className="p-6 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-bold">سداد دفعة</h3>
@@ -537,7 +537,7 @@ const ContractFinancialCard: React.FC<ContractCardProps> = ({ contract, tenant, 
 
            {/* Contract Financial Summary */}
            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-             <div className="text-left bg-white dark:bg-slate-800 p-2 px-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
+             <div className="app-card text-left p-2 px-4 rounded-xl">
                <p className="text-[10px] text-slate-400 font-bold uppercase">إجمالي الإيجار</p>
                <p className="font-black text-base text-slate-800 dark:text-white">{totalAmount.toLocaleString()} د.أ</p>
              </div>
@@ -927,28 +927,35 @@ export const Installments: React.FC = () => {
   const isAdmin = user?.الدور === 'SuperAdmin' || user?.الدور === 'Admin';
   const userId = user?.id || 'system';
   const userRole = normalizeRole(user?.الدور);
+
+  const toast = useToast();
+
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
   const [installments, setInstallments] = useState<الكمبيالات_tbl[]>([]);
 
-  const isDesktop = typeof window !== 'undefined' && !!(window as any)?.desktopDb;
-  const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainInstallmentsContractsSearch;
-  const [desktopRows, setDesktopRows] = useState<
-    Array<{
-      contract: any;
-      tenant?: any;
-      property?: any;
-      installments?: any[];
-      hasDebt?: boolean;
-      hasDueSoon?: boolean;
-      isFullyPaid?: boolean;
-    }>
-  >([]);
+  const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
+  const isDesktopFast = isDesktop && !!window.desktopDb?.domainInstallmentsContractsSearch;
+
+  type DesktopContract = العقود_tbl & { id?: string };
+  type DesktopInstallmentsRow = {
+    contract: DesktopContract;
+    tenant?: الأشخاص_tbl;
+    property?: العقارات_tbl;
+    installments?: الكمبيالات_tbl[];
+    hasDebt?: boolean;
+    hasDueSoon?: boolean;
+    isFullyPaid?: boolean;
+  };
+
+  const [desktopRows, setDesktopRows] = useState<DesktopInstallmentsRow[]>([]);
   const [desktopTotal, setDesktopTotal] = useState(0);
   const [desktopPage, setDesktopPage] = useState(0);
   const [desktopLoading, setDesktopLoading] = useState(false);
   const [desktopCounts, setDesktopCounts] = useState<{ people: number; properties: number; contracts: number } | null>(null);
+  const [desktopError, setDesktopError] = useState('');
+  const warnedDesktopErrorRef = useRef<string>('');
 
   const [showDynamicColumns, setShowDynamicColumns] = useState(false);
   const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
@@ -1040,6 +1047,7 @@ export const Installments: React.FC = () => {
 
   const loadDesktopData = useCallback(async () => {
     setDesktopLoading(true);
+    setDesktopError('');
     try {
       const counts = await domainCountsSmart();
       setDesktopCounts(counts);
@@ -1059,8 +1067,17 @@ export const Installments: React.FC = () => {
         limit: PAGE_SIZE,
       });
 
-      setDesktopRows(Array.isArray(res.items) ? res.items : []);
-      setDesktopTotal(Number(res.total || 0) || 0);
+      if (res?.error) {
+        const msg = String(res.error || '').trim();
+        setDesktopError(msg);
+        if (msg && warnedDesktopErrorRef.current !== msg) {
+          warnedDesktopErrorRef.current = msg;
+          toast.error(msg);
+        }
+      }
+
+      setDesktopRows(Array.isArray(res?.items) ? (res.items as DesktopInstallmentsRow[]) : []);
+      setDesktopTotal(Number(res?.total || 0) || 0);
 
       // Clear legacy lists to avoid heavy computations/renders.
       setContracts([]);
@@ -1070,7 +1087,7 @@ export const Installments: React.FC = () => {
     } finally {
       setDesktopLoading(false);
     }
-  }, [desktopPage, filter, search]);
+  }, [desktopPage, filter, search, toast]);
 
   const loadData = useCallback(() => {
     if (isDesktopFast) {
@@ -1125,8 +1142,6 @@ export const Installments: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desktopPage, isDesktopFast]);
 
-  const toast = useToast();
-
   const resolveTenantNameForInstallment = async (installment: الكمبيالات_tbl): Promise<string> => {
     const fallback = 'المستأجر';
     const contractId = String(installment?.رقم_العقد || '').trim();
@@ -1135,18 +1150,18 @@ export const Installments: React.FC = () => {
     if (isDesktopFast) {
       try {
         const row = desktopRows.find((r) => String(r?.contract?.رقم_العقد || '') === contractId);
-        const fastName = String((row as any)?.tenant?.الاسم || '').trim();
+        const fastName = String(row?.tenant?.الاسم || '').trim();
         if (fastName) return fastName;
       } catch {
         // ignore
       }
 
       try {
-        const c: any = await domainGetSmart('contracts', contractId);
-        const tenantId = String(c?.رقم_المستاجر || '').trim();
+        const c = await domainGetSmart('contracts', contractId);
+        const tenantId = isRecord(c) ? String(c['رقم_المستاجر'] ?? '').trim() : '';
         if (!tenantId) return fallback;
-        const p: any = await domainGetSmart('people', tenantId);
-        const name = String(p?.الاسم || '').trim();
+        const p = await domainGetSmart('people', tenantId);
+        const name = isRecord(p) ? String(p['الاسم'] ?? '').trim() : '';
         return name || fallback;
       } catch {
         return fallback;
@@ -1253,8 +1268,8 @@ export const Installments: React.FC = () => {
   const handlePay = (id: string) => {
     if (isDesktopFast) {
       for (const row of desktopRows) {
-        const list = (row?.installments || []) as any[];
-        const inst = list.find((i) => String(i?.رقم_الكمبيالة || '') === id) as any;
+        const list = Array.isArray(row?.installments) ? row.installments : [];
+        const inst = list.find((i) => String(i?.رقم_الكمبيالة || '') === id);
         if (inst) {
           setSelectedInstallment(inst);
           return;
@@ -1359,15 +1374,24 @@ export const Installments: React.FC = () => {
   return (
     <DataGuard
       check={() => {
-        const hasContracts = isDesktopFast ? ((desktopCounts?.contracts || 0) > 0) : contracts.length > 0;
-        const missingData = [];
+        // Desktop fast mode can operate even if domainCounts is unavailable.
+        // Avoid hard-blocking the page based on counts while loading/failing.
+        const desktopCountsKnown = isDesktopFast && desktopCounts !== null;
+        const desktopHasAny = isDesktopFast && (desktopTotal > 0 || desktopRows.length > 0);
 
-        if (!hasContracts) missingData.push('contracts');
+        const hasContracts = isDesktopFast
+          ? (desktopLoading ? true : desktopHasAny ? true : desktopCountsKnown ? (Number(desktopCounts?.contracts || 0) > 0) : true)
+          : contracts.length > 0;
+
+        const missingData: string[] = [];
+        if (!hasContracts && (!isDesktopFast || desktopCountsKnown)) missingData.push('contracts');
 
         return {
           isValid: hasContracts,
-          message: 'لا توجد عقود في النظام. يتم إنشاء الأقساط تلقائياً عند إضافة عقود.',
-          missingData
+          message: isDesktopFast && !desktopCountsKnown
+            ? 'جاري التحقق من البيانات...'
+            : 'لا توجد عقود في النظام. يتم إنشاء الأقساط تلقائياً عند إضافة عقود.',
+          missingData,
         };
       }}
       emptyMessage="لا يمكن عرض الأقساط بدون عقود"
@@ -1376,72 +1400,47 @@ export const Installments: React.FC = () => {
     >
       <div className="animate-fade-in pb-10">
 
-        {/* -------------------------------- */}
-        {/*              Header              */}
-        {/* -------------------------------- */}
-        <div className={DS.components.pageHeader}>
-          <div>
-            <h2 className={DS.components.pageTitle}>المالية والتحصيل</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="icon" onClick={loadData}><RefreshCcw size={18}/></Button>
-            <Button variant="secondary" onClick={() => setShowDynamicColumns(v => !v)}>
-              {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
-            </Button>
-          </div>
-      </div>
+        <SmartFilterBar
+          title="المالية والتحصيل"
+          subtitle="إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات"
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="بحث: اسم المستأجر، رقم العقد، كود العقار..."
+          onRefresh={loadData}
+          extraActions={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <SegmentedTabs
+                tabs={[
+                  { id: 'all', label: 'الكل' },
+                  { id: 'due', label: 'مستحق قريباً', icon: Clock },
+                  { id: 'debt', label: 'عليهم ذمم', icon: AlertTriangle },
+                  { id: 'paid', label: 'مسدد بالكامل', icon: Check },
+                ]}
+                activeId={filter}
+                onChange={(id) => setFilter(id)}
+              />
 
-      {/* -------------------------------- */}
-      {/*        Controls & Filters        */}
-      {/* -------------------------------- */}
-      <Card className="flex flex-col md:flex-row gap-4 mb-6 p-4">
-         <div className="flex-1">
-            <Input
-                type="text"
-                placeholder="بحث: اسم المستأجر، رقم العقد، كود العقار..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                icon={<Search size={18} />}
-            />
-         </div>
-
-         <div className="flex gap-2">
-             <Button 
-                variant={filter === 'all' ? 'primary' : 'secondary'}
-                onClick={() => setFilter('all')} 
-             >
-                 الكل
-             </Button>
-           <Button 
-            variant={filter === 'due' ? 'primary' : 'secondary'}
-            onClick={() => setFilter('due')}
-            rightIcon={<Clock size={14}/>}
-           >
-             مستحق قريباً
-           </Button>
-             <Button 
-                variant={filter === 'debt' ? 'danger' : 'secondary'}
-                onClick={() => setFilter('debt')} 
-                rightIcon={<AlertTriangle size={14}/>}
-             >
-                 عليهم ذمم
-             </Button>
-             <Button 
-                variant={filter === 'paid' ? 'primary' : 'secondary'}
-                onClick={() => setFilter('paid')}
-                className={filter === 'paid' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
-                rightIcon={<Check size={14}/>}
-             >
-                 مسدد بالكامل
-             </Button>
-         </div>
-      </Card>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowDynamicColumns((v) => !v)}
+              >
+                {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
+              </Button>
+            </div>
+          }
+        />
 
       {/* -------------------------------- */}
       {/*           Contracts List         */}
       {/* -------------------------------- */}
       <div className="space-y-4">
+         {isDesktopFast && desktopError && (
+           <div className="app-card p-4 border border-rose-200/80 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20">
+             <div className="text-sm font-bold text-rose-800 dark:text-rose-200">تعذر تحميل البيانات من نسخة Desktop</div>
+             <div className="text-xs text-rose-700/90 dark:text-rose-200/80 mt-1 whitespace-pre-wrap">{desktopError}</div>
+           </div>
+         )}
          {isDesktopFast ? (
            (!desktopLoading && filter === 'all' && !search.trim() && desktopTotal === 0) ? (
              <EmptyState
@@ -1485,13 +1484,13 @@ export const Installments: React.FC = () => {
                  </div>
                </div>
 
-               {desktopRows.map((item: any) => (
+               {desktopRows.map((item) => (
                  <ContractFinancialCard
                    key={item?.contract?.رقم_العقد || item?.contract?.id || Math.random().toString(16).slice(2)}
                    contract={item.contract}
                    tenant={item.tenant}
                    property={item.property}
-                   installments={(item.installments || []) as any}
+                   installments={Array.isArray(item.installments) ? item.installments : []}
                    isAdmin={isAdmin}
                    userId={userId}
                    userRole={userRole}
@@ -1569,7 +1568,7 @@ export const Installments: React.FC = () => {
           installment={selectedInstallment}
           tenant={
             isDesktopFast
-              ? ((desktopRows.find((r: any) => String(r?.contract?.رقم_العقد || r?.contract?.id || '') === String(selectedInstallment.رقم_العقد || '')) as any)?.tenant as any)
+              ? desktopRows.find((r) => String(r?.contract?.رقم_العقد || r?.contract?.id || '') === String(selectedInstallment.رقم_العقد || ''))?.tenant
               : people.find((p) => p.رقم_الشخص === contracts.find((c) => c.رقم_العقد === selectedInstallment.رقم_العقد)?.رقم_المستاجر)
           }
           onClose={() => setSelectedInstallment(null)}
@@ -1618,8 +1617,8 @@ export const Installments: React.FC = () => {
 
       {/* Message Composer Modal */}
       {messageModalOpen && messageContext && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="modal-overlay app-modal-overlay bg-black/50 dark:bg-black/60">
+          <Card className="modal-content app-modal-content w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold">كاتب الرسائل</h3>

@@ -1,12 +1,27 @@
 import React, { useMemo } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle, Info, Phone } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
+import type { tbl_Alerts } from '@/types/types';
 
 interface GenericAlertPanelProps {
   id?: string;
   onClose: () => void;
-  alert?: any;
+  alert?: unknown;
 }
+
+type GenericAlertLike = Partial<tbl_Alerts> & {
+  title?: string;
+  description?: string;
+  timestamp?: string | number | Date;
+  level?: string;
+  tenant?: string;
+  المستأجر?: string;
+  اسم_المستأجر?: string;
+  رقم_الهاتف?: string;
+  الكود_الداخلي?: string;
+};
+
+const isGenericAlertLike = (value: unknown): value is GenericAlertLike => typeof value === 'object' && value !== null;
 
 const getLevelMeta = (level?: string) => {
   if (level === 'critical') return { icon: AlertTriangle, title: 'حرج', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20' };
@@ -16,10 +31,10 @@ const getLevelMeta = (level?: string) => {
 };
 
 export const GenericAlertPanel: React.FC<GenericAlertPanelProps> = ({ id, alert, onClose }) => {
-  const resolved = useMemo(() => {
-    if (alert) return alert;
+  const resolved = useMemo<GenericAlertLike | null>(() => {
+    if (alert && isGenericAlertLike(alert)) return alert;
     if (!id) return null;
-    const a = (DbService.getAlerts?.() || []).find((x: any) => String(x.id) === String(id));
+    const a = (DbService.getAlerts?.() || []).find((x) => String(x.id) === String(id));
     return a || null;
   }, [id, alert]);
 

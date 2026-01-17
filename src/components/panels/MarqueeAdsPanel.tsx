@@ -9,6 +9,19 @@ import type { MarqueeMessage } from '@/types';
 
 type MarqueeAction = MarqueeMessage['action'];
 
+const getErrorMessage = (error: unknown): string | undefined => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: unknown }).message;
+    return typeof msg === 'string' ? msg : undefined;
+  }
+  return undefined;
+};
+
+const isMarqueeType = (value: string): value is LocalAd['type'] => value === 'alert' || value === 'info' || value === 'success';
+const isMarqueePriority = (value: string): value is LocalAd['priority'] => value === 'Normal' || value === 'High';
+
 type LocalAd = {
   id: string;
   content: string;
@@ -89,7 +102,7 @@ async function promptAction(dialogs: ReturnType<typeof useAppDialogs>, current?:
   });
 
   const idNorm = String(id || '').trim();
-  return { kind: 'panel', panel, ...(idNorm ? { id: idNorm } : {}) } as any;
+  return { kind: 'panel', panel, ...(idNorm ? { id: idNorm } : {}) };
 }
 
 function formatExpiry(expiresAt?: string): string {
@@ -112,7 +125,7 @@ export const MarqueeAdsPanel: React.FC = () => {
   const refresh = async () => {
     setBusy(true);
     try {
-      const ads = (DbService as any).getMarqueeAds?.() as LocalAd[] | undefined;
+      const ads = DbService.getMarqueeAds?.() as LocalAd[] | undefined;
       setLocalItems(Array.isArray(ads) ? ads : []);
     } catch {
       setLocalItems([]);
@@ -126,11 +139,11 @@ export const MarqueeAdsPanel: React.FC = () => {
 
     const handler = () => void refresh();
     window.addEventListener('azrar:marquee-changed', handler);
-    window.addEventListener('azrar:db-changed', handler as any);
+    window.addEventListener('azrar:db-changed', handler as EventListener);
     window.addEventListener('focus', handler);
     return () => {
       window.removeEventListener('azrar:marquee-changed', handler);
-      window.removeEventListener('azrar:db-changed', handler as any);
+      window.removeEventListener('azrar:db-changed', handler as EventListener);
       window.removeEventListener('focus', handler);
     };
   }, []);
@@ -158,6 +171,8 @@ export const MarqueeAdsPanel: React.FC = () => {
       required: true,
     });
     if (!type) return;
+    const typeValue = String(type);
+    if (!isMarqueeType(typeValue)) return;
 
     const priority = await dialogs.prompt({
       title: 'أولوية الإعلان',
@@ -171,6 +186,8 @@ export const MarqueeAdsPanel: React.FC = () => {
       required: true,
     });
     if (!priority) return;
+    const priorityValue = String(priority);
+    if (!isMarqueePriority(priorityValue)) return;
 
     const action = await promptAction(dialogs);
 
@@ -193,14 +210,14 @@ export const MarqueeAdsPanel: React.FC = () => {
       const local = DbService.addMarqueeAd({
         content,
         durationHours: Number.isFinite(durationHours) && durationHours >= 0 ? durationHours : 0,
-        type: type as any,
-        priority: priority as any,
+        type: typeValue,
+        priority: priorityValue,
         ...(action ? { action } : {}),
       });
       if (!local.success) dialogs.toast.error(local.message || 'فشل إضافة الإعلان');
       else dialogs.toast.success('تمت إضافة الإعلان');
-    } catch (e: any) {
-      dialogs.toast.error(e?.message || 'فشل إضافة الإعلان');
+    } catch (e: unknown) {
+      dialogs.toast.error(getErrorMessage(e) || 'فشل إضافة الإعلان');
     } finally {
       setBusy(false);
       void refresh();
@@ -222,11 +239,11 @@ export const MarqueeAdsPanel: React.FC = () => {
 
     setBusy(true);
     try {
-      const res = (DbService as any).updateMarqueeAd?.(ad.id, { enabled: nextEnabled });
+      const res = DbService.updateMarqueeAd?.(ad.id, { enabled: nextEnabled });
       if (res?.success) dialogs.toast.success(nextEnabled ? 'تم تفعيل الإعلان' : 'تم إيقاف الإعلان');
       else dialogs.toast.error(res?.message || 'فشل تحديث الإعلان');
-    } catch (e: any) {
-      dialogs.toast.error(e?.message || 'فشل تحديث الإعلان');
+    } catch (e: unknown) {
+      dialogs.toast.error(getErrorMessage(e) || 'فشل تحديث الإعلان');
     } finally {
       setBusy(false);
       void refresh();
@@ -255,6 +272,8 @@ export const MarqueeAdsPanel: React.FC = () => {
       required: true,
     });
     if (!type) return;
+    const typeValue = String(type);
+    if (!isMarqueeType(typeValue)) return;
 
     const priority = await dialogs.prompt({
       title: 'الأولوية',
@@ -267,6 +286,8 @@ export const MarqueeAdsPanel: React.FC = () => {
       required: true,
     });
     if (!priority) return;
+    const priorityValue = String(priority);
+    if (!isMarqueePriority(priorityValue)) return;
 
     const action = await promptAction(dialogs, ad.action);
 
@@ -290,14 +311,19 @@ export const MarqueeAdsPanel: React.FC = () => {
 
     setBusy(true);
     try {
-      const patch: any = { content, type, priority };
+      const patch: Partial<Pick<LocalAd, 'content' | 'type' | 'priority' | 'expiresAt'>> & { action?: MarqueeAction | null } = {
+        content,
+        type: typeValue,
+        priority: priorityValue,
+        action,
+      };
       if (typeof expiresAtPatch !== 'undefined') patch.expiresAt = expiresAtPatch;
-      patch.action = action;
-      const res = (DbService as any).updateMarqueeAd?.(ad.id, patch);
+
+      const res = DbService.updateMarqueeAd?.(ad.id, patch);
       if (res?.success) dialogs.toast.success('تم تحديث الإعلان');
       else dialogs.toast.error(res?.message || 'فشل تحديث الإعلان');
-    } catch (e: any) {
-      dialogs.toast.error(e?.message || 'فشل تحديث الإعلان');
+    } catch (e: unknown) {
+      dialogs.toast.error(getErrorMessage(e) || 'فشل تحديث الإعلان');
     } finally {
       setBusy(false);
       void refresh();
@@ -318,8 +344,8 @@ export const MarqueeAdsPanel: React.FC = () => {
       const res = DbService.deleteMarqueeAd(id);
       if (res.success) dialogs.toast.success('تم حذف الإعلان');
       else dialogs.toast.error(res.message || 'فشل حذف الإعلان');
-    } catch (e: any) {
-      dialogs.toast.error(e?.message || 'فشل حذف الإعلان');
+    } catch (e: unknown) {
+      dialogs.toast.error(getErrorMessage(e) || 'فشل حذف الإعلان');
     } finally {
       void refresh();
     }

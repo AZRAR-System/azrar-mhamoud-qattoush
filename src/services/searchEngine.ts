@@ -4,7 +4,7 @@ export type FilterOperator = 'contains' | 'equals' | 'gte' | 'lte' | 'between' |
 export interface FilterRule {
   field: string;
   operator: FilterOperator;
-  value: any;
+  value: unknown;
 }
 
 export const SearchEngine = {
@@ -13,7 +13,7 @@ export const SearchEngine = {
 
     return data.filter(item => {
       return rules.every(rule => {
-        const val = (item as any)[rule.field];
+        const val = (item as unknown as Record<string, unknown>)[rule.field];
         if (val === undefined || val === null) return false;
 
         switch (rule.operator) {
@@ -25,19 +25,23 @@ export const SearchEngine = {
             return Number(val) >= Number(rule.value);
           case 'lte':
             return Number(val) <= Number(rule.value);
-          case 'between':
-            return Number(val) >= rule.value[0] && Number(val) <= rule.value[1];
-          case 'dateBetween':
-             const d = new Date(val);
-             const start = new Date(rule.value[0]);
-             const end = new Date(rule.value[1]);
-             // Fix date comparison by resetting time
-             d.setHours(0,0,0,0);
-             start.setHours(0,0,0,0);
-             end.setHours(23,59,59,999);
-             return d >= start && d <= end;
+          case 'between': {
+            const range = rule.value as unknown as [unknown, unknown];
+            return Number(val) >= Number(range?.[0]) && Number(val) <= Number(range?.[1]);
+          }
+          case 'dateBetween': {
+            const range = rule.value as unknown as [unknown, unknown];
+            const d = new Date(String(val));
+            const start = new Date(String(range?.[0]));
+            const end = new Date(String(range?.[1]));
+            // Fix date comparison by resetting time
+            d.setHours(0, 0, 0, 0);
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+            return d >= start && d <= end;
+          }
           case 'in':
-             return Array.isArray(rule.value) && rule.value.includes(val);
+            return Array.isArray(rule.value) && (rule.value as unknown[]).includes(val);
           default:
             return true;
         }

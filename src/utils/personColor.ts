@@ -20,14 +20,12 @@ const hashSeed = (s: string) => {
   return h;
 };
 
-export const getPersonSeedFromPerson = (person: any) => {
-  return (
-    person?.رقم_الشخص ??
-    person?.الرقم_الوطني ??
-    person?.رقم_الهاتف ??
-    person?.الاسم ??
-    ''
-  );
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+export const getPersonSeedFromPerson = (person: unknown): string => {
+  if (!isRecord(person)) return '';
+  const seed = person['رقم_الشخص'] ?? person['الرقم_الوطني'] ?? person['رقم_الهاتف'] ?? person['الاسم'] ?? '';
+  return String(seed ?? '');
 };
 
 export const getPersonColorClasses = (seed: unknown): PersonColorClasses => {

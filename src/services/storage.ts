@@ -1,11 +1,11 @@
 ﻿import type { DesktopDbBridge } from '@/types/electron.types';
 import { DbCache, buildCache } from './dbCache';
 
-const isElectron = (): boolean => typeof window !== 'undefined' && !!(window as any).desktopDb;
+const isElectron = (): boolean => typeof window !== 'undefined' && !!window.desktopDb;
 
-const desktopDb = (): DesktopDbBridge | undefined => (window as any).desktopDb as DesktopDbBridge | undefined;
+const desktopDb = (): DesktopDbBridge | undefined => (typeof window !== 'undefined' ? window.desktopDb : undefined);
 
-let rebuildTimer: any = null;
+let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
 const scheduleRebuildCache = () => {
   if (rebuildTimer) clearTimeout(rebuildTimer);
   rebuildTimer = setTimeout(() => {
@@ -20,8 +20,9 @@ const scheduleRebuildCache = () => {
 
 const invalidateCacheKey = (key: string) => {
   try {
-    if (DbCache?.isInitialized && (DbCache as any)?.arrays && (DbCache as any).arrays[key]) {
-      delete (DbCache as any).arrays[key];
+    if (!DbCache?.isInitialized) return;
+    if (Object.prototype.hasOwnProperty.call(DbCache.arrays, key)) {
+      delete DbCache.arrays[key];
     }
   } catch {
     // ignore
@@ -134,7 +135,11 @@ export const storage = {
   },
 
   async getItem(key: string): Promise<string | null> {
-    if (isElectron()) return (await desktopDb()!.get(key)) ?? null;
+    if (isElectron()) {
+      const bridge = desktopDb();
+      if (!bridge) return localStorage.getItem(key);
+      return (await bridge.get(key)) ?? null;
+    }
     return localStorage.getItem(key);
   },
 
@@ -143,7 +148,9 @@ export const storage = {
       // Update localStorage first so sync consumers (DbCache/get()) see the new value immediately.
       localStorage.setItem(key, value);
       notifyUiKeyChange(key);
-      await desktopDb()!.set(key, value);
+      const bridge = desktopDb();
+      if (!bridge) return;
+      await bridge.set(key, value);
       return;
     }
     localStorage.setItem(key, value);
@@ -152,7 +159,10 @@ export const storage = {
 
   async removeItem(key: string): Promise<void> {
     if (isElectron()) {
-      await desktopDb()!.delete(key);
+      const bridge = desktopDb();
+      if (bridge) {
+        await bridge.delete(key);
+      }
       localStorage.removeItem(key);
       notifyUiKeyChange(key);
       return;
@@ -162,7 +172,11 @@ export const storage = {
   },
 
   async keys(): Promise<string[]> {
-    if (isElectron()) return await desktopDb()!.keys();
+    if (isElectron()) {
+      const bridge = desktopDb();
+      if (!bridge) return Object.keys(localStorage);
+      return await bridge.keys();
+    }
     return Object.keys(localStorage);
   },
 };

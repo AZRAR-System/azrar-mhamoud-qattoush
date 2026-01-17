@@ -1,13 +1,13 @@
 ﻿{
   "compilerOptions": {
+    "ignoreDeprecations": "5.0",
     "target": "ES2022",
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ]
     },
     "lib": [
@@ -19,7 +19,6 @@
     "types": [
       "node"
     ],
-    "ignoreDeprecations": "5.0",
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",

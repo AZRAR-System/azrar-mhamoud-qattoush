@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { DbService } from '@/services/mockDb';
 import { storage } from '@/services/storage';
 import { dashboardHighlightsSmart, domainGetSmart, domainSearchSmart, peoplePickerSearchPagedSmart } from '@/services/domainQueries';
@@ -11,6 +11,35 @@ import { useSmartModal } from '@/context/ModalContext';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { ContractPicker } from '@/components/shared/ContractPicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
+import type { FollowUpTask, SystemReminder } from '@/types';
+import type { PeoplePickerItem } from '@/types/domain.types';
+
+type CalendarEventType = 'Installment' | 'Contract' | 'Reminder' | 'FollowUp';
+
+type CalendarEventBase = {
+    type: CalendarEventType;
+    time: string;
+    title: string;
+    details?: string;
+    status: string;
+};
+
+type FollowUpEvent = CalendarEventBase & { type: 'FollowUp'; _raw: FollowUpTask };
+type ReminderEvent = CalendarEventBase & { type: 'Reminder'; _raw: SystemReminder };
+type SimpleEvent = CalendarEventBase & { type: 'Installment' | 'Contract'; _raw?: unknown };
+type CalendarEvent = FollowUpEvent | ReminderEvent | SimpleEvent;
+
+const timeToMinutes = (hm: unknown): number | null => {
+    const raw = String(hm || '').trim();
+    if (!raw) return null;
+    const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2]);
+};
+
+const normalizePhone = (value: unknown): string => String(value ?? '').replace(/\s+/g, '').trim();
+
+const isPriority = (value: string): value is 'Low' | 'Medium' | 'High' => value === 'Low' || value === 'Medium' || value === 'High';
 
 interface CalendarEventsPanelProps {
   id: string; // The date string (YYYY-MM-DD)
@@ -20,7 +49,7 @@ interface CalendarEventsPanelProps {
 export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) => {
     const dialogs = useAppDialogs();
     const { openPanel } = useSmartModal();
-    const [events, setEvents] = useState<any[]>([]);
+    const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskClientName, setNewTaskClientName] = useState('');
     const [newTaskPhone, setNewTaskPhone] = useState('');
@@ -32,11 +61,11 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
     const [linkContractId, setLinkContractId] = useState<string>('');
     const [linkPropertyId, setLinkPropertyId] = useState<string>('');
   const date = id;
-      const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!(window as any)?.desktopDb;
-      const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainDashboardHighlights;
-      const canDomainGet = isDesktop && !!(window as any)?.desktopDb?.domainGet;
-      const canPeoplePicker = isDesktop && !!(window as any)?.desktopDb?.domainPeoplePickerSearch;
-      const canDomainSearch = isDesktop && !!(window as any)?.desktopDb?.domainSearch;
+            const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb;
+            const isDesktopFast = isDesktop && !!window.desktopDb?.domainDashboardHighlights;
+            const canDomainGet = isDesktop && !!window.desktopDb?.domainGet;
+            const canPeoplePicker = isDesktop && !!window.desktopDb?.domainPeoplePickerSearch;
+            const canDomainSearch = isDesktop && !!window.desktopDb?.domainSearch;
 
     const isToday = useMemo(() => {
         const now = new Date();
@@ -44,22 +73,14 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
         return date === ymd;
     }, [date]);
 
-    const toMinutes = (hm: unknown): number | null => {
-        const raw = String(hm || '').trim();
-        if (!raw) return null;
-        const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-        if (!m) return null;
-        return Number(m[1]) * 60 + Number(m[2]);
-    };
-
-        const reload = async () => {
-        const loadedEvents: any[] = [];
+        const reload = useCallback(async () => {
+        const loadedEvents: CalendarEvent[] = [];
 
         // 1. Installments
             if (isDesktopFast) {
                     const hl = await dashboardHighlightsSmart({ todayYMD: date });
-                    const due = Array.isArray(hl?.dueInstallmentsToday) ? hl!.dueInstallmentsToday : [];
-                    due.forEach((r: any) => {
+                    const due = Array.isArray(hl?.dueInstallmentsToday) ? hl.dueInstallmentsToday : [];
+                    due.forEach((r) => {
                         loadedEvents.push({
                             type: 'Installment',
                             time: '09:00',
@@ -71,8 +92,8 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                     });
 
                     // 2. Contracts Expiring (filter to exact date)
-                    const exp = Array.isArray(hl?.expiringContracts) ? hl!.expiringContracts : [];
-                    exp.filter((r: any) => String(r?.endDate || '').slice(0, 10) === date).forEach((r: any) => {
+                    const exp = Array.isArray(hl?.expiringContracts) ? hl.expiringContracts : [];
+                    exp.filter((r) => String(r?.endDate || '').slice(0, 10) === date).forEach((r) => {
                         loadedEvents.push({
                             type: 'Contract',
                             time: '12:00',
@@ -94,22 +115,22 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
 
         // 3. Reminders (includes Task reminders)
         const reminders = DbService.getReminders().filter(r => r.date === date);
-        reminders.forEach(r => loadedEvents.push({ type: 'Reminder', time: String((r as any)?.time || '') || '10:00', title: r.title, details: r.type, status: r.isDone ? 'Done' : 'Pending', _raw: r }));
+    reminders.forEach(r => loadedEvents.push({ type: 'Reminder', time: r.time || '10:00', title: r.title, details: r.type, status: r.isDone ? 'Done' : 'Pending', _raw: r }));
 
         // 4. Follow Ups / Tasks
         const followUps = DbService.getAllFollowUps().filter(f => f.dueDate === date);
         // Desktop focus: never load full properties arrays in renderer.
         const properties = isDesktop ? [] : DbService.getProperties().slice();
-        const propertyById = new Map<string, any>(properties.map((p: any) => [String(p.رقم_العقار), p]));
+        const propertyById = new Map<string, (typeof properties)[number]>(properties.map((p) => [String(p.رقم_العقار), p]));
         followUps.forEach(f => {
-            const name = String((f as any)?.clientName || '').trim();
-            const phone = String((f as any)?.phone || '').trim();
-            const note = String((f as any)?.note || '').trim();
+            const name = String(f.clientName || '').trim();
+            const phone = String(f.phone || '').trim();
+            const note = String(f.note || '').trim();
 
-            const linkedContractId = String((f as any)?.contractId || '').trim();
+            const linkedContractId = String(f.contractId || '').trim();
             const contractLine = linkedContractId ? `عقد #${formatContractNumberShort(linkedContractId)}` : '';
 
-            const linkedPropertyId = String((f as any)?.propertyId || '').trim();
+            const linkedPropertyId = String(f.propertyId || '').trim();
             const linkedProperty = linkedPropertyId ? propertyById.get(linkedPropertyId) : undefined;
             const propertyCode = String(linkedProperty?.الكود_الداخلي || '').trim();
             const propertyLine = linkedPropertyId ? `عقار: ${propertyCode || linkedPropertyId}` : '';
@@ -120,7 +141,7 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
 
             loadedEvents.push({
                 type: 'FollowUp',
-                time: String((f as any)?.dueTime || '') || '14:00',
+                time: String(f.dueTime || '') || '14:00',
                 title: f.task,
                 details,
                 status: f.status,
@@ -130,8 +151,8 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
 
         // Sort by time (professional: timeline view)
         const sorted = [...loadedEvents].sort((a, b) => {
-            const am = toMinutes(a?.time);
-            const bm = toMinutes(b?.time);
+            const am = timeToMinutes(a?.time);
+            const bm = timeToMinutes(b?.time);
             const av = am === null ? Number.POSITIVE_INFINITY : am;
             const bv = bm === null ? Number.POSITIVE_INFINITY : bm;
             if (av !== bv) return av - bv;
@@ -139,13 +160,13 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
         });
 
         setEvents(sorted);
-    };
+    }, [date, isDesktop, isDesktopFast]);
 
   useEffect(() => {
       void reload();
-  }, [date]);
+  }, [reload]);
 
-  const getIcon = (type: string) => {
+  const getIcon = (type: CalendarEventType) => {
       switch(type) {
           case 'Installment': return <DollarSign className="text-green-500" />;
           case 'Contract': return <FileText className="text-indigo-500" />;
@@ -181,11 +202,11 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
             personId,
             contractId,
             propertyId,
-        } as any);
+        });
 
         // If a phone is provided and it's not in People, log it into client interactions (سجل الاتصالات)
         if (phone) {
-            const normalized = phone.replace(/\s+/g, '');
+            const normalized = normalizePhone(phone);
 
             // Desktop focus: avoid in-memory scans. Only log when we can safely verify the phone is missing.
             let canVerify = true;
@@ -198,17 +219,17 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                         if (canPeoplePicker) {
                             const res = await peoplePickerSearchPagedSmart({ query: normalized, offset: 0, limit: 10 });
                             const items = Array.isArray(res.items) ? res.items : [];
-                            exists = items.some((row: any) => {
-                                const p = (row as any)?.person || row;
-                                const p1 = String(p?.رقم_الهاتف || p?.phone || '').replace(/\s+/g, '');
-                                const p2 = String((p as any)?.رقم_هاتف_اخر || (p as any)?.extraPhone || '').replace(/\s+/g, '');
+                            exists = items.some((row: PeoplePickerItem) => {
+                                const p = row.person;
+                                const p1 = normalizePhone(p?.رقم_الهاتف);
+                                const p2 = normalizePhone(p?.رقم_هاتف_اضافي);
                                 return p1 === normalized || p2 === normalized;
                             });
                         } else {
                             const matches = await domainSearchSmart('people', normalized, 10);
-                            exists = matches.some((p: any) => {
-                                const p1 = String(p?.رقم_الهاتف || p?.phone || '').replace(/\s+/g, '');
-                                const p2 = String((p as any)?.رقم_هاتف_اخر || (p as any)?.extraPhone || '').replace(/\s+/g, '');
+                            exists = matches.some((p) => {
+                                const p1 = normalizePhone(p?.رقم_الهاتف);
+                                const p2 = normalizePhone(p?.رقم_هاتف_اضافي);
                                 return p1 === normalized || p2 === normalized;
                             });
                         }
@@ -218,7 +239,7 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                 }
             } else {
                 const people = DbService.getPeople();
-                exists = people.some(p => String(p.رقم_الهاتف || '').replace(/\s+/g, '') === normalized);
+                exists = people.some(p => normalizePhone(p.رقم_الهاتف) === normalized || normalizePhone(p.رقم_هاتف_اضافي) === normalized);
             }
 
             if (canVerify && !exists) {
@@ -245,13 +266,13 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
         setLinkContractId('');
         setLinkPropertyId('');
         dialogs.toast.success('تمت إضافة المهمة');
-        reload();
+        void reload();
     };
 
     const completeFollowUp = (followUpId: string) => {
         DbService.completeFollowUp(followUpId);
         dialogs.toast.success('تم إنهاء المهمة');
-        reload();
+        void reload();
     };
 
     const addNoteToFollowUp = async (followUpId: string, currentNote?: string) => {
@@ -264,7 +285,7 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
         if (value === null) return;
         DbService.updateFollowUp(followUpId, { note: value });
         dialogs.toast.success('تم حفظ الملاحظة');
-        reload();
+        void reload();
     };
 
     const postponeFollowUp = async (followUpId: string, currentDueDate: string) => {
@@ -278,12 +299,12 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
         if (!value) return;
         DbService.updateFollowUp(followUpId, { dueDate: value });
         dialogs.toast.success('تم تأجيل المهمة');
-        reload();
+        void reload();
     };
 
     const toggleReminderDone = (reminderId: string) => {
         DbService.toggleReminder(reminderId);
-        reload();
+        void reload();
     };
 
   return (
@@ -305,8 +326,8 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                             onChange={(pid, personObj) => {
                                 setLinkPersonId(pid);
                                 if (personObj) {
-                                    setNewTaskClientName(String((personObj as any)?.الاسم || ''));
-                                    setNewTaskPhone(String((personObj as any)?.رقم_الهاتف || ''));
+                                    setNewTaskClientName(String(personObj.الاسم || ''));
+                                    setNewTaskPhone(String(personObj.رقم_الهاتف || ''));
                                 }
                             }}
                         />
@@ -317,22 +338,22 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                             onChange={(cid, cObj) => {
                                 setLinkContractId(cid);
 
-                                const propId = String((cObj as any)?.رقم_العقار || '').trim();
+                                const propId = String(cObj?.رقم_العقار || '').trim();
                                 if (propId) setLinkPropertyId(propId);
 
-                                const tenantId = String((cObj as any)?.رقم_المستاجر || '').trim();
+                                const tenantId = String(cObj?.رقم_المستاجر || '').trim();
                                 if (tenantId) {
                                     setLinkPersonId(tenantId);
                                     if (isDesktopFast || canDomainGet) {
                                         void (async () => {
-                                            const p: any = await domainGetSmart('people', tenantId);
+                                            const p = await domainGetSmart('people', tenantId);
                                             if (!p) return;
                                             setNewTaskClientName(String(p?.الاسم || ''));
                                             setNewTaskPhone(String(p?.رقم_الهاتف || ''));
                                         })();
                                     } else if (!isDesktop) {
                                         try {
-                                            const p = DbService.getPeople().find((x: any) => String(x?.رقم_الشخص) === tenantId);
+                                            const p = DbService.getPeople().find((x) => String(x?.رقم_الشخص) === tenantId);
                                             if (p) {
                                                 setNewTaskClientName(String(p?.الاسم || ''));
                                                 setNewTaskPhone(String(p?.رقم_الهاتف || ''));
@@ -385,7 +406,10 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                         <select
                             className="md:col-span-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm outline-none"
                             value={newTaskPriority}
-                            onChange={e => setNewTaskPriority(e.target.value as any)}
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                if (isPriority(v)) setNewTaskPriority(v);
+                            }}
                             title="الأولوية"
                         >
                             <option value="Low">منخفضة</option>
@@ -421,7 +445,7 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                 events.map((evt, idx) => {
                     const now = new Date();
                     const nowMinutes = now.getHours() * 60 + now.getMinutes();
-                    const evtMinutes = toMinutes(evt?.time);
+                    const evtMinutes = timeToMinutes(evt?.time);
                     const isPending = String(evt?.status) !== 'Done' && String(evt?.status) !== 'Paid' && String(evt?.status) !== 'completed';
                     const isOverdueNow = isToday && isPending && evtMinutes !== null && nowMinutes >= evtMinutes;
 
@@ -457,7 +481,7 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                                                             </div>
                                                         )}
 
-                                                        {evt.type === 'FollowUp' && evt._raw && (
+                                                        {evt.type === 'FollowUp' && (
                                                             <div className="mt-3 flex flex-wrap gap-2">
                                                                 {String(evt._raw?.personId || '').trim() && (
                                                                     <button
@@ -509,7 +533,7 @@ export const CalendarEventsPanel: React.FC<CalendarEventsPanelProps> = ({ id }) 
                                                             </div>
                                                         )}
 
-                                                        {evt.type === 'Reminder' && evt._raw && (
+                                                        {evt.type === 'Reminder' && (
                                                             <div className="mt-3">
                                                                 <button
                                                                     onClick={() => toggleReminderDone(evt._raw.id)}

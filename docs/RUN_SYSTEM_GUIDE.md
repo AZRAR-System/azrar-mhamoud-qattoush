@@ -2,22 +2,36 @@
 
 ## ✅ الحالة الحالية
 
-✅ **النظام يعمل على:** `http://localhost:3000`  
-✅ **صفحة الاختبارات:** `http://localhost:3000/integration-tests`  
+✅ **النظام يعمل على:** `http://localhost:5173/#/login`  
+✅ **صفحة صيانة النظام (اختبارات/تشخيص):** `http://localhost:5173/#/sys-maintenance`  
 ✅ **البيانات:** جاهزة للإضافة  
 
 ---
 
 ## 🎯 خطوات المراجعة
 
-### 1️⃣ إضافة البيانات (إنشاء الاختبارات)
+### 1️⃣ تسجيل الدخول
+
+افتح صفحة الدخول:
+```
+http://localhost:5173/#/login
+```
+
+- إذا كانت هذه أول مرة ولا يوجد مستخدمون، أنشئ حساب SuperAdmin من بطاقة "إعداد أول مرة".
+- بعدها سجّل الدخول وتابع.
+
+---
+
+### 2️⃣ إضافة بيانات اختبار (اختياري)
 
 #### الطريقة الأولى: من الواجهة الرسومية
 ```
-1. اذهب إلى: http://localhost:3000/integration-tests
-2. اضغط الزر: "تشغيل الاختبارات" 🚀
-3. انتظر النتائج (حوالي 1 ثانية)
-4. ستظهر جميع النتائج الخضراء ✅
+1. اذهب إلى: http://localhost:5173/#/sys-maintenance
+2. فعّل خيار: "السماح بإنشاء بيانات اختبار" (سيُغيّر بيانات النظام)
+3. اضغط الزر: "تشغيل الاختبارات"
+4. راجع النتائج
+
+ملاحظة: الوضع الافتراضي آمن (قراءة فقط) وقد لا يضيف بيانات.
 ```
 
 #### الطريقة الثانية: من DevTools (في المتصفح)
@@ -34,13 +48,13 @@ console.log(JSON.stringify(results, null, 2));
 
 ---
 
-### 2️⃣ مراجعة البيانات المضافة
+### 3️⃣ مراجعة البيانات
 
 بعد تشغيل الاختبارات، ستكون لديك البيانات التالية:
 
 #### 👥 قائمة الأشخاص
 ```
-http://localhost:3000/people
+http://localhost:5173/#/people
 ```
 ستجد:
 - ✅ **محمد أحمد الخطيب** (المالك)
@@ -53,7 +67,7 @@ http://localhost:3000/people
 
 #### 🏠 قائمة العقارات
 ```
-http://localhost:3000/properties
+http://localhost:5173/#/properties
 ```
 ستجد:
 - ✅ **شقة سكنية في الدقي**
@@ -66,7 +80,7 @@ http://localhost:3000/properties
 
 #### 📄 قائمة العقود
 ```
-http://localhost:3000/contracts
+http://localhost:5173/#/contracts
 ```
 ستجد:
 - ✅ **عقد إيجار واحد**
@@ -78,7 +92,7 @@ http://localhost:3000/contracts
 
 #### 📋 قائمة الكمبيالات
 ```
-http://localhost:3000/contracts (ثم اختر العقد)
+http://localhost:5173/#/contracts (ثم اختر العقد)
 ```
 ستجد:
 - ✅ **1 كمبيالة تأمين**
@@ -93,7 +107,7 @@ http://localhost:3000/contracts (ثم اختر العقد)
 
 #### 💰 قائمة العمولات
 ```
-http://localhost:3000/admin (أو Commissions)
+http://localhost:5173/#/admin (أو العمولات)
 ```
 ستجد:
 - ✅ **عمولة واحدة**
@@ -162,7 +176,7 @@ DbService.getCommissions();
 ### طريقة 3: من localStorage
 ```javascript
 // افتح DevTools (F12)
-// اذهب إلى: Storage → Local Storage → localhost:3000
+// اذهب إلى: Storage → Local Storage → localhost:5173
 
 // يجب أن تجد:
 // - db_people (الأشخاص)
@@ -210,22 +224,22 @@ DbService.getCommissions();
 ### الخطوة 1: تشغيل النظام ✅ (مكتمل)
 ```
 npm run dev
-✅ يعمل على http://localhost:3000
+✅ يعمل على http://localhost:5173
 ```
 
 ### الخطوة 2: إضافة البيانات 🔄 (جاهزة الآن)
 ```
-اذهب إلى: /integration-tests
-اضغط: "تشغيل الاختبارات"
+اذهب إلى: /#/sys-maintenance
+فعّل إنشاء بيانات اختبار (اختياري) ثم اضغط: "تشغيل الاختبارات"
 ```
 
 ### الخطوة 3: المراجعة 📊 (الخطوة التالية)
 ```
 تفقد:
-  - http://localhost:3000/people
-  - http://localhost:3000/properties
-  - http://localhost:3000/contracts
-  - http://localhost:3000/commissions
+  - http://localhost:5173/#/people
+  - http://localhost:5173/#/properties
+  - http://localhost:5173/#/contracts
+  - http://localhost:5173/#/commissions
 ```
 
 ### الخطوة 4: التحقق النهائي ✨
@@ -240,9 +254,9 @@ npm run dev
 ### إذا لم تظهر البيانات:
 
 1. **تحقق من تشغيل الاختبارات:**
-   - اذهب إلى `/integration-tests`
-   - اضغط "تشغيل الاختبارات"
-   - تأكد من أن النتائج كلها ✅
+  - اذهب إلى `/#/sys-maintenance`
+  - اضغط "تشغيل الاختبارات"
+  - إذا كنت تريد إضافة بيانات اختبار: فعّل خيار "السماح بإنشاء بيانات اختبار" ثم أعد التشغيل
 
 2. **امسح الـ Cache:**
    - اضغط `Ctrl+Shift+Delete`
@@ -264,7 +278,7 @@ npm run dev
 
 | المشكلة | الحل |
 |--------|------|
-| البيانات لا تظهر | شغّل الاختبارات من `/integration-tests` |
+| البيانات لا تظهر | شغّل الاختبارات من `/#/sys-maintenance` |
 | خطأ في الواجهة | امسح الـ Cache (Ctrl+Shift+Delete) |
 | الخادم لا يعمل | تأكد من `npm run dev` يعمل |
 | بيانات مفقودة | تحقق من Console للأخطاء |

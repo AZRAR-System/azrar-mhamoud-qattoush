@@ -9,15 +9,13 @@
 import React from 'react';
 import { 
   Database, 
-  FileText, 
   Users, 
   Home, 
   FileCheck, 
   DollarSign,
   Plus,
   Search,
-  Filter,
-  AlertCircle
+  Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 

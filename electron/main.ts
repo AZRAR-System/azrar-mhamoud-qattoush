@@ -1,5 +1,5 @@
-﻿import logger, { logAppStart, logAppStop } from './logger';
-import { app, BrowserWindow, shell, session } from 'electron';
+﻿import logger from './logger';
+import { app, BrowserWindow, shell, session, type Event } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -12,14 +12,35 @@ const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function stringifyUnknown(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value instanceof Error) return value.message;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+type ProcessWarning = Error & { code?: string };
+
+function isProcessWarning(value: unknown): value is ProcessWarning {
+  return value instanceof Error;
+}
+
 // Help diagnose runtime warnings (notably DEP0123 about TLS SNI on IPs).
 // This does not change behavior; it only improves observability.
-process.on('warning', (w: any) => {
+process.on('warning', (w: unknown) => {
   try {
-    const code = String(w?.code || '');
+    if (!isProcessWarning(w)) return;
+    const code = String(w.code ?? '');
     if (code === 'DEP0123') {
-      logger.warn('[Node Warning][DEP0123]', w?.message || String(w));
-      if (w?.stack) logger.warn(String(w.stack));
+      logger.warn('[Node Warning][DEP0123]', w.message || String(w));
+      if (w.stack) logger.warn(String(w.stack));
     }
   } catch {
     // ignore
@@ -174,14 +195,16 @@ function isAllowedNavigationTarget(rawUrl: string): boolean {
 
 async function clearAppCacheOnExit(timeoutMs = 900) {
   try {
-    const s: any = session.defaultSession;
+    const s = session.defaultSession;
     if (!s) return;
 
     await Promise.race([
       (async () => {
-        await s.clearCache?.();
-        await s.clearHostResolverCache?.();
-        await s.clearStorageData?.({ storages: ['cachestorage', 'serviceworkers'] });
+        await s.clearCache();
+        if (typeof s.clearHostResolverCache === 'function') {
+          await s.clearHostResolverCache();
+        }
+        await s.clearStorageData({ storages: ['cachestorage', 'serviceworkers'] });
       })(),
       new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
     ]);
@@ -194,8 +217,8 @@ async function createMainWindow() {
   // In dev mode after esbuild bundle, preload.cjs is in same folder as main.js
   const preloadPath = path.join(__dirname, 'preload.cjs');
   
-  console.log('[Electron] Preload path:', preloadPath);
-  console.log('[Electron] isDev:', isDev);
+  logger.info('[Electron] Preload path:', preloadPath);
+  logger.info('[Electron] isDev:', isDev);
   
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -215,33 +238,38 @@ async function createMainWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
-    console.log('[Electron] Window ready to show');
+    logger.info('[Electron] Window ready to show');
     mainWindow?.show();
   });
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('[Electron] Failed to load:', errorCode, errorDescription);
+    logger.error('[Electron] Failed to load:', errorCode, errorDescription);
   });
 
-  mainWindow.webContents.on('console-message', (_event: any, ...args: any[]) => {
+  mainWindow.webContents.on('console-message', (_event: Event, ...args: unknown[]) => {
     // Helps diagnose renderer issues in packaged builds (white screen)
     // Electron is moving to a single params object; support both.
-    const maybeParams = args?.[0];
-    if (maybeParams && typeof maybeParams === 'object' && 'message' in maybeParams) {
-      const p: any = maybeParams;
-      console.log(`[Renderer:${p.level}] ${p.message} (${p.sourceId}:${p.line})`);
+    const maybeParams = args[0];
+    if (isRecord(maybeParams) && 'message' in maybeParams) {
+      const level = stringifyUnknown(maybeParams.level);
+      const message = stringifyUnknown(maybeParams.message);
+      const sourceId = stringifyUnknown(maybeParams.sourceId);
+      const line = stringifyUnknown(maybeParams.line);
+      logger.info(`[Renderer:${level}] ${message} (${sourceId}:${line})`);
       return;
     }
     const [level, message, line, sourceId] = args;
-    console.log(`[Renderer:${level}] ${message} (${sourceId}:${line})`);
+    logger.info(
+      `[Renderer:${stringifyUnknown(level)}] ${stringifyUnknown(message)} (${stringifyUnknown(sourceId)}:${stringifyUnknown(line)})`
+    );
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
-    console.error('[Electron] Renderer process gone:', details);
+    logger.error('[Electron] Renderer process gone:', details);
   });
 
   mainWindow.webContents.on('unresponsive', () => {
-    console.warn('[Electron] Renderer unresponsive');
+    logger.warn('[Electron] Renderer unresponsive');
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -271,22 +299,22 @@ async function createMainWindow() {
   });
 
   if (isDev) {
-    console.log('[Electron] Loading dev URL: http://localhost:3000');
+    logger.info('[Electron] Loading dev URL: http://localhost:3000');
     try {
       await mainWindow.loadURL('http://localhost:3000');
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     } catch (err) {
-      console.error('[Electron] Failed to load URL:', err);
+      logger.error('[Electron] Failed to load URL:', err);
     }
   } else {
     const indexHtmlPath = path.join(app.getAppPath(), 'dist', 'index.html');
-    console.log('[Electron] Loading production file:', indexHtmlPath);
+    logger.info('[Electron] Loading production file:', indexHtmlPath);
     await mainWindow.loadFile(indexHtmlPath);
   }
 }
 
 app.whenReady().then(async () => {
-  console.log('[Electron] App ready');
+  logger.info('[Electron] App ready');
   await installContentSecurityPolicy();
 
   // Apply the same navigation/open/webview restrictions to ALL web contents.
@@ -303,27 +331,32 @@ app.whenReady().then(async () => {
         return { action: 'deny' };
       });
 
-      contents.on('will-navigate', (event: any, url: string) => {
+      contents.on('will-navigate', (event: Event, url: string) => {
         if (!isAllowedNavigationTarget(url)) event.preventDefault();
       });
 
-      contents.on('will-redirect', (event: any, url: string) => {
+      contents.on('will-redirect', (event: Event, url: string) => {
         if (!isAllowedNavigationTarget(url)) event.preventDefault();
       });
 
-      contents.on('will-attach-webview', (event: any) => {
+      contents.on('will-attach-webview', (event: Event) => {
         event.preventDefault();
       });
 
-      contents.on('console-message', (_e: any, ...args: any[]) => {
-        const maybeParams = args?.[0];
-        if (maybeParams && typeof maybeParams === 'object' && 'message' in maybeParams) {
-          const p: any = maybeParams;
-          console.log(`[Renderer:${p.level}] ${p.message} (${p.sourceId}:${p.line})`);
+      contents.on('console-message', (_e: Event, ...args: unknown[]) => {
+        const maybeParams = args[0];
+        if (isRecord(maybeParams) && 'message' in maybeParams) {
+          const level = stringifyUnknown(maybeParams.level);
+          const message = stringifyUnknown(maybeParams.message);
+          const sourceId = stringifyUnknown(maybeParams.sourceId);
+          const line = stringifyUnknown(maybeParams.line);
+          logger.info(`[Renderer:${level}] ${message} (${sourceId}:${line})`);
           return;
         }
         const [level, message, line, sourceId] = args;
-        console.log(`[Renderer:${level}] ${message} (${sourceId}:${line})`);
+        logger.info(
+          `[Renderer:${stringifyUnknown(level)}] ${stringifyUnknown(message)} (${stringifyUnknown(sourceId)}:${stringifyUnknown(line)})`
+        );
       });
     } catch {
       // Best-effort only

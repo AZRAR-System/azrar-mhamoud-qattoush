@@ -6,6 +6,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant } from '@/utils/tenancy';
+import type { PaymentNotificationTarget } from '@/services/mockDb';
+import type {
+  FollowUpTask,
+  اتفاقيات_البيع_tbl,
+  الأشخاص_tbl,
+  العقارات_tbl,
+  العقود_tbl,
+  العمولات_tbl,
+  الكمبيالات_tbl,
+  عروض_البيع_tbl,
+  tbl_Alerts,
+} from '@/types';
 import type { SystemHealth } from '@/types/types';
 import { dashboardHighlightsSmart, dashboardPerformanceSmart, dashboardSummarySmart } from '@/services/domainQueries';
 
@@ -26,7 +38,7 @@ export interface DashboardData {
   };
 
   systemHealth: SystemHealth | null;
-  logsRaw: any[];
+  logsRaw: unknown[];
 
   // KPIs
   kpis: {
@@ -89,18 +101,18 @@ export interface DashboardData {
   };
 
   // Raw data
-  people: any[];
-  properties: any[];
-  contracts: any[];
-  commissions: any[];
+  people: الأشخاص_tbl[];
+  properties: العقارات_tbl[];
+  contracts: العقود_tbl[];
+  commissions: العمولات_tbl[];
 
   // Additional raw datasets (used by charts/layers)
-  commissionsAll: any[];
-  installments: any[];
-  salesListings: any[];
-  salesAgreements: any[];
-  followUps: any[];
-  alertsRaw: any[];
+  commissionsAll: العمولات_tbl[];
+  installments: الكمبيالات_tbl[];
+  salesListings: عروض_البيع_tbl[];
+  salesAgreements: اتفاقيات_البيع_tbl[];
+  followUps: FollowUpTask[];
+  alertsRaw: tbl_Alerts[];
 }
 
 export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboardDataResult => {
@@ -163,6 +175,8 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
       try {
         setIsRefreshing(true);
 
+        const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM (local)
         const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -187,56 +201,65 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         const isDesktopFast = !!desktopSummary;
 
         // Raw datasets (keep heavy ones empty in Desktop fast mode)
-        const people = isDesktopFast ? [] : DbService.getPeople();
-        const properties = isDesktopFast ? [] : DbService.getProperties();
-        const contracts = isDesktopFast ? [] : DbService.getContracts();
-        const installments = isDesktopFast ? [] : DbService.getInstallments();
+        const people: الأشخاص_tbl[] = isDesktopFast ? [] : DbService.getPeople();
+        const properties: العقارات_tbl[] = isDesktopFast ? [] : DbService.getProperties();
+        const contracts: العقود_tbl[] = isDesktopFast ? [] : DbService.getContracts();
+        const installments: الكمبيالات_tbl[] = isDesktopFast ? [] : DbService.getInstallments();
 
         // Smaller datasets / services (still used by charts/panels)
-        const commissionsAll = DbService.getCommissions();
-        const salesListings = DbService.getSalesListings();
-        const salesAgreements = (DbService as any).getSalesAgreements?.() || [];
-        const followUps = DbService.getFollowUps();
-        const alerts = DbService.getAlerts();
-        const systemHealth = (DbService as any).checkSystemHealth?.() || null;
-        const logsRaw = (DbService as any).getLogs?.() || [];
+        const commissionsAll: العمولات_tbl[] = DbService.getCommissions();
+        const salesListings: عروض_البيع_tbl[] = DbService.getSalesListings();
+        const followUps: FollowUpTask[] = DbService.getFollowUps();
+        const alerts: tbl_Alerts[] = DbService.getAlerts();
 
-      const getMonthKey = (comm: any) => {
+        const dbExt = DbService as unknown as Partial<{
+          getSalesAgreements: () => اتفاقيات_البيع_tbl[];
+          checkSystemHealth: () => SystemHealth | null;
+          getLogs: () => unknown[];
+        }>;
+
+        const salesAgreements: اتفاقيات_البيع_tbl[] = dbExt.getSalesAgreements?.() ?? [];
+        const systemHealth: SystemHealth | null = dbExt.checkSystemHealth?.() ?? null;
+        const logsRaw: unknown[] = dbExt.getLogs?.() ?? [];
+
+      const getMonthKey = (comm: unknown) => {
         // Prefer explicit paid month if present (YYYY-MM)
-        const paidMonth = String(comm?.شهر_دفع_العمولة || '');
+        const rec = toRecord(comm);
+        const paidMonth = String(rec['شهر_دفع_العمولة'] ?? '');
         if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth;
-        const rawDate = (comm?.تاريخ_الإنشاء || comm?.تاريخ_العقد || '') as string;
-        return String(rawDate).slice(0, 7);
+        const rawDate = String(rec['تاريخ_الإنشاء'] ?? rec['تاريخ_العقد'] ?? '');
+        return rawDate.slice(0, 7);
       };
-      const getYearKey = (comm: any) => {
-        const paidMonth = String(comm?.شهر_دفع_العمولة || '');
+      const getYearKey = (comm: unknown) => {
+        const rec = toRecord(comm);
+        const paidMonth = String(rec['شهر_دفع_العمولة'] ?? '');
         if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth.slice(0, 4);
-        const rawDate = (comm?.تاريخ_الإنشاء || comm?.تاريخ_العقد || '') as string;
-        return String(rawDate).slice(0, 4);
+        const rawDate = String(rec['تاريخ_الإنشاء'] ?? rec['تاريخ_العقد'] ?? '');
+        return rawDate.slice(0, 4);
       };
 
       // ✅ Dashboard cards show current month only (commissions/revenue)
-      const commissions = commissionsAll.filter((c: any) => getMonthKey(c) === currentMonth);
+      const commissions = commissionsAll.filter((c) => getMonthKey(c) === currentMonth);
 
       // ✅ Comparisons: current vs previous month, current vs previous year
       const previousMonthRevenue = commissionsAll
-        .filter((c: any) => getMonthKey(c) === previousMonth)
-        .reduce((sum: number, c: any) => sum + (c.المجموع || 0), 0);
+        .filter((c) => getMonthKey(c) === previousMonth)
+        .reduce((sum, c) => sum + (c.المجموع || 0), 0);
 
       const currentYearRevenue = commissionsAll
-        .filter((c: any) => getYearKey(c) === currentYear)
-        .reduce((sum: number, c: any) => sum + (c.المجموع || 0), 0);
+        .filter((c) => getYearKey(c) === currentYear)
+        .reduce((sum, c) => sum + (c.المجموع || 0), 0);
 
       const previousYearRevenue = commissionsAll
-        .filter((c: any) => getYearKey(c) === previousYear)
-        .reduce((sum: number, c: any) => sum + (c.المجموع || 0), 0);
+        .filter((c) => getYearKey(c) === previousYear)
+        .reduce((sum, c) => sum + (c.المجموع || 0), 0);
 
         // ✅ Calculate KPIs from real data (current month for revenue)
-        const totalRevenue = commissions.reduce((sum: number, c: any) => sum + (c.المجموع || 0), 0);
+        const totalRevenue = commissions.reduce((sum, c) => sum + (c.المجموع || 0), 0);
 
         const activeContracts = isDesktopFast
           ? Number(desktopSummary?.activeContracts || 0) || 0
-          : contracts.filter((c: any) => isTenancyRelevant(c)).length;
+          : contracts.filter((c) => isTenancyRelevant(c)).length;
 
         const totalProperties = isDesktopFast
           ? Number(desktopSummary?.totalProperties || 0) || 0
@@ -244,7 +267,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
 
         const occupiedProperties = isDesktopFast
           ? Number(desktopSummary?.occupiedProperties || 0) || 0
-          : properties.filter((p: any) => p.IsRented === true).length;
+          : properties.filter((p) => p.IsRented === true).length;
 
         const occupancyRate = totalProperties > 0 ? (occupiedProperties / totalProperties) * 100 : 0;
 
@@ -252,35 +275,38 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         // Align KPI counts with PaymentNotificationsPanel (no due-today / overdue reminders).
         const dueNext7Payments = isDesktopFast
           ? Number(desktopSummary?.dueNext7Payments || 0) || 0
-          : DbService.getPaymentNotificationTargets(7).reduce((sum: number, t: any) => sum + (t.items?.length || 0), 0);
+          : (() => {
+              const targets: PaymentNotificationTarget[] = DbService.getPaymentNotificationTargets(7);
+              return targets.reduce<number>((sum, t) => sum + (t.items?.length || 0), 0);
+            })();
       const latePayments = 0;
       const dueTodayPayments = 0;
       const dueTotalPayments = dueNext7Payments;
 
       // ✅ Sales calculation from real data
-      const activeSalesListings = salesListings.filter((s: any) => s.الحالة === 'Active');
+      const activeSalesListings = salesListings.filter((s) => s.الحالة === 'Active');
       const newOffers = activeSalesListings.length;
-      const pendingSales = salesListings.filter((s: any) => s.الحالة === 'Pending').length;
-      const completedSales = salesListings.filter((s: any) => s.الحالة === 'Sold').length;
+      const pendingSales = salesListings.filter((s) => s.الحالة === 'Pending').length;
+      const completedSales = salesListings.filter((s) => s.الحالة === 'Sold').length;
       const totalSalesValue = salesListings
-        .filter((s: any) => s.الحالة === 'Sold')
-        .reduce((sum: number, s: any) => sum + (s.السعر_المطلوب || 0), 0);
+        .filter((s) => s.الحالة === 'Sold')
+        .reduce((sum, s) => sum + (s.السعر_المطلوب || 0), 0);
 
         // ✅ Tasks from follow-ups (DbService model: dueDate/status)
 
-      const pendingFollowUps = (followUps || []).filter((f: any) => String(f?.status) !== 'Done');
-      const todayTasks = pendingFollowUps.filter((f: any) => String(f?.dueDate) === todayYMD).length;
-      const overdueTasks = pendingFollowUps.filter((f: any) => String(f?.dueDate) < todayYMD).length;
-      const upcomingTasks = pendingFollowUps.filter((f: any) => {
-        const due = String(f?.dueDate);
+        const pendingFollowUps = (followUps || []).filter((f) => String(f?.status) !== 'Done');
+        const todayTasks = pendingFollowUps.filter((f) => String(f?.dueDate) === todayYMD).length;
+        const overdueTasks = pendingFollowUps.filter((f) => String(f?.dueDate) < todayYMD).length;
+        const upcomingTasks = pendingFollowUps.filter((f) => {
+          const due = String(f?.dueDate);
         return due > todayYMD && due <= weekYMD;
       }).length;
 
       // ✅ Alerts (open/unread only) so counts match dismissal behavior
-      const openAlerts = alerts.filter((a: any) => !a.تم_القراءة);
-      const criticalAlerts = openAlerts.filter((a: any) => a.category === 'Critical' || a.نوع_التنبيه === 'عاجل').length;
-      const warningAlerts = openAlerts.filter((a: any) => a.category === 'Warning' || a.نوع_التنبيه === 'تحذير').length;
-      const infoAlerts = openAlerts.filter((a: any) => a.category === 'Info' || a.نوع_التنبيه === 'معلومة').length;
+      const openAlerts = alerts.filter((a) => !a.تم_القراءة);
+      const criticalAlerts = openAlerts.filter((a) => String(a.category) === 'Critical' || a.نوع_التنبيه === 'عاجل').length;
+      const warningAlerts = openAlerts.filter((a) => String(a.category) === 'Warning' || a.نوع_التنبيه === 'تحذير').length;
+      const infoAlerts = openAlerts.filter((a) => String(a.category) === 'Info' || a.نوع_التنبيه === 'معلومة').length;
 
         const desktopPerf = isDesktopFast ? await dashboardPerformanceSmart({ monthKey: currentMonth, prevMonthKey: previousMonth }) : null;
         const desktopHighlights = isDesktopFast ? await dashboardHighlightsSmart({ todayYMD }) : null;
@@ -323,8 +349,8 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
 
         desktopAggregations: isDesktopFast
           ? {
-              propertyTypeCounts: Array.isArray(desktopSummary?.propertyTypeCounts) ? desktopSummary!.propertyTypeCounts : [],
-              contractStatusCounts: Array.isArray(desktopSummary?.contractStatusCounts) ? desktopSummary!.contractStatusCounts : [],
+              propertyTypeCounts: Array.isArray(desktopSummary?.propertyTypeCounts) ? desktopSummary.propertyTypeCounts : [],
+              contractStatusCounts: Array.isArray(desktopSummary?.contractStatusCounts) ? desktopSummary.contractStatusCounts : [],
             }
           : undefined,
 
@@ -363,7 +389,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         followUps,
         alertsRaw: alerts,
       });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error refreshing dashboard data:', error);
       } finally {
         setIsRefreshing(false);

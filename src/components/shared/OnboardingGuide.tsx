@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Info, Users, Home, FileText, BrainCircuit, CloudLightning, 
-  ChevronLeft, ChevronRight, Check, X, BookOpen 
+  ChevronLeft, ChevronRight, Check 
 } from 'lucide-react';
 
 const STEPS = [
@@ -109,8 +109,8 @@ export const OnboardingGuide: React.FC = () => {
   const Icon = Step.icon;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col md:flex-row min-h-[400px] animate-scale-up">
+    <div className="modal-overlay app-modal-overlay bg-slate-900/80 animate-fade-in">
+      <div className="modal-content app-modal-content rounded-3xl w-full max-w-2xl overflow-hidden flex flex-col md:flex-row min-h-[400px] animate-scale-up">
         
         {/* Left Side (Image/Icon) */}
         <div className={`p-8 md:w-1/3 flex flex-col items-center justify-center text-white text-center ${Step.color} transition-colors duration-500`}>

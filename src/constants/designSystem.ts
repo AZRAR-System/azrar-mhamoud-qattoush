@@ -26,9 +26,9 @@ export const DS = {
     strong: 'shadow-lg',
   },
   components: {
-    card: 'bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors relative overflow-hidden ring-1 ring-black/5 dark:ring-white/5',
+    card: 'app-card transition-colors',
     table: {
-      wrapper: 'overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm ring-1 ring-black/5 dark:ring-white/5 relative',
+      wrapper: 'app-table-wrapper relative',
       header: 'bg-slate-50/80 dark:bg-slate-950/40 backdrop-blur-sm text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-wider border-b border-slate-200/70 dark:border-slate-800 sticky top-0 z-10',
       row: 'border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors last:border-0 group',
       cell: 'p-4 text-sm text-slate-700 dark:text-slate-200 whitespace-normal break-words align-middle',

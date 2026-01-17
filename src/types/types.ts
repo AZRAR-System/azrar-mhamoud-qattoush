@@ -43,7 +43,7 @@ export interface الأشخاص_tbl {
   تقييم?: number;
   نوع_الملف?: 'فرد' | 'منشأة';
   طبيعة_الشركة?: string;
-  حقول_ديناميكية?: Record<string, any>;
+  حقول_ديناميكية?: Record<string, unknown>;
 }
 
 export interface المنشآت_tbl {
@@ -79,13 +79,17 @@ export interface العقارات_tbl {
   رقم_قطعة?: string;
   رقم_لوحة?: string;
   رقم_شقة?: string;
+  // Marketing flags
+  // - If omitted, the property is treated as rentable (backward-compatible).
+  // - If false, the property is considered "للبيع فقط" and should be excluded from rent workflows.
+  isForRent?: boolean;
   isForSale?: boolean;
   salePrice?: number;
   minSalePrice?: number;
   حدود_المأجور?: string;
   ملاحظات?: string;
   الصفة?: string;
-  حقول_ديناميكية?: Record<string, any>;
+  حقول_ديناميكية?: Record<string, unknown>;
 }
 
 export interface العقود_tbl {
@@ -115,7 +119,7 @@ export interface العقود_tbl {
   terminationDate?: string;
   terminationReason?: string;
   autoRenew?: boolean;
-  حقول_ديناميكية?: Record<string, any>;
+  حقول_ديناميكية?: Record<string, unknown>;
 }
 
 export interface الكمبيالات_tbl {
@@ -147,7 +151,7 @@ export interface الكمبيالات_tbl {
   غرامة_تأخير?: number;
   تصنيف_غرامة_تأخير?: string;
   تاريخ_احتساب_غرامة_تأخير?: string; // YYYY-MM-DD
-  حقول_ديناميكية?: Record<string, any>;
+  حقول_ديناميكية?: Record<string, unknown>;
 }
 
 export interface شخص_دور_tbl {
@@ -200,13 +204,22 @@ export interface tbl_Alerts {
   تم_القراءة: boolean;
   category: AlertCategory;
   count?: number;
-  details?: any[];
+  details?: AlertDetail[];
   tenantName?: string;
   phone?: string;
   propertyCode?: string;
   مرجع_الجدول?: string;
   مرجع_المعرف?: string;
 }
+
+export type AlertDetail = {
+  id: string;
+  date?: string;
+  amount?: number;
+  note?: string;
+  name?: string;
+  [key: string]: unknown;
+};
 
 export interface عروض_البيع_tbl {
   id: string;
@@ -296,7 +309,7 @@ export interface تذاكر_الصيانة_tbl {
   التكلفة_الفعلية?: number;
   تاريخ_الإغلاق?: string;
   ملاحظات_الإنهاء?: string;
-  حقول_ديناميكية?: Record<string, any>;
+  حقول_ديناميكية?: Record<string, unknown>;
 }
 
 export interface العمليات_tbl {
@@ -368,7 +381,7 @@ export interface MarqueeMessage {
   priority: 'Normal' | 'High';
   type: 'alert' | 'info' | 'success';
   action?:
-    | { kind: 'panel'; panel: string; id?: string; options?: any }
+    | { kind: 'panel'; panel: string; id?: string; options?: Record<string, unknown> }
     | { kind: 'hash'; hash: string };
 }
 
@@ -392,7 +405,7 @@ export interface DynamicTable {
 export interface DynamicRecord {
   id: string;
   tableId: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export type ReferenceType = 'Person' | 'Property' | 'Contract' | 'Clearance' | 'Maintenance' | 'Sales' | 'Inspection' | 'LegalNotice';
@@ -460,7 +473,7 @@ export interface ReportResult {
   title: string;
   generatedAt: string;
   columns: { key: string; header: string; type?: 'text' | 'number' | 'currency' | 'date' | 'status' }[];
-  data: any[];
+  data: unknown[];
   summary?: { label: string; value: string | number }[];
 }
 
@@ -573,13 +586,13 @@ export type SmartCategory = 'person' | 'property' | 'contract' | 'maintenance';
 export interface SmartBehaviorPattern {
     category: SmartCategory;
     field: string;
-    value: any;
+  value: unknown;
     timestamp: number;
 }
 
 export interface SmartSuggestion {
     field: string;
-    suggestedValue: any;
+  suggestedValue: unknown;
     confidence: number; // 0 to 1
     reason?: string;
 }

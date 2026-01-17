@@ -1,9 +1,9 @@
-﻿import React from 'react';
-import { Home, AlertOctagon, ArrowRight } from 'lucide-react';
+﻿import type { FC } from 'react';
+import { Home, AlertOctagon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ROUTE_PATHS } from '@/routes/paths';
 
-export const NotFound: React.FC = () => {
+export const NotFound: FC = () => {
   return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center text-center p-6 animate-fade-in">
       <div className="w-24 h-24 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-6">

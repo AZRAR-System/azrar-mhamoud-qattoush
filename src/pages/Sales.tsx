@@ -1,15 +1,14 @@
 ﻿
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
-import { عروض_البيع_tbl, اتفاقيات_البيع_tbl, عروض_الشراء_tbl, SalesType } from '@/types';
-import { Plus, Search, Filter, Briefcase, FileSignature, CheckCircle, Clock, Home, User, BadgeDollarSign, ArrowUpRight, BarChart3, Lock, HandCoins, Edit2, Trash2 } from 'lucide-react';
+import { الأشخاص_tbl, العقارات_tbl, عروض_البيع_tbl, اتفاقيات_البيع_tbl, SalesType } from '@/types';
+import { Plus, Briefcase, FileSignature, CheckCircle, Clock, Home, User, BadgeDollarSign, ArrowUpRight, Lock, HandCoins, Edit2, Trash2, X } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { domainGetSmart } from '@/services/domainQueries';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { PersonPicker } from '@/components/shared/PersonPicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { Button } from '@/components/ui/Button';
 import { DS } from '@/constants/designSystem';
@@ -29,50 +28,60 @@ const SalesDashboard = () => {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col justify-between h-32">
+            <div className={`${DS.components.card} p-6 flex flex-col justify-between min-h-32`}>
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">مبيعات مكتملة</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">{totalSales.toLocaleString()} <span className="text-sm font-normal text-slate-400">د.أ</span></h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold">مبيعات مكتملة</p>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">
+                          {totalSales.toLocaleString()} <span className="text-sm font-bold text-slate-400">د.أ</span>
+                        </h3>
                     </div>
-                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><BadgeDollarSign size={20}/></div>
+                    <div className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 rounded-lg border border-emerald-200/60 dark:border-emerald-500/20">
+                      <BadgeDollarSign size={20}/>
+                    </div>
                 </div>
-                <div className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
                     <ArrowUpRight size={14} /> إجمالي المبيعات المحققة
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col justify-between h-32">
+            <div className={`${DS.components.card} p-6 flex flex-col justify-between min-h-32`}>
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">عروض نشطة</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold">عروض نشطة</p>
                         <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">{activeListings.length}</h3>
                     </div>
-                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><Briefcase size={20}/></div>
+                    <div className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 rounded-lg border border-indigo-200/60 dark:border-indigo-500/20">
+                      <Briefcase size={20}/>
+                    </div>
                 </div>
-                <p className="text-xs text-slate-400">عقارات معروضة حالياً</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">عقارات معروضة حالياً</p>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col justify-between h-32">
+            <div className={`${DS.components.card} p-6 flex flex-col justify-between min-h-32`}>
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">عروض الشراء</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold">عروض الشراء</p>
                         <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">{offers.length}</h3>
                     </div>
-                    <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><User size={20}/></div>
+                    <div className="p-2 bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded-lg border border-purple-200/60 dark:border-purple-500/20">
+                      <User size={20}/>
+                    </div>
                 </div>
-                <p className="text-xs text-slate-400">{offers.filter(o => o.الحالة === 'Pending').length} قيد الانتظار</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{offers.filter(o => o.الحالة === 'Pending').length} قيد الانتظار</p>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col justify-between h-32">
+            <div className={`${DS.components.card} p-6 flex flex-col justify-between min-h-32`}>
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">اتفاقيات موقعة</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold">اتفاقيات موقعة</p>
                         <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">{agreements.length}</h3>
                     </div>
-                    <div className="p-2 bg-orange-100 text-orange-600 rounded-lg"><FileSignature size={20}/></div>
+                    <div className="p-2 bg-orange-500/10 text-orange-700 dark:text-orange-300 rounded-lg border border-orange-200/60 dark:border-orange-500/20">
+                      <FileSignature size={20}/>
+                    </div>
                 </div>
-                <p className="text-xs text-slate-400">{agreements.filter(a => !a.isCompleted).length} بانتظار نقل الملكية</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{agreements.filter(a => !a.isCompleted).length} بانتظار نقل الملكية</p>
             </div>
         </div>
     );
@@ -83,13 +92,15 @@ export const Sales: React.FC = () => {
     const dbSignal = useDbSignal();
     const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainGet;
 
-    const fastPropByIdRef = useRef<Map<string, any>>(new Map());
-    const fastPersonByIdRef = useRef<Map<string, any>>(new Map());
+    const fastPropByIdRef = useRef<Map<string, العقارات_tbl>>(new Map());
+    const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
     const [fastCacheVersion, setFastCacheVersion] = useState(0);
   const [activeTab, setActiveTab] = useState<'listings' | 'agreements'>('listings');
   const [listings, setListings] = useState<عروض_البيع_tbl[]>([]);
   const [agreements, setAgreements] = useState<اتفاقيات_البيع_tbl[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+    const [saleOnly, setSaleOnly] = useState(false);
+    const [listingMarketingFilter, setListingMarketingFilter] = useState<'all' | 'sale-only' | 'also-rentable'>('all');
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
     const [editingAgreementId, setEditingAgreementId] = useState<string | null>(null);
   
@@ -132,6 +143,13 @@ export const Sales: React.FC = () => {
   const toast = useToast();
     const dialogs = useAppDialogs();
 
+    const handleEditAgreementRef = useRef<(agreementId: string) => void>(() => {
+        // no-op (assigned after handler definition)
+    });
+    const handlePropertySelectRef = useRef<(propId: string) => Promise<void>>(async () => {
+        // no-op (assigned after handler definition)
+    });
+
   useEffect(() => {
     loadData();
     }, [dbSignal]);
@@ -151,7 +169,32 @@ export const Sales: React.FC = () => {
       // Defer until after initial render/state hydration
       setTimeout(() => {
           try {
-              handleEditAgreement(agreementId as string);
+              handleEditAgreementRef.current(String(agreementId));
+          } catch {
+              // ignore
+          }
+      }, 0);
+  }, []);
+
+  useEffect(() => {
+      // Allow deep-linking into create-listing from other pages (e.g., Properties page)
+      let propertyId: string | null = null;
+      try {
+          propertyId = localStorage.getItem('ui_sales_prefill_property_id');
+          if (propertyId) localStorage.removeItem('ui_sales_prefill_property_id');
+      } catch {
+          propertyId = null;
+      }
+      if (!propertyId) return;
+
+      setActiveTab('listings');
+      setSaleOnly(false);
+      setIsModalOpen(true);
+
+      // Defer to allow modal/state hydration and caches
+      setTimeout(() => {
+          try {
+              void handlePropertySelectRef.current(String(propertyId));
           } catch {
               // ignore
           }
@@ -189,7 +232,7 @@ export const Sales: React.FC = () => {
       setIsAgreementModalOpen(true);
   };
 
-  const handleEditAgreement = (agreementId: string) => {
+    const handleEditAgreement = useCallback((agreementId: string) => {
       const ag = agreements.find(a => a.id === agreementId) || DbService.getSalesAgreements().find(a => a.id === agreementId);
       if (!ag) return;
 
@@ -200,8 +243,8 @@ export const Sales: React.FC = () => {
           العمولة_الإجمالية: Number(ag.العمولة_الإجمالية || 0),
           طريقة_الدفع: ag.طريقة_الدفع,
           قيمة_الدفعة_الاولى: ag.قيمة_الدفعة_الاولى ?? 0,
-          رقم_الفرصة: String((ag as any).رقم_الفرصة || ''),
-          يوجد_ادخال_عقار: !!(ag as any).يوجد_ادخال_عقار,
+          رقم_الفرصة: String(ag.رقم_الفرصة || ''),
+          يوجد_ادخال_عقار: !!ag.يوجد_ادخال_عقار,
       });
       setSalesCommissions({
           buyer: Number(ag.عمولة_المشتري || 0),
@@ -217,7 +260,9 @@ export const Sales: React.FC = () => {
           ملاحظات: String(ag.مصاريف_البيع?.ملاحظات || ''),
       });
       setIsAgreementModalOpen(true);
-  };
+    }, [agreements]);
+
+    handleEditAgreementRef.current = handleEditAgreement;
 
   const handleDeleteAgreement = async (agreementId: string) => {
       const ok = await toast.confirm({
@@ -246,7 +291,22 @@ export const Sales: React.FC = () => {
       const res = DbService.createSalesListing(newListing);
       if (res.success) {
           toast.success(res.message);
+
+          // Optional: Mark the property as sale-only (not rentable) to separate sale vs rent workflows
+          if (saleOnly) {
+              try {
+                  const pid = String(newListing.رقم_العقار || '').trim();
+                  if (pid) {
+                      const upd = DbService.updateProperty(pid, { isForRent: false, isForSale: true });
+                      if (!upd.success) toast.warning('تم حفظ العرض، لكن تعذر تحديث إعدادات الإيجار للعقار');
+                  }
+              } catch {
+                  // ignore
+              }
+          }
+
           setIsModalOpen(false);
+          setSaleOnly(false);
           loadData();
       } else {
           toast.error(res.message);
@@ -263,7 +323,7 @@ export const Sales: React.FC = () => {
               setNewListing({
                   ...newListing,
                   رقم_العقار: String(prop.رقم_العقار || propId),
-                  رقم_المالك: String((prop as any).رقم_المالك || ''),
+                  رقم_المالك: String(prop.رقم_المالك || ''),
               });
           }
           return;
@@ -279,6 +339,8 @@ export const Sales: React.FC = () => {
       }
   };
 
+    handlePropertySelectRef.current = handlePropertySelect;
+
   // Desktop-fast: preload lookups for currently rendered rows (avoid full-array scans)
   useEffect(() => {
       if (!isDesktopFast) return;
@@ -288,10 +350,10 @@ export const Sales: React.FC = () => {
 
       for (const l of listings) {
           if (l?.رقم_العقار) propIds.add(String(l.رقم_العقار));
-          if ((l as any)?.رقم_المالك) personIds.add(String((l as any).رقم_المالك));
+          if (l?.رقم_المالك) personIds.add(String(l.رقم_المالك));
       }
       for (const a of agreements) {
-          if ((a as any)?.رقم_العقار) propIds.add(String((a as any).رقم_العقار));
+          if (a?.رقم_العقار) propIds.add(String(a.رقم_العقار));
           if (a?.رقم_المشتري) personIds.add(String(a.رقم_المشتري));
       }
 
@@ -320,12 +382,12 @@ export const Sales: React.FC = () => {
               if (cancelled || !row) continue;
               if (item.entity === 'properties') {
                   if (!fastPropByIdRef.current.has(item.id)) {
-                      fastPropByIdRef.current.set(item.id, row);
+                      fastPropByIdRef.current.set(item.id, row as العقارات_tbl);
                       changed = true;
                   }
               } else {
                   if (!fastPersonByIdRef.current.has(item.id)) {
-                      fastPersonByIdRef.current.set(item.id, row);
+                      fastPersonByIdRef.current.set(item.id, row as الأشخاص_tbl);
                       changed = true;
                   }
               }
@@ -378,8 +440,8 @@ export const Sales: React.FC = () => {
                   قيمة_الدفعة_الاولى: Number(newAgreement.قيمة_الدفعة_الاولى || 0),
                   طريقة_الدفع: (newAgreement.طريقة_الدفع as SalesType) || 'Cash',
                   العمولة_الإجمالية: Number(newAgreement.العمولة_الإجمالية || 0),
-                  رقم_الفرصة: String((newAgreement as any).رقم_الفرصة || ''),
-                  يوجد_ادخال_عقار: !!(newAgreement as any).يوجد_ادخال_عقار,
+                  رقم_الفرصة: String(newAgreement.رقم_الفرصة || ''),
+                  يوجد_ادخال_عقار: !!newAgreement.يوجد_ادخال_عقار,
               },
               { ...salesCommissions, expenses: saleExpenses }
           );
@@ -448,6 +510,21 @@ export const Sales: React.FC = () => {
       const res = DbService.finalizeOwnershipTransfer(agreementId, txId.trim());
       if (res.success) {
           toast.success(res.message);
+          // Optional: after a sale completes, the new owner may want to rent the property.
+          // Keep it flexible (do not force). Offer a quick toggle.
+          if (propId) {
+              const makeRentable = await toast.confirm({
+                  title: 'تفعيل الإيجار؟',
+                  message: 'هل تريد جعل العقار متاحاً للإيجار الآن؟ (يمكن تغيير ذلك لاحقاً من تعديل العقار)',
+                  confirmText: 'نعم، متاح للإيجار',
+                  cancelText: 'لا',
+              });
+              if (makeRentable) {
+                  const upd = DbService.updateProperty(String(propId), { isForRent: true });
+                  if (upd.success) toast.success('تم تفعيل العقار للإيجار');
+                  else toast.warning('تم نقل الملكية، لكن تعذر تفعيل الإيجار');
+              }
+          }
           loadData();
       } else {
           toast.error(res.message);
@@ -483,8 +560,16 @@ export const Sales: React.FC = () => {
       const safeId = String(propId || '').trim();
       const p = isDesktopFast ? fastPropByIdRef.current.get(safeId) : props.find(x => x.رقم_العقار === safeId);
       const status = p?.حالة_العقار ? String(p.حالة_العقار) : '';
-      const furnishing = (p as any)?.نوع_التاثيث ? String((p as any).نوع_التاثيث) : '';
-      return { status, furnishing };
+      const furnishing = p?.نوع_التاثيث ? String(p.نوع_التاثيث) : '';
+      const isForRent = p?.isForRent;
+      return { status, furnishing, isForRent };
+  };
+
+  const listingMatchesMarketing = (listing: عروض_البيع_tbl) => {
+      if (listingMarketingFilter === 'all') return true;
+      const meta = getPropMeta(listing?.رقم_العقار);
+      const isSaleOnly = meta?.isForRent === false;
+      return listingMarketingFilter === 'sale-only' ? isSaleOnly : !isSaleOnly;
   };
 
   return (
@@ -502,7 +587,7 @@ export const Sales: React.FC = () => {
                <Button variant="secondary" onClick={openCreateAgreementModal} leftIcon={<FileSignature size={18} />}>
                    إنشاء اتفاقية
                </Button>
-               <Button onClick={() => setIsModalOpen(true)} leftIcon={<Plus size={18} />}>
+               <Button onClick={() => { setSaleOnly(false); setIsModalOpen(true); }} leftIcon={<Plus size={18} />}>
                    عرض بيع جديد
                </Button>
            </div>
@@ -511,7 +596,7 @@ export const Sales: React.FC = () => {
        <SalesDashboard />
 
        {/* Tabs */}
-       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+       <div className={DS.components.card}>
            <div className="flex border-b border-gray-200 dark:border-slate-700">
                <button 
                   onClick={() => setActiveTab('listings')}
@@ -530,18 +615,35 @@ export const Sales: React.FC = () => {
            <div className="p-6">
                {activeTab === 'listings' && (
                    <div className="space-y-6">
+                       <div className="flex flex-wrap items-center justify-between gap-3">
+                           <div className="text-xs font-bold text-slate-500 dark:text-slate-400">تصنيف عروض البيع حسب الإيجار</div>
+                           <select
+                               value={listingMarketingFilter}
+                               onChange={(e) => {
+                                   const next = String(e.target.value || '').trim();
+                                   if (next === 'all' || next === 'sale-only' || next === 'also-rentable') {
+                                       setListingMarketingFilter(next);
+                                   }
+                               }}
+                               className="border p-2 rounded-xl text-sm bg-white dark:bg-slate-800 dark:border-slate-600 outline-none"
+                           >
+                               <option value="all">الكل</option>
+                               <option value="also-rentable">معروضة للبيع (قد تكون للإيجار أيضاً)</option>
+                               <option value="sale-only">للبيع فقط (غير متاح للإيجار)</option>
+                           </select>
+                       </div>
                        {listingStatusOrder.map(status => {
-                           const rows = listings.filter(l => l.الحالة === status);
+                           const rows = listings.filter(l => l.الحالة === status).filter(listingMatchesMarketing);
                            if (rows.length === 0) return null;
                            return (
-                               <div key={status} className="overflow-x-auto">
+                               <div key={status} className={DS.components.table.wrapper}>
                                    <div className="flex items-center justify-between mb-2">
                                        <h3 className="font-black text-slate-800 dark:text-white">
                                            {listingStatusLabel[status]} <span className="text-slate-400 font-bold">({rows.length})</span>
                                        </h3>
                                    </div>
                                    <table className="w-full text-right text-sm">
-                                       <thead className="bg-gray-50 dark:bg-slate-900 text-slate-500">
+                                       <thead className={DS.components.table.header + ' text-slate-500 normal-case tracking-normal'}>
                                            <tr>
                                                <th className="p-4">العقار</th>
                                                <th className="p-4">المالك</th>
@@ -551,11 +653,11 @@ export const Sales: React.FC = () => {
                                                <th className="p-4">إجراء</th>
                                            </tr>
                                        </thead>
-                                       <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                                       <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                                            {rows.map(l => {
                                                const meta = getPropMeta(l.رقم_العقار);
                                                return (
-                                                   <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition">
+                                                   <tr key={l.id} className={DS.components.table.row}>
                                                        <td className="p-4">
                                                            <div className="font-bold">{getPropCode(l.رقم_العقار)}</div>
                                                            {(meta.status || meta.furnishing) && (
@@ -592,9 +694,9 @@ export const Sales: React.FC = () => {
                )}
 
                {activeTab === 'agreements' && (
-                   <div className="overflow-x-auto">
+                   <div className={DS.components.table.wrapper}>
                        <table className="w-full text-right text-sm">
-                           <thead className="bg-gray-50 dark:bg-slate-900 text-slate-500">
+                           <thead className={DS.components.table.header + ' text-slate-500 normal-case tracking-normal'}>
                                <tr>
                                    <th className="p-4">رقم الاتفاقية</th>
                                    <th className="p-4">العقار</th>
@@ -605,17 +707,17 @@ export const Sales: React.FC = () => {
                                    <th className="p-4">إجراء</th>
                                </tr>
                            </thead>
-                           <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                           <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                                {agreements.map(a => {
                                    const listing = listings.find(l => l.id === a.listingId);
                                    const propId = a.رقم_العقار || listing?.رقم_العقار;
                                    const sellerId = a.رقم_البائع || listing?.رقم_المالك;
                                    return (
-                                       <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition">
+                                       <tr key={a.id} className={DS.components.table.row}>
                                            <td className="p-4">
                                                <div className="font-mono">#{a.id.substring(6, 12)}</div>
-                                               {String((a as any).رقم_الفرصة || '').trim() ? (
-                                                   <div className="text-[11px] text-slate-500 mt-1 dir-ltr">فرصة: <b className="text-slate-700 dark:text-slate-200">{String((a as any).رقم_الفرصة)}</b></div>
+                                               {String(a.رقم_الفرصة || '').trim() ? (
+                                                   <div className="text-[11px] text-slate-500 mt-1 dir-ltr">فرصة: <b className="text-slate-700 dark:text-slate-200">{String(a.رقم_الفرصة)}</b></div>
                                                ) : null}
                                            </td>
                                            <td className="p-4 font-bold">{listing ? getPropCode(listing.رقم_العقار) : '-'}</td>
@@ -710,63 +812,112 @@ export const Sales: React.FC = () => {
 
        {/* Create Listing Modal */}
        {isModalOpen && (
-           <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-               <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-scale-up">
-                   <div className="p-5 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 flex justify-between">
-                                             <h3 className="font-bold text-lg text-slate-900 dark:text-white">إدراج عقار للبيع</h3>
-                                             <button
-                                                 onClick={() => setIsModalOpen(false)}
-                                                 className="p-2 rounded-lg text-slate-500 hover:bg-black/10 hover:text-slate-700 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white transition"
-                                                 title="إغلاق"
-                                                 aria-label="إغلاق"
-                                             >
-                                                 <span className="text-2xl leading-none">&times;</span>
-                                             </button>
+           <div className="modal-overlay app-modal-overlay z-[100]">
+               <div className="modal-content app-modal-content dark:bg-slate-900 dark:border-slate-800 w-full max-w-lg overflow-hidden animate-scale-up">
+                   <div className="p-5 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/30 flex justify-between items-center">
+                       <div className="flex items-center gap-3">
+                           <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-600/20">
+                               <Briefcase size={20} />
+                           </div>
+                           <div>
+                               <h3 className="font-bold text-lg text-slate-900 dark:text-white">إدراج عقار للبيع</h3>
+                               <p className="text-xs text-slate-500 dark:text-slate-400">اختر العقار ثم أدخل تفاصيل العرض</p>
+                           </div>
+                       </div>
+                       <button
+                           type="button"
+                           onClick={() => setIsModalOpen(false)}
+                           className="p-2 hover:bg-slate-200/70 dark:hover:bg-slate-800/60 rounded-xl transition text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400"
+                           title="إغلاق"
+                           aria-label="إغلاق"
+                       >
+                           <X size={18} />
+                       </button>
                    </div>
+
                    <form onSubmit={handleCreateListing} className="p-6 space-y-4">
-                       <div>
-                           <label className="block text-sm font-bold mb-1">العقار</label>
-                           {/* REPLACED WITH PROPERTY PICKER */}
-                           <PropertyPicker 
+                       <div className={`${DS.components.card} p-4`}>
+                           <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">العقار <span className="text-red-500">*</span></label>
+                           <PropertyPicker
                                value={newListing.رقم_العقار}
                                onChange={handlePropertySelect}
                                required
                                placeholder="اختر العقار للبيع..."
+                               defaultLinkedOnly={false}
                            />
-                       </div>
-                       
-                       {/* Owner Display (Read Only) */}
-                       <div className="bg-slate-100 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                           <label className="text-xs font-bold text-slate-500 dark:text-slate-300 mb-1 flex items-center gap-1">
-                               <Lock size={10} /> المالك (تلقائي من السجل)
+                           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">يمكن البحث بالكود أو اسم المالك أو رقم القطعة</div>
+
+                           <label className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/70 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/30 cursor-pointer">
+                               <div>
+                                   <div className="text-xs font-bold text-slate-800 dark:text-white">للبيع فقط</div>
+                                   <div className="text-[11px] text-slate-500 dark:text-slate-400">سيتم إخفاء العقار من قوائم الإيجار (اختيار العقار في العقود)</div>
+                               </div>
+                               <input type="checkbox" className="w-5 h-5" checked={saleOnly} onChange={e => setSaleOnly(e.target.checked)} />
                            </label>
-                           <div className="font-bold text-sm text-slate-900 dark:text-white">
+                       </div>
+
+                       <div className={`${DS.components.card} p-4`}>
+                           <div className="flex items-center justify-between gap-2">
+                               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                   <Lock size={10} /> المالك (تلقائي)
+                               </label>
+                           </div>
+                           <div className="font-bold text-sm text-slate-900 dark:text-white mt-2 whitespace-normal break-words">
                                {newListing.رقم_المالك ? getPersonName(newListing.رقم_المالك) : <span className="text-slate-400">يرجى اختيار العقار أولاً</span>}
                            </div>
                        </div>
 
-                       <div className="grid grid-cols-2 gap-4">
-                           <div>
-                               <label className="block text-sm font-bold mb-1">السعر المطلوب</label>
-                               <input type="number" className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600" required
-                                   value={newListing.السعر_المطلوب} onChange={e => setNewListing({...newListing, السعر_المطلوب: Number(e.target.value)})} />
+                       <div className={`${DS.components.card} p-4 space-y-4`}>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                               <div>
+                                   <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">السعر المطلوب <span className="text-red-500">*</span></label>
+                                   <input
+                                       type="number"
+                                       className="w-full py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
+                                       required
+                                       min={0}
+                                       value={newListing.السعر_المطلوب}
+                                       onChange={e => setNewListing({ ...newListing, السعر_المطلوب: Number(normalizeDigitsToLatin(e.target.value)) })}
+                                       placeholder="0"
+                                   />
+                                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">سيظهر للمستخدمين كـ “السعر المطلوب”</div>
+                               </div>
+                               <div>
+                                   <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">أقل سعر مقبول</label>
+                                   <input
+                                       type="number"
+                                       className="w-full py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
+                                       min={0}
+                                       value={newListing.أقل_سعر_مقبول}
+                                       onChange={e => setNewListing({ ...newListing, أقل_سعر_مقبول: Number(normalizeDigitsToLatin(e.target.value)) })}
+                                       placeholder="0"
+                                   />
+                                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">اختياري — لتحديد حد التفاوض</div>
+                               </div>
                            </div>
+
                            <div>
-                               <label className="block text-sm font-bold mb-1">أقل سعر مقبول</label>
-                               <input type="number" className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600" required
-                                   value={newListing.أقل_سعر_مقبول} onChange={e => setNewListing({...newListing, أقل_سعر_مقبول: Number(e.target.value)})} />
+                               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">نوع البيع</label>
+                               <select
+                                   className="w-full py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
+                                   value={newListing.نوع_البيع}
+                                   onChange={e => setNewListing({ ...newListing, نوع_البيع: e.target.value as SalesType })}
+                               >
+                                   <option value="Cash">نقد (Cash)</option>
+                                   <option value="Installment">أقساط (Installment)</option>
+                                   <option value="Mortgage">رهن عقاري (Mortgage)</option>
+                               </select>
                            </div>
                        </div>
-                       <div>
-                           <label className="block text-sm font-bold mb-1">نوع البيع</label>
-                           <select className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600" 
-                               value={newListing.نوع_البيع} onChange={e => setNewListing({...newListing, نوع_البيع: e.target.value as SalesType})}>
-                               <option value="Cash">نقد (Cash)</option>
-                               <option value="Installment">أقساط (Installment)</option>
-                               <option value="Mortgage">رهن عقاري (Mortgage)</option>
-                           </select>
+
+                       <div className="flex items-center justify-end gap-3 pt-2">
+                           <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+                               إلغاء
+                           </Button>
+                           <Button type="submit" variant="primary">
+                               حفظ العرض
+                           </Button>
                        </div>
-                       <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">حفظ العرض</button>
                    </form>
                </div>
            </div>
@@ -774,8 +925,8 @@ export const Sales: React.FC = () => {
 
        {/* Create Agreement Modal */}
        {isAgreementModalOpen && (
-           <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-               <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-scale-up h-[90vh] flex flex-col">
+           <div className="modal-overlay app-modal-overlay">
+               <div className="modal-content app-modal-content w-full max-w-lg overflow-hidden animate-scale-up h-[90vh] flex flex-col shadow-xl">
                    <div className="p-5 border-b border-gray-100 dark:border-slate-700 bg-emerald-600 text-white flex justify-between">
                        <h3 className="font-bold text-lg">{editingAgreementId ? 'تعديل اتفاقية بيع' : 'إنشاء اتفاقية بيع نهائية'}</h3>
                                              <button
@@ -835,10 +986,10 @@ export const Sales: React.FC = () => {
                                    dir="ltr"
                                    inputMode="numeric"
                                    className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
-                                   value={String((newAgreement as any).رقم_الفرصة ?? '')}
+                                   value={String(newAgreement.رقم_الفرصة ?? '')}
                                    onChange={(e) => {
                                        const next = normalizeDigitsToLatin(e.target.value);
-                                       setNewAgreement({ ...(newAgreement as any), رقم_الفرصة: next } as any);
+                                       setNewAgreement((prev) => ({ ...prev, رقم_الفرصة: next }));
                                    }}
                                    placeholder="Opportunity #"
                                />
@@ -847,8 +998,8 @@ export const Sales: React.FC = () => {
                                <label className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 select-none">
                                    <input
                                        type="checkbox"
-                                       checked={!!(newAgreement as any).يوجد_ادخال_عقار}
-                                       onChange={(e) => setNewAgreement({ ...(newAgreement as any), يوجد_ادخال_عقار: e.target.checked } as any)}
+                                       checked={!!newAgreement.يوجد_ادخال_عقار}
+                                       onChange={(e) => setNewAgreement((prev) => ({ ...prev, يوجد_ادخال_عقار: e.target.checked }))}
                                    />
                                    عمولة إدخال عقار (5%)
                                </label>
@@ -907,7 +1058,7 @@ export const Sales: React.FC = () => {
                            const breakdown = computeEmployeeCommission({
                                rentalOfficeCommissionTotal: 0,
                                saleOfficeCommissionTotal: Number(newAgreement.العمولة_الإجمالية || 0),
-                               propertyIntroEnabled: !!(newAgreement as any).يوجد_ادخال_عقار,
+                               propertyIntroEnabled: !!newAgreement.يوجد_ادخال_عقار,
                            });
 
                            return (

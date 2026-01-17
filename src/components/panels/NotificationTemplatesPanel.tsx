@@ -6,10 +6,8 @@ import { useToast } from '@/context/ToastContext';
 import {
   Edit,
   Trash2,
-  Send,
   Plus,
   MessageSquare,
-  X,
   Check,
   Copy,
   Eye,
@@ -23,11 +21,17 @@ import {
   NotificationTemplate,
   TemplateContext,
   fillTemplateComplete,
-  openWhatsApp,
-  getWhatsAppLink
+  openWhatsApp
 } from '@/services/notificationTemplates';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { DS } from '@/constants/designSystem';
+
+const getStringProp = (value: unknown, key: string): string | undefined => {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const record = value as Record<string, unknown>;
+  const prop = record[key];
+  return typeof prop === 'string' ? prop : undefined;
+};
 
 /**
  * مكون إدارة نماذج الإشعارات والرسائل
@@ -75,7 +79,8 @@ export const NotificationTemplatesPanel: React.FC = () => {
   const handleSaveEdit = () => {
     if (!editingId || !editData.title || !editData.body) return;
 
-    const updated = NotificationTemplates.update(editingId, editData as any);
+    const { id: _ignoredId, createdAt: _ignoredCreatedAt, ...updates } = editData;
+    const updated = NotificationTemplates.update(editingId, updates);
     if (updated) {
       setTemplates(NotificationTemplates.getAll());
       setEditingId(null);
@@ -141,7 +146,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
     const preview = fillTemplateComplete(template, previewContext);
     const message = `${preview.title}\n\n${preview.body}`;
 
-    const phone = (previewContext as any).phone as string | undefined;
+    const phone = getStringProp(previewContext, 'phone');
     if (!phone || phone.trim().length === 0) {
       toast.warning('يرجى إدخال رقم هاتف للمستأجر قبل فتح واتساب');
       return;

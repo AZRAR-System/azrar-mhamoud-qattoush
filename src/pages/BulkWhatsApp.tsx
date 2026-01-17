@@ -50,11 +50,15 @@ const normalizePhoneLoose = (raw?: string): string => {
 
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
-const clampInt = (n: any, min: number, max: number): number => {
+const clampInt = (n: unknown, min: number, max: number): number => {
   const x = Number(n);
   if (!Number.isFinite(x)) return min;
   return Math.min(max, Math.max(min, Math.trunc(x)));
 };
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+const getValue = (obj: unknown, key: string): unknown => (isRecord(obj) ? obj[key] : undefined);
 
 const randBetween = (min: number, max: number): number => {
   const a = Math.min(min, max);
@@ -144,12 +148,19 @@ export const BulkWhatsApp: React.FC = () => {
 
   const contacts: ContactItem[] = useMemo(() => {
     return (contactsList || [])
-      .map((c: any) => ({
-        id: String(c?.id ?? c?.phone ?? c?.name ?? ''),
-        name: String(c?.name || '').trim() || 'غير محدد',
-        phone: String(c?.phone || '').trim() || undefined,
-        extraPhone: String(c?.extraPhone || '').trim() || undefined,
-      }))
+      .map((c: unknown) => {
+        const idLike = getValue(c, 'id') ?? getValue(c, 'phone') ?? getValue(c, 'name') ?? '';
+        const nameLike = getValue(c, 'name') ?? '';
+        const phoneLike = getValue(c, 'phone') ?? '';
+        const extraPhoneLike = getValue(c, 'extraPhone') ?? '';
+
+        return {
+          id: String(idLike),
+          name: String(nameLike).trim() || 'غير محدد',
+          phone: String(phoneLike).trim() || undefined,
+          extraPhone: String(extraPhoneLike).trim() || undefined,
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [contactsList]);
 
@@ -354,7 +365,7 @@ export const BulkWhatsApp: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-4 space-y-4">
+      <div className="app-card p-4 space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             <label className="block text-sm font-bold text-slate-800 dark:text-white mb-2">نص الرسالة</label>
@@ -497,7 +508,7 @@ export const BulkWhatsApp: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="app-card">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 dark:border-slate-700">
           <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-white">
             <MessageCircle size={18} />

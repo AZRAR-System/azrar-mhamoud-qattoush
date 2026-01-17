@@ -18,6 +18,7 @@ import {
   BadgeDollarSign,
   Lock,
   BookOpen,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { ROUTE_PATHS, type RoutePath } from './paths';
@@ -27,7 +28,7 @@ export type RoleName = 'SuperAdmin' | string;
 export type NavItem = {
   label: string;
   path: RoutePath | string;
-  icon: any;
+  icon: LucideIcon;
   children?: NavItem[];
   role?: RoleName;
 };
@@ -86,3 +87,27 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
 
   return titles;
 })();
+
+// Optional: per-route subtitle/description (shown in the global header).
+// Keep aligned with page headers where available.
+export const ROUTE_SUBTITLES: Record<string, string> = {
+  [ROUTE_PATHS.DASHBOARD]: 'نظام مراقبة شامل متعدد الطبقات مع تحديثات فورية',
+  [ROUTE_PATHS.SALES]: 'نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية',
+  [ROUTE_PATHS.PEOPLE]: 'سجل العملاء، الملاك، والمستأجرين',
+  [ROUTE_PATHS.CONTACTS]: 'سجل هاتف مُستمد من الأشخاص مع اتصال وواتساب',
+  [ROUTE_PATHS.CONTRACTS]: 'دورة حياة كاملة للعقود: إنشاء، تجديد، مخالصات، وأرشفة.',
+  [ROUTE_PATHS.INSTALLMENTS]: 'إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات',
+  [ROUTE_PATHS.COMMISSIONS]: 'تتبع صافي العمولات من العقود والعمليات الخارجية الشهرية',
+  [ROUTE_PATHS.MAINTENANCE]: 'إدارة طلبات الصيانة وتكاليف الإصلاح',
+  [ROUTE_PATHS.ALERTS]: 'مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر',
+  [ROUTE_PATHS.REPORTS]: 'توليد تقارير تفصيلية عن جميع عمليات النظام مع إمكانية التصدير والطباعة.',
+  [ROUTE_PATHS.LEGAL]: 'توليد وإدارة الإنذارات والإشعارات القانونية للمستأجرين.',
+  [ROUTE_PATHS.BUILDER]: 'إدارة الحقول + الجداول + النماذج الديناميكية',
+  [ROUTE_PATHS.DOCUMENTS]: 'عرض مجمّع للمرفقات حسب الصنف والصفة',
+  [ROUTE_PATHS.BULK_WHATSAPP]: 'اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح',
+  [ROUTE_PATHS.ADMIN_PANEL]: 'إدارة المستخدمين، الصلاحيات، ومراقبة النظام',
+  [ROUTE_PATHS.SETTINGS]: 'تخصيص البيانات، القوائم، والنسخ الاحتياطي',
+  [ROUTE_PATHS.DATABASE]: 'إدارة الجداول، تحسين الأداء، والتحكم في القيود',
+  [ROUTE_PATHS.DOCS]: 'مرجع المطورين، الهيكلية، ودليل التشغيل',
+  [ROUTE_PATHS.RESET_DATABASE]: 'حذف البيانات وإعادة تهيئة النظام',
+};

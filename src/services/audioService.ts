@@ -12,7 +12,7 @@ interface SoundConfig {
   enabled: boolean;
 }
 
-const SOUND_CONFIG: Record<SoundType, string> = {
+const _SOUND_CONFIG: Record<SoundType, string> = {
   success: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
   error: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
   warning: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
@@ -77,7 +77,11 @@ class AudioService {
     const type: SoundType = typeof input === 'string' ? input : input.type;
 
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const webkitAudioContext = (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const AudioContextCtor = window.AudioContext || webkitAudioContext;
+      if (!AudioContextCtor) throw new Error('AudioContext not available');
+
+      const audioContext = new AudioContextCtor();
       const now = audioContext.currentTime;
       const duration = 0.2;
 

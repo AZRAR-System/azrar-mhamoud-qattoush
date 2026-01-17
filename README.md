@@ -84,6 +84,19 @@ npm run desktop:dev
 start-desktop.bat
 ```
 
+### تشغيل الواجهة (Web) بدون Electron (اختياري)
+
+```bash
+npm run dev
+```
+
+افتح:
+```
+http://localhost:5173/#/login
+```
+
+- إذا كانت هذه أول مرة ولا يوجد مستخدمون، أنشئ حساب SuperAdmin من بطاقة "إعداد أول مرة" داخل صفحة الدخول.
+
 ### بناء التطبيق
 
 ```bash
@@ -125,7 +138,7 @@ azrar-desktop/
 │
 ├── 📂 docs/                   # التوثيق
 │   ├── CODE_SIGNING.md       # دليل التوقيع الرقمي
-│   └── DEVELOPMENT.md        # دليل المطورين
+│   └── START_HERE_UPDATED.md # ابدأ من هنا
 │
 ├── 📂 release2_build/         # مخرجات البناء
 │   └── AZRAR Setup.exe       # المثبت النهائي
@@ -220,12 +233,12 @@ azrar-desktop/
 
 ## 📚 التوثيق
 
-- 📖 [دليل المستخدم](./docs/USER_GUIDE.md)
-- 👨‍💻 [دليل المطورين](./docs/DEVELOPMENT.md)
-- 🔐 [التوقيع الرقمي](./docs/CODE_SIGNING.md)
-- 🏗️ [المعمارية](./docs/ARCHITECTURE.md)
-- 🔧 [استكشاف الأخطاء](./docs/TROUBLESHOOTING.md)
-- 📝 [API Reference](./docs/API.md)
+- 🚀 [ابدأ من هنا](./docs/START_HERE_UPDATED.md)
+- 🧭 [فهرس التوثيق](./docs/INDEX.md)
+- ▶️ [دليل تشغيل النظام](./docs/RUN_SYSTEM_GUIDE.md)
+- 🧱 [معمارية الواجهة وطبقة البيانات](./docs/UI_ARCHITECTURE_REPORT.md)
+- 🧩 [التوثيق التقني](./docs/TECHNICAL_DOCUMENTATION.md)
+- 🔐 [سياسة الأمان](./SECURITY.md)
 
 ---
 
@@ -233,7 +246,7 @@ azrar-desktop/
 
 إذا واجهت مشكلة:
 
-1. تحقق من [الأسئلة الشائعة](./docs/FAQ.md)
+1. ابدأ من [ابدأ من هنا](./docs/START_HERE_UPDATED.md)
 2. ابحث في [Issues الموجودة](https://github.com/your-username/azrar-desktop/issues)
 3. افتح [Issue جديدة](https://github.com/your-username/azrar-desktop/issues/new) مع:
    - وصف المشكلة

@@ -11,6 +11,7 @@ import {
   BarChart3, TrendingUp, AlertCircle, Calendar, CheckSquare2, DollarSign, RefreshCw, Server, Activity, Search
 } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
+import type { الكمبيالات_tbl } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { NAV_ITEMS } from '@/constants';
@@ -26,7 +27,6 @@ import { MonitoringLayer } from '@/components/dashboard/layers/MonitoringLayer';
 import { formatCurrencyJOD, formatNumber, formatTimeHM } from '@/utils/format';
 import { QuickActionsBar } from '@/components/dashboard/layers/QuickActionsBar';
 import { DailySummaryWidget } from '@/components/dashboard/DailySummaryWidget';
-import { PaymentCollectionSendLog } from '@/components/dashboard/PaymentCollectionSendLog';
 import { MarqueeWidget } from '@/components/dashboard/MarqueeWidget';
 import { useSmartModal } from '@/context/ModalContext';
 import { DS } from '@/constants/designSystem';
@@ -43,6 +43,12 @@ interface LayerConfig {
   icon: React.ReactNode;
   description: string;
 }
+
+const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+const toNumber = (v: unknown): number => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
 
 const layerConfigs: LayerConfig[] = [
   {
@@ -125,20 +131,28 @@ export const Dashboard: React.FC = () => {
 
   const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
 
-  const employeeCommissionsThisMonth = useMemo(() => {
-    try {
-      const username = String((user as any)?.اسم_المستخدم || (user as any)?.name || '').trim();
-      const report: any = (DbService as any).runReport?.('employee_commissions');
-      const rows: any[] = Array.isArray(report?.data) ? report.data : [];
+  const userRecord = useMemo(() => toRecord(user), [user]);
+  const currentUsername = useMemo(() => String(userRecord['اسم_المستخدم'] ?? userRecord['name'] ?? '').trim(), [userRecord]);
 
-      const monthRowsAll = rows.filter((r: any) => String(r?.date || '').slice(0, 7) === currentMonth);
+  const employeeCommissionsThisMonth = useMemo(() => {
+    // Preserve original behavior: re-evaluate on dashboard refresh.
+    void dashboardData.meta.updatedAt;
+    try {
+      const username = currentUsername;
+      const reportApi = DbService as unknown as { runReport?: (name: string) => unknown };
+      const report = reportApi.runReport?.('employee_commissions');
+      const reportRec = toRecord(report);
+      const data = reportRec['data'];
+      const rows = Array.isArray(data) ? (data as unknown[]) : [];
+
+      const monthRowsAll = rows.filter((r) => String(toRecord(r)['date'] ?? '').slice(0, 7) === currentMonth);
       const monthRows = username
-        ? monthRowsAll.filter((r: any) => String(r?.employeeUsername || '').trim() === username)
+        ? monthRowsAll.filter((r) => String(toRecord(r)['employeeUsername'] ?? '').trim() === username)
         : monthRowsAll;
 
-      const totalOffice = monthRows.reduce((sum: number, r: any) => sum + (Number(r?.officeCommission) || 0), 0);
-      const totalIntro = monthRows.reduce((sum: number, r: any) => sum + (Number(r?.intro) || 0), 0);
-      const totalEmployee = monthRows.reduce((sum: number, r: any) => sum + (Number(r?.employeeTotal) || 0), 0);
+      const totalOffice = monthRows.reduce<number>((sum, r) => sum + toNumber(toRecord(r)['officeCommission']), 0);
+      const totalIntro = monthRows.reduce<number>((sum, r) => sum + toNumber(toRecord(r)['intro']), 0);
+      const totalEmployee = monthRows.reduce<number>((sum, r) => sum + toNumber(toRecord(r)['employeeTotal']), 0);
 
       return {
         count: monthRows.length,
@@ -155,13 +169,13 @@ export const Dashboard: React.FC = () => {
       };
     }
     // Recompute when dashboard data changes (sync/refresh)
-  }, [currentMonth, dashboardData.meta.updatedAt, user]);
+  }, [currentMonth, dashboardData.meta.updatedAt, currentUsername]);
 
-  const todayFollowUps = DbService.getFollowUps().filter((t: any) => String(t?.dueDate) === todayYMD);
-  const todayReminders = DbService.getReminders().filter((r: any) => String(r?.date) === todayYMD && String(r?.type) === 'Task');
+  const todayFollowUps = DbService.getFollowUps().filter((t) => String(toRecord(t)['dueDate'] ?? '') === todayYMD);
+  const todayReminders = DbService.getReminders().filter((r) => String(toRecord(r)['date'] ?? '') === todayYMD && String(toRecord(r)['type'] ?? '') === 'Task');
   const todayTaskTitles = [
-    ...todayFollowUps.map((t: any) => String(t?.task || '').trim()).filter(Boolean),
-    ...todayReminders.map((r: any) => String(r?.title || '').trim()).filter(Boolean),
+    ...todayFollowUps.map((t) => String(toRecord(t)['task'] ?? '').trim()).filter(Boolean),
+    ...todayReminders.map((r) => String(toRecord(r)['title'] ?? '').trim()).filter(Boolean),
   ];
   const todayTasksCount = todayTaskTitles.length;
 
@@ -182,8 +196,9 @@ export const Dashboard: React.FC = () => {
       const res = (await window.desktopDb.sqlSyncNow()) as unknown as { ok?: boolean; message?: string } | null;
       if (res?.ok) toast.success(res?.message || 'تمت المزامنة');
       else toast.error(res?.message || 'فشل المزامنة');
-    } catch (e: any) {
-      toast.error(e?.message || 'فشل المزامنة');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'فشل المزامنة';
+      toast.error(msg);
     } finally {
       setSyncBusy(false);
     }
@@ -191,12 +206,13 @@ export const Dashboard: React.FC = () => {
 
   const employeeOps = useMemo(() => {
     const logs = Array.isArray(dashboardData.logsRaw) ? dashboardData.logsRaw : [];
-    const username = String((user as any)?.اسم_المستخدم || (user as any)?.name || '').trim();
-    const userId = String((user as any)?.id || '').trim();
+    const username = currentUsername;
+    const userId = String(userRecord['id'] ?? '').trim();
 
-    const matchesUser = (l: any) => {
-      const byName = username && String(l?.اسم_المستخدم || '').trim() === username;
-      const byId = userId && String(l?.userId || l?.user_id || l?.رقم_المستخدم || '').trim() === userId;
+    const matchesUser = (l: unknown) => {
+      const rec = toRecord(l);
+      const byName = username && String(rec['اسم_المستخدم'] ?? '').trim() === username;
+      const byId = userId && String(rec['userId'] ?? rec['user_id'] ?? rec['رقم_المستخدم'] ?? '').trim() === userId;
       return byName || byId;
     };
 
@@ -205,31 +221,43 @@ export const Dashboard: React.FC = () => {
       total: userLogs.length,
       recent: userLogs.slice(0, 8),
     };
-  }, [dashboardData.logsRaw, user]);
+  }, [dashboardData.logsRaw, currentUsername, userRecord]);
 
   const pagesLinks = useMemo(() => {
-    type LinkItem = { label: string; path: string; icon?: any; group?: string };
+    type IconComponent = React.ComponentType<{ size?: number; className?: string }>;
+    type LinkItem = { label: string; path: string; icon?: IconComponent; group?: string };
 
     const out: LinkItem[] = [];
-    const add = (label: string, path: string, icon?: any, group?: string) => {
+    const add = (label: string, path: string, icon?: IconComponent, group?: string) => {
       if (!path || !path.startsWith('/')) return;
       if (out.some(x => x.path === path && x.label === label)) return;
       out.push({ label, path, icon, group });
     };
 
-    const visit = (item: any, group?: string) => {
-      if (item?.children?.length) {
-        const children = (item.children as any[]).filter((child: any) => {
-          if (child?.role && !isRole((user as any)?.الدور, child.role)) return false;
+    const visit = (item: unknown, group?: string) => {
+      const itemRec = toRecord(item);
+      const childrenRaw = itemRec['children'];
+      const children = Array.isArray(childrenRaw) ? (childrenRaw as unknown[]) : [];
+
+      if (children.length) {
+        const visible = children.filter((child) => {
+          const childRec = toRecord(child);
+          const requiredRole = childRec['role'];
+          if (requiredRole && !isRole(userRecord['الدور'], requiredRole)) return false;
           return true;
         });
-        children.forEach((child: any) => visit(child, item.label));
+        visible.forEach((child) => visit(child, String(itemRec['label'] ?? '')));
         return;
       }
-      add(String(item?.label || '').trim(), String(item?.path || ''), item?.icon, group);
+      add(
+        String(itemRec['label'] ?? '').trim(),
+        String(itemRec['path'] ?? ''),
+        itemRec['icon'] as IconComponent | undefined,
+        group
+      );
     };
 
-    NAV_ITEMS.forEach((n: any) => visit(n));
+    NAV_ITEMS.forEach((n) => visit(n));
 
     // Utility pages not always present in sidebar
     add('اتصالات', ROUTE_PATHS.CONTACTS, undefined, 'أدوات');
@@ -249,13 +277,13 @@ export const Dashboard: React.FC = () => {
       if (ag !== bg) return ag - bg;
       return a.label.localeCompare(b.label, 'ar');
     });
-  }, [pagesSearch, user]);
+  }, [pagesSearch, userRecord]);
 
   const runtimeRequirements = useMemo(() => {
     const isDesktop = !!window.desktopDb;
     const hasSqlSync = !!window.desktopDb?.sqlSyncNow;
     const hasBackup = !!window.desktopDb?.chooseBackupDir;
-    const hasUpdater = !!(window as any)?.desktopUpdater;
+    const hasUpdater = !!(window as unknown as { desktopUpdater?: unknown })?.desktopUpdater;
     return { isDesktop, hasSqlSync, hasBackup, hasUpdater };
   }, []);
 
@@ -331,7 +359,7 @@ export const Dashboard: React.FC = () => {
       <button
         type="button"
         onClick={() => openPanel('CALENDAR_EVENTS', todayYMD, { title: 'مهام اليوم' })}
-        className="mb-6 w-full text-right bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-md transition overflow-hidden"
+        className="mb-6 w-full text-right app-card hover:shadow-md transition"
         title="اضغط لفتح مهام اليوم"
       >
         <div className="p-4 flex items-center justify-between gap-4">
@@ -359,7 +387,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Employee Operations + Runtime Requirements */}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div className="lg:col-span-2 app-card">
           <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 flex-shrink-0">
@@ -379,7 +407,7 @@ export const Dashboard: React.FC = () => {
                 </Button>
               </a>
               <a
-                href={`#${ROUTE_PATHS.COMMISSIONS}?tab=employee&month=${encodeURIComponent(currentMonth)}&user=${encodeURIComponent(String((user as any)?.اسم_المستخدم || ''))}`}
+                href={`#${ROUTE_PATHS.COMMISSIONS}?tab=employee&month=${encodeURIComponent(currentMonth)}&user=${encodeURIComponent(currentUsername)}`}
               >
                 <Button variant="secondary" size="sm" title="فتح تقرير عمولات الموظفين">
                   العمولات
@@ -427,32 +455,35 @@ export const Dashboard: React.FC = () => {
               <div className="text-sm text-slate-500 dark:text-slate-400">لا توجد عمليات مسجلة باسمك حتى الآن.</div>
             ) : (
               <div className="space-y-2">
-                {employeeOps.recent.map((l: any) => (
+                {employeeOps.recent.map((l) => {
+                  const rec = toRecord(l);
+                  return (
                   <div
-                    key={String(l?.id || `${l?.تاريخ_العملية || ''}-${l?.نوع_العملية || ''}-${l?.اسم_الجدول || ''}`)}
+                    key={String(rec['id'] ?? `${rec['تاريخ_العملية'] ?? ''}-${rec['نوع_العملية'] ?? ''}-${rec['اسم_الجدول'] ?? ''}`)}
                     className="p-3 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50/60 dark:bg-slate-900/20"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-sm font-bold text-slate-800 dark:text-white truncate">
-                          {String(l?.نوع_العملية || 'عملية')}
+                          {String(rec['نوع_العملية'] ?? 'عملية')}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                          {String(l?.اسم_الجدول || '')}{l?.details ? ` • ${String(l.details)}` : ''}
+                          {String(rec['اسم_الجدول'] ?? '')}{rec['details'] ? ` • ${String(rec['details'])}` : ''}
                         </div>
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                        {String(l?.تاريخ_العملية || '').slice(0, 16).replace('T', ' ')}
+                        {String(rec['تاريخ_العملية'] ?? '').slice(0, 16).replace('T', ' ')}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div className="app-card">
           <div className="p-4 border-b border-gray-100 dark:border-slate-700">
             <div className="text-sm font-bold text-slate-900 dark:text-white">متطلبات التشغيل</div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
@@ -502,7 +533,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* All Pages Links */}
-      <div className="mt-6 bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="mt-6 app-card">
         <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-sm font-bold text-slate-900 dark:text-white">روابط جميع الصفحات</div>
@@ -544,7 +575,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Layer Navigation Tabs */}
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-2 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2 app-card p-4">
         {layerConfigs.map((layer) => (
           <Button
             key={layer.id}
@@ -567,7 +598,7 @@ export const Dashboard: React.FC = () => {
         {activeLayer === 'calendar' && <CalendarTasksLayer data={dashboardData} />}
         {activeLayer === 'monitoring' && <MonitoringLayer data={dashboardData} />}
         {activeLayer === 'performance' && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-200 dark:border-slate-700">
+          <div className="app-card p-6">
             <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">الأداء المالي</h2>
             {(() => {
               const now = new Date();
@@ -584,25 +615,29 @@ export const Dashboard: React.FC = () => {
               let dueUnpaidThisMonth = 0;
 
               if (isPerfReady) {
-                currentMonthCollections = Number(perf!.currentMonthCollections || 0) || 0;
-                previousMonthCollections = Number(perf!.previousMonthCollections || 0) || 0;
-                paidCountThisMonth = Number(perf!.paidCountThisMonth || 0) || 0;
-                dueUnpaidThisMonth = Number(perf!.dueUnpaidThisMonth || 0) || 0;
+                currentMonthCollections = Number(perf?.currentMonthCollections || 0) || 0;
+                previousMonthCollections = Number(perf?.previousMonthCollections || 0) || 0;
+                paidCountThisMonth = Number(perf?.paidCountThisMonth || 0) || 0;
+                dueUnpaidThisMonth = Number(perf?.dueUnpaidThisMonth || 0) || 0;
               } else {
-                const isDesktopFast = !!(dashboardData as any)?.desktopAggregations || !!(dashboardData as any)?.desktopHighlights || !!(window as any)?.desktopDb?.domainDashboardPerformance;
+                const dashRec = toRecord(dashboardData);
+                const wnd = window as unknown as { desktopDb?: { domainDashboardPerformance?: unknown } };
+                const isDesktopFast = !!dashRec['desktopAggregations'] || !!dashRec['desktopHighlights'] || !!wnd.desktopDb?.domainDashboardPerformance;
                 if (!isDesktopFast) {
                   // Web / legacy fallback
                   const installments = DbService.getInstallments();
-                  const isPaid = (i: any) => String(i?.حالة_الكمبيالة) === 'مدفوع';
+                  const isPaid = (i: الكمبيالات_tbl) => String(i?.حالة_الكمبيالة) === 'مدفوع';
                   const getMonth = (d?: string) => String(d || '').slice(0, 7);
                   const paidMonthSum = (m: string) => installments
-                    .filter((i: any) => isPaid(i) && (getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === m))
-                    .reduce((s: number, i: any) => s + Number(i.القيمة || 0), 0);
+                    .filter((i) => isPaid(i) && (getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === m))
+                    .reduce((s, i) => s + Number(i.القيمة || 0), 0);
 
                   currentMonthCollections = paidMonthSum(monthKey);
                   previousMonthCollections = paidMonthSum(prevMonthKey);
-                  paidCountThisMonth = installments.filter((i: any) => isPaid(i) && (getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === monthKey)).length;
-                  dueUnpaidThisMonth = installments.filter((i: any) => !isPaid(i) && (getMonth(i.تاريخ_استحقاق) === monthKey)).reduce((s: number, i: any) => s + Number(i.القيمة_المتبقية ?? i.القيمة ?? 0), 0);
+                  paidCountThisMonth = installments.filter((i) => isPaid(i) && (getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === monthKey)).length;
+                  dueUnpaidThisMonth = installments
+                    .filter((i) => !isPaid(i) && (getMonth(i.تاريخ_استحقاق) === monthKey))
+                    .reduce((s, i) => s + Number(i.القيمة_المتبقية ?? i.القيمة ?? 0), 0);
                 }
               }
 

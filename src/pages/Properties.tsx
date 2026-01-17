@@ -24,7 +24,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DbService } from '@/services/mockDb';
 import { العقارات_tbl, العقود_tbl, الأشخاص_tbl, DynamicFormField } from '@/types';
-import { MapPin, Edit2, Trash2, Home, Eye, Zap, Droplets, Briefcase, SlidersHorizontal, Download } from 'lucide-react';
+import { MapPin, Edit2, Trash2, Home, Eye, Zap, Droplets, Briefcase, SlidersHorizontal, Download, Upload, ArrowRight } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { exportToXlsx, readSpreadsheet } from '@/utils/xlsx';
@@ -33,42 +33,89 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { DS } from '@/constants/designSystem';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { SearchEngine, FilterRule } from '@/services/searchEngine';
 import { getTenancyStatusScore, isTenancyRelevant } from '@/utils/tenancy';
+import { ROUTE_PATHS } from '@/routes/paths';
 import { formatDynamicValue, isEmptyDynamicValue } from '@/components/dynamic/dynamicValue';
 import { getPersonColorClasses } from '@/utils/personColor';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { propertyPickerSearchPagedSmart, domainCountsSmart } from '@/services/domainQueries';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 
-const PAGE_SIZE = 48;
+type DesktopDbBridge = {
+    domainPropertyPickerSearch?: unknown;
+};
+
+type DesktopPropertyPickerItem = {
+    property: العقارات_tbl;
+    ownerName?: string;
+    ownerPhone?: string;
+    ownerNationalId?: string;
+    active?:
+        | {
+              contractId?: string;
+              status?: string;
+              startDate?: string;
+              endDate?: string;
+              tenantName?: string;
+              tenantPhone?: string;
+              guarantorName?: string;
+              guarantorPhone?: string;
+          }
+        | null;
+};
+
+type SaleFilter = '' | 'for-sale' | 'not-for-sale';
+type RentFilter = '' | 'for-rent' | 'not-for-rent';
+type ContractLinkFilter = 'all' | 'linked' | 'unlinked';
+
+type PropertyExtras = {
+    IsRented?: boolean;
+    isForRent?: boolean;
+    نوع_التاثيث?: string;
+    حقول_ديناميكية?: Record<string, unknown>;
+};
 
 export const Properties: React.FC = () => {
+    const pageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 18, xl: 24, '2xl': 32 });
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
     const [contracts, setContracts] = useState<العقود_tbl[]>([]);
     const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
 
-                const isDesktop = typeof window !== 'undefined' && !!(window as any)?.desktopDb;
-                const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainPropertyPickerSearch;
+                const desktopDb = (typeof window !== 'undefined'
+                    ? (window as unknown as { desktopDb?: DesktopDbBridge }).desktopDb
+                    : undefined);
+                const isDesktop = !!desktopDb;
+                const isDesktopFast = isDesktop && !!desktopDb?.domainPropertyPickerSearch;
                 const desktopUnsupported = isDesktop && !isDesktopFast;
 
                 const warnedUnsupportedRef = useRef(false);
+                const desktopRequestIdRef = useRef(0);
 
-        const [desktopRows, setDesktopRows] = useState<any[]>([]);
+        const [desktopRows, setDesktopRows] = useState<DesktopPropertyPickerItem[]>([]);
         const [desktopTotal, setDesktopTotal] = useState(0);
         const [desktopPage, setDesktopPage] = useState(0);
         const [desktopLoading, setDesktopLoading] = useState(false);
         const [desktopCounts, setDesktopCounts] = useState<{ people: number; properties: number; contracts: number } | null>(null);
 
+        const [uiPage, setUiPage] = useState(0);
+
         const importRef = useRef<HTMLInputElement>(null);
 
     const [showDynamicColumns, setShowDynamicColumns] = useState(false);
     const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-    const [filters, setFilters] = useState({ status: '', type: '', furnishing: '', sale: '' });
+    const [searchTerm, setSearchTerm] = useState('');
+        const [filters, setFilters] = useState<{ status: string; type: string; furnishing: string; sale: SaleFilter; rent: RentFilter }>({
+                status: '',
+                type: '',
+                furnishing: '',
+                sale: '',
+                rent: '',
+        });
         const [occupancy, setOccupancy] = useState<'all' | 'rented' | 'vacant'>('all');
   
   // Advanced Filters
@@ -76,7 +123,8 @@ export const Properties: React.FC = () => {
   const [advFilters, setAdvFilters] = useState({
       minArea: '', maxArea: '',
       minPrice: '', maxPrice: '',
-      floor: ''
+      floor: '',
+      contractLink: 'all' as ContractLinkFilter,
   });
 
   const { openPanel } = useSmartModal();
@@ -99,7 +147,7 @@ export const Properties: React.FC = () => {
                 if (!occ) {
                     setOccupancy('all');
                 } else if (occ === 'rented' || occ === 'vacant' || occ === 'all') {
-                    setOccupancy(occ as any);
+                    setOccupancy(occ as 'all' | 'rented' | 'vacant');
                     // Keep the visible status filter aligned (best-effort)
                     if (occ === 'rented') setFilters(prev => ({ ...prev, status: prev.status || 'مؤجر' }));
                     if (occ === 'vacant') setFilters(prev => ({ ...prev, status: prev.status || 'شاغر' }));
@@ -118,27 +166,41 @@ export const Properties: React.FC = () => {
         return () => window.removeEventListener('hashchange', applyFromHash);
     }, []);
 
-  useEffect(() => {
-    void loadData();
-    }, [dbSignal]);
-
-  const loadData = async () => {
+    const loadData = useCallback(async (pageOverride?: number) => {
       if (isDesktopFast) {
           setDesktopLoading(true);
+          const requestId = ++desktopRequestIdRef.current;
           try {
               const counts = await domainCountsSmart();
               setDesktopCounts(counts);
+
+              const minArea = showAdvanced ? String(advFilters.minArea || '').trim() : '';
+              const maxArea = showAdvanced ? String(advFilters.maxArea || '').trim() : '';
+              const floor = showAdvanced ? String(advFilters.floor || '').trim() : '';
+              const minPrice = showAdvanced ? String(advFilters.minPrice || '').trim() : '';
+              const maxPrice = showAdvanced ? String(advFilters.maxPrice || '').trim() : '';
+              const contractLink = showAdvanced ? (advFilters.contractLink || 'all') : 'all';
 
               const res = await propertyPickerSearchPagedSmart({
                   query: String(searchTerm || ''),
                   status: String(filters.status || ''),
                   type: String(filters.type || ''),
-                  offset: desktopPage * PAGE_SIZE,
-                  limit: PAGE_SIZE,
+                  offset: (pageOverride ?? desktopPage) * pageSize,
+                  limit: pageSize,
                   occupancy,
-                  sale: (filters.sale as any) || '',
+                  sale: filters.sale || '',
+                  rent: filters.rent || '',
+                  minArea,
+                  maxArea,
+                  floor,
+                  minPrice,
+                  maxPrice,
+                  contractLink: contractLink !== 'all' ? contractLink : '',
               });
-              setDesktopRows(Array.isArray(res.items) ? res.items : []);
+
+              // Ignore stale responses (typing / rapid filter changes).
+              if (requestId !== desktopRequestIdRef.current) return;
+              setDesktopRows(Array.isArray(res.items) ? (res.items as DesktopPropertyPickerItem[]) : []);
               setDesktopTotal(Number(res.total || 0) || 0);
 
               try {
@@ -183,7 +245,35 @@ export const Properties: React.FC = () => {
       } catch {
           setDynamicFields([]);
       }
-  };
+    }, [
+            advFilters.floor,
+            advFilters.maxArea,
+            advFilters.maxPrice,
+            advFilters.minArea,
+            advFilters.minPrice,
+            advFilters.contractLink,
+            desktopPage,
+            desktopUnsupported,
+            filters.rent,
+            filters.sale,
+            filters.status,
+            filters.type,
+            isDesktopFast,
+            occupancy,
+            pageSize,
+            searchTerm,
+            showAdvanced,
+            toast,
+    ]);
+
+    const loadDataRef = useRef(loadData);
+    useEffect(() => {
+        loadDataRef.current = loadData;
+    }, [loadData]);
+
+    useEffect(() => {
+        void loadDataRef.current();
+    }, [dbSignal]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
@@ -196,30 +286,37 @@ export const Properties: React.FC = () => {
 
     useEffect(() => {
         if (!isDesktopFast) return;
-        if (showAdvanced) {
-            toast.warning('التصفية المتقدمة غير مدعومة في وضع السرعة حالياً');
-            setShowAdvanced(false);
-            setAdvFilters({ minArea: '', maxArea: '', minPrice: '', maxPrice: '', floor: '' });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showAdvanced, isDesktopFast]);
 
-    useEffect(() => {
-        if (!isDesktopFast) return;
-        // Reset to first page on query/filter changes.
-        if (desktopPage !== 0) {
+        // Debounce SQL-backed search/filter fetches for a more instant feel while typing.
+        const handle = window.setTimeout(() => {
             setDesktopPage(0);
-        } else {
-            void loadData();
-        }
+            void loadData(0);
+        }, 180);
+
+        return () => window.clearTimeout(handle);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchTerm, filters.status, filters.type, filters.sale, occupancy, isDesktopFast]);
+    }, [
+        searchTerm,
+        filters.status,
+        filters.type,
+        filters.sale,
+        filters.rent,
+        occupancy,
+        showAdvanced,
+        advFilters.minArea,
+        advFilters.maxArea,
+        advFilters.minPrice,
+        advFilters.maxPrice,
+        advFilters.floor,
+        advFilters.contractLink,
+        pageSize,
+        isDesktopFast,
+    ]);
 
     useEffect(() => {
-        if (!isDesktopFast) return;
-        void loadData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [desktopPage, isDesktopFast]);
+        if (isDesktopFast) return;
+        setUiPage(0);
+    }, [searchTerm, filters, occupancy, showAdvanced, advFilters, pageSize, isDesktopFast]);
 
     const peopleMap = useMemo(() => new Map(people.map(p => [String(p.رقم_الشخص), p])), [people]);
     const getOwnerName = (id: string) => peopleMap.get(String(id))?.الاسم || 'غير معروف';
@@ -253,7 +350,7 @@ export const Properties: React.FC = () => {
             return m;
         }, [contracts]);
 
-    const normalize = (v: any) => String(v ?? '').trim().toLowerCase();
+    const normalize = (v: unknown) => String(v ?? '').trim().toLowerCase();
 
     const propertySearchIndex = useMemo(() => {
         // Build a searchable blob per property for fast filtering.
@@ -271,8 +368,9 @@ export const Properties: React.FC = () => {
             const tenantName = currentContract?.رقم_المستاجر
                 ? normalize(peopleMap.get(String(currentContract.رقم_المستاجر))?.الاسم)
                 : '';
-            const guarantorName = (currentContract as any)?.رقم_الكفيل
-                ? normalize(peopleMap.get(String((currentContract as any).رقم_الكفيل))?.الاسم)
+            const guarantorId = currentContract?.رقم_الكفيل;
+            const guarantorName = guarantorId
+                ? normalize(peopleMap.get(String(guarantorId))?.الاسم)
                 : '';
 
             const parts = [
@@ -306,20 +404,22 @@ export const Properties: React.FC = () => {
               : true;
           const matchStatus = filters.status ? p.حالة_العقار === filters.status : true;
           const matchType = filters.type ? p.النوع === filters.type : true;
-          const matchFurnishing = filters.furnishing ? String((p as any).نوع_التاثيث || '') === filters.furnishing : true;
+          const furnishingType = (p as العقارات_tbl & PropertyExtras).نوع_التاثيث;
+          const matchFurnishing = filters.furnishing ? String(furnishingType || '') === filters.furnishing : true;
           const matchSale = filters.sale
               ? (filters.sale === 'for-sale' ? !!p.isForSale : !p.isForSale)
               : true;
-          const isRented = typeof (p as any).IsRented === 'boolean'
-              ? (p as any).IsRented
-              : String((p as any).حالة_العقار || '').trim() === 'مؤجر';
+          const isForRent = (p as العقارات_tbl & PropertyExtras).isForRent;
+          const matchRent = filters.rent ? (filters.rent === 'for-rent' ? isForRent !== false : isForRent === false) : true;
+          const isRentedValue = (p as العقارات_tbl & PropertyExtras).IsRented;
+          const isRented = typeof isRentedValue === 'boolean' ? isRentedValue : String(p.حالة_العقار || '').trim() === 'مؤجر';
           const matchOccupancy = occupancy === 'all'
               ? true
               : occupancy === 'rented'
                   ? isRented === true
                   : isRented === false;
 
-          return matchSearch && matchStatus && matchType && matchFurnishing && matchSale && matchOccupancy;
+          return matchSearch && matchStatus && matchType && matchFurnishing && matchSale && matchRent && matchOccupancy;
       });
 
       // 2. Advanced Filters
@@ -337,15 +437,27 @@ export const Properties: React.FC = () => {
                   return price >= min && price <= max;
               });
           }
+
+          if (advFilters.contractLink === 'linked') {
+              result = result.filter((p) => activeContractByPropertyId.has(String(p.رقم_العقار)));
+          } else if (advFilters.contractLink === 'unlinked') {
+              result = result.filter((p) => !activeContractByPropertyId.has(String(p.رقم_العقار)));
+          }
           result = SearchEngine.applyFilters(result, rules);
       }
 
       return result;
-    }, [properties, searchTerm, filters, showAdvanced, advFilters, propertySearchIndex, occupancy]);
+    }, [properties, searchTerm, filters, showAdvanced, advFilters, propertySearchIndex, occupancy, activeContractByPropertyId]);
 
-    const desktopPageCount = isDesktopFast ? Math.max(1, Math.ceil(desktopTotal / PAGE_SIZE)) : 1;
+        const desktopPageCount = isDesktopFast ? Math.max(1, Math.ceil(desktopTotal / pageSize)) : 1;
 
-    const uniqueStrings = (values: any[]) => {
+        const uiPageCount = Math.max(1, Math.ceil(filteredProperties.length / pageSize));
+        const uiRows = useMemo(() => {
+                const start = uiPage * pageSize;
+                return filteredProperties.slice(start, start + pageSize);
+        }, [filteredProperties, uiPage, pageSize]);
+
+    const uniqueStrings = (values: unknown[]) => {
         const s = new Set<string>();
         for (const v of values) {
             const str = String(v ?? '').trim();
@@ -356,7 +468,14 @@ export const Properties: React.FC = () => {
 
     const lookupLabels = (category: string) => {
         try {
-            return (DbService.getLookupsByCategory(category) || []).map((x: any) => x.label).filter(Boolean);
+            const raw = DbService.getLookupsByCategory(category) as unknown;
+            const list = Array.isArray(raw) ? (raw as unknown[]) : [];
+            return list
+                .map((x) => {
+                    const label = (x as { label?: unknown })?.label;
+                    return typeof label === 'string' ? label : '';
+                })
+                .filter(Boolean);
         } catch {
             return [] as string[];
         }
@@ -385,7 +504,7 @@ export const Properties: React.FC = () => {
       });
   };
 
-    const normalizeKey = (v: any) => String(v ?? '').trim().toLowerCase();
+    const normalizeKey = (v: unknown) => String(v ?? '').trim().toLowerCase();
 
   const handleDownloadTemplate = async () => {
       const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
@@ -444,11 +563,12 @@ export const Properties: React.FC = () => {
           });
           if (!ok) return;
 
-          let rows: Array<Record<string, any>> = [];
+          let rows: Array<Record<string, unknown>> = [];
           try {
               rows = await readSpreadsheet(file);
-          } catch (e: any) {
-              toast.error(e?.message || 'فشل قراءة ملف الاستيراد');
+          } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : '';
+              toast.error(msg || 'فشل قراءة ملف الاستيراد');
               return;
           }
           if (!rows.length) {
@@ -456,7 +576,7 @@ export const Properties: React.FC = () => {
               return;
           }
 
-          const pick = (row: Record<string, any>, keys: string[]) => {
+          const pick = (row: Record<string, unknown>, keys: string[]) => {
               for (const k of keys) {
                   const v = row[k];
                   if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
@@ -475,7 +595,7 @@ export const Properties: React.FC = () => {
           const byNationalId = new Map<string, الأشخاص_tbl>();
           const byPhone = new Map<string, الأشخاص_tbl>();
           for (const p of peopleAll) {
-              const nid = normalizeKey((p as any).الرقم_الوطني);
+              const nid = normalizeKey(p.الرقم_الوطني);
               if (nid) byNationalId.set(nid, p);
               const ph = normalizeKey(p.رقم_الهاتف);
               if (ph) byPhone.set(ph, p);
@@ -518,7 +638,7 @@ export const Properties: React.FC = () => {
                       الكود_الداخلي: code,
                       رقم_المالك: owner.رقم_الشخص,
                       النوع: type,
-                      حالة_العقار: status as any,
+                      حالة_العقار: status as العقارات_tbl['حالة_العقار'],
                       IsRented: isRented,
                       المساحة: area,
                       العنوان: address,
@@ -528,7 +648,7 @@ export const Properties: React.FC = () => {
                       رقم_لوحة: plateNo || undefined,
                       رقم_شقة: aptNo || undefined,
                       ملاحظات: notes || undefined,
-                  } as any);
+                  } as Partial<العقارات_tbl>);
                   if (res.success) {
                       updated++;
                   } else {
@@ -542,7 +662,7 @@ export const Properties: React.FC = () => {
                       العنوان: address,
                       المدينة: city || undefined,
                       المنطقة: region || undefined,
-                      حالة_العقار: status as any,
+                      حالة_العقار: status as العقارات_tbl['حالة_العقار'],
                       الإيجار_التقديري: undefined,
                       IsRented: isRented,
                       المساحة: area,
@@ -550,7 +670,7 @@ export const Properties: React.FC = () => {
                       رقم_لوحة: plateNo || undefined,
                       رقم_شقة: aptNo || undefined,
                       ملاحظات: notes || undefined,
-                  } as any);
+                  } as Omit<العقارات_tbl, 'رقم_العقار'>);
                   if (res.success) {
                       created++;
                   } else {
@@ -562,7 +682,7 @@ export const Properties: React.FC = () => {
           loadData();
           toast.success(`تم الاستيراد: إضافة ${created} • تحديث ${updated} • تخطي ${skipped}`);
       },
-      [toast]
+      [loadData, toast]
   );
 
     const handleExport = async () => {
@@ -571,7 +691,7 @@ export const Properties: React.FC = () => {
 
               const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
 
-              const allItems: any[] = [];
+              const allItems: DesktopPropertyPickerItem[] = [];
               let offset = 0;
               const limit = 500;
               while (true) {
@@ -582,9 +702,10 @@ export const Properties: React.FC = () => {
                       offset,
                       limit,
                       occupancy,
-                      sale: (filters.sale as any) || '',
+                      sale: filters.sale || '',
+                      rent: filters.rent || '',
                   });
-                  const items = Array.isArray(res.items) ? res.items : [];
+                  const items = Array.isArray(res.items) ? (res.items as DesktopPropertyPickerItem[]) : [];
                   if (!items.length) break;
                   allItems.push(...items);
                   offset += items.length;
@@ -592,7 +713,7 @@ export const Properties: React.FC = () => {
               }
 
               const rows = allItems.map((it) => {
-                  const p = (it?.property || {}) as any;
+                  const p = it?.property as العقارات_tbl;
                   return {
                       ID: p.رقم_العقار,
                       Code: p.الكود_الداخلي,
@@ -649,7 +770,7 @@ export const Properties: React.FC = () => {
               Area: p.المساحة,
               Owner: owner?.الاسم || '',
               OwnerPhone: owner?.رقم_الهاتف || '',
-              OwnerNationalID: (owner as any)?.الرقم_الوطني || '',
+              OwnerNationalID: owner?.الرقم_الوطني || '',
               Address: p.العنوان,
               City: p.المدينة || '',
               Region: p.المنطقة || '',
@@ -689,9 +810,9 @@ export const Properties: React.FC = () => {
       const statusFromLookups = lookupLabels('prop_status');
       const furnishingFromLookups = lookupLabels('prop_furnishing');
 
-      const typeFromData = uniqueStrings(properties.map(p => (p as any).النوع));
-      const statusFromData = uniqueStrings(properties.map(p => (p as any).حالة_العقار));
-      const furnishingFromData = uniqueStrings(properties.map(p => (p as any).نوع_التاثيث));
+    const typeFromData = uniqueStrings(properties.map(p => p.النوع));
+    const statusFromData = uniqueStrings(properties.map(p => p.حالة_العقار));
+    const furnishingFromData = uniqueStrings(properties.map(p => (p as العقارات_tbl & PropertyExtras).نوع_التاثيث));
 
       const typeOptions = uniqueStrings([...typeFromLookups, ...typeFromData]).map(v => ({ value: v, label: v }));
       const statusOptions = uniqueStrings([...statusFromLookups, ...statusFromData]).map(v => ({ value: v, label: v }));
@@ -700,9 +821,7 @@ export const Properties: React.FC = () => {
       return [
           { key: 'type', label: 'النوع', options: typeOptions },
           { key: 'status', label: 'الحالة', options: statusOptions },
-          ...(isDesktopFast
-              ? ([] as any[])
-              : [{ key: 'furnishing', label: 'صفة العقار', options: furnishingOptions }]),
+          ...(isDesktopFast ? [] : [{ key: 'furnishing', label: 'صفة العقار', options: furnishingOptions }]),
           {
               key: 'sale',
               label: 'البيع',
@@ -711,8 +830,31 @@ export const Properties: React.FC = () => {
                   { value: 'not-for-sale', label: 'ليس للبيع' },
               ],
           },
+          {
+              key: 'rent',
+              label: 'الإيجار',
+              options: [
+                  { value: 'for-rent', label: 'للإيجار' },
+                  { value: 'not-for-rent', label: 'ليس للإيجار' },
+              ],
+          },
       ];
   }, [properties, isDesktopFast]);
+
+  const quickListForSale = (propertyId: string) => {
+      const pid = String(propertyId || '').trim();
+      if (!pid) return;
+      try {
+          localStorage.setItem('ui_sales_prefill_property_id', pid);
+      } catch {
+          // ignore
+      }
+      window.location.hash = '#' + ROUTE_PATHS.SALES;
+  };
+
+  const advInputClass =
+      'w-full py-3 px-4 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm text-slate-900 dark:text-white placeholder-slate-400';
+  const advLabelClass = 'block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1';
 
   return (
     <div className="space-y-6">
@@ -739,60 +881,141 @@ export const Properties: React.FC = () => {
           addLabel="عقار جديد"
           onRefresh={loadData}
           extraActions={
-              <>
-                <Button
-                    variant="secondary"
-                    onClick={() => {
-                        if (isDesktopFast) {
-                            toast.warning('التصفية المتقدمة غير مدعومة في وضع السرعة حالياً');
-                            return;
-                        }
-                        setShowAdvanced(!showAdvanced);
-                    }}
-                    leftIcon={<SlidersHorizontal size={18}/>}
-                >
-                    {showAdvanced ? 'إخفاء' : 'تصفية'}
-                </Button>
-                <Button variant="secondary" onClick={() => setShowDynamicColumns(v => !v)}>
-                    {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
-                </Button>
-                <Button variant="secondary" onClick={handleDownloadTemplate} leftIcon={<Download size={18}/>}>قالب Excel</Button>
-                <RBACGuard requiredPermission="ADD_PROPERTY">
-                    <Button variant="secondary" onClick={handlePickImportFile} leftIcon={<Download size={18}/>}>استيراد</Button>
-                </RBACGuard>
-                <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18}/> } />
-              </>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                  <SegmentedTabs
+                      tabs={[
+                          { id: 'all', label: 'الكل', icon: Home },
+                          { id: 'rented', label: 'مؤجر', icon: Briefcase },
+                          { id: 'vacant', label: 'شاغر', icon: Zap },
+                      ]}
+                      activeId={occupancy}
+                      onChange={(id) => {
+                          setOccupancy(id);
+                          // Best-effort: keep the visible status filter aligned when it's not explicitly set.
+                          if (id === 'rented') setFilters(prev => (prev.status ? prev : { ...prev, status: 'مؤجر' }));
+                          if (id === 'vacant') setFilters(prev => (prev.status ? prev : { ...prev, status: 'شاغر' }));
+                          if (id === 'all') {
+                              setFilters(prev => (prev.status === 'مؤجر' || prev.status === 'شاغر' ? { ...prev, status: '' } : prev));
+                          }
+                      }}
+                  />
+
+                  <Button
+                      variant="secondary"
+                      onClick={() => {
+                          setShowAdvanced(!showAdvanced);
+                      }}
+                      leftIcon={<SlidersHorizontal size={18}/>}
+                  >
+                      {showAdvanced ? 'إخفاء' : 'تصفية'}
+                  </Button>
+                  <Button variant="secondary" onClick={() => setShowDynamicColumns(v => !v)}>
+                      {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
+                  </Button>
+                  <Button variant="secondary" onClick={handleDownloadTemplate} leftIcon={<Download size={18}/>}>قالب Excel</Button>
+                  <RBACGuard requiredPermission="ADD_PROPERTY">
+                      <Button variant="secondary" onClick={handlePickImportFile} leftIcon={<Upload size={18}/>}>استيراد</Button>
+                  </RBACGuard>
+                  <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18}/>}>تصدير</Button>
+              </div>
           }
        />
 
        {/* Advanced Search Panel */}
        {showAdvanced && (
-           <Card className="p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 animate-slide-up bg-indigo-50/50 dark:bg-slate-800/50 border-indigo-100 dark:border-slate-700">
-               <input 
-                   type="number" placeholder="المساحة (من)" 
-                   className="p-2 rounded-lg border text-sm" 
-                   value={advFilters.minArea} onChange={e => setAdvFilters({...advFilters, minArea: e.target.value})}
-               />
-               <input 
-                   type="number" placeholder="المساحة (إلى)" 
-                   className="p-2 rounded-lg border text-sm" 
-                   value={advFilters.maxArea} onChange={e => setAdvFilters({...advFilters, maxArea: e.target.value})}
-               />
-               <input 
-                   type="number" placeholder="السعر (من)" 
-                   className="p-2 rounded-lg border text-sm" 
-                   value={advFilters.minPrice} onChange={e => setAdvFilters({...advFilters, minPrice: e.target.value})}
-               />
-               <input 
-                   type="number" placeholder="السعر (إلى)" 
-                   className="p-2 rounded-lg border text-sm" 
-                   value={advFilters.maxPrice} onChange={e => setAdvFilters({...advFilters, maxPrice: e.target.value})}
-               />
-               <input 
-                   type="text" placeholder="الطابق" 
-                   className="p-2 rounded-lg border text-sm" 
-                   value={advFilters.floor} onChange={e => setAdvFilters({...advFilters, floor: e.target.value})}
-               />
+           <Card className="p-5 mb-6 animate-slide-up bg-indigo-50/50 dark:bg-slate-900/40 border-indigo-100/80 dark:border-slate-800">
+               <div className="flex items-start justify-between gap-3 mb-4">
+                   <div>
+                       <div className="font-bold text-slate-800 dark:text-white">تصفية متقدمة</div>
+                       <div className="text-xs text-slate-500 dark:text-slate-400">فلترة حسب المساحة والسعر والطابق</div>
+                   </div>
+                   <Button
+                       size="sm"
+                       variant="secondary"
+                       onClick={() =>
+                           setAdvFilters({
+                               minArea: '',
+                               maxArea: '',
+                               minPrice: '',
+                               maxPrice: '',
+                               floor: '',
+                               contractLink: 'all',
+                           })
+                       }
+                   >
+                       إعادة ضبط
+                   </Button>
+               </div>
+
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                   <div>
+                       <label className={advLabelClass}>المساحة (من)</label>
+                       <input
+                           inputMode="numeric"
+                           type="number"
+                           placeholder="0"
+                           className={advInputClass}
+                           value={advFilters.minArea}
+                           onChange={e => setAdvFilters({ ...advFilters, minArea: e.target.value })}
+                       />
+                   </div>
+                   <div>
+                       <label className={advLabelClass}>المساحة (إلى)</label>
+                       <input
+                           inputMode="numeric"
+                           type="number"
+                           placeholder="0"
+                           className={advInputClass}
+                           value={advFilters.maxArea}
+                           onChange={e => setAdvFilters({ ...advFilters, maxArea: e.target.value })}
+                       />
+                   </div>
+                   <div>
+                       <label className={advLabelClass}>السعر (من)</label>
+                       <input
+                           inputMode="numeric"
+                           type="number"
+                           placeholder="0"
+                           className={advInputClass}
+                           value={advFilters.minPrice}
+                           onChange={e => setAdvFilters({ ...advFilters, minPrice: e.target.value })}
+                       />
+                   </div>
+                   <div>
+                       <label className={advLabelClass}>السعر (إلى)</label>
+                       <input
+                           inputMode="numeric"
+                           type="number"
+                           placeholder="0"
+                           className={advInputClass}
+                           value={advFilters.maxPrice}
+                           onChange={e => setAdvFilters({ ...advFilters, maxPrice: e.target.value })}
+                       />
+                   </div>
+                   <div>
+                       <label className={advLabelClass}>الطابق</label>
+                       <input
+                           type="text"
+                           placeholder="مثال: 3"
+                           className={advInputClass}
+                           value={advFilters.floor}
+                           onChange={e => setAdvFilters({ ...advFilters, floor: e.target.value })}
+                       />
+                   </div>
+
+                   <div>
+                       <label className={advLabelClass}>الارتباط بالعقد</label>
+                       <select
+                           className={advInputClass}
+                           value={advFilters.contractLink}
+                           onChange={e => setAdvFilters({ ...advFilters, contractLink: e.target.value as ContractLinkFilter })}
+                       >
+                           <option value="all">الكل</option>
+                           <option value="linked">مرتبط بعقد</option>
+                           <option value="unlinked">غير مرتبط بعقد</option>
+                       </select>
+                   </div>
+               </div>
            </Card>
        )}
 
@@ -815,9 +1038,9 @@ export const Properties: React.FC = () => {
                actionLabel={searchTerm ? "مسح البحث" : "مسح الفلاتر"}
                onAction={() => {
                    setSearchTerm('');
-                   setFilters({ status: '', type: '', furnishing: '', sale: '' });
+                   setFilters({ status: '', type: '', furnishing: '', sale: '', rent: '' });
                    setShowAdvanced(false);
-                   setAdvFilters({ minArea: '', maxArea: '', minPrice: '', maxPrice: '', floor: '' });
+                   setAdvFilters({ minArea: '', maxArea: '', minPrice: '', maxPrice: '', floor: '', contractLink: 'all' });
                }}
            />
        ) : (
@@ -833,7 +1056,11 @@ export const Properties: React.FC = () => {
                                size="sm"
                                variant="secondary"
                                disabled={desktopLoading || desktopPage <= 0}
-                               onClick={() => setDesktopPage((p) => Math.max(0, p - 1))}
+                               onClick={() => {
+                                   const next = Math.max(0, desktopPage - 1);
+                                   setDesktopPage(next);
+                                   void loadData(next);
+                               }}
                            >
                                السابق
                            </Button>
@@ -844,24 +1071,57 @@ export const Properties: React.FC = () => {
                                size="sm"
                                variant="secondary"
                                disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
-                               onClick={() => setDesktopPage((p) => p + 1)}
+                               onClick={() => {
+                                   const next = desktopPage + 1;
+                                   setDesktopPage(next);
+                                   void loadData(next);
+                               }}
                            >
                                التالي
                            </Button>
                        </div>
                    </div>
-               ) : null}
+               ) : (
+                   <div className="flex items-center justify-between mb-3">
+                       <div className="text-sm text-slate-500 dark:text-slate-400">
+                           {filteredProperties.length.toLocaleString()} نتيجة
+                       </div>
+                       <div className="flex items-center gap-2">
+                           <Button
+                               size="sm"
+                               variant="secondary"
+                               disabled={uiPage <= 0}
+                               onClick={() => setUiPage((p) => Math.max(0, p - 1))}
+                           >
+                               السابق
+                           </Button>
+                           <div className="text-sm text-slate-600 dark:text-slate-300">
+                               {uiPage + 1} / {uiPageCount}
+                           </div>
+                           <Button
+                               size="sm"
+                               variant="secondary"
+                               disabled={uiPage + 1 >= uiPageCount}
+                               onClick={() => setUiPage((p) => p + 1)}
+                           >
+                               التالي
+                           </Button>
+                       </div>
+                   </div>
+               )}
 
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                   {(isDesktopFast ? desktopRows : filteredProperties).map((rowOrProperty: any, idx: number) => (
+                   {(isDesktopFast ? desktopRows : uiRows).map((rowOrProperty: DesktopPropertyPickerItem | العقارات_tbl, idx: number) => (
                        (() => {
-                           const desktopItem = isDesktopFast ? rowOrProperty : null;
-                           const p = isDesktopFast ? desktopItem?.property : rowOrProperty;
+                           const desktopItem = isDesktopFast ? (rowOrProperty as DesktopPropertyPickerItem) : null;
+                           const p = isDesktopFast ? desktopItem?.property : (rowOrProperty as العقارات_tbl);
                            if (!p) return null;
-                           const activeC = isDesktopFast ? desktopItem?.active : activeContractByPropertyId.get(String(p.رقم_العقار));
-                           const tenant = !isDesktopFast && activeC?.رقم_المستاجر ? peopleMap.get(String(activeC.رقم_المستاجر)) : undefined;
-                           const guarantor = !isDesktopFast && activeC?.رقم_الكفيل ? peopleMap.get(String(activeC.رقم_الكفيل)) : undefined;
-                           const hasActive = Boolean(activeC);
+                           const activeDesktop = isDesktopFast ? desktopItem?.active : null;
+                           const activeLegacy = !isDesktopFast ? activeContractByPropertyId.get(String(p.رقم_العقار)) : null;
+
+                           const tenant = activeLegacy?.رقم_المستاجر ? peopleMap.get(String(activeLegacy.رقم_المستاجر)) : undefined;
+                           const guarantor = activeLegacy?.رقم_الكفيل ? peopleMap.get(String(activeLegacy.رقم_الكفيل)) : undefined;
+                           const hasActive = Boolean(isDesktopFast ? activeDesktop : activeLegacy);
 
                        const accentIcon = hasActive
                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
@@ -873,11 +1133,13 @@ export const Properties: React.FC = () => {
                        const ownerColor = getPersonColorClasses(String(p.رقم_المالك ?? ''));
 
                        const ownerName = isDesktopFast ? String(desktopItem?.ownerName || 'غير معروف') : getOwnerName(p.رقم_المالك);
-                       const tenantName = isDesktopFast ? String(activeC?.tenantName || (hasActive ? 'غير معروف' : '')) : String(tenant?.الاسم || '');
-                       const tenantPhone = isDesktopFast ? String(activeC?.tenantPhone || '') : String(tenant?.رقم_الهاتف || '');
-                       const contractId = isDesktopFast ? String(activeC?.contractId || '') : String(activeC?.رقم_العقد || '');
-                       const guarantorName = isDesktopFast ? String(activeC?.guarantorName || '') : String(guarantor?.الاسم || '');
-                       const guarantorPhone = isDesktopFast ? String(activeC?.guarantorPhone || '') : String(guarantor?.رقم_الهاتف || '');
+                       const tenantName = isDesktopFast
+                           ? String(activeDesktop?.tenantName || (hasActive ? 'غير معروف' : ''))
+                           : String(tenant?.الاسم || '');
+                       const tenantPhone = isDesktopFast ? String(activeDesktop?.tenantPhone || '') : String(tenant?.رقم_الهاتف || '');
+                       const contractId = isDesktopFast ? String(activeDesktop?.contractId || '') : String(activeLegacy?.رقم_العقد || '');
+                       const guarantorName = isDesktopFast ? String(activeDesktop?.guarantorName || '') : String(guarantor?.الاسم || '');
+                       const guarantorPhone = isDesktopFast ? String(activeDesktop?.guarantorPhone || '') : String(guarantor?.رقم_الهاتف || '');
 
                        return (
                    <Card key={p.رقم_العقار || idx} className={`group animate-slide-up ${accentRing}`}>
@@ -936,7 +1198,7 @@ export const Properties: React.FC = () => {
                                    )}
                                </div>
 
-                               {hasActive && (isDesktopFast ? Boolean(guarantorName) : Boolean(activeC?.رقم_الكفيل)) ? (
+                               {hasActive && (isDesktopFast ? Boolean(guarantorName) : Boolean(activeLegacy?.رقم_الكفيل)) ? (
                                    <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                        <span className="font-bold text-slate-500 flex-shrink-0">الكفيل:</span>
                                        <div className="min-w-0">
@@ -953,14 +1215,26 @@ export const Properties: React.FC = () => {
                                ) : null}
 
                                <div className="flex gap-2 mt-2 flex-wrap">
-                                   {p.رقم_اشتراك_الكهرباء && <span className="text-[10px] bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded border border-yellow-200 flex items-center gap-1"><Zap size={10}/> كهرباء</span>}
-                                   {p.رقم_اشتراك_المياه && <span className="text-[10px] bg-cyan-50 text-cyan-700 px-1.5 py-0.5 rounded border border-cyan-200 flex items-center gap-1"><Droplets size={10}/> مياه</span>}
-                                   {p.isForSale && <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1 font-bold"><Briefcase size={10}/> للبيع</span>}
+                                   {p.رقم_اشتراك_الكهرباء && (
+                                       <span className="text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
+                                           <Zap size={10} /> كهرباء
+                                       </span>
+                                   )}
+                                   {p.رقم_اشتراك_المياه && (
+                                       <span className="text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-300 dark:border-cyan-500/20">
+                                           <Droplets size={10} /> مياه
+                                       </span>
+                                   )}
+                                   {p.isForSale && (
+                                       <span className="text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 font-bold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20">
+                                           <Briefcase size={10} /> {(p as العقارات_tbl & PropertyExtras).isForRent === false ? 'للبيع فقط' : 'للبيع'}
+                                       </span>
+                                   )}
                                </div>
 
                                {showDynamicColumns && dynamicFields.length > 0 ? (
                                    (() => {
-                                       const values = (p as any)?.حقول_ديناميكية || {};
+                                       const values = (p as العقارات_tbl & PropertyExtras)?.حقول_ديناميكية || {};
                                        const visible = dynamicFields
                                            .map((f) => ({ f, v: values?.[f.name] }))
                                            .filter(({ v }) => !isEmptyDynamicValue(v));
@@ -968,7 +1242,7 @@ export const Properties: React.FC = () => {
                                        if (!visible.length) return null;
 
                                        return (
-                                           <div className="rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                                           <div className="rounded-xl border border-slate-200/70 dark:border-slate-800 bg-white/70 dark:bg-slate-950/20 p-3">
                                                <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">حقول إضافية</div>
                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                    {visible.map(({ f, v }) => (
@@ -987,14 +1261,27 @@ export const Properties: React.FC = () => {
                            <div className="pt-4 border-t border-gray-100 dark:border-slate-700 flex gap-2">
                                <Button
                                   size="sm"
-                                  variant="secondary"
-                                  className="flex-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-700/50"
+                                  variant="outline"
+                                  className="flex-1 justify-center gap-2 whitespace-nowrap min-w-[140px] rounded-xl shadow-sm"
                                   onClick={() => openPanel('PROPERTY_DETAILS', p.رقم_العقار)}
-                                  leftIcon={<Eye size={14} />}
+                                  title="تفاصيل العقار"
+                                  aria-label="تفاصيل العقار"
+                                  rightIcon={<Eye size={14} className="shrink-0" />}
+                                  leftIcon={<ArrowRight size={14} className="shrink-0 opacity-80" />}
                                >
                                    التفاصيل
                                </Button>
                                <RBACGuard requiredPermission="EDIT_PROPERTY">
+                                   <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                                      onClick={() => quickListForSale(String(p.رقم_العقار))}
+                                      title="عرض للبيع"
+                                      aria-label="عرض للبيع"
+                                    >
+                                        <Briefcase size={16} />
+                                    </Button>
                                    <Button size="icon" variant="ghost" onClick={() => handleOpenForm(p.رقم_العقار)}><Edit2 size={16} /></Button>
                                </RBACGuard>
                                <RBACGuard requiredPermission="DELETE_PROPERTY">

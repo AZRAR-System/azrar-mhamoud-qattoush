@@ -1,24 +1,35 @@
 import { العقود_tbl } from '@/types';
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+const hasUnknownProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, unknown> =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
 export const getTenancyStatusScore = (status: unknown) => {
   // Higher score = more relevant “current” tenancy.
   // We include 'مجدد' as a fallback because some datasets mark current contracts this way.
-  switch (String(status || '')) {
-    case 'نشط':
-      return 3;
-    case 'قريب الانتهاء':
-      return 2;
-    case 'مجدد':
-      return 1;
-    default:
-      return 0;
-  }
+  const raw = String(status || '').trim();
+  const lower = raw.toLowerCase();
+
+  // Normalize common variants across datasets/legacy imports.
+  if (raw === 'نشط' || raw === 'ساري' || raw === 'سارية' || raw === 'فعال' || lower === 'active') return 3;
+  if (raw === 'قريب الانتهاء' || raw === 'قريبة الانتهاء') return 2;
+  if (raw === 'مجدد' || raw === 'تجديد' || lower === 'renewed') return 1;
+  return 0;
 };
 
-export const isTenancyRelevant = (c: Pick<العقود_tbl, 'حالة_العقد' | 'isArchived'> | any) => {
+export const isTenancyRelevant = (c: Pick<العقود_tbl, 'حالة_العقد' | 'isArchived'> | unknown) => {
   if (!c) return false;
-  if ((c as any).isArchived) return false;
-  return getTenancyStatusScore((c as any).حالة_العقد) > 0;
+
+  const archived =
+    isRecord(c) && hasUnknownProp(c, 'isArchived')
+      ? Boolean(c.isArchived)
+      : // If it's not an object or the property doesn't exist, treat as not archived.
+        false;
+  if (archived) return false;
+
+  const status = isRecord(c) && hasUnknownProp(c, 'حالة_العقد') ? c.حالة_العقد : undefined;
+  return getTenancyStatusScore(status) > 0;
 };
 
 export const isBetterTenancyContract = (next: العقود_tbl, prev?: العقود_tbl) => {

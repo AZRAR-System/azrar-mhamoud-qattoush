@@ -16,18 +16,25 @@ import { storage } from '@/services/storage';
 import { personDetailsSmart, personTenancyContractsSmart } from '@/services/domainQueries';
 import type { PersonDetailsResult, الأشخاص_tbl, العقارات_tbl, العقود_tbl, سجل_الملكية_tbl, عروض_البيع_tbl, اتفاقيات_البيع_tbl } from '@/types';
 
+type FastTenancyItem = {
+  contract: العقود_tbl;
+  propertyCode?: string;
+  propertyAddress?: string;
+  tenantName?: string;
+};
+
 export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id, onClose }) => {
   const [profileData, setProfileData] = useState<PersonDetailsResult | null>(null);
-  const [fastTenancy, setFastTenancy] = useState<Array<{ contract: any; propertyCode?: string; propertyAddress?: string; tenantName?: string }>>([]);
+  const [fastTenancy, setFastTenancy] = useState<FastTenancyItem[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const { openPanel } = useSmartModal();
   const toast = useToast();
 
-  const isDesktop = storage.isDesktop() && !!(window as any)?.desktopDb;
+  const isDesktop = storage.isDesktop() && typeof window !== 'undefined' && !!window.desktopDb;
   const isDesktopFast =
     isDesktop &&
-    !!(window as any)?.desktopDb?.domainPersonDetails &&
-    !!(window as any)?.desktopDb?.domainPersonTenancyContracts;
+    !!window.desktopDb?.domainPersonDetails &&
+    !!window.desktopDb?.domainPersonTenancyContracts;
   const desktopUnsupported = isDesktop && !isDesktopFast;
 
   const loadData = useCallback(() => {
@@ -52,10 +59,10 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
           if (!alive) return;
 
           setLoadError(null);
-          if (details) setProfileData(details as any);
+          if (details) setProfileData(details);
           else setProfileData(null);
 
-          setFastTenancy(Array.isArray(tenancy) ? tenancy : []);
+          setFastTenancy(Array.isArray(tenancy) ? (tenancy as FastTenancyItem[]) : []);
         } catch {
           if (!alive) return;
           setLoadError('تعذر تحميل بيانات الشخص في وضع السرعة');
@@ -74,7 +81,7 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
     return () => {
       alive = false;
     };
-  }, [id, isDesktopFast]);
+  }, [id, isDesktopFast, desktopUnsupported]);
 
   useEffect(() => {
     const cleanup = loadData();
@@ -82,6 +89,83 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
       if (typeof cleanup === 'function') cleanup();
     };
   }, [loadData]);
+
+  // Hooks MUST run on every render (prevents React error #310).
+  // Use safe fallbacks so we can still render loading/unsupported states.
+  const ownedProperties = useMemo(() => profileData?.ownedProperties ?? [], [profileData]);
+  const propsIndex = useMemo<العقارات_tbl[]>(
+    () => (!isDesktopFast && profileData ? (DbService.getProperties() as العقارات_tbl[]) : []),
+    [isDesktopFast, profileData]
+  );
+  const peopleIndex = useMemo<الأشخاص_tbl[]>(
+    () => (!isDesktopFast && profileData ? (DbService.getPeople() as الأشخاص_tbl[]) : []),
+    [isDesktopFast, profileData]
+  );
+  const tenancyContractsRaw = useMemo<العقود_tbl[]>(() => {
+    if (isDesktopFast) return (fastTenancy ?? []).map((x) => x.contract).filter(Boolean);
+    if (profileData) return DbService.getContracts() as العقود_tbl[];
+    return [];
+  }, [isDesktopFast, fastTenancy, profileData]);
+  const tenancyContracts = useMemo(() => (tenancyContractsRaw ?? []).filter(isTenancyRelevant), [tenancyContractsRaw]);
+
+  const peopleById = useMemo(() => {
+    const map = new Map<string, الأشخاص_tbl>();
+    if (isDesktopFast) return map;
+    for (const person of peopleIndex) map.set(String(person.رقم_الشخص), person);
+    return map;
+  }, [isDesktopFast, peopleIndex]);
+
+  const propertiesById = useMemo(() => {
+    const map = new Map<string, العقارات_tbl>();
+    if (isDesktopFast) return map;
+    for (const prop of propsIndex) map.set(String(prop.رقم_العقار), prop);
+    return map;
+  }, [isDesktopFast, propsIndex]);
+
+  const tenantNameByContractId = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!isDesktopFast) return map;
+    for (const it of fastTenancy || []) {
+      const cId = String(it?.contract?.رقم_العقد || '');
+      if (!cId) continue;
+      map.set(cId, String(it?.tenantName || ''));
+    }
+    return map;
+  }, [isDesktopFast, fastTenancy]);
+
+  const propertyCodeById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const prop of ownedProperties || []) {
+      const pid = String((prop as unknown as العقارات_tbl)?.رقم_العقار || '');
+      const code = String((prop as unknown as العقارات_tbl)?.الكود_الداخلي || '').trim();
+      if (pid && code) map.set(pid, code);
+    }
+    if (isDesktopFast) {
+      for (const it of fastTenancy || []) {
+        const pid = String(it?.contract?.رقم_العقار || '');
+        const code = String(it?.propertyCode || '').trim();
+        if (pid && code) map.set(pid, code);
+      }
+      return map;
+    }
+    for (const prop of propsIndex || []) {
+      const pid = String(prop?.رقم_العقار || '');
+      const code = String(prop?.الكود_الداخلي || '').trim();
+      if (pid && code) map.set(pid, code);
+    }
+    return map;
+  }, [ownedProperties, isDesktopFast, fastTenancy, propsIndex]);
+
+  const propertyAddressById = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!isDesktopFast) return map;
+    for (const it of fastTenancy || []) {
+      const pid = String(it?.contract?.رقم_العقار || '');
+      const addr = String(it?.propertyAddress || '').trim();
+      if (pid && addr && !map.has(pid)) map.set(pid, addr);
+    }
+    return map;
+  }, [isDesktopFast, fastTenancy]);
 
   const handleRemoveFromBlacklist = async () => {
       const ok = await toast.confirm({
@@ -149,72 +233,8 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
     );
   }
 
-  const { person: p, roles, stats, ownedProperties, blacklistRecord } = profileData;
+  const { person: p, roles, stats, blacklistRecord } = profileData;
   const ownershipHistory: سجل_الملكية_tbl[] = DbService.getOwnershipHistory(undefined, id);
-  const propsIndex = isDesktopFast ? [] : DbService.getProperties();
-  const peopleIndex = isDesktopFast ? [] : DbService.getPeople();
-
-  const tenancyContractsRaw: any[] = isDesktopFast ? (fastTenancy || []).map((x) => x.contract).filter(Boolean) : DbService.getContracts();
-  const tenancyContracts = (tenancyContractsRaw || []).filter(isTenancyRelevant);
-
-  const peopleById = useMemo(() => {
-    const map = new Map<string, الأشخاص_tbl>();
-    if (isDesktopFast) return map;
-    for (const person of peopleIndex) map.set(String((person as any).رقم_الشخص), person as any);
-    return map;
-  }, [isDesktopFast, peopleIndex]);
-
-  const propertiesById = useMemo(() => {
-    const map = new Map<string, العقارات_tbl>();
-    if (isDesktopFast) return map;
-    for (const prop of propsIndex) map.set(String((prop as any).رقم_العقار), prop as any);
-    return map;
-  }, [isDesktopFast, propsIndex]);
-
-  const tenantNameByContractId = useMemo(() => {
-    const map = new Map<string, string>();
-    if (!isDesktopFast) return map;
-    for (const it of fastTenancy || []) {
-      const cId = String(it?.contract?.رقم_العقد || '');
-      if (!cId) continue;
-      map.set(cId, String(it?.tenantName || ''));
-    }
-    return map;
-  }, [isDesktopFast, fastTenancy]);
-
-  const propertyCodeById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const prop of ownedProperties || []) {
-      const pid = String((prop as any).رقم_العقار || '');
-      const code = String((prop as any).الكود_الداخلي || '').trim();
-      if (pid && code) map.set(pid, code);
-    }
-    if (isDesktopFast) {
-      for (const it of fastTenancy || []) {
-        const pid = String(it?.contract?.رقم_العقار || '');
-        const code = String(it?.propertyCode || '').trim();
-        if (pid && code) map.set(pid, code);
-      }
-      return map;
-    }
-    for (const prop of propsIndex || []) {
-      const pid = String((prop as any).رقم_العقار || '');
-      const code = String((prop as any).الكود_الداخلي || '').trim();
-      if (pid && code) map.set(pid, code);
-    }
-    return map;
-  }, [ownedProperties, isDesktopFast, fastTenancy, propsIndex]);
-
-  const propertyAddressById = useMemo(() => {
-    const map = new Map<string, string>();
-    if (!isDesktopFast) return map;
-    for (const it of fastTenancy || []) {
-      const pid = String(it?.contract?.رقم_العقار || '');
-      const addr = String(it?.propertyAddress || '').trim();
-      if (pid && addr && !map.has(pid)) map.set(pid, addr);
-    }
-    return map;
-  }, [isDesktopFast, fastTenancy]);
 
   const getPropCode = (propId: string) => propertyCodeById.get(String(propId || '')) || propId;
 
@@ -366,7 +386,7 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
       )}
 
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700 relative overflow-hidden">
+      <div className="app-card p-6">
         <div className={`absolute top-0 left-0 h-2 w-full ${blacklistRecord ? 'bg-red-600' : 'bg-gradient-to-r from-indigo-500 to-purple-600'}`}></div>
         <div className="flex flex-col md:flex-row justify-between gap-6 pt-2">
           <div className="flex gap-5 items-center">
@@ -458,7 +478,7 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
       </div>
 
       {/* Lists */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+      <div className="app-card overflow-hidden">
          {roles.includes('مالك') && ownedProperties.length > 0 && (
             <div className="p-4 border-b border-gray-100 dark:border-slate-700">
                <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-700 dark:text-slate-300">

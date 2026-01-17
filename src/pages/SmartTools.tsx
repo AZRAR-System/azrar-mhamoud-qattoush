@@ -46,7 +46,7 @@ export const SmartTools: React.FC = () => {
   const dialogs = useAppDialogs();
   const { openPanel } = useSmartModal();
 
-  const isDesktopFast = typeof window !== 'undefined' && storage.isDesktop() && !!(window as any)?.desktopDb?.domainGet;
+  const isDesktopFast = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb?.domainGet;
 
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
@@ -118,7 +118,7 @@ export const SmartTools: React.FC = () => {
     }
 
     // If there is already a stored commission, prefer it.
-    const existing = DbService.getCommissions?.().find((x: any) => String(x.رقم_العقد) === String(commissionContractId));
+    const existing = DbService.getCommissions?.().find(x => String(x.رقم_العقد) === String(commissionContractId));
     if (existing) {
       setCommOwner(Math.max(0, Number(existing.عمولة_المالك || 0)));
       setCommTenant(Math.max(0, Number(existing.عمولة_المستأجر || 0)));
@@ -163,9 +163,9 @@ export const SmartTools: React.FC = () => {
         if (alive) setCommissionContractObj(null);
         return;
       }
-      const c = (await domainGetSmart('contracts', commissionContractId)) as any;
+      const c = await domainGetSmart('contracts', commissionContractId);
       if (!alive) return;
-      setCommissionContractObj((c as العقود_tbl) || null);
+      setCommissionContractObj(c || null);
     };
     void run();
     return () => {
@@ -247,7 +247,7 @@ export const SmartTools: React.FC = () => {
       }
     }
 
-    const res = DbService.previewContractInstallments({
+    const draft: Partial<العقود_tbl> = {
       تاريخ_البداية: startDate,
       تاريخ_النهاية: endDate,
       مدة_العقد_بالاشهر: durationMonths,
@@ -261,7 +261,9 @@ export const SmartTools: React.FC = () => {
       عدد_أشهر_الدفعة_الأولى: (hasDownPayment && downPaymentMonths > 0) ? downPaymentMonths : undefined,
       تقسيط_الدفعة_الأولى: hasDownPayment ? splitDownPayment : false,
       عدد_أقساط_الدفعة_الأولى: (hasDownPayment && splitDownPayment) ? downPaymentSplitCount : undefined,
-    } as any);
+    };
+
+    const res = DbService.previewContractInstallments(draft);
 
     if (!res.success || !res.data) {
       toast.error(res.message || 'تعذر توليد الدفعات');
@@ -326,8 +328,7 @@ export const SmartTools: React.FC = () => {
     });
     if (!ok) return;
 
-    const res = DbService.createContract(
-      {
+    const draft: Partial<العقود_tbl> = {
         رقم_العقار: propertyId,
         رقم_المستاجر: tenantId,
         تاريخ_البداية: startDate,
@@ -343,7 +344,10 @@ export const SmartTools: React.FC = () => {
         عدد_أشهر_الدفعة_الأولى: (hasDownPayment && downPaymentMonths > 0) ? downPaymentMonths : undefined,
         تقسيط_الدفعة_الأولى: hasDownPayment ? splitDownPayment : false,
         عدد_أقساط_الدفعة_الأولى: (hasDownPayment && splitDownPayment) ? downPaymentSplitCount : undefined,
-      } as any,
+      };
+
+    const res = DbService.createContract(
+      draft,
       0,
       0,
       /^\d{4}-\d{2}-\d{2}$/.test(String(startDate)) ? String(startDate).slice(0, 7) : undefined
@@ -683,7 +687,7 @@ export const SmartTools: React.FC = () => {
                 value={String(commissionContractId || '')}
                 onChange={(id, obj) => {
                   setCommissionContractId(String(id || ''));
-                  setCommissionContractObj((obj as any) || null);
+                  setCommissionContractObj(obj || null);
                 }}
                 placeholder="اختر العقد"
               />

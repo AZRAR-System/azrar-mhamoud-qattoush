@@ -1,6 +1,11 @@
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { openExternalUrl } from '@/utils/externalLink';
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+const hasUnknownProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, unknown> =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
 export type WhatsAppLinkOptions = {
   /**
    * If true, will remove a leading "00" international prefix (e.g. 00962...).
@@ -30,7 +35,13 @@ export type WhatsAppMultiOpenOptions = WhatsAppLinkOptions & {
   delayMs?: number;
 };
 
-const isDesktopEnv = (): boolean => typeof window !== 'undefined' && !!(window as any).desktopDb;
+const isDesktopEnv = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const w: unknown = window;
+  if (!isRecord(w)) return false;
+  if (!hasUnknownProp(w, 'desktopDb')) return false;
+  return Boolean(w.desktopDb);
+};
 
 export function normalizeWhatsAppPhone(phone: string, options?: WhatsAppLinkOptions): string {
   const strip00 = options?.stripInternationalPrefix00 ?? true;
@@ -38,7 +49,7 @@ export function normalizeWhatsAppPhone(phone: string, options?: WhatsAppLinkOpti
   let digits = String(phone || '').trim().replace(/\D/g, '');
   if (!digits) return '';
 
-  // Handle international dialing prefix (e.g. 00962...) without guessing any country code.
+  // Handle international dialing prefix (e.g. 00962...) without guessing a country code.
   if (strip00 && digits.startsWith('00')) digits = digits.slice(2);
 
   // If caller provided a default country code and the number is already international with it, keep.

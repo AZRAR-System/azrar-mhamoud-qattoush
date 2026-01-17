@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import { المستخدمين_tbl } from '@/types';
 import { DbService } from '@/services';
 import { notificationService } from '@/services/notificationService';
@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<المستخدمين_tbl | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const timerRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Inactivity limit in milliseconds (30 minutes)
   const INACTIVITY_LIMIT = 30 * 60 * 1000;
@@ -33,16 +33,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('khaberni_user');
     if (timerRef.current) clearTimeout(timerRef.current);
-  };
+  }, []);
 
   const login = async (username: string, password: string) => {
     try {
-        const response = await DbService.authenticateUser(username, password) as any;
+        const response = await DbService.authenticateUser(username, password);
         if (response && response.success && response.data) {
           setUser(response.data);
           setIsAuthenticated(true);
@@ -56,16 +56,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return false;
   };
 
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (isAuthenticated) {
         timerRef.current = setTimeout(() => {
-            console.log("Auto-logging out due to inactivity");
+            console.warn("Auto-logging out due to inactivity");
             logout();
             notificationService.warning('تم تسجيل الخروج تلقائياً لعدم النشاط لمدة 30 دقيقة.', 'تسجيل خروج تلقائي');
         }, INACTIVITY_LIMIT);
     }
-  };
+  }, [INACTIVITY_LIMIT, isAuthenticated, logout]);
 
   // Activity Listeners
   useEffect(() => {
@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       window.removeEventListener('click', handleActivity);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, resetTimer]);
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>

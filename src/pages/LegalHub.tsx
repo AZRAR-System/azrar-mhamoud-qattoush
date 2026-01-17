@@ -1,10 +1,10 @@
 ﻿
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
-import { LegalNoticeRecord, LegalNoticeTemplate, العقود_tbl } from '@/types';
-import { Scale, FileText, Send, Printer, Copy, Clock, Search, ChevronDown, CheckCircle, Plus, X, Trash2, MessageCircle, ExternalLink, Pencil } from 'lucide-react';
+import { ContractDetailsResult, LegalNoticeRecord, LegalNoticeTemplate, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types';
+import { Scale, FileText, Send, Printer, Copy, Clock, Search, CheckCircle, Plus, X, Trash2, MessageCircle, ExternalLink, Pencil } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatDateYMD, formatNumber } from '@/utils/format';
@@ -22,6 +22,14 @@ import { toDateOnly, parseDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly
 
 export const LegalHub: React.FC = () => {
   const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainGet;
+
+  type DesktopContractBundle = {
+    contract: العقود_tbl | null;
+    tenant: الأشخاص_tbl | null;
+    property: العقارات_tbl | null;
+    owner: الأشخاص_tbl | null;
+    installments: الكمبيالات_tbl[];
+  };
 
   const [history, setHistory] = useState<LegalNoticeRecord[]>([]);
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
@@ -53,7 +61,11 @@ export const LegalHub: React.FC = () => {
   
   // New Template Modal State
   const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
-  const [newTemplateForm, setNewTemplateForm] = useState({ title: '', category: 'General', content: '' });
+  const [newTemplateForm, setNewTemplateForm] = useState<Pick<LegalNoticeTemplate, 'title' | 'category' | 'content'>>({
+    title: '',
+    category: 'General',
+    content: '',
+  });
 
   // Variables modal (opens only from pages that need variables)
   const [isVariablesOpen, setIsVariablesOpen] = useState(false);
@@ -63,8 +75,15 @@ export const LegalHub: React.FC = () => {
 
   const dbSignal = useDbSignal();
 
+  const refreshDataRef = useRef<() => void>(() => {
+    // no-op (assigned below)
+  });
+  const handleGenerateRef = useRef<() => void>(() => {
+    // no-op (assigned below)
+  });
+
   useEffect(() => {
-    refreshData();
+    refreshDataRef.current();
   }, [dbSignal]);
 
   const refreshData = () => {
@@ -73,19 +92,21 @@ export const LegalHub: React.FC = () => {
     setTemplates(DbService.getLegalTemplates());
   };
 
+  refreshDataRef.current = refreshData;
+
   const getDesktopContractBundle = async (contractId: string) => {
     const cid = String(contractId || '').trim();
     if (!cid) return null;
 
     // Best effort: fetch installments + contract + tenant + property in one go.
-    let installments: any[] = [];
-    let contract: any = null;
-    let tenant: any = null;
-    let property: any = null;
+    let installments: الكمبيالات_tbl[] = [];
+    let contract: العقود_tbl | null = null;
+    let tenant: الأشخاص_tbl | null = null;
+    let property: العقارات_tbl | null = null;
 
     try {
-      const res = await installmentsContractsPagedSmart({ query: cid, filter: 'all', offset: 0, limit: 1 } as any);
-      const first = Array.isArray(res?.items) ? res.items[0] : null;
+      const res = await installmentsContractsPagedSmart({ query: cid, filter: 'all', offset: 0, limit: 1 });
+      const first = res.items[0] || null;
       if (first?.contract) contract = first.contract;
       if (first?.tenant) tenant = first.tenant;
       if (first?.property) property = first.property;
@@ -102,7 +123,7 @@ export const LegalHub: React.FC = () => {
     const ownerId = property?.رقم_المالك ? String(property.رقم_المالك) : '';
     const owner = ownerId ? await domainGetSmart('people', ownerId) : null;
 
-    return { contract, tenant, property, owner, installments };
+    return { contract, tenant, property, owner, installments } satisfies DesktopContractBundle;
   };
 
   const handleGenerate = () => {
@@ -134,10 +155,11 @@ export const LegalHub: React.FC = () => {
         const today = toDateOnly(new Date());
 
         const installmentsWithRemaining = installments
-          .map((inst: any) => {
-            const dueRaw = String(inst?.تاريخ_استحقاق ?? inst?.dueDate ?? '');
+          .map((inst) => {
+            const dueAlt = (inst as unknown as Record<string, unknown>)['dueDate'];
+            const dueRaw = String(inst?.تاريخ_استحقاق ?? dueAlt ?? '');
             const due = parseDateOnly(dueRaw);
-            const remaining = getInstallmentPaidAndRemaining(inst as any).remaining;
+            const remaining = getInstallmentPaidAndRemaining(inst).remaining;
             return { inst, due, remaining };
           })
           .filter(x => (x.remaining || 0) > 0);
@@ -155,7 +177,7 @@ export const LegalHub: React.FC = () => {
               0,
               ...overdue
                 .map(x => (x.due ? daysBetweenDateOnly(x.due, today) : 0))
-                .filter((n: any) => Number.isFinite(n))
+                .filter((n) => Number.isFinite(n))
             )
           : 0;
 
@@ -188,20 +210,20 @@ export const LegalHub: React.FC = () => {
           دفعات_اقصى_عدد_ايام_تأخر: String(overdueMaxDaysLate || 0),
         };
 
-        for (const [k, v] of Object.entries(contract as any)) {
+        for (const [k, v] of Object.entries(contract as unknown as Record<string, unknown>)) {
           const value = v === null || v === undefined ? '' : String(v);
           replacements[`العقد_${String(k)}`] = value;
           replacements[`contract_${String(k)}`] = value;
         }
         if (property) {
-          for (const [k, v] of Object.entries(property as any)) {
+          for (const [k, v] of Object.entries(property as unknown as Record<string, unknown>)) {
             const value = v === null || v === undefined ? '' : String(v);
             replacements[`العقار_${String(k)}`] = value;
             replacements[`property_${String(k)}`] = value;
           }
         }
         if (tenant) {
-          for (const [k, v] of Object.entries(tenant as any)) {
+          for (const [k, v] of Object.entries(tenant as unknown as Record<string, unknown>)) {
             const value = v === null || v === undefined ? '' : String(v);
             replacements[`المستأجر_${String(k)}`] = value;
             replacements[`tenant_${String(k)}`] = value;
@@ -228,8 +250,10 @@ export const LegalHub: React.FC = () => {
     if (result) setGeneratedText(result.text);
   };
 
+  handleGenerateRef.current = handleGenerate;
+
   useEffect(() => {
-    handleGenerate();
+    handleGenerateRef.current();
   }, [selectedTemplateId, selectedContractId]);
 
   useEffect(() => {
@@ -242,7 +266,7 @@ export const LegalHub: React.FC = () => {
       void (async () => {
         const c = await domainGetSmart('contracts', selectedContractId);
         if (cancelled) return;
-        setSelectedContractTenantId(String((c as any)?.رقم_المستاجر || ''));
+        setSelectedContractTenantId(String(c?.رقم_المستاجر || ''));
       })();
       return () => {
         cancelled = true;
@@ -261,14 +285,16 @@ export const LegalHub: React.FC = () => {
     textSnapshot: string;
   }) => {
     const contract = isDesktopFast
-      ? ((await domainGetSmart('contracts', payload.contractId)) as any)
-      : (contracts.find(c => c.رقم_العقد === payload.contractId) as any);
+      ? await domainGetSmart('contracts', payload.contractId)
+      : contracts.find(c => c.رقم_العقد === payload.contractId) || null;
 
     // Unified audit log (shared with payment notifications panel)
     try {
-      const details = isDesktopFast ? await getDesktopContractBundle(payload.contractId) : (DbService.getContractDetails(payload.contractId) as any);
-      const tenantName = (details as any)?.tenant?.الاسم || '';
-      const phone = (details as any)?.tenant?.رقم_الهاتف || '';
+      const details: DesktopContractBundle | ContractDetailsResult | null = isDesktopFast
+        ? await getDesktopContractBundle(payload.contractId)
+        : DbService.getContractDetails(payload.contractId);
+      const tenantName = String(details?.tenant?.الاسم || '');
+      const phone = String(details?.tenant?.رقم_الهاتف || '');
       DbService.addNotificationSendLog({
         category: 'legal_notice',
         tenantId: contract?.رقم_المستاجر,
@@ -276,7 +302,7 @@ export const LegalHub: React.FC = () => {
         phone: phone || undefined,
         contractId: payload.contractId,
         propertyId: contract?.رقم_العقار,
-        propertyCode: (details as any)?.property?.الكود_الداخلي || (contract?.رقم_العقار as any),
+        propertyCode: String(details?.property?.الكود_الداخلي || contract?.رقم_العقار || ''),
         sentAt: new Date().toISOString(),
         message: payload.textSnapshot,
         note: `LegalHub • ${payload.method} • ${payload.templateTitle || 'مخصص'}`,
@@ -372,7 +398,7 @@ export const LegalHub: React.FC = () => {
     if (isDesktopFast) {
       void (async () => {
         const details = await getDesktopContractBundle(selectedContractId);
-        const phones = [details?.tenant?.رقم_الهاتف, (details?.tenant as any)?.رقم_هاتف_اضافي].filter(Boolean) as string[];
+        const phones = [details?.tenant?.رقم_الهاتف, details?.tenant?.رقم_هاتف_اضافي].filter(Boolean) as string[];
         if (phones.length === 0) {
           toast.warning('رقم هاتف المستأجر غير متوفر');
           return;
@@ -393,7 +419,7 @@ export const LegalHub: React.FC = () => {
     }
 
     const details = DbService.getContractDetails(selectedContractId);
-    const phones = [details?.tenant?.رقم_الهاتف, (details?.tenant as any)?.رقم_هاتف_اضافي].filter(Boolean) as string[];
+    const phones = [details?.tenant?.رقم_الهاتف, details?.tenant?.رقم_هاتف_اضافي].filter(Boolean) as string[];
     if (phones.length === 0) {
       toast.warning('رقم هاتف المستأجر غير متوفر');
       return;
@@ -428,8 +454,8 @@ export const LegalHub: React.FC = () => {
 
   const openEditHistory = (rec: LegalNoticeRecord) => {
     setEditingHistory(rec);
-    setEditNote(String((rec as any)?.note || ''));
-    setEditReply(String((rec as any)?.reply || ''));
+    setEditNote(String(rec.note || ''));
+    setEditReply(String(rec.reply || ''));
   };
 
   const handleSaveHistoryEdit = async () => {
@@ -473,7 +499,7 @@ export const LegalHub: React.FC = () => {
           return;
       }
       
-      const res = DbService.addLegalTemplate(newTemplateForm as any);
+      const res = DbService.addLegalTemplate(newTemplateForm);
       if (res.success) {
           toast.success('تم إضافة النموذج بنجاح');
           setIsAddTemplateOpen(false);
@@ -532,7 +558,7 @@ export const LegalHub: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-200px)]">
         
         {/* LEFT PANEL: GENERATOR */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col overflow-hidden">
+        <div className="app-card flex flex-col">
           <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-between items-center">
             <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
               <FileText size={20} className="text-purple-500" /> إنشاء إخطار جديد
@@ -671,7 +697,7 @@ export const LegalHub: React.FC = () => {
         </div>
 
         {/* RIGHT PANEL: HISTORY */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col overflow-hidden h-[500px] lg:h-auto">
+        <div className="app-card flex flex-col h-[500px] lg:h-auto">
           <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-between items-center">
             <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
               <Clock size={20} className="text-orange-500" /> سجل الإخطارات المرسلة
@@ -761,8 +787,8 @@ export const LegalHub: React.FC = () => {
 
       {/* ADD TEMPLATE MODAL */}
       {isAddTemplateOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-2xl animate-scale-up border border-gray-200 dark:border-slate-700 overflow-hidden">
+          <div className="modal-overlay app-modal-overlay animate-fade-in">
+            <div className="modal-content app-modal-content w-full max-w-lg animate-scale-up overflow-hidden">
                   <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
                       <h3 className="text-lg font-bold text-slate-800 dark:text-white">إضافة نموذج جديد</h3>
                       <button
@@ -791,7 +817,12 @@ export const LegalHub: React.FC = () => {
                           <select 
                               className="w-full border p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
                               value={newTemplateForm.category}
-                              onChange={e => setNewTemplateForm({...newTemplateForm, category: e.target.value as any})}
+                              onChange={(e) => {
+                                const next = String(e.target.value || '').trim();
+                                if (next === 'General' || next === 'Warning' || next === 'Eviction' || next === 'Renewal') {
+                                  setNewTemplateForm({ ...newTemplateForm, category: next });
+                                }
+                              }}
                           >
                               <option value="General">عام</option>
                               <option value="Warning">إنذار / تنبيه</option>
@@ -825,8 +856,8 @@ export const LegalHub: React.FC = () => {
 
       {/* EDIT HISTORY MODAL */}
       {editingHistory && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl animate-scale-up border border-gray-200 dark:border-slate-700 overflow-hidden">
+        <div className="modal-overlay app-modal-overlay animate-fade-in">
+          <div className="modal-content app-modal-content w-full max-w-2xl animate-scale-up overflow-hidden">
             <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">تعديل سجل الإخطار</h3>
               <button
@@ -881,8 +912,8 @@ export const LegalHub: React.FC = () => {
 
       {/* VARIABLES MODAL */}
       {isVariablesOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl animate-scale-up border border-gray-200 dark:border-slate-700 overflow-hidden">
+        <div className="modal-overlay app-modal-overlay animate-fade-in">
+          <div className="modal-content app-modal-content w-full max-w-4xl animate-scale-up overflow-hidden">
             <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">متغيرات الدمج (بالعربية)</h3>
               <button

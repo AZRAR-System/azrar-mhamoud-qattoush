@@ -4,6 +4,7 @@ import { ClearanceWizard } from '@/components/ClearanceWizard';
 import { useSmartModal } from '@/context/ModalContext';
 import { storage } from '@/services/storage';
 import { contractDetailsSmart } from '@/services/domainQueries';
+import { العقود_tbl } from '@/types';
 
 export const ClearanceWizardPanel: React.FC<{
   id: string;
@@ -12,11 +13,11 @@ export const ClearanceWizardPanel: React.FC<{
 }> = ({ id, onClose, onDone }) => {
   const { openPanel } = useSmartModal();
 
-  const isDesktop = storage.isDesktop() && !!(window as any)?.desktopDb;
-  const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainContractDetails;
+  const isDesktop = storage.isDesktop() && !!window.desktopDb;
+  const isDesktopFast = isDesktop && !!window.desktopDb?.domainContractDetails;
   const desktopUnsupported = isDesktop && !isDesktopFast;
 
-  const [desktopContract, setDesktopContract] = useState<any | null>(null);
+  const [desktopContract, setDesktopContract] = useState<العقود_tbl | null>(null);
 
   useEffect(() => {
     if (!isDesktopFast) return;

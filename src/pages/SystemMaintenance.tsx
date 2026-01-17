@@ -38,6 +38,8 @@ import {
   Upload
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import type { العقود_tbl, الكمبيالات_tbl } from '@/types/types';
 import {
   PieChart,
   Pie,
@@ -59,6 +61,25 @@ interface PerformanceRow {
   before: number;
   after: number;
 }
+
+type ViteMeta = {
+  env?: {
+    VITE_AUTORUN_SYSTEM_TESTS?: unknown;
+    VITE_ENABLE_INTEGRATION_TEST_DATA?: unknown;
+  };
+};
+
+const hasMessage = (value: unknown): value is { message: string } => {
+  if (typeof value !== 'object' || value === null) return false;
+  return typeof (value as Record<string, unknown>).message === 'string';
+};
+
+const getErrorMessage = (error: unknown): string | undefined => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (hasMessage(error)) return error.message;
+  return undefined;
+};
 
 /* ========================= */
 /*   Helper UI Components    */
@@ -190,7 +211,7 @@ const DiagnosticsView = memo<DiagnosticsViewProps>(({ health, optimizing, onAuto
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up">
       
       {/* 1. Health Score Card (Left Column) */}
-      <div className="lg:col-span-4 bg-white dark:bg-slate-800 p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[350px]">
+      <div className="lg:col-span-4 app-card p-8 rounded-3xl flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[350px]">
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
 
         <div className={`relative w-48 h-48 rounded-full border-[12px] flex items-center justify-center mb-8 ${scoreColor} bg-gray-50 dark:bg-slate-900 transition-all duration-500`}>
@@ -222,7 +243,7 @@ const DiagnosticsView = memo<DiagnosticsViewProps>(({ health, optimizing, onAuto
             { label: 'سجلات يتيمة', val: health.stats.orphans, icon: FileQuestion, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
             { label: 'أخطاء منطقية', val: health.stats.logicErrors, icon: AlertOctagon, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20' },
           ].map((item, idx) => (
-            <div key={idx} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col items-start hover:shadow-md transition">
+            <div key={idx} className="app-card p-5 flex flex-col items-start hover:shadow-md transition">
               <div className={`p-3 rounded-xl ${item.bg} ${item.color} mb-3`}>
                 <item.icon size={24} />
               </div>
@@ -233,7 +254,7 @@ const DiagnosticsView = memo<DiagnosticsViewProps>(({ health, optimizing, onAuto
         </div>
 
         {/* Detailed Issues List */}
-        <div className="flex-1 bg-white dark:bg-slate-800 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col min-h-[300px]">
+        <div className="flex-1 app-card rounded-3xl flex flex-col min-h-[300px]">
           <div className="p-5 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/30 flex items-center justify-between">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <FileSearch size={20} className="text-indigo-500" />
@@ -268,9 +289,11 @@ const DiagnosticsView = memo<DiagnosticsViewProps>(({ health, optimizing, onAuto
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-slate-800 dark:text-white text-sm">{issue.category} Issue</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded border font-bold uppercase ${issue.type === 'Critical' ? 'border-red-200 text-red-600 bg-red-50' : 'border-amber-200 text-amber-600 bg-amber-50'}`}>
-                          {issue.type}
-                        </span>
+                        <StatusBadge
+                          status={issue.type}
+                          showIcon={false}
+                          className="!text-[10px] !px-2 !py-0.5 uppercase"
+                        />
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{issue.description}</p>
                     </div>
@@ -333,7 +356,7 @@ const PredictiveView = memo<PredictiveViewProps>(({ predictiveInsight }) => {
         </div>
 
         {/* AI Recommendations */}
-        <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col min-h-[300px]">
+        <div className="app-card p-8 rounded-3xl flex flex-col min-h-[300px]">
           <h3 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2 text-lg">
             <Zap size={24} className="text-amber-500 fill-amber-500" /> توصيات الذكاء الاصطناعي
           </h3>
@@ -359,7 +382,7 @@ const PredictiveView = memo<PredictiveViewProps>(({ predictiveInsight }) => {
       </div>
 
       {/* Risk Analysis Chart */}
-      <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-8 rounded-3xl">
          <h3 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2 text-lg">
             <AlertOctagon size={24} className="text-red-500" /> توزيع المخاطر المحتملة
          </h3>
@@ -441,7 +464,7 @@ interface PerformanceViewProps {
 }
 
 const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => (
-  <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm animate-slide-up">
+  <div className="app-card p-8 rounded-3xl animate-slide-up">
     
     <div className="flex flex-col md:flex-row md:items-start gap-6 mb-8">
       <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl flex-shrink-0">
@@ -524,7 +547,7 @@ const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => (
     </div>
 
     {/* Table Details */}
-    <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-slate-700">
+    <div className="app-card">
       <table className="w-full text-right text-sm">
         <thead className="bg-gray-50 dark:bg-slate-900/80 text-slate-500 font-bold">
           <tr>
@@ -579,13 +602,13 @@ const SystemTestView = memo(() => {
   const [results, setResults] = useState<UiTestResult[] | null>(null);
 
   const isAutorunEnabled = (() => {
-    const flag = (import.meta as any)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
+    const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
     if (typeof flag === 'string') return flag.toLowerCase() === 'true';
     return !!flag;
   })();
 
   const isIntegrationDataEnabled = (() => {
-    const flag = (import.meta as any)?.env?.VITE_ENABLE_INTEGRATION_TEST_DATA;
+    const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_ENABLE_INTEGRATION_TEST_DATA;
     if (typeof flag === 'string') return flag.toLowerCase() === 'true';
     return !!flag;
   })();
@@ -597,8 +620,8 @@ const SystemTestView = memo(() => {
       setResults(r);
       const failed = r.filter(x => x.status === 'FAIL').length;
       toast[failed > 0 ? 'warning' : 'success'](failed > 0 ? `تم الانتهاء: ${failed} اختبار فشل` : 'تم تشغيل الاختبارات بنجاح');
-    } catch (e: any) {
-      toast.error(e?.message || 'فشل تشغيل الاختبارات');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل تشغيل الاختبارات');
     } finally {
       setRunning(false);
     }
@@ -616,26 +639,13 @@ const SystemTestView = memo(() => {
 
     (async () => {
       try {
-        console.log('[SystemTests] Autorun starting...', { allowDataMutation });
         const r = await runSystemScenarioTests({ allowDataMutation });
         setResults(r);
 
-        const pass = r.filter(x => x.status === 'PASS').length;
         const fail = r.filter(x => x.status === 'FAIL').length;
-        const skip = r.filter(x => x.status === 'SKIP').length;
-
-        console.log('[SystemTests] Autorun finished:', { pass, fail, skip, total: r.length });
-        if (fail > 0) {
-          console.log('[SystemTests] Failed tests:');
-          r.filter(x => x.status === 'FAIL').forEach(x => {
-            console.log(` - ${x.name}: ${x.message}`);
-          });
-        }
-
         toast[fail > 0 ? 'warning' : 'success'](fail > 0 ? `تم الانتهاء: ${fail} اختبار فشل` : 'تم تشغيل الاختبارات بنجاح');
-      } catch (e: any) {
-        console.error('[SystemTests] Autorun crashed:', e);
-        toast.error(e?.message || 'فشل تشغيل الاختبارات');
+      } catch (e: unknown) {
+        toast.error(getErrorMessage(e) || 'فشل تشغيل الاختبارات');
       } finally {
         setRunning(false);
       }
@@ -662,21 +672,21 @@ const SystemTestView = memo(() => {
           message: 'تأكيد نهائي: لا يوجد تراجع (Undo). هل أنت متأكد 100%؟',
           onConfirm: () => {
             try {
-              const result = (DbService as any).resetAllData?.();
+              const result = DbService.resetAllData?.();
               if (result?.success === false) {
                 toast.error(result?.message || 'فشل مسح البيانات');
                 return;
               }
               toast.success(result?.message || 'تم مسح البيانات بنجاح');
               setTimeout(() => window.location.reload(), 800);
-            } catch (e: any) {
-              toast.error(e?.message || 'فشل مسح البيانات');
+            } catch (e: unknown) {
+              toast.error(getErrorMessage(e) || 'فشل مسح البيانات');
             }
           },
         });
       },
     });
-  }, [toast, user?.الدور]);
+  }, [openPanel, toast, user?.الدور]);
 
   const summary = results
     ? {
@@ -687,7 +697,7 @@ const SystemTestView = memo(() => {
     : null;
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm animate-slide-up space-y-6">
+    <div className="app-card p-8 rounded-3xl animate-slide-up space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="p-3 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl">
@@ -710,7 +720,7 @@ const SystemTestView = memo(() => {
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700 rounded-2xl p-4">
+      <div className="app-card bg-slate-50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-700 flex flex-col md:flex-row gap-4 md:items-center justify-between rounded-2xl p-4">
         <label className="flex items-center gap-3 text-sm font-bold text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
@@ -734,7 +744,7 @@ const SystemTestView = memo(() => {
             <div className="text-2xl font-black text-red-700 dark:text-red-400">{summary.fail}</div>
             <div className="text-xs font-bold text-red-800/70 dark:text-red-300/70">فشل</div>
           </div>
-          <div className="p-4 rounded-2xl border border-slate-200 bg-white dark:bg-slate-900/10 dark:border-slate-700">
+          <div className="app-card p-4 rounded-2xl dark:bg-slate-900/10">
             <div className="text-2xl font-black text-slate-700 dark:text-slate-200">{summary.skip}</div>
             <div className="text-xs font-bold text-slate-500 dark:text-slate-400">تم تخطيه</div>
           </div>
@@ -748,18 +758,13 @@ const SystemTestView = memo(() => {
       ) : (
         <div className="space-y-3">
           {results.map(r => (
-            <div key={r.id} className="p-4 rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900/20">
+            <div key={r.id} className="app-card p-4 rounded-2xl bg-white dark:bg-slate-900/20">
               <div className="flex items-center justify-between gap-3">
                 <div className="font-bold text-slate-800 dark:text-white text-sm">{r.name}</div>
-                <span className={`text-[10px] px-2 py-1 rounded font-black border ${
-                  r.status === 'PASS'
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : r.status === 'FAIL'
-                      ? 'bg-red-50 text-red-700 border-red-200'
-                      : 'bg-slate-50 text-slate-600 border-slate-200'
-                }`}>
-                  {r.status}
-                </span>
+                <StatusBadge
+                  status={r.status === 'PASS' ? 'نجح' : r.status === 'FAIL' ? 'فشل' : 'تم تخطيه'}
+                  className="text-[10px] px-2 py-1 rounded font-black"
+                />
               </div>
               <div className="text-sm text-slate-600 dark:text-slate-300 mt-2">{r.message}</div>
               {typeof r.durationMs === 'number' && (
@@ -834,8 +839,8 @@ const DatabaseView = memo(() => {
       if (res?.success === false) {
         toast.error(res?.message || 'فشل تثبيت التحديث من ملف');
       }
-    } catch (e: any) {
-      toast.error(e?.message || 'فشل تثبيت التحديث من ملف');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل تثبيت التحديث من ملف');
     } finally {
       setInstallingFromFile(false);
     }
@@ -864,7 +869,7 @@ const DatabaseView = memo(() => {
   const isDesktop = !!window.desktopDb;
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm animate-slide-up space-y-6">
+    <div className="app-card p-8 rounded-3xl animate-slide-up space-y-6">
       <div className="flex items-start gap-3">
         <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl">
           <Database size={24} />
@@ -943,7 +948,7 @@ export const SystemMaintenance: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [optimizing, setOptimizing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
-    const flag = (import.meta as any)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
+    const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
     const enabled = typeof flag === 'string' ? flag.toLowerCase() === 'true' : !!flag;
     return enabled ? 'testing' : 'diagnostics';
   });
@@ -1000,15 +1005,15 @@ export const SystemMaintenance: React.FC = () => {
 
   const buildPredictiveFromData = useCallback((): PredictiveInsight => {
     const today = new Date();
-    const contracts = DbService.getContracts();
-    const installments = DbService.getInstallments();
+    const contracts = DbService.getContracts() as العقود_tbl[];
+    const installments = DbService.getInstallments() as الكمبيالات_tbl[];
 
-    const lateInstallments = installments.filter((inst: any) => {
+    const lateInstallments = installments.filter((inst) => {
       const dueDate = new Date(inst.تاريخ_استحقاق);
       return inst.حالة_الكمبيالة !== 'مدفوع' && dueDate < today;
     });
 
-    const expiringContracts = contracts.filter((c: any) => {
+    const expiringContracts = contracts.filter((c) => {
       const endDate = new Date(c.تاريخ_النهاية);
       const daysUntil = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return isTenancyRelevant(c) && daysUntil > 0 && daysUntil <= 30;
@@ -1083,8 +1088,8 @@ export const SystemMaintenance: React.FC = () => {
         const predictiveResult = buildPredictiveFromData();
         setHealth(healthResult);
         setPredictiveInsight(predictiveResult);
-      } catch (e: any) {
-        toast.error(e?.message || 'حدث خطأ أثناء إعادة الفحص');
+      } catch (e: unknown) {
+        toast.error(getErrorMessage(e) || 'حدث خطأ أثناء إعادة الفحص');
       } finally {
         setLoading(false);
       }

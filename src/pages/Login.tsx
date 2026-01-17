@@ -1,51 +1,107 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Lock, User, LogIn, AlertCircle, Info } from 'lucide-react';
+import { Lock, User, LogIn, AlertCircle, Info, Eye, EyeOff } from 'lucide-react';
 import { storage } from '@/services/storage';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 
+type StoredUser = {
+    id?: unknown;
+    اسم_المستخدم?: unknown;
+    كلمة_المرور?: unknown;
+    الدور?: unknown;
+    isActive?: unknown;
+};
+
+const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+
 export const Login = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-    const [notice, setNotice] = useState('');
-  const [loading, setLoading] = useState(false);
+        const [username, setUsername] = useState('');
+        const [password, setPassword] = useState('');
+        const [error, setError] = useState('');
+        const [notice, setNotice] = useState('');
+        const [loading, setLoading] = useState(false);
         const [hasAnyUsers, setHasAnyUsers] = useState<boolean | null>(null);
+        const [showPassword, setShowPassword] = useState(false);
+        const [capsLockOn, setCapsLockOn] = useState(false);
+        const [rememberUsername, setRememberUsername] = useState(true);
+        const [submitAttempted, setSubmitAttempted] = useState(false);
+
+        const usernameRef = useRef<HTMLInputElement | null>(null);
+        const passwordRef = useRef<HTMLInputElement | null>(null);
   
   const { login } = useAuth();
       const dialogs = useAppDialogs();
 
+    const REMEMBER_KEY = 'azrar_login_remember_username';
+    const LAST_USERNAME_KEY = 'azrar_login_last_username';
+
+    const trimmedUsername = useMemo(() => username.trim(), [username]);
+    const trimmedPassword = useMemo(() => password, [password]);
+
+    const usernameError = useMemo(() => {
+        if (!submitAttempted) return '';
+        if (!trimmedUsername) return 'اسم المستخدم مطلوب.';
+        return '';
+    }, [submitAttempted, trimmedUsername]);
+
+    const passwordError = useMemo(() => {
+        if (!submitAttempted) return '';
+        if (!trimmedPassword) return 'كلمة المرور مطلوبة.';
+        return '';
+    }, [submitAttempted, trimmedPassword]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+        setSubmitAttempted(true);
+        setError('');
         setNotice('');
 
-    // Simulate network delay for realism
-    setTimeout(async () => {
-        const success = await login(username, password);
-        setLoading(false);
-        if (success) {
-            window.location.hash = ROUTE_PATHS.DASHBOARD;
-        } else {
-            setError('اسم المستخدم أو كلمة المرور غير صحيحة');
+        const u = trimmedUsername;
+        const p = trimmedPassword;
+        if (!u) {
+            setError('يرجى إدخال اسم المستخدم.');
+            usernameRef.current?.focus();
+            return;
         }
-    }, 800);
+        if (!p) {
+            setError('يرجى إدخال كلمة المرور.');
+            passwordRef.current?.focus();
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const success = await login(u, p);
+            if (success) {
+                if (rememberUsername) {
+                    await storage.setItem(REMEMBER_KEY, 'true');
+                    await storage.setItem(LAST_USERNAME_KEY, u);
+                } else {
+                    await storage.setItem(REMEMBER_KEY, 'false');
+                    await storage.removeItem(LAST_USERNAME_KEY);
+                }
+                window.location.hash = ROUTE_PATHS.DASHBOARD;
+                return;
+            }
+            setError('اسم المستخدم أو كلمة المرور غير صحيحة');
+        } finally {
+            setLoading(false);
+        }
   };
 
-    const getUsers = async (): Promise<any[]> => {
+    const getUsers = async (): Promise<StoredUser[]> => {
         const raw = await storage.getItem('db_users');
         if (!raw) return [];
         try {
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : [];
+            const parsed: unknown = JSON.parse(raw);
+            return Array.isArray(parsed) ? (parsed as StoredUser[]) : [];
         } catch {
             return [];
         }
     };
 
-    const persistUsers = async (users: any[]) => {
+    const persistUsers = async (users: StoredUser[]) => {
         await storage.setItem('db_users', JSON.stringify(users));
     };
 
@@ -63,6 +119,28 @@ export const Login = () => {
             mounted = false;
         };
     }, []);
+
+        useEffect(() => {
+            let mounted = true;
+            (async () => {
+                try {
+                    const rememberRaw = await storage.getItem(REMEMBER_KEY);
+                    const remember = (rememberRaw === null || rememberRaw === undefined) ? true : String(rememberRaw).toLowerCase() !== 'false';
+                    if (!mounted) return;
+                    setRememberUsername(remember);
+                    if (!remember) return;
+
+                    const last = await storage.getItem(LAST_USERNAME_KEY);
+                    if (!mounted) return;
+                    if (typeof last === 'string' && last.trim()) setUsername(last.trim());
+                } catch {
+                    // ignore
+                }
+            })();
+            return () => {
+                mounted = false;
+            };
+        }, []);
 
     const handleCreateDefaultAdmin = async () => {
         setError('');
@@ -82,7 +160,7 @@ export const Login = () => {
                             placeholder: 'اسم المستخدم',
                             required: true,
                         });
-                        if (adminUsernameRaw == null) return;
+                        if (adminUsernameRaw === null || adminUsernameRaw === undefined) return;
 
                         const adminUsername = adminUsernameRaw.trim();
                         if (!adminUsername) {
@@ -97,7 +175,7 @@ export const Login = () => {
                             placeholder: 'كلمة المرور',
                             required: true,
                         });
-                        if (adminPasswordRaw == null) return;
+                        if (adminPasswordRaw === null || adminPasswordRaw === undefined) return;
 
                         const adminPassword = adminPasswordRaw.trim();
                         if (!adminPassword) {
@@ -122,12 +200,13 @@ export const Login = () => {
             setUsername(adminUsername);
             setPassword('');
             setNotice('تم إنشاء حساب السوبر أدمن بنجاح. يمكنك تسجيل الدخول الآن.');
-        } catch (e: any) {
-            setError(e?.message || 'تعذر إنشاء المستخدم admin');
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(toRecord(e).message || '').trim();
+            setError(msg || 'تعذر إنشاء المستخدم admin');
         }
     };
 
-    const handleChangeAdminPassword = async () => {
+    const _handleChangeAdminPassword = async () => {
         setError('');
         setNotice('');
         try {
@@ -150,7 +229,7 @@ export const Login = () => {
                             placeholder: 'كلمة المرور الجديدة',
                             required: true,
                         });
-                        if (newPass == null) return;
+                        if (newPass === null || newPass === undefined) return;
                         const trimmed = String(newPass).trim();
             if (trimmed.length < 4) {
                 setError('كلمة المرور قصيرة جداً.');
@@ -163,8 +242,9 @@ export const Login = () => {
             setUsername('admin');
             setPassword(trimmed);
             setNotice('تم تعديل كلمة مرور حساب المدير بنجاح.');
-        } catch (e: any) {
-            setError(e?.message || 'تعذر تعديل كلمة مرور admin');
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(toRecord(e).message || '').trim();
+            setError(msg || 'تعذر تعديل كلمة مرور admin');
         }
     };
 
@@ -177,7 +257,7 @@ export const Login = () => {
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-slate-700 relative z-10 animate-scale-up">
+      <div className="app-card p-8 rounded-3xl shadow-2xl w-full max-w-md border-gray-100 dark:border-slate-700 relative z-10 animate-scale-up">
         
         <div className="text-center mb-8">
             <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30">
@@ -187,7 +267,7 @@ export const Login = () => {
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">يرجى تسجيل الدخول للمتابعة</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             
             <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">اسم المستخدم</label>
@@ -195,29 +275,104 @@ export const Login = () => {
                     <input 
                         type="text" 
                         required
+                                                ref={usernameRef}
+                                                autoComplete="username"
+                                                autoCapitalize="none"
+                                                autoCorrect="off"
                         className="w-full bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-xl py-3 pr-10 pl-4 focus:ring-2 focus:ring-indigo-500 outline-none transition text-slate-800 dark:text-white"
                         placeholder="أدخل اسم المستخدم"
                         value={username}
-                        onChange={(e) => setUsername(e.target.value)}
+                                                onChange={(e) => {
+                                                    setUsername(e.target.value);
+                                                    if (error) setError('');
+                                                }}
                     />
                     <User className="absolute top-3.5 right-3 text-slate-400" size={18} />
                 </div>
+                                {usernameError && (
+                                    <div className="mt-2 text-xs text-rose-600 dark:text-rose-300 font-semibold">{usernameError}</div>
+                                )}
             </div>
 
             <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">كلمة المرور</label>
                 <div className="relative">
                     <input 
-                        type="password" 
+                                                type={showPassword ? 'text' : 'password'}
                         required
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-xl py-3 pr-10 pl-4 focus:ring-2 focus:ring-indigo-500 outline-none transition text-slate-800 dark:text-white"
+                                                ref={passwordRef}
+                                                autoComplete="current-password"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-xl py-3 pr-20 pl-4 focus:ring-2 focus:ring-indigo-500 outline-none transition text-slate-800 dark:text-white"
                         placeholder="••••••••"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                                                onChange={(e) => {
+                                                    setPassword(e.target.value);
+                                                    if (error) setError('');
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    try {
+                                                        setCapsLockOn(!!e.getModifierState?.('CapsLock'));
+                                                    } catch {
+                                                        // ignore
+                                                    }
+                                                }}
+                                                onKeyUp={(e) => {
+                                                    try {
+                                                        setCapsLockOn(!!e.getModifierState?.('CapsLock'));
+                                                    } catch {
+                                                        // ignore
+                                                    }
+                                                }}
                     />
-                    <Lock className="absolute top-3.5 right-3 text-slate-400" size={18} />
+                    <Lock className="absolute top-1/2 -translate-y-1/2 right-3 text-slate-400 pointer-events-none" size={18} />
+                    <button
+                        type="button"
+                        className="absolute top-1/2 -translate-y-1/2 right-11 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                        onClick={() => setShowPassword((v) => !v)}
+                        title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                        aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                    >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                 </div>
+                                {passwordError && (
+                                    <div className="mt-2 text-xs text-rose-600 dark:text-rose-300 font-semibold">{passwordError}</div>
+                                )}
+                                {capsLockOn && (
+                                    <div className="mt-2 text-xs text-amber-700 dark:text-amber-300 font-semibold">
+                                        تنبيه: زر Caps Lock مفعّل.
+                                    </div>
+                                )}
             </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={rememberUsername}
+                                    onChange={(e) => {
+                                        const next = e.target.checked;
+                                        setRememberUsername(next);
+                                        if (!next) {
+                                            void storage.setItem(REMEMBER_KEY, 'false');
+                                            void storage.removeItem(LAST_USERNAME_KEY);
+                                        }
+                                    }}
+                                />
+                                تذكّر اسم المستخدم
+                            </label>
+
+                            <button
+                                type="button"
+                                className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline"
+                                onClick={() => {
+                                    setNotice('إذا نسيت كلمة المرور، راجع مسؤول النظام. إذا كانت هذه أول مرة، أنشئ حساب السوبر أدمن من الأسفل.');
+                                    setError('');
+                                }}
+                            >
+                                مساعدة تسجيل الدخول
+                            </button>
+                        </div>
 
             {error && (
                 <div className="bg-red-50 dark:bg-red-900/20 text-red-600 text-sm p-3 rounded-xl flex items-center gap-2 border border-red-100 dark:border-red-800">

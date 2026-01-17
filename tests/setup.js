@@ -1,4 +1,5 @@
-﻿/**
+﻿/* global beforeAll, afterAll */
+/**
  * Jest Setup File
  * ملف إعداد بيئة الاختبار
  */

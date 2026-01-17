@@ -1,4 +1,14 @@
-﻿import { contextBridge, ipcRenderer } from 'electron';
+﻿import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+
+type SqlSettings = Record<string, unknown>;
+type SqlProvisionPayload = Record<string, unknown>;
+type SqlBackupAutomationSettingsPayload = Record<string, unknown>;
+type RemoteUpdateEventPayload = {
+  key: string;
+  value?: string;
+  isDeleted?: boolean;
+  updatedAt?: string;
+};
 
 export type DbChannel =
   | 'db:get'
@@ -42,7 +52,15 @@ export type DbChannel =
   | 'sql:restoreBackup'
   | 'sql:syncNow'
   | 'sql:getSyncLog'
-  | 'sql:clearSyncLog';
+  | 'sql:clearSyncLog'
+  | 'sql:getCoverage'
+  | 'sql:getBackupAutomationSettings'
+  | 'sql:saveBackupAutomationSettings'
+  | 'sql:listServerBackups'
+  | 'sql:createServerBackup'
+  | 'sql:restoreServerBackup'
+  | 'sql:mergePublishAdmin';
+  
 
 contextBridge.exposeInMainWorld('desktopDb', {
   get: (key: string) => ipcRenderer.invoke('db:get', key),
@@ -85,7 +103,8 @@ contextBridge.exposeInMainWorld('desktopDb', {
 
   domainPropertyPickerSearch: (payload: { query: string; status?: string; type?: string; forceVacant?: boolean; offset?: number; limit?: number }) =>
     ipcRenderer.invoke('domain:picker:properties', payload),
-  domainContractPickerSearch: (payload: { query: string; tab?: string; offset?: number; limit?: number }) => ipcRenderer.invoke('domain:picker:contracts', payload),
+  domainContractPickerSearch: (payload: { query: string; tab?: string; createdMonth?: string; offset?: number; limit?: number }) =>
+    ipcRenderer.invoke('domain:picker:contracts', payload),
   domainPeoplePickerSearch: (payload: { query: string; role?: string; onlyIdleOwners?: boolean; offset?: number; limit?: number }) =>
     ipcRenderer.invoke('domain:picker:people', payload),
 
@@ -94,27 +113,37 @@ contextBridge.exposeInMainWorld('desktopDb', {
 
   // SQL Server Sync (Desktop only)
   sqlGetSettings: () => ipcRenderer.invoke('sql:getSettings'),
-  sqlSaveSettings: (settings: any) => ipcRenderer.invoke('sql:saveSettings', settings),
-  sqlTestConnection: (settings: any) => ipcRenderer.invoke('sql:test', settings),
+  sqlSaveSettings: (settings: SqlSettings) => ipcRenderer.invoke('sql:saveSettings', settings),
+  sqlTestConnection: (settings: SqlSettings) => ipcRenderer.invoke('sql:test', settings),
   sqlConnect: () => ipcRenderer.invoke('sql:connect'),
   sqlDisconnect: () => ipcRenderer.invoke('sql:disconnect'),
   sqlStatus: () => ipcRenderer.invoke('sql:status'),
-  sqlProvision: (payload: any) => ipcRenderer.invoke('sql:provision', payload),
+  sqlProvision: (payload: SqlProvisionPayload) => ipcRenderer.invoke('sql:provision', payload),
   sqlExportBackup: () => ipcRenderer.invoke('sql:exportBackup'),
   sqlImportBackup: () => ipcRenderer.invoke('sql:importBackup'),
   sqlRestoreBackup: () => ipcRenderer.invoke('sql:restoreBackup'),
   sqlSyncNow: () => ipcRenderer.invoke('sql:syncNow'),
   sqlGetSyncLog: () => ipcRenderer.invoke('sql:getSyncLog'),
   sqlClearSyncLog: () => ipcRenderer.invoke('sql:clearSyncLog'),
+  sqlGetCoverage: () => ipcRenderer.invoke('sql:getCoverage'),
+  sqlPullFullNow: () => ipcRenderer.invoke('sql:pullFullNow'),
+  sqlMergePublishAdmin: (payload?: { keys?: string[]; prefer?: 'local' | 'remote' }) => ipcRenderer.invoke('sql:mergePublishAdmin', payload),
 
-  onRemoteUpdate: (handler: (evt: { key: string; value?: string; isDeleted?: boolean; updatedAt?: string }) => void) => {
-    const listener = (_e: any, payload: any) => handler(payload);
+  sqlGetBackupAutomationSettings: () => ipcRenderer.invoke('sql:getBackupAutomationSettings'),
+  sqlSaveBackupAutomationSettings: (payload: SqlBackupAutomationSettingsPayload) =>
+    ipcRenderer.invoke('sql:saveBackupAutomationSettings', payload),
+  sqlListServerBackups: (payload?: { limit?: number }) => ipcRenderer.invoke('sql:listServerBackups', payload),
+  sqlCreateServerBackup: (payload?: { note?: string }) => ipcRenderer.invoke('sql:createServerBackup', payload),
+  sqlRestoreServerBackup: (payload: { id: string; mode: 'merge' | 'replace' }) => ipcRenderer.invoke('sql:restoreServerBackup', payload),
+
+  onRemoteUpdate: (handler: (evt: RemoteUpdateEventPayload) => void) => {
+    const listener = (_e: IpcRendererEvent, payload: unknown) => handler(payload as RemoteUpdateEventPayload);
     ipcRenderer.on('db:remoteUpdate', listener);
     return () => ipcRenderer.removeListener('db:remoteUpdate', listener);
   },
 
-  onSqlSyncEvent: (handler: (evt: any) => void) => {
-    const listener = (_e: any, payload: any) => handler(payload);
+  onSqlSyncEvent: (handler: (evt: unknown) => void) => {
+    const listener = (_e: IpcRendererEvent, payload: unknown) => handler(payload);
     ipcRenderer.on('sql:syncEvent', listener);
     return () => ipcRenderer.removeListener('sql:syncEvent', listener);
   },
@@ -142,8 +171,8 @@ contextBridge.exposeInMainWorld('desktopUpdater', {
   getPendingRestore: () => ipcRenderer.invoke('updater:getPendingRestore'),
   clearPendingRestore: () => ipcRenderer.invoke('updater:clearPendingRestore'),
   restorePending: () => ipcRenderer.invoke('updater:restorePending'),
-  onEvent: (handler: (evt: any) => void) => {
-    const listener = (_e: any, payload: any) => handler(payload);
+  onEvent: (handler: (evt: unknown) => void) => {
+    const listener = (_e: IpcRendererEvent, payload: unknown) => handler(payload);
     ipcRenderer.on('updater:event', listener);
     return () => ipcRenderer.removeListener('updater:event', listener);
   },

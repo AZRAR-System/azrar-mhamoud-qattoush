@@ -26,7 +26,7 @@ export interface TemplateContext {
   contractNumber?: string;
   remainingAmount?: number;
   notes?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // النماذج الافتراضية

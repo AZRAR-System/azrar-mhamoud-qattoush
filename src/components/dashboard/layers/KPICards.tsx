@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { TrendingUp, DollarSign, Briefcase, Home, AlertTriangle, Bell, Users } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { DashboardData } from '@/hooks/useDashboardData';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatCurrencyJOD, formatNumber } from '@/utils/format';
@@ -12,6 +13,17 @@ import { ROUTE_PATHS } from '@/routes/paths';
 
 interface KPICardsProps {
   data: DashboardData;
+}
+
+interface KPICard {
+  title: string;
+  value: React.ReactNode;
+  icon: LucideIcon;
+  color: string;
+  textColor: string;
+  bgColor: string;
+  trend: React.ReactNode;
+  onClick?: () => void;
 }
 
 export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
@@ -32,11 +44,11 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
 
   // ✅ Calculate real trends
   const totalProperties = Number(data.kpis.totalProperties || 0) || 0;
-  const occupiedCount = Number((data.kpis as any).occupiedProperties ?? data.properties.filter((p: any) => p.IsRented === true).length) || 0;
+  const occupiedCount = Number(data.kpis.occupiedProperties ?? data.properties.filter(p => p.IsRented === true).length) || 0;
   const vacantCount = Math.max(0, totalProperties - occupiedCount);
   const unreadAlertsTotal = (data.alerts?.critical || 0) + (data.alerts?.warning || 0) + (data.alerts?.info || 0);
 
-  const cards = [
+  const cards: KPICard[] = [
     {
       title: 'إيرادات الشهر الحالي',
         value: formatCurrencyJOD(data.kpis.totalRevenue),
@@ -61,7 +73,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       color: 'from-indigo-500 to-cyan-600',
       textColor: 'text-indigo-600',
       bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
-      trend: `من ${(data.kpis as any).totalContracts ?? data.contracts.length} عقد`,
+      trend: `من ${data.kpis.totalContracts ?? data.contracts.length} عقد`,
       onClick: () => navigateToWithQuery(ROUTE_PATHS.CONTRACTS, { status: 'active' }),
     },
     {
@@ -128,18 +140,14 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-      {cards.map((card: any, index) => {
+      {cards.map((card, index) => {
         const Icon = card.icon;
-        const Wrapper: any = card.onClick ? 'button' : 'div';
-        return (
-          <Wrapper
-            key={index}
-            type={card.onClick ? 'button' : undefined}
-            onClick={card.onClick}
-            className={`bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden relative group hover:shadow-md transition w-full text-right ${
-              card.onClick ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default'
-            }`}
-          >
+        const className = `app-card p-6 overflow-hidden relative group hover:shadow-md transition w-full text-right ${
+          card.onClick ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default'
+        }`;
+
+        const content = (
+          <>
             {/* Background Gradient */}
             <div
               className={`absolute -right-8 -top-8 w-32 h-32 bg-gradient-to-br ${card.color} opacity-5 rounded-full`}
@@ -148,9 +156,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
             <div className="relative z-10">
               {/* Header with Icon */}
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400">
-                  {card.title}
-                </h3>
+                <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400">{card.title}</h3>
                 <div className={`p-3 rounded-xl ${card.bgColor}`}>
                   <Icon className={`${card.textColor}`} size={20} />
                 </div>
@@ -158,9 +164,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
 
               {/* Value */}
               <div className="mb-2">
-                <p className="text-3xl font-bold text-slate-900 dark:text-white">
-                  {card.value}
-                </p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white">{card.value}</p>
               </div>
 
               {/* Trend */}
@@ -179,7 +183,17 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
                 </div>
               )}
             </div>
-          </Wrapper>
+          </>
+        );
+
+        return card.onClick ? (
+          <button key={index} type="button" onClick={card.onClick} className={className}>
+            {content}
+          </button>
+        ) : (
+          <div key={index} className={className}>
+            {content}
+          </div>
         );
       })}
     </div>

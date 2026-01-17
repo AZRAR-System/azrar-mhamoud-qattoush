@@ -1,10 +1,33 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
-import { X, Plus, Phone, User, Calendar, Trash2, Check, Clock, StickyNote, ListTodo } from 'lucide-react';
+import { X, Plus, Phone, User, Calendar, Trash2, Check, Clock, StickyNote, ListTodo, type LucideIcon } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
+import type { ClientInteraction, DashboardNote, FollowUpTask, SystemReminder } from '@/types';
 
-const useDbLiveRefresh = (load: () => void, events: string[] = []) => {
+export type WidgetKey =
+    | 'CLIENT_TRACKING'
+    | 'DASHBOARD_CALENDAR'
+    | 'STICKY_NOTES'
+    | 'SMART_REMINDERS'
+    | 'FOLLOW_UP';
+
+export interface WidgetComponentProps {
+    isCustomizing?: boolean;
+    onRemove?: () => void;
+    action?: React.ReactNode;
+}
+
+export interface WidgetConfig<K extends WidgetKey = WidgetKey> {
+    key: K;
+    title: string;
+    icon: LucideIcon;
+    Component: React.ComponentType<WidgetComponentProps>;
+}
+
+const NO_EVENTS: readonly string[] = [];
+const TASK_CHANGED_EVENTS: readonly string[] = ['azrar:tasks-changed'];
+
+const useDbLiveRefresh = (load: () => void, events: readonly string[] = NO_EVENTS) => {
     useEffect(() => {
         load();
 
@@ -23,14 +46,22 @@ const useDbLiveRefresh = (load: () => void, events: string[] = []) => {
             window.removeEventListener('storage', storageHandler);
             for (const ev of events) window.removeEventListener(ev, handler);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [events, load]);
 };
 
 // Shared Wrapper
-const WidgetWrapper: React.FC<{ isCustomizing?: boolean, onRemove?: () => void, children: React.ReactNode, title: string, icon: any, action?: React.ReactNode }> = 
+type WidgetWrapperProps = {
+    isCustomizing?: boolean;
+    onRemove?: () => void;
+    children: React.ReactNode;
+    title: string;
+    icon: LucideIcon;
+    action?: React.ReactNode;
+};
+
+const WidgetWrapper: React.FC<WidgetWrapperProps> =
 ({ isCustomizing, onRemove, children, title, icon: Icon, action }) => (
-  <div className="h-full bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 relative flex flex-col overflow-hidden">
+    <div className="app-card h-full p-4 flex flex-col">
     <div className={`flex justify-between items-center mb-3 ${isCustomizing ? 'handle cursor-move' : ''}`}>
         <div className="flex items-center gap-2">
             <div className="p-1.5 bg-indigo-50 dark:bg-slate-700 rounded-lg text-indigo-600 dark:text-indigo-400"><Icon size={16} /></div>
@@ -48,10 +79,14 @@ const WidgetWrapper: React.FC<{ isCustomizing?: boolean, onRemove?: () => void, 
 );
 
 // --- 1. Client Tracking Widget ---
-export const ClientTrackingWidget: React.FC<any> = (props) => {
-    const [interactions, setInteractions] = useState<any[]>([]);
+export const ClientTrackingWidget: React.FC<WidgetComponentProps> = (props) => {
+    const [interactions, setInteractions] = useState<ClientInteraction[]>([]);
 
-    useDbLiveRefresh(() => setInteractions(DbService.getClientInteractions()));
+    const loadInteractions = useCallback(() => {
+        setInteractions(DbService.getClientInteractions());
+    }, []);
+
+    useDbLiveRefresh(loadInteractions);
 
     return (
         <WidgetWrapper {...props} title="متابعة العملاء" icon={User}>
@@ -62,11 +97,11 @@ export const ClientTrackingWidget: React.FC<any> = (props) => {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {interactions.length === 0 ? (
                         <tr><td colSpan={3} className="p-4 text-center text-slate-400">لا توجد تفاعلات مسجلة</td></tr>
-                    ) : interactions.map(i => (
-                        <tr key={i.id}>
-                            <td className="p-2 font-bold truncate max-w-[80px]">{i.clientName}</td>
-                            <td className="p-2 flex items-center gap-1"><Phone size={10} className="text-indigo-500"/> {i.type}</td>
-                            <td className="p-2 text-slate-400">{new Date(i.date).toLocaleDateString()}</td>
+                    ) : interactions.map(interaction => (
+                        <tr key={interaction.id}>
+                            <td className="p-2 font-bold truncate max-w-[80px]">{interaction.clientName}</td>
+                            <td className="p-2 flex items-center gap-1"><Phone size={10} className="text-indigo-500"/> {interaction.type}</td>
+                            <td className="p-2 text-slate-400">{new Date(interaction.date).toLocaleDateString()}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -76,7 +111,7 @@ export const ClientTrackingWidget: React.FC<any> = (props) => {
 };
 
 // --- 2. Dashboard Calendar Widget ---
-export const DashboardCalendarWidget: React.FC<any> = (props) => {
+export const DashboardCalendarWidget: React.FC<WidgetComponentProps> = (props) => {
     const { openPanel } = useSmartModal();
     const days = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
     const today = new Date();
@@ -114,12 +149,19 @@ export const DashboardCalendarWidget: React.FC<any> = (props) => {
 };
 
 // --- 3. Sticky Notes Widget ---
-export const StickyNotesWidget: React.FC<any> = (props) => {
-    const [notes, setNotes] = useState<any[]>([]);
-    const [newNote, setNewNote] = useState('');
-    const [priority, setPriority] = useState<'Normal'|'Important'>('Normal');
+type NewNotePriority = Extract<DashboardNote['priority'], 'Normal' | 'Important'>;
+const isNewNotePriority = (value: string): value is NewNotePriority => value === 'Normal' || value === 'Important';
 
-    useDbLiveRefresh(() => setNotes(DbService.getDashboardNotes()));
+export const StickyNotesWidget: React.FC<WidgetComponentProps> = (props) => {
+    const [notes, setNotes] = useState<DashboardNote[]>([]);
+    const [newNote, setNewNote] = useState('');
+    const [priority, setPriority] = useState<NewNotePriority>('Normal');
+
+    const loadNotes = useCallback(() => {
+        setNotes(DbService.getDashboardNotes());
+    }, []);
+
+    useDbLiveRefresh(loadNotes);
 
     const add = (e: React.FormEvent) => {
         e.preventDefault();
@@ -138,14 +180,24 @@ export const StickyNotesWidget: React.FC<any> = (props) => {
         <WidgetWrapper {...props} title="ملاحظات سريعة" icon={StickyNote}>
             <form onSubmit={add} className="flex gap-2 mb-3">
                 <input className="flex-1 bg-slate-50 dark:bg-slate-900 border rounded-lg px-2 py-1 text-xs outline-none" placeholder="اكتب ملاحظة..." value={newNote} onChange={e=>setNewNote(e.target.value)}/>
-                <select className="bg-slate-50 border rounded-lg text-xs" value={priority} onChange={e=>setPriority(e.target.value as any)}><option value="Normal">عادي</option><option value="Important">مهم</option></select>
+                <select
+                    className="bg-slate-50 border rounded-lg text-xs"
+                    value={priority}
+                    onChange={(e) => {
+                        const value = e.target.value;
+                        if (isNewNotePriority(value)) setPriority(value);
+                    }}
+                >
+                    <option value="Normal">عادي</option>
+                    <option value="Important">مهم</option>
+                </select>
                 <button type="submit" className="bg-indigo-600 text-white p-1 rounded-lg"><Plus size={14}/></button>
             </form>
             <div className="space-y-2">
-                {notes.map(n => (
-                    <div key={n.id} className={`p-2 rounded-lg border text-xs flex justify-between items-start group ${n.priority === 'Important' ? 'bg-red-50 border-red-100 text-red-800' : 'bg-yellow-50 border-yellow-100 text-yellow-800'}`}>
-                        <span>{n.content}</span>
-                        <button onClick={() => archive(n.id)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"><Trash2 size={12}/></button>
+                {notes.map(note => (
+                    <div key={note.id} className={`p-2 rounded-lg border text-xs flex justify-between items-start group ${note.priority === 'Important' ? 'bg-red-50 border-red-100 text-red-800' : 'bg-yellow-50 border-yellow-100 text-yellow-800'}`}>
+                        <span>{note.content}</span>
+                        <button onClick={() => archive(note.id)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"><Trash2 size={12}/></button>
                     </div>
                 ))}
             </div>
@@ -154,11 +206,15 @@ export const StickyNotesWidget: React.FC<any> = (props) => {
 };
 
 // --- 4. Smart Reminders Widget ---
-export const SmartRemindersWidget: React.FC<any> = (props) => {
-    const [reminders, setReminders] = useState<any[]>([]);
+export const SmartRemindersWidget: React.FC<WidgetComponentProps> = (props) => {
+    const [reminders, setReminders] = useState<SystemReminder[]>([]);
     const [title, setTitle] = useState('');
 
-    useDbLiveRefresh(() => setReminders(DbService.getReminders()), ['azrar:tasks-changed']);
+    const loadReminders = useCallback(() => {
+        setReminders(DbService.getReminders());
+    }, []);
+
+    useDbLiveRefresh(loadReminders, TASK_CHANGED_EVENTS);
 
     const add = (e: React.FormEvent) => {
         e.preventDefault();
@@ -181,13 +237,13 @@ export const SmartRemindersWidget: React.FC<any> = (props) => {
             </form>
             <div className="space-y-1">
                 {reminders.length === 0 && <p className="text-center text-xs text-slate-400 py-4">لا توجد تذكيرات نشطة</p>}
-                {reminders.map(r => (
-                    <div key={r.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg group">
-                        <button onClick={() => toggle(r.id)} className={`w-4 h-4 rounded border flex items-center justify-center ${r.isDone ? 'bg-green-500 border-green-500' : 'border-slate-300'}`}>
-                            {r.isDone && <Check size={10} className="text-white"/>}
+                {reminders.map(reminder => (
+                    <div key={reminder.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg group">
+                        <button onClick={() => toggle(reminder.id)} className={`w-4 h-4 rounded border flex items-center justify-center ${reminder.isDone ? 'bg-green-500 border-green-500' : 'border-slate-300'}`}>
+                            {reminder.isDone && <Check size={10} className="text-white"/>}
                         </button>
-                        <span className={`text-xs flex-1 ${r.isDone ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{r.title}</span>
-                        <span className="text-[9px] bg-slate-100 dark:bg-slate-800 px-1 rounded text-slate-500">{r.date}</span>
+                        <span className={`text-xs flex-1 ${reminder.isDone ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{reminder.title}</span>
+                        <span className="text-[9px] bg-slate-100 dark:bg-slate-800 px-1 rounded text-slate-500">{reminder.date}</span>
                     </div>
                 ))}
             </div>
@@ -196,10 +252,14 @@ export const SmartRemindersWidget: React.FC<any> = (props) => {
 };
 
 // --- 5. Follow Up Widget ---
-export const FollowUpWidget: React.FC<any> = (props) => {
-    const [tasks, setTasks] = useState<any[]>([]);
+export const FollowUpWidget: React.FC<WidgetComponentProps> = (props) => {
+    const [tasks, setTasks] = useState<FollowUpTask[]>([]);
 
-    useDbLiveRefresh(() => setTasks(DbService.getFollowUps()), ['azrar:tasks-changed']);
+    const loadFollowUps = useCallback(() => {
+        setTasks(DbService.getFollowUps());
+    }, []);
+
+    useDbLiveRefresh(loadFollowUps, TASK_CHANGED_EVENTS);
 
     const done = (id: string) => {
         DbService.completeFollowUp(id);
@@ -211,13 +271,13 @@ export const FollowUpWidget: React.FC<any> = (props) => {
             <div className="space-y-2">
                 {tasks.length === 0 ? (
                     <p className="text-center text-xs text-slate-400 py-4">لا توجد متابعات معلقة</p>
-                ) : tasks.map(t => (
-                    <div key={t.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-lg">
+                ) : tasks.map(task => (
+                    <div key={task.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-lg">
                         <div className="flex flex-col">
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{t.task}</span>
-                            <span className="text-[10px] text-slate-400">{t.clientName} • {t.dueDate}</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{task.task}</span>
+                            <span className="text-[10px] text-slate-400">{task.clientName} • {task.dueDate}</span>
                         </div>
-                        <button onClick={() => done(t.id)} className="text-green-500 hover:bg-green-50 p-1 rounded"><Check size={14}/></button>
+                        <button onClick={() => done(task.id)} className="text-green-500 hover:bg-green-50 p-1 rounded"><Check size={14}/></button>
                     </div>
                 ))}
             </div>

@@ -6,7 +6,7 @@ export type DocxMergeResult =
   | { ok: true; bytes: Uint8Array }
   | { ok: false; message: string };
 
-export function fillDocxTemplate(templateArrayBuffer: ArrayBuffer, data: Record<string, any>): DocxMergeResult {
+export function fillDocxTemplate(templateArrayBuffer: ArrayBuffer, data: Record<string, unknown>): DocxMergeResult {
   try {
     const zip = new PizZip(new Uint8Array(templateArrayBuffer));
 
@@ -25,14 +25,24 @@ export function fillDocxTemplate(templateArrayBuffer: ArrayBuffer, data: Record<
     });
 
     return { ok: true, bytes: out };
-  } catch (e: any) {
-    // docxtemplater can throw complex objects; keep message safe.
-    const msg =
-      e?.message ||
-      e?.properties?.explanation ||
-      e?.properties?.errors?.[0]?.properties?.explanation ||
-      'فشل إنشاء ملف Word من القالب';
-    return { ok: false, message: String(msg) };
+  } catch (e: unknown) {
+    if (e && typeof e === 'object') {
+      const rec = e as Record<string, unknown>;
+      const props = (rec.properties && typeof rec.properties === 'object') ? (rec.properties as Record<string, unknown>) : null;
+      const errors = props && Array.isArray(props.errors) ? props.errors : null;
+      const firstErr = errors && errors[0] && typeof errors[0] === 'object' ? (errors[0] as Record<string, unknown>) : null;
+      const firstErrProps = firstErr && firstErr.properties && typeof firstErr.properties === 'object' ? (firstErr.properties as Record<string, unknown>) : null;
+
+      const msg =
+        (typeof rec.message === 'string' ? rec.message : undefined) ||
+        (props && typeof props.explanation === 'string' ? props.explanation : undefined) ||
+        (firstErrProps && typeof firstErrProps.explanation === 'string' ? firstErrProps.explanation : undefined) ||
+        'فشل إنشاء ملف Word من القالب';
+
+      return { ok: false, message: String(msg) };
+    }
+
+    return { ok: false, message: 'فشل إنشاء ملف Word من القالب' };
   }
 }
 
@@ -66,7 +76,7 @@ type ContractDocxData = {
 };
 
 const replaceStarRunsSequential = (input: string, replacements: Array<string | number | undefined | null>) => {
-  const norm = (v: any) => {
+  const norm = (v: unknown) => {
     if (v === undefined || v === null) return '';
     const s = String(v);
     return s;
@@ -80,14 +90,14 @@ const replaceStarRunsSequential = (input: string, replacements: Array<string | n
 };
 
 const replaceParenStarRunsSequential = (input: string, replacements: Array<string | number | undefined | null>) => {
-  const norm = (v: any) => {
+  const norm = (v: string | number | undefined | null) => {
     if (v === undefined || v === null) return '';
     return String(v);
   };
 
   let idx = 0;
   // Only replace star-runs inside parentheses first to avoid touching other masked content.
-  let out = input.replace(/\([^\)]*\*{2,}[^\)]*\)/g, (m) => {
+  const out = input.replace(/\([^)]*\*{2,}[^)]*\)/g, (m) => {
     const rep = idx < replacements.length ? replacements[idx++] : undefined;
     // Replace only the star run inside this parentheses block
     return m.replace(/\*{2,}/g, () => norm(rep));
@@ -205,8 +215,8 @@ export function fillContractMaskedDocxTemplate(templateArrayBuffer: ArrayBuffer,
     });
 
     return { ok: true, bytes: out };
-  } catch (e: any) {
-    const msg = e?.message || 'فشل إنشاء ملف Word من القالب';
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'فشل إنشاء ملف Word من القالب';
     return { ok: false, message: String(msg) };
   }
 }

@@ -65,7 +65,7 @@ export function openExternalUrl(url: string, options?: OpenExternalUrlOptions): 
 
   const win = window.open(parsed.toString(), target, features);
   try {
-    if (win) (win as any).opener = null;
+    if (win) win.opener = null;
   } catch {
     // ignore
   }
@@ -80,7 +80,7 @@ export function openSafeBlankWindow(options?: Omit<OpenExternalUrlOptions, 'allo
   const features = normalizeFeatures(options?.features);
   const win = window.open('about:blank', target, features);
   try {
-    if (win) (win as any).opener = null;
+    if (win) win.opener = null;
   } catch {
     // ignore
   }

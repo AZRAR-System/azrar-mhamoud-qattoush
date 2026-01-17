@@ -16,17 +16,34 @@ function parseSemver(version) {
   return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
 }
 
-function nextPatch(version) {
+function nextDesktopVersion(version) {
+  // Desktop version policy:
+  // - patch is a serial counter (0..99)
+  // - after 99, roll to next minor and reset patch to 0
+  // Examples:
+  //   3.1.0  -> 3.1.1
+  //   3.1.99 -> 3.2.0
+  // Also supports large patch values by carrying into minor automatically.
   const v = parseSemver(version);
   if (!v) throw new Error(`Unsupported version format: ${version}`);
-  return `${v.major}.${v.minor}.${v.patch + 1}`;
+
+  const nextPatch = v.patch + 1;
+  const minorCarry = Math.floor(nextPatch / 100);
+  const patch = nextPatch % 100;
+
+  const nextMinor = v.minor + minorCarry;
+  const majorCarry = Math.floor(nextMinor / 100);
+  const minor = nextMinor % 100;
+  const major = v.major + majorCarry;
+
+  return `${major}.${minor}.${patch}`;
 }
 
 async function main() {
   const raw = await fs.readFile(pkgPath, 'utf8');
   const pkg = JSON.parse(raw);
   const current = pkg.version;
-  const next = nextPatch(current);
+  const next = nextDesktopVersion(current);
 
   if (dryRun) {
     console.log(next);

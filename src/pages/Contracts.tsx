@@ -25,19 +25,33 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DbService } from '@/services/mockDb';
-import { العقود_tbl, الأشخاص_tbl, العقارات_tbl, الكمبيالات_tbl } from '@/types';
+import { العقود_tbl, الأشخاص_tbl, العقارات_tbl, الكمبيالات_tbl, type PaymentMethodType } from '@/types';
 import { isTenancyRelevant } from '@/utils/tenancy';
-import { exportToXlsx, readSpreadsheet } from '@/utils/xlsx';
+import { exportToXlsx, readSpreadsheet, type XlsxColumn } from '@/utils/xlsx';
 import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
 import {
-    FileText, CheckCircle, Clock, AlertTriangle, Ban, FileCheck, Eye, Archive, Download, SlidersHorizontal, Pencil, Trash2
+    FileText,
+    CheckCircle,
+    Clock,
+    AlertTriangle,
+    Ban,
+    FileCheck,
+    Eye,
+    ArrowRight,
+    Archive,
+    Download,
+    SlidersHorizontal,
+    Pencil,
+    Trash2,
+    Filter,
+    X
 } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
-import { DS } from '@/constants/designSystem';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { SearchEngine, FilterRule } from '@/services/searchEngine';
@@ -46,6 +60,8 @@ import { formatContractNumberShort } from '@/utils/contractNumber';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { formatCurrencyJOD } from '@/utils/format';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import {
     contractPickerSearchPagedSmart,
     domainCountsSmart,
@@ -53,6 +69,7 @@ import {
     propertyContractsSmart,
     propertyPickerSearchPagedSmart,
 } from '@/services/domainQueries';
+import type { ContractPickerItem, PeoplePickerItem, PropertyPickerItem } from '@/types/domain.types';
 
 // Memoized Contract Card (Cards layout like People)
 const ContractCard = React.memo(({
@@ -121,16 +138,16 @@ const ContractCard = React.memo(({
                                 <div className="whitespace-normal break-words">
                                     <span className="font-bold text-slate-500">المستأجر:</span> <span className="font-semibold">{tenantName || '—'}</span>
                                 </div>
-                                    {String((contract as any).رقم_الفرصة || '').trim() ? (
+                                    {String(contract.رقم_الفرصة || '').trim() ? (
                                         <div className="whitespace-normal break-words">
                                             <span className="font-bold text-slate-500">رقم الفرصة:</span>{' '}
-                                            <span className="font-mono">{String((contract as any).رقم_الفرصة || '').trim()}</span>
+                                            <span className="font-mono">{String(contract.رقم_الفرصة || '').trim()}</span>
                                         </div>
                                     ) : null}
                             </div>
                         </div>
                     </div>
-                    <StatusBadge status={contract.حالة_العقد} />
+                    <StatusBadge status={contract.حالة_العقد} className="scale-90 origin-top-right" />
                 </div>
 
                 <div className="text-xs text-slate-500 dark:text-slate-400 mb-4">
@@ -141,59 +158,91 @@ const ContractCard = React.memo(({
                     </div>
                 </div>
 
-                <div className="mt-auto pt-4 border-t border-gray-100 dark:border-slate-700 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-4">
+                <div className="mt-auto pt-4 border-t border-gray-100 dark:border-slate-700 space-y-3">
+                    <div className="flex flex-wrap items-center gap-4">
                         <div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">مبلغ العقد</div>
-                            <div className="font-bold text-green-600">{formatCurrencyJOD(contract.القيمة_السنوية, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                            <div className="font-bold text-green-600 whitespace-nowrap">
+                                {formatCurrencyJOD(contract.القيمة_السنوية, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </div>
                         </div>
                         <div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">المتبقي</div>
-                            <div className="font-bold text-orange-600">{formatCurrencyJOD(remainingAmount || 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                            <div className="font-bold text-orange-600 whitespace-nowrap">
+                                {formatCurrencyJOD(remainingAmount || 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </div>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <Button size="icon" variant="ghost" onClick={() => onOpenDetails(contract.رقم_العقد)} className="h-8 w-8 rounded-lg hover:bg-indigo-50 text-indigo-600">
-                            <Eye size={16} />
+
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 justify-center gap-2 whitespace-nowrap min-w-[140px] rounded-xl shadow-sm"
+                            onClick={() => onOpenDetails(contract.رقم_العقد)}
+                            title="فتح تفاصيل العقد"
+                            aria-label="فتح تفاصيل العقد"
+                            rightIcon={<Eye size={14} className="shrink-0" />}
+                            leftIcon={<ArrowRight size={14} className="shrink-0 opacity-80" />}
+                        >
+                            التفاصيل
                         </Button>
 
-                        <RBACGuard requiredPermission="EDIT_CONTRACT">
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => onEdit(contract.رقم_العقد)}
-                                className="h-8 w-8 rounded-lg hover:bg-emerald-50 text-emerald-600"
-                                title="تعديل العقد"
-                            >
-                                <Pencil size={16} />
-                            </Button>
-                        </RBACGuard>
-
-                        {contract.حالة_العقد === 'مفسوخ' && (
-                            <Button size="icon" variant="ghost" onClick={() => onOpenClearance(contract.رقم_العقد)} className="h-8 w-8 rounded-lg hover:bg-orange-50 text-orange-600">
-                                <FileCheck size={16} />
-                            </Button>
-                        )}
-
-                        {(contract.حالة_العقد === 'منتهي' || contract.حالة_العقد === 'مفسوخ') && !contract.isArchived && (
-                            <RBACGuard requiredPermission="DELETE_CONTRACT">
-                                <Button size="icon" variant="ghost" onClick={() => onArchive(contract.رقم_العقد)} className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-500">
-                                    <Archive size={16} />
+                        <div className="flex flex-wrap justify-end gap-1">
+                            <RBACGuard requiredPermission="EDIT_CONTRACT">
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => onEdit(contract.رقم_العقد)}
+                                    className="h-8 w-8 rounded-lg hover:bg-emerald-50 text-emerald-600"
+                                    title="تعديل العقد"
+                                    aria-label="تعديل العقد"
+                                >
+                                    <Pencil size={16} />
                                 </Button>
                             </RBACGuard>
-                        )}
 
-                        <RBACGuard requiredPermission="DELETE_CONTRACT">
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => onDelete(contract.رقم_العقد)}
-                                className="h-8 w-8 rounded-lg hover:bg-red-50 text-red-600"
-                                title="حذف العقد"
-                            >
-                                <Trash2 size={16} />
-                            </Button>
-                        </RBACGuard>
+                            {contract.حالة_العقد === 'مفسوخ' && (
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => onOpenClearance(contract.رقم_العقد)}
+                                    className="h-8 w-8 rounded-lg hover:bg-orange-50 text-orange-600"
+                                    title="مخالصة"
+                                    aria-label="مخالصة"
+                                >
+                                    <FileCheck size={16} />
+                                </Button>
+                            )}
+
+                            {(contract.حالة_العقد === 'منتهي' || contract.حالة_العقد === 'مفسوخ') && !contract.isArchived && (
+                                <RBACGuard requiredPermission="DELETE_CONTRACT">
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => onArchive(contract.رقم_العقد)}
+                                        className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-500"
+                                        title="أرشفة"
+                                        aria-label="أرشفة"
+                                    >
+                                        <Archive size={16} />
+                                    </Button>
+                                </RBACGuard>
+                            )}
+
+                            <RBACGuard requiredPermission="DELETE_CONTRACT">
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => onDelete(contract.رقم_العقد)}
+                                    className="h-8 w-8 rounded-lg hover:bg-red-50 text-red-600"
+                                    title="حذف العقد"
+                                    aria-label="حذف العقد"
+                                >
+                                    <Trash2 size={16} />
+                                </Button>
+                            </RBACGuard>
+                        </div>
                     </div>
                 </div>
 
@@ -215,31 +264,24 @@ const ContractCard = React.memo(({
 });
 
 export const Contracts: React.FC = () => {
+    const pageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 18, xl: 24, '2xl': 32 });
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
     const [installments, setInstallments] = useState<الكمبيالات_tbl[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeStatus, setActiveStatus] = useState<string>('active');
+    const [activeStatus, setActiveStatus] = useState<'active' | 'expiring' | 'expired' | 'terminated' | 'archived'>('active');
+
+    const [uiPage, setUiPage] = useState(0);
 
     const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainContractPickerSearch;
     const [desktopCounts, setDesktopCounts] = useState<{ people: number; properties: number; contracts: number } | null>(null);
-    const [fastRows, setFastRows] = useState<
-        Array<{
-            contract: any;
-            propertyCode?: string;
-            ownerName?: string;
-            tenantName?: string;
-            ownerNationalId?: string;
-            tenantNationalId?: string;
-            remainingAmount?: number;
-        }>
-    >([]);
+    const [fastRows, setFastRows] = useState<ContractPickerItem[]>([]);
     const [fastTotal, setFastTotal] = useState(0);
     const [fastLoading, setFastLoading] = useState(false);
     const [fastError, setFastError] = useState<string>('');
     const [fastPage, setFastPage] = useState(1);
-    const fastPageSize = 48;
+    const fastPageSize = pageSize;
     const [fastReload, setFastReload] = useState(0);
     const warnedFastErrorRef = useRef<string>('');
 
@@ -254,8 +296,10 @@ export const Contracts: React.FC = () => {
             const params = new URLSearchParams(search);
 
             const status = (params.get('status') || params.get('tab') || '').trim();
-            const allowed = new Set(['active', 'expiring', 'expired', 'terminated', 'archived']);
-            if (status && allowed.has(status)) setActiveStatus(status);
+            const allowed = ['active', 'expiring', 'expired', 'terminated', 'archived'] as const;
+            if (status && (allowed as readonly string[]).includes(status)) {
+                setActiveStatus(status as (typeof allowed)[number]);
+            }
 
             // Optional prefilled search
             if (params.has('q')) {
@@ -284,19 +328,22 @@ export const Contracts: React.FC = () => {
       createdMonth: ''
   });
 
+    const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), []);
+    const createdMonthApplied = useMemo(() => /^\d{4}-\d{2}$/.test(String(advFilters.createdMonth || '').trim()), [advFilters.createdMonth]);
+
   const { openPanel } = useSmartModal();
   const toast = useToast();
     const dbSignal = useDbSignal();
+        const toastRef = useRef(toast);
+
+        useEffect(() => {
+                toastRef.current = toast;
+        }, [toast]);
 
     // Create Maps for fast lookup
     const peopleMap = useMemo(() => new Map(people.map(p => [String(p.رقم_الشخص), p.الاسم])), [people]);
     const propsById = useMemo(() => new Map(properties.map(p => [String(p.رقم_العقار), p])), [properties]);
     const propsCodeMap = useMemo(() => new Map(properties.map(p => [String(p.رقم_العقار), p.الكود_الداخلي])), [properties]);
-
-  useEffect(() => {
-    loadData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dbSignal]);
 
   const loadData = useCallback(() => {
         if (isDesktopFast) {
@@ -313,7 +360,11 @@ export const Contracts: React.FC = () => {
         setProperties(DbService.getProperties() || []);
         setPeople(DbService.getPeople() || []);
         setInstallments(DbService.getInstallments() || []);
-  }, []);
+  }, [isDesktopFast]);
+
+    useEffect(() => {
+        loadData();
+    }, [dbSignal, loadData]);
 
     // Desktop counts for DataGuard
     useEffect(() => {
@@ -339,16 +390,22 @@ export const Contracts: React.FC = () => {
         const offset = (Math.max(1, fastPage) - 1) * fastPageSize;
         const run = async () => {
             try {
-                const res = await contractPickerSearchPagedSmart({ query: searchTerm, tab: activeStatus, offset, limit: fastPageSize });
+                const res = await contractPickerSearchPagedSmart({
+                    query: searchTerm,
+                    tab: activeStatus,
+                    createdMonth: createdMonthApplied ? String(advFilters.createdMonth || '').trim() : '',
+                    offset,
+                    limit: fastPageSize,
+                });
                 if (!alive) return;
                 setFastRows(res.items || []);
                 setFastTotal(res.total || 0);
-                if ((res as any)?.error) {
-                    const msg = String((res as any).error || '').trim();
+                if (res.error) {
+                    const msg = String(res.error || '').trim();
                     setFastError(msg);
                     if (msg && warnedFastErrorRef.current !== msg) {
                         warnedFastErrorRef.current = msg;
-                        toast.error(msg);
+                        toastRef.current.error(msg);
                     }
                 }
             } finally {
@@ -359,14 +416,17 @@ export const Contracts: React.FC = () => {
         return () => {
             alive = false;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isDesktopFast, searchTerm, activeStatus, fastPage, dbSignal, fastReload]);
+    }, [isDesktopFast, searchTerm, activeStatus, fastPage, fastPageSize, advFilters.createdMonth, createdMonthApplied, dbSignal, fastReload]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
         setFastPage(1);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isDesktopFast, searchTerm, activeStatus]);
+    }, [isDesktopFast, searchTerm, activeStatus, advFilters.createdMonth, fastPageSize]);
+
+    useEffect(() => {
+        if (isDesktopFast) return;
+        setUiPage(0);
+    }, [searchTerm, activeStatus, showAdvanced, advFilters, pageSize, isDesktopFast]);
 
     const remainingByContractId = useMemo(() => {
         const map = new Map<string, number>();
@@ -375,7 +435,7 @@ export const Contracts: React.FC = () => {
             if (!contractId) continue;
 
             // Security deposit is a guarantee, not part of rent remaining.
-            if (String((inst as any)?.نوع_الكمبيالة || '').trim() === 'تأمين') continue;
+            if (String(inst?.نوع_الكمبيالة || '').trim() === 'تأمين') continue;
 
             const { remaining } = getInstallmentPaidAndRemaining(inst);
             if (!remaining || remaining <= 0) continue;
@@ -407,7 +467,7 @@ export const Contracts: React.FC = () => {
         result = result.filter(c => {
             const tenantName = peopleMap.get(String(c.رقم_المستاجر)) || '';
             const propCode = propsCodeMap.get(String(c.رقم_العقار)) || '';
-            const opp = String((c as any).رقم_الفرصة || '').trim();
+            const opp = String(c.رقم_الفرصة || '').trim();
             
             return (
                 c.رقم_العقد.toLowerCase().includes(lower) ||
@@ -419,16 +479,18 @@ export const Contracts: React.FC = () => {
     }
 
     // 3. Advanced Search
+    // Created-month filter should work even when the advanced panel is hidden.
+    if (createdMonthApplied) {
+        const targetYm = String(advFilters.createdMonth || '').trim();
+        result = result.filter(c => {
+            const createdRaw = String(c.تاريخ_الانشاء || '').trim();
+            const basis = /^\d{4}-\d{2}-\d{2}$/.test(createdRaw) ? createdRaw : String(c.تاريخ_البداية || '').trim();
+            const ym = /^\d{4}-\d{2}-\d{2}$/.test(basis) ? basis.slice(0, 7) : '';
+            return ym === targetYm;
+        });
+    }
+
     if (showAdvanced) {
-        if (advFilters.createdMonth) {
-            const targetYm = String(advFilters.createdMonth || '').trim();
-            result = result.filter(c => {
-                const createdRaw = String((c as any)?.تاريخ_الانشاء || '').trim();
-                const basis = /^\d{4}-\d{2}-\d{2}$/.test(createdRaw) ? createdRaw : String(c.تاريخ_البداية || '').trim();
-                const ym = /^\d{4}-\d{2}-\d{2}$/.test(basis) ? basis.slice(0, 7) : '';
-                return ym === targetYm;
-            });
-        }
 
         const rules: FilterRule[] = [];
         if(advFilters.startDateFrom && advFilters.startDateTo) {
@@ -444,7 +506,13 @@ export const Contracts: React.FC = () => {
     }
 
     return result;
-    }, [contracts, activeStatus, searchTerm, peopleMap, propsCodeMap, showAdvanced, advFilters, isDesktopFast]);
+    }, [contracts, activeStatus, searchTerm, peopleMap, propsCodeMap, showAdvanced, advFilters, createdMonthApplied, isDesktopFast]);
+
+    const uiPageCount = Math.max(1, Math.ceil(filteredContracts.length / pageSize));
+    const uiRows = useMemo(() => {
+        const start = uiPage * pageSize;
+        return filteredContracts.slice(start, start + pageSize);
+    }, [filteredContracts, uiPage, pageSize]);
 
   // Stable Handlers
   const handleOpenDetails = useCallback((id: string) => openPanel('CONTRACT_DETAILS', id), [openPanel]);
@@ -480,7 +548,7 @@ export const Contracts: React.FC = () => {
     const contract = contracts.find(c => c.رقم_العقد === id);
     if (!contract) return;
 
-    const confirmed = await toast.confirm({
+        await toast.confirm({
       title: 'أرشفة العقد',
       message: `سيتم نقل العقد "${contract.رقم_العقد}" للأرشيف. هل أنت متأكد؟`,
       confirmText: 'نعم، انقل للأرشيف',
@@ -521,7 +589,7 @@ export const Contracts: React.FC = () => {
       });
   }, [canCreateContract, openPanel, toast, loadData]);
 
-  const normalize = (v: any) => String(v ?? '').trim();
+    const normalize = (v: unknown) => String(v ?? '').trim();
 
   const toDateOnly = (d: Date) => {
       const y = d.getUTCFullYear();
@@ -543,17 +611,17 @@ export const Contracts: React.FC = () => {
       return toDateOnly(endCandidate);
   };
 
-  const mapPaymentMethod = (raw: any) => {
+  const mapPaymentMethod = (raw: unknown): PaymentMethodType => {
       const v = String(raw ?? '').trim().toLowerCase();
-      if (!v) return 'Postpaid' as const;
-      if (v.includes('pre') || v.includes('مقدم') || v.includes('مسب')) return 'Prepaid' as const;
-      if (v.includes('down') || v.includes('دفعة') || v.includes('اول')) return 'DownPayment_Monthly' as const;
-      if (v.includes('post') || v.includes('مؤجل') || v.includes('لاحق')) return 'Postpaid' as const;
+      if (!v) return 'Postpaid';
+      if (v.includes('pre') || v.includes('مقدم') || v.includes('مسب')) return 'Prepaid';
+      if (v.includes('down') || v.includes('دفعة') || v.includes('اول')) return 'DownPayment_Monthly';
+      if (v.includes('post') || v.includes('مؤجل') || v.includes('لاحق')) return 'Postpaid';
       // Accept exact enum values
-      if (v === 'prepaid') return 'Prepaid' as const;
-      if (v === 'postpaid') return 'Postpaid' as const;
-      if (v === 'downpayment_monthly') return 'DownPayment_Monthly' as const;
-      return 'Postpaid' as const;
+      if (v === 'prepaid') return 'Prepaid';
+      if (v === 'postpaid') return 'Postpaid';
+      if (v === 'downpayment_monthly') return 'DownPayment_Monthly';
+      return 'Postpaid';
   };
 
   const handleDownloadTemplate = async () => {
@@ -596,8 +664,7 @@ export const Contracts: React.FC = () => {
 
   const handlePickImportFile = () => importRef.current?.click();
 
-  const handleImportFile = useCallback(
-      async (file: File) => {
+  const handleImportFile = async (file: File) => {
           const ok = await toast.confirm({
               title: 'استيراد العقود',
               message:
@@ -607,11 +674,12 @@ export const Contracts: React.FC = () => {
           });
           if (!ok) return;
 
-          let rows: Array<Record<string, any>> = [];
+          let rows: Array<Record<string, string>> = [];
           try {
               rows = await readSpreadsheet(file);
-          } catch (e: any) {
-              toast.error(e?.message || 'فشل قراءة ملف الاستيراد');
+          } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : 'فشل قراءة ملف الاستيراد';
+              toast.error(msg);
               return;
           }
           if (!rows.length) {
@@ -619,7 +687,7 @@ export const Contracts: React.FC = () => {
               return;
           }
 
-          const pick = (row: Record<string, any>, keys: string[]) => {
+          const pick = (row: Record<string, string>, keys: string[]) => {
               for (const k of keys) {
                   const v = row[k];
                   if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
@@ -630,9 +698,9 @@ export const Contracts: React.FC = () => {
           const isDesktopFastImport = isDesktopFast;
 
           // Desktop fast: resolve links through SQL search without loading full arrays.
-          const propByCode = new Map<string, { رقم_العقار: string; الكود_الداخلي?: string }>();
-          const personByNationalId = new Map<string, { رقم_الشخص: string; الرقم_الوطني?: string; رقم_الهاتف?: string }>();
-          const personByPhone = new Map<string, { رقم_الشخص: string; الرقم_الوطني?: string; رقم_الهاتف?: string }>();
+          const propByCode = new Map<string, Pick<العقارات_tbl, 'رقم_العقار' | 'الكود_الداخلي'>>();
+          const personByNationalId = new Map<string, Pick<الأشخاص_tbl, 'رقم_الشخص' | 'الرقم_الوطني' | 'رقم_الهاتف'>>();
+          const personByPhone = new Map<string, Pick<الأشخاص_tbl, 'رقم_الشخص' | 'الرقم_الوطني' | 'رقم_الهاتف'>>();
 
           // De-dupe cache: for each property, set of "tenantId|startDate" keys.
           const existingByProperty = new Map<string, Set<string>>();
@@ -647,9 +715,9 @@ export const Contracts: React.FC = () => {
               if (isDesktopFastImport) {
                   const items = (await propertyContractsSmart(pid)) || [];
                   for (const it of items) {
-                      const c = (it as any)?.contract;
-                      const tid = normalize((c as any)?.رقم_المستاجر);
-                      const sd = normalize((c as any)?.تاريخ_البداية);
+                      const c = it?.contract;
+                      const tid = normalize(c?.رقم_المستاجر);
+                      const sd = normalize(c?.تاريخ_البداية);
                       if (tid && sd) set.add(`${tid}|${sd}`);
                   }
               } else {
@@ -674,8 +742,7 @@ export const Contracts: React.FC = () => {
 
               if (isDesktopFastImport) {
                   const res = await propertyPickerSearchPagedSmart({ query: codeNorm, offset: 0, limit: 50 });
-                  const exact =
-                      (res.items || []).map((it: any) => (it as any)?.property).find((p: any) => normalize(p?.الكود_الداخلي) === codeNorm) || null;
+                  const exact = (res.items || []).map((it) => it.property).find((p: PropertyPickerItem['property']) => normalize(p?.الكود_الداخلي) === codeNorm) || null;
 
                   const pid = String(exact?.رقم_العقار || '').trim();
                   if (!pid) return null;
@@ -695,8 +762,8 @@ export const Contracts: React.FC = () => {
           const findPersonByNidOrPhone = async (nidRaw: string, phoneRaw: string) => {
               const nid = normalize(nidRaw);
               const ph = normalize(phoneRaw);
-              if (nid && personByNationalId.has(nid)) return personByNationalId.get(nid)!;
-              if (ph && personByPhone.has(ph)) return personByPhone.get(ph)!;
+              if (nid && personByNationalId.has(nid)) return personByNationalId.get(nid) ?? null;
+              if (ph && personByPhone.has(ph)) return personByPhone.get(ph) ?? null;
 
               if (isDesktopFastImport) {
                   // Desktop safety: do not fall back to in-memory scans.
@@ -705,13 +772,12 @@ export const Contracts: React.FC = () => {
                   // Prefer national ID exact match; else phone exact match.
                   if (nid) {
                       const res = await peoplePickerSearchPagedSmart({ query: nid, offset: 0, limit: 50 });
-                      const exact =
-                          (res.items || [])
-                              .map((it: any) => (it as any)?.person)
-                              .find((p: any) => normalize((p as any)?.الرقم_الوطني) === nid) || null;
+                      const exact = (res.items || [])
+                          .map((it: PeoplePickerItem) => it.person)
+                          .find((p: PeoplePickerItem['person']) => normalize(p?.الرقم_الوطني) === nid) || null;
                       const id = String(exact?.رقم_الشخص || '').trim();
                       if (id) {
-                          const out = { رقم_الشخص: id, الرقم_الوطني: String((exact as any)?.الرقم_الوطني || '').trim() || undefined, رقم_الهاتف: String(exact?.رقم_الهاتف || '').trim() || undefined };
+                          const out = { رقم_الشخص: id, الرقم_الوطني: String(exact?.الرقم_الوطني || '').trim() || undefined, رقم_الهاتف: String(exact?.رقم_الهاتف || '').trim() || undefined };
                           if (nid) personByNationalId.set(nid, out);
                           if (ph) personByPhone.set(ph, out);
                           return out;
@@ -720,13 +786,12 @@ export const Contracts: React.FC = () => {
 
                   if (ph) {
                       const res = await peoplePickerSearchPagedSmart({ query: ph, offset: 0, limit: 50 });
-                      const exact =
-                          (res.items || [])
-                              .map((it: any) => (it as any)?.person)
-                              .find((p: any) => normalize(p?.رقم_الهاتف) === ph) || null;
+                      const exact = (res.items || [])
+                          .map((it: PeoplePickerItem) => it.person)
+                          .find((p: PeoplePickerItem['person']) => normalize(p?.رقم_الهاتف) === ph) || null;
                       const id = String(exact?.رقم_الشخص || '').trim();
                       if (id) {
-                          const out = { رقم_الشخص: id, الرقم_الوطني: String((exact as any)?.الرقم_الوطني || '').trim() || undefined, رقم_الهاتف: String(exact?.رقم_الهاتف || '').trim() || undefined };
+                          const out = { رقم_الشخص: id, الرقم_الوطني: String(exact?.الرقم_الوطني || '').trim() || undefined, رقم_الهاتف: String(exact?.رقم_الهاتف || '').trim() || undefined };
                           if (nid) personByNationalId.set(nid, out);
                           if (ph) personByPhone.set(ph, out);
                           return out;
@@ -738,14 +803,14 @@ export const Contracts: React.FC = () => {
 
               const peopleAll = (DbService.getPeople() || []) as الأشخاص_tbl[];
               for (const p of peopleAll) {
-                  const pnid = normalize((p as any).الرقم_الوطني);
+                  const pnid = normalize(p.الرقم_الوطني);
                   const pph = normalize(p.رقم_الهاتف);
-                  const out = { رقم_الشخص: String(p.رقم_الشخص), الرقم_الوطني: String((p as any).الرقم_الوطني || '').trim() || undefined, رقم_الهاتف: String(p.رقم_الهاتف || '').trim() || undefined };
+                  const out = { رقم_الشخص: String(p.رقم_الشخص), الرقم_الوطني: String(p.الرقم_الوطني || '').trim() || undefined, رقم_الهاتف: String(p.رقم_الهاتف || '').trim() || undefined };
                   if (pnid && !personByNationalId.has(pnid)) personByNationalId.set(pnid, out);
                   if (pph && !personByPhone.has(pph)) personByPhone.set(pph, out);
               }
-              if (nid && personByNationalId.has(nid)) return personByNationalId.get(nid)!;
-              if (ph && personByPhone.has(ph)) return personByPhone.get(ph)!;
+              if (nid && personByNationalId.has(nid)) return personByNationalId.get(nid) ?? null;
+              if (ph && personByPhone.has(ph)) return personByPhone.get(ph) ?? null;
               return null;
           };
 
@@ -788,8 +853,8 @@ export const Contracts: React.FC = () => {
                   continue;
               }
 
-              const propertyId = String((prop as any).رقم_العقار || '').trim();
-              const tenantId = String((tenant as any).رقم_الشخص || '').trim();
+              const propertyId = String(prop.رقم_العقار || '').trim();
+              const tenantId = String(tenant.رقم_الشخص || '').trim();
               const key = `${normalize(tenantId)}|${normalize(startDate)}`;
               const existingKeysForProp = await ensureExistingForProperty(propertyId);
               if (existingKeysForProp.has(key)) {
@@ -801,16 +866,16 @@ export const Contracts: React.FC = () => {
                   {
                       رقم_العقار: propertyId,
                       رقم_المستاجر: tenantId,
-                      رقم_الكفيل: String((guarantor as any)?.رقم_الشخص || '').trim() || undefined,
+                      رقم_الكفيل: String(guarantor?.رقم_الشخص || '').trim() || undefined,
                       تاريخ_البداية: startDate,
                       تاريخ_النهاية: endDate,
                       مدة_العقد_بالاشهر: durationMonths,
                       القيمة_السنوية: annualValue,
                       تكرار_الدفع: paymentFrequency,
-                      طريقة_الدفع: mapPaymentMethod(paymentMethodRaw) as any,
+                      طريقة_الدفع: mapPaymentMethod(paymentMethodRaw),
                       حالة_العقد: 'نشط',
                       isArchived: false,
-                  } as any,
+                  } satisfies Partial<العقود_tbl>,
                   0,
                   0
               );
@@ -825,16 +890,27 @@ export const Contracts: React.FC = () => {
 
           loadData();
           toast.success(`تم الاستيراد: إضافة ${created} • تخطي ${skipped}`);
-      },
-      [toast, loadData]
-  );
+    };
 
     const handleExport = async () => {
           if (isDesktopFast) {
               if (fastTotal === 0) return toast.warning('لا توجد بيانات للتصدير');
 
+              type DesktopExportRow = {
+                  ContractId: string;
+                  PropertyCode: string;
+                  OwnerName: string;
+                  TenantName: string;
+                  StartDate: string;
+                  EndDate: string;
+                  AnnualValue: number;
+                  PaymentFrequency: unknown;
+                  PaymentMethod: unknown;
+                  Status: string;
+              };
+
               // Export the currently filtered Desktop set (paged fetch) on demand.
-              const allItems: any[] = [];
+              const allItems: ContractPickerItem[] = [];
               const batch = 500;
               for (let off = 0; off < fastTotal; off += batch) {
                   const res = await contractPickerSearchPagedSmart({ query: searchTerm, tab: activeStatus, offset: off, limit: batch });
@@ -844,8 +920,8 @@ export const Contracts: React.FC = () => {
 
               if (allItems.length === 0) return toast.warning('لا توجد بيانات للتصدير');
 
-              const rows = allItems.map((r: any) => {
-                  const c = r.contract as any;
+              const rows: DesktopExportRow[] = allItems.map((r) => {
+                  const c = r.contract;
                   return {
                       ContractId: c.رقم_العقد,
                       PropertyCode: r.propertyCode || c.رقم_العقار,
@@ -854,15 +930,27 @@ export const Contracts: React.FC = () => {
                       StartDate: c.تاريخ_البداية,
                       EndDate: c.تاريخ_النهاية,
                       AnnualValue: c.القيمة_السنوية,
-                      PaymentFrequency: c.نظام_الدفع,
-                      PaymentMethod: (c as any).طريقة_الدفع,
+                      // Preserve legacy export behavior: some Desktop payloads may include a non-standard field.
+                      PaymentFrequency: (c as unknown as Record<string, unknown>)['نظام_الدفع'],
+                      PaymentMethod: c.طريقة_الدفع,
                       Status: c.حالة_العقد,
                   };
               });
 
               const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
-              const cols = Object.keys(rows[0] || {}).map((k) => ({ key: k, header: k })) as any;
-              await exportToXlsx('Contracts', cols, rows as any, `contracts_export_${new Date().toISOString().slice(0, 10)}.xlsx`, {
+              const cols: Array<XlsxColumn<DesktopExportRow>> = [
+                  { key: 'ContractId', header: 'ContractId' },
+                  { key: 'PropertyCode', header: 'PropertyCode' },
+                  { key: 'OwnerName', header: 'OwnerName' },
+                  { key: 'TenantName', header: 'TenantName' },
+                  { key: 'StartDate', header: 'StartDate' },
+                  { key: 'EndDate', header: 'EndDate' },
+                  { key: 'AnnualValue', header: 'AnnualValue' },
+                  { key: 'PaymentFrequency', header: 'PaymentFrequency' },
+                  { key: 'PaymentMethod', header: 'PaymentMethod' },
+                  { key: 'Status', header: 'Status' },
+              ];
+              await exportToXlsx('Contracts', cols, rows, `contracts_export_${new Date().toISOString().slice(0, 10)}.xlsx`, {
                   extraSheets: companySheet ? [companySheet] : [],
               });
               toast.success('تم التصدير');
@@ -915,6 +1003,25 @@ export const Contracts: React.FC = () => {
       toast.success('تم التصدير');
   };
 
+    const desktopHasAnyAdvFilter = useMemo(() => {
+        // Excluding createdMonth, since it's now a top-level quick filter.
+        return Object.entries(advFilters).some(([k, v]) => k !== 'createdMonth' && String(v ?? '').trim() !== '');
+    }, [advFilters]);
+
+    const desktopFiltersApplied = useMemo(() => {
+        return !!String(searchTerm || '').trim() || activeStatus !== 'active' || createdMonthApplied || (showAdvanced && desktopHasAnyAdvFilter);
+    }, [searchTerm, activeStatus, showAdvanced, desktopHasAnyAdvFilter, createdMonthApplied]);
+
+    const desktopCountsKnown = isDesktopFast && desktopCounts !== null;
+    const desktopNoContractsKnown = desktopCountsKnown && Number(desktopCounts?.contracts || 0) <= 0;
+
+    // Empty-state decisions (desktop fast mode can operate even if domainCounts is missing).
+    const showEmptyNoContracts = isDesktopFast
+        ? (!fastLoading && (desktopNoContractsKnown || (!desktopCountsKnown && !desktopFiltersApplied && fastRows.length === 0 && fastTotal === 0 && !fastError)))
+        : contracts.length === 0;
+
+    const showEmptyNoResults = !showEmptyNoContracts && (isDesktopFast ? (!fastLoading && fastRows.length === 0) : filteredContracts.length === 0);
+
     return (
             <div className="animate-fade-in space-y-6">
                 <input
@@ -923,11 +1030,12 @@ export const Contracts: React.FC = () => {
                     accept=".xlsx,.xls,.csv"
                     className="hidden"
                     onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            e.target.value = '';
-                            if (f) void handleImportFile(f);
+                        const f = e.target.files?.[0];
+                        e.target.value = '';
+                        if (f) void handleImportFile(f);
                     }}
                 />
+
         <SmartFilterBar
             title="إدارة العقود"
             subtitle="دورة حياة كاملة للعقود: إنشاء، تجديد، مخالصات، وأرشفة."
@@ -937,28 +1045,54 @@ export const Contracts: React.FC = () => {
             addLabel="عقد جديد"
             onRefresh={loadData}
           extraActions={
-              <div className="flex gap-2">
-                  <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
-                      {[
-                          { id: 'active', label: 'سارية', icon: CheckCircle },
-                          { id: 'expiring', label: 'قريبة الانتهاء', icon: Clock },
-                          { id: 'expired', label: 'منتهية', icon: AlertTriangle },
-                          { id: 'terminated', label: 'مفسوخة', icon: Ban },
-                          { id: 'archived', label: 'الأرشيف', icon: Archive },
-                      ].map(tab => (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                      <SegmentedTabs
+                          tabs={[
+                              { id: 'active', label: 'سارية', icon: CheckCircle },
+                              { id: 'expiring', label: 'قريبة الانتهاء', icon: Clock },
+                              { id: 'expired', label: 'منتهية', icon: AlertTriangle },
+                              { id: 'terminated', label: 'مفسوخة', icon: Ban },
+                              { id: 'archived', label: 'الأرشيف', icon: Archive },
+                          ]}
+                          activeId={activeStatus}
+                          onChange={(id) => setActiveStatus(id)}
+                      />
+
+                  <div className="app-card px-3 py-2 flex items-center gap-2">
+                      <Filter size={16} className="text-gray-400" />
+                      <input
+                          type="month"
+                          dir="ltr"
+                          className="bg-transparent text-slate-700 dark:text-white outline-none text-sm font-bold"
+                          value={advFilters.createdMonth}
+                          onChange={(e) => setAdvFilters({ ...advFilters, createdMonth: e.target.value })}
+                          title="تصفية حسب شهر إنشاء العقد"
+                      />
+                      {createdMonthApplied && (
                           <button
-                            key={tab.id}
-                            onClick={() => setActiveStatus(tab.id)}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition whitespace-nowrap
-                                ${activeStatus === tab.id 
-                                                                        ? 'bg-white dark:bg-slate-700 shadow text-indigo-700 dark:text-indigo-300' 
-                                    : 'text-slate-500 hover:text-slate-700'}`
-                            }
+                              type="button"
+                              onClick={() => setAdvFilters({ ...advFilters, createdMonth: '' })}
+                              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
+                              title="إلغاء فلتر الشهر"
                           >
-                              <tab.icon size={14} /> <span className="hidden md:inline">{tab.label}</span>
+                              <X size={14} />
                           </button>
-                      ))}
+                      )}
                   </div>
+
+                  <Button
+                      size="sm"
+                      variant={advFilters.createdMonth === currentMonthKey ? 'secondary' : 'ghost'}
+                      leftIcon={<CalendarDays size={16} />}
+                      onClick={() => {
+                          const isThisMonth = String(advFilters.createdMonth || '').trim() === currentMonthKey;
+                          setAdvFilters({ ...advFilters, createdMonth: isThisMonth ? '' : currentMonthKey });
+                      }}
+                      title={advFilters.createdMonth === currentMonthKey ? 'إلغاء فلتر هذا الشهر' : 'عرض العقود المُنشأة هذا الشهر'}
+                  >
+                      هذا الشهر
+                  </Button>
+
                   <Button variant="secondary" onClick={() => setShowAdvanced(!showAdvanced)} leftIcon={<SlidersHorizontal size={18}/>}>
                       {showAdvanced ? 'إخفاء' : 'تصفية'}
                   </Button>
@@ -973,15 +1107,6 @@ export const Contracts: React.FC = () => {
 
       {showAdvanced && (
            <Card className="p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 animate-slide-up bg-indigo-50/50 dark:bg-slate-800/50 border-indigo-100 dark:border-slate-700">
-               <div>
-                   <label className="text-xs font-bold block mb-1">شهر إنشاء العقد</label>
-                   <input
-                       type="month"
-                       className="p-2 rounded border w-full text-xs"
-                       value={advFilters.createdMonth}
-                       onChange={e => setAdvFilters({ ...advFilters, createdMonth: e.target.value })}
-                   />
-               </div>
                <div>
                    <label className="text-xs font-bold block mb-1">تاريخ البداية (من - إلى)</label>
                    <div className="flex gap-2">
@@ -1007,14 +1132,9 @@ export const Contracts: React.FC = () => {
       )}
 
       {/* عرض EmptyState حسب الحالة */}
-      {(isDesktopFast ? (Number(desktopCounts?.contracts || 0) <= 0 && !fastLoading) : contracts.length === 0) ? (
-          // حالة: لا توجد عقود في النظام
-          <EmptyState
-              type="contracts"
-              onAction={handleCreate}
-          />
-      ) : (isDesktopFast ? (!fastLoading && fastRows.length === 0) : filteredContracts.length === 0) ? (
-          // حالة: لا توجد نتائج بحث أو فلترة
+      {showEmptyNoContracts ? (
+          <EmptyState type="contracts" onAction={handleCreate} />
+      ) : showEmptyNoResults ? (
           <EmptyState
               type={searchTerm ? "search" : "filter"}
               title={searchTerm ? "لا توجد نتائج بحث" : "لا توجد نتائج"}
@@ -1032,53 +1152,82 @@ export const Contracts: React.FC = () => {
           />
       ) : (
           // حالة: عرض البيانات (بطاقات)
+          <>
+          {!isDesktopFast ? (
+              <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                      {filteredContracts.length.toLocaleString()} نتيجة
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={uiPage <= 0}
+                          onClick={() => setUiPage((p) => Math.max(0, p - 1))}
+                      >
+                          السابق
+                      </Button>
+                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                          {uiPage + 1} / {uiPageCount}
+                      </div>
+                      <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={uiPage + 1 >= uiPageCount}
+                          onClick={() => setUiPage((p) => p + 1)}
+                      >
+                          التالي
+                      </Button>
+                  </div>
+              </div>
+          ) : null}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {isDesktopFast && fastLoading ? (
                                 <div className="col-span-full text-center text-slate-500 text-sm p-6">جاري التحميل...</div>
                             ) : null}
 
-                            {(isDesktopFast ? fastRows : filteredContracts).map((item: any) => {
-                                    const c: any = isDesktopFast ? item.contract : item;
-                                    if (!c) return null;
-
-                                    if (isDesktopFast) {
-                                            return (
-                                                    <ContractCard
-                                                            key={String(c.رقم_العقد)}
-                                                            contract={c}
-                                                            propCode={String(item.propertyCode || c.رقم_العقار || '')}
-                                                            tenantName={String(item.tenantName || c.رقم_المستاجر || '')}
-                                                            ownerName={String(item.ownerName || '')}
-                                                            remainingAmount={Number(item.remainingAmount || 0) || 0}
-                                                            onOpenDetails={handleOpenDetails}
-                                                            onOpenClearance={handleOpenClearance}
-                                                            onArchive={handleArchive}
-                                                            onEdit={handleEdit}
-                                                            onDelete={handleDelete}
-                                                    />
-                                            );
-                                    }
-
-                                    const prop = propsById.get(String(c.رقم_العقار));
-                                    const ownerName = prop?.رقم_المالك ? (peopleMap.get(String(prop.رقم_المالك)) || String(prop.رقم_المالك)) : '';
-                                    const remainingAmount = remainingByContractId.get(String(c.رقم_العقد)) || 0;
-                                    return (
-                                            <ContractCard
-                                                    key={c.رقم_العقد}
-                                                    contract={c}
-                                                    propCode={propsCodeMap.get(String(c.رقم_العقار)) || c.رقم_العقار}
-                                                    tenantName={peopleMap.get(String(c.رقم_المستاجر)) || c.رقم_المستاجر}
-                                                    ownerName={ownerName}
-                                                    remainingAmount={remainingAmount}
-                                                    onOpenDetails={handleOpenDetails}
-                                                    onOpenClearance={handleOpenClearance}
-                                                    onArchive={handleArchive}
-                                                    onEdit={handleEdit}
-                                                    onDelete={handleDelete}
-                                            />
-                                    );
-                            })}
+                                {isDesktopFast
+                                ? fastRows.map((item) => {
+                                      const c = item.contract;
+                                      return (
+                                      <ContractCard
+                                          key={String(c.رقم_العقد)}
+                                          contract={c}
+                                          propCode={String(item.propertyCode || c.رقم_العقار || '')}
+                                          tenantName={String(item.tenantName || c.رقم_المستاجر || '')}
+                                          ownerName={String(item.ownerName || '')}
+                                          remainingAmount={Number(item.remainingAmount || 0) || 0}
+                                          onOpenDetails={handleOpenDetails}
+                                          onOpenClearance={handleOpenClearance}
+                                          onArchive={handleArchive}
+                                          onEdit={handleEdit}
+                                          onDelete={handleDelete}
+                                      />
+                                      );
+                                  })
+                                : uiRows.map((c) => {
+                                      const prop = propsById.get(String(c.رقم_العقار));
+                                      const ownerName = prop?.رقم_المالك ? (peopleMap.get(String(prop.رقم_المالك)) || String(prop.رقم_المالك)) : '';
+                                      const remainingAmount = remainingByContractId.get(String(c.رقم_العقد)) || 0;
+                                      return (
+                                      <ContractCard
+                                          key={c.رقم_العقد}
+                                          contract={c}
+                                          propCode={propsCodeMap.get(String(c.رقم_العقار)) || c.رقم_العقار}
+                                          tenantName={peopleMap.get(String(c.رقم_المستاجر)) || c.رقم_المستاجر}
+                                          ownerName={ownerName}
+                                          remainingAmount={remainingAmount}
+                                          onOpenDetails={handleOpenDetails}
+                                          onOpenClearance={handleOpenClearance}
+                                          onArchive={handleArchive}
+                                          onEdit={handleEdit}
+                                          onDelete={handleDelete}
+                                      />
+                                      );
+                                  })}
           </div>
+                          </>
       )}
 
             {isDesktopFast ? (

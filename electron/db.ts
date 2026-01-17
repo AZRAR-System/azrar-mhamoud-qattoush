@@ -9,7 +9,16 @@ type SqliteDb = InstanceType<typeof BetterSqlite3>;
 
 const require = createRequire(import.meta.url);
 
-let BetterSqlite3Ctor: any | null = null;
+type SqliteCtor = new (...args: unknown[]) => SqliteDb;
+
+const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+const isNonNull = <T>(v: T | null | undefined): v is T => v !== null && v !== undefined;
+const toNumber = (v: unknown): number => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+let BetterSqlite3Ctor: SqliteCtor | null = null;
 
 let db: SqliteDb | null = null;
 
@@ -22,7 +31,7 @@ function ensureWritableDirSync(dir: string) {
   fsSync.unlinkSync(probe);
 }
 
-function maybeMigrateLegacyDbSync(fromPath: string, toPath: string) {
+function _maybeMigrateLegacyDbSync(fromPath: string, toPath: string) {
   try {
     if (fsSync.existsSync(toPath)) return;
     if (!fsSync.existsSync(fromPath)) return;
@@ -99,11 +108,14 @@ export function getDb(): SqliteDb {
 
   if (!BetterSqlite3Ctor) {
     try {
-      const mod: any = require('better-sqlite3');
-      BetterSqlite3Ctor = mod?.default ?? mod;
+      const mod: unknown = require('better-sqlite3');
+      const modRec = toRecord(mod);
+      const candidate: unknown = modRec.default ?? mod;
+      if (typeof candidate !== 'function') throw new Error('better-sqlite3 module did not export a constructor');
+      BetterSqlite3Ctor = candidate as unknown as SqliteCtor;
       if (!BetterSqlite3Ctor) throw new Error('better-sqlite3 module did not export a constructor');
-    } catch (e: any) {
-      const rawMsg = e?.message ? String(e.message) : String(e);
+    } catch (e: unknown) {
+      const rawMsg = e instanceof Error ? String(e.message) : String(e);
       const looksAbiMismatch = /NODE_MODULE_VERSION\s+\d+|compiled against a different Node\.js version/i.test(rawMsg);
       const detail = looksAbiMismatch
         ? 'تم بناء التطبيق أو التبعيات بإصدار Node/Electron مختلف. يلزم إعادة بناء/تثبيت نسخة Desktop بشكل صحيح.'
@@ -187,11 +199,11 @@ type DomainMigrationResult = {
 
 type ReportRunResult = {
   ok: boolean;
-  result?: any;
+  result?: unknown;
   message?: string;
 };
 
-const DOMAIN_SCHEMA_VERSION = 3;
+const DOMAIN_SCHEMA_VERSION = 4;
 
 function metaGet(dbh: SqliteDb, key: string): string | null {
   const row = dbh.prepare('SELECT v FROM domain_meta WHERE k = ?').get(key) as { v: string } | undefined;
@@ -254,6 +266,7 @@ function ensureDomainSchema(dbh: SqliteDb): void {
       area TEXT,
       isRented INTEGER,
       isForSale INTEGER,
+      isForRent INTEGER,
       salePrice REAL,
       data TEXT NOT NULL,
       updatedAt TEXT NOT NULL
@@ -344,6 +357,16 @@ function ensureDomainSchema(dbh: SqliteDb): void {
     metaSet(dbh, 'domain_migrated_at', '');
   }
 
+  if (current < 4) {
+    try {
+      dbh.exec('ALTER TABLE properties ADD COLUMN isForRent INTEGER');
+    } catch {
+      // Column probably already exists.
+    }
+    // We rely on a refresh to populate extracted columns.
+    metaSet(dbh, 'domain_migrated_at', '');
+  }
+
   metaSet(dbh, 'domain_schema_version', String(DOMAIN_SCHEMA_VERSION));
 }
 
@@ -368,16 +391,28 @@ function domainEnsureReady(): { ok: boolean; message?: string } {
       return raw.startsWith('[') && raw.endsWith(']') && raw.length > 2;
     };
 
-    const peopleCnt = Number((dbh.prepare('SELECT COUNT(1) AS cnt FROM people').get() as any)?.cnt || 0) || 0;
-    const propsCnt = Number((dbh.prepare('SELECT COUNT(1) AS cnt FROM properties').get() as any)?.cnt || 0) || 0;
-    const contractsCnt = Number((dbh.prepare('SELECT COUNT(1) AS cnt FROM contracts').get() as any)?.cnt || 0) || 0;
-    const instCnt = Number((dbh.prepare('SELECT COUNT(1) AS cnt FROM installments').get() as any)?.cnt || 0) || 0;
+    const peopleCnt = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM people').get()).cnt);
+    const propsCnt = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM properties').get()).cnt);
+    const contractsCnt = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM contracts').get()).cnt);
+    const instCnt = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM installments').get()).cnt);
+
+    const instMissingContractId =
+      toNumber(
+        toRecord(
+          dbh
+            .prepare("SELECT COUNT(1) AS cnt FROM installments WHERE contractId IS NULL OR TRIM(COALESCE(contractId,'')) = ''")
+            .get()
+        ).cnt
+      );
 
     const needsRepair =
       (peopleCnt === 0 && kvLooksNonEmpty('db_people')) ||
       (propsCnt === 0 && kvLooksNonEmpty('db_properties')) ||
       (contractsCnt === 0 && kvLooksNonEmpty('db_contracts')) ||
-      (instCnt === 0 && kvLooksNonEmpty('db_installments'));
+      (instCnt === 0 && kvLooksNonEmpty('db_installments')) ||
+      // Repair: some legacy datasets store installment link fields under different keys (e.g., contractId instead of رقم_العقد).
+      // If we migrated but installments can't be linked to contracts, rebuild once with improved mapping.
+      (instCnt > 0 && instMissingContractId > 0 && kvLooksNonEmpty('db_installments'));
 
     if (needsRepair) {
       metaSet(dbh, 'domain_migrated_at', '');
@@ -390,7 +425,10 @@ function domainEnsureReady(): { ok: boolean; message?: string } {
   return { ok: true };
 }
 
-export function domainGetEntityById(entity: 'people' | 'properties' | 'contracts', id: string): { ok: boolean; data?: any; message?: string } {
+export function domainGetEntityById(
+  entity: 'people' | 'properties' | 'contracts',
+  id: string
+): { ok: boolean; data?: unknown; message?: string } {
   const dbh = getDb();
   ensureDomainSchema(dbh);
   const ready = domainEnsureReady();
@@ -408,19 +446,20 @@ export function domainGetEntityById(entity: 'people' | 'properties' | 'contracts
     } catch {
       return { ok: false, message: 'بيانات غير صالحة' };
     }
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل قراءة البيانات' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة البيانات';
+    return { ok: false, message };
   }
 }
 
 export function domainPersonDetails(personId: string): {
   ok: boolean;
   data?: {
-    person: any;
+    person: unknown;
     roles: string[];
-    ownedProperties: any[];
-    contracts: any[];
-    blacklistRecord?: any;
+    ownedProperties: unknown[];
+    contracts: unknown[];
+    blacklistRecord?: unknown;
     stats: {
       totalInstallments: number;
       lateInstallments: number;
@@ -441,7 +480,7 @@ export function domainPersonDetails(personId: string): {
     const personRow = dbh.prepare('SELECT data FROM people WHERE id = ?').get(id) as { data: string } | undefined;
     if (!personRow?.data) return { ok: false, message: 'غير موجود' };
 
-    let person: any;
+    let person: unknown;
     try {
       person = JSON.parse(personRow.data);
     } catch {
@@ -473,7 +512,7 @@ export function domainPersonDetails(personId: string): {
     ).filter(Boolean);
 
     const blacklistRow = dbh.prepare('SELECT data FROM blacklist WHERE personId = ? AND COALESCE(isActive,0) = 1').get(id) as { data: string } | undefined;
-    let blacklistRecord: any | undefined = undefined;
+    let blacklistRecord: unknown | undefined = undefined;
     if (blacklistRow?.data) {
       try {
         blacklistRecord = JSON.parse(blacklistRow.data);
@@ -524,14 +563,15 @@ export function domainPersonDetails(personId: string): {
         },
       },
     };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل قراءة بيانات الشخص' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة بيانات الشخص';
+    return { ok: false, message };
   }
 }
 
 export function domainPersonTenancyContracts(personId: string): {
   ok: boolean;
-  items?: Array<{ contract: any; propertyCode?: string; propertyAddress?: string; tenantName?: string }>;
+  items?: Array<{ contract: unknown; propertyCode?: string; propertyAddress?: string; tenantName?: string }>;
   message?: string;
 } {
   const dbh = getDb();
@@ -564,7 +604,7 @@ export function domainPersonTenancyContracts(personId: string): {
 
     const items = rows
       .map((r) => {
-        let contract: any | null = null;
+        let contract: unknown | null = null;
         try {
           contract = JSON.parse(r.contractData);
         } catch {
@@ -578,17 +618,18 @@ export function domainPersonTenancyContracts(personId: string): {
           tenantName: r.tenantName ? String(r.tenantName) : undefined,
         };
       })
-      .filter(Boolean) as Array<{ contract: any; propertyCode?: string; propertyAddress?: string; tenantName?: string }>;
+      .filter(isNonNull);
 
     return { ok: true, items };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل جلب عقود الشخص' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل جلب عقود الشخص';
+    return { ok: false, message };
   }
 }
 
 export function domainPropertyContracts(propertyId: string, limit = 5000): {
   ok: boolean;
-  items?: Array<{ contract: any; tenantName?: string; guarantorName?: string }>;
+  items?: Array<{ contract: unknown; tenantName?: string; guarantorName?: string }>;
   message?: string;
 } {
   const dbh = getDb();
@@ -636,17 +677,18 @@ export function domainPropertyContracts(propertyId: string, limit = 5000): {
           return null;
         }
       })
-      .filter(Boolean) as Array<{ contract: any; tenantName?: string; guarantorName?: string }>;
+      .filter(isNonNull);
 
     return { ok: true, items };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل قراءة عقود العقار' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة عقود العقار';
+    return { ok: false, message };
   }
 }
 
 export function domainContractDetails(contractId: string): {
   ok: boolean;
-  data?: { contract: any; property?: any; tenant?: any; installments: any[] };
+  data?: { contract: unknown; property?: unknown; tenant?: unknown; installments: unknown[] };
   message?: string;
 } {
   const dbh = getDb();
@@ -664,7 +706,7 @@ export function domainContractDetails(contractId: string): {
 
     if (!row?.data) return { ok: false, message: 'العقد غير موجود' };
 
-    let contract: any;
+    let contract: unknown;
     try {
       contract = JSON.parse(String(row.data || ''));
     } catch {
@@ -674,7 +716,7 @@ export function domainContractDetails(contractId: string): {
     const pid = String(row.propertyId || '').trim();
     const tid = String(row.tenantId || '').trim();
 
-    let property: any | undefined;
+    let property: unknown | undefined;
     if (pid) {
       const pr = dbh.prepare('SELECT data FROM properties WHERE id = ? LIMIT 1').get(pid) as { data?: string } | undefined;
       if (pr?.data) {
@@ -686,7 +728,7 @@ export function domainContractDetails(contractId: string): {
       }
     }
 
-    let tenant: any | undefined;
+    let tenant: unknown | undefined;
     if (tid) {
       const tr = dbh.prepare('SELECT data FROM people WHERE id = ? LIMIT 1').get(tid) as { data?: string } | undefined;
       if (tr?.data) {
@@ -718,25 +760,32 @@ export function domainContractDetails(contractId: string): {
           return null;
         }
       })
-      .filter(Boolean) as any[];
+      .filter((x): x is unknown => Boolean(x));
 
     // Keep legacy ordering semantics when rank is available.
     installments.sort((a, b) => {
-      const ar = Number((a as any)?.ترتيب_الكمبيالة ?? (a as any)?.rank ?? 0) || 0;
-      const br = Number((b as any)?.ترتيب_الكمبيالة ?? (b as any)?.rank ?? 0) || 0;
+      const aRec = toRecord(a);
+      const bRec = toRecord(b);
+
+      const ar = toNumber(aRec['ترتيب_الكمبيالة'] ?? aRec.rank);
+      const br = toNumber(bRec['ترتيب_الكمبيالة'] ?? bRec.rank);
       if (ar !== br) return ar - br;
-      return String((a as any)?.تاريخ_استحقاق ?? (a as any)?.dueDate ?? '').localeCompare(
-        String((b as any)?.تاريخ_استحقاق ?? (b as any)?.dueDate ?? '')
-      );
+
+      return String(aRec['تاريخ_استحقاق'] ?? aRec.dueDate ?? '').localeCompare(String(bRec['تاريخ_استحقاق'] ?? bRec.dueDate ?? ''));
     });
 
     return { ok: true, data: { contract, property, tenant, installments } };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل تحميل تفاصيل العقد' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل تفاصيل العقد';
+    return { ok: false, message };
   }
 }
 
-export function domainSearch(entity: 'people' | 'properties' | 'contracts', query: string, limit = 50): { ok: boolean; items?: any[]; message?: string } {
+export function domainSearch(
+  entity: 'people' | 'properties' | 'contracts',
+  query: string,
+  limit = 50
+): { ok: boolean; items?: unknown[]; message?: string } {
   const dbh = getDb();
   ensureDomainSchema(dbh);
   const ready = domainEnsureReady();
@@ -784,7 +833,7 @@ export function domainSearch(entity: 'people' | 'properties' | 'contracts', quer
             return null;
           }
         })
-        .filter(Boolean);
+        .filter((x): x is unknown => Boolean(x));
 
       return { ok: true, items };
     }
@@ -860,15 +909,22 @@ export function domainSearch(entity: 'people' | 'properties' | 'contracts', quer
           return null;
         }
       })
-      .filter(Boolean);
+      .filter((x): x is unknown => Boolean(x));
 
     return { ok: true, items };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل البحث' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث';
+    return { ok: false, message };
   }
 }
 
-export function domainSearchGlobal(query: string): { ok: boolean; people?: any[]; properties?: any[]; contracts?: any[]; message?: string } {
+export function domainSearchGlobal(query: string): {
+  ok: boolean;
+  people?: unknown[];
+  properties?: unknown[];
+  contracts?: unknown[];
+  message?: string;
+} {
   const q = String(query || '').trim();
   if (!q) return { ok: true, people: [], properties: [], contracts: [] };
 
@@ -891,9 +947,16 @@ export function domainPropertyPickerSearch(payload: {
   forceVacant?: boolean;
   occupancy?: 'all' | 'rented' | 'vacant';
   sale?: 'for-sale' | 'not-for-sale' | '';
+  rent?: 'for-rent' | 'not-for-rent' | '';
+  minArea?: string;
+  maxArea?: string;
+  floor?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  contractLink?: '' | 'linked' | 'unlinked' | 'all';
   offset?: number;
   limit?: number;
-}): { ok: boolean; items?: any[]; total?: number; message?: string } {
+}): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
   const dbh = getDb();
   ensureDomainSchema(dbh);
   const ready = domainEnsureReady();
@@ -904,10 +967,34 @@ export function domainPropertyPickerSearch(payload: {
   const status = String(payload?.status || '').trim();
   const type = String(payload?.type || '').trim();
   const forceVacant = !!payload?.forceVacant;
-  const occupancyRaw = String((payload as any)?.occupancy || '').trim();
-  const occupancy = occupancyRaw === 'rented' || occupancyRaw === 'vacant' || occupancyRaw === 'all' ? (occupancyRaw as any) : 'all';
-  const saleRaw = String((payload as any)?.sale || '').trim();
-  const sale = saleRaw === 'for-sale' || saleRaw === 'not-for-sale' ? (saleRaw as any) : '';
+  const occupancyRaw = String(payload?.occupancy || '').trim();
+  const occupancy: 'rented' | 'vacant' | 'all' =
+    occupancyRaw === 'rented' || occupancyRaw === 'vacant' || occupancyRaw === 'all' ? occupancyRaw : 'all';
+  const saleRaw = String(payload?.sale || '').trim();
+  const sale: 'for-sale' | 'not-for-sale' | '' = saleRaw === 'for-sale' || saleRaw === 'not-for-sale' ? saleRaw : '';
+  const rentRaw = String(payload?.rent || '').trim();
+  const rent: 'for-rent' | 'not-for-rent' | '' = rentRaw === 'for-rent' || rentRaw === 'not-for-rent' ? rentRaw : '';
+
+  const contractLinkRaw = String(payload?.contractLink || '').trim();
+  const contractLink: '' | 'linked' | 'unlinked' | 'all' =
+    contractLinkRaw === 'linked' || contractLinkRaw === 'unlinked' || contractLinkRaw === 'all' ? contractLinkRaw : 'all';
+
+  const normalizeNumericInput = (value: unknown): number | null => {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    if (!text) return null;
+    const normalized = text.replace(/[\s,]/g, '');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const minAreaNum = normalizeNumericInput(payload?.minArea);
+  const maxAreaNum = normalizeNumericInput(payload?.maxArea);
+  const minPriceNum = normalizeNumericInput(payload?.minPrice);
+  const maxPriceNum = normalizeNumericInput(payload?.maxPrice);
+  const floorText = String(payload?.floor || '').trim();
+  const floorLike = floorText ? `%${floorText.toLowerCase()}%` : '';
+
   const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
   const cap = Math.max(1, Math.min(500, Math.trunc(Number(payload?.limit) || 200)));
   const like = `%${qLower}%`;
@@ -915,7 +1002,7 @@ export function domainPropertyPickerSearch(payload: {
 
   try {
     const whereParts: string[] = [];
-    const args: any[] = [];
+    const args: unknown[] = [];
 
     if (q) {
       whereParts.push('(lower(COALESCE(pr.internalCode,\'\')) LIKE ? OR lower(COALESCE(pr.address,\'\')) LIKE ? OR lower(COALESCE(owner.name,\'\')) LIKE ?)');
@@ -942,6 +1029,40 @@ export function domainPropertyPickerSearch(payload: {
       whereParts.push('COALESCE(pr.isForSale, 0) = 0');
     }
 
+    if (rent === 'for-rent') {
+      whereParts.push('COALESCE(pr.isForRent, 1) = 1');
+    } else if (rent === 'not-for-rent') {
+      whereParts.push('COALESCE(pr.isForRent, 1) = 0');
+    }
+
+    // Advanced filters (best-effort parity with legacy UI)
+    if (minAreaNum !== null) {
+      whereParts.push('CAST(COALESCE(json_extract(pr.data, \'$."المساحة"\'), 0) AS REAL) >= ?');
+      args.push(minAreaNum);
+    }
+    if (maxAreaNum !== null) {
+      whereParts.push('CAST(COALESCE(json_extract(pr.data, \'$."المساحة"\'), 0) AS REAL) <= ?');
+      args.push(maxAreaNum);
+    }
+    if (floorLike) {
+      whereParts.push("lower(COALESCE(CAST(json_extract(pr.data, '$.\"الطابق\"') AS TEXT), '')) LIKE ?");
+      args.push(floorLike);
+    }
+
+    // Price filtering: align with legacy logic (salePrice when for-sale, otherwise estimated rent if present)
+    const estimatedRentExpr =
+      "CAST(COALESCE(NULLIF(REPLACE(REPLACE(COALESCE(CAST(json_extract(pr.data, '$.\\\"الإيجار_التقديري\\\"') AS TEXT), ''), ',', ''), ' ', ''), ''), '0') AS REAL)";
+    const effectivePriceExpr = `CASE WHEN COALESCE(pr.isForSale, 0) = 1 THEN COALESCE(pr.salePrice, 0) ELSE ${estimatedRentExpr} END`;
+
+    if (minPriceNum !== null) {
+      whereParts.push(`(${effectivePriceExpr}) >= ?`);
+      args.push(minPriceNum);
+    }
+    if (maxPriceNum !== null) {
+      whereParts.push(`(${effectivePriceExpr}) <= ?`);
+      args.push(maxPriceNum);
+    }
+
     if (forceVacant) {
       // Keep consistent with the active-contract subquery used in the SELECT.
       whereParts.push(
@@ -956,6 +1077,27 @@ export function domainPropertyPickerSearch(payload: {
                 c2.endDate IS NOT NULL
                 AND c2.endDate >= ?
                 AND COALESCE(c2.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
+              )
+            )
+        )`
+      );
+      args.push(today);
+    }
+
+    if (contractLink === 'linked' || contractLink === 'unlinked') {
+      const existsKeyword = contractLink === 'linked' ? 'EXISTS' : 'NOT EXISTS';
+      whereParts.push(
+        `${existsKeyword} (
+          SELECT 1
+          FROM contracts c3
+          WHERE c3.propertyId = pr.id
+            AND (c3.isArchived IS NULL OR c3.isArchived = 0)
+            AND (
+              c3.status IN ('نشط', 'قريب الانتهاء', 'مجدد')
+              OR (
+                c3.endDate IS NOT NULL
+                AND c3.endDate >= ?
+                AND COALESCE(c3.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
               )
             )
         )`
@@ -1022,45 +1164,55 @@ export function domainPropertyPickerSearch(payload: {
     `;
 
     // Note: today must be first arg (for subquery), then dynamic where args (may include today again for forceVacant), then paging.
-    const total = Number((dbh.prepare(countSql).get(...args) as any)?.cnt || 0) || 0;
-    const rows = dbh.prepare(sql).all(today, ...args, cap, offset) as any[];
+    const total = toNumber(toRecord(dbh.prepare(countSql).get(...args)).cnt);
+    const rows = dbh.prepare(sql).all(today, ...args, cap, offset) as unknown[];
     const items = rows
-      .map((r) => {
-        let property: any = null;
+      .map((row) => {
+        const r = toRecord(row);
+
+        let property: unknown = null;
         try {
-          property = JSON.parse(String(r?.propertyData || 'null'));
+          property = JSON.parse(String(r.propertyData ?? 'null'));
         } catch {
           property = null;
         }
         if (!property) return null;
+
         return {
           property,
-          ownerName: String(r?.ownerName || ''),
-          ownerPhone: String(r?.ownerPhone || ''),
-          ownerNationalId: String(r?.ownerNationalId || ''),
-          active: r?.activeContractId
+          ownerName: String(r.ownerName ?? ''),
+          ownerPhone: String(r.ownerPhone ?? ''),
+          ownerNationalId: String(r.ownerNationalId ?? ''),
+          active: r.activeContractId
             ? {
-                contractId: String(r?.activeContractId || ''),
-                status: String(r?.contractStatus || ''),
-                startDate: String(r?.contractStartDate || ''),
-                endDate: String(r?.contractEndDate || ''),
-                tenantName: String(r?.tenantName || ''),
-                tenantPhone: String(r?.tenantPhone || ''),
-                guarantorName: String(r?.guarantorName || ''),
-                guarantorPhone: String(r?.guarantorPhone || ''),
+                contractId: String(r.activeContractId ?? ''),
+                status: String(r.contractStatus ?? ''),
+                startDate: String(r.contractStartDate ?? ''),
+                endDate: String(r.contractEndDate ?? ''),
+                tenantName: String(r.tenantName ?? ''),
+                tenantPhone: String(r.tenantPhone ?? ''),
+                guarantorName: String(r.guarantorName ?? ''),
+                guarantorPhone: String(r.guarantorPhone ?? ''),
               }
             : null,
         };
       })
-      .filter(Boolean);
+          .filter(isNonNull);
 
     return { ok: true, items, total };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل البحث عن العقارات' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن العقارات';
+    return { ok: false, message };
   }
 }
 
-export function domainContractPickerSearch(payload: { query?: string; offset?: number; limit?: number }): { ok: boolean; items?: any[]; total?: number; message?: string } {
+export function domainContractPickerSearch(payload: {
+  query?: string;
+  tab?: string;
+  createdMonth?: string;
+  offset?: number;
+  limit?: number;
+}): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
   const dbh = getDb();
   ensureDomainSchema(dbh);
   const ready = domainEnsureReady();
@@ -1074,25 +1226,31 @@ export function domainContractPickerSearch(payload: { query?: string; offset?: n
 
   const today = toIsoDateOnly(new Date());
   const soon = toIsoDateOnly(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
-  const tab = String((payload as any)?.tab || '').trim();
+  const tab = String(payload?.tab || '').trim();
+  const createdMonth = String(payload?.createdMonth || '').trim();
 
   const tabWhere = () => {
     // NOTE: Tabs are in UI hash: active|expiring|expired|terminated|archived.
     // Keep best-effort alignment with existing logic.
-    if (tab === 'archived') return { sql: 'COALESCE(CAST(c.isArchived AS INTEGER), 0) = 1', args: [] as any[] };
+    if (tab === 'archived') return { sql: 'COALESCE(CAST(c.isArchived AS INTEGER), 0) = 1', args: [] as unknown[] };
 
     // Default: exclude archived
-    const base = { sql: '(c.isArchived IS NULL OR COALESCE(CAST(c.isArchived AS INTEGER), 0) = 0)', args: [] as any[] };
+    const base = {
+      sql: '(c.isArchived IS NULL OR COALESCE(CAST(c.isArchived AS INTEGER), 0) = 0)',
+      args: [] as unknown[],
+    };
     if (tab === 'active') {
       return {
-        sql: `${base.sql} AND TRIM(COALESCE(c.status, '')) IN ('نشط', 'مجدد') AND (c.endDate IS NULL OR c.endDate = '' OR c.endDate >= ?)` ,
-        args: [today],
+        // Be tolerant of legacy values (e.g., 'ساري/سارية/Active') and avoid relying on string date comparisons.
+        sql: `${base.sql} AND TRIM(COALESCE(c.status, '')) NOT IN ('منتهي', 'مفسوخ', 'ملغي')`,
+        args: [],
       };
     }
     if (tab === 'expiring') {
       return {
         sql: `${base.sql} AND (
           TRIM(COALESCE(c.status, '')) = 'قريب الانتهاء'
+          OR TRIM(COALESCE(c.status, '')) = 'قريبة الانتهاء'
           OR (
             c.endDate IS NOT NULL AND c.endDate <> ''
             AND c.endDate >= ? AND c.endDate <= ?
@@ -1116,7 +1274,7 @@ export function domainContractPickerSearch(payload: { query?: string; offset?: n
       };
     }
     if (tab === 'terminated') {
-      return { sql: `${base.sql} AND TRIM(COALESCE(c.status, '')) IN ('مفسوخ', 'ملغي')`, args: [] as any[] };
+      return { sql: `${base.sql} AND TRIM(COALESCE(c.status, '')) IN ('مفسوخ', 'ملغي')`, args: [] as unknown[] };
     }
 
     // all / unknown
@@ -1137,7 +1295,7 @@ export function domainContractPickerSearch(payload: { query?: string; offset?: n
       : '';
 
     const whereParts: string[] = [];
-    const whereArgs: any[] = [];
+    const whereArgs: unknown[] = [];
     if (tabClause.sql) {
       whereParts.push(tabClause.sql);
       whereArgs.push(...tabClause.args);
@@ -1145,6 +1303,14 @@ export function domainContractPickerSearch(payload: { query?: string; offset?: n
     if (searchSql) {
       whereParts.push(searchSql);
       whereArgs.push(like, like, like, like, like, like);
+    }
+
+    if (/^\d{4}-\d{2}$/.test(createdMonth)) {
+      // Prefer explicit creation date stored in JSON, fall back to startDate if missing.
+      whereParts.push(
+        "SUBSTR(COALESCE(NULLIF(JSON_EXTRACT(c.data, '$.تاريخ_الانشاء'), ''), COALESCE(c.startDate, ''), ''), 1, 7) = ?"
+      );
+      whereArgs.push(createdMonth);
     }
     const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
 
@@ -1159,9 +1325,9 @@ export function domainContractPickerSearch(payload: { query?: string; offset?: n
         ${whereSql}
       `
       )
-      .get(...whereArgs) as any;
+      .get(...whereArgs);
 
-    const total = Number(count?.cnt || 0) || 0;
+    const total = toNumber(toRecord(count).cnt);
 
     const rows = dbh
       .prepare(
@@ -1191,32 +1357,35 @@ export function domainContractPickerSearch(payload: { query?: string; offset?: n
         LIMIT ? OFFSET ?
       `
       )
-      .all(...whereArgs, cap, offset) as any[];
+      .all(...whereArgs, cap, offset) as unknown[];
 
     const items = rows
-      .map((r) => {
-        let contract: any = null;
+      .map((row) => {
+        const r = toRecord(row);
+
+        let contract: unknown = null;
         try {
-          contract = JSON.parse(String(r?.contractData || 'null'));
+          contract = JSON.parse(String(r.contractData ?? 'null'));
         } catch {
           contract = null;
         }
         if (!contract) return null;
         return {
           contract,
-          propertyCode: String(r?.propertyCode || ''),
-          ownerName: String(r?.ownerName || ''),
-          tenantName: String(r?.tenantName || ''),
-          ownerNationalId: String(r?.ownerNationalId || ''),
-          tenantNationalId: String(r?.tenantNationalId || ''),
-          remainingAmount: Number(r?.remainingAmount ?? 0) || 0,
+          propertyCode: String(r.propertyCode ?? ''),
+          ownerName: String(r.ownerName ?? ''),
+          tenantName: String(r.tenantName ?? ''),
+          ownerNationalId: String(r.ownerNationalId ?? ''),
+          tenantNationalId: String(r.tenantNationalId ?? ''),
+          remainingAmount: toNumber(r.remainingAmount),
         };
       })
-      .filter(Boolean);
+      .filter(isNonNull);
 
     return { ok: true, items, total };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل البحث عن العقود' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن العقود';
+    return { ok: false, message };
   }
 }
 
@@ -1230,7 +1399,7 @@ export function domainPeoplePickerSearch(payload: {
   minRating?: number;
   offset?: number;
   limit?: number;
-}): { ok: boolean; items?: any[]; total?: number; message?: string } {
+}): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
   const dbh = getDb();
   ensureDomainSchema(dbh);
   const ready = domainEnsureReady();
@@ -1254,7 +1423,7 @@ export function domainPeoplePickerSearch(payload: {
 
   try {
     const whereParts: string[] = [];
-    const args: any[] = [];
+    const args: unknown[] = [];
 
     if (q) {
       whereParts.push(
@@ -1388,42 +1557,45 @@ export function domainPeoplePickerSearch(payload: {
       LIMIT ? OFFSET ?
     `;
 
-    const total = Number((dbh.prepare(countSql).get(...args) as any)?.cnt || 0) || 0;
-    const rows = dbh.prepare(sql).all(today, today, today, ...args, cap, offset) as any[];
+    const total = toNumber(toRecord(dbh.prepare(countSql).get(...args)).cnt);
+    const rows = dbh.prepare(sql).all(today, today, today, ...args, cap, offset) as unknown[];
     const items = rows
-      .map((r) => {
-        let person: any = null;
+      .map((row) => {
+        const r = toRecord(row);
+
+        let person: unknown = null;
         try {
-          person = JSON.parse(String(r?.personData || 'null'));
+          person = JSON.parse(String(r.personData ?? 'null'));
         } catch {
           person = null;
         }
         if (!person) return null;
-        const rolesCsv = String(r?.rolesCsv || '').trim();
+        const rolesCsv = String(r.rolesCsv ?? '').trim();
         const roles = rolesCsv ? rolesCsv.split(' | ').map((x) => x.trim()).filter(Boolean) : [];
-        const pickCid = String(r?.pickCid || '').trim();
-        const pickSource = String(r?.pickSource || '').trim();
+        const pickCid = String(r.pickCid ?? '').trim();
+        const pickSource = String(r.pickSource ?? '').trim();
         return {
           person,
           roles,
-          isBlacklisted: !!r?.isBlacklisted,
+          isBlacklisted: !!r.isBlacklisted,
           link: pickCid
             ? {
                 contractId: pickCid,
-                status: String(r?.contractStatus || ''),
-                propertyCode: String(r?.propertyCode || ''),
-                tenantName: String(r?.tenantName || ''),
-                guarantorName: String(r?.guarantorName || ''),
+                status: String(r.contractStatus ?? ''),
+                propertyCode: String(r.propertyCode ?? ''),
+                tenantName: String(r.tenantName ?? ''),
+                guarantorName: String(r.guarantorName ?? ''),
                 source: pickSource,
               }
             : null,
         };
       })
-      .filter(Boolean);
+          .filter(isNonNull);
 
     return { ok: true, items, total };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل البحث عن الأشخاص' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن الأشخاص';
+    return { ok: false, message };
   }
 }
 
@@ -1432,7 +1604,7 @@ export function domainInstallmentsContractsSearch(payload: {
   filter?: 'all' | 'debt' | 'paid' | 'due' | string;
   offset?: number;
   limit?: number;
-}): { ok: boolean; items?: any[]; total?: number; message?: string } {
+}): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
   const dbh = getDb();
   ensureDomainSchema(dbh);
   const ready = domainEnsureReady();
@@ -1449,23 +1621,22 @@ export function domainInstallmentsContractsSearch(payload: {
 
   try {
     const whereParts: string[] = [];
-    const args: any[] = [];
+    const args: unknown[] = [];
 
-    // Tenancy-relevant contracts (mirror isTenancyRelevant-ish behavior)
+    // In Desktop mode, datasets may have inconsistent contract statuses or non-ISO date strings.
+    // For installments view, the most reliable signal is: the contract has any relevant installment rows.
     whereParts.push(
       `(
         (c.isArchived IS NULL OR c.isArchived = 0)
-        AND (
-          c.status IN ('نشط', 'قريب الانتهاء', 'مجدد')
-          OR (
-            c.endDate IS NOT NULL
-            AND c.endDate >= ?
-            AND COALESCE(c.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
-          )
+        AND EXISTS (
+          SELECT 1 FROM installments i
+          WHERE i.contractId = c.id
+            AND (i.isArchived IS NULL OR i.isArchived = 0)
+            AND COALESCE(i.type,'') <> 'تأمين'
+            AND COALESCE(i.status,'') <> 'ملغي'
         )
       )`
     );
-    args.push(today);
 
     if (q) {
       whereParts.push(
@@ -1520,7 +1691,7 @@ export function domainInstallmentsContractsSearch(payload: {
     )`;
 
     const filterWhereParts: string[] = [];
-    const filterArgs: any[] = [];
+    const filterArgs: unknown[] = [];
     if (filter === 'debt') {
       filterWhereParts.push('hasDebt = 1');
     } else if (filter === 'due') {
@@ -1559,14 +1730,12 @@ export function domainInstallmentsContractsSearch(payload: {
     // Order of args:
     // baseWhere: [today] + optional search like params
     // then expressions: debt(today), dueSoon(today,today)
-    const total = Number(
-      (dbh.prepare(countSql).get(...args, today, today, today, ...filterArgs) as any)?.cnt || 0
-    ) || 0;
+    const total = toNumber(toRecord(dbh.prepare(countSql).get(...args, today, today, today, ...filterArgs)).cnt);
 
-    const rows = dbh.prepare(listSql).all(...args, today, today, today, ...filterArgs, cap, offset) as any[];
+    const rows = dbh.prepare(listSql).all(...args, today, today, today, ...filterArgs, cap, offset) as unknown[];
     if (!rows.length) return { ok: true, items: [], total };
 
-    const contractIds = rows.map((r) => String(r?.contractId || '')).filter(Boolean);
+    const contractIds = rows.map((row) => String(toRecord(row).contractId ?? '')).filter(Boolean);
     const placeholders = contractIds.map(() => '?').join(',');
     const instRows = (dbh
       .prepare(
@@ -1580,9 +1749,9 @@ export function domainInstallmentsContractsSearch(payload: {
       )
       .all(...contractIds) as Array<{ contractId: string; data: string }>);
 
-    const instByContract = new Map<string, any[]>();
+    const instByContract = new Map<string, unknown[]>();
     for (const r of instRows) {
-      let inst: any = null;
+      let inst: unknown = null;
       try {
         inst = JSON.parse(String(r?.data || 'null'));
       } catch {
@@ -1597,44 +1766,47 @@ export function domainInstallmentsContractsSearch(payload: {
     }
 
     const items = rows
-      .map((r) => {
-        let contract: any = null;
-        let tenant: any = null;
-        let property: any = null;
+      .map((row) => {
+        const r = toRecord(row);
+
+        let contract: unknown = null;
+        let tenant: unknown = null;
+        let property: unknown = null;
         try {
-          contract = JSON.parse(String(r?.contractData || 'null'));
+          contract = JSON.parse(String(r.contractData ?? 'null'));
         } catch {
           contract = null;
         }
         try {
-          tenant = JSON.parse(String(r?.tenantData || 'null'));
+          tenant = JSON.parse(String(r.tenantData ?? 'null'));
         } catch {
           tenant = null;
         }
         try {
-          property = JSON.parse(String(r?.propertyData || 'null'));
+          property = JSON.parse(String(r.propertyData ?? 'null'));
         } catch {
           property = null;
         }
         if (!contract) return null;
 
-        const cid = String(r?.contractId || '').trim();
-        const installments = instByContract.get(cid) || [];
+        const cid = String(r.contractId ?? '').trim();
+        const installments = cid ? instByContract.get(cid) || [] : [];
         return {
           contract,
           tenant,
           property,
           installments,
-          hasDebt: !!r?.hasDebt,
-          hasDueSoon: !!r?.hasDueSoon,
-          isFullyPaid: !!r?.isFullyPaid,
+          hasDebt: !!r.hasDebt,
+          hasDueSoon: !!r.hasDueSoon,
+          isFullyPaid: !!r.isFullyPaid,
         };
       })
-      .filter(Boolean);
+      .filter(isNonNull);
 
     return { ok: true, items, total };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل تحميل بيانات الأقساط' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل بيانات الأقساط';
+    return { ok: false, message };
   }
 }
 
@@ -1671,13 +1843,13 @@ export function domainDashboardSummary(payload: {
   }
 
   try {
-    const totalPeople = Number((dbh.prepare('SELECT COUNT(*) AS c FROM people').get() as any)?.c || 0);
-    const totalProperties = Number((dbh.prepare('SELECT COUNT(*) AS c FROM properties').get() as any)?.c || 0);
-    const occupiedProperties = Number((dbh.prepare('SELECT COUNT(*) AS c FROM properties WHERE COALESCE(isRented, 0) = 1').get() as any)?.c || 0);
-    const totalContracts = Number((dbh.prepare('SELECT COUNT(*) AS c FROM contracts').get() as any)?.c || 0);
+    const totalPeople = toNumber(toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM people').get()).c);
+    const totalProperties = toNumber(toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM properties').get()).c);
+    const occupiedProperties = toNumber(toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM properties WHERE COALESCE(isRented, 0) = 1').get()).c);
+    const totalContracts = toNumber(toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM contracts').get()).c);
 
-    const activeContracts = Number(
-      (
+    const activeContracts = toNumber(
+      toRecord(
         dbh
           .prepare(
             `SELECT COUNT(*) AS c
@@ -1685,12 +1857,12 @@ export function domainDashboardSummary(payload: {
              WHERE (isArchived IS NULL OR isArchived = 0)
                AND status IN ('نشط', 'قريب الانتهاء', 'مجدد')`
           )
-          .get() as any
-      )?.c || 0
+          .get()
+      ).c
     );
 
-    const dueNext7Payments = Number(
-      (
+    const dueNext7Payments = toNumber(
+      toRecord(
         dbh
           .prepare(
             `SELECT COUNT(*) AS c
@@ -1701,12 +1873,12 @@ export function domainDashboardSummary(payload: {
                AND COALESCE(dueDate, '') > ?
                AND COALESCE(dueDate, '') <= ?`
           )
-          .get(todayYMD, weekYMD) as any
-      )?.c || 0
+          .get(todayYMD, weekYMD)
+      ).c
     );
 
-    const paymentsToday = Number(
-      (
+    const paymentsToday = toNumber(
+      toRecord(
         dbh
           .prepare(
             `SELECT COUNT(*) AS c
@@ -1715,12 +1887,12 @@ export function domainDashboardSummary(payload: {
                AND COALESCE(status, '') = 'مدفوع'
                AND COALESCE(dueDate, '') = ?`
           )
-          .get(todayYMD) as any
-      )?.c || 0
+          .get(todayYMD)
+      ).c
     );
 
-    const revenueToday = Number(
-      (
+    const revenueToday = toNumber(
+      toRecord(
         dbh
           .prepare(
             `SELECT COALESCE(SUM(COALESCE(amount, 0)), 0) AS s
@@ -1729,12 +1901,12 @@ export function domainDashboardSummary(payload: {
                AND COALESCE(status, '') = 'مدفوع'
                AND COALESCE(dueDate, '') = ?`
           )
-          .get(todayYMD) as any
-      )?.s || 0
+          .get(todayYMD)
+      ).s
     );
 
-    const contractsExpiring30 = Number(
-      (
+    const contractsExpiring30 = toNumber(
+      toRecord(
         dbh
           .prepare(
             `SELECT COUNT(*) AS c
@@ -1743,20 +1915,20 @@ export function domainDashboardSummary(payload: {
                AND COALESCE(endDate, '') > ?
                AND COALESCE(endDate, '') <= date(?, '+30 day')`
           )
-          .get(todayYMD, todayYMD) as any
-      )?.c || 0
+          .get(todayYMD, todayYMD)
+      ).c
     );
 
-    const maintenanceOpen = Number(
-      (
+    const maintenanceOpen = toNumber(
+      toRecord(
         dbh
           .prepare(
             `SELECT COUNT(*) AS c
              FROM maintenance_tickets
              WHERE COALESCE(status, '') IN ('مفتوح', 'قيد التنفيذ')`
           )
-          .get() as any
-      )?.c || 0
+          .get()
+      ).c
     );
 
     const propertyTypeCounts = (dbh
@@ -1794,8 +1966,9 @@ export function domainDashboardSummary(payload: {
         contractStatusCounts,
       },
     };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل إنشاء ملخص لوحة التحكم' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل إنشاء ملخص لوحة التحكم';
+    return { ok: false, message };
   }
 }
 
@@ -1825,8 +1998,8 @@ export function domainDashboardPerformance(payload: {
 
   try {
     const sumPaidForMonth = (m: string) =>
-      Number(
-        (
+      toNumber(
+        toRecord(
           dbh
             .prepare(
               `SELECT COALESCE(SUM(COALESCE(amount, 0)), 0) AS s
@@ -1835,15 +2008,15 @@ export function domainDashboardPerformance(payload: {
                  AND COALESCE(status, '') = 'مدفوع'
                  AND SUBSTR(COALESCE(paidAt, dueDate, ''), 1, 7) = ?`
             )
-            .get(m) as any
-        )?.s || 0
+            .get(m)
+        ).s
       );
 
     const currentMonthCollections = sumPaidForMonth(monthKey);
     const previousMonthCollections = sumPaidForMonth(prevMonthKey);
 
-    const paidCountThisMonth = Number(
-      (
+    const paidCountThisMonth = toNumber(
+      toRecord(
         dbh
           .prepare(
             `SELECT COUNT(*) AS c
@@ -1852,12 +2025,12 @@ export function domainDashboardPerformance(payload: {
                AND COALESCE(status, '') = 'مدفوع'
                AND SUBSTR(COALESCE(paidAt, dueDate, ''), 1, 7) = ?`
           )
-          .get(monthKey) as any
-      )?.c || 0
+          .get(monthKey)
+      ).c
     );
 
-    const dueUnpaidThisMonth = Number(
-      (
+    const dueUnpaidThisMonth = toNumber(
+      toRecord(
         dbh
           .prepare(
             `SELECT COALESCE(SUM(COALESCE(remaining, amount, 0)), 0) AS s
@@ -1866,8 +2039,8 @@ export function domainDashboardPerformance(payload: {
                AND COALESCE(status, '') != 'مدفوع'
                AND SUBSTR(COALESCE(dueDate, ''), 1, 7) = ?`
           )
-          .get(monthKey) as any
-      )?.s || 0
+          .get(monthKey)
+      ).s
     );
 
     return {
@@ -1879,8 +2052,9 @@ export function domainDashboardPerformance(payload: {
         dueUnpaidThisMonth,
       },
     };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل حساب الأداء المالي' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل حساب الأداء المالي';
+    return { ok: false, message };
   }
 }
 
@@ -1992,30 +2166,31 @@ export function domainDashboardHighlights(payload: {
       ok: true,
       data: {
         dueInstallmentsToday: dueInstallmentsToday.map((r) => ({
-          contractId: String((r as any)?.contractId || '').trim(),
-          tenantName: String((r as any)?.tenantName || '').trim(),
-          dueDate: String((r as any)?.dueDate || '').trim(),
-          remaining: Number((r as any)?.remaining || 0) || 0,
+          contractId: String(r.contractId || '').trim(),
+          tenantName: String(r.tenantName || '').trim(),
+          dueDate: String(r.dueDate || '').trim(),
+          remaining: Number(r.remaining || 0) || 0,
         })),
         expiringContracts: expiringContracts.map((r) => ({
-          contractId: String((r as any)?.contractId || '').trim(),
-          propertyId: String((r as any)?.propertyId || '').trim(),
-          propertyCode: String((r as any)?.propertyCode || '').trim(),
-          tenantId: String((r as any)?.tenantId || '').trim(),
-          tenantName: String((r as any)?.tenantName || '').trim(),
-          endDate: String((r as any)?.endDate || '').trim(),
+          contractId: String(r.contractId || '').trim(),
+          propertyId: String(r.propertyId || '').trim(),
+          propertyCode: String(r.propertyCode || '').trim(),
+          tenantId: String(r.tenantId || '').trim(),
+          tenantName: String(r.tenantName || '').trim(),
+          endDate: String(r.endDate || '').trim(),
         })),
         incompleteProperties: incompleteProperties.map((r) => ({
-          propertyId: String((r as any)?.propertyId || '').trim(),
-          propertyCode: String((r as any)?.propertyCode || '').trim(),
-          missingWater: !!(r as any)?.missingWater,
-          missingElectric: !!(r as any)?.missingElectric,
-          missingArea: !!(r as any)?.missingArea,
+          propertyId: String(r.propertyId || '').trim(),
+          propertyCode: String(r.propertyCode || '').trim(),
+          missingWater: !!r.missingWater,
+          missingElectric: !!r.missingElectric,
+          missingArea: !!r.missingArea,
         })),
       },
     };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل تحميل مؤشرات لوحة التحكم' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل مؤشرات لوحة التحكم';
+    return { ok: false, message };
   }
 }
 
@@ -2071,6 +2246,45 @@ export function domainPaymentNotificationTargets(payload: {
       )
     )`;
 
+    type PaymentNotificationRow = {
+      contractId: string;
+      tenantId: string;
+      propertyId: string;
+      paymentPlanRaw: string;
+      paymentFrequency: number;
+      tenantName: string;
+      phone: string;
+      extraPhone: string;
+      propertyCode: string;
+      installmentId: string;
+      dueDate: string;
+      amountRemaining: number;
+      daysUntilDue: number;
+    };
+
+    type PaymentNotificationInstallment = {
+      installmentId: string;
+      contractId: string;
+      dueDate: string;
+      amountRemaining: number;
+      daysUntilDue: number;
+      bucket: 'overdue' | 'today' | 'upcoming';
+    };
+
+    type PaymentNotificationTarget = {
+      key: string;
+      tenantId?: string;
+      tenantName: string;
+      phone?: string;
+      extraPhone?: string;
+      contractId: string;
+      propertyId?: string;
+      propertyCode?: string;
+      paymentPlanRaw?: string;
+      paymentFrequency?: number;
+      items: PaymentNotificationInstallment[];
+    };
+
     const rows = (dbh
       .prepare(
         `
@@ -2103,43 +2317,43 @@ export function domainPaymentNotificationTargets(payload: {
         LIMIT 2000
         `
       )
-      .all(todayYMD, todayYMD, todayYMD, daysAhead) as Array<any>);
+      .all(todayYMD, todayYMD, todayYMD, daysAhead) as PaymentNotificationRow[]);
 
-    const byContract = new Map<string, any>();
+    const byContract = new Map<string, PaymentNotificationTarget>();
     for (const r of rows) {
-      const contractId = String(r?.contractId || '').trim();
+      const contractId = String(r.contractId || '').trim();
       if (!contractId) continue;
       const key = contractId;
       let target = byContract.get(contractId);
       if (!target) {
         target = {
           key,
-          tenantId: String(r?.tenantId || '').trim() || undefined,
-          tenantName: String(r?.tenantName || '').trim() || 'مستأجر',
-          phone: String(r?.phone || '').trim() || undefined,
-          extraPhone: String(r?.extraPhone || '').trim() || undefined,
+          tenantId: String(r.tenantId || '').trim() || undefined,
+          tenantName: String(r.tenantName || '').trim() || 'مستأجر',
+          phone: String(r.phone || '').trim() || undefined,
+          extraPhone: String(r.extraPhone || '').trim() || undefined,
           contractId,
-          propertyId: String(r?.propertyId || '').trim() || undefined,
-          propertyCode: String(r?.propertyCode || '').trim() || undefined,
-          paymentPlanRaw: String(r?.paymentPlanRaw || '').trim() || undefined,
-          paymentFrequency: Number(r?.paymentFrequency || 0) || 0,
-          items: [] as any[],
+          propertyId: String(r.propertyId || '').trim() || undefined,
+          propertyCode: String(r.propertyCode || '').trim() || undefined,
+          paymentPlanRaw: String(r.paymentPlanRaw || '').trim() || undefined,
+          paymentFrequency: Number(r.paymentFrequency || 0) || 0,
+          items: [],
         };
         byContract.set(contractId, target);
       }
 
-      const dueDate = String(r?.dueDate || '').slice(0, 10);
+      const dueDate = String(r.dueDate || '').slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) continue;
-      const daysUntilDue = Number(r?.daysUntilDue ?? 0) || 0;
+      const daysUntilDue = Number(r.daysUntilDue ?? 0) || 0;
 
       const bucket: 'overdue' | 'today' | 'upcoming' = daysUntilDue < 0 ? 'overdue' : daysUntilDue === 0 ? 'today' : 'upcoming';
       if (bucket === 'upcoming' && daysUntilDue > daysAhead) continue;
 
       target.items.push({
-        installmentId: String(r?.installmentId || '').trim(),
+        installmentId: String(r.installmentId || '').trim(),
         contractId,
         dueDate,
-        amountRemaining: Number(r?.amountRemaining || 0) || 0,
+        amountRemaining: Number(r.amountRemaining || 0) || 0,
         daysUntilDue,
         bucket,
       });
@@ -2147,12 +2361,13 @@ export function domainPaymentNotificationTargets(payload: {
 
     const items = Array.from(byContract.values()).map((t) => ({
       ...t,
-      items: Array.isArray(t.items) ? t.items.sort((a: any, b: any) => String(a.dueDate).localeCompare(String(b.dueDate))) : [],
+      items: t.items.sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))),
     }));
 
     return { ok: true, items };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل تحميل أهداف إشعارات الدفعات' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل أهداف إشعارات الدفعات';
+    return { ok: false, message };
   }
 }
 
@@ -2163,16 +2378,17 @@ export function domainCounts(): { ok: boolean; counts?: { people: number; proper
   if (!ready.ok) return { ok: false, message: ready.message };
 
   try {
-    const people = Number((dbh.prepare('SELECT COUNT(1) AS cnt FROM people').get() as any)?.cnt || 0) || 0;
-    const properties = Number((dbh.prepare('SELECT COUNT(1) AS cnt FROM properties').get() as any)?.cnt || 0) || 0;
-    const contracts = Number((dbh.prepare('SELECT COUNT(1) AS cnt FROM contracts').get() as any)?.cnt || 0) || 0;
+    const people = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM people').get()).cnt);
+    const properties = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM properties').get()).cnt);
+    const contracts = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM contracts').get()).cnt);
     return { ok: true, counts: { people, properties, contracts } };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل قراءة الأعداد' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة الأعداد';
+    return { ok: false, message };
   }
 }
 
-function safeJsonParseArray(value: string | null): any[] {
+function safeJsonParseArray(value: string | null): unknown[] {
   if (!value) return [];
   try {
     const parsed = JSON.parse(value);
@@ -2202,16 +2418,20 @@ function toIsoDateOnly(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function computeInstallmentAmounts(inst: any): { amount: number; paid: number; remaining: number } {
-  const amount = Number(inst?.القيمة ?? 0) || 0;
+function computeInstallmentAmounts(inst: unknown): { amount: number; paid: number; remaining: number } {
+  const instRec = toRecord(inst);
 
-  const remainingRaw = inst?.القيمة_المتبقية;
+  const amount = toNumber(instRec['القيمة']);
+
+  const remainingRaw = instRec['القيمة_المتبقية'];
   const remainingFromField = Number.isFinite(Number(remainingRaw)) ? Number(remainingRaw) : NaN;
 
   let paid = 0;
-  const payments = inst?.سجل_الدفعات;
+  const payments = instRec['سجل_الدفعات'];
   if (Array.isArray(payments)) {
-    for (const p of payments) paid += Number(p?.المبلغ ?? 0) || 0;
+    for (const p of payments) {
+      paid += toNumber(toRecord(p)['المبلغ']);
+    }
   }
 
   let remaining = Number.isFinite(remainingFromField) ? remainingFromField : amount - paid;
@@ -2274,7 +2494,7 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
     'INSERT INTO blacklist (personId, isActive, data, updatedAt) VALUES (?, ?, ?, ?) ON CONFLICT(personId) DO UPDATE SET isActive=excluded.isActive, data=excluded.data, updatedAt=excluded.updatedAt'
   );
   const upsertProperty = dbh.prepare(
-    'INSERT INTO properties (id, internalCode, ownerId, type, status, address, city, area, isRented, isForSale, salePrice, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET internalCode=excluded.internalCode, ownerId=excluded.ownerId, type=excluded.type, status=excluded.status, address=excluded.address, city=excluded.city, area=excluded.area, isRented=excluded.isRented, isForSale=excluded.isForSale, salePrice=excluded.salePrice, data=excluded.data, updatedAt=excluded.updatedAt'
+    'INSERT INTO properties (id, internalCode, ownerId, type, status, address, city, area, isRented, isForSale, isForRent, salePrice, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET internalCode=excluded.internalCode, ownerId=excluded.ownerId, type=excluded.type, status=excluded.status, address=excluded.address, city=excluded.city, area=excluded.area, isRented=excluded.isRented, isForSale=excluded.isForSale, isForRent=excluded.isForRent, salePrice=excluded.salePrice, data=excluded.data, updatedAt=excluded.updatedAt'
   );
   const upsertContract = dbh.prepare(
     'INSERT INTO contracts (id, propertyId, tenantId, guarantorId, status, startDate, endDate, annualValue, paymentFrequency, paymentMethod, isArchived, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET propertyId=excluded.propertyId, tenantId=excluded.tenantId, guarantorId=excluded.guarantorId, status=excluded.status, startDate=excluded.startDate, endDate=excluded.endDate, annualValue=excluded.annualValue, paymentFrequency=excluded.paymentFrequency, paymentMethod=excluded.paymentMethod, isArchived=excluded.isArchived, data=excluded.data, updatedAt=excluded.updatedAt'
@@ -2291,43 +2511,54 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
     dbh.exec('DELETE FROM people; DELETE FROM person_roles; DELETE FROM blacklist; DELETE FROM properties; DELETE FROM contracts; DELETE FROM installments; DELETE FROM maintenance_tickets;');
 
     for (const p of people) {
-      const id = String(p?.رقم_الشخص ?? '').trim();
+      const pRec = toRecord(p);
+      const id = String(pRec['رقم_الشخص'] ?? '').trim();
       if (!id) continue;
-      upsertPeople.run(id, String(p?.الاسم ?? ''), p?.الرقم_الوطني ? String(p.الرقم_الوطني) : null, p?.رقم_الهاتف ? String(p.رقم_الهاتف) : null, JSON.stringify(p), nowIso);
+
+      const nationalId = pRec['الرقم_الوطني'] ? String(pRec['الرقم_الوطني']) : null;
+      const phone = pRec['رقم_الهاتف'] ? String(pRec['رقم_الهاتف']) : null;
+
+      upsertPeople.run(id, String(pRec['الاسم'] ?? ''), nationalId, phone, JSON.stringify(p), nowIso);
     }
     counts.people = people.length;
 
     for (const r of roles) {
-      const personId = String(r?.رقم_الشخص ?? '').trim();
-      const role = String(r?.الدور ?? '').trim();
+      const rRec = toRecord(r);
+      const personId = String(rRec['رقم_الشخص'] ?? '').trim();
+      const role = String(rRec['الدور'] ?? '').trim();
       if (!personId || !role) continue;
       insertRole.run(personId, role);
     }
     counts.roles = roles.length;
 
     for (const b of blacklist) {
-      const personId = String(b?.personId ?? '').trim();
+      const bRec = toRecord(b);
+      const personId = String(bRec.personId ?? '').trim();
       if (!personId) continue;
-      const isActive = (b as any)?.isActive === false ? 0 : 1;
+      const isActive = bRec.isActive === false ? 0 : 1;
       upsertBlacklist.run(personId, isActive, JSON.stringify(b), nowIso);
     }
     counts.blacklist = blacklist.length;
 
     for (const pr of properties) {
-      const id = String(pr?.رقم_العقار ?? '').trim();
+      const prRec = toRecord(pr);
+      const id = String(prRec['رقم_العقار'] ?? '').trim();
       if (!id) continue;
+
+      const salePriceNum = toNumber(prRec.salePrice);
       upsertProperty.run(
         id,
-        pr?.الكود_الداخلي ? String(pr.الكود_الداخلي) : null,
-        pr?.رقم_المالك ? String(pr.رقم_المالك) : null,
-        pr?.النوع ? String(pr.النوع) : null,
-        pr?.حالة_العقار ? String(pr.حالة_العقار) : null,
-        pr?.العنوان ? String(pr.العنوان) : null,
-        pr?.المدينة ? String(pr.المدينة) : null,
-        pr?.المنطقة ? String(pr.المنطقة) : null,
-        pr?.IsRented ? 1 : 0,
-        (pr as any)?.isForSale ? 1 : 0,
-        Number((pr as any)?.salePrice ?? 0) || null,
+        prRec['الكود_الداخلي'] ? String(prRec['الكود_الداخلي']) : null,
+        prRec['رقم_المالك'] ? String(prRec['رقم_المالك']) : null,
+        prRec['النوع'] ? String(prRec['النوع']) : null,
+        prRec['حالة_العقار'] ? String(prRec['حالة_العقار']) : null,
+        prRec['العنوان'] ? String(prRec['العنوان']) : null,
+        prRec['المدينة'] ? String(prRec['المدينة']) : null,
+        prRec['المنطقة'] ? String(prRec['المنطقة']) : null,
+        prRec.IsRented ? 1 : 0,
+        prRec.isForSale ? 1 : 0,
+        prRec.isForRent === false ? 0 : 1,
+        salePriceNum || null,
         JSON.stringify(pr),
         nowIso
       );
@@ -2335,20 +2566,21 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
     counts.properties = properties.length;
 
     for (const c of contracts) {
-      const id = String(c?.رقم_العقد ?? '').trim();
+      const cRec = toRecord(c);
+      const id = String(cRec['رقم_العقد'] ?? '').trim();
       if (!id) continue;
       upsertContract.run(
         id,
-        c?.رقم_العقار ? String(c.رقم_العقار) : null,
-        c?.رقم_المستاجر ? String(c.رقم_المستاجر) : null,
-        c?.رقم_الكفيل ? String(c.رقم_الكفيل) : null,
-        c?.حالة_العقد ? String(c.حالة_العقد) : null,
-        c?.تاريخ_البداية ? String(c.تاريخ_البداية) : null,
-        c?.تاريخ_النهاية ? String(c.تاريخ_النهاية) : null,
-        Number(c?.القيمة_السنوية ?? 0) || 0,
-        Number(c?.تكرار_الدفع ?? 0) || 0,
-        c?.طريقة_الدفع ? String(c.طريقة_الدفع) : null,
-        (c as any)?.isArchived ? 1 : 0,
+        cRec['رقم_العقار'] ? String(cRec['رقم_العقار']) : null,
+        cRec['رقم_المستاجر'] ? String(cRec['رقم_المستاجر']) : null,
+        cRec['رقم_الكفيل'] ? String(cRec['رقم_الكفيل']) : null,
+        cRec['حالة_العقد'] ? String(cRec['حالة_العقد']) : null,
+        cRec['تاريخ_البداية'] ? String(cRec['تاريخ_البداية']) : null,
+        cRec['تاريخ_النهاية'] ? String(cRec['تاريخ_النهاية']) : null,
+        toNumber(cRec['القيمة_السنوية']),
+        toNumber(cRec['تكرار_الدفع']),
+        cRec['طريقة_الدفع'] ? String(cRec['طريقة_الدفع']) : null,
+        cRec.isArchived ? 1 : 0,
         JSON.stringify(c),
         nowIso
       );
@@ -2356,20 +2588,28 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
     counts.contracts = contracts.length;
 
     for (const inst of installments) {
-      const id = String(inst?.رقم_الكمبيالة ?? '').trim();
+      const instRec = toRecord(inst);
+      const id = String(instRec['رقم_الكمبيالة'] ?? instRec.id ?? instRec.installmentId ?? '').trim();
       if (!id) continue;
       const { amount, paid, remaining } = computeInstallmentAmounts(inst);
+
+      const contractId = String(instRec['رقم_العقد'] ?? instRec.contractId ?? instRec.contract_id ?? '').trim();
+      const dueDate = String(instRec['تاريخ_استحقاق'] ?? instRec.dueDate ?? instRec.due_date ?? '').trim();
+      const status = String(instRec['حالة_الكمبيالة'] ?? instRec.status ?? '').trim();
+      const type = String(instRec['نوع_الكمبيالة'] ?? instRec.type ?? '').trim();
+      const paidAt = String(instRec['تاريخ_الدفع'] ?? instRec.paidAt ?? instRec.paid_at ?? '').trim();
+
       upsertInstallment.run(
         id,
-        inst?.رقم_العقد ? String(inst.رقم_العقد) : null,
-        inst?.تاريخ_استحقاق ? String(inst.تاريخ_استحقاق) : null,
+        contractId ? contractId : null,
+        dueDate ? dueDate : null,
         amount,
         paid,
         remaining,
-        inst?.حالة_الكمبيالة ? String(inst.حالة_الكمبيالة) : null,
-        inst?.نوع_الكمبيالة ? String(inst.نوع_الكمبيالة) : null,
-        (inst as any)?.isArchived ? 1 : 0,
-        inst?.تاريخ_الدفع ? String(inst.تاريخ_الدفع) : null,
+        status ? status : null,
+        type ? type : null,
+        instRec.isArchived ? 1 : 0,
+        paidAt ? paidAt : null,
         JSON.stringify(inst),
         nowIso
       );
@@ -2377,17 +2617,18 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
     counts.installments = installments.length;
 
     for (const t of maintenance) {
-      const id = String(t?.رقم_التذكرة ?? '').trim();
+      const tRec = toRecord(t);
+      const id = String(tRec['رقم_التذكرة'] ?? '').trim();
       if (!id) continue;
       upsertTicket.run(
         id,
-        t?.رقم_العقار ? String(t.رقم_العقار) : null,
-        t?.رقم_المستاجر ? String(t.رقم_المستاجر) : null,
-        t?.تاريخ_الطلب ? String(t.تاريخ_الطلب) : null,
-        t?.الحالة ? String(t.الحالة) : null,
-        t?.الأولوية ? String(t.الأولوية) : null,
-        t?.الوصف ? String(t.الوصف) : null,
-        t?.تاريخ_الإغلاق ? String(t.تاريخ_الإغلاق) : null,
+        tRec['رقم_العقار'] ? String(tRec['رقم_العقار']) : null,
+        tRec['رقم_المستاجر'] ? String(tRec['رقم_المستاجر']) : null,
+        tRec['تاريخ_الطلب'] ? String(tRec['تاريخ_الطلب']) : null,
+        tRec['الحالة'] ? String(tRec['الحالة']) : null,
+        tRec['الأولوية'] ? String(tRec['الأولوية']) : null,
+        tRec['الوصف'] ? String(tRec['الوصف']) : null,
+        tRec['تاريخ_الإغلاق'] ? String(tRec['تاريخ_الإغلاق']) : null,
         JSON.stringify(t),
         nowIso
       );
@@ -2407,8 +2648,9 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
     metaSet(dbh, `domain_src_updatedAt:${keys.roles}`, kvUpdatedAtIso(keys.roles));
     metaSet(dbh, `domain_src_updatedAt:${keys.blacklist}`, kvUpdatedAtIso(keys.blacklist));
     return { ok: true, message: 'تمت تهيئة جداول التقارير بنجاح', migrated: true, counts };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل ترحيل البيانات إلى الجداول', migrated: false };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل ترحيل البيانات إلى الجداول';
+    return { ok: false, message, migrated: false };
   }
 }
 
@@ -2476,12 +2718,14 @@ export function runSqlReport(reportId: string): ReportRunResult {
             AND (status IS NULL OR status <> 'ملغي')
         `
         )
-        .get(today, today) as any;
+        .get(today, today) as
+          | { totalExpected?: number; totalPaid?: number; totalLate?: number; totalUpcoming?: number }
+          | undefined;
 
-      const totalExpected = Number(row?.totalExpected ?? 0) || 0;
-      const totalPaid = Number(row?.totalPaid ?? 0) || 0;
-      const totalLate = Number(row?.totalLate ?? 0) || 0;
-      const totalUpcoming = Number(row?.totalUpcoming ?? 0) || 0;
+      const totalExpected = toNumber(row?.totalExpected);
+      const totalPaid = toNumber(row?.totalPaid);
+      const totalLate = toNumber(row?.totalLate);
+      const totalUpcoming = toNumber(row?.totalUpcoming);
 
       return {
         ok: true,
@@ -2530,7 +2774,7 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(today, today, cap) as any[];
+        .all(today, today, cap) as Array<{ tenant: string; property: string; dueDate: string; amount: number; daysLate: number; status: string }>;
 
       const data = rows.map((r) => ({
         tenant: r.tenant,
@@ -2584,7 +2828,7 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(cap) as any[];
+        .all(cap) as Array<{ contractNo: string; tenant: string; property: string; startDate: string; endDate: string; monthlyRent: number; status: string }>;
 
       const data = rows.map((r) => ({
         contractNo: r.contractNo,
@@ -2596,7 +2840,7 @@ export function runSqlReport(reportId: string): ReportRunResult {
         status: r.status,
       }));
 
-      const totalMonthly = data.reduce((s, r) => s + (Number((r as any).monthlyRent) || 0), 0);
+      const totalMonthly = data.reduce((s, r) => s + toNumber(r.monthlyRent), 0);
       const summary = [
         { label: 'عدد العقود النشطة', value: data.length },
         { label: 'إجمالي الإيرادات الشهرية', value: `${Math.round(totalMonthly).toLocaleString('ar-JO')} د.أ` },
@@ -2664,7 +2908,7 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(cap) as any[];
+        .all(cap) as Array<{ ticketNo: string; property: string; tenant: string; issue: string; priority: string; status: string; createdDate: string }>;
 
       const data = rows.map((r) => ({
         ticketNo: r.ticketNo,
@@ -2676,7 +2920,7 @@ export function runSqlReport(reportId: string): ReportRunResult {
         createdDate: r.createdDate,
       }));
 
-      const high = data.filter((d) => String((d as any).priority) === 'عالية').length;
+      const high = data.filter((d) => String(d.priority) === 'عالية').length;
       const summary: Array<{ label: string; value: string | number }> = [
         { label: 'عدد الطلبات المفتوحة', value: data.length },
         { label: 'طلبات عالية الأولوية', value: high },
@@ -2725,7 +2969,7 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(today, today, todayPlus30, cap) as any[];
+        .all(today, today, todayPlus30, cap) as Array<{ contractNo: string; tenant: string; property: string; endDate: string; daysRemaining: number; monthlyRent: number }>;
 
       const data = rows.map((r) => ({
         contractNo: r.contractNo,
@@ -2777,7 +3021,7 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(cap) as any[];
+        .all(cap) as Array<{ code: string; type: string; areaNum: number; floor: string; rooms: string; owner: string; location: string }>;
 
       const data = rows.map((r) => ({
         code: r.code,
@@ -2833,7 +3077,7 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(cap) as any[];
+        .all(cap) as Array<{ code: string; type: string; missElec: number; missWater: number; missArea: number; missAddr: number }>;
 
       const data = rows.map((r) => {
         const missing: string[] = [];
@@ -2871,8 +3115,9 @@ export function runSqlReport(reportId: string): ReportRunResult {
     }
 
     return { ok: false, message: 'هذا التقرير غير مدعوم عبر SQL حالياً' };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل توليد التقرير' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل توليد التقرير';
+    return { ok: false, message };
   }
 }
 
@@ -2918,7 +3163,8 @@ export function kvApplyRemoteDelete(key: string, deletedAtIso: string): void {
 }
 
 export function kvKeys(): string[] {
-  return getDb().prepare('SELECT k FROM kv ORDER BY k').all().map((r: any) => r.k as string);
+  const rows = getDb().prepare('SELECT k FROM kv ORDER BY k').all() as Array<{ k: string }>;
+  return rows.map((r) => r.k);
 }
 
 export function kvListUpdatedSince(sinceIso: string): Array<{ k: string; v: string; updatedAt: string }> {
@@ -2939,8 +3185,8 @@ export function kvListDeletedSince(sinceIso: string): Array<{ k: string; deleted
 
 export function kvResetAll(prefix = 'db_'): { deleted: number } {
   const stmt = getDb().prepare('DELETE FROM kv WHERE k LIKE ?');
-  const res = stmt.run(`${prefix}%`) as any;
-  return { deleted: Number(res.changes || 0) };
+  const res = stmt.run(`${prefix}%`) as unknown;
+  return { deleted: toNumber(toRecord(res).changes) };
 }
 
 export async function exportDatabase(destinationPath: string): Promise<void> {

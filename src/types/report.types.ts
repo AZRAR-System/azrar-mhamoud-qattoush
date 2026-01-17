@@ -18,7 +18,7 @@ export interface ReportResult {
   title: string;
   generatedAt: string;
   columns: { key: string; header: string; type?: 'text' | 'number' | 'currency' | 'date' | 'status' }[];
-  data: any[];
+  data: unknown[];
   summary?: { label: string; value: string | number }[];
 }
 

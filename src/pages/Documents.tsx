@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Building2, FileText, Image as ImageIcon, ScrollText, Users, Wrench, HandCoins, Eye } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
-import type { Attachment, ReferenceType } from '@/types';
+import type { Attachment, ReferenceType, الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types';
 import { FileViewer } from '@/components/shared/FileViewer';
 import { DS } from '@/constants/designSystem';
 import { useDbSignal } from '@/hooks/useDbSignal';
@@ -17,29 +17,30 @@ export const Documents: React.FC = () => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [viewingFile, setViewingFile] = useState<Attachment | null>(null);
 
-  const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!(window as any)?.desktopDb;
-  const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainGet;
+  const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb;
+  const isDesktopFast = isDesktop && !!window.desktopDb?.domainGet;
   const desktopUnsupported = isDesktop && !isDesktopFast;
 
   const dbSignal = useDbSignal();
 
   useEffect(() => {
     try {
-      const all = (DbService as any).getAllAttachments?.() as Attachment[] | undefined;
+      const all = DbService.getAllAttachments?.();
       setAttachments(Array.isArray(all) ? all : []);
     } catch {
       setAttachments([]);
     }
   }, [dbSignal]);
 
-  const [fastPeopleById, setFastPeopleById] = useState<Map<string, any>>(() => new Map());
-  const [fastPropertiesById, setFastPropertiesById] = useState<Map<string, any>>(() => new Map());
-  const [fastContractsById, setFastContractsById] = useState<Map<string, any>>(() => new Map());
+  const [fastPeopleById, setFastPeopleById] = useState<Map<string, الأشخاص_tbl>>(() => new Map());
+  const [fastPropertiesById, setFastPropertiesById] = useState<Map<string, العقارات_tbl>>(() => new Map());
+  const [fastContractsById, setFastContractsById] = useState<Map<string, العقود_tbl>>(() => new Map());
 
   const peopleById = useMemo(() => {
-    if (desktopUnsupported) return new Map<string, any>();
+    void dbSignal;
+    if (desktopUnsupported) return new Map<string, الأشخاص_tbl>();
     if (isDesktopFast) return fastPeopleById;
-    const m = new Map<string, any>();
+    const m = new Map<string, الأشخاص_tbl>();
     try {
       const people = DbService.getPeople() || [];
       for (const p of people) m.set(String(p?.رقم_الشخص), p);
@@ -47,12 +48,13 @@ export const Documents: React.FC = () => {
       // ignore
     }
     return m;
-  }, [dbSignal, isDesktopFast, fastPeopleById]);
+  }, [dbSignal, desktopUnsupported, isDesktopFast, fastPeopleById]);
 
   const propertiesById = useMemo(() => {
-    if (desktopUnsupported) return new Map<string, any>();
+    void dbSignal;
+    if (desktopUnsupported) return new Map<string, العقارات_tbl>();
     if (isDesktopFast) return fastPropertiesById;
-    const m = new Map<string, any>();
+    const m = new Map<string, العقارات_tbl>();
     try {
       const props = DbService.getProperties() || [];
       for (const p of props) m.set(String(p?.رقم_العقار), p);
@@ -60,12 +62,13 @@ export const Documents: React.FC = () => {
       // ignore
     }
     return m;
-  }, [dbSignal, isDesktopFast, fastPropertiesById]);
+  }, [dbSignal, desktopUnsupported, isDesktopFast, fastPropertiesById]);
 
   const contractsById = useMemo(() => {
-    if (desktopUnsupported) return new Map<string, any>();
+    void dbSignal;
+    if (desktopUnsupported) return new Map<string, العقود_tbl>();
     if (isDesktopFast) return fastContractsById;
-    const m = new Map<string, any>();
+    const m = new Map<string, العقود_tbl>();
     try {
       const cs = DbService.getContracts() || [];
       for (const c of cs) m.set(String(c?.رقم_العقد), c);
@@ -73,7 +76,7 @@ export const Documents: React.FC = () => {
       // ignore
     }
     return m;
-  }, [dbSignal, isDesktopFast, fastContractsById]);
+  }, [dbSignal, desktopUnsupported, isDesktopFast, fastContractsById]);
 
   useEffect(() => {
     if (!isDesktopFast) return;
@@ -269,7 +272,7 @@ export const Documents: React.FC = () => {
       ) : null}
 
       {totalCount === 0 ? (
-        <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm text-center text-slate-600 dark:text-slate-400">
+        <div className="app-card p-8 text-center text-slate-600 dark:text-slate-400">
           لا توجد مستندات مرفوعة حالياً.
         </div>
       ) : (
@@ -282,7 +285,7 @@ export const Documents: React.FC = () => {
               const Icon = typeIcon(t);
 
               return (
-                <div key={t} className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                <div key={t} className="app-card">
                   <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex items-center justify-between">
                     <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-white">
                       <Icon size={18} className="text-slate-600 dark:text-slate-300" />

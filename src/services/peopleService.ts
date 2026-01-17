@@ -22,7 +22,7 @@ const get = <T>(key: string): T[] => {
   return data ? JSON.parse(data) : [];
 };
 
-const save = (key: string, data: any) => {
+const save = (key: string, data: unknown) => {
   const serialized = JSON.stringify(data);
   void storage.setItem(key, serialized);
   buildCache();
@@ -43,9 +43,9 @@ const KEYS = {
 // Request domain migration in the Electron/main process (desktop) with retries and logging.
 const requestDomainMigrate = (opts?: { retries?: number; delayMs?: number }) => {
   try {
-    if (!(storage as any)?.isDesktop) return;
-    const db = (window as any)?.desktopDb;
-    if (!db || !db.domainMigrate) return;
+    if (!storage.isDesktop()) return;
+    const db = typeof window !== 'undefined' ? window.desktopDb : undefined;
+    if (typeof db?.domainMigrate !== 'function') return;
 
     const retries = opts?.retries ?? 3;
     const delayMs = opts?.delayMs ?? 500;
@@ -53,9 +53,9 @@ const requestDomainMigrate = (opts?: { retries?: number; delayMs?: number }) => 
     (async () => {
       for (let i = 1; i <= retries; i++) {
         try {
-          console.info(`[peopleService] domainMigrate attempt ${i}/${retries}`);
+          console.warn(`[peopleService] domainMigrate attempt ${i}/${retries}`);
           await db.domainMigrate();
-          console.info('[peopleService] domainMigrate succeeded');
+          console.warn('[peopleService] domainMigrate succeeded');
           return;
         } catch (err) {
           console.warn(`[peopleService] domainMigrate failed attempt ${i}/${retries}`, err);
@@ -79,7 +79,7 @@ export const getPersonRoles = (id: string): string[] => {
 };
 
 export const updatePersonRoles = (id: string, roles: string[]) => {
-  let all = get<شخص_دور_tbl>(KEYS.ROLES).filter(r => r.رقم_الشخص !== id);
+  const all = get<شخص_دور_tbl>(KEYS.ROLES).filter(r => r.رقم_الشخص !== id);
   roles.forEach(role => all.push({ رقم_الشخص: id, الدور: role }));
   save(KEYS.ROLES, all);
 };
@@ -96,7 +96,7 @@ export const addPerson = (data: Omit<الأشخاص_tbl, 'رقم_الشخص'>, r
   const newPerson: الأشخاص_tbl = { ...data, رقم_الشخص: id };
   save(KEYS.PEOPLE, [...all, newPerson]);
 
-  let allRoles = get<شخص_دور_tbl>(KEYS.ROLES);
+  const allRoles = get<شخص_دور_tbl>(KEYS.ROLES);
   roles.forEach(role => allRoles.push({ رقم_الشخص: id, الدور: role }));
   save(KEYS.ROLES, allRoles);
 

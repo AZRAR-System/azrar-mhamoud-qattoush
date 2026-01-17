@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { DbService } from '@/services/mockDb';
+import { DbService, type NotificationSendLogRecord } from '@/services/mockDb';
 import { useSmartModal } from '@/context/ModalContext';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
+import type { الكمبيالات_tbl } from '@/types';
 
 interface Props {
   maxItems?: number;
@@ -43,13 +44,13 @@ export const PaymentCollectionSendLog: React.FC<Props> = ({
     void refreshKey;
 
     const installments = DbService.getInstallments?.() || [];
-    const installmentById = new Map<string, any>();
+    const installmentById = new Map<string, الكمبيالات_tbl>();
     for (const inst of installments) installmentById.set(String(inst.رقم_الكمبيالة), inst);
 
     const sentLogs = (DbService.getNotificationSendLogs?.() || [])
-      .filter((l: any) => l.category === 'installment_reminder')
+      .filter((l) => l.category === 'installment_reminder')
       // Show only reminders that are still relevant (at least one installment remains unpaid).
-      .filter((l: any) => {
+      .filter((l) => {
         const ids: string[] = Array.isArray(l.installmentIds) ? l.installmentIds : [];
         if (ids.length === 0) return true;
         for (const id of ids) {
@@ -57,7 +58,7 @@ export const PaymentCollectionSendLog: React.FC<Props> = ({
           if (!inst) return true;
           const status = String(inst.حالة_الكمبيالة ?? '').trim();
           if (status === 'ملغي') continue;
-          if ((inst as any).isArchived === true) continue;
+          if (inst.isArchived === true) continue;
           const { remaining } = getInstallmentPaidAndRemaining(inst);
           if (remaining > 0) return true;
         }
@@ -65,7 +66,7 @@ export const PaymentCollectionSendLog: React.FC<Props> = ({
       });
 
     // Defensive: dedupe by id in case legacy/duplicate data exists.
-    const byId = new Map<string, any>();
+    const byId = new Map<string, NotificationSendLogRecord>();
     for (const l of sentLogs) {
       const id = String(l?.id || '').trim();
       if (!id) continue;
@@ -125,7 +126,7 @@ export const PaymentCollectionSendLog: React.FC<Props> = ({
         <div className="px-4 pb-4 text-sm text-slate-500 dark:text-slate-400">لا يوجد سجل إرسال بعد.</div>
       ) : (
         <div className="px-4 pb-4 space-y-2">
-          {lastSent.map((l: any) => (
+          {lastSent.map((l) => (
             <div key={l.id} className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 flex items-start justify-between gap-3">
               <div>
                 <div className="font-bold text-slate-800 dark:text-white text-sm">

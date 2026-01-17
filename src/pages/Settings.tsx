@@ -1,13 +1,13 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { DbService } from '@/services/mockDb';
 import { useSmartModal } from '@/context/ModalContext';
 import { storage } from '@/services/storage';
 import { useAuth } from '@/context/AuthContext';
-import { SystemLookup, LookupCategory, SystemSettings, PermissionCode } from '@/types';
+import { SystemLookup, LookupCategory, SystemSettings, PermissionCode, العمليات_tbl } from '@/types';
 import {
-  Settings as SettingsIcon, Database, Building, List, Upload, Globe, Phone, Mail, MapPin, 
-  Image as ImageIcon, Lock, Plus, Trash2, Download, Search, Check, FolderOpen, ArrowRight, 
-  RefreshCcw, Edit2, X, BadgeDollarSign, History, FileJson, Shield, Facebook, Instagram, Linkedin, Twitter, Hash, FileSpreadsheet, Info, PlayCircle, AlertTriangle
+  Database, Building, List, Upload, Globe, Phone,
+  Image as ImageIcon, Plus, Trash2, Download, Search, Check, FolderOpen, ArrowRight,
+  RefreshCcw, Edit2, X, BadgeDollarSign, History, FileJson, Shield, FileSpreadsheet, Info, PlayCircle, AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { RBACGuard } from '@/components/shared/RBACGuard';
@@ -31,6 +31,60 @@ type DesktopSqlSettings = Partial<{
   trustServerCertificate: boolean;
   hasPassword: boolean;
 }>;
+
+type SqlCoverageItem = {
+  key: string;
+  localUpdatedAt?: string;
+  localDeletedAt?: string;
+  localBestTs?: string;
+  localIsDeleted: boolean;
+  localBytes: number;
+  remoteUpdatedAt?: string;
+  remoteIsDeleted?: boolean;
+  status: 'inSync' | 'localAhead' | 'remoteAhead' | 'missingRemote' | 'missingLocal' | 'different' | 'unknown';
+};
+
+type SqlCoverageResponse = {
+  ok: boolean;
+  remoteOk?: boolean;
+  remoteMessage?: string;
+  localCount?: number;
+  remoteCount?: number;
+  items?: SqlCoverageItem[];
+  message?: string;
+};
+
+type SqlBackupAutomationSettings = {
+  enabled: boolean;
+  retentionDays: number;
+};
+
+type SqlBackupAutomationResponse = {
+  ok: boolean;
+  settings?: SqlBackupAutomationSettings;
+  message?: string;
+};
+
+type SqlServerBackupItem = {
+  id: string;
+  createdAt: string;
+  createdBy?: string;
+  rowCount?: number;
+  payloadBytes?: number;
+  note?: string;
+};
+
+const hasMessage = (value: unknown): value is { message: string } => {
+  if (typeof value !== 'object' || value === null) return false;
+  return typeof (value as Record<string, unknown>).message === 'string';
+};
+
+const getErrorMessage = (error: unknown): string | undefined => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (hasMessage(error)) return error.message;
+  return undefined;
+};
 
 export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean; embedded?: boolean }> = ({ initialSection, serverOnly, embedded }) => {
   const [activeSection, setActiveSection] = useState<string>(serverOnly ? 'server' : (initialSection || 'general'));
@@ -58,6 +112,15 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
   const [sqlStatus, setSqlStatus] = useState<SqlStatus | null>(null);
   const [sqlBusy, setSqlBusy] = useState(false);
 
+  const [sqlBackupAuto, setSqlBackupAuto] = useState<SqlBackupAutomationSettings>({ enabled: true, retentionDays: 30 });
+  const [sqlBackupAutoBusy, setSqlBackupAutoBusy] = useState(false);
+  const [sqlServerBackups, setSqlServerBackups] = useState<SqlServerBackupItem[]>([]);
+  const [sqlServerBackupsBusy, setSqlServerBackupsBusy] = useState(false);
+
+  const [sqlCoverage, setSqlCoverage] = useState<SqlCoverageResponse | null>(null);
+  const [sqlCoverageBusy, setSqlCoverageBusy] = useState(false);
+  const [sqlCoverageQuery, setSqlCoverageQuery] = useState('');
+
   const [sqlProvision, setSqlProvision] = useState({
     adminUser: '',
     adminPassword: '',
@@ -67,6 +130,100 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
     employeePassword: '',
   });
 
+  const keyLabels = useMemo<Record<string, string>>(() => ({
+    db_people: 'الأشخاص',
+    db_properties: 'العقارات',
+    db_contracts: 'العقود',
+    db_installments: 'الأقساط',
+    db_payments: 'الدفعات',
+    db_commissions: 'العمولات',
+    db_alerts: 'التنبيهات',
+    db_attachments: 'المرفقات',
+    db_users: 'المستخدمون',
+    db_user_permissions: 'صلاحيات المستخدمين',
+    db_roles: 'الأدوار',
+    db_settings: 'إعدادات النظام',
+    db_lookup_categories: 'تصنيفات الجداول',
+    db_lookups: 'الجداول المساعدة',
+    db_legal_templates: 'قوالب العقود/النماذج',
+    db_legal_history: 'سجل القانوني',
+    db_followups: 'المتابعات',
+    db_notes: 'الملاحظات',
+    db_reminders: 'التذكيرات',
+    db_maintenance_tickets: 'بلاغات الصيانة',
+    db_notification_send_logs: 'سجل الإشعارات',
+    db_operations: 'العمليات',
+    db_marquee: 'الشريط الإعلاني',
+    db_smart_behavior: 'سلوك الأدوات الذكية',
+  }), []);
+
+  const refreshSqlCoverage = async () => {
+    if (!window.desktopDb?.sqlGetCoverage) {
+      toast.warning('تغطية المزامنة متاحة فقط في نسخة Desktop');
+      return;
+    }
+    setSqlCoverageBusy(true);
+    try {
+      const res = (await window.desktopDb.sqlGetCoverage()) as unknown as SqlCoverageResponse | null;
+      setSqlCoverage(res ?? null);
+      if (res && res.ok && res.remoteOk === false && res.remoteMessage) {
+        toast.warning(res.remoteMessage);
+      }
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل فحص تغطية المزامنة');
+    } finally {
+      setSqlCoverageBusy(false);
+    }
+  };
+
+  const pullFullFromServer = async () => {
+    if (!window.desktopDb?.sqlPullFullNow) {
+      toast.warning('السحب متاح فقط في نسخة Desktop');
+      return;
+    }
+    setSqlCoverageBusy(true);
+    try {
+      const res = (await window.desktopDb.sqlPullFullNow()) as unknown as DesktopOkMessage | null;
+      if (res?.ok) toast.success(res?.message || 'تم السحب من المخدم');
+      else toast.error(res?.message || 'فشل السحب من المخدم');
+      await refreshSqlStatus();
+      await refreshSqlCoverage();
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل السحب من المخدم');
+    } finally {
+      setSqlCoverageBusy(false);
+    }
+  };
+
+  const mergePublishAdmin = async () => {
+    if (!window.desktopDb?.sqlMergePublishAdmin) {
+      toast.warning('الدمج/النشر متاح فقط في نسخة Desktop');
+      return;
+    }
+    if (!isSuperAdmin(user?.الدور)) {
+      toast.error('هذه العملية متاحة للسوبر أدمن فقط');
+      return;
+    }
+
+    setSqlCoverageBusy(true);
+    try {
+      const res = (await window.desktopDb.sqlMergePublishAdmin({
+        keys: ['db_users', 'db_user_permissions', 'db_roles', 'db_lookup_categories', 'db_lookups', 'db_legal_templates'],
+        prefer: 'local',
+      })) as unknown as DesktopOkMessage | null;
+
+      if (res?.ok) toast.success(res?.message || 'تم الدمج/النشر');
+      else toast.error(res?.message || 'فشل الدمج/النشر');
+
+      await refreshSqlStatus();
+      await refreshSqlCoverage();
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل الدمج/النشر');
+    } finally {
+      setSqlCoverageBusy(false);
+    }
+  };
+
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState<boolean>(true);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
@@ -75,10 +232,85 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
   const [activeCategory, setActiveCategory] = useState<LookupCategory | null>(null);
   const [lookupItems, setLookupItems] = useState<SystemLookup[]>([]);
   const [catSearchTerm, setCatSearchTerm] = useState('');
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<العمليات_tbl[]>([]);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [tableForm, setTableForm] = useState({ id: '', name: '', label: '' });
   const [isEditingTable, setIsEditingTable] = useState(false);
+
+  const loadSettings = useCallback(() => {
+    setSettingsLoading(true);
+    try {
+      const s = DbService.getSettings();
+      setSettings(s);
+    } catch (e: unknown) {
+      setSettings(null);
+      toast.error(getErrorMessage(e) || 'فشل تحميل إعدادات النظام');
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, [toast]);
+
+  const loadCategories = useCallback(() => {
+    const cats = DbService.getLookupCategories();
+    setCategories(cats);
+    setFilteredCategories(cats);
+    setActiveCategory(prev => {
+      if (prev) {
+        const stillExists = cats.find(c => c.id === prev.id);
+        return stillExists ?? (cats.length > 0 ? cats[0] : null);
+      }
+      return cats.length > 0 ? cats[0] : null;
+    });
+  }, []);
+
+  const loadAuditLogs = useCallback(() => {
+    const allLogs = DbService.getLogs();
+    const settingLogs = allLogs
+      .filter(l => l.نوع_العملية.includes('SETTINGS') || l.اسم_الجدول === 'Settings' || l.اسم_الجدول.includes('Lookup'))
+      .reverse()
+      .slice(0, 20);
+    setAuditLogs(settingLogs);
+  }, []);
+
+  const loadSqlSection = useCallback(async () => {
+    if (!window.desktopDb?.sqlGetSettings) {
+      setSqlStatus(null);
+      return;
+    }
+    try {
+      const s = (await window.desktopDb.sqlGetSettings()) as unknown as DesktopSqlSettings | null;
+      setSqlForm(prev => ({
+        ...prev,
+        enabled: !!s?.enabled,
+        server: String(s?.server || ''),
+        port: Number(s?.port || 1433) || 1433,
+        database: String(s?.database || 'AZRAR'),
+        authMode: s?.authMode === 'windows' ? 'windows' : 'sql',
+        user: String(s?.user || ''),
+        encrypt: s?.encrypt !== false,
+        trustServerCertificate: s?.trustServerCertificate !== false,
+        hasPassword: !!s?.hasPassword,
+        password: '',
+      }));
+      const st = (await window.desktopDb.sqlStatus?.()) as unknown as SqlStatus | null;
+      setSqlStatus(st || null);
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل تحميل إعدادات المخدم');
+    }
+  }, [toast]);
+
+  const loadBackupSection = useCallback(async () => {
+    if (window.desktopDb?.getBackupDir) {
+      try {
+        const d = await window.desktopDb.getBackupDir();
+        setBackupDir(d || '');
+      } catch {
+        setBackupDir('');
+      }
+    } else {
+      setBackupDir('');
+    }
+  }, []);
 
   const visibleTabs = useMemo(() => {
       const tabs = [
@@ -106,7 +338,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           if (t.permission && !DbService.userHasPermission(user?.id || '', t.permission)) return false;
           return true;
       });
-  }, [user]);
+      }, [user, serverOnly]);
 
     useEffect(() => {
       if (serverOnly) {
@@ -116,50 +348,17 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       if (visibleTabs.length > 0 && !visibleTabs.find(t => t.id === activeSection)) {
         setActiveSection(visibleTabs[0].id);
       }
-    }, [visibleTabs, serverOnly]);
+    }, [visibleTabs, serverOnly, activeSection]);
 
   useEffect(() => {
     if (visibleTabs.some(t => t.id === activeSection)) {
       loadSettings();
       if (activeSection === 'lookups') loadCategories();
       if (activeSection === 'audit') loadAuditLogs();
-      if (activeSection === 'server') {
-        void (async () => {
-          if (!window.desktopDb?.sqlGetSettings) {
-            setSqlStatus(null);
-            return;
-          }
-          try {
-            const s = (await window.desktopDb.sqlGetSettings()) as unknown as DesktopSqlSettings | null;
-            setSqlForm(prev => ({
-              ...prev,
-              enabled: !!s?.enabled,
-              server: String(s?.server || ''),
-              port: Number(s?.port || 1433) || 1433,
-              database: String(s?.database || 'AZRAR'),
-              authMode: s?.authMode === 'windows' ? 'windows' : 'sql',
-              user: String(s?.user || ''),
-              encrypt: s?.encrypt !== false,
-              trustServerCertificate: s?.trustServerCertificate !== false,
-              hasPassword: !!s?.hasPassword,
-              password: '',
-            }));
-            const st = (await window.desktopDb.sqlStatus?.()) as unknown as SqlStatus | null;
-            setSqlStatus(st || null);
-          } catch (e: any) {
-            toast.error(e?.message || 'فشل تحميل إعدادات المخدم');
-          }
-        })();
-      }
-      if (activeSection === 'backup') {
-        if (window.desktopDb?.getBackupDir) {
-          window.desktopDb.getBackupDir().then(d => setBackupDir(d || '')).catch(() => setBackupDir(''));
-        } else {
-          setBackupDir('');
-        }
-      }
+      if (activeSection === 'server') void loadSqlSection();
+      if (activeSection === 'backup') void loadBackupSection();
     }
-  }, [activeSection, visibleTabs, dbSignal]);
+  }, [activeSection, visibleTabs, dbSignal, loadSettings, loadCategories, loadAuditLogs, loadSqlSection, loadBackupSection]);
 
   const refreshSqlStatus = async () => {
     try {
@@ -244,6 +443,86 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
     } finally {
       setSqlBusy(false);
       void refreshSqlStatus();
+    }
+  };
+
+  const refreshSqlBackupAutomation = useCallback(async () => {
+    if (!window.desktopDb?.sqlGetBackupAutomationSettings) return;
+    try {
+      const res = (await window.desktopDb.sqlGetBackupAutomationSettings()) as unknown as SqlBackupAutomationResponse | null;
+      if (res?.ok && res?.settings) setSqlBackupAuto(res.settings);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const saveSqlBackupAutomation = async (next: Partial<SqlBackupAutomationSettings>) => {
+    if (!window.desktopDb?.sqlSaveBackupAutomationSettings) return;
+    setSqlBackupAutoBusy(true);
+    try {
+      const res = (await window.desktopDb.sqlSaveBackupAutomationSettings(next)) as unknown as SqlBackupAutomationResponse | null;
+      if (res?.ok && res?.settings) {
+        setSqlBackupAuto(res.settings);
+        toast.success('تم حفظ إعدادات النسخ الاحتياطي');
+      } else {
+        toast.error(res?.message || 'فشل حفظ إعدادات النسخ الاحتياطي');
+      }
+    } finally {
+      setSqlBackupAutoBusy(false);
+    }
+  };
+
+  const refreshSqlServerBackups = useCallback(async () => {
+    if (!window.desktopDb?.sqlListServerBackups) return;
+    setSqlServerBackupsBusy(true);
+    try {
+      const res = (await window.desktopDb.sqlListServerBackups({ limit: 60 })) as unknown as { ok: boolean; items?: SqlServerBackupItem[]; message?: string } | null;
+      if (res?.ok) setSqlServerBackups(Array.isArray(res.items) ? res.items : []);
+      else toast.error(res?.message || 'فشل قراءة النسخ الاحتياطية');
+    } finally {
+      setSqlServerBackupsBusy(false);
+    }
+  }, [toast]);
+
+  const handleCreateServerBackupNow = async () => {
+    if (!window.desktopDb?.sqlCreateServerBackup) {
+      toast.error('هذه الميزة غير متاحة في هذه النسخة');
+      return;
+    }
+    setSqlServerBackupsBusy(true);
+    try {
+      const res = (await window.desktopDb.sqlCreateServerBackup({ note: 'manual' })) as unknown as { ok: boolean; message: string; deletedOld?: number } | null;
+      if (res?.ok) {
+        toast.success(res?.message || 'تم رفع نسخة احتياطية إلى المخدم');
+        if (typeof res?.deletedOld === 'number' && res.deletedOld > 0) {
+          toast.success(`تم حذف ${res.deletedOld} نسخة قديمة (احتفاظ ${sqlBackupAuto.retentionDays} يوم)`);
+        }
+        void refreshSqlServerBackups();
+      } else {
+        toast.error(res?.message || 'فشل رفع النسخة الاحتياطية');
+      }
+    } finally {
+      setSqlServerBackupsBusy(false);
+    }
+  };
+
+  const handleRestoreServerBackup = async (id: string, mode: 'merge' | 'replace') => {
+    if (!window.desktopDb?.sqlRestoreServerBackup) {
+      toast.error('هذه الميزة غير متاحة في هذه النسخة');
+      return;
+    }
+    setSqlServerBackupsBusy(true);
+    try {
+      const res = (await window.desktopDb.sqlRestoreServerBackup({ id, mode })) as unknown as { ok: boolean; message: string } | null;
+      if (res?.ok) {
+        toast.success(res?.message || 'تمت الاستعادة');
+        toast.success('الآن نفّذ "مزامنة الآن" على الأجهزة لسحب البيانات');
+        void refreshSqlServerBackups();
+      } else {
+        toast.error(res?.message || 'فشل الاستعادة');
+      }
+    } finally {
+      setSqlServerBackupsBusy(false);
     }
   };
 
@@ -371,46 +650,21 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       } else {
         toast.error(res?.message || 'تم الإلغاء');
       }
-    } catch (e: any) {
-      toast.error(e?.message || 'فشل حفظ مجلد النسخ الاحتياطي');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل حفظ مجلد النسخ الاحتياطي');
     }
-  };
-
-  const loadSettings = () => {
-    setSettingsLoading(true);
-    try {
-      const s = DbService.getSettings();
-      setSettings(s);
-    } catch (e: any) {
-      setSettings(null);
-      toast.error(e?.message || 'فشل تحميل إعدادات النظام');
-    } finally {
-      setSettingsLoading(false);
-    }
-  };
-
-  const loadCategories = () => {
-    const cats = DbService.getLookupCategories();
-    setCategories(cats);
-    setFilteredCategories(cats);
-    if (activeCategory) {
-        const stillExists = cats.find(c => c.id === activeCategory.id);
-        if (stillExists) setActiveCategory(stillExists);
-        else setActiveCategory(cats.length > 0 ? cats[0] : null);
-    } else {
-        if (cats.length > 0) setActiveCategory(cats[0]);
-    }
-  };
-
-  const loadAuditLogs = () => {
-      const allLogs = DbService.getLogs();
-      const settingLogs = allLogs.filter(l => l.نوع_العملية.includes('SETTINGS') || l.اسم_الجدول === 'Settings' || l.اسم_الجدول.includes('Lookup')).reverse().slice(0, 20);
-      setAuditLogs(settingLogs);
   };
 
   useEffect(() => {
     if (activeCategory) setLookupItems(DbService.getLookupsByCategory(activeCategory.name));
   }, [activeCategory]);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+    if (activeSection !== 'server') return;
+    void refreshSqlBackupAutomation();
+    void refreshSqlServerBackups();
+  }, [activeSection, isDesktop, refreshSqlBackupAutomation, refreshSqlServerBackups]);
 
   useEffect(() => {
     if (!catSearchTerm.trim()) setFilteredCategories(categories);
@@ -568,8 +822,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
         } else {
           toast.error(res?.message || 'فشل تصدير قاعدة البيانات');
         }
-      } catch (e: any) {
-        toast.error(e?.message || 'فشل تصدير قاعدة البيانات');
+      } catch (e: unknown) {
+        const msg = typeof e === 'object' && e !== null && 'message' in e ? String((e as Record<string, unknown>).message ?? '') : '';
+        toast.error(msg || 'فشل تصدير قاعدة البيانات');
       }
       return;
     }
@@ -593,7 +848,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           confirmText: 'استعادة', variant: 'danger',
           onConfirm: () => { DbService.restoreSystem(json); toast.success('تم الاسترجاع بنجاح'); window.location.reload(); }
       });
-    } catch (e) { toast.error('ملف النسخة الاحتياطية غير صالح أو تالف'); }
+    } catch { toast.error('ملف النسخة الاحتياطية غير صالح أو تالف'); }
   };
 
   const handleDesktopImport = async () => {
@@ -608,8 +863,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       } else {
         toast.error(res?.message || 'فشل استيراد قاعدة البيانات');
       }
-    } catch (e: any) {
-      toast.error(e?.message || 'فشل استيراد قاعدة البيانات');
+    } catch (e: unknown) {
+      const msg = typeof e === 'object' && e !== null && 'message' in e ? String((e as Record<string, unknown>).message ?? '') : '';
+      toast.error(msg || 'فشل استيراد قاعدة البيانات');
     }
   };
 
@@ -653,6 +909,16 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
   const inputClass = "w-full border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm";
   const labelClass = "block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-2";
 
+  const settingsNoAccessFallback = (
+    <div className="flex-1 flex flex-col items-center justify-center text-center p-10 text-slate-500 dark:text-slate-400">
+      <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 flex items-center justify-center mb-4">
+        <Shield size={24} className="opacity-70" />
+      </div>
+      <div className="text-slate-800 dark:text-slate-200 font-bold">لا تملك صلاحية الوصول لهذا القسم</div>
+      <div className="text-sm mt-1">يرجى تسجيل الدخول بحساب مخوّل أو مراجعة صلاحيات المستخدم.</div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-full animate-fade-in">
       {!embedded && (
@@ -675,7 +941,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
 
       <div className={`flex flex-1 overflow-hidden h-full ${embedded ? '' : 'gap-6'}`}>
         {!embedded && (
-          <div className="w-64 flex-shrink-0 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-2 h-fit">
+          <div className="w-64 flex-shrink-0 app-card p-2 h-fit">
             {visibleTabs.length > 0 ? visibleTabs.map((tab) => (
               <button
                 key={tab.id}
@@ -700,7 +966,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           </div>
         )}
 
-        <div className="flex-1 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col relative">
+        <div className="flex-1 app-card flex flex-col relative">
 
           {settingsLoading && (
             <div className="flex-1 flex items-center justify-center text-slate-400">
@@ -724,7 +990,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           )}
           
           {!settingsLoading && activeSection === 'general' && settings && (
-            <RBACGuard requiredPermission="SETTINGS_ADMIN">
+            <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
                 <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-8 animate-fade-in">
                 {/* Branding */}
                 <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
@@ -829,7 +1095,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           )}
 
           {!settingsLoading && activeSection === 'commissions' && settings && (
-            <RBACGuard requiredPermission="SETTINGS_ADMIN">
+            <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
                 <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-8 animate-fade-in">
                 <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">عمولات البيع</h3>
@@ -847,7 +1113,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           )}
 
           {activeSection === 'lookups' && (
-            <RBACGuard requiredPermission="SETTINGS_ADMIN">
+            <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
                 <div className="flex h-full animate-fade-in">
                 <div className="w-80 border-l border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/30 flex flex-col">
                     <div className="p-4 border-b border-gray-100 dark:border-slate-700">
@@ -910,10 +1176,10 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           )}
 
           {!settingsLoading && activeSection === 'backup' && (
-            <RBACGuard requiredRole="SuperAdmin">
+            <RBACGuard requiredRole="SuperAdmin" fallback={settingsNoAccessFallback}>
                 <div className="flex items-center justify-center h-full p-8 animate-fade-in bg-gray-50 dark:bg-slate-900/50">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
-                    <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border flex flex-col items-center text-center cursor-pointer hover:shadow-lg" onClick={handleBackup}>
+                    <div className="app-card p-8 rounded-3xl flex flex-col items-center text-center cursor-pointer hover:shadow-lg" onClick={handleBackup}>
                         <Download size={40} className="text-green-600 mb-4"/>
                         <h3 className="text-xl font-bold mb-2">تصدير نسخة احتياطية</h3>
                         {isDesktop ? (
@@ -923,7 +1189,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         ) : null}
                         <button className="mt-4 px-6 py-2 bg-green-600 text-white rounded-xl font-bold">تحميل النسخة</button>
                     </div>
-                    <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border flex flex-col items-center text-center">
+                    <div className="app-card p-8 rounded-3xl flex flex-col items-center text-center">
                         <Upload size={40} className="text-amber-600 mb-4"/>
                         <h3 className="text-xl font-bold mb-2">استعادة البيانات</h3>
                         {isDesktop ? (
@@ -939,7 +1205,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                     </div>
 
                 {isDesktop && (
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border md:col-span-2">
+                  <div className="app-card p-6 rounded-3xl md:col-span-2">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <h3 className="text-sm font-black text-slate-800 dark:text-white">مجلد النسخ الاحتياطي</h3>
@@ -960,7 +1226,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                   </div>
                 )}
 
-                <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border flex flex-col items-center text-center md:col-span-2">
+                <div className="app-card p-8 rounded-3xl flex flex-col items-center text-center md:col-span-2">
                   <AlertTriangle size={40} className="text-red-600 mb-4"/>
                   <h3 className="text-xl font-bold mb-2">إعادة ضبط المصنع</h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl">
@@ -976,9 +1242,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           )}
 
           {!settingsLoading && activeSection === 'server' && (
-            <RBACGuard requiredRole="SuperAdmin">
+            <RBACGuard requiredRole="SuperAdmin" fallback={settingsNoAccessFallback}>
               <div className="p-8 h-full animate-fade-in">
-                <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-3xl border shadow-sm p-6">
+                <div className="max-w-4xl mx-auto app-card p-6 rounded-3xl">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="text-xl font-black text-slate-800 dark:text-white">إعدادات المخدم (SQL Server)</h3>
@@ -1216,6 +1482,308 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         )}
                       </div>
 
+                        {window.desktopDb?.sqlGetBackupAutomationSettings && (
+                          <div className="md:col-span-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl p-4">
+                            <div className="flex items-start justify-between gap-4 flex-wrap">
+                              <div>
+                                <div className="text-sm font-black">النسخ الاحتياطي اليومي على المخدم</div>
+                                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                  يتم إنشاء نسخة واحدة كل يوم على SQL Server (تخزين على المخدم) + حذف الأقدم من مدة الاحتفاظ.
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2 flex-wrap">
+                                <button
+                                  onClick={() => saveSqlBackupAutomation({ enabled: !sqlBackupAuto.enabled })}
+                                  className={`px-4 py-2 rounded-xl text-sm font-black ${sqlBackupAuto.enabled ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600'}`}
+                                  disabled={sqlBackupAutoBusy}
+                                  title="تشغيل/إيقاف النسخ اليومي"
+                                >
+                                  {sqlBackupAuto.enabled ? 'مفعل' : 'غير مفعل'}
+                                </button>
+
+                                <button
+                                  onClick={handleCreateServerBackupNow}
+                                  className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-xl text-sm font-black"
+                                  disabled={sqlServerBackupsBusy || sqlBusy}
+                                  title="رفع نسخة الآن إلى المخدم"
+                                >
+                                  إنشاء نسخة الآن
+                                </button>
+
+                                <button
+                                  onClick={refreshSqlServerBackups}
+                                  className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-black"
+                                  disabled={sqlServerBackupsBusy}
+                                >
+                                  تحديث القائمة
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                              <div>
+                                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">مدة الاحتفاظ (بالأيام)</label>
+                                <input
+                                  className="w-full mt-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl py-2.5 px-3 text-sm"
+                                  type="number"
+                                  min={1}
+                                  max={3650}
+                                  value={String(sqlBackupAuto.retentionDays)}
+                                  onChange={e => setSqlBackupAuto(p => ({ ...p, retentionDays: Math.max(1, Math.min(3650, Number(e.target.value || 30) || 30)) }))}
+                                  disabled={sqlBackupAutoBusy}
+                                />
+                              </div>
+
+                              <div className="md:col-span-2 flex gap-2 flex-wrap">
+                                <button
+                                  onClick={() => saveSqlBackupAutomation({ retentionDays: sqlBackupAuto.retentionDays })}
+                                  className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-5 py-2.5 rounded-xl text-sm font-black"
+                                  disabled={sqlBackupAutoBusy}
+                                >
+                                  حفظ مدة الاحتفاظ
+                                </button>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
+                                  سيتم حذف أي نسخة أقدم من {sqlBackupAuto.retentionDays} يوم تلقائياً.
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 app-card">
+                              <div className="max-h-[35vh] overflow-auto custom-scrollbar">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300">
+                                    <tr>
+                                      <th className="text-right px-4 py-3 font-black">التاريخ</th>
+                                      <th className="text-right px-4 py-3 font-black">المعرف</th>
+                                      <th className="text-right px-4 py-3 font-black">Rows</th>
+                                      <th className="text-right px-4 py-3 font-black">ملاحظة</th>
+                                      <th className="text-right px-4 py-3 font-black">إجراءات</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                                    {sqlServerBackupsBusy && (
+                                      <tr>
+                                        <td colSpan={5} className="px-4 py-6 text-center text-slate-500 dark:text-slate-400">
+                                          جاري التحميل...
+                                        </td>
+                                      </tr>
+                                    )}
+
+                                    {!sqlServerBackupsBusy && sqlServerBackups.length === 0 && (
+                                      <tr>
+                                        <td colSpan={5} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                                          لا توجد نسخ محفوظة على المخدم بعد.
+                                        </td>
+                                      </tr>
+                                    )}
+
+                                    {!sqlServerBackupsBusy && sqlServerBackups.map(b => (
+                                      <tr key={b.id}>
+                                        <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                                          {new Date(b.createdAt).toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-200 break-all">
+                                          {String(b.id).slice(0, 8)}…
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                                          {typeof b.rowCount === 'number' ? b.rowCount : '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                                          {b.note || '-'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <div className="flex gap-2 flex-wrap">
+                                            <button
+                                              onClick={() => handleRestoreServerBackup(b.id, 'merge')}
+                                              className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-black"
+                                              disabled={sqlServerBackupsBusy}
+                                              title="دمج النسخة مع بيانات المخدم (لا يحذف الموجود)"
+                                            >
+                                              دمج
+                                            </button>
+                                            <button
+                                              onClick={() => handleRestoreServerBackup(b.id, 'replace')}
+                                              className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg text-xs font-black text-red-700 dark:text-red-300"
+                                              disabled={sqlServerBackupsBusy}
+                                              title="استعادة كاملة (تحذف بيانات المخدم ثم تستبدلها)"
+                                            >
+                                              استعادة كاملة
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                      {window.desktopDb?.sqlGetCoverage && (
+                        <div className="md:col-span-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="text-sm font-black">تغطية المزامنة (كل البيانات)</div>
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                يعرض كل مفاتيح قاعدة البيانات المحلية (db_*) ويقارنها مع المخدم.
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-wrap">
+                              {window.desktopDb?.sqlPullFullNow && (
+                                <button
+                                  onClick={pullFullFromServer}
+                                  className="bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/10 px-4 py-2 rounded-xl text-sm font-black"
+                                  disabled={sqlBusy || sqlCoverageBusy}
+                                  title="يسحب أحدث بيانات من المخدم (تصحيح حالات: المخدم أحدث)"
+                                >
+                                  سحب من المخدم
+                                </button>
+                              )}
+
+                              {window.desktopDb?.sqlMergePublishAdmin && isSuperAdmin(user?.الدور) && (
+                                <button
+                                  onClick={mergePublishAdmin}
+                                  className="bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-900/40 text-purple-800 dark:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/10 px-4 py-2 rounded-xl text-sm font-black"
+                                  disabled={sqlBusy || sqlCoverageBusy}
+                                  title="يدمج هذه المفاتيح وينشر نسخة موحدة على المخدم لتصل لجميع الأجهزة"
+                                >
+                                  دمج ونشر (SuperAdmin)
+                                </button>
+                              )}
+
+                              <button
+                                onClick={refreshSqlCoverage}
+                                className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2"
+                                disabled={sqlBusy || sqlCoverageBusy}
+                              >
+                                <RefreshCcw size={16} className={sqlCoverageBusy ? 'animate-spin' : ''} /> تحديث التغطية
+                              </button>
+                            </div>
+                          </div>
+
+                          {sqlCoverage && !sqlCoverage.ok && (
+                            <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                              {sqlCoverage.message || 'فشل فحص تغطية المزامنة'}
+                            </div>
+                          )}
+
+                          {sqlCoverage?.ok && (
+                            <div className="mt-4">
+                              <div className="flex flex-wrap gap-2 text-xs font-black">
+                                <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200">
+                                  مفاتيح محلية: {Number(sqlCoverage.localCount || 0)}
+                                </span>
+                                <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200">
+                                  مفاتيح على المخدم: {Number(sqlCoverage.remoteCount || 0)}
+                                </span>
+                                {sqlCoverage.remoteOk === false && (
+                                  <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                                    {sqlCoverage.remoteMessage || 'تعذر قراءة بيانات المخدم'}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="relative mt-4">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  value={sqlCoverageQuery}
+                                  onChange={e => setSqlCoverageQuery(e.target.value)}
+                                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-sm"
+                                  placeholder="ابحث بالمفتاح أو الاسم أو الحالة..."
+                                />
+                              </div>
+
+                              <div className="mt-4 app-card">
+                                <div className="max-h-[45vh] overflow-auto custom-scrollbar">
+                                  <table className="w-full text-sm">
+                                    <thead className="bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300">
+                                      <tr>
+                                        <th className="text-right px-4 py-3 font-black">الكيان</th>
+                                        <th className="text-right px-4 py-3 font-black">المفتاح</th>
+                                        <th className="text-right px-4 py-3 font-black">محلي</th>
+                                        <th className="text-right px-4 py-3 font-black">مخدم</th>
+                                        <th className="text-right px-4 py-3 font-black">الحالة</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                                      {(() => {
+                                        const items = Array.isArray(sqlCoverage.items) ? sqlCoverage.items : [];
+                                        const q = sqlCoverageQuery.trim().toLowerCase();
+                                        const filtered = !q
+                                          ? items
+                                          : items.filter(it => {
+                                            const key = String(it.key || '').toLowerCase();
+                                            const label = String(keyLabels[it.key] || '').toLowerCase();
+                                            const status = String(it.status || '').toLowerCase();
+                                            return key.includes(q) || label.includes(q) || status.includes(q);
+                                          });
+
+                                        if (filtered.length === 0) {
+                                          return (
+                                            <tr>
+                                              <td colSpan={5} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                                                لا توجد نتائج.
+                                              </td>
+                                            </tr>
+                                          );
+                                        }
+
+                                        const badge = (status: SqlCoverageItem['status']) => {
+                                          const base = 'inline-flex items-center px-2 py-1 rounded-lg text-xs font-black';
+                                          if (status === 'inSync') return <span className={base + ' bg-emerald-50 text-emerald-700 dark:bg-emerald-900/10 dark:text-emerald-300'}>متزامن</span>;
+                                          if (status === 'localAhead') return <span className={base + ' bg-indigo-50 text-indigo-700 dark:bg-indigo-900/10 dark:text-indigo-300'}>محلي أحدث</span>;
+                                          if (status === 'remoteAhead') return <span className={base + ' bg-amber-50 text-amber-800 dark:bg-amber-900/10 dark:text-amber-300'}>المخدم أحدث</span>;
+                                          if (status === 'missingRemote') return <span className={base + ' bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-300'}>غير موجود على المخدم</span>;
+                                          if (status === 'missingLocal') return <span className={base + ' bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}>غير موجود محلياً</span>;
+                                          if (status === 'different') return <span className={base + ' bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-300'}>اختلاف</span>;
+                                          return <span className={base + ' bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}>غير معروف</span>;
+                                        };
+
+                                        const fmt = (iso?: string) => {
+                                          const s = String(iso || '').trim();
+                                          if (!s) return '-';
+                                          try {
+                                            const d = new Date(s);
+                                            if (Number.isNaN(d.getTime())) return s;
+                                            return d.toLocaleString('en-GB');
+                                          } catch {
+                                            return s;
+                                          }
+                                        };
+
+                                        return filtered.map(it => (
+                                          <tr key={it.key} className="bg-white dark:bg-slate-900">
+                                            <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                                              {keyLabels[it.key] || 'بيانات النظام'}
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-700 dark:text-slate-200 font-mono text-xs whitespace-nowrap" dir="ltr">
+                                              {it.key}
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap" dir="ltr">
+                                              {fmt(it.localBestTs)}
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap" dir="ltr">
+                                              {fmt(it.remoteUpdatedAt)}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap">{badge(it.status)}</td>
+                                          </tr>
+                                        ));
+                                      })()}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+
+                              <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                                ملاحظة: "محلي أحدث" يعني يوجد تغييرات لم تُرفع بعد — اضغط "مزامنة الآن".
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {window.desktopDb?.sqlProvision && (
                         <div className="md:col-span-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl p-4">
                           <div className="flex items-start justify-between gap-4">
@@ -1312,9 +1880,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           )}
 
           {!settingsLoading && activeSection === 'audit' && (
-              <RBACGuard requiredPermission="SETTINGS_AUDIT">
+              <RBACGuard requiredPermission="SETTINGS_AUDIT" fallback={settingsNoAccessFallback}>
                   <div className="p-8 h-full flex flex-col animate-fade-in">
-                      <div className="bg-white dark:bg-slate-800 rounded-2xl border flex-1 overflow-hidden flex flex-col shadow-sm">
+                  <div className="app-card flex-1 flex flex-col">
                           <div className="p-4 border-b font-bold bg-gray-50 dark:bg-slate-900 flex justify-between items-center">
                               <span>سجل تغييرات الإعدادات (آخر 20 عملية)</span>
                               <button onClick={handleExportAuditCSV} className="text-xs bg-white dark:bg-slate-800 border px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-gray-50">
@@ -1323,7 +1891,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                           </div>
                           <div className="flex-1 overflow-y-auto custom-scrollbar">
                               <table className="w-full text-right text-sm">
-                                  <thead className="bg-gray-50 dark:bg-slate-900 text-slate-500">
+                        <thead className="app-table-thead">
                                       <tr><th className="p-4">المستخدم</th><th className="p-4">نوع الإجراء</th><th className="p-4">التفاصيل</th><th className="p-4">التاريخ</th></tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
@@ -1346,7 +1914,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
 
           {!settingsLoading && activeSection === 'about' && (
               <div className="flex items-center justify-center h-full p-8 animate-fade-in bg-gray-50 dark:bg-slate-900/50">
-                  <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 text-center max-w-md">
+                <div className="app-card p-8 rounded-3xl text-center max-w-md border-gray-100 dark:border-slate-700">
                   <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30 mx-auto mb-6 text-white text-3xl font-bold">
                           خ
                       </div>
@@ -1372,8 +1940,8 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       </div>
 
       {isTableModalOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-6 animate-scale-up">
+          <div className="modal-overlay app-modal-overlay z-[60] animate-fade-in">
+            <div className="modal-content app-modal-content w-full max-w-md p-6 animate-scale-up">
               <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-white">{isEditingTable ? 'تعديل اسم الجدول' : 'إنشاء جدول جديد'}</h3>
                   {!isEditingTable && (
                       <div className="mb-4">

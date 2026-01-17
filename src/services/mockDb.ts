@@ -26,6 +26,7 @@ import {
 import { storage } from '@/services/storage';
 import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
 import { computeEmployeeCommission, getRentalTier } from '@/utils/employeeCommission';
+import { isSuperAdmin, normalizeRole } from '@/utils/roles';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ثوابت حالات الكمبيالات - Installment Status Constants
@@ -591,7 +592,7 @@ const sanitizeFolderName = (input: string, maxLen = 80): string => {
     return safe.length > maxLen ? safe.slice(0, maxLen).trim() : safe;
 };
 
-const toDateOnlySafe = (d: any): string => {
+const _toDateOnlySafe = (d: any): string => {
     try {
         if (!d) return '';
         const dt = new Date(d);
@@ -3499,7 +3500,7 @@ export const DbService = {
     // Allowed panel IDs (matches src/context/ModalContext.tsx PanelType)
     // Note: keep in sync if new panels are added.
     // We intentionally do not allow arbitrary panel names from synced data.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     _marqueeAllowedPanels: [
         'PERSON_DETAILS',
         'PROPERTY_DETAILS',
@@ -4184,7 +4185,9 @@ export const DbService = {
   userHasPermission: (userId: string, permission: string) => {
       const user = get<المستخدمين_tbl>(KEYS.USERS).find(u => u.id === userId);
       if(!user) return false;
-      if(user.الدور === 'SuperAdmin') return true;
+      // SuperAdmin should bypass all permission checks, even if role value is not exactly 'SuperAdmin'
+      // (e.g., different casing, localized labels, or legacy values).
+      if (isSuperAdmin(normalizeRole((user as any)?.الدور))) return true;
       const perms = get<مستخدم_صلاحية_tbl>(KEYS.USER_PERMISSIONS).filter(p => p.userId === userId).map(p => p.permissionCode);
       return perms.includes(permission);
   },

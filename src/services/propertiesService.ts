@@ -20,7 +20,7 @@ const get = <T>(key: string): T[] => {
   return data ? JSON.parse(data) : [];
 };
 
-const save = (key: string, data: any) => {
+const save = (key: string, data: unknown) => {
   const serialized = JSON.stringify(data);
   void storage.setItem(key, serialized);
   buildCache();
@@ -49,12 +49,14 @@ export const addProperty = (data: Omit<العقارات_tbl, 'رقم_العقا�
 
   const id = `PROP-${Date.now()}`;
   const all = get<العقارات_tbl>(KEYS.PROPERTIES);
+
+  const isRented = (data as Partial<العقارات_tbl>).IsRented ?? data.حالة_العقار === 'مؤجر';
   const newProp: العقارات_tbl = {
     ...data,
     رقم_العقار: id,
     // Keep storage consistent: IsRented should reflect current property status.
-    IsRented: (data as any).IsRented ?? (data as any).حالة_العقار === 'مؤجر',
-  } as any;
+    IsRented: isRented,
+  };
   save(KEYS.PROPERTIES, [...all, newProp]);
   return ok(newProp);
 };

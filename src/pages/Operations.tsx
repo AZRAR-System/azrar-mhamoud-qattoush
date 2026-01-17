@@ -1,37 +1,34 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useCallback, useEffect, useRef, useState } from "react";
 import { DbService } from "@/services/mockDb";
-import { الكمبيالات_tbl, العقود_tbl, الأشخاص_tbl, العقارات_tbl } from "@/types";
+import { الكمبيالات_tbl, العقود_tbl, الأشخاص_tbl, العقارات_tbl, RoleType } from "@/types";
 import { formatContractNumberShort } from "@/utils/contractNumber";
 import {
   Check,
-  AlertTriangle,
   Wallet,
-  ChevronDown,
   Home,
   FileText,
   Search,
   Lock,
-  RefreshCcw,
   Calendar,
   MessageSquare,
   ArrowRight,
-  Clock,
   DollarSign,
   AlertCircle,
   CheckCircle2,
   Info
 } from "lucide-react";
-import { useSmartModal } from "@/context/ModalContext";
 import { useToast } from "@/context/ToastContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { DS } from "@/constants/designSystem";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useAuth } from "@/context/AuthContext";
 import { notificationService } from "@/services/notificationService";
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { storage } from '@/services/storage';
 import { installmentsContractsPagedSmart } from '@/services/domainQueries';
+import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
+import type { InstallmentsContractsItem } from '@/types/domain.types';
 
 // --- Step-by-Step Payment Flow ---
 interface PaymentStepProps {
@@ -101,8 +98,8 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
 // --- Main Operations/Procedures Page ---
 export const Operations: React.FC = () => {
   const dbSignal = useDbSignal();
-  const isDesktop = storage.isDesktop() && !!(window as any)?.desktopDb;
-  const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainInstallmentsContractsSearch;
+  const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb;
+  const isDesktopFast = isDesktop && !!window.desktopDb?.domainInstallmentsContractsSearch;
   const desktopUnsupported = isDesktop && !isDesktopFast;
   const warnedUnsupportedRef = useRef(false);
   // State Management
@@ -121,13 +118,14 @@ export const Operations: React.FC = () => {
   const [search, setSearch] = useState("");
 
   // Desktop fast mode: SQL-backed contract list (with installments) to avoid huge array loads
-  const [fastRows, setFastRows] = useState<Array<{ contract: any; tenant?: any; property?: any; installments?: any[]; hasDebt?: boolean; hasDueSoon?: boolean; isFullyPaid?: boolean }>>([]);
+  const [fastRows, setFastRows] = useState<InstallmentsContractsItem[]>([]);
   const [fastLoading, setFastLoading] = useState(false);
   
   const toast = useToast();
   const { user } = useAuth();
   const userId = user?.id || 'system';
-  const userRole = user?.الدور || 'Employee';
+  const isRoleType = (v: unknown): v is RoleType => v === 'SuperAdmin' || v === 'Admin' || v === 'Employee';
+  const userRole: RoleType = isRoleType(user?.الدور) ? user.الدور : 'Employee';
 
   // Operations page: silent mode (no audio confirmations)
   const notifyInfo = (message: string, title?: string) => notificationService.info(message, title, { sound: false });
@@ -136,13 +134,7 @@ export const Operations: React.FC = () => {
   const notifyInstallmentPaid = (amount: number, tenantName: string) =>
     notificationService.installmentPaid(amount, tenantName); // This one is business-specific; keep it consistent
 
-  // Load data
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dbSignal]);
-
-  const loadData = () => {
+  const loadData = useCallback(() => {
     if (isDesktopFast) {
       setContracts([]);
       setPeople([]);
@@ -168,7 +160,12 @@ export const Operations: React.FC = () => {
     setPeople(DbService.getPeople());
     setProperties(DbService.getProperties());
     setInstallments(DbService.getInstallments());
-  };
+  }, [desktopUnsupported, isDesktopFast, toast]);
+
+  // Load data
+  useEffect(() => {
+    loadData();
+  }, [dbSignal, loadData]);
 
   useEffect(() => {
     if (!isDesktopFast) return;
@@ -225,14 +222,13 @@ export const Operations: React.FC = () => {
     notifyInfo('تم اختيار العقد - اختر الدفعة', 'خطوة 2');
   };
 
-  const handleSelectContractFast = (row: any) => {
-    const contract = (row?.contract || null) as العقود_tbl | null;
-    if (!contract) return;
+  const handleSelectContractFast = (row: InstallmentsContractsItem) => {
+    const contract = row.contract;
     setSelectedContract(contract);
     setPaidAmount(0);
     setPaymentNotes('');
     setSelectedInstallment(null);
-    setInstallments((Array.isArray(row?.installments) ? row.installments : []) as any);
+    setInstallments(Array.isArray(row.installments) ? row.installments : []);
     setCurrentStep('select-installment');
     notifyInfo('تم اختيار العقد - اختر الدفعة', 'خطوة 2');
   };
@@ -269,7 +265,7 @@ export const Operations: React.FC = () => {
     DbService.markInstallmentPaid(
       selectedInstallment.رقم_الكمبيالة,
       userId,
-      userRole as any,
+      userRole,
       {
         paidAmount: paidAmount,
         paymentDate: paymentDate,
@@ -285,7 +281,8 @@ export const Operations: React.FC = () => {
         'سداد جزئي'
       );
     } else {
-      notifyInstallmentPaid(paidAmount, (getTenant(selectedContract)?.الاسم as any) || 'مستأجر');
+      const tenantName = getTenant(selectedContract)?.الاسم;
+      notifyInstallmentPaid(paidAmount, tenantName || 'مستأجر');
       notifySuccess(`✅ تم سداد الدفعة كاملة بمبلغ ${paidAmount} د.أ`);
     }
 
@@ -312,17 +309,17 @@ export const Operations: React.FC = () => {
   // Helper to get tenant/property info
   const getTenant = (contract: العقود_tbl) => {
     if (isDesktopFast) {
-      const contractId = String((contract as any)?.رقم_العقد || '').trim();
-      const row = fastRows.find((r: any) => String(r?.contract?.رقم_العقد || '').trim() === contractId);
-      return (row as any)?.tenant;
+      const contractId = String(contract?.رقم_العقد || '').trim();
+      const row = fastRows.find((r) => String(r.contract?.رقم_العقد || '').trim() === contractId);
+      return row?.tenant;
     }
     return people.find(p => p.رقم_الشخص === contract.رقم_المستاجر);
   };
   const getProperty = (contract: العقود_tbl) => {
     if (isDesktopFast) {
-      const contractId = String((contract as any)?.رقم_العقد || '').trim();
-      const row = fastRows.find((r: any) => String(r?.contract?.رقم_العقد || '').trim() === contractId);
-      return (row as any)?.property;
+      const contractId = String(contract?.رقم_العقد || '').trim();
+      const row = fastRows.find((r) => String(r.contract?.رقم_العقد || '').trim() === contractId);
+      return row?.property;
     }
     return properties.find(p => p.رقم_العقار === contract.رقم_العقار);
   };
@@ -330,15 +327,12 @@ export const Operations: React.FC = () => {
   return (
     <div className="animate-fade-in pb-10">
       {/* Header */}
-      <div className={DS.components.pageHeader}>
-        <div>
-          <h2 className={DS.components.pageTitle}>العمليات والإجراءات</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">سداد دفعات العقود وتوثيقها تلقائياً ضمن سجل العمليات</p>
-        </div>
-        <Button variant="secondary" size="icon" onClick={loadData}>
-          <RefreshCcw size={18} />
-        </Button>
-      </div>
+      <SmartFilterBar
+        title="العمليات والإجراءات"
+        subtitle="سداد دفعات العقود وتوثيقها تلقائياً ضمن سجل العمليات"
+        showSearch={false}
+        onRefresh={loadData}
+      />
 
       {/* Progress Indicator */}
       {currentStep !== 'select-contract' && currentStep !== 'complete' && (
@@ -435,13 +429,13 @@ export const Operations: React.FC = () => {
                         <p className="text-sm">لا توجد عقود مطابقة</p>
                       </div>
                     ) : (
-                      fastRows.map((row: any) => {
-                        const contract = row?.contract as any;
-                        const tenantName = String(row?.tenant?.الاسم || '').trim() || '—';
-                        const propertyCode = String(row?.property?.الكود_الداخلي || '').trim() || '—';
+                      fastRows.map((row) => {
+                        const contract = row.contract;
+                        const tenantName = String(row.tenant?.الاسم || '').trim() || '—';
+                        const propertyCode = String(row.property?.الكود_الداخلي || '').trim() || '—';
                         const contractId = String(contract?.رقم_العقد || '').trim();
-                        const contractInstalls = (Array.isArray(row?.installments) ? row.installments : []).filter(
-                          (i: any) => String(i?.رقم_العقد || '') === contractId && String(i?.حالة_الكمبيالة || '') !== 'مدفوع' && String(i?.نوع_الكمبيالة || '') !== 'تأمين'
+                        const contractInstalls = (Array.isArray(row.installments) ? row.installments : []).filter(
+                          (i) => String(i.رقم_العقد || '') === contractId && String(i.حالة_الكمبيالة || '') !== 'مدفوع' && String(i.نوع_الكمبيالة || '') !== 'تأمين'
                         );
 
                         return (
@@ -537,7 +531,13 @@ export const Operations: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <div className="text-left">
                             <span className="font-bold text-slate-800 dark:text-white">{inst.القيمة.toLocaleString()} د.أ</span>
-                            {isLate && <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded border border-red-200">متأخرة</span>}
+                            {isLate && (
+                              <StatusBadge
+                                status="متأخرة"
+                                showIcon={false}
+                                className="ml-2 !rounded !text-[10px] !px-2 !py-0.5"
+                              />
+                            )}
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-slate-500">استحقاق: {inst.تاريخ_استحقاق}</p>
@@ -642,7 +642,7 @@ export const Operations: React.FC = () => {
         )}
 
         {/* ========== STEP 4: Confirmation ========== */}
-        {currentStep !== 'complete' && selectedInstallment && currentStep === 'confirmation' && (
+        {currentStep !== 'complete' && selectedInstallment && selectedContract && currentStep === 'confirmation' && (
           <PaymentStep
             step={4}
             totalSteps={4}
@@ -660,15 +660,15 @@ export const Operations: React.FC = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-slate-600 dark:text-slate-400">المستأجر:</span>
-                    <span className="font-bold">{getTenant(selectedContract!)?.الاسم}</span>
+                    <span className="font-bold">{getTenant(selectedContract)?.الاسم}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600 dark:text-slate-400">رقم العقد:</span>
-                    <span className="font-mono font-bold">#{formatContractNumberShort(selectedContract!.رقم_العقد)}</span>
+                    <span className="font-mono font-bold">#{formatContractNumberShort(selectedContract.رقم_العقد)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600 dark:text-slate-400">العقار:</span>
-                    <span className="font-bold">{getProperty(selectedContract!)?.الكود_الداخلي}</span>
+                    <span className="font-bold">{getProperty(selectedContract)?.الكود_الداخلي}</span>
                   </div>
                   <hr className="my-2 border-indigo-200 dark:border-indigo-800" />
                   <div className="flex justify-between text-lg font-bold">

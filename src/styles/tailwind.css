@@ -5,6 +5,27 @@
 /* Allow UA to pick appropriate form/widget styling */
 :root {
   color-scheme: light dark;
+
+  /* Global layering (z-index ladder)
+     Content: 1
+     Header: 40
+     Sidebar: 50
+     Dropdown/Tooltip/Popover: 100
+     Toast: 1000
+     Modal Overlay: 2000
+     Modal Content: 2100
+     Confirm Modal: 3000
+     Fullscreen Loader: 5000
+  */
+  --z-content: 1;
+  --z-header: 40;
+  --z-sidebar: 50;
+  --z-dropdown: 100;
+  --z-toast: 1000;
+  --z-modal-overlay: 2000;
+  --z-modal-content: 2100;
+  --z-confirm: 3000;
+  --z-loader: 5000;
 }
 
 /* Modern Scrollbar */
@@ -46,11 +67,128 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Input Standardization (Prevents iOS zoom) */
-input,
-select,
-textarea {
-  font-size: 16px !important;
+/* Global text wrapping (prevents horizontal clipping for long Arabic/IDs) */
+html,
+body,
+#root {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Never truncate text (no ellipsis / no line clamping) */
+.truncate,
+.text-ellipsis {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+/* Tailwind/utility variants of ellipsis */
+.overflow-ellipsis,
+.text-clip {
+  text-overflow: clip !important;
+}
+
+/* Tailwind line-clamp utilities override */
+.line-clamp-1,
+.line-clamp-2,
+.line-clamp-3,
+.line-clamp-4,
+.line-clamp-5,
+.line-clamp-6 {
+  display: block !important;
+  overflow: visible !important;
+  -webkit-box-orient: initial !important;
+  -webkit-line-clamp: unset !important;
+}
+
+/* Hide scrollbars (used by PersonPicker tabs, etc.) */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Modal / sub-page overlays should always be above the app UI */
+.modal-overlay {
+  z-index: var(--z-modal-overlay);
+}
+
+.modal-content {
+  position: relative;
+  z-index: var(--z-modal-content);
+}
+
+.confirm-overlay {
+  z-index: var(--z-confirm);
+}
+
+.fullscreen-loader {
+  z-index: var(--z-loader);
+}
+
+.layer-content {
+  z-index: var(--z-content);
+}
+
+.layer-header {
+  z-index: var(--z-header);
+}
+
+.layer-sidebar {
+  z-index: var(--z-sidebar);
+}
+
+.layer-dropdown {
+  z-index: var(--z-dropdown);
+}
+
+.layer-toast {
+  z-index: var(--z-toast);
+}
+
+@layer components {
+  /* Unified app surfaces (cards/tables) */
+  .app-card {
+    @apply bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5 overflow-hidden relative;
+  }
+
+  /* Unified modal overlay (layout + backdrop only; z-index stays on `.modal-overlay`) */
+  .app-modal-overlay {
+    @apply fixed inset-0 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm;
+  }
+
+  /* Unified modal surface (visuals only; z-index stays on `.modal-content`) */
+  .app-modal-content {
+    @apply bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xl ring-1 ring-black/5 dark:ring-white/10;
+  }
+
+  .app-card-header {
+    @apply p-4 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40;
+  }
+
+  .app-card-body {
+    @apply p-4;
+  }
+
+  .app-card-footer {
+    @apply p-4 border-t border-slate-200/70 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30;
+  }
+
+  .app-table-wrapper {
+    @apply overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm ring-1 ring-black/5 dark:ring-white/5;
+  }
+
+  .app-table-thead {
+    @apply bg-slate-50/80 dark:bg-slate-950/40 text-slate-600 dark:text-slate-300;
+  }
+
+  .app-table-row {
+    @apply border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors;
+  }
 }
 
 /* React Grid Layout Styles Overrides */

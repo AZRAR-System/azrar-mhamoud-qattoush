@@ -8,6 +8,19 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { TrendingUp, ShoppingCart, ClipboardList, CheckCircle, Clock, DollarSign } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 
+type UnknownRecord = Record<string, unknown>;
+
+const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object' && v !== null;
+
+const getProp = (obj: unknown, key: string): unknown => (isRecord(obj) ? obj[key] : undefined);
+
+const getOptionalIdString = (obj: unknown, key: string): string | undefined => {
+  const v = getProp(obj, key);
+  if (typeof v === 'string' && v.trim() !== '') return v;
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return undefined;
+};
+
 interface SalesTrackingLayerProps {
   data: DashboardData;
 }
@@ -15,6 +28,7 @@ interface SalesTrackingLayerProps {
 export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) => {
   // ✅ Recent sales from real completed sale agreements
   const recentSales = useMemo(() => {
+    void data.meta.updatedAt;
     try {
       const agreements = data.salesAgreements || [];
       const listings = data.salesListings || [];
@@ -22,21 +36,30 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       const properties = data.properties || [];
 
       const completed = agreements
-        .filter((a: any) => a?.isCompleted)
-        .sort((a: any, b: any) => {
-          const da = new Date(a.transferDate || a.createdAt || 0).getTime();
-          const db = new Date(b.transferDate || b.createdAt || 0).getTime();
+        .filter((a) => a.isCompleted)
+        .sort((a, b) => {
+          const aCreatedAtRaw = getProp(a, 'createdAt');
+          const bCreatedAtRaw = getProp(b, 'createdAt');
+
+          const aCreatedAt = typeof aCreatedAtRaw === 'string' || typeof aCreatedAtRaw === 'number' ? aCreatedAtRaw : 0;
+          const bCreatedAt = typeof bCreatedAtRaw === 'string' || typeof bCreatedAtRaw === 'number' ? bCreatedAtRaw : 0;
+
+          const da = new Date(a.transferDate || aCreatedAt || 0).getTime();
+          const db = new Date(b.transferDate || bCreatedAt || 0).getTime();
           return db - da;
         })
         .slice(0, 6);
 
-      return completed.map((a: any) => {
-        const listing = listings.find((l: any) => l.id === a.listingId);
-        const property = listing ? properties.find((p: any) => p.رقم_العقار === listing.رقم_العقار) : null;
-        const buyer = a.رقم_المشتري ? people.find((p: any) => p.رقم_الشخص === a.رقم_المشتري) : null;
+      return completed.map((a) => {
+        const listing = listings.find((l) => l.id === a.listingId);
+        const property = listing ? properties.find((p) => p.رقم_العقار === listing.رقم_العقار) : null;
+        const buyer = a.رقم_المشتري ? people.find((p) => p.رقم_الشخص === a.رقم_المشتري) : null;
 
-        const amount = Number(a.salePrice ?? listing?.السعر_المطلوب ?? 0) || 0;
-        const dateStr = (a.transferDate || a.createdAt || '').toString().split('T')[0];
+        const salePriceRaw = getProp(a, 'salePrice');
+        const amount = Number(salePriceRaw ?? listing?.السعر_المطلوب ?? 0) || 0;
+
+        const createdAtRaw = getProp(a, 'createdAt');
+        const dateStr = String(a.transferDate || createdAtRaw || '').split('T')[0];
 
         return {
           propertyLabel: property?.الكود_الداخلي || property?.العنوان || listing?.id || 'عقار',
@@ -48,10 +71,11 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
     } catch {
       return [] as { propertyLabel: string; buyerName: string; date: string; amount: number }[];
     }
-  }, [data.salesAgreements, data.salesListings, data.people, data.properties, data.meta?.updatedAt]);
+  }, [data.salesAgreements, data.salesListings, data.people, data.properties, data.meta.updatedAt]);
 
   // ✅ Sales pipeline data from real sales listings
   const pipelineData = useMemo(() => {
+    void data.meta.updatedAt;
     const salesListings = data.salesListings || [];
 
     const stages = {
@@ -61,11 +85,14 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       'Sold': { stage: 'مكتملة', count: 0, value: 0, color: '#10b981' },
     };
 
-    salesListings.forEach((sale: any) => {
+    type StageKey = keyof typeof stages;
+    const isStageKey = (v: string): v is StageKey => v in stages;
+
+    salesListings.forEach((sale) => {
       const status = sale.الحالة || 'Active';
-      if (stages[status as keyof typeof stages]) {
-        stages[status as keyof typeof stages].count++;
-        stages[status as keyof typeof stages].value += sale.السعر_المطلوب || 0;
+      if (isStageKey(status)) {
+        stages[status].count++;
+        stages[status].value += sale.السعر_المطلوب || 0;
       }
     });
 
@@ -79,33 +106,37 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
 
   // ✅ Sales by agent from real data
   const salesByAgent = useMemo(() => {
+    void data.meta.updatedAt;
     const contracts = data.contracts || [];
     const people = data.people || [];
     const agentSales: { [key: string]: { sales: number; value: number } } = {};
 
-    contracts.forEach((contract: any) => {
-      const agentId = contract.رقم_الوكيل;
+    contracts.forEach((contract) => {
+      const agentId = getOptionalIdString(contract, 'رقم_الوكيل');
       if (agentId) {
         if (!agentSales[agentId]) {
           agentSales[agentId] = { sales: 0, value: 0 };
         }
         agentSales[agentId].sales++;
-        agentSales[agentId].value += contract.قيمة_العقد || 0;
+
+        const contractValueRaw = getProp(contract, 'قيمة_العقد');
+        agentSales[agentId].value += Number(contractValueRaw || 0) || 0;
       }
     });
 
     return Object.entries(agentSales).map(([agentId, stats]) => {
-      const agent = people.find((p: any) => String(p.رقم_الشخص) === String(agentId));
+      const agent = people.find((p) => String(p.رقم_الشخص) === String(agentId));
       return {
         agent: agent?.الاسم || `وكيل ${agentId}`,
         sales: stats.sales,
         value: stats.value
       };
     }).slice(0, 5); // Top 5 agents
-  }, [data.contracts, data.people, data.meta?.updatedAt]);
+  }, [data.contracts, data.people, data.meta.updatedAt]);
 
   // ✅ Daily sales trend from real contracts
   const dailyTrend = useMemo(() => {
+    void data.meta.updatedAt;
     const contracts = data.contracts || [];
     const days = ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
     const dailyData: { [key: string]: { sales: number; value: number } } = {};
@@ -123,11 +154,12 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       const dayName = days[date.getDay()];
       const dateStr = date.toISOString().split('T')[0];
 
-      contracts.forEach((contract: any) => {
+      contracts.forEach((contract) => {
         const contractDate = String(contract.تاريخ_البداية || '').split('T')[0];
         if (contractDate === dateStr) {
           dailyData[dayName].sales++;
-          dailyData[dayName].value += contract.قيمة_العقد || 0;
+          const contractValueRaw = getProp(contract, 'قيمة_العقد');
+          dailyData[dayName].value += Number(contractValueRaw || 0) || 0;
         }
       });
     }
@@ -137,32 +169,42 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       sales: dailyData[day].sales,
       value: dailyData[day].value
     }));
-  }, [data.contracts, data.meta?.updatedAt]);
+  }, [data.contracts, data.meta.updatedAt]);
 
   // ✅ Calculate real metrics
   const totalSalesThisMonth = useMemo(() => {
+    void data.meta.updatedAt;
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const agreements = data.salesAgreements || [];
 
-    return agreements.filter((a: any) => {
-      if (!a?.isCompleted) return false;
-      const d = new Date(a.transferDate || a.createdAt || 0);
+    return agreements.filter((a) => {
+      if (!a.isCompleted) return false;
+
+      const createdAtRaw = getProp(a, 'createdAt');
+      const createdAt = typeof createdAtRaw === 'string' || typeof createdAtRaw === 'number' ? createdAtRaw : 0;
+      const d = new Date(a.transferDate || createdAt || 0);
       if (Number.isNaN(d.getTime())) return false;
       return d >= firstDayOfMonth && d <= today;
     }).length;
-  }, [data.salesAgreements, data.meta?.updatedAt]);
+  }, [data.salesAgreements, data.meta.updatedAt]);
 
   const avgClosingTime = useMemo(() => {
+    void data.meta.updatedAt;
     const salesListings = data.salesListings || [];
-    const soldListings = salesListings.filter((s: any) => s.الحالة === 'Sold');
+    const soldListings = salesListings.filter((s) => s.الحالة === 'Sold');
 
     if (soldListings.length === 0) return 0;
 
-    const totalDays = soldListings.reduce((sum: number, sale: any) => {
-      if (sale.تاريخ_الإنشاء && sale.تاريخ_البيع) {
-        const created = new Date(sale.تاريخ_الإنشاء);
-        const sold = new Date(sale.تاريخ_البيع);
+    const totalDays = soldListings.reduce((sum: number, sale) => {
+      const createdAtRaw = getProp(sale, 'تاريخ_الإنشاء');
+      const soldAtRaw = getProp(sale, 'تاريخ_البيع');
+      const createdAt = typeof createdAtRaw === 'string' ? createdAtRaw : undefined;
+      const soldAt = typeof soldAtRaw === 'string' ? soldAtRaw : undefined;
+
+      if (createdAt && soldAt) {
+        const created = new Date(createdAt);
+        const sold = new Date(soldAt);
         const days = Math.ceil((sold.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
         return sum + days;
       }
@@ -170,7 +212,7 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
     }, 0);
 
     return Math.round(totalDays / soldListings.length);
-  }, [data.salesListings, data.meta?.updatedAt]);
+  }, [data.salesListings, data.meta.updatedAt]);
 
   // Key metrics
   const metrics = [
@@ -225,7 +267,7 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       </div>
 
       {/* Sales Pipeline */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-6 flex items-center gap-2">
           <ClipboardList className="text-indigo-500" />
           خط أنابيب المبيعات
@@ -268,7 +310,7 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Daily Sales Trend */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-6 overflow-visible">
           <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
             <TrendingUp className="text-green-500" />
             الاتجاه اليومي للمبيعات
@@ -311,7 +353,7 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
         </div>
 
         {/* Sales by Agent */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-6 overflow-visible">
           <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
             <ShoppingCart className="text-purple-500" />
             المبيعات حسب الوكيل
@@ -334,7 +376,7 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       </div>
 
       {/* Recent Sales */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
           <CheckCircle className="text-green-500" />
           آخر المبيعات

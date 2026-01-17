@@ -8,6 +8,15 @@
 
 import { storage } from '@/services/storage';
 
+type UnknownRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const getErrorMessage = (error: unknown): string => {
+  const msg = isRecord(error) ? error['message'] : undefined;
+  return String(msg);
+};
+
 // مفاتيح البيانات (db_*) المعروفة في النظام.
 // ملاحظة: قد توجد مفاتيح إضافية db_* (إضافات/ميزات)؛ يتم التقاطها ديناميكياً أيضاً.
 const BASE_DB_KEYS = [
@@ -90,7 +99,7 @@ const LEGACY_CLEANUP_KEYS = [
 
 const unique = (arr: string[]): string[] => Array.from(new Set(arr.filter(Boolean)));
 
-const isDesktop = (): boolean => typeof window !== 'undefined' && !!(window as any).desktopDb;
+const isDesktop = (): boolean => typeof window !== 'undefined' && !!window.desktopDb;
 
 const getKeysToClear = async (): Promise<string[]> => {
   const keys: string[] = [...BASE_DB_KEYS, ...APP_STATE_KEYS, ...LEGACY_CLEANUP_KEYS];
@@ -118,8 +127,8 @@ const getKeysToClear = async (): Promise<string[]> => {
 };
 
 const deleteAllAttachmentFiles = async (): Promise<void> => {
-  const bridge = (window as any)?.desktopDb;
-  if (!bridge?.deleteAttachmentFile) return;
+  const bridge = typeof window !== 'undefined' ? window.desktopDb : undefined;
+  if (typeof bridge?.deleteAttachmentFile !== 'function') return;
 
   try {
     const raw = (await storage.getItem('db_attachments')) ?? localStorage.getItem('db_attachments');
@@ -129,8 +138,11 @@ const deleteAllAttachmentFiles = async (): Promise<void> => {
 
     const paths = unique(
       list
-        .map((x: any) => String(x?.filePath || '').trim())
-        .filter((p: string) => !!p)
+        .map((x: unknown) => {
+          const filePath = isRecord(x) ? x['filePath'] : undefined;
+          return String(filePath ?? '').trim();
+        })
+        .filter((p): p is string => p.length > 0)
     );
 
     for (const p of paths) {
@@ -163,8 +175,8 @@ export const clearAllData = async (): Promise<{ success: boolean; message: strin
     let desktopResetDone = false;
     if (isDesktop()) {
       try {
-        const bridge = (window as any).desktopDb;
-        if (bridge?.resetAll) {
+        const bridge = window.desktopDb;
+        if (typeof bridge?.resetAll === 'function') {
           await bridge.resetAll();
           desktopResetDone = true;
         }
@@ -194,10 +206,10 @@ export const clearAllData = async (): Promise<{ success: boolean; message: strin
       message: `تم حذف/تصفير البيانات بنجاح (تمت معالجة ${deletedKeys.length} مفتاح)`,
       deletedKeys
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: `فشل حذف البيانات: ${error.message}`,
+      message: `فشل حذف البيانات: ${getErrorMessage(error)}`,
       deletedKeys: []
     };
   }
@@ -252,10 +264,10 @@ export const resetToFreshState = async (): Promise<{ success: boolean; message: 
       success: true,
       message: `تم إعادة تهيئة النظام بنجاح!\n- تم حذف ${clearResult.deletedKeys.length} مفتاح\n- تم إنشاء مستخدم admin\n- تم إنشاء ${basicLookups.length} lookup أساسي`
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: `فشلت إعادة التهيئة: ${error.message}`
+      message: `فشلت إعادة التهيئة: ${getErrorMessage(error)}`
     };
   }
 };

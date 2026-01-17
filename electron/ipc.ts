@@ -40,14 +40,75 @@ import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import updaterPkg from 'electron-updater';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
-import { connectAndEnsureDatabase, disconnectSql, exportServerBackupToFile, getSqlStatus, importServerBackupFromFile, loadSqlSettings, loadSqlSettingsRedacted, provisionSqlServer, pullAttachmentFilesForAttachmentsJson, pushKvDelete, pushKvUpsert, resetSqlPullState, saveSqlSettings, startBackgroundPull, testSqlConnection } from './sqlSync';
+import {
+  connectAndEnsureDatabase,
+  createServerBackupOnServer,
+  disconnectSql,
+  ensureDailyServerBackupIfEnabled,
+  exportServerBackupToFile,
+  getRemoteKvStoreMeta,
+  getRemoteKvStoreRow,
+  getSqlStatus,
+  importServerBackupFromFile,
+  listServerBackups,
+  loadSqlBackupAutomationSettings,
+  loadSqlSettings,
+  loadSqlSettingsRedacted,
+  provisionSqlServer,
+  pullAttachmentFilesForAttachmentsJson,
+  pushKvDelete,
+  pushKvUpsert,
+  resetSqlPullState,
+  restoreServerBackupFromServer,
+  saveSqlBackupAutomationSettings,
+  saveSqlSettings,
+  startBackgroundPull,
+  testSqlConnection,
+} from './sqlSync';
 import { validateInstallerCandidate } from './security/updaterInstallValidation.js';
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- Electron IPC is a dynamic boundary (renderer payloads, electron-updater, and SQL sync) and fully typing it would require a large refactor without changing runtime behavior. */
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+const getField = (obj: unknown, field: string): unknown => (isRecord(obj) ? obj[field] : undefined);
+
+const getStringField = (obj: unknown, field: string): string => String(getField(obj, field) ?? '');
+
+const getNumberField = (obj: unknown, field: string): number => {
+  const n = Number(getField(obj, field));
+  return Number.isFinite(n) ? n : 0;
+};
+
+const getOptionalNumberField = (obj: unknown, field: string): number | undefined => {
+  const raw = getField(obj, field);
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+type DomainEntity = 'people' | 'properties' | 'contracts';
+const isDomainEntity = (v: string): v is DomainEntity => v === 'people' || v === 'properties' || v === 'contracts';
+
+const toErrorMessage = (err: unknown, fallback: string): string => {
+  if (err instanceof Error) return err.message || fallback;
+  const s = String(err ?? '').trim();
+  return s || fallback;
+};
+
+type FspCpOptions = { recursive: boolean; force: boolean };
+type FspCpFn = (src: string, dest: string, options: FspCpOptions) => Promise<void>;
+
+const fspCp = async (src: string, dest: string, options: FspCpOptions): Promise<void> => {
+  const cp = (fsp as unknown as { cp?: FspCpFn }).cp;
+  if (!cp) throw new Error('خاصية النسخ غير مدعومة (fs.promises.cp)');
+  await cp(src, dest, options);
+};
+
+type UpdaterSetFeedUrlArg = Parameters<NonNullable<typeof autoUpdater>['setFeedURL']>[0];
 
 // electron-updater is CommonJS; when loaded from ESM bundles, Node may not support named exports.
 // Access it through the default export (module.exports).
-const autoUpdater = (updaterPkg as any)?.autoUpdater;
+type ElectronUpdaterModule = { autoUpdater?: typeof import('electron-updater').autoUpdater };
+const autoUpdater = (updaterPkg as unknown as ElectronUpdaterModule)?.autoUpdater;
 
 type PendingRestoreInfo = {
   pending: boolean;
@@ -64,7 +125,7 @@ type PendingRestoreInfo = {
 type UpdaterEventPayload = {
   type: string;
   message?: string;
-  data?: any;
+  data?: unknown;
 };
 
 let lastUpdaterEvent: UpdaterEventPayload | null = null;
@@ -86,6 +147,18 @@ type SqlSyncLogEntry = {
   key?: string;
   status: 'ok' | 'error';
   message?: string;
+};
+
+type SqlCoverageItem = {
+  key: string;
+  localUpdatedAt?: string;
+  localDeletedAt?: string;
+  localBestTs?: string;
+  localIsDeleted: boolean;
+  localBytes: number;
+  remoteUpdatedAt?: string;
+  remoteIsDeleted?: boolean;
+  status: 'inSync' | 'localAhead' | 'remoteAhead' | 'missingRemote' | 'missingLocal' | 'different' | 'unknown';
 };
 
 const SQL_SYNC_LOG_LIMIT = 1000;
@@ -145,7 +218,7 @@ function verifyWindowsExeAuthenticodeSync(filePath: string): AuthenticodeVerific
     return { ok: false, message: 'تعذر التحقق من توقيع ملف التحديث' };
   }
 
-  let parsed: any;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
   } catch {
@@ -153,10 +226,10 @@ function verifyWindowsExeAuthenticodeSync(filePath: string): AuthenticodeVerific
     return { ok: false, message: 'تعذر التحقق من توقيع ملف التحديث' };
   }
 
-  const status = String(parsed?.Status || '').trim();
-  const statusMessage = String(parsed?.StatusMessage || '').trim();
-  const subject = String(parsed?.Subject || '').trim();
-  const thumbprint = String(parsed?.Thumbprint || '').trim();
+  const status = getStringField(parsed, 'Status').trim();
+  const statusMessage = getStringField(parsed, 'StatusMessage').trim();
+  const subject = getStringField(parsed, 'Subject').trim();
+  const thumbprint = getStringField(parsed, 'Thumbprint').trim();
 
   if (status === 'Valid') {
     return { ok: true, status: 'Valid', statusMessage, subject, thumbprint };
@@ -249,8 +322,8 @@ async function startSqlPullLoop(): Promise<void> {
           if (res.missingRemote > 0) {
             addSqlSyncLogEntry({ direction: 'system', action: 'attachments:pull', status: 'error', message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}` });
           }
-        } catch (e: any) {
-          addSqlSyncLogEntry({ direction: 'system', action: 'attachments:pull', status: 'error', message: e?.message || 'فشل تنزيل المرفقات' });
+        } catch (e: unknown) {
+          addSqlSyncLogEntry({ direction: 'system', action: 'attachments:pull', status: 'error', message: toErrorMessage(e, 'فشل تنزيل المرفقات') });
         }
       }
     }
@@ -278,8 +351,8 @@ async function pushAllLocalToRemote(): Promise<{ upsertsOk: number; deletesOk: n
           await pushKvDelete({ key: k, deletedAt });
           addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'ok', ts: deletedAt });
           deletesOk += 1;
-        } catch (e: any) {
-          addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'error', message: e?.message || 'فشل رفع الحذف' });
+        } catch (e: unknown) {
+          addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'error', message: toErrorMessage(e, 'فشل رفع الحذف') });
           errors += 1;
         }
         continue;
@@ -293,8 +366,8 @@ async function pushAllLocalToRemote(): Promise<{ upsertsOk: number; deletesOk: n
         await pushKvUpsert({ key: k, value: v, updatedAt });
         addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'ok', ts: updatedAt });
         upsertsOk += 1;
-      } catch (e: any) {
-        addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'error', message: e?.message || 'فشل رفع التحديث' });
+      } catch (e: unknown) {
+        addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'error', message: toErrorMessage(e, 'فشل رفع التحديث') });
         errors += 1;
       }
     }
@@ -318,8 +391,8 @@ async function pushDeltaToRemoteSince(sinceIso: string): Promise<{ upsertsOk: nu
   const tasks: Array<() => Promise<void>> = [];
 
   for (const row of deleted) {
-    const k = String((row as any)?.k || '').trim();
-    const deletedAt = String((row as any)?.deletedAt || '').trim();
+    const k = getStringField(row, 'k').trim();
+    const deletedAt = getStringField(row, 'deletedAt').trim();
     if (!k || !deletedAt) continue;
     if (new Date(deletedAt).getTime() > new Date(latestTs).getTime()) latestTs = deletedAt;
     tasks.push(async () => {
@@ -327,17 +400,17 @@ async function pushDeltaToRemoteSince(sinceIso: string): Promise<{ upsertsOk: nu
         await pushKvDelete({ key: k, deletedAt });
         addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'ok', ts: deletedAt });
         deletesOk += 1;
-      } catch (e: any) {
-        addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'error', message: e?.message || 'فشل رفع الحذف' });
+      } catch (e: unknown) {
+        addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'error', message: toErrorMessage(e, 'فشل رفع الحذف') });
         errors += 1;
       }
     });
   }
 
   for (const row of updated) {
-    const k = String((row as any)?.k || '').trim();
-    const v = (row as any)?.v;
-    const updatedAt = String((row as any)?.updatedAt || '').trim();
+    const k = getStringField(row, 'k').trim();
+    const v = getField(row, 'v');
+    const updatedAt = getStringField(row, 'updatedAt').trim();
     if (!k || typeof v !== 'string' || !updatedAt) continue;
     if (new Date(updatedAt).getTime() > new Date(latestTs).getTime()) latestTs = updatedAt;
     tasks.push(async () => {
@@ -345,8 +418,8 @@ async function pushDeltaToRemoteSince(sinceIso: string): Promise<{ upsertsOk: nu
         await pushKvUpsert({ key: k, value: v, updatedAt });
         addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'ok', ts: updatedAt });
         upsertsOk += 1;
-      } catch (e: any) {
-        addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'error', message: e?.message || 'فشل رفع التحديث' });
+      } catch (e: unknown) {
+        addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'error', message: toErrorMessage(e, 'فشل رفع التحديث') });
         errors += 1;
       }
     });
@@ -369,7 +442,7 @@ async function pushDeltaToRemoteSince(sinceIso: string): Promise<{ upsertsOk: nu
   return { upsertsOk, deletesOk, errors, latestTs };
 }
 
-let autoSyncTimer: any = null;
+let autoSyncTimer: ReturnType<typeof setInterval> | null = null;
 let autoSyncInFlight = false;
 let lastAutoPushIso: string = '';
 
@@ -579,9 +652,9 @@ function configureUpdaterIfPossible() {
 
   if (currentFeedUrl) {
     try {
-      autoUpdater.setFeedURL({ provider: 'generic', url: normalizeFeedUrl(currentFeedUrl) } as any);
-    } catch (e: any) {
-      broadcastUpdaterEvent({ type: 'error', message: e?.message || 'فشل ضبط رابط التحديث' });
+      autoUpdater.setFeedURL({ provider: 'generic', url: normalizeFeedUrl(currentFeedUrl) } as UpdaterSetFeedUrlArg);
+    } catch (e: unknown) {
+      broadcastUpdaterEvent({ type: 'error', message: toErrorMessage(e, 'فشل ضبط رابط التحديث') });
     }
   }
 }
@@ -675,8 +748,8 @@ async function readPendingRestoreInfo(): Promise<PendingRestoreInfo> {
       dbBackupPath: String(parsed.dbBackupPath || ''),
       attachmentsBackupPath: String(parsed.attachmentsBackupPath || ''),
       reason: parsed.reason === 'installFromFile' ? 'installFromFile' : 'install',
-      attempts: Number((parsed as any).attempts || 0) || 0,
-      lastError: (parsed as any).lastError ? String((parsed as any).lastError) : undefined,
+      attempts: getNumberField(parsed, 'attempts'),
+      lastError: getField(parsed, 'lastError') ? getStringField(parsed, 'lastError') : undefined,
     };
   } catch {
     return { pending: false };
@@ -716,7 +789,7 @@ async function copyDirIfExists(srcDir: string, destDir: string): Promise<boolean
   }
   await fsp.mkdir(path.dirname(destDir), { recursive: true });
   // Node 16+ supports fs.promises.cp
-  await (fsp as any).cp(srcDir, destDir, { recursive: true, force: true });
+  await fspCp(srcDir, destDir, { recursive: true, force: true });
   return true;
 }
 
@@ -783,18 +856,18 @@ async function restoreFromPendingBackup(): Promise<{ success: boolean; message?:
       const currentBackup = `${attachmentsRoot}.backup-${Date.now()}`;
       try {
         if (fs.existsSync(attachmentsRoot)) {
-          await (fsp as any).cp(attachmentsRoot, currentBackup, { recursive: true, force: true });
+          await fspCp(attachmentsRoot, currentBackup, { recursive: true, force: true });
         }
       } catch {
         // ignore
       }
       await fsp.mkdir(path.dirname(attachmentsRoot), { recursive: true });
-      await (fsp as any).cp(info.attachmentsBackupPath, attachmentsRoot, { recursive: true, force: true });
+      await fspCp(info.attachmentsBackupPath, attachmentsRoot, { recursive: true, force: true });
     }
 
     return { success: true };
-  } catch (e: any) {
-    const msg = e?.message || 'فشل استرجاع النسخة الاحتياطية';
+  } catch (e: unknown) {
+    const msg = toErrorMessage(e, 'فشل استرجاع النسخة الاحتياطية');
     // Re-arm pending restore so the user can retry later, but without a reload loop.
     try {
       await writePendingRestoreInfo({
@@ -838,9 +911,8 @@ export function registerIpcHandlers() {
       void (async () => {
         try {
           await autoUpdater.checkForUpdates();
-        } catch (e: any) {
-          const message = e?.message || 'فشل التحقق من التحديثات تلقائياً';
-          broadcastUpdaterEvent({ type: 'error', message });
+        } catch (e: unknown) {
+          broadcastUpdaterEvent({ type: 'error', message: toErrorMessage(e, 'فشل التحقق من التحديثات تلقائياً') });
         }
       })();
     }, 3000);
@@ -866,13 +938,13 @@ export function registerIpcHandlers() {
 
       if (app.isPackaged) {
         if (!autoUpdater) return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
-        autoUpdater.setFeedURL({ provider: 'generic', url: normalized } as any);
+        autoUpdater.setFeedURL({ provider: 'generic', url: normalized } as UpdaterSetFeedUrlArg);
       }
 
       broadcastUpdaterEvent({ type: 'feed-url', data: { feedUrl: normalized } });
       return { success: true, feedUrl: normalized };
-    } catch (e: any) {
-      return { success: false, message: e?.message || 'فشل ضبط رابط التحديث' };
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل ضبط رابط التحديث') };
     }
   });
 
@@ -887,11 +959,11 @@ export function registerIpcHandlers() {
       const res = await autoUpdater.checkForUpdates();
       const available = !!res?.updateInfo;
       return { success: true, updateAvailable: available, info: res?.updateInfo };
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (!currentFeedUrl && !hasEmbeddedUpdaterConfig()) {
         return { success: false, message: 'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.' };
       }
-      return { success: false, message: e?.message || 'فشل التحقق من التحديث' };
+      return { success: false, message: toErrorMessage(e, 'فشل التحقق من التحديث') };
     }
   });
 
@@ -905,11 +977,11 @@ export function registerIpcHandlers() {
     try {
       await autoUpdater.downloadUpdate();
       return { success: true };
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (!currentFeedUrl && !hasEmbeddedUpdaterConfig()) {
         return { success: false, message: 'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.' };
       }
-      return { success: false, message: e?.message || 'فشل تنزيل التحديث' };
+      return { success: false, message: toErrorMessage(e, 'فشل تنزيل التحديث') };
     }
   });
 
@@ -924,14 +996,14 @@ export function registerIpcHandlers() {
       // Mandatory backup before installing any update.
       try {
         await createMandatoryPreUpdateBackup('install');
-      } catch (e: any) {
-        return { success: false, message: e?.message || 'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.' };
+      } catch (e: unknown) {
+        return { success: false, message: toErrorMessage(e, 'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.') };
       }
       // This quits the app and runs the installer for the downloaded update.
       autoUpdater.quitAndInstall(true, true);
       return { success: true };
-    } catch (e: any) {
-      return { success: false, message: e?.message || 'فشل تثبيت التحديث' };
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل تثبيت التحديث') };
     }
   });
 
@@ -958,7 +1030,7 @@ export function registerIpcHandlers() {
       // keep raw
     }
 
-    let st: any;
+    let st: fs.Stats;
     try {
       st = await fsp.stat(resolved);
     } catch {
@@ -977,8 +1049,8 @@ export function registerIpcHandlers() {
       // Mandatory backup before running external installer.
       try {
         await createMandatoryPreUpdateBackup('installFromFile');
-      } catch (e: any) {
-        return { success: false, message: e?.message || 'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.' };
+      } catch (e: unknown) {
+        return { success: false, message: toErrorMessage(e, 'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.') };
       }
       // Run installer detached, then quit the app.
       spawn(resolved, [], { detached: true, stdio: 'ignore' }).unref();
@@ -990,8 +1062,8 @@ export function registerIpcHandlers() {
         }
       }, 200);
       return { success: true };
-    } catch (e: any) {
-      return { success: false, message: e?.message || 'فشل تشغيل ملف التحديث' };
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل تشغيل ملف التحديث') };
     }
   });
 
@@ -1053,196 +1125,199 @@ export function registerIpcHandlers() {
   ipcMain.handle('domain:status', () => {
     try {
       return { ok: true, ...domainStatus() };
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'تعذر قراءة حالة الجداول' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'تعذر قراءة حالة الجداول') };
     }
   });
 
   ipcMain.handle('domain:migrate', () => {
     try {
       return domainMigrateFromKvIfNeeded();
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل الترحيل' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل الترحيل') };
     }
   });
 
-  ipcMain.handle('reports:run', (_e, payload: any) => {
+  ipcMain.handle('reports:run', (_e, payload: unknown) => {
     try {
-      const id = String(payload?.id || '').trim();
+      const id = getStringField(payload, 'id').trim();
       if (!id) return { ok: false, message: 'معرّف التقرير غير صالح' };
       return runSqlReport(id);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل توليد التقرير' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل توليد التقرير') };
     }
   });
 
-  ipcMain.handle('domain:searchGlobal', (_e, payload: any) => {
+  ipcMain.handle('domain:searchGlobal', (_e, payload: unknown) => {
     try {
-      const q = trimString(payload?.query || '', 128, 'نص البحث');
+      const q = trimString(getStringField(payload, 'query'), 128, 'نص البحث');
       return domainSearchGlobal(q);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل البحث' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل البحث') };
     }
   });
 
-  ipcMain.handle('domain:search', (_e, payload: any) => {
+  ipcMain.handle('domain:search', (_e, payload: unknown) => {
     try {
-      const entityRaw = String(payload?.entity || '').trim();
-      const entity = entityRaw === 'people' || entityRaw === 'properties' || entityRaw === 'contracts' ? (entityRaw as any) : null;
+      const entityRaw = getStringField(payload, 'entity').trim();
+      const entity: DomainEntity | null = isDomainEntity(entityRaw) ? entityRaw : null;
       if (!entity) return { ok: false, message: 'نوع البحث غير مدعوم' };
 
-      const q = trimString(payload?.query || '', 128, 'نص البحث');
-      const limit = payload?.limit;
+      const q = trimString(getStringField(payload, 'query'), 128, 'نص البحث');
+      const limit = getOptionalNumberField(payload, 'limit');
       return domainSearch(entity, q, limit);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل البحث' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل البحث') };
     }
   });
 
-  ipcMain.handle('domain:get', (_e, payload: any) => {
+  ipcMain.handle('domain:get', (_e, payload: unknown) => {
     try {
-      const entityRaw = String(payload?.entity || '').trim();
-      const entity = entityRaw === 'people' || entityRaw === 'properties' || entityRaw === 'contracts' ? (entityRaw as any) : null;
+      const entityRaw = getStringField(payload, 'entity').trim();
+      const entity: DomainEntity | null = isDomainEntity(entityRaw) ? entityRaw : null;
       if (!entity) return { ok: false, message: 'نوع غير مدعوم' };
-      const id = trimString(payload?.id || '', 128, 'المعرف');
+      const id = trimString(getStringField(payload, 'id'), 128, 'المعرف');
       return domainGetEntityById(entity, id);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل قراءة البيانات' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل قراءة البيانات') };
     }
   });
 
   ipcMain.handle('domain:counts', () => {
     try {
       return domainCounts();
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل قراءة الأعداد' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل قراءة الأعداد') };
     }
   });
 
-  ipcMain.handle('domain:dashboard:summary', (_e, payload: any) => {
+  ipcMain.handle('domain:dashboard:summary', (_e, payload: unknown) => {
     try {
-      const todayYMD = trimString(payload?.todayYMD || '', 10, 'تاريخ اليوم');
-      const weekYMD = trimString(payload?.weekYMD || '', 10, 'تاريخ الأسبوع');
+      const todayYMD = trimString(getStringField(payload, 'todayYMD'), 10, 'تاريخ اليوم');
+      const weekYMD = trimString(getStringField(payload, 'weekYMD'), 10, 'تاريخ الأسبوع');
       return domainDashboardSummary({ todayYMD, weekYMD });
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل تحميل ملخص لوحة التحكم' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل ملخص لوحة التحكم') };
     }
   });
 
-  ipcMain.handle('domain:dashboard:performance', (_e, payload: any) => {
+  ipcMain.handle('domain:dashboard:performance', (_e, payload: unknown) => {
     try {
-      const monthKey = trimString(payload?.monthKey || '', 7, 'شهر');
-      const prevMonthKey = trimString(payload?.prevMonthKey || '', 7, 'شهر سابق');
+      const monthKey = trimString(getStringField(payload, 'monthKey'), 7, 'شهر');
+      const prevMonthKey = trimString(getStringField(payload, 'prevMonthKey'), 7, 'شهر سابق');
       return domainDashboardPerformance({ monthKey, prevMonthKey });
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل تحميل الأداء المالي' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل الأداء المالي') };
     }
   });
 
-  ipcMain.handle('domain:dashboard:highlights', (_e, payload: any) => {
+  ipcMain.handle('domain:dashboard:highlights', (_e, payload: unknown) => {
     try {
-      const todayYMD = trimString(payload?.todayYMD || '', 10, 'تاريخ اليوم');
+      const todayYMD = trimString(getStringField(payload, 'todayYMD'), 10, 'تاريخ اليوم');
       return domainDashboardHighlights({ todayYMD });
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل تحميل مؤشرات لوحة التحكم' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل مؤشرات لوحة التحكم') };
     }
   });
 
-  ipcMain.handle('domain:notifications:paymentTargets', (_e, payload: any) => {
+  ipcMain.handle('domain:notifications:paymentTargets', (_e, payload: unknown) => {
     try {
-      const daysAhead = Math.max(1, Math.min(60, Math.trunc(Number(payload?.daysAhead) || 7)));
-      const todayYMD = payload?.todayYMD ? trimString(payload?.todayYMD || '', 10, 'تاريخ اليوم') : undefined;
+      const daysAhead = Math.max(1, Math.min(60, Math.trunc(Number(getField(payload, 'daysAhead')) || 7)));
+      const todayYmdRaw = getStringField(payload, 'todayYMD');
+      const todayYMD = todayYmdRaw ? trimString(todayYmdRaw, 10, 'تاريخ اليوم') : undefined;
       return domainPaymentNotificationTargets({ daysAhead, todayYMD });
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل تحميل إشعارات الدفعات' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل إشعارات الدفعات') };
     }
   });
 
-  ipcMain.handle('domain:person:details', (_e, payload: any) => {
+  ipcMain.handle('domain:person:details', (_e, payload: unknown) => {
     try {
-      const personId = String(payload?.personId ?? payload ?? '').trim();
+      const personId = String(getField(payload, 'personId') ?? payload ?? '').trim();
       if (!personId) return { ok: false, message: 'معرف غير صالح' };
       return domainPersonDetails(personId);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل قراءة بيانات الشخص' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل قراءة بيانات الشخص') };
     }
   });
 
-  ipcMain.handle('domain:person:tenancyContracts', (_e, payload: any) => {
+  ipcMain.handle('domain:person:tenancyContracts', (_e, payload: unknown) => {
     try {
-      const personId = String(payload?.personId ?? payload ?? '').trim();
+      const personId = String(getField(payload, 'personId') ?? payload ?? '').trim();
       if (!personId) return { ok: false, message: 'معرف غير صالح' };
       return domainPersonTenancyContracts(personId);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل جلب عقود الشخص' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل جلب عقود الشخص') };
     }
   });
 
-  ipcMain.handle('domain:property:contracts', (_e, payload: any) => {
+  ipcMain.handle('domain:property:contracts', (_e, payload: unknown) => {
     try {
-      const propertyId = String(payload?.propertyId ?? payload ?? '').trim();
+      const propertyId = String(getField(payload, 'propertyId') ?? payload ?? '').trim();
       if (!propertyId) return { ok: false, message: 'معرف غير صالح' };
-      const limit = payload?.limit;
+      const limit = getOptionalNumberField(payload, 'limit');
       return domainPropertyContracts(propertyId, limit);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل قراءة عقود العقار' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل قراءة عقود العقار') };
     }
   });
 
-  ipcMain.handle('domain:contract:details', (_e, payload: any) => {
+  ipcMain.handle('domain:contract:details', (_e, payload: unknown) => {
     try {
-      const contractId = String(payload?.contractId ?? payload ?? '').trim();
+      const contractId = String(getField(payload, 'contractId') ?? payload ?? '').trim();
       if (!contractId) return { ok: false, message: 'معرف غير صالح' };
       return domainContractDetails(contractId);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل تحميل تفاصيل العقد' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل تفاصيل العقد') };
     }
   });
 
-  ipcMain.handle('domain:picker:properties', (_e, payload: any) => {
+  ipcMain.handle('domain:picker:properties', (_e, payload: unknown) => {
     try {
-      const q = trimString(payload?.query || '', 128, 'نص البحث');
-      const status = trimString(payload?.status || '', 64, 'الحالة');
-      const type = trimString(payload?.type || '', 64, 'النوع');
-      const forceVacant = !!payload?.forceVacant;
-      const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
-      const limit = payload?.limit;
+      const q = trimString(getStringField(payload, 'query'), 128, 'نص البحث');
+      const status = trimString(getStringField(payload, 'status'), 64, 'الحالة');
+      const type = trimString(getStringField(payload, 'type'), 64, 'النوع');
+      const forceVacant = Boolean(getField(payload, 'forceVacant'));
+      const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
+      const limit = getOptionalNumberField(payload, 'limit');
       return domainPropertyPickerSearch({ query: q, status, type, forceVacant, offset, limit });
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل البحث عن العقارات' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل البحث عن العقارات') };
     }
   });
 
-  ipcMain.handle('domain:picker:contracts', (_e, payload: any) => {
+  ipcMain.handle('domain:picker:contracts', (_e, payload: unknown) => {
     try {
-      const q = trimString(payload?.query || '', 128, 'نص البحث');
-      const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
-      const limit = payload?.limit;
-      const tab = trimString(payload?.tab || '', 32, 'التبويب');
-      return domainContractPickerSearch({ query: q, offset, limit, tab } as any);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل البحث عن العقود' };
+      const q = trimString(getStringField(payload, 'query'), 128, 'نص البحث');
+      const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
+      const limit = getOptionalNumberField(payload, 'limit');
+      const tab = trimString(getStringField(payload, 'tab'), 32, 'التبويب');
+      const createdMonthRaw = trimString(getStringField(payload, 'createdMonth'), 16, 'شهر الإنشاء');
+      const createdMonth = /^\d{4}-\d{2}$/.test(createdMonthRaw) ? createdMonthRaw : '';
+      return domainContractPickerSearch({ query: q, offset, limit, tab, createdMonth });
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل البحث عن العقود') };
     }
   });
 
-  ipcMain.handle('domain:picker:people', (_e, payload: any) => {
-    const q = String(payload?.query || '').trim();
-    const role = String(payload?.role || '').trim();
-    const onlyIdleOwners = !!payload?.onlyIdleOwners;
-    const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
-    const limit = Math.max(1, Math.min(200, Math.trunc(Number(payload?.limit) || 48)));
+  ipcMain.handle('domain:picker:people', (_e, payload: unknown) => {
+    const q = getStringField(payload, 'query').trim();
+    const role = getStringField(payload, 'role').trim();
+    const onlyIdleOwners = Boolean(getField(payload, 'onlyIdleOwners'));
+    const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
+    const limit = Math.max(1, Math.min(200, Math.trunc(Number(getField(payload, 'limit')) || 48)));
     return domainPeoplePickerSearch({ query: q, role, onlyIdleOwners, offset, limit });
   });
 
-  ipcMain.handle('domain:installments:contracts', (_e, payload: any) => {
+  ipcMain.handle('domain:installments:contracts', (_e, payload: unknown) => {
     try {
-      const q = trimString(payload?.query || '', 128, 'نص البحث');
-      const filter = trimString(payload?.filter || 'all', 16, 'الفلتر') || 'all';
-      const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
-      const limit = Math.max(1, Math.min(100, Math.trunc(Number(payload?.limit) || 20)));
-      return domainInstallmentsContractsSearch({ query: q, filter, offset, limit } as any);
-    } catch (e: any) {
-      return { ok: false, message: e?.message || 'فشل تحميل الأقساط' };
+      const q = trimString(getStringField(payload, 'query'), 128, 'نص البحث');
+      const filter = trimString(getStringField(payload, 'filter') || 'all', 16, 'الفلتر') || 'all';
+      const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
+      const limit = Math.max(1, Math.min(100, Math.trunc(Number(getField(payload, 'limit')) || 20)));
+      return domainInstallmentsContractsSearch({ query: q, filter, offset, limit });
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل الأقساط') };
     }
   });
 
@@ -1251,21 +1326,21 @@ export function registerIpcHandlers() {
     return loadSqlSettingsRedacted();
   });
 
-  ipcMain.handle('sql:saveSettings', async (_e, settings: any) => {
+  ipcMain.handle('sql:saveSettings', async (_e, settings: unknown) => {
     try {
-      const enabled = !!settings?.enabled;
-      const authMode = settings?.authMode === 'windows' ? 'windows' : 'sql';
+      const enabled = Boolean(getField(settings, 'enabled'));
+      const authMode = getStringField(settings, 'authMode') === 'windows' ? 'windows' : 'sql';
 
       await saveSqlSettings({
         enabled,
-        server: trimString(settings?.server || '', 256, 'السيرفر'),
-        port: safePortOrDefault(settings?.port, 1433),
-        database: trimString(settings?.database || 'AZRAR', 128, 'قاعدة البيانات') || 'AZRAR',
+        server: trimString(getStringField(settings, 'server'), 256, 'السيرفر'),
+        port: safePortOrDefault(getField(settings, 'port'), 1433),
+        database: trimString(getStringField(settings, 'database') || 'AZRAR', 128, 'قاعدة البيانات') || 'AZRAR',
         authMode,
-        user: trimString(settings?.user || '', 128, 'المستخدم'),
-        password: toLimitedPassword(settings?.password, 512),
-        encrypt: settings?.encrypt !== false,
-        trustServerCertificate: settings?.trustServerCertificate !== false,
+        user: trimString(getStringField(settings, 'user'), 128, 'المستخدم'),
+        password: toLimitedPassword(getField(settings, 'password'), 512),
+        encrypt: getField(settings, 'encrypt') !== false,
+        trustServerCertificate: getField(settings, 'trustServerCertificate') !== false,
       });
 
       // If sync was disabled, ensure we disconnect.
@@ -1274,29 +1349,29 @@ export function registerIpcHandlers() {
       }
 
       return { success: true };
-    } catch (e: any) {
-      return { success: false, message: e?.message || 'فشل حفظ إعدادات المخدم' };
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل حفظ إعدادات المخدم') };
     }
   });
 
-  ipcMain.handle('sql:test', async (_e, settings: any) => {
+  ipcMain.handle('sql:test', async (_e, settings: unknown) => {
     const saved = await loadSqlSettings();
 
     type TestSqlSettings = Parameters<typeof testSqlConnection>[0];
 
     const merged: TestSqlSettings = {
       ...saved,
-      server: trimString(settings?.server ?? saved.server ?? '', 256, 'السيرفر'),
-      port: safePortOrDefault(settings?.port ?? saved.port ?? 1433, 1433),
-      database: trimString(settings?.database ?? saved.database ?? 'AZRAR', 128, 'قاعدة البيانات') || 'AZRAR',
-      authMode: (settings?.authMode === 'windows' ? 'windows' : 'sql') as TestSqlSettings['authMode'],
-      user: trimString(settings?.user ?? saved.user ?? '', 128, 'المستخدم'),
+      server: trimString((getField(settings, 'server') ?? saved.server ?? '') as unknown, 256, 'السيرفر'),
+      port: safePortOrDefault(getField(settings, 'port') ?? saved.port ?? 1433, 1433),
+      database: trimString((getField(settings, 'database') ?? saved.database ?? 'AZRAR') as unknown, 128, 'قاعدة البيانات') || 'AZRAR',
+      authMode: (getStringField(settings, 'authMode') === 'windows' ? 'windows' : 'sql') as TestSqlSettings['authMode'],
+      user: trimString((getField(settings, 'user') ?? saved.user ?? '') as unknown, 128, 'المستخدم'),
       password:
-        typeof settings?.password === 'string'
-          ? toLimitedPassword(settings.password, 512)
-          : toLimitedPassword(String((saved as any).password ?? ''), 512),
-      encrypt: settings?.encrypt !== false,
-      trustServerCertificate: settings?.trustServerCertificate !== false,
+        typeof getField(settings, 'password') === 'string'
+          ? toLimitedPassword(getField(settings, 'password'), 512)
+          : toLimitedPassword(getField(saved, 'password'), 512),
+      encrypt: getField(settings, 'encrypt') !== false,
+      trustServerCertificate: getField(settings, 'trustServerCertificate') !== false,
       enabled: true,
     };
 
@@ -1354,6 +1429,121 @@ export function registerIpcHandlers() {
     return { ok: true };
   });
 
+  ipcMain.handle('sql:getCoverage', async () => {
+    try {
+      const tolMs = 1500;
+      const toMs = (iso?: string): number | null => {
+        const s = String(iso || '').trim();
+        if (!s) return null;
+        const d = new Date(s);
+        const ms = d.getTime();
+        return Number.isFinite(ms) ? ms : null;
+      };
+
+      const localKeys = kvKeys().filter((k) => String(k || '').startsWith('db_'));
+      const localMap = new Map<string, Omit<SqlCoverageItem, 'remoteUpdatedAt' | 'remoteIsDeleted' | 'status'>>();
+
+      for (const k of localKeys) {
+        const key = String(k || '').trim();
+        if (!key) continue;
+        const meta = kvGetMeta(key);
+        const deletedAt = kvGetDeletedAt(key) || undefined;
+        const updatedAt = meta?.updatedAt ? String(meta.updatedAt) : undefined;
+        const v = kvGet(key);
+        const bytes = typeof v === 'string' ? Buffer.byteLength(v, 'utf8') : 0;
+        const localBestTs = deletedAt || updatedAt;
+        localMap.set(key, {
+          key,
+          localUpdatedAt: updatedAt,
+          localDeletedAt: deletedAt,
+          localBestTs,
+          localIsDeleted: !!deletedAt,
+          localBytes: bytes,
+        });
+      }
+
+      const remoteRes = await getRemoteKvStoreMeta();
+      const remoteItemsRaw = getField(remoteRes, 'items');
+      const remoteItems = Array.isArray(remoteItemsRaw) ? remoteItemsRaw : [];
+      const remoteMap = new Map<string, { remoteUpdatedAt?: string; remoteIsDeleted?: boolean }>();
+      for (const r of remoteItems) {
+        const key = getStringField(r, 'key').trim();
+        if (!key) continue;
+        remoteMap.set(key, {
+          remoteUpdatedAt: getField(r, 'updatedAt') ? getStringField(r, 'updatedAt') : undefined,
+          remoteIsDeleted: Boolean(getField(r, 'isDeleted')),
+        });
+      }
+
+      const allKeys = new Set<string>([...localMap.keys(), ...remoteMap.keys()]);
+      const items: SqlCoverageItem[] = [];
+
+      for (const key of Array.from(allKeys).sort()) {
+        const l = localMap.get(key);
+        const r = remoteMap.get(key);
+
+        if (!l && r) {
+          items.push({
+            key,
+            localIsDeleted: false,
+            localBytes: 0,
+            remoteUpdatedAt: r.remoteUpdatedAt,
+            remoteIsDeleted: r.remoteIsDeleted,
+            status: 'missingLocal',
+          });
+          continue;
+        }
+
+        if (l && !r) {
+          items.push({
+            ...l,
+            status: 'missingRemote',
+          });
+          continue;
+        }
+
+        if (!l && !r) continue;
+
+        const localMs = toMs(l?.localBestTs);
+        const remoteMs = toMs(r?.remoteUpdatedAt);
+        const localIsDel = !!l?.localIsDeleted;
+        const remoteIsDel = !!r?.remoteIsDeleted;
+
+        let status: SqlCoverageItem['status'] = 'unknown';
+        if (localMs !== null && remoteMs !== null) {
+          const diff = localMs - remoteMs;
+          if (Math.abs(diff) <= tolMs && localIsDel === remoteIsDel) status = 'inSync';
+          else if (diff > tolMs) status = 'localAhead';
+          else if (diff < -tolMs) status = 'remoteAhead';
+          else status = 'different';
+        } else {
+          status = 'unknown';
+        }
+
+        items.push({
+          ...l,
+          remoteUpdatedAt: r?.remoteUpdatedAt,
+          remoteIsDeleted: r?.remoteIsDeleted,
+          status,
+        });
+      }
+
+      const remoteMessageRaw = getField(remoteRes, 'message');
+      const remoteMessage = remoteMessageRaw ? String(remoteMessageRaw) : undefined;
+
+      return {
+        ok: true,
+        remoteOk: !!remoteRes.ok,
+        remoteMessage,
+        localCount: localMap.size,
+        remoteCount: remoteMap.size,
+        items,
+      };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل فحص تغطية المزامنة') };
+    }
+  });
+
   ipcMain.handle('sql:exportBackup', async () => {
     try {
       addSqlSyncLogEntry({ direction: 'system', action: 'exportBackup', status: 'ok', message: 'بدء تصدير نسخة احتياطية من المخدم' });
@@ -1379,9 +1569,10 @@ export function registerIpcHandlers() {
       const res = await exportServerBackupToFile(result.filePath, { ...settings, enabled: true });
       addSqlSyncLogEntry({ direction: 'system', action: 'exportBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
       return res;
-    } catch (e: any) {
-      addSqlSyncLogEntry({ direction: 'system', action: 'exportBackup', status: 'error', message: e?.message || 'فشل إنشاء النسخة الاحتياطية من المخدم' });
-      return { ok: false, message: e?.message || 'فشل إنشاء النسخة الاحتياطية من المخدم' };
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية من المخدم');
+      addSqlSyncLogEntry({ direction: 'system', action: 'exportBackup', status: 'error', message: msg });
+      return { ok: false, message: msg };
     }
   });
 
@@ -1394,9 +1585,10 @@ export function registerIpcHandlers() {
       const res = await importServerBackupFromFile(filePath, 'merge');
       addSqlSyncLogEntry({ direction: 'system', action: 'importBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
       return res;
-    } catch (e: any) {
-      addSqlSyncLogEntry({ direction: 'system', action: 'importBackup', status: 'error', message: e?.message || 'فشل استيراد النسخة الاحتياطية' });
-      return { ok: false, message: e?.message || 'فشل استيراد النسخة الاحتياطية' };
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'فشل استيراد النسخة الاحتياطية');
+      addSqlSyncLogEntry({ direction: 'system', action: 'importBackup', status: 'error', message: msg });
+      return { ok: false, message: msg };
     }
   });
 
@@ -1421,11 +1613,102 @@ export function registerIpcHandlers() {
       const res = await importServerBackupFromFile(filePath, 'replace');
       addSqlSyncLogEntry({ direction: 'system', action: 'restoreBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
       return res;
-    } catch (e: any) {
-      addSqlSyncLogEntry({ direction: 'system', action: 'restoreBackup', status: 'error', message: e?.message || 'فشل الاستعادة الكاملة' });
-      return { ok: false, message: e?.message || 'فشل الاستعادة الكاملة' };
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'فشل الاستعادة الكاملة');
+      addSqlSyncLogEntry({ direction: 'system', action: 'restoreBackup', status: 'error', message: msg });
+      return { ok: false, message: msg };
     }
   });
+
+  ipcMain.handle('sql:getBackupAutomationSettings', async () => {
+    try {
+      const settings = await loadSqlBackupAutomationSettings();
+      return { ok: true, settings };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل إعدادات النسخ الاحتياطي') };
+    }
+  });
+
+  ipcMain.handle('sql:saveBackupAutomationSettings', async (_e, payload: unknown) => {
+    try {
+      const next = await saveSqlBackupAutomationSettings({
+        enabled: typeof getField(payload, 'enabled') === 'boolean' ? (getField(payload, 'enabled') as boolean) : undefined,
+        retentionDays: getField(payload, 'retentionDays'),
+      });
+      return { ok: true, settings: next };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل حفظ إعدادات النسخ الاحتياطي') };
+    }
+  });
+
+  ipcMain.handle('sql:listServerBackups', async (_e, payload: unknown) => {
+    const limit = getField(payload, 'limit');
+    const n = typeof limit === 'number' ? limit : Number(limit || 60) || 60;
+    return await listServerBackups(n);
+  });
+
+  ipcMain.handle('sql:createServerBackup', async (_e, payload: unknown) => {
+    try {
+      addSqlSyncLogEntry({ direction: 'system', action: 'createServerBackup', status: 'ok', message: 'بدء رفع نسخة احتياطية إلى المخدم' });
+      const noteRaw = getField(payload, 'note');
+      const note = noteRaw ? String(noteRaw).slice(0, 200) : undefined;
+      const auto = await loadSqlBackupAutomationSettings();
+      const res = await createServerBackupOnServer({ note: note || 'manual', retentionDays: auto.retentionDays });
+      addSqlSyncLogEntry({ direction: 'system', action: 'createServerBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
+      return res;
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'فشل رفع النسخة الاحتياطية إلى المخدم');
+      addSqlSyncLogEntry({ direction: 'system', action: 'createServerBackup', status: 'error', message: msg });
+      return { ok: false, message: msg };
+    }
+  });
+
+  ipcMain.handle('sql:restoreServerBackup', async (_e, payload: unknown) => {
+    try {
+      const id = getStringField(payload, 'id').trim();
+      const mode = getStringField(payload, 'mode') === 'replace' ? 'replace' : 'merge';
+      if (!id) return { ok: false, message: 'معرف النسخة غير صالح' };
+
+      if (mode === 'replace') {
+        const confirm = await dialog.showMessageBox({
+          type: 'warning',
+          buttons: ['إلغاء', 'نعم، استعادة كاملة'],
+          defaultId: 0,
+          cancelId: 0,
+          title: 'تأكيد الاستعادة الكاملة',
+          message: 'هذه العملية ستحذف بيانات المخدم الحالية وتستبدلها بالكامل من النسخة المختارة.',
+          detail: 'استخدمها فقط عند الضرورة. هل تريد المتابعة؟',
+        });
+        if (confirm.response !== 1) return { ok: false, message: 'تم الإلغاء' };
+      }
+
+      addSqlSyncLogEntry({ direction: 'system', action: 'restoreServerBackup', status: 'ok', message: `بدء استعادة نسخة من المخدم (${mode})` });
+      const res = await restoreServerBackupFromServer(id, mode);
+      addSqlSyncLogEntry({ direction: 'system', action: 'restoreServerBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
+      return res;
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'فشل استعادة النسخة من المخدم');
+      addSqlSyncLogEntry({ direction: 'system', action: 'restoreServerBackup', status: 'error', message: msg });
+      return { ok: false, message: msg };
+    }
+  });
+
+  // Daily server backup automation (best-effort)
+  const runDailyBackupTick = async (reason: string) => {
+    try {
+      const res = await ensureDailyServerBackupIfEnabled();
+      if (!res?.ok) {
+        addSqlSyncLogEntry({ direction: 'system', action: 'dailyBackup', status: 'error', message: `${reason}: ${res?.message || 'فشل'}` });
+        return;
+      }
+      if (res?.created) addSqlSyncLogEntry({ direction: 'system', action: 'dailyBackup', status: 'ok', message: `${reason}: تم إنشاء نسخة يومية` });
+    } catch (e: unknown) {
+      addSqlSyncLogEntry({ direction: 'system', action: 'dailyBackup', status: 'error', message: `${reason}: ${toErrorMessage(e, 'فشل')}` });
+    }
+  };
+
+  setTimeout(() => void runDailyBackupTick('startup'), 10_000);
+  setInterval(() => void runDailyBackupTick('hourly'), 60 * 60 * 1000);
 
   ipcMain.handle('sql:syncNow', async () => {
     try {
@@ -1480,27 +1763,267 @@ export function registerIpcHandlers() {
         return { ok: false, message: `فشل رفع ${pushStats.errors} عملية (تعديل/حذف)` };
       }
       return { ok: true, message: 'تمت المزامنة الآن' };
-    } catch (e: any) {
-      addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'error', message: e?.message || 'فشل المزامنة الآن' });
-      return { ok: false, message: e?.message || 'فشل المزامنة الآن' };
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'فشل المزامنة الآن');
+      addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'error', message: msg });
+      return { ok: false, message: msg };
     }
   });
 
-  ipcMain.handle('sql:provision', async (_e, payload: any) => {
+  ipcMain.handle('sql:pullFullNow', async () => {
+    try {
+      addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'ok', message: 'بدء سحب كامل من المخدم' });
+      const settings = await loadSqlSettings();
+      if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
+
+      const conn = await connectAndEnsureDatabase(settings);
+      if (!conn.ok) return conn;
+
+      let pullUpserts = 0;
+      let pullDeletes = 0;
+
+      await startBackgroundPull(async (row) => {
+        const localMeta = kvGetMeta(row.k);
+        const localDeletedAt = kvGetDeletedAt(row.k);
+        const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
+
+        const remoteTs = row.updatedAt;
+        const isRemoteNewer = !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
+        if (!isRemoteNewer) return;
+
+        if (row.isDeleted) {
+          kvApplyRemoteDelete(row.k, remoteTs);
+          broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+          addSqlSyncLogEntry({ direction: 'pull', action: 'delete', key: row.k, status: 'ok', ts: remoteTs });
+          pullDeletes += 1;
+        } else {
+          kvSetWithUpdatedAt(row.k, row.v, remoteTs);
+          broadcastDbRemoteUpdate({ key: row.k, value: row.v, isDeleted: false, updatedAt: remoteTs });
+          addSqlSyncLogEntry({ direction: 'pull', action: 'upsert', key: row.k, status: 'ok', ts: remoteTs });
+          pullUpserts += 1;
+        }
+      }, { runImmediately: true, forceFullPull: true });
+
+      const msg = `تم السحب من المخدم: تعديل ${pullUpserts} / حذف ${pullDeletes}`;
+      addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'ok', message: msg });
+      return { ok: true, message: msg };
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'فشل السحب من المخدم');
+      addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'error', message: msg });
+      return { ok: false, message: msg };
+    }
+  });
+
+  ipcMain.handle('sql:mergePublishAdmin', async (_e, payload: unknown) => {
+    try {
+      addSqlSyncLogEntry({ direction: 'system', action: 'mergePublish', status: 'ok', message: 'بدء دمج ونشر (SuperAdmin) للمفاتيح المحددة' });
+      const settings = await loadSqlSettings();
+      if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
+
+      const conn = await connectAndEnsureDatabase(settings);
+      if (!conn.ok) return conn;
+
+      const requestedKeysRaw = getField(payload, 'keys');
+      const requestedKeys = Array.isArray(requestedKeysRaw) ? requestedKeysRaw : undefined;
+      const keys = (requestedKeys && requestedKeys.length > 0
+        ? requestedKeys
+        : ['db_users', 'db_user_permissions', 'db_roles', 'db_lookup_categories', 'db_lookups', 'db_legal_templates']
+      )
+        .map((k: unknown) => String(k || '').trim())
+        .filter((k: string) => k.startsWith('db_'));
+
+      if (keys.length === 0) return { ok: false, message: 'لا توجد مفاتيح للدمج' };
+
+      const safeJsonParseArray = (raw: unknown): unknown[] => {
+        if (typeof raw !== 'string') return [];
+        const s = raw.trim();
+        if (!s) return [];
+        try {
+          const parsed = JSON.parse(s);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      };
+
+      const toMaybeMs = (obj: unknown): number | null => {
+        const candidates = [
+          getField(obj, 'updatedAt'),
+          getField(obj, 'updated_at'),
+          getField(obj, 'modifiedAt'),
+          getField(obj, 'lastModifiedAt'),
+          getField(obj, 'createdAt'),
+          getField(obj, 'ts'),
+        ];
+        for (const c of candidates) {
+          const v = String(c || '').trim();
+          if (!v) continue;
+          const ms = new Date(v).getTime();
+          if (Number.isFinite(ms)) return ms;
+        }
+        return null;
+      };
+
+      const identityFor = (key: string, item: unknown): string => {
+        const k = String(key || '').trim();
+
+        // user permissions are usually rows like: { userId, permissionCode }
+        if (k === 'db_user_permissions') {
+          const userId = getStringField(item, 'userId').trim();
+          const code = getStringField(item, 'permissionCode').trim();
+          if (userId && code) return `perm:${userId}:${code}`;
+        }
+
+        // lookups might be { id, category, label }
+        if (k === 'db_lookups') {
+          const id = getStringField(item, 'id').trim();
+          if (id) return `id:${id}`;
+          const category = getStringField(item, 'category').trim();
+          const label = getStringField(item, 'label').trim();
+          if (category && label) return `lookup:${category}:${label}`;
+        }
+
+        // lookup categories might be { id, name, label }
+        if (k === 'db_lookup_categories') {
+          const id = getStringField(item, 'id').trim();
+          if (id) return `id:${id}`;
+          const name = getStringField(item, 'name').trim();
+          if (name) return `name:${name}`;
+        }
+
+        // users might be { id, اسم_المستخدم }
+        if (k === 'db_users') {
+          const id = getStringField(item, 'id').trim();
+          if (id) return `id:${id}`;
+          const u = getStringField(item, 'اسم_المستخدم').trim();
+          if (u) return `u:${u}`;
+        }
+
+        // roles/templates are generally keyed by id
+        const genericId = getStringField(item, 'id').trim();
+        if (genericId) return `id:${genericId}`;
+
+        // Last resort: keep the row by its JSON representation (prevents silent drops)
+        try {
+          const s = JSON.stringify(item);
+          if (s && s !== '{}' && s !== 'null') return `json:${s}`;
+        } catch {
+          // ignore
+        }
+        return '';
+      };
+
+      const mergeArrayByIdentity = (
+        key: string,
+        remoteArr: unknown[],
+        localArr: unknown[],
+        prefer: 'local' | 'remote'
+      ): unknown[] => {
+        const map = new Map<string, unknown>();
+        const order: string[] = [];
+
+        const put = (item: unknown, source: 'remote' | 'local') => {
+          const id = identityFor(key, item);
+          if (!id) return;
+          if (!map.has(id)) order.push(id);
+          const existing = map.get(id);
+          if (!existing) {
+            map.set(id, item);
+            return;
+          }
+
+          try {
+            if (JSON.stringify(existing) === JSON.stringify(item)) return;
+          } catch {
+            // ignore
+          }
+
+          const aMs = toMaybeMs(existing);
+          const bMs = toMaybeMs(item);
+          if (aMs !== null && bMs !== null && aMs !== bMs) {
+            map.set(id, bMs > aMs ? item : existing);
+            return;
+          }
+
+          // No per-record timestamps: choose by policy.
+          if (prefer === 'local') {
+            map.set(id, source === 'local' ? item : existing);
+          } else {
+            map.set(id, source === 'remote' ? item : existing);
+          }
+        };
+
+        for (const it of Array.isArray(remoteArr) ? remoteArr : []) put(it, 'remote');
+        for (const it of Array.isArray(localArr) ? localArr : []) put(it, 'local');
+
+        return order.map((id) => map.get(id)).filter(Boolean);
+      };
+
+      const prefer: 'local' | 'remote' = getStringField(payload, 'prefer') === 'remote' ? 'remote' : 'local';
+      const nowIso = new Date().toISOString();
+
+      let applied = 0;
+      let errors = 0;
+
+      for (const key of keys) {
+        try {
+          const remote = await getRemoteKvStoreRow(key);
+          if (!remote.ok) throw new Error(remote.message || 'فشل قراءة المخدم');
+
+          const localDeletedAt = kvGetDeletedAt(key);
+          const localRaw = kvGet(key);
+
+          const remoteIsDeleted = !!remote.row?.isDeleted;
+          const remoteRaw = remote.row?.value ?? '';
+
+          const localArr = localDeletedAt ? [] : safeJsonParseArray(localRaw);
+          const remoteArr = remoteIsDeleted ? [] : safeJsonParseArray(remoteRaw);
+
+          const mergedArr = mergeArrayByIdentity(key, remoteArr, localArr, prefer);
+          const mergedJson = JSON.stringify(mergedArr);
+
+          // Push to server with a fresh timestamp so it's always newer than any existing remote row.
+          await pushKvUpsert({ key, value: mergedJson, updatedAt: nowIso });
+          addSqlSyncLogEntry({ direction: 'push', action: 'mergeUpsert', key, status: 'ok', ts: nowIso });
+
+          // Also normalize local state to match what we just published.
+          kvSetWithUpdatedAt(key, mergedJson, nowIso);
+          broadcastDbRemoteUpdate({ key, value: mergedJson, isDeleted: false, updatedAt: nowIso });
+
+          applied += 1;
+        } catch (e: unknown) {
+          errors += 1;
+          addSqlSyncLogEntry({ direction: 'system', action: 'mergePublish', key, status: 'error', message: toErrorMessage(e, 'فشل الدمج/النشر') });
+        }
+      }
+
+      const message = errors > 0 ? `تم الدمج/النشر: ${applied} (مع أخطاء: ${errors})` : `تم الدمج/النشر بنجاح: ${applied}`;
+      addSqlSyncLogEntry({ direction: 'system', action: 'mergePublish', status: errors > 0 ? 'error' : 'ok', message });
+      return { ok: errors === 0, message, applied, errors, keys };
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'فشل الدمج/النشر');
+      addSqlSyncLogEntry({ direction: 'system', action: 'mergePublish', status: 'error', message: msg });
+      return { ok: false, message: msg };
+    }
+  });
+
+  ipcMain.handle('sql:provision', async (_e, payload: unknown) => {
     addSqlSyncLogEntry({ direction: 'system', action: 'provision', status: 'ok', message: 'بدء تهيئة المخدم' });
     try {
-      const req = {
-        server: trimString(payload?.server || '', 256, 'السيرفر'),
-        port: safePortOrDefault(payload?.port || 1433, 1433),
-        database: payload?.database ? trimString(payload.database, 128, 'قاعدة البيانات') : undefined,
-        encrypt: payload?.encrypt !== false,
-        trustServerCertificate: payload?.trustServerCertificate !== false,
-        adminUser: trimString(payload?.adminUser || '', 128, 'حساب الأدمن'),
-        adminPassword: toLimitedPassword(payload?.adminPassword, 512),
-        managerUser: trimString(payload?.managerUser || '', 128, 'حساب المدير'),
-        managerPassword: toLimitedPassword(payload?.managerPassword, 512),
-        employeeUser: trimString(payload?.employeeUser || '', 128, 'حساب الموظف'),
-        employeePassword: toLimitedPassword(payload?.employeePassword, 512),
+      type ProvisionRequest = Parameters<typeof provisionSqlServer>[0];
+      const databaseRaw = getStringField(payload, 'database').trim();
+      const req: ProvisionRequest = {
+        server: trimString(getStringField(payload, 'server'), 256, 'السيرفر'),
+        port: safePortOrDefault(getField(payload, 'port') || 1433, 1433),
+        database: databaseRaw ? trimString(databaseRaw, 128, 'قاعدة البيانات') : undefined,
+        encrypt: getField(payload, 'encrypt') !== false,
+        trustServerCertificate: getField(payload, 'trustServerCertificate') !== false,
+        adminUser: trimString(getStringField(payload, 'adminUser'), 128, 'حساب الأدمن'),
+        adminPassword: toLimitedPassword(getField(payload, 'adminPassword'), 512),
+        managerUser: trimString(getStringField(payload, 'managerUser'), 128, 'حساب المدير'),
+        managerPassword: toLimitedPassword(getField(payload, 'managerPassword'), 512),
+        employeeUser: trimString(getStringField(payload, 'employeeUser'), 128, 'حساب الموظف'),
+        employeePassword: toLimitedPassword(getField(payload, 'employeePassword'), 512),
       };
 
       if (!req.server) return { ok: false, message: 'اسم السيرفر مطلوب' };
@@ -1508,7 +2031,7 @@ export function registerIpcHandlers() {
       if (!req.managerUser || !req.managerPassword) return { ok: false, message: 'بيانات المدير مطلوبة' };
       if (!req.employeeUser || !req.employeePassword) return { ok: false, message: 'بيانات الموظف مطلوبة' };
 
-      const res = await provisionSqlServer(req as any);
+      const res = await provisionSqlServer(req);
       addSqlSyncLogEntry({ direction: 'system', action: 'provision', status: res?.ok ? 'ok' : 'error', message: res?.message });
       if (res.ok) {
         // after provisioning, connect using saved app credentials and start pull loop
@@ -1540,8 +2063,8 @@ export function registerIpcHandlers() {
         }
       }
       return res;
-    } catch (e: any) {
-      const msg = e?.message || 'بيانات التهيئة غير صالحة';
+    } catch (e: unknown) {
+      const msg = toErrorMessage(e, 'بيانات التهيئة غير صالحة');
       addSqlSyncLogEntry({ direction: 'system', action: 'provision', status: 'error', message: msg });
       return { ok: false, message: msg };
     }
@@ -1578,8 +2101,8 @@ export function registerIpcHandlers() {
         } else {
           addSqlSyncLogEntry({ direction: 'system', action: 'connect', status: 'error', message: res?.message || 'فشل الاتصال التلقائي بالمخدم' });
         }
-      } catch (e: any) {
-        addSqlSyncLogEntry({ direction: 'system', action: 'connect', status: 'error', message: e?.message || 'فشل الاتصال التلقائي بالمخدم' });
+      } catch (e: unknown) {
+        addSqlSyncLogEntry({ direction: 'system', action: 'connect', status: 'error', message: toErrorMessage(e, 'فشل الاتصال التلقائي بالمخدم') });
       }
     })();
   }, 800);
@@ -1597,8 +2120,8 @@ export function registerIpcHandlers() {
     try {
       await writeBackupSettings({ backupDir: dir });
       return { success: true, message: 'تم حفظ مجلد النسخ الاحتياطي', backupDir: dir };
-    } catch (e: any) {
-      return { success: false, message: e?.message || 'فشل حفظ مجلد النسخ الاحتياطي' };
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل حفظ مجلد النسخ الاحتياطي') };
     }
   });
 
@@ -1659,9 +2182,9 @@ export function registerIpcHandlers() {
         latestPath,
         archivePath,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       dbMaintenanceMode = false;
-      return { success: false, message: err.message };
+      return { success: false, message: toErrorMessage(err, 'فشل تصدير قاعدة البيانات') };
     }
   });
 
@@ -1702,9 +2225,9 @@ export function registerIpcHandlers() {
       await importDatabase(resolved);
       dbMaintenanceMode = false;
       return { success: true, message: 'تم الاستيراد بنجاح - أعد تشغيل التطبيق', path: resolved };
-    } catch (err: any) {
+    } catch (err: unknown) {
       dbMaintenanceMode = false;
-      return { success: false, message: err.message };
+      return { success: false, message: toErrorMessage(err, 'فشل استيراد قاعدة البيانات') };
     }
   });
 
@@ -1954,17 +2477,20 @@ export function registerIpcHandlers() {
     }
   };
 
-  ipcMain.handle('attachments:save', async (_e, payload: { referenceType: string; entityFolder: string; originalFileName: string; bytes: ArrayBuffer }) => {
+  ipcMain.handle(
+    'attachments:save',
+    async (
+      _e,
+      payload: { referenceType: string; entityFolder: string; originalFileName: string; bytes: ArrayBuffer | ArrayBufferView }
+    ) => {
     try {
       const root = await getAttachmentsRoot();
       const typeFolder = chooseTypeFolder(payload?.referenceType);
       const entityFolder = sanitizeSegment(payload?.entityFolder || 'غير_معروف');
 
-      const bytesAny: any = payload?.bytes as any;
+      const bytes = payload?.bytes;
       const byteLen: number =
-        bytesAny instanceof ArrayBuffer
-          ? bytesAny.byteLength
-          : (ArrayBuffer.isView(bytesAny) ? bytesAny.byteLength : 0);
+        bytes instanceof ArrayBuffer ? bytes.byteLength : ArrayBuffer.isView(bytes) ? bytes.byteLength : 0;
       if (!byteLen) return { success: false, message: 'المرفق غير صالح' };
       if (byteLen > MAX_ATTACHMENT_BYTES) return { success: false, message: 'حجم المرفق كبير جداً' };
 
@@ -1997,18 +2523,21 @@ export function registerIpcHandlers() {
       const absPath = path.join(dir, candidate);
       ensureInsideRoot(root, absPath);
 
-      const buf =
-        bytesAny instanceof ArrayBuffer
-          ? Buffer.from(new Uint8Array(bytesAny))
-          : Buffer.from(bytesAny);
+      const buf = (() => {
+        if (bytes instanceof ArrayBuffer) return Buffer.from(new Uint8Array(bytes));
+        if (!ArrayBuffer.isView(bytes)) return Buffer.from([]);
+        const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        return Buffer.from(u8);
+      })();
       await fsp.writeFile(absPath, buf);
 
       const relativePath = path.relative(root, absPath).split(path.sep).join('/');
       return { success: true, relativePath, filePath: absPath, storedFileName: candidate };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Failed to save attachment' };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'Failed to save attachment') };
     }
-  });
+  }
+  );
 
   ipcMain.handle('attachments:read', async (_e, relativePath: string) => {
     try {
@@ -2022,8 +2551,8 @@ export function registerIpcHandlers() {
       const mime = mimeFromExt(ext);
       const dataUri = `data:${mime};base64,${data.toString('base64')}`;
       return { success: true, dataUri };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Failed to read attachment' };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'Failed to read attachment') };
     }
   });
 
@@ -2032,8 +2561,8 @@ export function registerIpcHandlers() {
       const abs = await resolveExistingAttachmentAbsPath(relativePath);
       await fsp.unlink(abs);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Failed to delete attachment' };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'Failed to delete attachment') };
     }
   });
 
@@ -2068,8 +2597,8 @@ export function registerIpcHandlers() {
       const items = await fsp.readdir(dir);
       const docx = items.filter(x => x.toLowerCase().endsWith('.docx'));
       return { success: true, items: docx };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Failed to list templates' };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'Failed to list templates') };
     }
   });
 
@@ -2101,8 +2630,8 @@ export function registerIpcHandlers() {
       const dest = path.join(dir, uniqueName);
       await fsp.copyFile(resolved, dest);
       return { success: true, fileName: uniqueName };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Failed to import template' };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'Failed to import template') };
     }
   });
 
@@ -2194,8 +2723,8 @@ export function registerIpcHandlers() {
       const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
       const dataUri = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`;
       return { success: true, dataUri, fileName: safeName };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Failed to read template' };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'Failed to read template') };
     }
   });
 }

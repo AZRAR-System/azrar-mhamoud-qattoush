@@ -75,8 +75,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const styles = getTypeStyles();
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <Card className={`w-full max-w-md border-2 ${styles.borderColor}`}>
+    <div className="confirm-overlay fixed inset-0 bg-black/50 flex items-center justify-center p-4 animate-fade-in">
+      <Card className={`modal-content app-modal-content w-full max-w-md border-2 ${styles.borderColor}`}>
         {/* Header */}
         <div className={`${styles.headerBg} p-6 border-b border-gray-200 dark:border-slate-700 flex items-start gap-4`}>
           {styles.icon}

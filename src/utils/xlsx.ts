@@ -1,9 +1,59 @@
 import ExcelJS from 'exceljs';
 
-export type XlsxColumn<T extends Record<string, any>> = {
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+const hasStringProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, string> =>
+  typeof obj[key] === 'string';
+
+const hasUnknownProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, unknown> =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
+const toExcelCellValue = (v: unknown): ExcelJS.CellValue => {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v;
+  if (v instanceof Date) return v;
+
+  // ExcelJS supports rich values, but for stability we store objects as strings.
+  if (isRecord(v)) {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
+  }
+
+  return String(v);
+};
+
+const toCellString = (v: unknown): string => {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (v instanceof Date) return v.toISOString();
+
+  if (isRecord(v)) {
+    if (hasStringProp(v, 'text')) return v.text;
+
+    const richText = hasUnknownProp(v, 'richText') ? v.richText : undefined;
+    if (Array.isArray(richText)) {
+      return richText
+        .map((x) => (isRecord(x) && hasStringProp(x, 'text') ? x.text : ''))
+        .join('');
+    }
+
+    const formulaResult = hasUnknownProp(v, 'result') ? v.result : undefined;
+    if (formulaResult !== undefined) return String(formulaResult);
+  }
+
+  return String(v);
+};
+
+export type XlsxColumn<T extends Record<string, unknown>> = {
   key: keyof T & string;
   header: string;
 };
+
+export type ExtraSheet = { name: string; rows: unknown[][] };
 
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -16,13 +66,13 @@ export function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function exportToXlsx<T extends Record<string, any>>(
+export function exportToXlsx<T extends Record<string, unknown>>(
   sheetName: string,
   columns: Array<XlsxColumn<T>>,
   rows: T[],
   filename: string,
   options?: {
-    extraSheets?: Array<{ name: string; rows: any[][] }>;
+    extraSheets?: ExtraSheet[];
   }
 ) {
   const run = async () => {
@@ -31,7 +81,7 @@ export function exportToXlsx<T extends Record<string, any>>(
     const ws = wb.addWorksheet(sheetName);
     ws.addRow(columns.map(c => c.header));
     for (const row of rows) {
-      ws.addRow(columns.map(c => (row[c.key] ?? '') as any));
+      ws.addRow(columns.map((c) => toExcelCellValue(row[c.key] ?? '')));
     }
 
     const extraSheets = options?.extraSheets || [];
@@ -40,7 +90,7 @@ export function exportToXlsx<T extends Record<string, any>>(
       const extraWs = wb.addWorksheet(sh.name);
       for (const r of sh.rows) {
         if (!Array.isArray(r)) continue;
-        extraWs.addRow(r as any[]);
+        extraWs.addRow(r.map((cell) => toExcelCellValue(cell)));
       }
     }
 
@@ -54,7 +104,7 @@ export function exportToXlsx<T extends Record<string, any>>(
   return run();
 }
 
-export async function readXlsxFile(file: File): Promise<Array<Record<string, any>>> {
+export async function readXlsxFile(file: File): Promise<Array<Record<string, string>>> {
   const buf = await file.arrayBuffer();
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buf);
@@ -62,47 +112,31 @@ export async function readXlsxFile(file: File): Promise<Array<Record<string, any
   const ws = wb.worksheets[0];
   if (!ws) return [];
 
-  const headerValues = ws.getRow(1).values as any[];
+  const headerRow = ws.getRow(1);
   const colCount = Math.max(0, ws.actualColumnCount || 0);
   const headers: string[] = [];
   for (let i = 1; i <= colCount; i++) {
-    const raw = headerValues?.[i];
-    const h = String(raw ?? '').trim();
+    const raw = headerRow.getCell(i).value;
+    const h = toCellString(raw).trim();
     headers.push(h || `Column${i}`);
   }
 
-  const toCellString = (v: any): string => {
-    if (v === null || v === undefined) return '';
-    if (typeof v === 'string') return v;
-    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-    if (v instanceof Date) return v.toISOString();
-    if (typeof v === 'object') {
-      const maybeText = (v as any)?.text;
-      if (typeof maybeText === 'string') return maybeText;
-      const rich = (v as any)?.richText;
-      if (Array.isArray(rich)) return rich.map((x: any) => x?.text ?? '').join('');
-      const formulaResult = (v as any)?.result;
-      if (formulaResult !== undefined) return String(formulaResult);
-    }
-    return String(v);
-  };
-
-  const out: Array<Record<string, any>> = [];
+  const out: Array<Record<string, string>> = [];
   const rowCount = Math.max(0, ws.actualRowCount || 0);
   for (let r = 2; r <= rowCount; r++) {
     const row = ws.getRow(r);
-    const obj: Record<string, any> = {};
+    const obj: Record<string, string> = {};
     for (let c = 1; c <= headers.length; c++) {
       const key = headers[c - 1] || String(c);
       const cell = row.getCell(c);
-      obj[key] = toCellString((cell as any)?.value);
+      obj[key] = toCellString(cell.value);
     }
     out.push(obj);
   }
   return out;
 }
 
-export async function readCsvFile(file: File): Promise<Array<Record<string, any>>> {
+export async function readCsvFile(file: File): Promise<Array<Record<string, string>>> {
   const text = await file.text();
   const lines = text
     .replace(/^\uFEFF/, '')
@@ -138,10 +172,10 @@ export async function readCsvFile(file: File): Promise<Array<Record<string, any>
   };
 
   const headers = splitCsvLine(lines[0] ?? '').map(h => h.trim());
-  const rows: Array<Record<string, any>> = [];
+  const rows: Array<Record<string, string>> = [];
   for (const line of lines.slice(1)) {
     const cells = splitCsvLine(line);
-    const row: Record<string, any> = {};
+    const row: Record<string, string> = {};
     for (let i = 0; i < headers.length; i++) {
       row[headers[i] || String(i)] = cells[i] ?? '';
     }
@@ -150,7 +184,7 @@ export async function readCsvFile(file: File): Promise<Array<Record<string, any>
   return rows;
 }
 
-export async function readSpreadsheet(file: File): Promise<Array<Record<string, any>>> {
+export async function readSpreadsheet(file: File): Promise<Array<Record<string, string>>> {
   const name = (file.name || '').toLowerCase();
   if (name.endsWith('.xlsx')) return readXlsxFile(file);
   if (name.endsWith('.xls')) {

@@ -8,7 +8,7 @@
 
 import { DbService } from '@/services/mockDb';
 
-const isDesktopRuntime = () => typeof window !== 'undefined' && !!(window as any)?.desktopDb;
+const isDesktopRuntime = () => typeof window !== 'undefined' && !!window.desktopDb;
 
 /**
  * نتيجة التحقق من البيانات

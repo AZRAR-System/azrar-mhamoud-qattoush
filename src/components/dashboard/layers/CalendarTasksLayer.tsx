@@ -3,7 +3,7 @@
  * Calendar & Tasks Layer - Events and task management
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Calendar, Clock, CheckCircle, AlertCircle, FileText, Zap, Plus, Trash2, Edit2 } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import { DbService } from '@/services/mockDb';
@@ -13,7 +13,7 @@ import { formatDateYMD, formatMonthYear, formatNumber, formatTimeFromHM } from '
 import { parseDateOnly, daysBetweenDateOnly, toDateOnly } from '@/utils/dateOnly';
 import { useToast } from '@/context/ToastContext';
 import { storage } from '@/services/storage';
-import type { FollowUpTask, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types';
+import type { FollowUpTask, الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types';
 
 interface Task {
   id: string;
@@ -66,6 +66,11 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
   });
 
   const todayStr = formatDateYMD(new Date());
+
+  const dataRef = useRef(_data);
+  useEffect(() => {
+    dataRef.current = _data;
+  }, [_data]);
 
   const toMinutes = (hm?: string): number | null => {
     const raw = String(hm || '').trim();
@@ -128,16 +133,15 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
   const expiringContracts = useMemo(() => {
     try {
-      const highlights = isRecord((_data as any)?.desktopHighlights) ? ((_data as any).desktopHighlights as any) : null;
-      const desktopExpiring = Array.isArray(highlights?.expiringContracts) ? (highlights.expiringContracts as any[]) : [];
+      const desktopExpiring = _data.desktopHighlights?.expiringContracts ?? [];
       if (desktopExpiring.length > 0) {
         const today = toDateOnly(new Date());
         const list: Array<{ id: string; propertyCode: string; tenantName: string; endDate: string; daysUntil: number }> = [];
 
         for (const r of desktopExpiring) {
-          const contractId = String((r as any)?.contractId || '').trim();
+          const contractId = String(r?.contractId || '').trim();
           if (!contractId) continue;
-          const endIso = String((r as any)?.endDate || '').trim();
+          const endIso = String(r?.endDate || '').trim();
           const end = parseDateOnly(endIso);
           if (!end) continue;
           const daysUntil = daysBetweenDateOnly(today, end);
@@ -145,8 +149,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
           list.push({
             id: contractId,
-            propertyCode: String((r as any)?.propertyCode || '').trim() || '—',
-            tenantName: String((r as any)?.tenantName || '').trim() || '—',
+            propertyCode: String(r?.propertyCode || '').trim() || '—',
+            tenantName: String(r?.tenantName || '').trim() || '—',
             endDate: endIso,
             daysUntil,
           });
@@ -162,24 +166,24 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       for (const c of contracts) {
         if (!isTenancyRelevant(c)) continue;
 
-        const endIso = String((c as any)?.تاريخ_النهاية || '').trim();
+        const endIso = String(c?.تاريخ_النهاية || '').trim();
         const end = parseDateOnly(endIso);
         if (!end) continue;
 
         const daysUntil = daysBetweenDateOnly(today, end);
         if (daysUntil < 0 || daysUntil > 90) continue;
 
-        const contractId = String((c as any)?.رقم_العقد || '').trim();
+        const contractId = String(c?.رقم_العقد || '').trim();
         if (!contractId) continue;
 
-        const propertyId = String((c as any)?.رقم_العقار || '').trim();
-        const tenantId = String((c as any)?.رقم_المستاجر || '').trim();
+        const propertyId = String(c?.رقم_العقار || '').trim();
+        const tenantId = String(c?.رقم_المستاجر || '').trim();
 
         const property = propertyId ? propertiesById.get(propertyId) : undefined;
         const tenant = tenantId ? peopleById.get(tenantId) : undefined;
 
-        const propertyCode = String((property as any)?.الكود_الداخلي || '').trim() || '—';
-        const tenantName = String((tenant as any)?.الاسم || '').trim() || '—';
+        const propertyCode = String(property?.الكود_الداخلي || '').trim() || '—';
+        const tenantName = String(tenant?.الاسم || '').trim() || '—';
 
         list.push({
           id: contractId,
@@ -195,7 +199,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
     } catch {
       return [] as Array<{ id: string; propertyCode: string; tenantName: string; endDate: string; daysUntil: number }>;
     }
-  }, [contracts, peopleById, propertiesById]);
+  }, [contracts, peopleById, propertiesById, _data.desktopHighlights]);
 
   const resolvePersonInfo = useCallback(
     (personId?: string) => {
@@ -342,28 +346,28 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
         localStorage.removeItem('dashboard_tasks');
       }
 
-      const all = (Array.isArray(_data?.followUps) ? (_data.followUps as any[]) : []) || [];
-      const mapped: Task[] = (all || []).map((f) => {
-        const pr = String(f?.priority || 'Medium');
+      const all = dataRef.current.followUps || [];
+      const mapped: Task[] = all.map((f) => {
+        const pr = String(f.priority || 'Medium');
         const priority: Task['priority'] = pr === 'High' ? 'عالية' : pr === 'Low' ? 'منخفضة' : 'متوسطة';
-        const status: Task['status'] = String(f?.status) === 'Done' ? 'completed' : 'pending';
-        const category = String(f?.category || (f?.type === 'Task' ? 'عام' : f?.type || 'عام'));
-        const description = String(f?.note || '').trim() || undefined;
+        const status: Task['status'] = String(f.status) === 'Done' ? 'completed' : 'pending';
+        const category = String(f.category || (f.type === 'Task' ? 'عام' : f.type || 'عام'));
+        const description = String(f.note || '').trim() || undefined;
 
         return {
-          id: String(f?.id),
-          title: String(f?.task || ''),
-          dueDate: String(f?.dueDate || ''),
-          dueTime: String(f?.dueTime || '').trim() || undefined,
+          id: String(f.id),
+          title: String(f.task || ''),
+          dueDate: String(f.dueDate || ''),
+          dueTime: String(f.dueTime || '').trim() || undefined,
           priority,
           status,
           category,
           description,
-          personId: String(f?.personId || '').trim() || undefined,
-          contractId: String(f?.contractId || '').trim() || undefined,
-          propertyId: String(f?.propertyId || '').trim() || undefined,
-          clientName: String(f?.clientName || '').trim() || undefined,
-          phone: String(f?.phone || '').trim() || undefined,
+          personId: String(f.personId || '').trim() || undefined,
+          contractId: String(f.contractId || '').trim() || undefined,
+          propertyId: String(f.propertyId || '').trim() || undefined,
+          clientName: String(f.clientName || '').trim() || undefined,
+          phone: String(f.phone || '').trim() || undefined,
         };
       });
       setTasks(mapped);
@@ -489,13 +493,13 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
   // ✅ Important dates from real data
   const getImportantDates = () => {
     try {
-      const highlights = isRecord((_data as any)?.desktopHighlights) ? ((_data as any).desktopHighlights as any) : null;
+      const highlights = _data.desktopHighlights;
 
-      const contracts = (Array.isArray(_data?.contracts) ? (_data.contracts as unknown as العقود_tbl[]) : []) || [];
-      const followUps = ((Array.isArray(_data?.followUps) ? _data.followUps : []) || []) as FollowUpTask[];
-      const installments = (Array.isArray(_data?.installments) ? (_data.installments as unknown as الكمبيالات_tbl[]) : []) || [];
-      const properties = (Array.isArray(_data?.properties) ? (_data.properties as unknown as العقارات_tbl[]) : []) || [];
-      const people = (Array.isArray(_data?.people) ? (_data.people as unknown as الأشخاص_tbl[]) : []) || [];
+      const contracts = _data.contracts;
+      const followUps = _data.followUps;
+      const installments = _data.installments;
+      const properties = _data.properties;
+      const people = _data.people;
 
       const dates: { date: string; events: string[] }[] = [];
       const today = new Date();
@@ -513,10 +517,10 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       });
 
       // Installments due today
-      const desktopDue = Array.isArray(highlights?.dueInstallmentsToday) ? (highlights.dueInstallmentsToday as any[]) : [];
+      const desktopDue = highlights?.dueInstallmentsToday ?? [];
       if (desktopDue.length > 0) {
         desktopDue.slice(0, 5).forEach((r) => {
-          const tenantName = String((r as any)?.tenantName || '').trim() || 'مستأجر';
+          const tenantName = String(r?.tenantName || '').trim() || 'مستأجر';
           todayEvents.push(`موعد دفع - ${tenantName}`);
         });
       } else {
@@ -554,13 +558,13 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       }
 
       // Contracts expiring soon
-      const desktopExpiring = Array.isArray(highlights?.expiringContracts) ? (highlights.expiringContracts as any[]) : [];
+      const desktopExpiring = highlights?.expiringContracts ?? [];
       if (desktopExpiring.length > 0) {
         desktopExpiring.slice(0, 2).forEach((r) => {
-          const endIso = String((r as any)?.endDate || '').trim();
+          const endIso = String(r?.endDate || '').trim();
           const endDate = new Date(endIso);
           const dateStr = Number.isFinite(endDate.getTime()) ? formatDateYMD(endDate) : endIso || '—';
-          const propertyCode = String((r as any)?.propertyCode || '').trim() || 'عقار';
+          const propertyCode = String(r?.propertyCode || '').trim() || 'عقار';
 
           const existingDate = dates.find((d) => d.date === dateStr);
           if (existingDate) {
@@ -601,8 +605,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
   const weeklyEventsCount = importantDates.reduce((sum, d) => sum + d.events.length, 0);
   const expiringSoonCount = (() => {
     try {
-      const highlights = isRecord((_data as any)?.desktopHighlights) ? ((_data as any).desktopHighlights as any) : null;
-      const desktopExpiring = Array.isArray(highlights?.expiringContracts) ? (highlights.expiringContracts as any[]) : [];
+      const desktopExpiring = _data.desktopHighlights?.expiringContracts ?? [];
       if (desktopExpiring.length > 0) return desktopExpiring.length;
       const today = new Date();
       return (contracts || []).filter((c) => {
@@ -656,7 +659,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       {/* Mini Calendar and Important Dates */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Mini Calendar */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-slate-700 dark:text-slate-300">
               {formatMonthYear(selectedDate)}
@@ -717,7 +720,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
         </div>
 
         {/* Important Dates */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="lg:col-span-2 app-card p-6">
           <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
             <Calendar className="text-indigo-500" />
             التواريخ المهمة
@@ -761,7 +764,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       </div>
 
       {/* Tasks by Priority */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
             <Zap className="text-yellow-500" />
@@ -924,7 +927,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       </div>
 
       {/* Contract Renewal Schedule */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
           <FileText className="text-green-500" />
           جدول تجديد العقود
@@ -965,8 +968,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
       {/* Add/Edit Task Modal */}
       {(showAddModal || editingTask) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="modal-overlay app-modal-overlay bg-black/50">
+          <div className="modal-content app-modal-content max-w-md w-full max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-6 border-b border-indigo-400">
               <h2 className="text-xl font-bold">

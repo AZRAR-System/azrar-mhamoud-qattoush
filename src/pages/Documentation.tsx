@@ -1,6 +1,6 @@
 ﻿
 import React from 'react';
-import { Printer, BookOpen, Code, Layers, Database, Shield, Server, FileText } from 'lucide-react';
+import { Printer, BookOpen, Code, Layers, Database, Server } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 
@@ -27,7 +27,7 @@ export const Documentation: React.FC = () => {
       </div>
 
       {/* Document Content (Printable) */}
-      <div className="bg-white dark:bg-slate-800 p-12 rounded-3xl shadow-sm border border-gray-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 print:shadow-none print:border-none print:p-0 print:text-black">
+      <div className="app-card p-12 rounded-3xl text-slate-800 dark:text-slate-200 print:shadow-none print:border-none print:p-0 print:text-black">
         
         {/* Doc Header */}
         <div className="border-b-2 border-gray-100 dark:border-slate-700 pb-8 mb-8 text-center print:border-black">

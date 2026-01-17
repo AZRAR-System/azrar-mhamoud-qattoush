@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
-import { FileText, Calendar, User, Home, DollarSign, CheckCircle, Clock, AlertTriangle, XCircle, Shield, History, Link, Ban, Printer, ListTodo } from 'lucide-react';
+import { FileText, Calendar, User, Home, DollarSign, CheckCircle, Clock, AlertTriangle, Shield, History, Link, Ban, Printer, ListTodo } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
@@ -19,10 +19,13 @@ import { formatCurrencyJOD } from '@/utils/format';
 import { getRentalTier } from '@/utils/employeeCommission';
 import { normalizeDigitsToLatin } from '@/utils/numberInput';
 import { storage } from '@/services/storage';
-import { contractDetailsSmart } from '@/services/domainQueries';
+import { contractDetailsSmart, domainGetSmart } from '@/services/domainQueries';
+import type { ContractDetailsResult, FollowUpTask, العمولات_tbl, الكمبيالات_tbl } from '@/types';
+
+const EMPTY_INSTALLMENTS: الكمبيالات_tbl[] = [];
 
 export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id, onClose }) => {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ContractDetailsResult | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'timeline'>('details');
     const [isGeneratingWord, setIsGeneratingWord] = useState(false);
     const [isImportingTemplate, setIsImportingTemplate] = useState(false);
@@ -32,8 +35,16 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         const dialogs = useAppDialogs();
     const dbSignal = useDbSignal();
 
-        const isDesktop = storage.isDesktop() && !!(window as any)?.desktopDb;
-        const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainContractDetails;
+        const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+        const getErrorMessage = (e: unknown): string => {
+            const rec = toRecord(e);
+            const msg = rec['message'];
+            return typeof msg === 'string' ? msg : '';
+        };
+
+        const wnd = window as unknown as { desktopDb?: { domainContractDetails?: unknown } };
+        const isDesktop = storage.isDesktop() && !!wnd.desktopDb;
+        const isDesktopFast = isDesktop && !!wnd.desktopDb?.domainContractDetails;
         const desktopUnsupported = isDesktop && !isDesktopFast;
 
     const todayYMD = useMemo(() => {
@@ -44,6 +55,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     useEffect(() => {
         let alive = true;
         void (async () => {
+            void dbSignal;
             if (desktopUnsupported) {
                 if (!alive) return;
                 setLoadError('هذه الشاشة تحتاج وضع السرعة/SQL في نسخة الديسكتوب');
@@ -80,19 +92,21 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
   // IMPORTANT: Hooks must run on every render in the same order.
   // Keep derived memoized values above any conditional early returns.
-  const installments = (data?.installments || []) as any[];
+        const installments = data?.installments ?? EMPTY_INSTALLMENTS;
 
-    const contractCommission = useMemo(() => {
+        const contractCommission = useMemo<العمولات_tbl | undefined>(() => {
+        void dbSignal;
         if (isDesktop) return undefined;
-        return DbService.getCommissions().find((x: any) => x.رقم_العقد === id) as any | undefined;
+                return DbService.getCommissions().find((x) => x.رقم_العقد === id);
     }, [id, dbSignal, isDesktop]);
 
   const dealSummary = useMemo(() => {
-      const list = (installments || []) as any[];
-      const relevant = list.filter(i => i.نوع_الكمبيالة !== 'تأمين');
-      const deposit = list.find(i => i.نوع_الكمبيالة === 'تأمين');
+            void id;
+            const list = installments;
+            const relevant = list.filter((i) => i.نوع_الكمبيالة !== 'تأمين');
+            const deposit = list.find((i) => i.نوع_الكمبيالة === 'تأمين');
 
-      const calcPaidRemaining = (inst: any) => {
+            const calcPaidRemaining = (inst: الكمبيالات_tbl) => {
           const total = Math.max(0, Number(inst?.القيمة ?? 0) || 0);
           const status = String(inst?.حالة_الكمبيالة ?? '').trim();
           if (status === 'مدفوع') return { paid: total, remaining: 0 };
@@ -104,7 +118,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
               return { paid, remaining };
           }
 
-          const paidFromHistory = inst?.سجل_الدفعات?.reduce((sum: number, p: any) => sum + (p?.المبلغ > 0 ? p.المبلغ : 0), 0) ?? 0;
+          const paidFromHistory = inst?.سجل_الدفعات?.reduce((sum, p) => sum + (p?.المبلغ > 0 ? p.المبلغ : 0), 0) ?? 0;
           const paid = Math.max(0, Math.min(total, paidFromHistory));
           const remaining = Math.max(0, total - paid);
           return { paid, remaining };
@@ -139,18 +153,19 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
     const contractCommissionMonthKey = useMemo(() => {
         if (!contractCommission) return '';
-        const paidMonth = String((contractCommission as any)?.شهر_دفع_العمولة || '').trim();
+        const paidMonth = String(contractCommission.شهر_دفع_العمولة || '').trim();
         if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth;
-        const commissionDate = String((contractCommission as any)?.تاريخ_العقد || '').trim();
+        const commissionDate = String(contractCommission.تاريخ_العقد || '').trim();
         if (/^\d{4}-\d{2}/.test(commissionDate)) return commissionDate.slice(0, 7);
         return '';
     }, [contractCommission]);
 
     const monthRentalOfficeTotal = useMemo(() => {
+        void dbSignal;
         if (!contractCommissionMonthKey) return 0;
         if (isDesktop) return 0;
         const all = DbService.getCommissions();
-        return all.reduce((sum: number, r: any) => {
+        return all.reduce((sum, r) => {
             const paidMonth = String(r?.شهر_دفع_العمولة || '').trim();
             const mk = /^\d{4}-\d{2}$/.test(paidMonth)
                 ? paidMonth
@@ -186,7 +201,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
   const { contract: c, property, tenant } = data;
 
-  const depositInst = (installments || []).find((i: any) => i.نوع_الكمبيالة === 'تأمين');
+    const depositInst = installments.find((i) => i.نوع_الكمبيالة === 'تأمين');
 
     const reload = () => {
         if (desktopUnsupported) return;
@@ -203,15 +218,19 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
     const ensureCommissionRecord = () => {
         if (isDesktop) return undefined;
-        const existing = DbService.getCommissions().find((x: any) => x.رقم_العقد === id);
+        const existing = DbService.getCommissions().find((x) => x.رقم_العقد === id);
         if (existing) return existing;
 
-        const res = (DbService as any).upsertCommissionForContract?.(String(id), {
+        const dbExt = DbService as unknown as Partial<{
+            upsertCommissionForContract: (contractId: string, payload: { commOwner: number; commTenant: number }) => unknown;
+        }>;
+
+        const res = dbExt.upsertCommissionForContract?.(String(id), {
             commOwner: Number(dealSummary.commissionOwner || 0),
             commTenant: Number(dealSummary.commissionTenant || 0),
         });
-        if (res && res.success === false) return undefined;
-        return DbService.getCommissions().find((x: any) => x.رقم_العقد === id);
+        if (res !== undefined && toRecord(res)['success'] === false) return undefined;
+        return DbService.getCommissions().find((x) => x.رقم_العقد === id);
     };
 
     const handleSetOpportunityNumber = async () => {
@@ -236,7 +255,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         if (!value) return;
 
         const normalized = normalizeDigitsToLatin(String(value).trim());
-        const res = DbService.updateCommission(String(rec.رقم_العمولة), { رقم_الفرصة: normalized } as any);
+        const res = DbService.updateCommission(String(rec.رقم_العمولة), { رقم_الفرصة: normalized });
         if (res.success) {
             toast.success('تم حفظ رقم الفرصة');
             reload();
@@ -256,7 +275,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             return;
         }
 
-        const res = DbService.updateCommission(String(rec.رقم_العمولة), { يوجد_ادخال_عقار: enabled } as any);
+        const res = DbService.updateCommission(String(rec.رقم_العمولة), { يوجد_ادخال_عقار: enabled });
         if (res.success) {
             toast.success('تم تحديث عمولة إدخال العقار');
             reload();
@@ -269,7 +288,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         const contractId = String(c?.رقم_العقد ?? id).trim();
         if (!contractId) return;
 
-        const tenantPersonId = (tenant as any)?.رقم_الشخص ? String((tenant as any).رقم_الشخص) : undefined;
+        const tenantPersonId = tenant?.رقم_الشخص ? String(tenant.رقم_الشخص) : undefined;
         const contractNo = formatContractNumberShort(contractId);
         const defaultTitle = `متابعة عقد ${contractNo}`;
 
@@ -299,10 +318,10 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         });
         if (note === null) return;
 
-        DbService.addFollowUp({
+        const followUp: Omit<FollowUpTask, 'id' | 'status'> = {
             task: title,
-            clientName: String((tenant as any)?.الاسم || '').trim() || undefined,
-            phone: String((tenant as any)?.رقم_الهاتف || '').trim() || undefined,
+            clientName: String(tenant?.الاسم || '').trim() || undefined,
+            phone: String(tenant?.رقم_الهاتف || '').trim() || undefined,
             type: 'Task',
             dueDate,
             priority: 'Medium',
@@ -310,7 +329,9 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             personId: tenantPersonId,
             propertyId: String(property?.رقم_العقار || '').trim() || undefined,
             note: String(note || '').trim() || undefined,
-        } as any);
+        };
+
+        DbService.addFollowUp(followUp);
 
         dialogs.toast.success('تم حفظ التذكير');
         openPanel('CALENDAR_EVENTS', dueDate, { title: 'مهام اليوم' });
@@ -423,8 +444,8 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 DbService.saveSettings({ ...current, contractWordTemplateName: res.data });
             }
             toast.success('تم استيراد قالب Word بنجاح');
-        } catch (e: any) {
-            toast.error(e?.message || 'فشل استيراد القالب');
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e) || 'فشل استيراد القالب');
         } finally {
             setIsImportingTemplate(false);
         }
@@ -438,7 +459,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 return;
             }
 
-            const details = isDesktopFast ? await contractDetailsSmart(id) : DbService.getContractDetails(id);
+            const details: ContractDetailsResult | null = isDesktopFast ? await contractDetailsSmart(id) : (DbService.getContractDetails(id) || null);
             if (!details?.contract) {
                 toast.error('تعذر تحميل بيانات العقد');
                 return;
@@ -474,12 +495,13 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             const t0 = details.tenant;
             const today = new Date().toISOString().slice(0, 10);
 
-            const owner = p0?.رقم_المالك
-                ? (DbService.getPeople?.() || []).find((x: any) => String(x?.رقم_الشخص) === String(p0.رقم_المالك))
+            const ownerId = String(p0?.رقم_المالك || '').trim();
+            const owner = ownerId
+                ? (isDesktopFast ? await domainGetSmart('people', ownerId) : (DbService.getPeople?.() || []).find((x) => String(x?.رقم_الشخص) === ownerId) || null)
                 : null;
 
-            const installments = (details?.installments || []) as any[];
-            const rentInstallments = installments.filter(i => String(i?.نوع_الكمبيالة) !== 'تأمين' && String(i?.نوع_الكمبيالة) !== 'فرق أيام');
+            const installments0: الكمبيالات_tbl[] = details?.installments ?? [];
+            const rentInstallments = installments0.filter((i) => String(i?.نوع_الكمبيالة) !== 'تأمين' && String(i?.نوع_الكمبيالة) !== 'فرق أيام');
             const rentBillsCount = rentInstallments.length;
 
             const mostCommonRentValue = (() => {
@@ -514,16 +536,18 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 }
             })();
 
-            const depositInst = installments.find(i => String(i?.نوع_الكمبيالة) === 'تأمين');
-            const depositDueDate = String(depositInst?.تاريخ_استحقاق || '') || undefined;
+            const depositInst0 = installments0.find((i) => String(i?.نوع_الكمبيالة) === 'تأمين');
+            const depositDueDate = String(depositInst0?.تاريخ_استحقاق || '') || undefined;
+
+            const tenantRec = toRecord(t0);
 
             const filled = fillContractMaskedDocxTemplate(tpl.data, {
                 ownerName: owner?.الاسم || settings?.companyName,
                 ownerNationalId: owner?.الرقم_الوطني,
                 tenantName: t0?.الاسم,
-                tenantNationalId: (t0 as any)?.الرقم_الوطني || (t0 as any)?.رقم_الهوية,
+                tenantNationalId: t0?.الرقم_الوطني || (typeof tenantRec['رقم_الهوية'] === 'string' ? tenantRec['رقم_الهوية'] : undefined),
                 propertyType: p0?.النوع,
-                propertyDescriptor: (p0 as any)?.الصفة || (p0 as any)?.نوع_التاثيث,
+                propertyDescriptor: p0?.الصفة || p0?.نوع_التاثيث,
                 region: p0?.المنطقة || p0?.المدينة,
                 plotNo: p0?.رقم_قطعة,
                 plateNo: p0?.رقم_لوحة,
@@ -563,8 +587,8 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
             toast.success('تم إنشاء عقد Word وحفظه ضمن مرفقات العقد');
             reload();
-        } catch (e: any) {
-            toast.error(e?.message || 'حدث خطأ أثناء توليد عقد Word');
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e) || 'حدث خطأ أثناء توليد عقد Word');
         } finally {
             setIsGeneratingWord(false);
         }
@@ -643,7 +667,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {(installments || []).map((inst: any) => (
+                            {installments.map((inst) => (
                                 <tr key={inst.رقم_الكمبيالة}>
                                     <td className="p-3 font-mono">{inst.ترتيب_الكمبيالة}</td>
                                     <td className="p-3">{inst.تاريخ_استحقاق}</td>
@@ -659,7 +683,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
             <div className="space-y-6 print:hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-200 dark:border-slate-700 relative overflow-hidden">
+        <div className="app-card p-6">
          {c.isArchived && <div className="absolute top-0 right-0 bg-slate-200 text-slate-600 px-3 py-1 text-xs font-bold rounded-bl-xl">أرشيف</div>}
          
          <div className="flex justify-between items-start mb-4">
@@ -764,10 +788,10 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             {/* Attachments */}
             <AttachmentManager referenceType="Contract" referenceId={id} />
 
-                        <DynamicFieldsDisplay formId="contracts" values={(c as any).حقول_ديناميكية} />
+                        <DynamicFieldsDisplay formId="contracts" values={c.حقول_ديناميكية} />
 
             {/* Opportunity Number */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+            <div className="app-card overflow-hidden">
                 <div className="p-4 bg-gray-50 dark:bg-slate-900/30 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-3">
                     <div>
                         <h4 className="font-bold text-sm flex items-center gap-2"><ListTodo size={16} className="text-indigo-600"/> رقم الفرصة</h4>
@@ -777,13 +801,13 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 </div>
                 <div className="p-4">
                     <div className="text-2xl font-black tracking-wide dir-ltr text-slate-900 dark:text-white">
-                        {String((contractCommission as any)?.رقم_الفرصة || '').trim() || '—'}
+                        {String(contractCommission?.رقم_الفرصة || '').trim() || '—'}
                     </div>
                 </div>
             </div>
 
             {/* Deal Summary */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+            <div className="app-card overflow-hidden">
                 <div className="p-4 bg-gray-50 dark:bg-slate-900/30 border-b border-gray-100 dark:border-slate-700">
                     <h4 className="font-bold text-sm flex items-center gap-2"><DollarSign size={16} className="text-emerald-600"/> ملخص الصفقة</h4>
                 </div>
@@ -823,7 +847,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
             {/* Employee Commission Breakdown */}
             {(() => {
-                const introEnabled = !!(contractCommission as any)?.يوجد_ادخال_عقار;
+                const introEnabled = !!contractCommission?.يوجد_ادخال_عقار;
 
                 // ✅ الشريحة تُحسب على إجمالي عمولات الإيجار للشهر (تاريخ/شهر العمولة)
                 const tier = getRentalTier(monthRentalOfficeTotal);
@@ -831,6 +855,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                     if (tier.tierId === '500-999') return '500 - 999 (10%)';
                     if (tier.tierId === '1000-1999') return '1000 - 1999 (15%)';
                     if (tier.tierId === '2000-2999') return '2000 - 2999 (20%)';
+                    if (tier.tierId === '3000-3999') return '3000 - 3999 (25%)';
                     return 'خارج الشرائح';
                 })();
 
@@ -841,7 +866,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 const employeeFinal = employeeBase + introEarned;
 
                 return (
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+                    <div className="app-card overflow-hidden">
                         <div className="p-4 bg-gray-50 dark:bg-slate-900/30 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-3">
                             <div>
                                 <h4 className="font-bold text-sm flex items-center gap-2"><DollarSign size={16} className="text-emerald-600"/> عمولة الموظف (تفصيل)</h4>
@@ -898,19 +923,19 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             {/* Relations */}
             <div className="grid grid-cols-2 gap-4">
                 <div onClick={() => openPanel('PROPERTY_DETAILS', property?.رقم_العقار)}
-                    className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 cursor-pointer hover:border-indigo-300 transition">
+                    className="app-card p-4 rounded-xl cursor-pointer hover:border-indigo-300 transition border-gray-100 dark:border-slate-700">
                     <p className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Home size={12}/> العقار</p>
                     <p className="font-bold text-sm text-slate-800 dark:text-white whitespace-normal break-words">{property?.الكود_الداخلي}</p>
                 </div>
                 <div onClick={() => openPanel('PERSON_DETAILS', tenant?.رقم_الشخص)}
-                    className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 cursor-pointer hover:border-indigo-300 transition">
+                    className="app-card p-4 rounded-xl cursor-pointer hover:border-indigo-300 transition border-gray-100 dark:border-slate-700">
                     <p className="text-xs text-slate-400 mb-1 flex items-center gap-1"><User size={12}/> المستأجر</p>
                     <p className="font-bold text-sm text-slate-800 dark:text-white whitespace-normal break-words">{tenant?.الاسم}</p>
                 </div>
             </div>
 
             {/* Installments */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+            <div className="app-card overflow-hidden">
                 <div className="p-4 bg-gray-50 dark:bg-slate-900/30 border-b border-gray-100 dark:border-slate-700">
                     <h4 className="font-bold text-sm flex items-center gap-2"><DollarSign size={16} className="text-green-500"/> جدول الدفعات</h4>
                 </div>
@@ -926,7 +951,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                        {installments.map((inst: any) => (
+                        {installments.map((inst) => (
                             <tr key={inst.رقم_الكمبيالة} className={inst.نوع_الكمبيالة === 'تأمين' ? 'bg-purple-50 dark:bg-purple-900/10' : ''}>
                                 <td className="p-3 font-mono">{inst.ترتيب_الكمبيالة}</td>
                                 <td className="p-3">{inst.تاريخ_استحقاق}</td>
@@ -950,9 +975,13 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                                                 });
                                                 if (!value) return;
 
-                                                const res = (DbService as any).postponeInstallmentCollection?.(String(inst.رقم_الكمبيالة), value);
-                                                if (res && res.success === false) {
-                                                    dialogs.toast.error(res.message || 'تعذر تأجيل التحصيل');
+                                                const dbExt = DbService as unknown as Partial<{
+                                                    postponeInstallmentCollection: (installmentId: string, newDueDate: string) => unknown;
+                                                }>;
+
+                                                const res = dbExt.postponeInstallmentCollection?.(String(inst.رقم_الكمبيالة), value);
+                                                if (res !== undefined && toRecord(res)['success'] === false) {
+                                                    dialogs.toast.error(String(toRecord(res)['message'] || '') || 'تعذر تأجيل التحصيل');
                                                     return;
                                                 }
 

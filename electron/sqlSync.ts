@@ -3,6 +3,7 @@ import path from 'node:path';
 import fsp from 'node:fs/promises';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
@@ -49,6 +50,7 @@ type SqlStatus = {
 const SETTINGS_FILE = 'sql-settings.json';
 const STATE_FILE = 'sql-state.json';
 const DEVICE_ID_FILE = 'device-id.txt';
+const BACKUP_AUTOMATION_FILE = 'sql-backup-automation.json';
 
 let pool: sql.ConnectionPool | null = null;
 let poolKey: string | null = null;
@@ -65,6 +67,20 @@ let ignoreNextLocalWrites = 0;
 
 const ATTACHMENTS_KV_KEY = 'db_attachments';
 const ATTACHMENT_UPLOAD_MAX_BYTES = 50 * 1024 * 1024; // 50MB
+
+export type SqlBackupAutomationSettings = {
+  enabled: boolean;
+  retentionDays: number;
+};
+
+export type ServerBackupListItem = {
+  id: string;
+  createdAt: string;
+  createdBy?: string;
+  rowCount?: number;
+  payloadBytes?: number;
+  note?: string;
+};
 
 function normalizeRelPath(relRaw: string): string {
   let raw = String(relRaw || '').trim();
@@ -143,6 +159,92 @@ async function ensureAttachmentFilesTable(p: sql.ConnectionPool): Promise<void> 
     );
 }
 
+async function ensureServerBackupsTable(p: sql.ConnectionPool): Promise<void> {
+  await p
+    .request()
+    .query(
+      `IF OBJECT_ID('dbo.ServerBackups', 'U') IS NULL
+       BEGIN
+         CREATE TABLE dbo.ServerBackups (
+           [id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_ServerBackups PRIMARY KEY,
+           [createdAt] DATETIME2(3) NOT NULL,
+           [createdBy] NVARCHAR(80) NULL,
+           [kind] NVARCHAR(40) NOT NULL,
+           [version] INT NOT NULL,
+           [encoding] NVARCHAR(20) NOT NULL,
+           [payload] VARBINARY(MAX) NOT NULL,
+           [payloadBytes] INT NOT NULL,
+           [payloadSha256] CHAR(64) NULL,
+           [rowCount] INT NULL,
+           [note] NVARCHAR(200) NULL
+         );
+       END
+
+       IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ServerBackups_createdAt' AND object_id = OBJECT_ID('dbo.ServerBackups'))
+       BEGIN
+         CREATE INDEX IX_ServerBackups_createdAt ON dbo.ServerBackups(createdAt);
+       END`
+    );
+}
+
+async function ensureKvImportStagingTable(p: sql.ConnectionPool): Promise<void> {
+  await p
+    .request()
+    .query(
+      `IF OBJECT_ID('dbo.KvImportStaging', 'U') IS NULL
+       BEGIN
+         CREATE TABLE dbo.KvImportStaging (
+           [batchId] UNIQUEIDENTIFIER NOT NULL,
+           [k] NVARCHAR(300) NOT NULL,
+           [v] NVARCHAR(MAX) NOT NULL,
+           [updatedAt] DATETIME2(3) NOT NULL,
+           [updatedBy] NVARCHAR(80) NULL,
+           [isDeleted] BIT NOT NULL,
+           CONSTRAINT PK_KvImportStaging PRIMARY KEY CLUSTERED ([batchId], [k])
+         );
+       END
+
+       IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KvImportStaging_batchId' AND object_id = OBJECT_ID('dbo.KvImportStaging'))
+       BEGIN
+         CREATE INDEX IX_KvImportStaging_batchId ON dbo.KvImportStaging(batchId);
+       END`
+    );
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+const asString = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+};
+
+const getRecordProp = (obj: unknown, key: string): unknown => (isRecord(obj) ? obj[key] : undefined);
+
+const toDate = (value: unknown): Date =>
+  new Date(value instanceof Date ? value : typeof value === 'string' || typeof value === 'number' ? value : String(value));
+
+function formatSqlErrorMessage(e: unknown, fallback: string): string {
+  const msg1 = getRecordProp(e, 'message');
+  if (msg1) return asString(msg1) || fallback;
+
+  const originalError = getRecordProp(e, 'originalError');
+  const msg2 = getRecordProp(originalError, 'message');
+  if (msg2) return asString(msg2) || fallback;
+
+  const info = getRecordProp(originalError, 'info');
+  const msg3 = getRecordProp(info, 'message');
+  if (msg3) return asString(msg3) || fallback;
+
+  try {
+    const s = String(e);
+    if (s && s !== '[object Object]') return s;
+  } catch {
+    // ignore
+  }
+  return fallback;
+}
+
 type AttachmentLike = {
   filePath?: string;
   fileType?: string;
@@ -202,7 +304,7 @@ async function uploadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw: s
 
   const deviceId = await getOrCreateDeviceId();
   const req = p.request();
-  (req as any).timeout = 60000;
+  (req as unknown as { timeout?: number }).timeout = 60000;
   await req
     .input('path', sql.NVarChar(700), relPath)
     .input('bytes', sql.VarBinary(sql.MAX), buf)
@@ -303,6 +405,346 @@ function getDeviceIdPath(): string {
   return path.join(app.getPath('userData'), DEVICE_ID_FILE);
 }
 
+function getBackupAutomationPath(): string {
+  return path.join(app.getPath('userData'), BACKUP_AUTOMATION_FILE);
+}
+
+function normalizeRetentionDays(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 30;
+  const i = Math.floor(n);
+  return Math.min(3650, Math.max(1, i));
+}
+
+export async function loadSqlBackupAutomationSettings(): Promise<SqlBackupAutomationSettings> {
+  const stored = await readJsonFile<Partial<SqlBackupAutomationSettings>>(getBackupAutomationPath(), {
+    enabled: true,
+    retentionDays: 30,
+  });
+  return {
+    enabled: stored.enabled !== false,
+    retentionDays: normalizeRetentionDays(getRecordProp(stored, 'retentionDays') ?? 30),
+  };
+}
+
+export async function saveSqlBackupAutomationSettings(next: Partial<SqlBackupAutomationSettings>): Promise<SqlBackupAutomationSettings> {
+  const prev = await loadSqlBackupAutomationSettings();
+  const merged: SqlBackupAutomationSettings = {
+    enabled: typeof next.enabled === 'boolean' ? next.enabled : prev.enabled,
+    retentionDays: normalizeRetentionDays(getRecordProp(next, 'retentionDays') ?? prev.retentionDays),
+  };
+  await writeJsonFile(getBackupAutomationPath(), merged);
+  return merged;
+}
+
+async function pruneServerBackups(p: sql.ConnectionPool, retentionDays: number): Promise<number> {
+  const days = normalizeRetentionDays(retentionDays);
+  const res = await p
+    .request()
+    .input('days', sql.Int, days)
+    .query(
+      `DELETE FROM dbo.ServerBackups
+       WHERE createdAt < DATEADD(day, -@days, SYSUTCDATETIME());
+       SELECT @@ROWCOUNT AS deleted;`
+    );
+  return Number((res.recordset || [])[0]?.deleted ?? 0) || 0;
+}
+
+export async function listServerBackups(limit = 60): Promise<{ ok: boolean; items: ServerBackupListItem[]; message?: string }> {
+  try {
+    const settings = await loadSqlSettings();
+    if (!settings.enabled) return { ok: false, items: [], message: 'المزامنة غير مفعلة' };
+
+    const ensured = await connectAndEnsureDatabase(settings);
+    if (!ensured.ok) return { ok: false, items: [], message: ensured.message || 'فشل الاتصال/التجهيز' };
+
+    const p = await ensureConnected(settings);
+    await ensureServerBackupsTable(p);
+
+    const top = Math.min(500, Math.max(1, Math.floor(Number(limit) || 60)));
+    const res = await p
+      .request()
+      .input('top', sql.Int, top)
+      .query(
+        `SELECT TOP (@top)
+           CONVERT(VARCHAR(36), [id]) AS [id],
+           [createdAt],
+           [createdBy],
+           [rowCount],
+           [payloadBytes],
+           [note]
+         FROM dbo.ServerBackups
+         ORDER BY createdAt DESC;`
+      );
+
+    const recordset = (res.recordset || []) as unknown[];
+    const items = recordset
+      .map((r: unknown) => {
+        const id = String(getRecordProp(r, 'id') ?? '');
+        const createdAt = toDate(getRecordProp(r, 'createdAt')).toISOString();
+        const createdByRaw = getRecordProp(r, 'createdBy');
+        const rowCountRaw = getRecordProp(r, 'rowCount');
+        const payloadBytesRaw = getRecordProp(r, 'payloadBytes');
+        const noteRaw = getRecordProp(r, 'note');
+        return {
+          id,
+          createdAt,
+          createdBy: createdByRaw ? String(createdByRaw) : undefined,
+          rowCount: typeof rowCountRaw === 'number' ? rowCountRaw : Number((rowCountRaw ?? 0) as unknown) || undefined,
+          payloadBytes: typeof payloadBytesRaw === 'number' ? payloadBytesRaw : Number((payloadBytesRaw ?? 0) as unknown) || undefined,
+          note: noteRaw ? String(noteRaw) : undefined,
+        } satisfies ServerBackupListItem;
+      })
+      .filter(it => !!it.id);
+
+    return { ok: true, items };
+  } catch (e: unknown) {
+    return { ok: false, items: [], message: formatSqlErrorMessage(e, 'فشل قراءة النسخ الاحتياطية من المخدم') };
+  }
+}
+
+export async function createServerBackupOnServer(opts?: {
+  note?: string;
+  retentionDays?: number;
+}): Promise<{ ok: boolean; message: string; item?: ServerBackupListItem; deletedOld?: number }> {
+  try {
+    const settings = await loadSqlSettings();
+    if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
+
+    const ensured = await connectAndEnsureDatabase(settings);
+    if (!ensured.ok) return { ok: false, message: ensured.message || 'فشل الاتصال/التجهيز' };
+
+    const p = await ensureConnected(settings);
+    await ensureServerBackupsTable(p);
+
+    const result = await p
+      .request()
+      .query(
+        `SELECT k, v, updatedAt, updatedBy, isDeleted
+         FROM dbo.KvStore
+         ORDER BY updatedAt ASC;`
+      );
+    const rows = (result.recordset || []) as Array<{ k: string; v: string; updatedAt: Date; updatedBy?: string; isDeleted: boolean }>;
+
+    const payload = {
+      kind: 'AZRAR_SQL_BACKUP',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      database: String(settings.database || ''),
+      server: String(settings.server || ''),
+      port: Number(settings.port || 1433) || 1433,
+      rowCount: rows.length,
+      rows: rows.map(r => ({
+        k: String(r.k),
+        v: typeof r.v === 'string' ? r.v : String(r.v ?? ''),
+        updatedAt: new Date(r.updatedAt).toISOString(),
+        updatedBy: r.updatedBy ? String(r.updatedBy) : undefined,
+        isDeleted: !!r.isDeleted,
+      })),
+    };
+
+    const json = Buffer.from(JSON.stringify(payload), 'utf8');
+    const gz = zlib.gzipSync(json, { level: 9 });
+    const sha = crypto.createHash('sha256').update(gz).digest('hex');
+    const deviceId = await getOrCreateDeviceId();
+
+    const note = opts?.note ? String(opts.note).slice(0, 200) : null;
+    const rowCount = rows.length;
+    const createdAt = new Date();
+
+    const insert = await p
+      .request()
+      .input('id', sql.UniqueIdentifier, crypto.randomUUID())
+      .input('createdAt', sql.DateTime2(3), createdAt)
+      .input('createdBy', sql.NVarChar(80), deviceId)
+      .input('kind', sql.NVarChar(40), 'AZRAR_SQL_BACKUP')
+      .input('version', sql.Int, 1)
+      .input('encoding', sql.NVarChar(20), 'gzip')
+      .input('payload', sql.VarBinary(sql.MAX), gz)
+      .input('payloadBytes', sql.Int, gz.byteLength)
+      .input('payloadSha256', sql.Char(64), sha)
+      .input('rowCount', sql.Int, rowCount)
+      .input('note', sql.NVarChar(200), note)
+      .query(
+        `INSERT INTO dbo.ServerBackups (
+           id, createdAt, createdBy, kind, version, encoding, payload, payloadBytes, payloadSha256, [rowCount], note
+         )
+         VALUES (
+           @id, @createdAt, @createdBy, @kind, @version, @encoding, @payload, @payloadBytes, @payloadSha256, @rowCount, @note
+         );
+         SELECT CONVERT(VARCHAR(36), @id) AS id;`
+      );
+
+    const id = String((insert.recordset || [])[0]?.id || '');
+    const retentionDays = normalizeRetentionDays(opts?.retentionDays ?? (await loadSqlBackupAutomationSettings()).retentionDays);
+    const deletedOld = await pruneServerBackups(p, retentionDays);
+
+    return {
+      ok: true,
+      message: 'تم رفع نسخة احتياطية إلى المخدم',
+      deletedOld,
+      item: {
+        id,
+        createdAt: createdAt.toISOString(),
+        createdBy: deviceId,
+        rowCount,
+        payloadBytes: gz.byteLength,
+        note: note ? String(note) : undefined,
+      },
+    };
+  } catch (e: unknown) {
+    return { ok: false, message: formatSqlErrorMessage(e, 'فشل رفع النسخة الاحتياطية إلى المخدم') };
+  }
+}
+
+async function getServerBackupPayloadById(p: sql.ConnectionPool, id: string): Promise<{ encoding: string; payload: Buffer } | null> {
+  const guid = String(id || '').trim();
+  if (!guid) return null;
+
+  const res = await p
+    .request()
+    .input('id', sql.UniqueIdentifier, guid)
+    .query('SELECT TOP 1 [encoding], [payload] FROM dbo.ServerBackups WHERE id = @id;');
+  const row = ((res.recordset || [])[0] ?? null) as unknown;
+  const payloadRaw = getRecordProp(row, 'payload');
+  if (!(payloadRaw instanceof Buffer)) return null;
+  const encoding = asString(getRecordProp(row, 'encoding'));
+  const payload = payloadRaw;
+  return { encoding, payload };
+}
+
+export async function restoreServerBackupFromServer(
+  backupId: string,
+  mode: 'merge' | 'replace'
+): Promise<{ ok: boolean; message: string; id?: string; applied?: number; rowCount?: number }> {
+  try {
+    const settings = await loadSqlSettings();
+    if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
+
+    const ensured = await connectAndEnsureDatabase(settings);
+    if (!ensured.ok) return { ok: false, message: ensured.message || 'فشل الاتصال/التجهيز' };
+
+    const p = await ensureConnected(settings);
+    await ensureServerBackupsTable(p);
+    await ensureKvImportStagingTable(p);
+
+    const stored = await getServerBackupPayloadById(p, backupId);
+    if (!stored) return { ok: false, message: 'لم يتم العثور على النسخة الاحتياطية' };
+
+    let jsonBuf: Buffer;
+    if (String(stored.encoding || '').toLowerCase() === 'gzip') jsonBuf = zlib.gunzipSync(stored.payload);
+    else jsonBuf = stored.payload;
+
+    const parsed = JSON.parse(jsonBuf.toString('utf8'));
+    if (!isBackupFileV1(parsed)) return { ok: false, message: 'النسخة الاحتياطية المخزنة غير صالحة' };
+
+    // Apply using the same import logic (without file dialog)
+    const rows = (parsed.rows || []).map(normalizeBackupRow);
+    const tx = new sql.Transaction(p);
+    await tx.begin();
+    try {
+      const req = new sql.Request(tx);
+      if (mode === 'replace') {
+        await req.query('DELETE FROM dbo.KvStore;');
+
+        const table = new sql.Table('dbo.KvStore');
+        table.create = false;
+        table.columns.add('k', sql.NVarChar(300), { nullable: false });
+        table.columns.add('v', sql.NVarChar(sql.MAX), { nullable: false });
+        table.columns.add('updatedAt', sql.DateTime2(3), { nullable: false });
+        table.columns.add('updatedBy', sql.NVarChar(80), { nullable: true });
+        table.columns.add('isDeleted', sql.Bit, { nullable: false });
+
+        for (const r of rows) {
+          table.rows.add(r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
+        }
+
+        const bulkReq = new sql.Request(tx);
+        (bulkReq as unknown as { timeout?: number }).timeout = 60000;
+        await (bulkReq as unknown as { bulk: (t: sql.Table) => Promise<unknown> }).bulk(table);
+        await tx.commit();
+        return { ok: true, message: 'تمت الاستعادة الكاملة من النسخة المختارة', id: String(backupId), rowCount: rows.length, applied: rows.length };
+      }
+
+      const batchId = crypto.randomUUID();
+      await bulkToStagingTable(tx, batchId, rows);
+      req.input('batchId', sql.UniqueIdentifier, batchId);
+      const mergeRes = await req.query(
+        `MERGE dbo.KvStore AS T
+         USING (
+           SELECT k, v, updatedAt, updatedBy, isDeleted
+           FROM dbo.KvImportStaging
+           WHERE batchId = @batchId
+         ) AS S
+         ON (T.k = S.k)
+         WHEN MATCHED AND T.updatedAt < S.updatedAt THEN
+           UPDATE SET
+             v = CASE WHEN S.isDeleted = 1 THEN N'' ELSE S.v END,
+             updatedAt = S.updatedAt,
+             updatedBy = S.updatedBy,
+             isDeleted = S.isDeleted
+         WHEN NOT MATCHED THEN
+           INSERT (k, v, updatedAt, updatedBy, isDeleted)
+           VALUES (S.k, CASE WHEN S.isDeleted = 1 THEN N'' ELSE S.v END, S.updatedAt, S.updatedBy, S.isDeleted);
+         SELECT @@ROWCOUNT AS affected;`
+      );
+
+      await req.query('DELETE FROM dbo.KvImportStaging WHERE batchId = @batchId;');
+
+      const mergeRecordset = getRecordProp(mergeRes, 'recordset');
+      const first = Array.isArray(mergeRecordset) ? mergeRecordset[0] : undefined;
+      const affected = Number(getRecordProp(first, 'affected') ?? 0) || 0;
+      await tx.commit();
+      return { ok: true, message: 'تم دمج النسخة المختارة مع بيانات المخدم', id: String(backupId), rowCount: rows.length, applied: affected };
+    } catch (e) {
+      try {
+        await tx.rollback();
+      } catch {
+        // ignore
+      }
+      throw e;
+    }
+  } catch (e: unknown) {
+    return { ok: false, message: formatSqlErrorMessage(e, 'فشل استعادة النسخة الاحتياطية من المخدم') };
+  }
+}
+
+export async function ensureDailyServerBackupIfEnabled(): Promise<{ ok: boolean; message: string; created?: boolean; skipped?: boolean }> {
+  try {
+    const auto = await loadSqlBackupAutomationSettings();
+    if (!auto.enabled) return { ok: true, message: 'النسخ الاحتياطي اليومي غير مفعل', skipped: true };
+
+    const settings = await loadSqlSettings();
+    if (!settings.enabled) return { ok: true, message: 'المزامنة غير مفعلة', skipped: true };
+
+    const ensured = await connectAndEnsureDatabase(settings);
+    if (!ensured.ok) return { ok: false, message: ensured.message || 'فشل الاتصال/التجهيز' };
+
+    const p = await ensureConnected(settings);
+    await ensureServerBackupsTable(p);
+
+    // One backup per UTC day (safe across multiple devices)
+    const exists = await p
+      .request()
+      .query(
+        `DECLARE @start DATETIME2(3) = DATEADD(day, DATEDIFF(day, 0, SYSUTCDATETIME()), 0);
+         DECLARE @end DATETIME2(3) = DATEADD(day, 1, @start);
+         SELECT TOP 1 id FROM dbo.ServerBackups WHERE createdAt >= @start AND createdAt < @end ORDER BY createdAt DESC;`
+      );
+
+    if ((exists.recordset || []).length > 0) {
+      await pruneServerBackups(p, auto.retentionDays);
+      return { ok: true, message: 'توجد نسخة احتياطية لليوم بالفعل', skipped: true };
+    }
+
+    const res = await createServerBackupOnServer({ note: 'auto-daily', retentionDays: auto.retentionDays });
+    if (!res.ok) return { ok: false, message: res.message || 'فشل إنشاء النسخة اليومية' };
+    return { ok: true, message: res.message || 'تم إنشاء النسخة اليومية', created: true };
+  } catch (e: unknown) {
+    return { ok: false, message: formatSqlErrorMessage(e, 'فشل تشغيل النسخ الاحتياطي اليومي') };
+  }
+}
+
 async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
   try {
     const raw = await fsp.readFile(filePath, 'utf8');
@@ -313,7 +755,7 @@ async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
   }
 }
 
-async function writeJsonFile(filePath: string, obj: any): Promise<void> {
+async function writeJsonFile(filePath: string, obj: unknown): Promise<void> {
   await fsp.mkdir(path.dirname(filePath), { recursive: true });
   await fsp.writeFile(filePath, JSON.stringify(obj, null, 2), 'utf8');
 }
@@ -369,10 +811,11 @@ export async function loadSqlSettings(): Promise<SqlSettings> {
     trustServerCertificate: true,
   });
 
+  const storedPort = getRecordProp(stored, 'port');
   return {
     enabled: !!stored.enabled,
     server: String(stored.server || ''),
-    port: typeof (stored as any).port === 'number' ? (stored as any).port : Number((stored as any).port || 1433) || 1433,
+    port: typeof storedPort === 'number' ? storedPort : Number((storedPort ?? 1433) as unknown) || 1433,
     database: String(stored.database || 'AZRAR'),
     authMode: stored.authMode === 'windows' ? 'windows' : 'sql',
     user: stored.user ? String(stored.user) : '',
@@ -393,10 +836,11 @@ export async function loadSqlSettingsRedacted(): Promise<Omit<SqlSettings, 'pass
     trustServerCertificate: true,
   });
 
+  const storedPort = getRecordProp(stored, 'port');
   return {
     enabled: !!stored.enabled,
     server: String(stored.server || ''),
-    port: typeof (stored as any).port === 'number' ? (stored as any).port : Number((stored as any).port || 1433) || 1433,
+    port: typeof storedPort === 'number' ? storedPort : Number((storedPort ?? 1433) as unknown) || 1433,
     database: String(stored.database || 'AZRAR'),
     authMode: stored.authMode === 'windows' ? 'windows' : 'sql',
     user: stored.user ? String(stored.user) : '',
@@ -649,8 +1093,8 @@ export async function testSqlConnection(settings: SqlSettings): Promise<{ ok: bo
     const p = await new sql.ConnectionPool(cfg).connect();
     await p.close();
     return { ok: true, message: 'تم الاتصال بنجاح' };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل الاتصال' };
+  } catch (e: unknown) {
+    return { ok: false, message: formatSqlErrorMessage(e, 'فشل الاتصال') };
   }
 }
 
@@ -713,16 +1157,17 @@ export async function connectAndEnsureDatabase(settings: SqlSettings): Promise<{
 
     currentStatus = { ...currentStatus, configured: true, enabled: !!settings.enabled, connected: true, lastError: undefined };
     return { ok: true, message: 'تم الاتصال وتجهيز قاعدة البيانات' };
-  } catch (e: any) {
-    currentStatus = { ...currentStatus, connected: false, lastError: e?.message || 'فشل الاتصال/التجهيز' };
-    return { ok: false, message: currentStatus.lastError || 'فشل الاتصال/التجهيز' };
+  } catch (e: unknown) {
+    const msg = formatSqlErrorMessage(e, 'فشل الاتصال/التجهيز');
+    currentStatus = { ...currentStatus, connected: false, lastError: msg };
+    return { ok: false, message: msg };
   }
 }
 
 export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok: boolean; message: string }> {
   try {
     const server = String(req.server || '').trim();
-    const port = Number((req as any).port || 1433) || 1433;
+    const port = Number((getRecordProp(req, 'port') ?? 1433) as unknown) || 1433;
     const database = String(req.database || '').trim() || 'AZRAR_DB';
     const adminUser = String(req.adminUser || '').trim();
     const adminPassword = String(req.adminPassword || '');
@@ -820,6 +1265,8 @@ export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok
       );
 
     await ensureAttachmentFilesTable(adminDbPool);
+    await ensureServerBackupsTable(adminDbPool);
+    await ensureKvImportStagingTable(adminDbPool);
 
     // Create DB users if missing
     for (const loginName of [managerUser, employeeUser]) {
@@ -845,7 +1292,9 @@ export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok
         .query(
           `DECLARE @sql NVARCHAR(MAX) =
              N'GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.KvStore TO ' + QUOTENAME(@loginName) + N';'
-             + N' GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.AttachmentFiles TO ' + QUOTENAME(@loginName) + N';';
+             + N' GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.AttachmentFiles TO ' + QUOTENAME(@loginName) + N';'
+             + N' GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.ServerBackups TO ' + QUOTENAME(@loginName) + N';'
+             + N' GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.KvImportStaging TO ' + QUOTENAME(@loginName) + N';';
            EXEC(@sql);`
         );
     }
@@ -880,8 +1329,8 @@ export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok
     await appPool.close();
 
     return { ok: true, message: `تم إنشاء قاعدة البيانات والحسابات بنجاح (${database})` };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل تهيئة المخدم' };
+  } catch (e: unknown) {
+    return { ok: false, message: formatSqlErrorMessage(e, 'فشل تهيئة المخدم') };
   }
 }
 
@@ -893,6 +1342,75 @@ export async function getSqlStatus(): Promise<SqlStatus> {
     enabled: !!redacted.enabled,
   };
   return currentStatus;
+}
+
+export async function getRemoteKvStoreMeta(): Promise<{ ok: boolean; items: Array<{ key: string; updatedAt: string; isDeleted: boolean }>; message?: string }> {
+  try {
+    const settings = await loadSqlSettings();
+    if (!settings.enabled) return { ok: false, items: [], message: 'المزامنة غير مفعلة' };
+
+    const ensured = await connectAndEnsureDatabase(settings);
+    if (!ensured.ok) return { ok: false, items: [], message: ensured.message || 'فشل الاتصال/التجهيز' };
+
+    const p = await ensureConnected(settings);
+    const result = await p
+      .request()
+      .query(
+        "SELECT k, updatedAt, isDeleted FROM dbo.KvStore WHERE k LIKE N'db\\_%' ESCAPE '\\' ORDER BY k ASC;"
+      );
+
+    const rows = (result.recordset || []) as Array<{ k: string; updatedAt: Date; isDeleted: boolean }>;
+    const items = rows
+      .filter(r => !!r?.k)
+      .map(r => ({
+        key: String(r.k),
+        updatedAt: new Date(r.updatedAt).toISOString(),
+        isDeleted: !!r.isDeleted,
+      }));
+
+    return { ok: true, items };
+  } catch (e: unknown) {
+    return { ok: false, items: [], message: formatSqlErrorMessage(e, 'فشل قراءة بيانات المخدم') };
+  }
+}
+
+export async function getRemoteKvStoreRow(
+  key: string
+): Promise<{ ok: boolean; row?: { key: string; value: string; updatedAt: string; isDeleted: boolean }; message?: string }> {
+  try {
+    const k = String(key || '').trim();
+    if (!k) return { ok: false, message: 'المفتاح غير صالح' };
+
+    const settings = await loadSqlSettings();
+    if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
+
+    const ensured = await connectAndEnsureDatabase(settings);
+    if (!ensured.ok) return { ok: false, message: ensured.message || 'فشل الاتصال/التجهيز' };
+
+    const p = await ensureConnected(settings);
+    const res = await p
+      .request()
+      .input('k', sql.NVarChar(300), k)
+      .query('SELECT TOP 1 k, v, updatedAt, isDeleted FROM dbo.KvStore WHERE k = @k;');
+
+    const row = ((res.recordset || [])[0] ?? null) as unknown;
+    const rowKey = getRecordProp(row, 'k');
+    if (!rowKey) return { ok: true, row: undefined };
+    return {
+      ok: true,
+      row: {
+        key: String(rowKey),
+        value: (() => {
+          const v = getRecordProp(row, 'v');
+          return typeof v === 'string' ? v : String(v ?? '');
+        })(),
+        updatedAt: toDate(getRecordProp(row, 'updatedAt')).toISOString(),
+        isDeleted: !!getRecordProp(row, 'isDeleted'),
+      },
+    };
+  } catch (e: unknown) {
+    return { ok: false, message: formatSqlErrorMessage(e, 'فشل قراءة سجل من المخدم') };
+  }
 }
 
 export async function exportServerBackupToFile(
@@ -940,8 +1458,8 @@ export async function exportServerBackupToFile(
     await fsp.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
 
     return { ok: true, message: 'تم إنشاء نسخة احتياطية من المخدم', filePath, rowCount: rows.length };
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل إنشاء النسخة الاحتياطية من المخدم' };
+  } catch (e: unknown) {
+    return { ok: false, message: formatSqlErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية من المخدم') };
   }
 }
 
@@ -964,37 +1482,31 @@ type ServerBackupFileV1 = {
   rows: ServerBackupRow[];
 };
 
-function isBackupFileV1(obj: any): obj is ServerBackupFileV1 {
-  return !!obj && obj.kind === 'AZRAR_SQL_BACKUP' && obj.version === 1 && Array.isArray(obj.rows);
+function isBackupFileV1(obj: unknown): obj is ServerBackupFileV1 {
+  return (
+    isRecord(obj) &&
+    getRecordProp(obj, 'kind') === 'AZRAR_SQL_BACKUP' &&
+    getRecordProp(obj, 'version') === 1 &&
+    Array.isArray(getRecordProp(obj, 'rows'))
+  );
 }
 
-function normalizeBackupRow(r: any): ServerBackupRow {
-  const k = String(r?.k || '');
+function normalizeBackupRow(r: unknown): ServerBackupRow {
+  const k = String(getRecordProp(r, 'k') || '');
   if (!k) throw new Error('ملف النسخة الاحتياطية يحتوي على صف بدون مفتاح');
-  const updatedAtRaw = r?.updatedAt;
-  const updatedAt = new Date(updatedAtRaw).toISOString();
-  const isDeleted = !!r?.isDeleted;
-  const v = isDeleted ? '' : String(r?.v ?? '');
-  const updatedBy = r?.updatedBy ? String(r.updatedBy) : undefined;
+  const updatedAtRaw = getRecordProp(r, 'updatedAt');
+  const updatedAt = toDate(updatedAtRaw).toISOString();
+  const isDeleted = !!getRecordProp(r, 'isDeleted');
+  const v = isDeleted ? '' : String(getRecordProp(r, 'v') ?? '');
+  const updatedByRaw = getRecordProp(r, 'updatedBy');
+  const updatedBy = updatedByRaw ? String(updatedByRaw) : undefined;
   return { k, v, updatedAt, updatedBy, isDeleted };
 }
 
-async function bulkToTempTable(tx: sql.Transaction, rows: ServerBackupRow[]): Promise<void> {
-  // Use a temp table to efficiently MERGE.
-  await new sql.Request(tx)
-    .query(
-      `IF OBJECT_ID('tempdb..#KvImport') IS NOT NULL DROP TABLE #KvImport;
-       CREATE TABLE #KvImport (
-         k NVARCHAR(300) NOT NULL,
-         v NVARCHAR(MAX) NOT NULL,
-         updatedAt DATETIME2(3) NOT NULL,
-         updatedBy NVARCHAR(80) NULL,
-         isDeleted BIT NOT NULL
-       );`
-    );
-
-  const table = new sql.Table('#KvImport');
+async function bulkToStagingTable(tx: sql.Transaction, batchId: string, rows: ServerBackupRow[]): Promise<void> {
+  const table = new sql.Table('dbo.KvImportStaging');
   table.create = false;
+  table.columns.add('batchId', sql.UniqueIdentifier, { nullable: false });
   table.columns.add('k', sql.NVarChar(300), { nullable: false });
   table.columns.add('v', sql.NVarChar(sql.MAX), { nullable: false });
   table.columns.add('updatedAt', sql.DateTime2(3), { nullable: false });
@@ -1002,10 +1514,12 @@ async function bulkToTempTable(tx: sql.Transaction, rows: ServerBackupRow[]): Pr
   table.columns.add('isDeleted', sql.Bit, { nullable: false });
 
   for (const r of rows) {
-    table.rows.add(r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
+    table.rows.add(batchId, r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
   }
 
-  await (tx as any).bulk(table);
+  const req = new sql.Request(tx);
+  (req as unknown as { timeout?: number }).timeout = 60000;
+  await (req as unknown as { bulk: (t: sql.Table) => Promise<unknown> }).bulk(table);
 }
 
 export async function importServerBackupFromFile(
@@ -1028,6 +1542,7 @@ export async function importServerBackupFromFile(
     if (!ensured.ok) return { ok: false, message: ensured.message };
 
     const p = await ensureConnected({ ...settings, enabled: true });
+    await ensureKvImportStagingTable(p);
 
     // Transaction for atomic apply
     const tx = new sql.Transaction(p);
@@ -1051,16 +1566,24 @@ export async function importServerBackupFromFile(
           table.rows.add(r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
         }
 
-        await (tx as any).bulk(table);
+        const bulkReq = new sql.Request(tx);
+        (bulkReq as unknown as { timeout?: number }).timeout = 60000;
+        await (bulkReq as unknown as { bulk: (t: sql.Table) => Promise<unknown> }).bulk(table);
         await tx.commit();
         return { ok: true, message: 'تمت الاستعادة الكاملة من النسخة الاحتياطية', filePath, rowCount: rows.length, applied: rows.length };
       }
 
       // Merge mode
-      await bulkToTempTable(tx, rows);
+      const batchId = crypto.randomUUID();
+      await bulkToStagingTable(tx, batchId, rows);
+      req.input('batchId', sql.UniqueIdentifier, batchId);
       const mergeRes = await req.query(
         `MERGE dbo.KvStore AS T
-         USING #KvImport AS S
+         USING (
+           SELECT k, v, updatedAt, updatedBy, isDeleted
+           FROM dbo.KvImportStaging
+           WHERE batchId = @batchId
+         ) AS S
          ON (T.k = S.k)
          WHEN MATCHED AND T.updatedAt < S.updatedAt THEN
            UPDATE SET
@@ -1074,7 +1597,11 @@ export async function importServerBackupFromFile(
          SELECT @@ROWCOUNT AS affected;`
       );
 
-      const affected = Number((mergeRes as any)?.recordset?.[0]?.affected ?? 0) || 0;
+      await req.query('DELETE FROM dbo.KvImportStaging WHERE batchId = @batchId;');
+
+      const mergeRecordset = getRecordProp(mergeRes, 'recordset');
+      const first = Array.isArray(mergeRecordset) ? mergeRecordset[0] : undefined;
+      const affected = Number(getRecordProp(first, 'affected') ?? 0) || 0;
       await tx.commit();
       return { ok: true, message: 'تم دمج النسخة الاحتياطية مع بيانات المخدم', filePath, rowCount: rows.length, applied: affected };
     } catch (e) {
@@ -1085,8 +1612,8 @@ export async function importServerBackupFromFile(
       }
       throw e;
     }
-  } catch (e: any) {
-    return { ok: false, message: e?.message || 'فشل استيراد النسخة الاحتياطية إلى المخدم' };
+  } catch (e: unknown) {
+    return { ok: false, message: formatSqlErrorMessage(e, 'فشل استيراد النسخة الاحتياطية إلى المخدم') };
   }
 }
 
@@ -1199,8 +1726,8 @@ export async function startBackgroundPull(
   if (opts?.runImmediately !== false) {
     try {
       await pullOnce(applyRemoteChange, opts?.forceFullPull ? new Date(0) : undefined);
-    } catch (e: any) {
-      currentStatus = { ...currentStatus, lastError: e?.message || 'فشل المزامنة' };
+    } catch (e: unknown) {
+      currentStatus = { ...currentStatus, lastError: formatSqlErrorMessage(e, 'فشل المزامنة') };
     }
   }
 
@@ -1208,8 +1735,8 @@ export async function startBackgroundPull(
     if (syncInProgress) return;
     syncInProgress = true;
     void pullOnce(applyRemoteChange)
-      .catch((e: any) => {
-        currentStatus = { ...currentStatus, lastError: e?.message || 'فشل المزامنة' };
+      .catch((e: unknown) => {
+        currentStatus = { ...currentStatus, lastError: formatSqlErrorMessage(e, 'فشل المزامنة') };
       })
       .finally(() => {
         syncInProgress = false;

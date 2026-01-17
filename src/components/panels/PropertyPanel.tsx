@@ -13,7 +13,7 @@ import { DynamicFieldsDisplay } from '@/components/dynamic/DynamicFieldsDisplay'
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
-import type { FollowUpTask, PropertyDetailsResult, سجل_الملكية_tbl, اتفاقيات_البيع_tbl, عروض_البيع_tbl, الأشخاص_tbl, العقود_tbl } from '@/types';
+import type { FollowUpTask, PropertyDetailsResult, PropertyInspection, سجل_الملكية_tbl, اتفاقيات_البيع_tbl, عروض_البيع_tbl, الأشخاص_tbl, العقود_tbl } from '@/types';
 import { storage } from '@/services/storage';
 import { domainGetSmart, propertyContractsSmart } from '@/services/domainQueries';
 import { pickBestTenancyContract } from '@/utils/tenancy';
@@ -25,11 +25,13 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     const [contractsMeta, setContractsMeta] = useState<{
         byContractId: Map<string, { tenantName?: string; guarantorName?: string }>;
     }>({ byContractId: new Map() });
-    const [inspectionPeople, setInspectionPeople] = useState<{ inspector?: any; client?: any }>({});
+    const [inspectionPeople, setInspectionPeople] = useState<{ inspector?: الأشخاص_tbl | null; client?: الأشخاص_tbl | null }>({});
   const [activeTab, setActiveTab] = useState<'info' | 'activity'>('info');
   const { openPanel } = useSmartModal();
     const toast = useToast();
         const dialogs = useAppDialogs();
+
+        const isDefined = <T,>(v: T | null | undefined): v is T => v !== null && v !== undefined;
 
         const todayYMD = useMemo(() => {
                 const d = new Date();
@@ -38,7 +40,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
     const isDesktop = useMemo(() => {
         try {
-            return !!storage.isDesktop() && !!(window as any)?.desktopDb;
+            return !!storage.isDesktop() && typeof window !== 'undefined' && !!window.desktopDb;
         } catch {
             return false;
         }
@@ -46,7 +48,12 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
     const isDesktopFast = useMemo(() => {
         try {
-            return !!storage.isDesktop() && !!(window as any)?.desktopDb?.domainGet && !!(window as any)?.desktopDb?.domainPropertyContracts;
+            return (
+                !!storage.isDesktop() &&
+                typeof window !== 'undefined' &&
+                !!window.desktopDb?.domainGet &&
+                !!window.desktopDb?.domainPropertyContracts
+            );
         } catch {
             return false;
         }
@@ -73,21 +80,21 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 return;
             }
 
-            const contractItems = (await propertyContractsSmart(id)) || [];
-            const contracts = contractItems.map((x) => x?.contract).filter(Boolean);
+            const contractItems = (await propertyContractsSmart(id)) ?? [];
+            const contracts = contractItems.map((x) => x.contract).filter(Boolean);
 
             const byContractId = new Map<string, { tenantName?: string; guarantorName?: string }>();
             for (const it of contractItems) {
-                const cid = String((it as any)?.contract?.رقم_العقد || (it as any)?.contract?.id || '').trim();
+                const cid = String(it.contract?.رقم_العقد || '').trim();
                 if (!cid) continue;
-                byContractId.set(cid, { tenantName: (it as any)?.tenantName, guarantorName: (it as any)?.guarantorName });
+                byContractId.set(cid, { tenantName: it.tenantName, guarantorName: it.guarantorName });
             }
             setContractsMeta({ byContractId });
 
-            const activeContract = pickBestTenancyContract(contracts as any);
-            const ownerId = String((prop as any)?.رقم_المالك || '').trim();
-            const tenantId = activeContract ? String((activeContract as any)?.رقم_المستاجر || '').trim() : '';
-            const guarantorId = activeContract ? String((activeContract as any)?.رقم_الكفيل || '').trim() : '';
+            const activeContract = pickBestTenancyContract(contracts);
+            const ownerId = String(prop?.رقم_المالك || '').trim();
+            const tenantId = activeContract?.رقم_المستاجر ? String(activeContract.رقم_المستاجر || '').trim() : '';
+            const guarantorId = activeContract?.رقم_الكفيل ? String(activeContract.رقم_الكفيل || '').trim() : '';
 
             const [owner, currentTenant, currentGuarantor] = await Promise.all([
                 ownerId ? domainGetSmart('people', ownerId) : Promise.resolve(null),
@@ -95,15 +102,17 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 guarantorId ? domainGetSmart('people', guarantorId) : Promise.resolve(null),
             ]);
 
-            const history = contracts.filter((c) => !activeContract || String((c as any)?.رقم_العقد) !== String((activeContract as any)?.رقم_العقد));
+            const history = contracts.filter(
+                (c) => !activeContract || String(c.رقم_العقد) !== String(activeContract.رقم_العقد)
+            );
 
             setData({
-                property: prop as any,
-                owner: owner as any,
-                currentTenant: currentTenant as any,
-                currentGuarantor: currentGuarantor as any,
-                currentContract: activeContract as any,
-                history: history as any,
+                property: prop,
+                owner: owner ?? undefined,
+                currentTenant: currentTenant ?? null,
+                currentGuarantor: currentGuarantor ?? null,
+                currentContract: activeContract,
+                history,
             });
         } catch {
             // Desktop focus: never fall back to legacy scans in renderer.
@@ -120,28 +129,13 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
       void reload();
   }, [reload]);
 
-  if (desktopUnsupported) {
-      return (
-          <div className="p-10 text-center text-slate-600 dark:text-slate-300">
-              <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
-                  <ClipboardCheck className="w-6 h-6 text-yellow-700 dark:text-yellow-300" />
-              </div>
-              <div className="font-bold">غير مدعوم في وضع الديسكتوب الحالي</div>
-              <div className="text-sm mt-2">يرجى تحديث نسخة الديسكتوب أو تفعيل وضع السرعة/SQL.</div>
-          </div>
-      );
-  }
-
-  if (!data) return <div className="p-10 text-center">جاري التحميل...</div>;
-
-    const { property: p, owner, currentTenant, currentGuarantor, currentContract } = data;
-    const ownershipHistory = DbService.getOwnershipHistory(p.رقم_العقار);
-
-    const inspectionsForProperty = DbService.getPropertyInspections(p.رقم_العقار);
+    // Hooks MUST run on every render (prevents React error #310).
+        const propertyId = String(data?.property?.رقم_العقار || '').trim();
+        const inspectionsForProperty: PropertyInspection[] = propertyId ? DbService.getPropertyInspections(propertyId) : [];
     const latestInspection = inspectionsForProperty[0] || null;
 
     useEffect(() => {
-        if (desktopUnsupported) {
+        if (desktopUnsupported || !latestInspection) {
             setInspectionPeople({});
             return;
         }
@@ -159,8 +153,8 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             return;
         }
 
-        const inspectorId = String((latestInspection as any)?.inspectorId || '').trim();
-        const clientId = String((latestInspection as any)?.clientId || '').trim();
+        const inspectorId = String(latestInspection?.inspectorId || '').trim();
+        const clientId = String(latestInspection?.clientId || '').trim();
         void (async () => {
             const [inspector, client] = await Promise.all([
                 inspectorId ? domainGetSmart('people', inspectorId) : Promise.resolve(null),
@@ -171,15 +165,14 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     }, [isDesktopFast, latestInspection, desktopUnsupported]);
 
     const allContractsForProperty = useMemo(() => {
-        if (desktopUnsupported) {
+        if (desktopUnsupported || !propertyId) {
             return [] as العقود_tbl[];
         }
 
         if (!isDesktopFast) {
             const all = DbService.getContracts();
-            const propId = String(p.رقم_العقار);
             const arr = all
-                .filter((c: العقود_tbl) => String(c.رقم_العقار) === propId && !c.isArchived)
+                .filter((c: العقود_tbl) => String(c.رقم_العقار) === propertyId && !c.isArchived)
                 .slice();
 
             const seen = new Set<string>();
@@ -208,21 +201,38 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         }
 
         // Desktop fast: use the contracts already loaded through SQL in `data` (current + history)
-        const all = [currentContract, ...(Array.isArray((data as any)?.history) ? (data as any).history : [])].filter(Boolean) as العقود_tbl[];
+        const all = [data?.currentContract, ...(data?.history ?? [])].filter(isDefined);
         const seen = new Set<string>();
         const out: العقود_tbl[] = [];
         for (const c of all) {
-            const cid = String((c as any)?.رقم_العقد || '').trim();
+            const cid = String(c.رقم_العقد || '').trim();
             if (!cid) continue;
             if (seen.has(cid)) continue;
             seen.add(cid);
             out.push(c);
         }
         return out;
-    }, [isDesktopFast, desktopUnsupported, p.رقم_العقار, currentContract, (data as any)?.history]);
+    }, [data, isDesktopFast, desktopUnsupported, propertyId]);
 
-    const inspectionInspector = (inspectionPeople as any)?.inspector || null;
-    const inspectionClient = (inspectionPeople as any)?.client || null;
+  if (desktopUnsupported) {
+      return (
+          <div className="p-10 text-center text-slate-600 dark:text-slate-300">
+              <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
+                  <ClipboardCheck className="w-6 h-6 text-yellow-700 dark:text-yellow-300" />
+              </div>
+              <div className="font-bold">غير مدعوم في وضع الديسكتوب الحالي</div>
+              <div className="text-sm mt-2">يرجى تحديث نسخة الديسكتوب أو تفعيل وضع السرعة/SQL.</div>
+          </div>
+      );
+  }
+
+    if (!data) return <div className="p-10 text-center">جاري التحميل...</div>;
+
+    const { property: p, owner, currentTenant, currentGuarantor, currentContract } = data;
+    const ownershipHistory = DbService.getOwnershipHistory(p.رقم_العقار);
+
+    const inspectionInspector = inspectionPeople.inspector ?? null;
+    const inspectionClient = inspectionPeople.client ?? null;
 
     const handleDeleteInspectionFromProperty = async (inspectionId: string) => {
         const ok = await toast.confirm({
@@ -438,7 +448,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
              <div className="space-y-6 print:hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-slate-700 relative overflow-hidden">
+        <div className="app-card p-6">
         <div className={`absolute top-0 right-0 w-2 h-full ${p.IsRented ? 'bg-red-500' : 'bg-green-500'}`}></div>
         <div className="flex gap-4 items-start">
            <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-500">
@@ -505,7 +515,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             <AttachmentManager referenceType="Property" referenceId={id} />
 
             {/* Inspection */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-slate-700">
+            <div className="app-card p-6">
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -618,7 +628,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
             {/* Previous Owners (Ownership History) */}
             {ownershipHistory.length > 0 && (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 p-4">
+                <div className="app-card p-4">
                     <h4 className="font-bold text-sm mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300">
                         <History size={16} className="text-emerald-600" /> سجل الملاك السابقين
                     </h4>
@@ -735,7 +745,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             </div>
 
             {/* Contract History */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 p-4">
+            <div className="app-card p-4">
                 <h4 className="font-bold text-sm mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300">
                     <FileText size={16} className="text-gray-500"/> تاريخ العقود
                 </h4>
@@ -748,8 +758,12 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                             const isCurrent = currentContract && String(currentContract.رقم_العقد) === String(c.رقم_العقد);
                             const tenantNameFast = isDesktopFast ? contractsMeta.byContractId.get(String(c.رقم_العقد))?.tenantName : undefined;
                             const guarantorNameFast = isDesktopFast ? contractsMeta.byContractId.get(String(c.رقم_العقد))?.guarantorName : undefined;
-                            const tenant = !isDesktopFast && c.رقم_المستاجر ? (DbService.getPeople().find((x) => String(x.رقم_الشخص) === String(c.رقم_المستاجر)) as any) : null;
-                            const guarantor = !isDesktopFast && c.رقم_الكفيل ? (DbService.getPeople().find((x) => String(x.رقم_الشخص) === String(c.رقم_الكفيل)) as any) : null;
+                            const tenant = !isDesktopFast && c.رقم_المستاجر
+                                ? (DbService.getPeople().find((x) => String(x.رقم_الشخص) === String(c.رقم_المستاجر)) ?? null)
+                                : null;
+                            const guarantor = !isDesktopFast && c.رقم_الكفيل
+                                ? (DbService.getPeople().find((x) => String(x.رقم_الشخص) === String(c.رقم_الكفيل)) ?? null)
+                                : null;
                             const rowClass = isActive
                                 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-500/30'
                                 : 'bg-gray-50 dark:bg-slate-900 border-gray-100 dark:border-slate-700';
@@ -822,7 +836,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
             {/* Sales Listing Summary */}
             {openSalesListing ? (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 p-4">
+                <div className="app-card p-4">
                     <div className="flex items-center justify-between mb-3">
                         <h4 className="font-bold text-sm flex items-center gap-2 text-slate-700 dark:text-slate-300">
                             <Briefcase size={16} className="text-indigo-600" /> عرض البيع
@@ -858,7 +872,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
             {/* Sale Agreement Summary */}
             {latestSaleAgreement?.a && (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 p-4">
+                <div className="app-card p-4">
                     <div className="flex items-center justify-between mb-4">
                         <h4 className="font-bold text-sm flex items-center gap-2 text-slate-700 dark:text-slate-300">
                             <FileText size={16} className="text-emerald-600" /> ملخص اتفاقية البيع

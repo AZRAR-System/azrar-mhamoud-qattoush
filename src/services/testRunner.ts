@@ -18,8 +18,8 @@ export async function runTests() {
     
     // تصدير النتائج
     const report = suite.exportResults();
-    console.log('\n📋 تقرير الاختبارات المفصل:');
-    console.log(report);
+    console.warn('\n📋 تقرير الاختبارات المفصل:');
+    console.warn(report);
     
     return results;
   } catch (error) {
@@ -30,5 +30,5 @@ export async function runTests() {
 
 // للاستخدام في DevTools
 if (typeof window !== 'undefined') {
-  (window as any).runTests = runTests;
+  (window as unknown as { runTests?: typeof runTests }).runTests = runTests;
 }

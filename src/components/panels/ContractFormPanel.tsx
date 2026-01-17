@@ -6,14 +6,23 @@ import { useNotification } from '@/hooks/useNotification';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
-import { Calculator, HandCoins, Check, ArrowRight, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Calculator, HandCoins, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import { SmartEngine } from '@/services/smartEngine';
 import { SmartAssistant } from '@/components/smart/SmartAssistant';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
 import { formatNumber } from '@/utils/format';
 import { normalizeDigitsToLatin, parseIntOrUndefined, parseNumberOrUndefined } from '@/utils/numberInput';
 import { domainGetSmart } from '@/services/domainQueries';
-import { storage } from '@/services/storage';
+
+type InstallmentPreviewRow = {
+    rank: number;
+    type: 'فرق أيام' | 'دفعة أولى' | 'إيجار' | 'تأمين';
+    date: string;
+    amount: number;
+    propertyCode: string;
+};
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
 const formatDateOnly = (d: Date) => {
     const yyyy = d.getFullYear();
@@ -85,45 +94,33 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     رقم_المستاجر: '',
     القيمة_السنوية: undefined
   });
+
+        // Preserve legacy behavior: smart suggestions run once on mount using the initial contract snapshot.
+        const initialContractRef = useRef(contract);
   
     const [commOwner, setCommOwner] = useState<number | ''>('');
     const [commTenant, setCommTenant] = useState<number | ''>('');
     const [commissionPaidMonth, setCommissionPaidMonth] = useState('');
         const [hasPaidInstallments, setHasPaidInstallments] = useState(false);
         const [regenerateInstallments, setRegenerateInstallments] = useState(true);
-  const [installmentsPreview, setInstallmentsPreview] = useState<any[]>([]);
+    const [installmentsPreview, setInstallmentsPreview] = useState<InstallmentPreviewRow[]>([]);
   const [dayDiffValue, setDayDiffValue] = useState(0);
   
   // Smart Engine State
   const [suggestions, setSuggestions] = useState<SmartSuggestion[]>([]);
-    const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+        const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
 
   const toast = useToast();
   const notify = useNotification();
 
-  const isDesktop = storage.isDesktop() && !!(window as any)?.desktopDb;
-
-  if (isDesktop) {
-      return (
-          <div className="p-10 text-center text-slate-600 dark:text-slate-300">
-              <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
-                  <ShieldAlert className="w-6 h-6 text-yellow-700 dark:text-yellow-300" />
-              </div>
-              <div className="font-bold">غير مدعوم في وضع الديسكتوب الحالي</div>
-              <div className="text-sm mt-2">إنشاء/تعديل العقود يتطلب مسار حفظ SQL عبر IPC (غير متوفر حالياً) لتجنب تجمّد الواجهة.</div>
-          </div>
-      );
-  }
-
   useEffect(() => {
       // Check for suggestions on mount
-      const recs = SmartEngine.predict('contract', contract);
+      const recs = SmartEngine.predict('contract', initialContractRef.current);
       setSuggestions(recs);
   }, []);
 
   // Load existing contract when opened in edit mode
   useEffect(() => {
-      if (isDesktop) return;
       if (!isEditMode) return;
       const contractId = String(id || '').trim();
       if (!contractId) return;
@@ -134,14 +131,12 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
           return;
       }
 
-      setContract({
-          ...details.contract,
-      } as any);
+      setContract(details.contract);
 
-      const dyn = (details.contract as any)?.حقول_ديناميكية;
-      setDynamicValues((dyn && typeof dyn === 'object') ? dyn : {});
+      const dyn = details.contract.حقول_ديناميكية;
+      setDynamicValues(isRecord(dyn) ? dyn : {});
 
-      const comm = DbService.getCommissions?.().find((x: any) => x.رقم_العقد === contractId);
+      const comm = DbService.getCommissions?.().find((x) => x.رقم_العقد === contractId);
       setCommOwner(Number(comm?.عمولة_المالك ?? 0) || 0);
       setCommTenant(Number(comm?.عمولة_المستأجر ?? 0) || 0);
       setCommissionPaidMonth(String(comm?.شهر_دفع_العمولة ?? ''));
@@ -149,7 +144,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     // Do not auto-overwrite stored commissions when editing an existing contract.
     commissionTouchedRef.current = true;
 
-      const paid = (details.installments || []).some((i: any) => String(i?.حالة_الكمبيالة || '').trim() === 'مدفوع');
+      const paid = (details.installments || []).some((i) => String(i?.حالة_الكمبيالة || '').trim() === 'مدفوع');
       setHasPaidInstallments(paid);
       setRegenerateInstallments(!paid);
   }, [id, isEditMode, toast]);
@@ -177,9 +172,11 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
   }, [step, contract.تاريخ_البداية, contract.مدة_العقد_بالاشهر, contract.القيمة_السنوية, contract.تاريخ_النهاية]);
 
   const applySuggestions = (recs: SmartSuggestion[]) => {
-      const newValues: any = {};
-      recs.forEach(s => newValues[s.field] = s.suggestedValue);
-      setContract(prev => ({ ...prev, ...newValues }));
+      const patch = recs.reduce<Partial<العقود_tbl>>((acc, s) => {
+          (acc as Record<string, unknown>)[s.field] = s.suggestedValue;
+          return acc;
+      }, {});
+      setContract(prev => ({ ...prev, ...patch }));
       setSuggestions([]); // Dismiss
       toast.success('تم تعبئة تفاصيل العقد تلقائياً');
   };
@@ -280,9 +277,8 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
           const annualValue = Math.max(0, Number(contract.القيمة_السنوية || 0));
           const periodMonths = 12 / paymentsPerYear;
           const normalizedPeriodMonths = Number.isFinite(periodMonths) && periodMonths > 0 ? periodMonths : 1;
-          const rentInstallmentsCount = Math.max(1, Math.ceil(durationMonths / normalizedPeriodMonths));
           const totalRent = Math.round((annualValue * durationMonths) / 12);
-          const preview = [];
+          const preview: InstallmentPreviewRow[] = [];
 
           // Get property code from contract
           const propertyId = contract.رقم_العقار;
@@ -307,11 +303,11 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
               ? contract.قيمة_الدفعة_الاولى
               : 0;
 
-          const rawDownMonths = Number((contract as any).عدد_أشهر_الدفعة_الأولى || 0);
+          const rawDownMonths = Number(contract.عدد_أشهر_الدفعة_الأولى || 0);
           const downMonths = Number.isFinite(rawDownMonths) ? Math.trunc(rawDownMonths) : 0;
           
-          const splitDownPayment = Boolean((contract as any).تقسيط_الدفعة_الأولى);
-          const rawSplitCount = Number((contract as any).عدد_أقساط_الدفعة_الأولى || 0);
+          const splitDownPayment = Boolean(contract.تقسيط_الدفعة_الأولى);
+          const rawSplitCount = Number(contract.عدد_أقساط_الدفعة_الأولى || 0);
           const splitCount = Number.isFinite(rawSplitCount) ? Math.trunc(rawSplitCount) : 0;
 
           if (splitDownPayment && downMonths > 0) {
@@ -416,8 +412,8 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
       e.preventDefault();
 
       const durationMonths = Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12));
-      const splitDownPayment = Boolean((contract as any).تقسيط_الدفعة_الأولى);
-      const rawSplitCount = Number((contract as any).عدد_أقساط_الدفعة_الأولى || 0);
+    const splitDownPayment = Boolean(contract.تقسيط_الدفعة_الأولى);
+    const rawSplitCount = Number(contract.عدد_أقساط_الدفعة_الأولى || 0);
       const splitCount = Number.isFinite(rawSplitCount) ? Math.trunc(rawSplitCount) : 0;
       if (splitDownPayment) {
           const maxAllowed = Math.min(60, durationMonths);
@@ -427,12 +423,12 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
           }
       }
 
-      const payload: any = {
+      const payload: Partial<العقود_tbl> = {
           ...contract,
           حقول_ديناميكية: Object.keys(dynamicValues || {}).length ? dynamicValues : undefined,
       };
 
-      const opp = String(payload?.رقم_الفرصة ?? '').trim();
+      const opp = String(payload.رقم_الفرصة ?? '').trim();
       payload.رقم_الفرصة = opp || undefined;
 
       const res = isEditMode
@@ -455,10 +451,10 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
       let tenantName = 'مستأجر';
       const tenantId = String(contract.رقم_المستاجر || '').trim();
       if (tenantId) {
-          const isDesktopFast = typeof window !== 'undefined' && !!(window as any)?.desktopDb?.domainGet;
+          const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainGet;
           if (isDesktopFast) {
               try {
-                  const t: any = await domainGetSmart('people', tenantId);
+                  const t = await domainGetSmart('people', tenantId);
                   tenantName = String(t?.الاسم || '').trim() || tenantName;
               } catch {
                   // ignore
@@ -470,7 +466,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
           }
       }
 
-      const newContractId = (res as any).data?.رقم_العقد || 'ن/A';
+      const newContractId = res.data?.رقم_العقد || 'ن/A';
       toast.success('تم إنشاء العقد بنجاح');
       notify.contractCreated(newContractId, tenantName);
       if (onSuccess) onSuccess();
@@ -509,6 +505,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                             onChange={(id) => setContract(prev => ({...prev, رقم_العقار: id}))} 
                             filterStatus={isEditMode ? undefined : 'شاغر'}
                             placeholder="اختر العقار الشاغر..."
+                            purpose="rent"
                             disabled={isEditMode}
                         />
                         <PersonPicker 
@@ -575,7 +572,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                                   const raw = normalizeDigitsToLatin(e.target.value);
                                   const n = parseIntOrUndefined(raw);
                                   const clamped = n === undefined ? undefined : Math.max(1, Math.min(240, n));
-                                  setContract(prev => ({ ...prev, مدة_العقد_بالاشهر: clamped as any }));
+                                                                    setContract(prev => ({ ...prev, مدة_العقد_بالاشهر: clamped }));
                                 }} 
                             />
                         </div>
@@ -671,7 +668,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                                 <select 
                                     className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer" 
                                     value={contract.تكرار_الدفع} 
-                                    onChange={e => setContract(prev => ({...prev, تكرار_الدفع: Number(e.target.value) as any}))}
+                                    onChange={e => setContract(prev => ({...prev, تكرار_الدفع: Number(e.target.value)}))}
                                 >
                                     <option value={12}>شهري (12 دفعة)</option>
                                     <option value={6}>كل شهرين (6 دفعات)</option>
@@ -698,19 +695,19 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                                 <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-800 p-2 rounded border">
                                     <input
                                         type="checkbox"
-                                        checked={Number((contract as any).عدد_أشهر_الدفعة_الأولى || 0) > 0}
+                                        checked={Number(contract.عدد_أشهر_الدفعة_الأولى || 0) > 0}
                                         onChange={e => setContract(prev => ({
                                             ...prev,
                                             عدد_أشهر_الدفعة_الأولى: e.target.checked ? 3 : undefined,
                                             قيمة_الدفعة_الاولى: e.target.checked ? undefined : prev.قيمة_الدفعة_الاولى,
-                                            تقسيط_الدفعة_الأولى: e.target.checked ? false : (prev as any).تقسيط_الدفعة_الأولى,
-                                            عدد_أقساط_الدفعة_الأولى: e.target.checked ? undefined : (prev as any).عدد_أقساط_الدفعة_الأولى,
+                                            تقسيط_الدفعة_الأولى: e.target.checked ? false : prev.تقسيط_الدفعة_الأولى,
+                                            عدد_أقساط_الدفعة_الأولى: e.target.checked ? undefined : prev.عدد_أقساط_الدفعة_الأولى,
                                         }))}
                                     />
                                     <span className="text-sm font-bold">الدفعة الأولى عن عدد أشهر</span>
                                 </label>
 
-                                {Number((contract as any).عدد_أشهر_الدفعة_الأولى || 0) > 0 ? (
+                                {Number(contract.عدد_أشهر_الدفعة_الأولى || 0) > 0 ? (
                                     <div className="grid grid-cols-2 gap-2">
                                         <input
                                             type="number"
@@ -718,20 +715,20 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                                             max={Math.min(60, Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12)))}
                                             placeholder="عدد الأشهر"
                                             className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                            value={Number((contract as any).عدد_أشهر_الدفعة_الأولى || 3)}
+                                            value={Number(contract.عدد_أشهر_الدفعة_الأولى || 3)}
                                             onChange={e => {
                                                 const dur = Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12));
                                                 const maxAllowed = Math.min(60, dur);
                                                 const n = Math.trunc(Number(e.target.value));
                                                 const clamped = Number.isFinite(n) ? Math.max(1, Math.min(maxAllowed, n)) : 1;
-                                                setContract(prev => ({...prev, عدد_أشهر_الدفعة_الأولى: clamped as any}));
+                                                setContract(prev => ({...prev, عدد_أشهر_الدفعة_الأولى: clamped}));
                                             }}
                                         />
                                         <input
                                             type="number"
                                             disabled
                                             className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-white"
-                                            value={Math.round((Math.max(0, Number(contract.القيمة_السنوية || 0)) / 12) * Math.max(0, Number((contract as any).عدد_أشهر_الدفعة_الأولى || 0)))}
+                                            value={Math.round((Math.max(0, Number(contract.القيمة_السنوية || 0)) / 12) * Math.max(0, Number(contract.عدد_أشهر_الدفعة_الأولى || 0)))}
                                         />
                                     </div>
                                 ) : (
@@ -754,32 +751,32 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                                 <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-800 p-2 rounded border">
                                     <input
                                         type="checkbox"
-                                        checked={Boolean((contract as any).تقسيط_الدفعة_الأولى)}
-                                        disabled={Number((contract as any).عدد_أشهر_الدفعة_الأولى || 0) > 0}
+                                        checked={Boolean(contract.تقسيط_الدفعة_الأولى)}
+                                        disabled={Number(contract.عدد_أشهر_الدفعة_الأولى || 0) > 0}
                                         onChange={e => setContract(prev => ({
                                             ...prev,
-                                            عدد_أشهر_الدفعة_الأولى: e.target.checked ? undefined : (prev as any).عدد_أشهر_الدفعة_الأولى,
+                                            عدد_أشهر_الدفعة_الأولى: e.target.checked ? undefined : prev.عدد_أشهر_الدفعة_الأولى,
                                             تقسيط_الدفعة_الأولى: e.target.checked,
-                                            عدد_أقساط_الدفعة_الأولى: e.target.checked ? (Number((prev as any).عدد_أقساط_الدفعة_الأولى || 2) as any) : undefined,
+                                            عدد_أقساط_الدفعة_الأولى: e.target.checked ? Math.max(2, Number(prev.عدد_أقساط_الدفعة_الأولى || 2)) : undefined,
                                         }))}
                                     />
                                     <span className="text-sm font-bold">تقسيط الدفعة الأولى</span>
                                 </label>
 
-                                {Boolean((contract as any).تقسيط_الدفعة_الأولى) && (
+                                {Boolean(contract.تقسيط_الدفعة_الأولى) && (
                                     <input
                                         type="number"
                                         min={2}
                                         max={Math.min(60, Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12)))}
                                         placeholder="عدد أقساط الدفعة الأولى"
                                         className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        value={Number((contract as any).عدد_أقساط_الدفعة_الأولى || 2)}
+                                        value={Number(contract.عدد_أقساط_الدفعة_الأولى || 2)}
                                         onChange={e => {
                                             const dur = Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12));
                                             const maxAllowed = Math.min(60, dur);
                                             const n = Math.trunc(Number(e.target.value));
                                             const clamped = Number.isFinite(n) ? Math.max(2, Math.min(maxAllowed, n)) : 2;
-                                            setContract(prev => ({...prev, عدد_أقساط_الدفعة_الأولى: clamped as any}));
+                                            setContract(prev => ({...prev, عدد_أقساط_الدفعة_الأولى: clamped}));
                                         }}
                                     />
                                 )}

@@ -70,7 +70,15 @@ playwright-report/
 *.swp
 *.swo
 *.bak
+*.backup
 tmp/
+
+# Local QA outputs (generated)
+lint-output.txt
+tmp-*.txt
+tmp.*.json
+smoke-report*.json
+.eslint-pages.json
 
 # Database
 *.db

@@ -106,7 +106,7 @@ export const QuickActionsBar: React.FC = () => {
   ];
 
   return (
-    <div className="mb-6 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+    <div className="mb-6 p-4 app-card">
       <div className="flex items-center gap-2 mb-4">
         <div className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-full"></div>
         <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">

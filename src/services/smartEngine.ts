@@ -16,7 +16,7 @@ const LIMIT = 100; // Track last 100 inputs per category
 export const SmartEngine = {
     
     // --- 1. TRACKING MODULE ---
-    track: (category: SmartCategory, data: Record<string, any>) => {
+    track: (category: SmartCategory, data: Record<string, unknown>) => {
         try {
             const raw = localStorage.getItem(KEY_SMART_BEHAVIOR);
             const history: SmartBehaviorPattern[] = raw ? JSON.parse(raw) : [];
@@ -54,7 +54,7 @@ export const SmartEngine = {
     },
 
     // --- 2. PREDICTOR (Enhanced with Rules) ---
-    predict: (category: SmartCategory, currentFormData: any): SmartSuggestion[] => {
+    predict: (category: SmartCategory, currentFormData: Record<string, unknown>): SmartSuggestion[] => {
         try {
             const raw = localStorage.getItem(KEY_SMART_BEHAVIOR);
             if (!raw) return [];
@@ -64,7 +64,7 @@ export const SmartEngine = {
             const categoryHistory = history.filter(h => h.category === category);
 
             // Group by field
-            const fieldsMap: Record<string, any[]> = {};
+            const fieldsMap: Record<string, unknown[]> = {};
             categoryHistory.forEach(h => {
                 if(!fieldsMap[h.field]) fieldsMap[h.field] = [];
                 fieldsMap[h.field].push(h.value);
@@ -120,13 +120,13 @@ export const SmartEngine = {
             });
 
             return suggestions;
-        } catch (e) {
+        } catch {
             return [];
         }
     },
 
     // --- 3. ANOMALY DETECTION (Statistical + Rule Based) ---
-    detectAnomalies: (category: SmartCategory, data: Record<string, any>): string[] => {
+    detectAnomalies: (category: SmartCategory, data: Record<string, unknown>): string[] => {
         const anomalies: string[] = [];
         try {
             const raw = localStorage.getItem(KEY_SMART_BEHAVIOR);
@@ -151,7 +151,7 @@ export const SmartEngine = {
                 // B. Check Statistical Deviation (Dynamic Learning)
                 if (typeof val === 'number' && val > 0) {
                     const previousValues = history
-                        .filter(h => h.category === category && h.field === key && typeof h.value === 'number')
+                        .filter((h): h is SmartBehaviorPattern & { value: number } => h.category === category && h.field === key && typeof h.value === 'number')
                         .map(h => h.value);
 
                     if (previousValues.length > 5) {
@@ -167,7 +167,8 @@ export const SmartEngine = {
             });
 
             // Specific Logic for Low Rating
-            if (category === 'person' && data['تقييم'] && data['تقييم'] < 3) {
+            const rating = data['تقييم'];
+            if (category === 'person' && typeof rating === 'number' && rating < 3) {
                 anomalies.push('يتم إضافة شخص بتقييم منخفض، يرجى الحذر عند التعامل.');
             }
 

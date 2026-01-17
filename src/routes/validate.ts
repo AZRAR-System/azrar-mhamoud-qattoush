@@ -26,14 +26,14 @@ export const validateRoutes = (): void => {
 
   for (const p of navPaths) {
     if (!routeValues.has(p)) {
-      // eslint-disable-next-line no-console
+       
       console.warn(`[routes] NAV path not in ROUTE_PATHS: ${p}`);
     }
   }
 
   for (const p of routeValues) {
     if (!ROUTE_TITLES[p]) {
-      // eslint-disable-next-line no-console
+       
       console.warn(`[routes] Missing ROUTE_TITLES entry for: ${p}`);
     }
   }

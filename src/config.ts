@@ -7,12 +7,22 @@
 // Production Configuration
 // Desktop build runs in local/offline mode.
 
+type ImportMetaWithEnv = ImportMeta & {
+  env?: Record<string, unknown>;
+};
+
+const getEnvString = (key: string, fallback = ''): string => {
+  const env = (import.meta as unknown as ImportMetaWithEnv).env;
+  const raw = env?.[key];
+  return String(raw ?? fallback);
+};
+
 export const SERVER_CONFIG = {
   // Controlled via Vite env vars (LAN/server mode).
-  USE_REAL_SERVER: String((import.meta as any).env?.VITE_USE_REAL_SERVER ?? 'false') === 'true',
+  USE_REAL_SERVER: getEnvString('VITE_USE_REAL_SERVER', 'false') === 'true',
 
   // Example: http://192.168.1.10:5055
-  API_BASE_URL: String((import.meta as any).env?.VITE_API_BASE_URL ?? ''),
+  API_BASE_URL: getEnvString('VITE_API_BASE_URL', ''),
 
   // Request Settings
   TIMEOUT: 15000,
@@ -26,4 +36,4 @@ export const SERVER_CONFIG = {
   }
 };
 
-export const IS_PRODUCTION = (import.meta as any).env?.MODE === 'production';
+export const IS_PRODUCTION = getEnvString('MODE', '') === 'production';

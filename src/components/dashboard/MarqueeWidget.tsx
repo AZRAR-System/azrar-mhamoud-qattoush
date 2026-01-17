@@ -6,6 +6,7 @@ import { Megaphone, X, AlertTriangle, CheckCircle, Info, Plus, Settings2 } from 
 import { useSmartModal } from '@/context/ModalContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { Button } from '@/components/ui/Button';
+import type { PanelType } from '@/context/ModalContext';
 
 export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () => void }> = ({ isCustomizing, onRemove }) => {
   const [messages, setMessages] = useState<MarqueeMessage[]>([]);
@@ -18,6 +19,40 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
   const marqueeMeasureRef = useRef<HTMLDivElement | null>(null);
   const marqueeFirstGroupRef = useRef<HTMLDivElement | null>(null);
   const marqueeSecondGroupRef = useRef<HTMLDivElement | null>(null);
+  const marqueeTrackRef = useRef<HTMLDivElement | null>(null);
+
+  const isPanelType = (value: string): value is PanelType => {
+    switch (value) {
+      case 'PERSON_DETAILS':
+      case 'PROPERTY_DETAILS':
+      case 'CONTRACT_DETAILS':
+      case 'INSTALLMENT_DETAILS':
+      case 'MAINTENANCE_DETAILS':
+      case 'GENERIC_ALERT':
+      case 'REPORT_VIEWER':
+      case 'LEGAL_NOTICE_GENERATOR':
+      case 'BULK_WHATSAPP':
+      case 'CONFIRM_MODAL':
+      case 'SALES_LISTING_DETAILS':
+      case 'CLEARANCE_REPORT':
+      case 'CLEARANCE_WIZARD':
+      case 'PERSON_FORM':
+      case 'PROPERTY_FORM':
+      case 'CONTRACT_FORM':
+      case 'INSPECTION_FORM':
+      case 'BLACKLIST_FORM':
+      case 'SMART_PROMPT':
+      case 'CALENDAR_EVENTS':
+      case 'PAYMENT_NOTIFICATIONS':
+      case 'SECTION_VIEW':
+      case 'SERVER_DRAWER':
+      case 'SQL_SYNC_LOG':
+      case 'MARQUEE_ADS':
+        return true;
+      default:
+        return false;
+    }
+  };
 
   useEffect(() => {
     const load = () => {
@@ -38,7 +73,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
     const handler = () => load();
     window.addEventListener('azrar:marquee-changed', handler);
     window.addEventListener('azrar:tasks-changed', handler);
-    window.addEventListener('azrar:db-changed', handler as any);
+    window.addEventListener('azrar:db-changed', handler);
     window.addEventListener('focus', handler);
 
     const storageHandler = (e: StorageEvent) => {
@@ -52,7 +87,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
       clearInterval(interval);
       window.removeEventListener('azrar:marquee-changed', handler);
       window.removeEventListener('azrar:tasks-changed', handler);
-      window.removeEventListener('azrar:db-changed', handler as any);
+      window.removeEventListener('azrar:db-changed', handler);
       window.removeEventListener('focus', handler);
       window.removeEventListener('storage', storageHandler);
     };
@@ -104,7 +139,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
   const MAX_REPEAT = 40;
 
   const repeatedMessages = useMemo(() => {
-    if (!hasMessages) return [] as MarqueeMessage[];
+    if (!hasMessages) return [];
     const clamped = Math.max(1, Math.min(MAX_REPEAT, repeatFactor));
     const out: MarqueeMessage[] = [];
     for (let i = 0; i < clamped; i++) out.push(...displayMessages);
@@ -113,7 +148,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
 
   useLayoutEffect(() => {
     if (!hasMessages) {
-      if (repeatFactor !== 1) setRepeatFactor(1);
+      setRepeatFactor(prev => (prev === 1 ? prev : 1));
       return;
     }
 
@@ -136,21 +171,18 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
     compute();
 
     // Re-measure once fonts are loaded (prevents jumpy widths on first paint)
-    const fontsReady = (document as any)?.fonts?.ready;
-    if (fontsReady && typeof fontsReady.then === 'function') {
-      void fontsReady.then(() => compute());
-    }
+    const fontsReady = document.fonts?.ready;
+    if (fontsReady) void fontsReady.then(() => compute());
 
     const ro = new ResizeObserver(() => compute());
     ro.observe(viewportEl);
     ro.observe(measureEl);
     return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMessages, displayMessages]);
+  }, [hasMessages]);
 
   useLayoutEffect(() => {
     if (!hasMessages) {
-      if (marqueeShiftPx !== 0) setMarqueeShiftPx(0);
+      setMarqueeShiftPx(prev => (prev === 0 ? prev : 0));
       return;
     }
 
@@ -175,10 +207,8 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
     compute();
 
     // Re-measure once fonts are loaded (prevents initial 0/incorrect offsets)
-    const fontsReady = (document as any)?.fonts?.ready;
-    if (fontsReady && typeof fontsReady.then === 'function') {
-      void fontsReady.then(() => compute());
-    }
+    const fontsReady = document.fonts?.ready;
+    if (fontsReady) void fontsReady.then(() => compute());
 
     const ro = new ResizeObserver(() => compute());
     ro.observe(viewportEl);
@@ -200,14 +230,14 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
     return Math.round(clamped);
   }, [hasMessages, displayMessages]);
 
-  const marqueeStyle = React.useMemo(() => {
-    return {
-      ['--marquee-duration' as any]: `${marqueeDurationSec}s`,
-      ['--marquee-shift' as any]: `${marqueeShiftPx}px`,
-    } as React.CSSProperties;
+  useEffect(() => {
+    const trackEl = marqueeTrackRef.current;
+    if (!trackEl) return;
+    trackEl.style.setProperty('--marquee-duration', `${marqueeDurationSec}s`);
+    trackEl.style.setProperty('--marquee-shift', `${marqueeShiftPx}px`);
   }, [marqueeDurationSec, marqueeShiftPx]);
 
-  const getIcon = (type: string) => {
+  const getIcon = (type: MarqueeMessage['type']) => {
       if (type === 'alert') return <AlertTriangle size={14} className="text-yellow-300" />;
       if (type === 'success') return <CheckCircle size={14} className="text-green-300" />;
       return <Info size={14} className="text-indigo-300" />;
@@ -221,13 +251,13 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
       return;
     }
     if (action.kind === 'panel') {
-      // `openPanel` is strongly typed elsewhere; keep this widget generic.
-      openPanel(action.panel as any, action.id as any, action.options as any);
+      if (!isPanelType(action.panel)) return;
+      openPanel(action.panel, action.id, action.options);
     }
   };
 
   return (
-    <div className="relative mb-6 flex items-center h-12 bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-sm">
+    <div className="app-card dark:bg-slate-800 relative mb-6 flex items-center h-12 rounded-2xl overflow-hidden">
       {/* Inject Keyframes Locally to ensure it works */}
       <style>{`
         @keyframes marquee-continuous-rtl {
@@ -241,6 +271,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
           align-items: center;
           height: 100%;
           width: max-content;
+          flex-shrink: 0;
           white-space: nowrap;
           direction: ltr;
         }
@@ -248,6 +279,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
         .marquee-group {
           display: flex;
           align-items: center;
+          flex-shrink: 0;
           gap: 3rem;
           padding-inline-end: 0;
         }
@@ -294,7 +326,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
       </div>
       
       {/* Moving Content Area */}
-      <div ref={marqueeViewportRef} className="flex-1 overflow-hidden relative h-full flex items-center mask-image-gradient">
+      <div ref={marqueeViewportRef} dir="ltr" className="flex-1 overflow-hidden relative h-full flex items-center justify-start px-2 mask-image-gradient">
         {/* Hidden measurer: measures width of ONE copy of the messages */}
         {hasMessages && (
           <div
@@ -312,11 +344,11 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
         )}
 
         {!hasMessages ? (
-          <div className="px-4 py-1 rounded-xl bg-gray-50 dark:bg-slate-900/30 border border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold">
+          <div dir="rtl" className="px-4 py-1 rounded-xl bg-gray-50 dark:bg-slate-900/30 border border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold">
             لا توجد تنبيهات/مهام عاجلة حالياً — يمكنك إضافة إعلان من زر +
           </div>
         ) : (
-          <div className="marquee-track animate-marquee-continuous" style={marqueeStyle}>
+          <div ref={marqueeTrackRef} className="marquee-track animate-marquee-continuous">
             <div className="marquee-group" ref={marqueeFirstGroupRef}>
               {repeatedMessages.map((msg, idx) => (
                 <button

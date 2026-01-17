@@ -5,8 +5,8 @@ import { InspectionItem, DamageRecord, ClearanceRecord, العقود_tbl, LegalN
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { 
-  CheckCircle, XCircle, AlertTriangle, Calculator, FileCheck, 
-  Home, Zap, Droplets, Trash2, Plus, Camera, ArrowRight, ArrowLeft, ShieldAlert
+    CheckCircle, XCircle, FileCheck, 
+    Zap, Droplets, Trash2, Plus, Camera, ArrowRight, ArrowLeft, ShieldAlert
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 
@@ -29,7 +29,7 @@ const INSPECTION_DEFAULTS: InspectionItem[] = [
   { id: '8', name: 'الحمامات', status: 'Good' },
 ];
 
-export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onClose, onComplete }) => {
+export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onClose: _onClose, onComplete }) => {
   const [step, setStep] = useState(0);
   const toast = useToast();
 
@@ -69,11 +69,12 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
   useEffect(() => {
     // Calculate Rent Arrears
     const details = DbService.getContractDetails(contract.رقم_العقد);
-    const arrears = details.installments
-      .filter((i: any) => i.نوع_الكمبيالة !== 'تأمين' && i.حالة_الكمبيالة !== 'مدفوع' && i.حالة_الكمبيالة !== 'ملغي' && new Date(i.تاريخ_استحقاق) < new Date())
-      .reduce((sum: number, i: any) => sum + i.القيمة, 0);
+        const installments = details?.installments ?? [];
+        const arrears = installments
+            .filter(i => i.نوع_الكمبيالة !== 'تأمين' && i.حالة_الكمبيالة !== 'مدفوع' && i.حالة_الكمبيالة !== 'ملغي' && new Date(i.تاريخ_استحقاق) < new Date())
+            .reduce((sum, i) => sum + i.القيمة, 0);
     
-    const deposit = details.installments.find((i: any) => i.نوع_الكمبيالة === 'تأمين')?.القيمة || 0;
+        const deposit = installments.find(i => i.نوع_الكمبيالة === 'تأمين')?.القيمة || 0;
 
     setRentArrears(arrears);
     setSecurityDeposit(deposit);
@@ -89,7 +90,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
             const generated = DbService.generateLegalNotice(preferred, contract.رقم_العقد, { date: clearanceDate });
             setLegalNoticeText(generated?.text || '');
         }
-  }, [contract]);
+    }, [contract, clearanceDate]);
 
     useEffect(() => {
         if (!selectedLegalTemplateId) {
@@ -237,7 +238,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                     </div>
                     <div className="grid grid-cols-1 gap-4">
                         {inspectionItems.map(item => (
-                            <div key={item.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center gap-4 hover:shadow-md transition">
+                            <div key={item.id} className="app-card p-4 rounded-xl flex flex-col md:flex-row md:items-center gap-4 hover:shadow-md transition">
                                 <div className="flex-1">
                                     <h4 className="font-bold text-slate-700 dark:text-white">{item.name}</h4>
                                 </div>
@@ -277,7 +278,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                 <div className="space-y-6 animate-fade-in">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Electricity */}
-                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-yellow-200 dark:border-yellow-900/50 shadow-sm relative overflow-hidden">
+                        <div className="app-card p-6 border-yellow-200 dark:border-yellow-900/50 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-2 h-full bg-yellow-400"></div>
                             <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Zap className="text-yellow-500"/> الكهرباء</h3>
                             
@@ -315,7 +316,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                         </div>
 
                         {/* Water */}
-                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-cyan-200 dark:border-cyan-900/50 shadow-sm relative overflow-hidden">
+                        <div className="app-card p-6 border-cyan-200 dark:border-cyan-900/50 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-2 h-full bg-cyan-400"></div>
                             <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Droplets className="text-cyan-500"/> المياه</h3>
                             
@@ -360,7 +361,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                 <div className="space-y-6 animate-fade-in">
                     
                     {/* Add Form */}
-                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row gap-4 items-end">
+                    <div className="app-card p-4 rounded-xl flex flex-col md:flex-row gap-4 items-end">
                         <div className="flex-1 w-full">
                             <label className="block text-xs font-bold text-slate-500 mb-1">وصف الضرر</label>
                             <input 
@@ -385,7 +386,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                     </div>
 
                     {/* List */}
-                    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+                    <div className="app-card rounded-xl overflow-hidden">
                         <table className="w-full text-right text-sm">
                             <thead className="bg-gray-50 dark:bg-slate-900 text-slate-500">
                                 <tr>
@@ -427,7 +428,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                 <div className="space-y-6 animate-fade-in">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Summary Table */}
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+                        <div className="app-card overflow-hidden">
                             <div className="p-4 bg-gray-50 dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 font-bold">ملخص الذمم المالية</div>
                             <div className="p-4 space-y-3">
                                 <div className="flex justify-between border-b border-dashed pb-2">
@@ -508,7 +509,12 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                                 <select 
                                     className="mr-2 border rounded p-1"
                                     value={finalStatus}
-                                    onChange={e => setFinalStatus(e.target.value as any)}
+                                    onChange={e => {
+                                        const next = e.target.value;
+                                        if (next === 'شاغر' || next === 'تحت الصيانة') {
+                                            setFinalStatus(next);
+                                        }
+                                    }}
                                 >
                                     <option value="شاغر">شاغر (جاهز للتأجير)</option>
                                     <option value="تحت الصيانة">تحت الصيانة (بحاجة لإصلاح)</option>
@@ -567,7 +573,12 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                                 <select
                                     className="w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm"
                                     value={legalNoticeMethod}
-                                    onChange={(e) => setLegalNoticeMethod(e.target.value as any)}
+                                    onChange={(e) => {
+                                        const next = e.target.value;
+                                        if (next === 'Print' || next === 'WhatsApp' || next === 'Email') {
+                                            setLegalNoticeMethod(next);
+                                        }
+                                    }}
                                     disabled={!saveLegalNotice}
                                 >
                                     <option value="Print">طباعة</option>

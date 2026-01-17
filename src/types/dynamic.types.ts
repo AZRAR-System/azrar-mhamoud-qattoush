@@ -26,7 +26,7 @@ export interface DynamicTable {
 export interface DynamicRecord {
   id: string;
   tableId: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface Attachment {

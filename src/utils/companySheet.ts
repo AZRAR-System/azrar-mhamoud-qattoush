@@ -2,14 +2,14 @@ import type { SystemSettings } from '@/types/types';
 
 export type XlsxExtraSheet = {
   name: string;
-  rows: any[][];
+  rows: unknown[][];
 };
 
 export function buildCompanyLetterheadSheet(settings?: Partial<SystemSettings> | null): XlsxExtraSheet | null {
   const s = settings || {};
   if (s.letterheadEnabled === false) return null;
 
-  const rows: any[][] = [];
+  const rows: unknown[][] = [];
   rows.push(['الترويسة / هوية الشركة']);
   rows.push([]);
 

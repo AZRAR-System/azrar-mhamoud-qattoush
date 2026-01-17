@@ -3,7 +3,7 @@
  * Monitoring Layer - Alerts and system health
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, AlertCircle, Info, CheckCircle, Zap, TrendingDown, Bell, Activity } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import { isTenancyRelevant } from '@/utils/tenancy';
@@ -22,7 +22,7 @@ interface Alert {
   description: string;
   timestamp: string;
   action: string;
-  raw?: any;
+  raw?: unknown;
 }
 
 type ApiProbe = {
@@ -49,10 +49,163 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
   const [apiProbe, setApiProbe] = useState<ApiProbe>({ mode: 'local', ok: true });
   const [dbProbe, setDbProbe] = useState<DbProbe>({ ok: true, engine: storage.isDesktop() ? 'sqlite' : 'localStorage' });
 
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  const loadRealAlerts = useCallback(() => {
+    try {
+      const current = dataRef.current;
+      const contracts = current.contracts || [];
+      const properties = current.properties || [];
+      const followUps = current.followUps || [];
+      const storedAlerts = current.alertsRaw || [];
+      const highlights = current.desktopHighlights;
+      const salesListings = current.salesListings || [];
+
+      const alerts: Alert[] = [];
+      const today = new Date();
+
+      // ✅ Include stored alerts (if any)
+      storedAlerts.slice(0, 5).forEach((a) => {
+        const alertType = String(a.نوع_التنبيه || '');
+        const isCritical = a.category === 'SmartBehavior' || alertType.includes('خطر');
+        const isWarning = alertType.includes('تحذير');
+
+        const level: Alert['level'] = isCritical ? 'critical' : isWarning ? 'warning' : 'info';
+
+        alerts.push({
+          id: a.id,
+          level,
+          title: a.نوع_التنبيه || 'تنبيه',
+          description: a.الوصف || '',
+          timestamp: formatDateYMD(a.تاريخ_الانشاء),
+          action: 'عرض',
+          raw: a,
+        });
+      });
+
+      // ✅ Critical: Contracts expiring soon
+      const desktopExpiring = highlights?.expiringContracts ?? [];
+      if (desktopExpiring.length > 0 && contracts.length === 0) {
+        desktopExpiring.slice(0, 2).forEach((r) => {
+          const endDate = new Date(String(r.endDate || ''));
+          const daysUntilExpiry = Number.isFinite(endDate.getTime())
+            ? Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          const propertyCode = String(r.propertyCode || '').trim() || 'عقار';
+
+          alerts.push({
+            id: `expiring-${String(r.contractId || '')}`,
+            level: 'critical',
+            title: 'عقد على وشك الانتهاء',
+            description: `عقد ${propertyCode} ينتهي خلال ${daysUntilExpiry} يوم`,
+            timestamp: `${daysUntilExpiry} يوم`,
+            action: 'تجديد',
+            raw: { contractId: r.contractId, propertyCode, endDate: r.endDate },
+          });
+        });
+      } else {
+        const expiringContracts = contracts.filter((c) => {
+          const endDate = new Date(c.تاريخ_النهاية);
+          const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          return isTenancyRelevant(c) && daysUntilExpiry > 0 && daysUntilExpiry <= 30;
+        });
+
+        expiringContracts.slice(0, 2).forEach((contract) => {
+          const property = properties.find((p) => p.رقم_العقار === contract.رقم_العقار);
+          const daysUntilExpiry = Math.ceil((new Date(contract.تاريخ_النهاية).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+          alerts.push({
+            id: `expiring-${contract.رقم_العقد}`,
+            level: 'critical',
+            title: 'عقد على وشك الانتهاء',
+            description: `عقد ${property?.الكود_الداخلي || 'عقار'} ينتهي خلال ${daysUntilExpiry} يوم`,
+            timestamp: `${daysUntilExpiry} يوم`,
+            action: 'تجديد',
+            raw: { contract, property },
+          });
+        });
+      }
+
+      // ✅ Warning: Properties with incomplete data
+      const desktopIncomplete = highlights?.incompleteProperties ?? [];
+      if (desktopIncomplete.length > 0 && properties.length === 0) {
+        desktopIncomplete.slice(0, 2).forEach((r) => {
+          const propertyCode = String(r.propertyCode || '').trim() || '—';
+          alerts.push({
+            id: `incomplete-${String(r.propertyId || '')}`,
+            level: 'warning',
+            title: 'تحديث بيانات مطلوب',
+            description: `بيانات العقار (${propertyCode}) تحتاج تحديث`,
+            timestamp: '—',
+            action: 'تحديث',
+            raw: { propertyId: r.propertyId, propertyCode, missing: { water: r.missingWater, electric: r.missingElectric, area: r.missingArea } },
+          });
+        });
+      } else {
+        const incompleteProperties = properties.filter((p) => !p.رقم_اشتراك_الكهرباء || !p.رقم_اشتراك_المياه || !p.المساحة);
+
+        incompleteProperties.slice(0, 2).forEach((property) => {
+          alerts.push({
+            id: `incomplete-${property.رقم_العقار}`,
+            level: 'warning',
+            title: 'تحديث بيانات مطلوب',
+            description: `بيانات العقار (${property.الكود_الداخلي}) تحتاج تحديث`,
+            timestamp: '—',
+            action: 'تحديث',
+            raw: { property },
+          });
+        });
+      }
+
+      // ✅ Warning: Overdue follow-ups
+      const overdueFollowUps = followUps.filter((f) => {
+        const followUpDate = new Date(f.dueDate);
+        return followUpDate < today && f.status !== 'Done';
+      });
+
+      if (overdueFollowUps.length > 0) {
+        alerts.push({
+          id: 'overdue-followups',
+          level: 'warning',
+          title: 'متابعات متأخرة',
+          description: `يوجد ${overdueFollowUps.length} متابعة متأخرة تحتاج إلى إجراء`,
+          timestamp: '—',
+          action: 'عرض',
+          raw: { overdueFollowUps },
+        });
+      }
+
+      // ✅ Info: Recent sales
+      const recentSales = salesListings.filter((s) => s.الحالة === 'Sold');
+
+      if (recentSales.length > 0) {
+        const latestSale = recentSales[0];
+        const property = properties.find((p) => p.رقم_العقار === latestSale.رقم_العقار);
+
+        alerts.push({
+          id: `sale-${latestSale.id}`,
+          level: 'info',
+          title: 'مبيعة جديدة',
+          description: `تم تسجيل مبيعة جديدة - ${property?.الكود_الداخلي || 'عقار'}`,
+          timestamp: '—',
+          action: 'عرض',
+          raw: { latestSale, property },
+        });
+      }
+
+      setAllAlerts(alerts);
+    } catch (error) {
+      console.error('Error loading alerts:', error);
+    }
+  }, []);
+
   // ✅ Load real alerts from database
   useEffect(() => {
     loadRealAlerts();
-  }, [data.meta?.updatedAt]);
+  }, [data.meta?.updatedAt, loadRealAlerts]);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,7 +237,7 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
         }
 
         const sizeMb = Math.round((bytes / (1024 * 1024)) * 100) / 100;
-        const path = isDesktop && (window as any).desktopDb?.getPath ? await (window as any).desktopDb.getPath() : undefined;
+        const path = isDesktop && typeof window.desktopDb?.getPath === 'function' ? await window.desktopDb.getPath() : undefined;
 
         return {
           ok: true,
@@ -94,11 +247,11 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
           records,
           path,
         };
-      } catch (e: any) {
+      } catch (e: unknown) {
         return {
           ok: false,
           engine: storage.isDesktop() ? 'sqlite' : 'localStorage',
-          error: e?.message || String(e),
+          error: e instanceof Error ? e.message : String(e),
         };
       }
     };
@@ -119,158 +272,11 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
     };
   }, []);
 
-  const loadRealAlerts = () => {
-    try {
-      const contracts = data.contracts || [];
-      const installments = data.installments || [];
-      const people = data.people || [];
-      const properties = data.properties || [];
-      const followUps = data.followUps || [];
-      const storedAlerts = data.alertsRaw || [];
-      const highlights = (data as any)?.desktopHighlights as
-        | {
-            expiringContracts?: Array<{ contractId: string; propertyCode: string; endDate: string }>;
-            incompleteProperties?: Array<{ propertyId: string; propertyCode: string; missingWater: boolean; missingElectric: boolean; missingArea: boolean }>;
-          }
-        | undefined;
-
-      const alerts: Alert[] = [];
-      const today = new Date();
-
-      // ✅ Include stored alerts (if any)
-      storedAlerts.slice(0, 5).forEach((a: any) => {
-        const level: Alert['level'] = a?.category === 'SmartBehavior' || a?.نوع_التنبيه?.includes('خطر') ? 'critical' : a?.نوع_التنبيه?.includes('تحذير') ? 'warning' : 'info';
-        alerts.push({
-          id: a.id,
-          level,
-          title: a.نوع_التنبيه || 'تنبيه',
-          description: a.الوصف || '',
-          timestamp: formatDateYMD(a.تاريخ_الانشاء),
-          action: 'عرض',
-          raw: a,
-        });
-      });
-
-      // ✅ Critical: Contracts expiring soon
-      const desktopExpiring = Array.isArray(highlights?.expiringContracts) ? highlights!.expiringContracts! : [];
-      if (desktopExpiring.length > 0 && contracts.length === 0) {
-        desktopExpiring.slice(0, 2).forEach((r: any) => {
-          const endDate = new Date(String(r?.endDate || ''));
-          const daysUntilExpiry = Number.isFinite(endDate.getTime()) ? Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-          const propertyCode = String(r?.propertyCode || '').trim() || 'عقار';
-
-          alerts.push({
-            id: `expiring-${String(r?.contractId || '')}`,
-            level: 'critical',
-            title: 'عقد على وشك الانتهاء',
-            description: `عقد ${propertyCode} ينتهي خلال ${daysUntilExpiry} يوم`,
-            timestamp: `${daysUntilExpiry} يوم`,
-            action: 'تجديد',
-            raw: { contractId: r?.contractId, propertyCode, endDate: r?.endDate },
-          });
-        });
-      } else {
-        const expiringContracts = contracts.filter((c: any) => {
-          const endDate = new Date(c.تاريخ_النهاية);
-          const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-          return isTenancyRelevant(c) && daysUntilExpiry > 0 && daysUntilExpiry <= 30;
-        });
-
-        expiringContracts.slice(0, 2).forEach((contract: any) => {
-          const property = properties.find((p: any) => p.رقم_العقار === contract.رقم_العقار);
-          const daysUntilExpiry = Math.ceil((new Date(contract.تاريخ_النهاية).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-          alerts.push({
-            id: `expiring-${contract.رقم_العقد}`,
-            level: 'critical',
-            title: 'عقد على وشك الانتهاء',
-            description: `عقد ${property?.الكود_الداخلي || 'عقار'} ينتهي خلال ${daysUntilExpiry} يوم`,
-            timestamp: `${daysUntilExpiry} يوم`,
-            action: 'تجديد',
-            raw: { contract, property },
-          });
-        });
-      }
-
-      // ✅ Warning: Properties with incomplete data
-      const desktopIncomplete = Array.isArray(highlights?.incompleteProperties) ? highlights!.incompleteProperties! : [];
-      if (desktopIncomplete.length > 0 && properties.length === 0) {
-        desktopIncomplete.slice(0, 2).forEach((r: any) => {
-          const propertyCode = String(r?.propertyCode || '').trim() || '—';
-          alerts.push({
-            id: `incomplete-${String(r?.propertyId || '')}`,
-            level: 'warning',
-            title: 'تحديث بيانات مطلوب',
-            description: `بيانات العقار (${propertyCode}) تحتاج تحديث`,
-            timestamp: '—',
-            action: 'تحديث',
-            raw: { propertyId: r?.propertyId, propertyCode, missing: { water: r?.missingWater, electric: r?.missingElectric, area: r?.missingArea } },
-          });
-        });
-      } else {
-        const incompleteProperties = properties.filter((p: any) => !p.رقم_اشتراك_الكهرباء || !p.رقم_اشتراك_المياه || !p.المساحة);
-
-        incompleteProperties.slice(0, 2).forEach((property: any) => {
-          alerts.push({
-            id: `incomplete-${property.رقم_العقار}`,
-            level: 'warning',
-            title: 'تحديث بيانات مطلوب',
-            description: `بيانات العقار (${property.الكود_الداخلي}) تحتاج تحديث`,
-            timestamp: '—',
-            action: 'تحديث',
-            raw: { property },
-          });
-        });
-      }
-
-      // ✅ Warning: Overdue follow-ups
-      const overdueFollowUps = followUps.filter((f: any) => {
-        const followUpDate = new Date(f.dueDate);
-        return followUpDate < today && f.status !== 'Done';
-      });
-
-      if (overdueFollowUps.length > 0) {
-        alerts.push({
-          id: 'overdue-followups',
-          level: 'warning',
-          title: 'متابعات متأخرة',
-          description: `يوجد ${overdueFollowUps.length} متابعة متأخرة تحتاج إلى إجراء`,
-          timestamp: '—',
-          action: 'عرض',
-          raw: { overdueFollowUps },
-        });
-      }
-
-      // ✅ Info: Recent sales
-      const salesListings = data.salesListings || [];
-      const recentSales = salesListings.filter((s: any) => s.الحالة === 'Sold');
-
-      if (recentSales.length > 0) {
-        const latestSale = recentSales[0];
-        const property = properties.find((p: any) => p.رقم_العقار === latestSale.رقم_العقار);
-
-        alerts.push({
-          id: `sale-${latestSale.id}`,
-          level: 'info',
-          title: 'مبيعة جديدة',
-          description: `تم تسجيل مبيعة جديدة - ${property?.الكود_الداخلي || 'عقار'}`,
-          timestamp: '—',
-          action: 'عرض',
-          raw: { latestSale, property },
-        });
-      }
-
-      setAllAlerts(alerts);
-    } catch (error) {
-      console.error('Error loading alerts:', error);
-    }
-  };
-
   const filteredAlerts = selectedTab === 'all'
     ? allAlerts
     : allAlerts.filter((a: Alert) => a.level === selectedTab);
 
-  const getAlertIcon = (level: string) => {
+  const getAlertIcon = (level: Alert['level']) => {
     switch (level) {
       case 'critical':
         return <AlertTriangle className="text-red-500" />;
@@ -283,7 +289,7 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
     }
   };
 
-  const getAlertColor = (level: string) => {
+  const getAlertColor = (level: Alert['level']) => {
     switch (level) {
       case 'critical':
         return 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800';
@@ -318,24 +324,25 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
     },
   ];
 
-  const pendingActions = (() => {
+  type PendingActionItem = { action: string; assignee: string; dueDate: string; priority: 'عالية' | 'متوسطة' | 'منخفضة' };
+  const pendingActions = useMemo<PendingActionItem[]>(() => {
     try {
       const followUps = data.followUps || [];
       const pending = followUps
-        .filter((f: any) => f.status === 'Pending')
-        .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+        .filter((f) => f.status === 'Pending')
+        .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
         .slice(0, 6);
 
-      return pending.map((f: any) => ({
+      return pending.map((f) => ({
         action: f.task,
         assignee: f.clientName || '—',
         dueDate: formatDateYMD(f.dueDate),
-        priority: 'متوسطة' as const
+        priority: 'متوسطة',
       }));
     } catch {
-      return [] as Array<{ action: string; assignee: string; dueDate: string; priority: 'عالية' | 'متوسطة' | 'منخفضة' }>;
+      return [];
     }
-  })();
+  }, [data.followUps]);
 
   return (
     <div className="space-y-6">
@@ -362,7 +369,7 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
       </div>
 
       {/* System Health Status */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
           <Activity className="text-green-500" />
           حالة النظام
@@ -419,7 +426,7 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
       </div>
 
       {/* Pending Actions */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
           <Zap className="text-yellow-500" />
           الإجراءات المعلقة
@@ -456,7 +463,7 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
       </div>
 
       {/* Alerts Feed */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
             <Bell className="text-indigo-500" />
@@ -514,7 +521,7 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
       </div>
 
       {/* Performance Insights */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
           <TrendingDown className="text-purple-500" />
           رؤى الأداء

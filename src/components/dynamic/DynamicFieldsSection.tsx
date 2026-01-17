@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import type { DynamicFormField, FieldType } from '@/types';
 
-type DynamicValues = Record<string, any>;
+type DynamicValues = Record<string, unknown>;
 
-const coerceValue = (type: FieldType, raw: any): string | number => {
+const coerceValue = (type: FieldType, raw: unknown): string | number => {
   if (raw === undefined || raw === null) return '';
   if (type === 'number') return raw === '' ? '' : Number(raw);
   return String(raw);
@@ -34,7 +34,7 @@ export const DynamicFieldsSection: React.FC<{
   const inputClass =
     'w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500';
 
-  const setValue = (name: string, nextVal: any) => {
+  const setValue = (name: string, nextVal: unknown) => {
     const next = { ...(values || {}) };
     next[name] = nextVal;
     onChange(next);

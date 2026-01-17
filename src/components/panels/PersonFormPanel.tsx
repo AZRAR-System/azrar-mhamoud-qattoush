@@ -1,13 +1,11 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
-import { الأشخاص_tbl, SystemLookup, SmartSuggestion } from '@/types';
+import type { الأشخاص_tbl, SystemLookup, SmartSuggestion } from '@/types';
 import { useToast } from '@/context/ToastContext';
-import { User, Plus, FilterX, Check, ShieldAlert } from 'lucide-react';
+import { User, Plus, FilterX, Check } from 'lucide-react';
 import { SmartEngine } from '@/services/smartEngine';
 import { SmartAssistant } from '@/components/smart/SmartAssistant';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
-import { storage } from '@/services/storage';
 
 interface PersonFormProps {
   id?: string; // If ID exists, it's Edit mode
@@ -31,48 +29,37 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
   
   const [availableRoles, setAvailableRoles] = useState<SystemLookup[]>([]);
     const [availableCompanyNatures, setAvailableCompanyNatures] = useState<SystemLookup[]>([]);
-    const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+    const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
   const [isAddingRole, setIsAddingRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
     const [isAddingNature, setIsAddingNature] = useState(false);
     const [newNatureName, setNewNatureName] = useState('');
   const [suggestions, setSuggestions] = useState<SmartSuggestion[]>([]);
   const toast = useToast();
-    const isDesktop = storage.isDesktop() && !!(window as any)?.desktopDb;
 
-    if (isDesktop) {
-        return (
-            <div className="p-10 text-center text-slate-600 dark:text-slate-300">
-                <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
-                    <ShieldAlert className="w-6 h-6 text-yellow-700 dark:text-yellow-300" />
-                </div>
-                <div className="font-bold">غير مدعوم في وضع الديسكتوب الحالي</div>
-                <div className="text-sm mt-2">تعديل/إضافة الأشخاص يتطلب مسار حفظ SQL عبر IPC (غير متوفر حالياً).</div>
-            </div>
-        );
-    }
+    // Keep initial defaults stable for "new" suggestions.
+    const initialFormDataRef = useRef(formData);
 
   useEffect(() => {
-        if (isDesktop) return;
     setAvailableRoles(DbService.getLookupsByCategory('person_roles') || []);
     setAvailableCompanyNatures(DbService.getLookupsByCategory('company_nature') || []);
     
     if (id && id !== 'new') {
-        const person = DbService.getPeople().find(p => p.رقم_الشخص === id);
+        const person = (DbService.getPeople() as الأشخاص_tbl[]).find(p => p.رقم_الشخص === id);
         if (person) {
             const roles = DbService.getPersonRoles(person.رقم_الشخص);
             setFormData({
                 الاسم: person.الاسم,
                 الرقم_الوطني: person.الرقم_الوطني || '',
                 رقم_الهاتف: person.رقم_الهاتف,
-                رقم_هاتف_اضافي: (person as any).رقم_هاتف_اضافي || '',
+                رقم_هاتف_اضافي: person.رقم_هاتف_اضافي || '',
                 العنوان: person.العنوان || '',
                 ملاحظات: person.ملاحظات || '',
-                نوع_الملف: (person as any).نوع_الملف || ((person as any).طبيعة_الشركة ? 'منشأة' : 'فرد'),
-                طبيعة_الشركة: (person as any).طبيعة_الشركة || '',
+                نوع_الملف: person.نوع_الملف || (person.طبيعة_الشركة ? 'منشأة' : 'فرد'),
+                طبيعة_الشركة: person.طبيعة_الشركة || '',
                 selectedRoles: new Set(roles)
             });
-            setDynamicValues((person as any).حقول_ديناميكية || {});
+            setDynamicValues(person.حقول_ديناميكية || {});
         }
     } else {
         setDynamicValues({});
@@ -84,14 +71,14 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
             }));
         }
         // Run smart prediction for new person
-        const recs = SmartEngine.predict('person', formData);
+        const recs = SmartEngine.predict('person', initialFormDataRef.current);
         setSuggestions(recs);
     }
-  }, [id]);
+  }, [id, initialType]);
 
   const applySuggestions = (recs: SmartSuggestion[]) => {
-      const newValues: any = {};
-      recs.forEach(s => newValues[s.field] = s.suggestedValue);
+      const newValues: Record<string, unknown> = {};
+      recs.forEach(s => { newValues[s.field] = s.suggestedValue; });
       setFormData(prev => ({ ...prev, ...newValues }));
       setSuggestions([]); // Dismiss
       toast.success('تم تعبئة البيانات تلقائياً');
@@ -99,10 +86,6 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-        if (isDesktop) {
-            toast.error('غير مدعوم في وضع الديسكتوب الحالي');
-            return;
-        }
     const rolesArray = Array.from(formData.selectedRoles);
     
     if (rolesArray.length === 0) return toast.warning('يجب اختيار دور واحد على الأقل');
@@ -124,10 +107,10 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
     if (id && id !== 'new') {
         res = DbService.updatePerson(id, payload);
         if (res.success) {
-             DbService.updatePersonRoles(id, rolesArray as string[]);
+             DbService.updatePersonRoles(id, rolesArray);
         }
     } else {
-        res = DbService.addPerson(payload, rolesArray as any);
+        res = DbService.addPerson(payload, rolesArray);
     }
 
     if (res.success) {

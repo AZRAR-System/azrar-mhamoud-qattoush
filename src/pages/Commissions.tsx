@@ -1,12 +1,10 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
-import { ReportResult, العمولات_tbl, العقود_tbl, العقارات_tbl, العمولات_الخارجية_tbl, الأشخاص_tbl } from '@/types';
+import { ReportResult, العمولات_tbl, العقود_tbl, العقارات_tbl, العمولات_الخارجية_tbl, الأشخاص_tbl, المستخدمين_tbl } from '@/types';
 import { runReportSmart } from '@/services/reporting';
 import { HandCoins, Briefcase, Filter, ArrowUp, Plus, Globe, Tags, Trash2, Search, Pencil, CornerDownRight, Download } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
-import { DatePicker } from '@/components/ui/DatePicker';
-import { DynamicSelect } from '@/components/ui/DynamicSelect';
 import { Button } from '@/components/ui/Button';
 import { DS } from '@/constants/designSystem';
 import { formatContractNumberShort } from '@/utils/contractNumber';
@@ -18,11 +16,34 @@ import { domainGetSmart } from '@/services/domainQueries';
 
 type Tab = 'contracts' | 'external' | 'employee';
 
+type EmployeeCommissionRow = {
+    type?: unknown;
+    date?: unknown;
+    reference?: unknown;
+    employee?: unknown;
+    employeeUsername?: unknown;
+    property?: unknown;
+    opportunity?: unknown;
+    officeCommission?: unknown;
+    tier?: unknown;
+    employeeBase?: unknown;
+    intro?: unknown;
+    employeeTotal?: unknown;
+    [key: string]: unknown;
+};
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+const asString = (v: unknown): string => String(v ?? '');
+const asTrimmedString = (v: unknown): string => asString(v).trim();
+const asNumber = (v: unknown): number => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+};
+
 export const Commissions: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('contracts');
 
-    const isDesktopFast =
-        typeof window !== 'undefined' && storage.isDesktop() && !!(window as any)?.desktopDb?.domainGet;
+    const isDesktopFast = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb?.domainGet;
   
   // Contract Commissions Data
   const [commissions, setCommissions] = useState<العمولات_tbl[]>([]);
@@ -31,9 +52,9 @@ export const Commissions: React.FC = () => {
     const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
 
     // Desktop-fast: resolve contract/property/people names lazily (avoid renderer loading huge arrays)
-    const fastContractByIdRef = useRef<Map<string, any>>(new Map());
-    const fastPropertyByIdRef = useRef<Map<string, any>>(new Map());
-    const fastPersonByIdRef = useRef<Map<string, any>>(new Map());
+    const fastContractByIdRef = useRef<Map<string, العقود_tbl>>(new Map());
+    const fastPropertyByIdRef = useRef<Map<string, العقارات_tbl>>(new Map());
+    const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
     const [fastCacheVersion, setFastCacheVersion] = useState(0);
   
   // External Commissions Data
@@ -57,7 +78,7 @@ export const Commissions: React.FC = () => {
     const [employeeReport, setEmployeeReport] = useState<ReportResult | null>(null);
 
     // Users (for attributing/filtering employee commissions)
-    const [systemUsers, setSystemUsers] = useState<any[]>([]);
+    const [systemUsers, setSystemUsers] = useState<المستخدمين_tbl[]>([]);
     const [employeeUserFilter, setEmployeeUserFilter] = useState<string>('');
 
   // Filters
@@ -86,7 +107,7 @@ export const Commissions: React.FC = () => {
                 const userQ = String(params.get('user') || '').trim();
 
                 if (tab === 'contracts' || tab === 'external' || tab === 'employee') {
-                    setActiveTab(tab as Tab);
+                    setActiveTab(tab);
                 }
                 if (/^\d{4}-\d{2}$/.test(month)) {
                     setSelectedMonth(month);
@@ -107,21 +128,11 @@ export const Commissions: React.FC = () => {
     // Default employee filter to current logged-in user
     useEffect(() => {
         if (employeeUserFilter) return;
-        const username = String((user as any)?.اسم_المستخدم || '').trim();
+        const username = asTrimmedString(user?.اسم_المستخدم);
         if (username) setEmployeeUserFilter(username);
     }, [user, employeeUserFilter]);
 
-  useEffect(() => {
-    loadData();
-    }, [activeTab, dbSignal]);
-
-    useEffect(() => {
-            // Keep filters intuitive across tabs
-            setSearchTerm('');
-            setFilterType('All');
-    }, [activeTab]);
-
-    const loadData = () => {
+        const loadData = useCallback(() => {
         setCommissions(DbService.getCommissions());
         setExternalCommissions(DbService.getExternalCommissions());
 
@@ -137,7 +148,7 @@ export const Commissions: React.FC = () => {
         }
 
     try {
-        setSystemUsers(DbService.getSystemUsers() as any);
+        setSystemUsers(DbService.getSystemUsers());
     } catch {
         setSystemUsers([]);
     }
@@ -150,7 +161,17 @@ export const Commissions: React.FC = () => {
                 setEmployeeReport(null);
             }
         })();
-  };
+    }, [isDesktopFast]);
+
+    useEffect(() => {
+        loadData();
+        }, [activeTab, dbSignal, loadData]);
+
+        useEffect(() => {
+                        // Keep filters intuitive across tabs
+                        setSearchTerm('');
+                        setFilterType('All');
+        }, [activeTab]);
 
   const handleAddExternal = (e: React.FormEvent) => {
       e.preventDefault();
@@ -176,7 +197,7 @@ export const Commissions: React.FC = () => {
           return;
       }
 
-      const { id: _ignored, ...patch } = (newExtComm || {}) as any;
+    const { id: _ignored, ...patch } = newExtComm;
       const res = DbService.updateExternalCommission(editingExternalId, patch);
       if (res.success) {
           toast.success('تم تعديل العمولة');
@@ -201,8 +222,8 @@ export const Commissions: React.FC = () => {
       if (!ok) return;
 
       const res = DbService.deleteExternalCommission(id);
-      if (res && (res as any).success === false) {
-          toast.error((res as any).message || 'فشل الحذف');
+      if (res.success === false) {
+          toast.error(res.message || 'فشل الحذف');
           return;
       }
       loadData();
@@ -230,8 +251,8 @@ export const Commissions: React.FC = () => {
   };
 
   const openEditContractModal = (c: العمولات_tbl) => {
-      const currentUsername = String((user as any)?.اسم_المستخدم || '').trim();
-      setEditingContractComm({ ...c, اسم_المستخدم: String((c as any)?.اسم_المستخدم || currentUsername || '').trim() || undefined } as any);
+      const currentUsername = asTrimmedString(user?.اسم_المستخدم);
+      setEditingContractComm({ ...c, اسم_المستخدم: asTrimmedString(c.اسم_المستخدم || currentUsername) || undefined });
       setIsContractModalOpen(true);
   };
 
@@ -250,15 +271,15 @@ export const Commissions: React.FC = () => {
       }
 
       const res = DbService.updateCommission(editingContractComm.رقم_العمولة, {
-          تاريخ_العقد: editingContractComm.تاريخ_العقد as any,
+          تاريخ_العقد: editingContractComm.تاريخ_العقد,
           شهر_دفع_العمولة: /^\d{4}-\d{2}/.test(String(editingContractComm.تاريخ_العقد || ''))
               ? String(editingContractComm.تاريخ_العقد).slice(0, 7)
               : undefined,
-          رقم_الفرصة: String((editingContractComm as any)?.رقم_الفرصة || '').trim() || undefined,
-          يوجد_ادخال_عقار: !!(editingContractComm as any)?.يوجد_ادخال_عقار,
-          اسم_المستخدم: String((editingContractComm as any)?.اسم_المستخدم || '').trim() || undefined,
-          عمولة_المالك: commOwner as any,
-          عمولة_المستأجر: commTenant as any,
+          رقم_الفرصة: asTrimmedString(editingContractComm.رقم_الفرصة) || undefined,
+          يوجد_ادخال_عقار: !!editingContractComm.يوجد_ادخال_عقار,
+          اسم_المستخدم: asTrimmedString(editingContractComm.اسم_المستخدم) || undefined,
+          عمولة_المالك: commOwner,
+          عمولة_المستأجر: commTenant,
       });
 
       if (res.success) {
@@ -321,7 +342,7 @@ export const Commissions: React.FC = () => {
             const tenantId = String(contract?.رقم_المستاجر || '').trim();
             const propId = String(contract?.رقم_العقار || '').trim();
             const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
-            const ownerId = String((prop as any)?.رقم_المالك || '').trim();
+            const ownerId = String(prop?.رقم_المالك || '').trim();
 
             const tenant = tenantId ? fastPersonByIdRef.current.get(tenantId) : null;
             const owner = ownerId ? fastPersonByIdRef.current.get(ownerId) : null;
@@ -337,7 +358,7 @@ export const Commissions: React.FC = () => {
 
         const tenant = people.find(p => String(p.رقم_الشخص) === String(contract.رقم_المستاجر));
         const prop = properties.find(p => p.رقم_العقار === contract.رقم_العقار);
-        const owner = prop ? people.find(p => String(p.رقم_الشخص) === String((prop as any).رقم_المالك)) : undefined;
+        const owner = prop ? people.find(p => String(p.رقم_الشخص) === String(prop.رقم_المالك)) : undefined;
 
         return {
             ownerName: String(owner?.الاسم || '').trim() || '—',
@@ -354,13 +375,13 @@ export const Commissions: React.FC = () => {
                 new Set(
                     commissions
                         .filter((c) => {
-                            const paidMonth = String((c as any)?.شهر_دفع_العمولة || '').trim();
+                            const paidMonth = String(c.شهر_دفع_العمولة || '').trim();
                             if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth === selectedMonth;
-                            const contractDate = String((c as any)?.تاريخ_العقد || '').trim();
+                            const contractDate = String(c.تاريخ_العقد || '').trim();
                             if (/^\d{4}-\d{2}/.test(contractDate)) return contractDate.slice(0, 7) === selectedMonth;
                             return false;
                         })
-                        .map((c) => String((c as any)?.رقم_العقد || '').trim())
+                        .map((c) => String(c.رقم_العقد || '').trim())
                         .filter(Boolean)
                 )
             );
@@ -377,8 +398,8 @@ export const Commissions: React.FC = () => {
                         fastContractByIdRef.current.set(contractId, contract);
                         changed = true;
 
-                        const propId = String((contract as any)?.رقم_العقار || '').trim();
-                        const tenantId = String((contract as any)?.رقم_المستاجر || '').trim();
+                        const propId = String(contract.رقم_العقار || '').trim();
+                        const tenantId = String(contract.رقم_المستاجر || '').trim();
 
                         if (propId && !fastPropertyByIdRef.current.has(propId)) {
                             try {
@@ -405,7 +426,7 @@ export const Commissions: React.FC = () => {
                         }
 
                         // Owner depends on property; try resolve now if property was fetched.
-                        const ownerId = String((fastPropertyByIdRef.current.get(propId) as any)?.رقم_المالك || '').trim();
+                        const ownerId = String(fastPropertyByIdRef.current.get(propId)?.رقم_المالك || '').trim();
                         if (ownerId && !fastPersonByIdRef.current.has(ownerId)) {
                             try {
                                 const owner = await domainGetSmart('people', ownerId);
@@ -434,7 +455,7 @@ export const Commissions: React.FC = () => {
 
   const handlePostponeCommissionCollection = async (c: العمولات_tbl) => {
       const defaultWho = (() => {
-          const prev = String((c as any)?.جهة_تحصيل_مؤجل || '').trim();
+          const prev = String(c.جهة_تحصيل_مؤجل || '').trim();
           if (prev === 'مالك') return 'Owner';
           if (prev === 'مستأجر') return 'Tenant';
           if (Number(c.عمولة_المالك || 0) > 0 && Number(c.عمولة_المستأجر || 0) <= 0) return 'Owner';
@@ -442,7 +463,7 @@ export const Commissions: React.FC = () => {
           return 'Owner';
       })();
 
-      const who = await dialogs.prompt({
+      const whoRaw = await dialogs.prompt({
           title: 'تأجيل التحصيل',
           message: 'من هو المطلوب تأجيل تحصيل العمولة منه؟',
           inputType: 'select',
@@ -453,7 +474,8 @@ export const Commissions: React.FC = () => {
           defaultValue: defaultWho,
           required: true,
       });
-      if (!who) return;
+      if (whoRaw !== 'Owner' && whoRaw !== 'Tenant') return;
+      const who = whoRaw;
 
       if (who === 'Owner' && Number(c.عمولة_المالك || 0) <= 0) {
           toast.warning('عمولة المالك = 0 (لا يوجد ما يمكن تأجيله)');
@@ -464,7 +486,7 @@ export const Commissions: React.FC = () => {
           return;
       }
 
-      const current = String((c as any)?.تاريخ_تحصيل_مؤجل || '').trim();
+      const current = String(c.تاريخ_تحصيل_مؤجل || '').trim();
       const defaultValue = /^\d{4}-\d{2}-\d{2}$/.test(current)
           ? current
           : (String(c.تاريخ_العقد || '').slice(0, 10) || new Date().toISOString().split('T')[0]);
@@ -478,7 +500,7 @@ export const Commissions: React.FC = () => {
       });
       if (!value) return;
 
-      const res = (DbService as any).postponeCommissionCollection?.(c.رقم_العمولة, value, who);
+      const res = DbService.postponeCommissionCollection?.(c.رقم_العمولة, value, who);
       if (res && res.success === false) {
           toast.error(res.message || 'تعذر تأجيل التحصيل');
           return;
@@ -508,16 +530,16 @@ export const Commissions: React.FC = () => {
   }, [externalCommissions, selectedMonth, searchTerm, filterType]);
 
   const filteredEmployeeRows = useMemo(() => {
-      const rows = (employeeReport?.data || []) as any[];
+      const rows = (employeeReport?.data || []).filter(isRecord) as EmployeeCommissionRow[];
       return rows.filter(r => {
-          const date = String(r?.date || '');
+          const date = asString(r.date);
           const matchMonth = selectedMonth ? date.slice(0, 7) === selectedMonth : true;
-          const rowUser = String((r as any)?.employeeUsername || '').trim();
+          const rowUser = asTrimmedString(r.employeeUsername);
           const matchEmployee = employeeUserFilter ? rowUser === employeeUserFilter : true;
           const matchSearch = searchTerm
-              ? [r?.reference, r?.property, r?.opportunity].some(v => String(v || '').toLowerCase().includes(searchTerm.toLowerCase()))
+              ? [r.reference, r.property, r.opportunity].some(v => asString(v).toLowerCase().includes(searchTerm.toLowerCase()))
               : true;
-          const matchType = filterType !== 'All' ? String(r?.type || '') === filterType : true;
+          const matchType = filterType !== 'All' ? asString(r.type) === filterType : true;
           return matchMonth && matchEmployee && matchSearch && matchType;
       });
   }, [employeeReport, selectedMonth, employeeUserFilter, searchTerm, filterType]);
@@ -529,21 +551,21 @@ export const Commissions: React.FC = () => {
   const totalExternal = filteredExternal.reduce((acc, curr) => acc + curr.القيمة, 0);
 
     const employeeTotals = useMemo(() => {
-            const totalOffice = filteredEmployeeRows.reduce((sum, r) => sum + (Number(r.officeCommission) || 0), 0);
-            const totalIntro = filteredEmployeeRows.reduce((sum, r) => sum + (Number(r.intro) || 0), 0);
-            const totalEmployee = filteredEmployeeRows.reduce((sum, r) => sum + (Number(r.employeeTotal) || 0), 0);
+            const totalOffice = filteredEmployeeRows.reduce((sum, r) => sum + asNumber(r.officeCommission), 0);
+            const totalIntro = filteredEmployeeRows.reduce((sum, r) => sum + asNumber(r.intro), 0);
+            const totalEmployee = filteredEmployeeRows.reduce((sum, r) => sum + asNumber(r.employeeTotal), 0);
             return { totalOffice, totalIntro, totalEmployee, count: filteredEmployeeRows.length };
     }, [filteredEmployeeRows]);
 
     const employeeMonthSummary = useMemo(() => {
         const rentBase = filteredEmployeeRows
-            .filter(r => String((r as any)?.type || '') === 'إيجار')
-            .reduce((sum, r) => sum + (Number((r as any)?.employeeBase) || 0), 0);
+            .filter(r => asString(r.type) === 'إيجار')
+            .reduce((sum, r) => sum + asNumber(r.employeeBase), 0);
         const saleBase = filteredEmployeeRows
-            .filter(r => String((r as any)?.type || '') === 'بيع')
-            .reduce((sum, r) => sum + (Number((r as any)?.employeeBase) || 0), 0);
-        const intro = filteredEmployeeRows.reduce((sum, r) => sum + (Number((r as any)?.intro) || 0), 0);
-        const total = filteredEmployeeRows.reduce((sum, r) => sum + (Number((r as any)?.employeeTotal) || 0), 0);
+            .filter(r => asString(r.type) === 'بيع')
+            .reduce((sum, r) => sum + asNumber(r.employeeBase), 0);
+        const intro = filteredEmployeeRows.reduce((sum, r) => sum + asNumber(r.intro), 0);
+        const total = filteredEmployeeRows.reduce((sum, r) => sum + asNumber(r.employeeTotal), 0);
         return { rentBase, saleBase, intro, total };
     }, [filteredEmployeeRows]);
 
@@ -555,7 +577,7 @@ export const Commissions: React.FC = () => {
         const tier = getRentalTier(monthRentalOfficeTotal);
 
         const baseEarned = officeTotal * tier.rate;
-        const introEnabled = !!(editingContractComm as any)?.يوجد_ادخال_عقار;
+        const introEnabled = !!editingContractComm.يوجد_ادخال_عقار;
         const introEarned = introEnabled ? (officeTotal * 0.05) : 0;
         const finalEarned = baseEarned + introEarned;
 
@@ -605,7 +627,7 @@ export const Commissions: React.FC = () => {
 
         const headerRow = columns.map(c => escapeCsvValue(c.header || c.key)).join(',');
         const bodyRows = filteredEmployeeRows
-            .map(r => columns.map(c => escapeCsvValue((r as any)?.[c.key])).join(','))
+            .map(r => columns.map(c => escapeCsvValue(r[c.key])).join(','))
             .join('\n');
 
         // Add BOM for better Arabic handling in Excel
@@ -645,7 +667,7 @@ export const Commissions: React.FC = () => {
                         </Button>
                  </div>
 
-                 <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-2 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
+                 <div className="app-card px-3 py-2 flex items-center gap-2">
                      <Filter size={16} className="text-gray-400" />
                      <input
                           type="month"
@@ -661,7 +683,7 @@ export const Commissions: React.FC = () => {
        {activeTab === 'employee' && (
            <div className="space-y-6 animate-slide-up">
                {/* Filter Bar */}
-               <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4 justify-between items-center">
+               <div className="app-card p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
                    <div className="flex-1 flex gap-3 w-full">
                        <div className="relative flex-1">
                            <input
@@ -683,10 +705,10 @@ export const Commissions: React.FC = () => {
                            >
                                <option value="">كل الموظفين</option>
                                {systemUsers
-                                   .filter((u: any) => !!u?.isActive)
-                                   .map((u: any) => {
-                                       const username = String(u?.اسم_المستخدم || '').trim();
-                                       const display = String(u?.اسم_للعرض || u?.اسم_المستخدم || '').trim();
+                                   .filter((u) => !!u?.isActive)
+                                   .map((u) => {
+                                       const username = asTrimmedString(u?.اسم_المستخدم);
+                                       const display = asTrimmedString(u?.اسم_للعرض || u?.اسم_المستخدم);
                                        return (
                                            <option key={username} value={username}>
                                                {display || username}
@@ -733,19 +755,19 @@ export const Commissions: React.FC = () => {
                        </div>
                        <HandCoins className="absolute -bottom-4 -left-4 text-white opacity-20 w-32 h-32" />
                    </div>
-                   <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                   <div className="app-card p-6">
                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">إجمالي عمولة الموظفين</p>
                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{employeeTotals.totalEmployee.toLocaleString()} <span className="text-sm text-gray-400">د.أ</span></h3>
                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">يشمل إدخال العقار (إن وجد)</div>
                    </div>
-                   <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                   <div className="app-card p-6">
                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">إجمالي عمولات العمليات (للمكتب)</p>
                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{employeeTotals.totalOffice.toLocaleString()} <span className="text-sm text-gray-400">د.أ</span></h3>
                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">إدخال العقار: {employeeTotals.totalIntro.toLocaleString()} د.أ</div>
                    </div>
                </div>
 
-               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-4">
+               <div className="app-card p-4">
                    <div className="flex flex-wrap items-center justify-between gap-3">
                        <div className="font-bold text-slate-700 dark:text-white">ملخص أرباح هذا الشهر ({selectedMonth})</div>
                        <div className="text-sm text-slate-600 dark:text-slate-400">
@@ -773,7 +795,7 @@ export const Commissions: React.FC = () => {
                </div>
 
                {/* List */}
-               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+               <div className="app-card">
                    <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
                        <h3 className="font-bold text-slate-700 dark:text-white">عمليات عمولة الموظف لشهر {selectedMonth}</h3>
                    </div>
@@ -782,7 +804,7 @@ export const Commissions: React.FC = () => {
                            <div className="p-8 text-center text-gray-400">لا توجد عمليات ضمن الفلاتر الحالية</div>
                        ) : (
                            filteredEmployeeRows.map((r, idx) => (
-                               <div key={`${String(r.reference || '')}-${idx}`} className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+                               <div key={`${String(r.reference || '')}-${idx}`} className="app-card p-4">
                                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                                        <div className="space-y-1">
                                            <div className="flex flex-wrap items-center gap-2">
@@ -836,14 +858,14 @@ export const Commissions: React.FC = () => {
                         </div>
                         <Briefcase className="absolute -bottom-4 -left-4 text-white opacity-20 w-32 h-32" />
                     </div>
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="app-card p-6">
                         <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">من الملاك</p>
                         <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{totalOwner.toLocaleString()} <span className="text-sm text-gray-400">د.أ</span></h3>
                         <div className="h-1 w-full bg-gray-100 dark:bg-slate-700 mt-4 rounded-full overflow-hidden">
                             <div className="h-full bg-indigo-500" style={{ width: `${grandTotalContracts > 0 ? (totalOwner/grandTotalContracts)*100 : 0}%` }}></div>
                         </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="app-card p-6">
                         <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">من المستأجرين</p>
                         <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{totalTenant.toLocaleString()} <span className="text-sm text-gray-400">د.أ</span></h3>
                         <div className="h-1 w-full bg-gray-100 dark:bg-slate-700 mt-4 rounded-full overflow-hidden">
@@ -852,7 +874,7 @@ export const Commissions: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+                <div className="app-card">
                     <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
                         <h3 className="font-bold text-slate-700 dark:text-white">سجل العمولات لشهر {selectedMonth}</h3>
                     </div>
@@ -861,7 +883,7 @@ export const Commissions: React.FC = () => {
                             <div className="p-8 text-center text-gray-400">لا توجد عمولات مسجلة في هذا الشهر</div>
                         ) : (
                             filteredCommissions.map(c => (
-                                <div key={c.رقم_العمولة} className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+                                <div key={c.رقم_العمولة} className="app-card p-4">
                                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                                         <div className="space-y-1">
                                             <div className="flex flex-wrap items-center gap-2">
@@ -884,11 +906,11 @@ export const Commissions: React.FC = () => {
                                                 })()}
                                             </div>
 
-                                            {String((c as any)?.تاريخ_تحصيل_مؤجل || '').trim() && (
+                                            {String(c.تاريخ_تحصيل_مؤجل || '').trim() && (
                                                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                                                    تحصيل مؤجل إلى: <b className="text-slate-700 dark:text-slate-200">{String((c as any).تاريخ_تحصيل_مؤجل)}</b>
-                                                    {String((c as any)?.جهة_تحصيل_مؤجل || '').trim() ? (
-                                                        <span> — ({String((c as any).جهة_تحصيل_مؤجل)})</span>
+                                                    تحصيل مؤجل إلى: <b className="text-slate-700 dark:text-slate-200">{String(c.تاريخ_تحصيل_مؤجل)}</b>
+                                                    {String(c.جهة_تحصيل_مؤجل || '').trim() ? (
+                                                        <span> — ({String(c.جهة_تحصيل_مؤجل)})</span>
                                                     ) : null}
                                                 </div>
                                             )}
@@ -945,7 +967,7 @@ export const Commissions: React.FC = () => {
            <div className="space-y-6 animate-slide-up">
                
                {/* Advanced Filter Bar */}
-               <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4 justify-between items-center">
+               <div className="app-card p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
                    <div className="flex-1 flex gap-3 w-full">
                        <div className="relative flex-1">
                            <input 
@@ -987,7 +1009,7 @@ export const Commissions: React.FC = () => {
                         </div>
                         <Globe className="absolute -bottom-4 -left-4 text-white opacity-20 w-32 h-32" />
                    </div>
-                   <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col justify-center">
+                   <div className="app-card p-6 flex flex-col justify-center">
                         <div className="flex items-center gap-3">
                             <div className="p-3 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl">
                                 <Tags size={24} />
@@ -1001,7 +1023,7 @@ export const Commissions: React.FC = () => {
                </div>
 
                {/* External Commissions List (Cards) */}
-               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+               <div className="app-card">
                     <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
                         <h3 className="font-bold text-slate-700 dark:text-white">سجل العمولات الخارجية</h3>
                     </div>
@@ -1010,7 +1032,7 @@ export const Commissions: React.FC = () => {
                             <div className="p-8 text-center text-gray-400">لا توجد عمولات خارجية مسجلة</div>
                         ) : (
                             filteredExternal.map(c => (
-                                <div key={c.id} className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+                                <div key={c.id} className="app-card p-4">
                                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                                         <div className="space-y-1">
                                             <div className="flex flex-wrap items-center gap-2">
@@ -1051,8 +1073,8 @@ export const Commissions: React.FC = () => {
 
                {/* External Modal (Add/Edit) */}
                {isExternalModalOpen && (
-                   <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-                       <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl max-w-md w-full mx-4">
+                   <div className="modal-overlay app-modal-overlay bg-black/40 dark:bg-black/60">
+                       <div className="modal-content app-modal-content p-6 max-w-md w-full mx-4">
                            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                                {externalModalMode === 'add' ? <><Plus size={20} /> إضافة عمولة خارجية</> : <><Pencil size={20} /> تعديل عمولة خارجية</>}
                            </h3>
@@ -1108,8 +1130,8 @@ export const Commissions: React.FC = () => {
 
        {/* Contract Commission Modal (Edit) */}
        {isContractModalOpen && editingContractComm && (
-           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-               <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl max-w-md w-full mx-4">
+           <div className="modal-overlay app-modal-overlay bg-black/40 dark:bg-black/60">
+               <div className="modal-content app-modal-content p-6 max-w-md w-full mx-4">
                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                        <Pencil size={20} /> تعديل عمولة العقد
                    </h3>
@@ -1120,22 +1142,22 @@ export const Commissions: React.FC = () => {
                        <input
                            type="date"
                            className={inputClass}
-                           value={(editingContractComm.تاريخ_العقد as any) || ''}
-                           onChange={(e) => setEditingContractComm({ ...editingContractComm, تاريخ_العقد: e.target.value as any })}
+                           value={asString(editingContractComm.تاريخ_العقد) || ''}
+                           onChange={(e) => setEditingContractComm({ ...editingContractComm, تاريخ_العقد: e.target.value })}
                        />
 
                        <select
                            className={inputClass}
-                           value={String((editingContractComm as any)?.اسم_المستخدم || '')}
-                           onChange={(e) => setEditingContractComm({ ...editingContractComm, اسم_المستخدم: e.target.value as any })}
+                           value={asString(editingContractComm.اسم_المستخدم) || ''}
+                           onChange={(e) => setEditingContractComm({ ...editingContractComm, اسم_المستخدم: e.target.value })}
                            title="الموظف المسؤول عن هذه العمولة"
                        >
                            <option value="">(بدون تحديد موظف)</option>
                            {systemUsers
-                               .filter((u: any) => !!u?.isActive)
-                               .map((u: any) => {
-                                   const username = String(u?.اسم_المستخدم || '').trim();
-                                   const display = String(u?.اسم_للعرض || u?.اسم_المستخدم || '').trim();
+                               .filter((u) => !!u?.isActive)
+                               .map((u) => {
+                                   const username = asTrimmedString(u?.اسم_المستخدم);
+                                   const display = asTrimmedString(u?.اسم_للعرض || u?.اسم_المستخدم);
                                    return (
                                        <option key={username} value={username}>
                                            {display || username}
@@ -1148,16 +1170,16 @@ export const Commissions: React.FC = () => {
                            type="text"
                            placeholder="رقم الفرصة (اختياري)"
                            className={inputClass}
-                           value={String((editingContractComm as any)?.رقم_الفرصة || '')}
-                           onChange={(e) => setEditingContractComm({ ...editingContractComm, رقم_الفرصة: e.target.value as any })}
+                           value={asString(editingContractComm.رقم_الفرصة) || ''}
+                           onChange={(e) => setEditingContractComm({ ...editingContractComm, رقم_الفرصة: e.target.value })}
                        />
 
                        <label className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2">
                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">يوجد إدخال عقار</span>
                            <input
                                type="checkbox"
-                               checked={!!(editingContractComm as any)?.يوجد_ادخال_عقار}
-                               onChange={(e) => setEditingContractComm({ ...editingContractComm, يوجد_ادخال_عقار: e.target.checked as any })}
+                               checked={!!editingContractComm.يوجد_ادخال_عقار}
+                               onChange={(e) => setEditingContractComm({ ...editingContractComm, يوجد_ادخال_عقار: e.target.checked })}
                            />
                        </label>
 
@@ -1178,14 +1200,14 @@ export const Commissions: React.FC = () => {
                            placeholder="عمولة المالك"
                            className={inputClass}
                            value={Number(editingContractComm.عمولة_المالك ?? 0)}
-                           onChange={(e) => setEditingContractComm({ ...editingContractComm, عمولة_المالك: Number(e.target.value) as any })}
+                           onChange={(e) => setEditingContractComm({ ...editingContractComm, عمولة_المالك: Number(e.target.value) })}
                        />
                        <input
                            type="number"
                            placeholder="عمولة المستأجر"
                            className={inputClass}
                            value={Number(editingContractComm.عمولة_المستأجر ?? 0)}
-                           onChange={(e) => setEditingContractComm({ ...editingContractComm, عمولة_المستأجر: Number(e.target.value) as any })}
+                           onChange={(e) => setEditingContractComm({ ...editingContractComm, عمولة_المستأجر: Number(e.target.value) })}
                        />
                        <div className="flex gap-3">
                            <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 font-bold transition">

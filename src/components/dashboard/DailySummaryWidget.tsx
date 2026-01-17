@@ -7,8 +7,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Bell, Calendar, DollarSign, AlertTriangle, CheckCircle, 
-  TrendingUp, Clock, FileText, Home, Users, ArrowRight 
+  Bell, Calendar, AlertTriangle, CheckCircle, 
+  TrendingUp, Clock, FileText, Home, ArrowRight 
 } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { ROUTE_PATHS } from '@/routes/paths';
@@ -16,6 +16,7 @@ import { useSmartModal } from '@/context/ModalContext';
 import { formatDateOnly } from '@/utils/dateOnly';
 import { PaymentCollectionSendLog } from '@/components/dashboard/PaymentCollectionSendLog';
 import { dashboardSummarySmart } from '@/services/domainQueries';
+import type { tbl_Alerts } from '@/types';
 
 interface DailySummary {
   date: string;
@@ -39,9 +40,9 @@ export const DailySummaryWidget: React.FC = () => {
 
   const loadDailySummary = async () => {
     const today = formatDateOnly(new Date());
-    const alerts = DbService.getAlerts();
+    const alerts: tbl_Alerts[] = DbService.getAlerts();
 
-    const isDesktop = typeof window !== 'undefined' && !!(window as any)?.desktopDb;
+    const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
 
     const toYMD = (d: Date) => {
       const yyyy = d.getFullYear();
@@ -58,17 +59,32 @@ export const DailySummaryWidget: React.FC = () => {
     const isDesktopFast = isDesktop && !!desktopSummary;
 
     // حساب الإحصائيات (تنبيهات مفتوحة فقط)
-    const openAlerts = alerts.filter(a => !(a as any).تم_القراءة);
-    const criticalAlerts = openAlerts.filter(a => (a as any).الأولوية === 'عالية').length;
+    const openAlerts = alerts.filter(a => !a.تم_القراءة);
+    const getAlertPriority = (alert: tbl_Alerts): string | undefined => {
+      const priority = (alert as unknown as Record<string, unknown>)['الأولوية'];
+      return typeof priority === 'string' ? priority : undefined;
+    };
+    const criticalAlerts = openAlerts.filter(a => getAlertPriority(a) === 'عالية').length;
 
     const paymentsToday = isDesktopFast
       ? Number(desktopSummary?.paymentsToday || 0) || 0
       : (isDesktop ? 0 : DbService.getInstallments().filter(i => i.تاريخ_استحقاق === today && i.حالة_الكمبيالة === 'مدفوع').length);
 
     // ✅ Payment notifications policy: pre-due reminders only (align with panel)
+    const getTargetItemsLength = (target: unknown): number => {
+      if (!target || typeof target !== 'object') return 0;
+      const items = (target as { items?: unknown }).items;
+      return Array.isArray(items) ? items.length : 0;
+    };
+
     const paymentRemindersNext7 = isDesktopFast
       ? Number(desktopSummary?.dueNext7Payments || 0) || 0
-      : (isDesktop ? 0 : DbService.getPaymentNotificationTargets(7).reduce((sum: number, t: any) => sum + (t.items?.length || 0), 0));
+      : (isDesktop
+          ? 0
+          : DbService.getPaymentNotificationTargets(7).reduce(
+              (sum, target) => sum + getTargetItemsLength(target),
+              0
+          ));
 
     const contractsExpiring = isDesktopFast
       ? Number(desktopSummary?.contractsExpiring30 || 0) || 0
@@ -159,7 +175,7 @@ export const DailySummaryWidget: React.FC = () => {
   ];
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div className="app-card">
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Check, X, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
 
 interface SmartPromptProps {
   title: string;

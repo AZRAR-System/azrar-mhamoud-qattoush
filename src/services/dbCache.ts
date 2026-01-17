@@ -8,10 +8,18 @@ const getRaw = <T>(key: string): T[] => {
   try {
     const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
-  } catch (e) {
+  } catch {
     return [];
   }
 };
+
+function getOrCreateArray<K, V>(map: Map<K, V[]>, key: K): V[] {
+  const existing = map.get(key);
+  if (existing) return existing;
+  const created: V[] = [];
+  map.set(key, created);
+  return created;
+}
 
 const KEYS = {
   PEOPLE: 'db_people',
@@ -169,7 +177,7 @@ export const DbCache: Cache = {
 };
 
 export function buildCache() {
-  Object.values(DbCache).forEach((store: any) => {
+  (Object.values(DbCache) as unknown[]).forEach((store) => {
     if (store instanceof Map) store.clear();
     if (store instanceof Set) store.clear();
   });
@@ -211,22 +219,18 @@ export function buildCache() {
     DbCache.properties.set(p.رقم_العقار, p);
     if (p.الكود_الداخلي) DbCache.ix_PropertyInternalCode.add(p.الكود_الداخلي);
     
-    if (!DbCache.propertiesByOwnerId.has(p.رقم_المالك)) DbCache.propertiesByOwnerId.set(p.رقم_المالك, []);
-    DbCache.propertiesByOwnerId.get(p.رقم_المالك)!.push(p);
+    getOrCreateArray(DbCache.propertiesByOwnerId, p.رقم_المالك).push(p);
 
-    if (!DbCache.propertiesByStatus.has(p.حالة_العقار)) DbCache.propertiesByStatus.set(p.حالة_العقار, []);
-    DbCache.propertiesByStatus.get(p.حالة_العقار)!.push(p);
+    getOrCreateArray(DbCache.propertiesByStatus, p.حالة_العقار).push(p);
     
     if (p.IsRented || p.حالة_العقار === 'مؤجر') DbCache.dashboardStats.occupiedProps++;
     else DbCache.dashboardStats.vacantProps++;
 
     if(p.النوع) {
-        if (!DbCache.ix_PropType.has(p.النوع)) DbCache.ix_PropType.set(p.النوع, []);
-        DbCache.ix_PropType.get(p.النوع)!.push(p);
+        getOrCreateArray(DbCache.ix_PropType, p.النوع).push(p);
     }
     if(p.الصفة) {
-        if (!DbCache.ix_PropAttr.has(p.الصفة)) DbCache.ix_PropAttr.set(p.الصفة, []);
-        DbCache.ix_PropAttr.get(p.الصفة)!.push(p);
+        getOrCreateArray(DbCache.ix_PropAttr, p.الصفة).push(p);
     }
   });
 
@@ -236,14 +240,11 @@ export function buildCache() {
   contracts.forEach(c => {
     DbCache.contracts.set(c.رقم_العقد, c);
     
-    if (!DbCache.contractsByTenantId.has(c.رقم_المستاجر)) DbCache.contractsByTenantId.set(c.رقم_المستاجر, []);
-    DbCache.contractsByTenantId.get(c.رقم_المستاجر)!.push(c);
+    getOrCreateArray(DbCache.contractsByTenantId, c.رقم_المستاجر).push(c);
     
-    if (!DbCache.contractsByPropertyId.has(c.رقم_العقار)) DbCache.contractsByPropertyId.set(c.رقم_العقار, []);
-    DbCache.contractsByPropertyId.get(c.رقم_العقار)!.push(c);
+    getOrCreateArray(DbCache.contractsByPropertyId, c.رقم_العقار).push(c);
 
-    if (!DbCache.contractsByStatus.has(c.حالة_العقد)) DbCache.contractsByStatus.set(c.حالة_العقد, []);
-    DbCache.contractsByStatus.get(c.حالة_العقد)!.push(c);
+    getOrCreateArray(DbCache.contractsByStatus, c.حالة_العقد).push(c);
 
     if (!c.isArchived) {
       if (isTenancyRelevant(c)) {
@@ -263,18 +264,16 @@ export function buildCache() {
   installments.forEach(i => {
     DbCache.installments.set(i.رقم_الكمبيالة, i);
     
-    if (!DbCache.installmentsByContractId.has(i.رقم_العقد)) DbCache.installmentsByContractId.set(i.رقم_العقد, []);
-    DbCache.installmentsByContractId.get(i.رقم_العقد)!.push(i);
+    getOrCreateArray(DbCache.installmentsByContractId, i.رقم_العقد).push(i);
 
-    if (!DbCache.installmentsByStatus.has(i.حالة_الكمبيالة)) DbCache.installmentsByStatus.set(i.حالة_الكمبيالة, []);
-    DbCache.installmentsByStatus.get(i.حالة_الكمبيالة)!.push(i);
+    getOrCreateArray(DbCache.installmentsByStatus, i.حالة_الكمبيالة).push(i);
 
     const dueKey = toDateOnlyISO(i.تاريخ_استحقاق) || i.تاريخ_استحقاق;
-    if (!DbCache.installmentsByDate.has(dueKey)) DbCache.installmentsByDate.set(dueKey, []);
-    DbCache.installmentsByDate.get(dueKey)!.push(i);
+    getOrCreateArray(DbCache.installmentsByDate, dueKey).push(i);
 
     // Security deposit is a guarantee, not part of due/collected rent aggregates.
-    if (String((i as any)?.نوع_الكمبيالة || '').trim() === 'تأمين') return;
+    const installmentType = (i as unknown as { نوع_الكمبيالة?: unknown }).نوع_الكمبيالة;
+    if (String(installmentType ?? '').trim() === 'تأمين') return;
 
     const { remaining } = getInstallmentPaidAndRemaining(i);
     const total = Number(i.القيمة) || 0;
@@ -293,18 +292,15 @@ export function buildCache() {
     // Ownership history indexes
     const ownership = load<سجل_الملكية_tbl>(KEYS.OWNERSHIP_HISTORY);
     ownership.forEach(r => {
-      if (!DbCache.ownershipHistoryByPropertyId.has(r.رقم_العقار)) DbCache.ownershipHistoryByPropertyId.set(r.رقم_العقار, []);
-      DbCache.ownershipHistoryByPropertyId.get(r.رقم_العقار)!.push(r);
+      getOrCreateArray(DbCache.ownershipHistoryByPropertyId, r.رقم_العقار).push(r);
 
       const p1 = r.رقم_المالك_القديم;
       const p2 = r.رقم_المالك_الجديد;
       if (p1) {
-        if (!DbCache.ownershipHistoryByPersonId.has(p1)) DbCache.ownershipHistoryByPersonId.set(p1, []);
-        DbCache.ownershipHistoryByPersonId.get(p1)!.push(r);
+        getOrCreateArray(DbCache.ownershipHistoryByPersonId, p1).push(r);
       }
       if (p2 && p2 !== p1) {
-        if (!DbCache.ownershipHistoryByPersonId.has(p2)) DbCache.ownershipHistoryByPersonId.set(p2, []);
-        DbCache.ownershipHistoryByPersonId.get(p2)!.push(r);
+        getOrCreateArray(DbCache.ownershipHistoryByPersonId, p2).push(r);
       }
     });
 
@@ -325,34 +321,29 @@ export function buildCache() {
     if(u.اسم_المستخدم) DbCache.ix_Username.add(u.اسم_المستخدم);
 
     if(u.linkedPersonId) {
-        if (!DbCache.usersByLinkedPersonId.has(u.linkedPersonId)) DbCache.usersByLinkedPersonId.set(u.linkedPersonId, []);
-        DbCache.usersByLinkedPersonId.get(u.linkedPersonId)!.push(u);
+      getOrCreateArray(DbCache.usersByLinkedPersonId, u.linkedPersonId).push(u);
     }
   });
 
   const roles = load<شخص_دور_tbl>(KEYS.ROLES);
   roles.forEach(r => {
-    if (!DbCache.rolesByPersonId.has(r.رقم_الشخص)) DbCache.rolesByPersonId.set(r.رقم_الشخص, []);
-    DbCache.rolesByPersonId.get(r.رقم_الشخص)!.push(r);
+    getOrCreateArray(DbCache.rolesByPersonId, r.رقم_الشخص).push(r);
   });
   
   const commissions = load<العمولات_tbl>(KEYS.COMMISSIONS);
   commissions.forEach(c => {
-    if (!DbCache.commissionsByContractId.has(c.رقم_العقد)) DbCache.commissionsByContractId.set(c.رقم_العقد, []);
-    DbCache.commissionsByContractId.get(c.رقم_العقد)!.push(c);
+    getOrCreateArray(DbCache.commissionsByContractId, c.رقم_العقد).push(c);
   });
 
   const permissions = load<مستخدم_صلاحية_tbl>(KEYS.USER_PERMISSIONS);
   permissions.forEach(up => {
-    if (!DbCache.permissionsByUserId.has(up.userId)) DbCache.permissionsByUserId.set(up.userId, []);
-    DbCache.permissionsByUserId.get(up.userId)!.push(up);
+    getOrCreateArray(DbCache.permissionsByUserId, up.userId).push(up);
   });
 
   const alerts = load<tbl_Alerts>(KEYS.ALERTS);
   alerts.forEach(a => {
       DbCache.alerts.set(a.id, a);
-      if (!DbCache.alertsByCategory.has(a.category)) DbCache.alertsByCategory.set(a.category, []);
-      DbCache.alertsByCategory.get(a.category)!.push(a);
+      getOrCreateArray(DbCache.alertsByCategory, a.category).push(a);
       
       if(!a.تم_القراءة) DbCache.dashboardStats.openAlerts++;
   });
@@ -401,7 +392,6 @@ export function buildCache() {
 
   DbCache.isInitialized = true;
   DbCache.lastUpdated = Date.now();
-  console.debug('Cache Rebuilt at', new Date().toISOString());
 }
 
 buildCache();

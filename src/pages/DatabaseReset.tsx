@@ -39,7 +39,7 @@ const DatabaseReset: React.FC = () => {
   if (!isAllowed) {
     return (
       <div className="p-6 max-w-3xl mx-auto" dir="rtl">
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 border border-red-200 dark:border-red-900/40">
+        <div className="app-card rounded-lg shadow-lg p-6 border-red-200 dark:border-red-900/40">
           <div className="flex items-start gap-3">
             <AlertTriangle className="text-red-600 mt-1" size={24} />
             <div className="flex-1">
@@ -115,7 +115,7 @@ const DatabaseReset: React.FC = () => {
 
   return (
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6">
+      <div className="app-card rounded-lg shadow-lg p-6">
         {/* Header */}
         <div className={`${DS.components.pageHeader} pb-4 border-b border-gray-200 dark:border-slate-700`}>
           <div>
@@ -199,8 +199,8 @@ const DatabaseReset: React.FC = () => {
 
         {/* Confirmation Dialog */}
         {showConfirm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowConfirm(false)}>
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="confirm-overlay fixed inset-0 bg-black/50 flex items-center justify-center" onClick={() => setShowConfirm(false)}>
+            <div className="modal-content app-modal-content p-6 rounded-lg shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">تأكيد العملية</h3>
               <p className="text-gray-600 dark:text-gray-300 mb-4">
                 {showConfirm === 'reset' 

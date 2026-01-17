@@ -16,9 +16,10 @@ export interface FilterOption {
 interface SmartFilterBarProps {
   title: string;
   subtitle?: string;
-  searchValue: string;
-  onSearchChange: (val: string) => void;
+  searchValue?: string;
+  onSearchChange?: (val: string) => void;
   searchPlaceholder?: string;
+  showSearch?: boolean;
   filters?: FilterOption[];
   activeFilters?: Record<string, string>;
   onFilterChange?: (key: string, val: string) => void;
@@ -31,9 +32,10 @@ interface SmartFilterBarProps {
 export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
   title,
   subtitle,
-  searchValue,
+  searchValue = '',
   onSearchChange,
   searchPlaceholder = "بحث...",
+  showSearch = true,
   filters = [],
   activeFilters = {},
   onFilterChange,
@@ -42,6 +44,9 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
   onRefresh,
   extraActions
 }) => {
+  const shouldShowSearch = showSearch && typeof onSearchChange === 'function';
+  const shouldShowBar = shouldShowSearch || (Array.isArray(filters) && filters.length > 0);
+
   return (
     <div className="space-y-6 mb-6">
       {/* Header Section */}
@@ -79,31 +84,34 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
       </div>
 
       {/* Filter & Search Bar */}
-      <Card className="p-2 flex flex-col md:flex-row gap-3">
-        
-        {/* Search Input (RTL: First) */}
-        <div className="flex-1">
-          <Input
-            type="text"
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            icon={<Search size={18} />}
-          />
-        </div>
+      {shouldShowBar && (
+        <Card className="p-2 flex flex-col md:flex-row gap-3">
+          {/* Search Input (RTL: First) */}
+          {shouldShowSearch && (
+            <div className="flex-1">
+              <Input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchValue}
+                onChange={(e) => onSearchChange(e.target.value)}
+                icon={<Search size={18} />}
+              />
+            </div>
+          )}
 
-        {/* Dynamic Filters */}
-        {filters.map((filter) => (
-          <div key={filter.key} className="w-full md:w-auto">
-            <Select
-              options={filter.options}
-              value={activeFilters[filter.key] || ''}
-              onChange={(e) => onFilterChange && onFilterChange(filter.key, e.target.value)}
-              placeholder={filter.label}
-            />
-          </div>
-        ))}
-      </Card>
+          {/* Dynamic Filters */}
+          {filters.map((filter) => (
+            <div key={filter.key} className="w-full md:w-auto">
+              <Select
+                options={filter.options}
+                value={activeFilters[filter.key] || ''}
+                onChange={(e) => onFilterChange && onFilterChange(filter.key, e.target.value)}
+                placeholder={filter.label}
+              />
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 };

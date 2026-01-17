@@ -10,8 +10,8 @@ export type ReportPrintPayload = {
     title: string;
     generatedAt: string;
     columns: Array<{ key: string; header: string; type?: string }>;
-    data: Array<Record<string, any>>;
-    summary?: Array<{ label: string; value: any }>;
+    data: Array<Record<string, unknown>>;
+    summary?: Array<{ label: string; value: unknown }>;
   };
   company?: {
     companyName?: string;
@@ -97,7 +97,7 @@ function buildReportBody(tpl: string, payload: ReportPrintPayload): string {
     .map((row) => {
       const tds = (r.columns || [])
         .map((c) => {
-          const v = (row as any)?.[c.key];
+          const v = row?.[c.key];
           return `<td>${escapeHtml(v ?? '')}</td>`;
         })
         .join('');
@@ -235,7 +235,7 @@ export async function runReportPrintJob(mode: PrintMode, payload: ReportPrintPay
       printBackground: true,
       preferCSSPageSize: true,
       pageSize: 'A4',
-    } as any);
+    });
 
     await fs.writeFile(save.filePath, pdfBytes);
 
@@ -246,7 +246,8 @@ export async function runReportPrintJob(mode: PrintMode, payload: ReportPrintPay
     }
 
     return { ok: true, savedPath: save.filePath };
-  } catch (e: any) {
-    return { ok: false, code: 'FAILED', message: e?.message || 'فشل تنفيذ الطباعة' };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'فشل تنفيذ الطباعة';
+    return { ok: false, code: 'FAILED', message };
   }
 }

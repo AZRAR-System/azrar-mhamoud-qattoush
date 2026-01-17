@@ -1,8 +1,8 @@
 ﻿
 import React, { useMemo, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
-import { ReportDefinition, ReportCategory, ReportResult } from '@/types';
-import { BarChart3, Wallet, FileText, Building2, Users, Wrench, ArrowRight, Search } from 'lucide-react';
+import { ReportDefinition, ReportCategory } from '@/types';
+import { BarChart3, Wallet, FileText, Building2, Users, Wrench, ArrowRight, Search, type LucideIcon } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatCurrencyJOD, formatDateYMD, formatNumber } from '@/utils/format';
 import { DS } from '@/constants/designSystem';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { runReportSmart } from '@/services/reporting';
 
-const CATEGORIES: { id: ReportCategory; label: string; icon: any; color: string }[] = [
+const CATEGORIES: { id: ReportCategory; label: string; icon: LucideIcon; color: string }[] = [
     { id: 'Financial', label: 'التقارير المالية', icon: Wallet, color: 'bg-emerald-500' },
     { id: 'Contracts', label: 'تقارير العقود', icon: FileText, color: 'bg-indigo-500' },
     { id: 'Properties', label: 'تقارير العقارات', icon: Building2, color: 'bg-purple-500' },
@@ -49,9 +49,14 @@ export const Reports: React.FC = () => {
                         const contractsActive = await runReportSmart('contracts_active');
                         const openTickets = await runReportSmart('maintenance_open_tickets');
 
-            const lookup = new Map<string, any>();
-            for (const row of (financial?.data || [])) {
-                if (row?.item) lookup.set(String(row.item), row.value);
+            const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+            const lookup = new Map<string, unknown>();
+            for (const row of (Array.isArray(financial?.data) ? financial.data : [])) {
+                if (!isRecord(row)) continue;
+                const item = row.item;
+                if (typeof item !== 'string' || !item.trim()) continue;
+                lookup.set(item, row.value);
             }
 
             const totalExpected = Number(lookup.get('إجمالي المتوقع') ?? 0) || 0;
@@ -109,7 +114,7 @@ export const Reports: React.FC = () => {
           </div>
        </div>
 
-       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
+       <div className="app-card">
           <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between bg-gray-50 dark:bg-slate-900/50 gap-3">
               <div>
                   <h3 className="font-bold text-lg text-slate-800 dark:text-white">ملخص سريع (بيانات حقيقية)</h3>
@@ -164,7 +169,7 @@ export const Reports: React.FC = () => {
 
        <div className="grid grid-cols-1 gap-8">
           {reportsCount === 0 ? (
-              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-6">
+              <div className="app-card p-6">
                   <div className="text-slate-600 dark:text-slate-300 font-semibold">لا توجد تقارير مطابقة.</div>
                   <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">جرّب تعديل البحث أو تأكد من وجود بيانات داخل النظام.</div>
               </div>
@@ -174,7 +179,7 @@ export const Reports: React.FC = () => {
               if (catReports.length === 0) return null;
 
               return (
-                  <div key={cat.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                  <div key={cat.id} className="app-card">
                       <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center gap-3 bg-gray-50 dark:bg-slate-900/50">
                           <div className={`p-2 rounded-lg text-white ${cat.color}`}>
                               <cat.icon size={20} />

@@ -1,8 +1,8 @@
 ﻿
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DbService } from '@/services/mockDb';
 import { تذاكر_الصيانة_tbl, العقارات_tbl, الأشخاص_tbl, العقود_tbl, DynamicFormField } from '@/types';
-import { Wrench, Plus, CheckCircle, Clock, AlertTriangle, User, Home, Filter, ChevronDown, DollarSign, Search, Key, Trash2 } from 'lucide-react';
+import { Wrench, Plus, CheckCircle, Clock, User, Home, ChevronDown, DollarSign, Key, Trash2 } from 'lucide-react';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { useSmartModal } from '@/context/ModalContext';
 import { PersonPicker } from '@/components/shared/PersonPicker';
@@ -26,7 +26,7 @@ export const Maintenance: React.FC = () => {
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
 
-  const isDesktopFast = typeof window !== 'undefined' && storage.isDesktop() && !!(window as any)?.desktopDb?.domainGet;
+  const isDesktopFast = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb?.domainGet;
 
   const [showDynamicColumns, setShowDynamicColumns] = useState(false);
   const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
@@ -52,15 +52,11 @@ export const Maintenance: React.FC = () => {
     الحالة: 'مفتوح'
   });
 
-  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+  const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    refreshData();
-  }, [dbSignal]);
-
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     setTickets(DbService.getMaintenanceTickets());
     // Desktop focus: never load full people/properties/contracts arrays.
     if (isDesktopFast) {
@@ -78,12 +74,16 @@ export const Maintenance: React.FC = () => {
     } catch {
       setDynamicFields([]);
     }
-  };
+  }, [isDesktopFast]);
+
+  useEffect(() => {
+    refreshData();
+  }, [dbSignal, refreshData]);
 
   type PropertyContext = {
-    prop: any | null;
-    owner: any | null;
-    tenant: any | null;
+    prop: العقارات_tbl | null;
+    owner: الأشخاص_tbl | null;
+    tenant: الأشخاص_tbl | null;
     ownerName: string;
     tenantName: string | null;
   };
@@ -106,10 +106,10 @@ export const Maintenance: React.FC = () => {
     const run = async () => {
       const ids = new Set<string>();
       for (const t of tickets || []) {
-        const pid = String((t as any)?.رقم_العقار || '').trim();
+        const pid = String(t?.رقم_العقار || '').trim();
         if (pid) ids.add(pid);
       }
-      const selectedPid = String((formData as any)?.رقم_العقار || '').trim();
+      const selectedPid = String(formData?.رقم_العقار || '').trim();
       if (selectedPid) ids.add(selectedPid);
 
       const pending = Array.from(ids)
@@ -127,27 +127,27 @@ export const Maintenance: React.FC = () => {
           const owner = ownerId ? await domainGetSmart('people', ownerId) : null;
           if (cancelled) return;
 
-          let tenant: any | null = null;
+          let tenant: الأشخاص_tbl | null = null;
           let tenantName: string | null = null;
           try {
             const items = (await propertyContractsSmart(pid, 200)) || [];
             const contractObjs = items.map((x) => x.contract).filter(Boolean);
-            const active = pickBestTenancyContract(contractObjs as any);
+            const active = pickBestTenancyContract(contractObjs);
             if (active?.رقم_المستاجر) {
               const tid = String(active.رقم_المستاجر);
-              tenant = (await domainGetSmart('people', tid)) as any;
+              tenant = await domainGetSmart('people', tid);
               const meta = items.find((x) => String(x?.contract?.رقم_العقد) === String(active.رقم_العقد));
-              tenantName = String(meta?.tenantName || (tenant as any)?.الاسم || '').trim() || null;
+              tenantName = String(meta?.tenantName || tenant?.الاسم || '').trim() || null;
             }
           } catch {
             // ignore
           }
 
           const ctx: PropertyContext = {
-            prop: (prop as any) || (pid ? ({ رقم_العقار: pid } as any) : null),
-            owner: (owner as any) || null,
-            tenant: (tenant as any) || null,
-            ownerName: String((owner as any)?.الاسم || '').trim() || 'غير معروف',
+            prop: prop ?? (pid ? ({ رقم_العقار: pid } as unknown as العقارات_tbl) : null),
+            owner: owner || null,
+            tenant: tenant || null,
+            ownerName: String(owner?.الاسم || '').trim() || 'غير معروف',
             tenantName,
           };
 
@@ -164,13 +164,12 @@ export const Maintenance: React.FC = () => {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDesktopFast, tickets, (formData as any)?.رقم_العقار, fastCtxTick]);
+  }, [isDesktopFast, tickets, formData?.رقم_العقار, fastCtxTick]);
 
   const handleOpenModal = (ticket?: تذاكر_الصيانة_tbl) => {
     if (ticket) {
       setFormData(ticket);
-      setDynamicValues((ticket as any).حقول_ديناميكية || {});
+      setDynamicValues(ticket.حقول_ديناميكية || {});
       setEditingId(ticket.رقم_التذكرة);
     } else {
       setFormData({
@@ -200,14 +199,15 @@ export const Maintenance: React.FC = () => {
     
     try {
       if (editingId) {
-        DbService.updateMaintenanceTicket(editingId, { ...formData, حقول_ديناميكية: Object.keys(dynamicValues || {}).length ? dynamicValues : undefined } as any);
+        DbService.updateMaintenanceTicket(editingId, { ...formData, حقول_ديناميكية: Object.keys(dynamicValues || {}).length ? dynamicValues : undefined } as unknown as Partial<تذاكر_الصيانة_tbl>);
       } else {
-        DbService.addMaintenanceTicket({ ...(formData as تذاكر_الصيانة_tbl), حقول_ديناميكية: Object.keys(dynamicValues || {}).length ? dynamicValues : undefined } as any);
+        DbService.addMaintenanceTicket({ ...(formData as تذاكر_الصيانة_tbl), حقول_ديناميكية: Object.keys(dynamicValues || {}).length ? dynamicValues : undefined } as unknown as تذاكر_الصيانة_tbl);
       }
       refreshData();
       setIsModalOpen(false);
-    } catch (err: any) {
-      toast.error(err?.message || 'فشل حفظ التذكرة');
+    } catch (err: unknown) {
+      const msg = typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message ?? '') : '';
+      toast.error(msg || 'فشل حفظ التذكرة');
     }
   };
 
@@ -233,11 +233,12 @@ export const Maintenance: React.FC = () => {
         placeholder: 'اكتب الملاحظات هنا...',
         required: false,
       }))?.trim() || '';
-      DbService.updateMaintenanceTicket(ticketId, { الحالة: 'مغلق', ملاحظات_الإنهاء: notes || undefined } as any);
+      DbService.updateMaintenanceTicket(ticketId, { الحالة: 'مغلق', ملاحظات_الإنهاء: notes || undefined } as unknown as Partial<تذاكر_الصيانة_tbl>);
       refreshData();
       toast.success('تم إنهاء التذكرة');
-    } catch (err: any) {
-      toast.error(err?.message || 'فشل إنهاء التذكرة');
+    } catch (err: unknown) {
+      const msg = typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message ?? '') : '';
+      toast.error(msg || 'فشل إنهاء التذكرة');
     }
   };
 
@@ -256,15 +257,17 @@ export const Maintenance: React.FC = () => {
     });
     if (!ok) return;
     try {
-      const res = (DbService as any).deleteMaintenanceTicket?.(ticketId);
+      const maybeDelete = (DbService as unknown as { deleteMaintenanceTicket?: (id: string) => unknown }).deleteMaintenanceTicket;
+      const res = maybeDelete?.(ticketId) as unknown as { success?: boolean; message?: string } | undefined;
       if (res?.success === false) {
         toast.error(res.message || 'فشل حذف التذكرة');
         return;
       }
       refreshData();
       toast.success('تم حذف التذكرة');
-    } catch (err: any) {
-      toast.error(err?.message || 'فشل حذف التذكرة');
+    } catch (err: unknown) {
+      const msg = typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message ?? '') : '';
+      toast.error(msg || 'فشل حذف التذكرة');
     }
   };
 
@@ -284,9 +287,9 @@ export const Maintenance: React.FC = () => {
 
     if (isDesktopFast) {
       const ctx = fastCtxRef.current.get(pid);
-      if (ctx) return ctx as any;
+      if (ctx) return ctx;
       // Provide a minimal placeholder so UI can still open property details.
-      return { prop: { رقم_العقار: pid }, owner: null, tenant: null, ownerName: '...', tenantName: null } as any;
+      return { prop: { رقم_العقار: pid } as unknown as العقارات_tbl, owner: null, tenant: null, ownerName: '...', tenantName: null };
     }
 
     const prop = properties.find(p => p.رقم_العقار === propId);
@@ -333,7 +336,7 @@ export const Maintenance: React.FC = () => {
        </div>
 
        {/* Filters */}
-       <div className="flex flex-wrap items-center gap-2 mb-4 bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 w-fit">
+       <div className="flex flex-wrap items-center gap-2 mb-4 app-card p-2 w-fit">
           <Button size="sm" variant={filter === 'all' ? 'secondary' : 'ghost'} onClick={() => setFilter('all')}>الكل</Button>
           <Button size="sm" variant={filter === 'open' ? 'secondary' : 'ghost'} onClick={() => setFilter('open')}>قيد العمل</Button>
           <Button size="sm" variant={filter === 'closed' ? 'secondary' : 'ghost'} onClick={() => setFilter('closed')}>مغلقة</Button>
@@ -346,7 +349,7 @@ export const Maintenance: React.FC = () => {
          {filteredTickets.map(ticket => {
              const context = getPropertyContext(ticket.رقم_العقار);
              return (
-            <div key={ticket.رقم_التذكرة} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-5 hover:shadow-md transition group">
+            <div key={ticket.رقم_التذكرة} className="app-card p-5 hover:shadow-md transition group">
                <div className="flex justify-between items-start mb-3">
                 <span className={`px-2 py-1 rounded text-xs font-bold ${ticket.الأولوية === 'عالية' ? 'bg-red-100 text-red-600' : ticket.الأولوية === 'متوسطة' ? 'bg-yellow-100 text-yellow-600' : 'bg-indigo-100 text-indigo-600'}`}>
                      {ticket.الأولوية}
@@ -405,7 +408,7 @@ export const Maintenance: React.FC = () => {
 
                  {showDynamicColumns && dynamicFields.length > 0 ? (
                    (() => {
-                     const values = (ticket as any)?.حقول_ديناميكية || {};
+                     const values = ticket.حقول_ديناميكية || {};
                      const visible = dynamicFields
                        .map((f) => ({ f, v: values?.[f.name] }))
                        .filter(({ v }) => !isEmptyDynamicValue(v));
@@ -462,8 +465,8 @@ export const Maintenance: React.FC = () => {
 
        {/* Add/Edit Modal */}
        {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-2xl animate-scale-up border border-gray-200 dark:border-slate-700 overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="modal-overlay app-modal-overlay">
+          <div className="modal-content app-modal-content w-full max-w-lg animate-scale-up overflow-hidden max-h-[90vh] flex flex-col">
             <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">{editingId ? 'تعديل تذكرة' : 'طلب صيانة جديد'}</h3>
               <button
@@ -537,7 +540,7 @@ export const Maintenance: React.FC = () => {
                  <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">الأولوية</label>
                     <div className={selectWrapper}>
-                      <select className={selectClass} value={formData.الأولوية} onChange={e => setFormData({...formData, الأولوية: e.target.value as any})}>
+                       <select className={selectClass} value={formData.الأولوية} onChange={e => setFormData({...formData, الأولوية: e.target.value as unknown as تذاكر_الصيانة_tbl['الأولوية']})}>
                          <option value="منخفضة">منخفضة</option>
                          <option value="متوسطة">متوسطة</option>
                          <option value="عالية">عالية</option>
@@ -551,7 +554,7 @@ export const Maintenance: React.FC = () => {
                  <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">الحالة</label>
                     <div className={selectWrapper}>
-                       <select className={selectClass} value={formData.الحالة} onChange={e => setFormData({...formData, الحالة: e.target.value as any})} disabled={!canEdit && !canClose}>
+                       <select className={selectClass} value={formData.الحالة} onChange={e => setFormData({...formData, الحالة: e.target.value as unknown as تذاكر_الصيانة_tbl['الحالة']})} disabled={!canEdit && !canClose}>
                          <option value="مفتوح">مفتوح</option>
                          <option value="قيد التنفيذ">قيد التنفيذ</option>
                          <option value="مغلق">مغلق (تم الإنجاز)</option>
@@ -562,7 +565,7 @@ export const Maintenance: React.FC = () => {
                  <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">المسؤول عن الدفع</label>
                     <div className={selectWrapper}>
-                      <select className={selectClass} value={formData.الجهة_المسؤولة} onChange={e => setFormData({...formData, الجهة_المسؤولة: e.target.value as any})}>
+                      <select className={selectClass} value={formData.الجهة_المسؤولة} onChange={e => setFormData({...formData, الجهة_المسؤولة: e.target.value as unknown as تذاكر_الصيانة_tbl['الجهة_المسؤولة']})}>
                          <option value="المالك">المالك</option>
                          <option value="المستأجر">المستأجر</option>
                          <option value="مشترك">مشترك</option>

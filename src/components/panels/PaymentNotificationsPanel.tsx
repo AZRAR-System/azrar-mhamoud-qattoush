@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Clock, AlertTriangle, Send, X, Users, Phone } from 'lucide-react';
 import { DbService, PaymentNotificationTarget } from '@/services/mockDb';
 import { formatDateOnly, parseDateOnly, toDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
@@ -12,12 +12,34 @@ interface PaymentNotificationsPanelProps {
   daysAhead?: number;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+const getOptionalStringProp = (value: unknown, key: string): string | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  return typeof prop === 'string' ? prop : undefined;
+};
+
+const getOptionalNumberProp = (value: unknown, key: string): number | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  if (typeof prop === 'number' && Number.isFinite(prop)) return prop;
+  if (typeof prop === 'string') {
+    const n = Number(prop);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+};
+
+const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
+
 const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
   const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
 
   // Desktop fast mode can provide payment plan/frequency in the target payload to avoid scanning contracts.
-  let paymentPlanRaw = String((t as any)?.paymentPlanRaw || '').trim();
-  let freq = Number((t as any)?.paymentFrequency ?? 0) || 0;
+  const tUnknown: unknown = t;
+  let paymentPlanRaw = String(getOptionalStringProp(tUnknown, 'paymentPlanRaw') || '').trim();
+  let freq = Number(getOptionalNumberProp(tUnknown, 'paymentFrequency') ?? 0) || 0;
   if (!isDesktop && (!paymentPlanRaw || !freq)) {
     const contract = DbService.getContracts().find(c => c.رقم_العقد === t.contractId);
     paymentPlanRaw = paymentPlanRaw || String(contract?.طريقة_الدفع || '').trim();
@@ -93,42 +115,42 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [isSending, setIsSending] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
-      if (isDesktop) {
-        const fast = await paymentNotificationTargetsSmart({ daysAhead });
-        if (!cancelled && fast) {
-          setTargets(fast as any);
-          const initial: Record<string, boolean> = {};
-          for (const item of fast) initial[item.key] = true;
-          setSelected(initial);
-          return;
-        }
+  const loadTargets = useCallback(async () => {
+    const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
 
-        // Desktop focus: do not fall back to legacy renderer-side full-array scans.
-        if (!cancelled) {
-          setTargets([]);
-          setSelected({});
-        }
-        return;
+    if (isDesktop) {
+      const fast = await paymentNotificationTargetsSmart({ daysAhead });
+      if (fast) {
+        const initial: Record<string, boolean> = {};
+        for (const item of fast) initial[item.key] = true;
+        return { nextTargets: fast, nextSelected: initial };
       }
 
-      const t = DbService.getPaymentNotificationTargets(daysAhead);
+      // Desktop focus: do not fall back to legacy renderer-side full-array scans.
+      return { nextTargets: [], nextSelected: {} };
+    }
+
+    const t = DbService.getPaymentNotificationTargets(daysAhead);
+    const initial: Record<string, boolean> = {};
+    for (const item of t) initial[item.key] = true;
+    return { nextTargets: t, nextSelected: initial };
+  }, [daysAhead]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { nextTargets, nextSelected } = await loadTargets();
       if (cancelled) return;
-      setTargets(t);
-      const initial: Record<string, boolean> = {};
-      for (const item of t) initial[item.key] = true;
-      setSelected(initial);
+      setTargets(nextTargets);
+      setSelected(nextSelected);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [daysAhead]);
+  }, [loadTargets]);
 
-  const sentTodayByContract = useMemo(() => {
+  const sentTodayByContract = (() => {
     const logs = DbService.getNotificationSendLogs();
     const todayIso = formatDateOnly(new Date());
     const sent = new Set<string>();
@@ -138,7 +160,7 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
       if (date === todayIso && l.contractId) sent.add(l.contractId);
     }
     return sent;
-  }, [targets.length]);
+  })();
 
   const totals = useMemo(() => {
     const allItems = targets.flatMap(t => t.items);
@@ -156,13 +178,13 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
   };
 
   const sendForTarget = async (t: PaymentNotificationTarget) => {
-    if (!t.phone && !(t as any).extraPhone) {
+    if (!t.phone && !t.extraPhone) {
       notificationService.warning(`لا يوجد رقم هاتف للمستأجر: ${t.tenantName}`);
       return;
     }
 
     const message = buildWhatsAppMessage(t);
-    const phones = [t.phone, (t as any).extraPhone].filter(Boolean) as string[];
+    const phones = [t.phone, t.extraPhone].filter(isNonEmptyString);
 
     DbService.addNotificationSendLog({
       category: 'installment_reminder',

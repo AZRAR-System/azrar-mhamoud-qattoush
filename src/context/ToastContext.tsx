@@ -44,17 +44,6 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [dialogResolve, setDialogResolve] = useState<((value: boolean) => void) | null>(null);
   const [portalReady, setPortalReady] = useState(false);
 
-  // Connect notification service to toast context on mount
-  useEffect(() => {
-    notificationService.setHandler({
-      onNotify: (message: string, type: 'success' | 'error' | 'warning' | 'info' | 'delete', title?: string) => {
-        // This will be called by notificationService to show toast
-        // notificationService already handles audio; avoid double beeps.
-        showToast(message, type, title, { sound: false });
-      }
-    });
-  }, []);
-
   useEffect(() => {
     setPortalReady(true);
   }, []);
@@ -71,7 +60,10 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     // Play sound (unless suppressed)
     if (options?.sound !== false) {
-      const soundMap: Record<ToastType, any> = {
+      type PlaySoundInput = Parameters<typeof audioService.playSound>[0];
+      type SoundKey = Extract<PlaySoundInput, string>;
+
+      const soundMap: Record<ToastType, SoundKey> = {
         success: 'success',
         error: 'error',
         warning: 'warning',
@@ -86,6 +78,17 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       removeToast(id);
     }, duration);
   }, [removeToast]);
+
+  // Connect notification service to toast context on mount
+  useEffect(() => {
+    notificationService.setHandler({
+      onNotify: (message: string, type: 'success' | 'error' | 'warning' | 'info' | 'delete', title?: string) => {
+        // This will be called by notificationService to show toast
+        // notificationService already handles audio; avoid double beeps.
+        showToast(message, type, title, { sound: false });
+      }
+    });
+  }, [showToast]);
 
   const success = useCallback((message: string, title?: string) => {
     showToast(message, 'success', title || 'نجاح');
@@ -168,7 +171,7 @@ export const useToast = () => {
 // Toast Container Component
 const ToastContainer: React.FC<{ toasts: Toast[], removeToast: (id: string) => void }> = ({ toasts, removeToast }) => {
   return (
-    <div className="fixed bottom-6 right-6 z-[10050] flex flex-col gap-3 pointer-events-none">
+    <div className="fixed bottom-6 right-6 layer-toast flex flex-col gap-3 pointer-events-none">
       {toasts.map(toast => (
         <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
       ))}
@@ -237,8 +240,8 @@ const ConfirmDialog: React.FC<{
   onCancel: () => void
 }> = ({ options, onConfirm, onCancel }) => {
   return (
-    <div className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full animate-scale-up">
+    <div className="confirm-overlay fixed inset-0 flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="modal-content app-modal-content max-w-md w-full animate-scale-up">
         {/* Header */}
         <div className={`p-6 border-b border-slate-200 dark:border-slate-700 ${
           options.isDangerous 

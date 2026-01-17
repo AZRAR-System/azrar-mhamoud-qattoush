@@ -16,6 +16,16 @@ type SqlSyncLogResponse = {
   items?: SyncLogItem[];
 };
 
+function getErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : undefined;
+  }
+  return undefined;
+}
+
 function formatTs(ts: string): string {
   try {
     const d = new Date(ts);
@@ -40,8 +50,8 @@ export const SqlSyncLogPanel: React.FC = () => {
     try {
       const res = (await window.desktopDb.sqlGetSyncLog()) as unknown as SqlSyncLogResponse | null;
       setItems(Array.isArray(res?.items) ? res.items : []);
-    } catch (e: any) {
-      toast.error(e?.message || 'فشل تحميل سجل المزامنة');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل تحميل سجل المزامنة');
     } finally {
       setBusy(false);
     }
@@ -54,8 +64,8 @@ export const SqlSyncLogPanel: React.FC = () => {
       await window.desktopDb.sqlClearSyncLog();
       setItems([]);
       toast.success('تم مسح سجل المزامنة');
-    } catch (e: any) {
-      toast.error(e?.message || 'فشل مسح سجل المزامنة');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل مسح سجل المزامنة');
     } finally {
       setBusy(false);
     }
@@ -173,7 +183,7 @@ export const SqlSyncLogPanel: React.FC = () => {
         />
       </div>
 
-      <div className="rounded-2xl border border-gray-200 dark:border-slate-700">
+      <div className="app-card">
         <div className="max-h-[60vh] overflow-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300">

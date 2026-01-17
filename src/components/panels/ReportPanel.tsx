@@ -10,6 +10,9 @@ import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { runReportSmart } from '@/services/reporting';
 
+type UnknownRecord = Record<string, unknown>;
+const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
+
 export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
   const [report, setReport] = useState<ReportResult | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,8 +36,7 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
           if (cancelled) return;
           setReport(null);
         } finally {
-          if (cancelled) return;
-          setLoading(false);
+          if (!cancelled) setLoading(false);
         }
       })();
     }, 250);
@@ -64,16 +66,18 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
     try {
       const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
       const safeTitle = String(report.title || 'report').replace(/[\\/:*?"<>|]/g, '_').trim();
-      const rows = (report.data || []).map((r) => {
-        const obj: Record<string, any> = {};
-        for (const c of report.columns) obj[c.header] = r[c.key];
+      type ExportRow = Record<string, unknown>;
+      const rows: ExportRow[] = (report.data || []).map((r) => {
+        const rowObj: UnknownRecord = isRecord(r) ? r : {};
+        const obj: ExportRow = {};
+        for (const c of report.columns) obj[c.header] = rowObj[c.key];
         return obj;
       });
 
       await exportToXlsx(
         'Report',
-        report.columns.map(c => ({ key: c.header as any, header: c.header })),
-        rows as any,
+        report.columns.map((c) => ({ key: c.header, header: c.header })),
+        rows,
         `${safeTitle}_${new Date().toISOString().slice(0, 10)}.xlsx`,
         {
           extraSheets: companySheet ? [companySheet] : [],
@@ -81,7 +85,7 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
       );
 
       toast.success('✅ تم تصدير التقرير إلى Excel بنجاح');
-    } catch (error) {
+    } catch {
       toast.error('❌ فشل في تصدير التقرير');
     }
   };
@@ -91,9 +95,10 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
     if (!isEmployeeCommissions || !report) return [] as Array<{ value: string; label: string }>;
     const rows = Array.isArray(report.data) ? report.data : [];
     const byUsername = new Map<string, string>();
-    for (const r of rows as any[]) {
-      const username = String((r as any)?.employeeUsername || '').trim();
-      const display = String((r as any)?.employee || '').trim();
+    for (const r of rows) {
+      if (!isRecord(r)) continue;
+      const username = String(r.employeeUsername || '').trim();
+      const display = String(r.employee || '').trim();
       if (!username) continue;
       if (!byUsername.has(username)) byUsername.set(username, display || username);
     }
@@ -107,8 +112,9 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
     if (!isEmployeeCommissions || !report) return [] as Array<{ value: string; label: string }>;
     const rows = Array.isArray(report.data) ? report.data : [];
     const months = new Set<string>();
-    for (const r of rows as any[]) {
-      const d = String((r as any)?.date || '').trim();
+    for (const r of rows) {
+      if (!isRecord(r)) continue;
+      const d = String(r.date || '').trim();
       if (/^\d{4}-\d{2}/.test(d)) months.add(d.slice(0, 7));
     }
     return Array.from(months)
@@ -125,28 +131,41 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
 
   if (!report) return <div className="p-10 text-center text-red-500">فشل تحميل التقرير</div>;
 
-  const filteredData = (report.data || []).filter((row: any) => {
+  const filteredData = (report.data || []).filter((row: unknown) => {
+    const rowObj = isRecord(row) ? row : null;
     if (isEmployeeCommissions) {
       if (employeeFilter) {
-        const u = String(row?.employeeUsername || '').trim();
+        const u = String(rowObj?.employeeUsername || '').trim();
         if (u !== employeeFilter) return false;
       }
       if (monthFilter) {
-        const d = String(row?.date || '').trim();
+        const d = String(rowObj?.date || '').trim();
         const m = /^\d{4}-\d{2}/.test(d) ? d.slice(0, 7) : '';
         if (m !== monthFilter) return false;
       }
     }
 
     if (!searchTerm) return true;
-    const rowString = Object.values(row).join(' ').toLowerCase();
+    const rowString = rowObj ? Object.values(rowObj).join(' ').toLowerCase() : String(row || '').toLowerCase();
     return rowString.includes(searchTerm.toLowerCase());
   });
+
+  const getRowValue = (row: unknown, key: string): unknown => {
+    if (!isRecord(row)) return undefined;
+    return row[key];
+  };
+
+  const renderCellValue = (value: unknown): React.ReactNode => {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'string' || typeof value === 'number') return value;
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    return String(value);
+  };
 
   return (
     <div className="space-y-6 h-full flex flex-col report-print" dir="rtl">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-200 dark:border-slate-700 flex flex-col gap-4 shadow-sm print:shadow-none print:border-none">
+      <div className="app-card p-6 flex flex-col gap-4 print:shadow-none print:border-none">
         <PrintLetterhead className="hidden print:block" />
          <div className="flex justify-between items-start">
             <div className="flex items-center gap-4">
@@ -232,7 +251,7 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
       </div>
 
       {/* Table Area */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden flex-1 flex flex-col print:border-none print:shadow-none print:overflow-visible">
+      <div className="app-card overflow-hidden flex-1 flex flex-col print:border-none print:shadow-none print:overflow-visible">
          <div className="overflow-auto custom-scrollbar flex-1 print:overflow-visible">
             <table className="w-full text-right text-sm">
                <thead className="bg-gray-50 dark:bg-slate-900 text-gray-500 dark:text-gray-400 font-bold sticky top-0 z-10 print:bg-gray-100 print:static print:top-auto print:z-auto">
@@ -248,15 +267,15 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
                           {report.columns.map(col => (
                           <td key={col.key} className="p-4 text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
                             {col.type === 'currency' ? (
-                              <span className="font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(row[col.key], { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                              <span className="font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(getRowValue(row, col.key), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                             ) : col.type === 'date' ? (
-                              <span>{formatDateYMD(row[col.key])}</span>
+                              <span>{formatDateYMD(getRowValue(row, col.key))}</span>
                             ) : col.type === 'number' ? (
-                              <span>{formatNumber(row[col.key])}</span>
+                              <span>{formatNumber(getRowValue(row, col.key))}</span>
                                   ) : col.type === 'status' ? (
-                                      <span className="bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded text-xs">{row[col.key]}</span>
+                                      <span className="bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded text-xs">{renderCellValue(getRowValue(row, col.key))}</span>
                                   ) : (
-                              (row[col.key] ?? '-')
+                                  renderCellValue(getRowValue(row, col.key))
                                   )}
                               </td>
                           ))}

@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronRight, ChevronLeft, Calendar } from 'lucide-react';
 
 interface DatePickerProps {
@@ -23,19 +24,53 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [portalReady, setPortalReady] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   
   const initialDate = value ? new Date(value) : new Date();
   const [viewDate, setViewDate] = useState(initialDate);
 
   useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (containerRef.current && containerRef.current.contains(target)) return;
+      if (popoverRef.current && popoverRef.current.contains(target)) return;
         setIsOpen(false);
-      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updatePopoverPosition = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+
+      const popoverWidth = 288; // matches w-72
+      const margin = 8;
+      let left = rect.right - popoverWidth;
+      left = Math.max(margin, Math.min(left, window.innerWidth - popoverWidth - margin));
+      const top = rect.bottom + margin;
+
+      setPopoverStyle({ top, left, width: popoverWidth });
+    };
+
+    updatePopoverPosition();
+    window.addEventListener('resize', updatePopoverPosition, { passive: true });
+    window.addEventListener('scroll', updatePopoverPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePopoverPosition);
+      window.removeEventListener('scroll', updatePopoverPosition, true);
+    };
+  }, [isOpen]);
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
@@ -119,33 +154,39 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         <Calendar size={18} className="absolute left-3 top-3.5 text-gray-400 group-hover:text-indigo-500 transition-colors" />
       </div>
 
-      {isOpen && (
-        <div className="absolute z-50 top-full mt-2 w-72 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 p-4 animate-scale-up right-0 sm:right-auto">
-          <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100 dark:border-slate-700">
-            <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400">
-              <ChevronRight size={20} />
-            </button>
-            <span className="font-bold text-slate-800 dark:text-white">
-              {MONTHS_AR[viewDate.getMonth()]} {viewDate.getFullYear()}
-            </span>
-            <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400">
-              <ChevronLeft size={20} />
-            </button>
-          </div>
+      {isOpen && portalReady && typeof document !== 'undefined' && popoverStyle &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className="fixed layer-dropdown w-72 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 p-4 animate-scale-up"
+            style={{ top: popoverStyle.top, left: popoverStyle.left, width: popoverStyle.width }}
+          >
+            <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100 dark:border-slate-700">
+              <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400">
+                <ChevronRight size={20} />
+              </button>
+              <span className="font-bold text-slate-800 dark:text-white">
+                {MONTHS_AR[viewDate.getMonth()]} {viewDate.getFullYear()}
+              </span>
+              <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400">
+                <ChevronLeft size={20} />
+              </button>
+            </div>
 
-          <div className="grid grid-cols-7 mb-2">
-            {DAYS_AR.map(day => (
-              <div key={day} className="text-center text-xs font-medium text-gray-400 dark:text-slate-500 py-1">
-                {day}
-              </div>
-            ))}
-          </div>
+            <div className="grid grid-cols-7 mb-2">
+              {DAYS_AR.map(day => (
+                <div key={day} className="text-center text-xs font-medium text-gray-400 dark:text-slate-500 py-1">
+                  {day}
+                </div>
+              ))}
+            </div>
 
-          <div className="grid grid-cols-7 gap-1">
-            {renderCalendar()}
-          </div>
-        </div>
-      )}
+            <div className="grid grid-cols-7 gap-1">
+              {renderCalendar()}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

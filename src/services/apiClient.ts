@@ -46,7 +46,7 @@ class ApiClient {
       });
       clearTimeout(id);
       return response.ok;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -70,18 +70,20 @@ class ApiClient {
       }
     })();
 
-    const config = {
+    const mergedHeaders: Record<string, string> = {
+      ...this.headers,
+      ...(options.headers as Record<string, string> | undefined),
+    };
+
+    const config: RequestInit & { headers: Record<string, string> } = {
       ...options,
-      headers: {
-        ...this.headers,
-        ...options.headers,
-      },
+      headers: mergedHeaders,
     };
 
     // For write operations, send If-Match to prevent overwriting another device.
     const method = String(config.method || 'GET').toUpperCase();
     if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && existingEtag) {
-      (config.headers as any)['If-Match'] = existingEtag;
+      config.headers['If-Match'] = existingEtag;
     }
 
     try {
@@ -104,7 +106,7 @@ class ApiClient {
           return {
             success: false,
             message: errorBody.message || 'Conflict: data changed on server',
-            data: errorBody as any,
+            data: errorBody as unknown as T,
           };
         }
 
@@ -113,11 +115,12 @@ class ApiClient {
 
       const data = await response.json();
       return { success: true, message: 'Success', data };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`API Request Failed: ${endpoint}`, error);
-      return { 
-        success: false, 
-        message: error.message || 'Network Error' 
+      const message = error instanceof Error ? error.message : 'Network Error';
+      return {
+        success: false,
+        message,
       };
     } finally {
       this.notifyActivity(false); // End Sync Visual
@@ -128,14 +131,14 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  public async post<T>(endpoint: string, body: any): Promise<DbResult<T>> {
+  public async post<T>(endpoint: string, body: unknown): Promise<DbResult<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(body),
     });
   }
 
-  public async put<T>(endpoint: string, body: any): Promise<DbResult<T>> {
+  public async put<T>(endpoint: string, body: unknown): Promise<DbResult<T>> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: JSON.stringify(body),

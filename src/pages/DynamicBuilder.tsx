@@ -18,7 +18,6 @@ import {
   Table,
   Type,
   CheckCircle,
-  ChevronDown,
   Trash2,
   Wrench
 } from 'lucide-react';
@@ -35,6 +34,16 @@ const SYSTEM_FORMS = [
   { id: 'installments', label: 'نموذج الكمبيالات' },
   { id: 'maintenance', label: 'نموذج الصيانة' }
 ];
+
+const getErrorMessage = (error: unknown): string | undefined => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return undefined;
+};
 
 export const DynamicBuilder: React.FC = () => {
   const toast = useToast();
@@ -58,7 +67,7 @@ export const DynamicBuilder: React.FC = () => {
   const [newTableName, setNewTableName] = useState('');
   const [showNewField, setShowNewField] = useState(false);
   const [newField, setNewField] = useState({ name: '', label: '', type: 'text' as FieldType });
-  const [newRecordData, setNewRecordData] = useState<any>({});
+  const [newRecordData, setNewRecordData] = useState<Record<string, unknown>>({});
 
   // ---------------------------------------------------
   // LOAD TABLES + ACTIVE TABLE
@@ -110,8 +119,8 @@ export const DynamicBuilder: React.FC = () => {
         setTables(DbService.getDynamicTables());
         setShowNewField(false);
         setNewField({ name: '', label: '', type: 'text' });
-      } catch (e: any) {
-        toast.error(e?.message || 'حدث خطأ أثناء إضافة الحقل');
+      } catch (e: unknown) {
+        toast.error(getErrorMessage(e) || 'حدث خطأ أثناء إضافة الحقل');
       }
     } else {
       toast.warning('يرجى تعبئة اسم الحقل والعنوان');
@@ -145,8 +154,8 @@ export const DynamicBuilder: React.FC = () => {
       DbService.addFormField(activeForm, newFormField);
       setFormFields(DbService.getFormFields(activeForm));
       setNewFormField({ name: '', label: '', type: 'text' });
-    } catch (e: any) {
-      toast.error(e?.message || 'حدث خطأ أثناء إضافة الحقل');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'حدث خطأ أثناء إضافة الحقل');
     }
   };
 
@@ -198,7 +207,7 @@ export const DynamicBuilder: React.FC = () => {
         {/* ---------------------------------- */}
         {/*       LEFT: Form Field Builder      */}
         {/* ---------------------------------- */}
-        <div className="w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm p-4">
+        <div className="w-80 app-card p-4">
           
           <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
             <Wrench size={16} /> الحقول الإضافية للنماذج
@@ -290,7 +299,7 @@ export const DynamicBuilder: React.FC = () => {
         {/* ---------------------------------- */}
         {/*       RIGHT: Dynamic Tables         */}
         {/* ---------------------------------- */}
-        <div className="flex-1 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex flex-col overflow-hidden">
+        <div className="flex-1 app-card flex flex-col">
 
           {/* TABLES LIST */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
@@ -397,28 +406,36 @@ export const DynamicBuilder: React.FC = () => {
                 </h4>
 
                 <div className="grid grid-cols-3 gap-4">
-                  {tables.find(t => t.id === activeTable)?.fields.map(f => (
-                    <div key={f.id}>
-                      <label className="block text-xs mb-1">{f.label}</label>
+                  {tables.find(t => t.id === activeTable)?.fields.map(f => {
+                    const currentValue = newRecordData[f.name];
+                    const inputValue =
+                      typeof currentValue === 'string' || typeof currentValue === 'number'
+                        ? String(currentValue)
+                        : '';
 
-                      {f.type === 'date' ? (
-                        <DatePicker
-                          value={newRecordData[f.name] || ''}
-                          onChange={d => setNewRecordData({ ...newRecordData, [f.name]: d })}
-                        />
-                      ) : (
-                        <input
-                          type={f.type === 'number' ? 'number' : 'text'}
-                          className={inputClass}
-                          value={newRecordData[f.name] || ''}
-                          onChange={e => setNewRecordData({ ...newRecordData, [f.name]: e.target.value })}
-                        />
-                      )}
-                    </div>
-                  ))}
+                    return (
+                      <div key={f.id}>
+                        <label className="block text-xs mb-1">{f.label}</label>
+
+                        {f.type === 'date' ? (
+                          <DatePicker
+                            value={typeof currentValue === 'string' ? currentValue : undefined}
+                            onChange={d => setNewRecordData({ ...newRecordData, [f.name]: d })}
+                          />
+                        ) : (
+                          <input
+                            type={f.type === 'number' ? 'number' : 'text'}
+                            className={inputClass}
+                            value={inputValue}
+                            onChange={e => setNewRecordData({ ...newRecordData, [f.name]: e.target.value })}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {tables.find(t => t.id === activeTable)?.fields.length! > 0 && (
+                {(tables.find(t => t.id === activeTable)?.fields.length ?? 0) > 0 && (
                   <button
                     onClick={handleAddRecord}
                     className="mt-4 bg-green-600 text-white px-6 py-2 rounded-xl text-sm font-bold"
@@ -444,7 +461,7 @@ export const DynamicBuilder: React.FC = () => {
                       <tr key={r.id} className="border-b">
                         {tables.find(t => t.id === activeTable)?.fields.map(f => (
                           <td key={f.id} className="p-3 border">
-                            {r[f.name] || '-'}
+                            {r[f.name] ? String(r[f.name]) : '-'}
                           </td>
                         ))}
                       </tr>

@@ -26,29 +26,32 @@ import { InspectionFormPanel } from '@/components/panels/InspectionFormPanel';
 import { BulkWhatsAppPanel } from '@/components/panels/BulkWhatsAppPanel';
 import { MarqueeAdsPanel } from '@/components/panels/MarqueeAdsPanel';
 
-const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
-  'PERSON_DETAILS': PersonPanel,
-  'PROPERTY_DETAILS': PropertyPanel,
-  'CONTRACT_DETAILS': ContractPanel,
-  'REPORT_VIEWER': ReportPanel,
-  'LEGAL_NOTICE_GENERATOR': LegalNoticePanel,
-  'BULK_WHATSAPP': BulkWhatsAppPanel,
-  'SALES_LISTING_DETAILS': SalesPanel,
-  'CLEARANCE_REPORT': ClearanceReportPanel,
-  'CLEARANCE_WIZARD': ClearanceWizardPanel,
-  'PERSON_FORM': PersonFormPanel,
-  'PROPERTY_FORM': PropertyFormPanel,
-  'CONTRACT_FORM': ContractFormPanel,
-  'INSPECTION_FORM': InspectionFormPanel,
-  'BLACKLIST_FORM': BlacklistFormPanel,
-  'SMART_PROMPT': SmartPromptPanel,
-  'CALENDAR_EVENTS': CalendarEventsPanel,
-  'PAYMENT_NOTIFICATIONS': PaymentNotificationsPanel,
-  'GENERIC_ALERT': GenericAlertPanel,
-  'SECTION_VIEW': SectionViewPanel,
-  'SERVER_DRAWER': ServerDrawerPanel,
-  'SQL_SYNC_LOG': SqlSyncLogPanel,
-  'MARQUEE_ADS': MarqueeAdsPanel,
+type PanelComponentProps = { id?: string; onClose: () => void } & Record<string, unknown>;
+type PanelComponent = React.ComponentType<PanelComponentProps>;
+
+const PANEL_COMPONENTS: Record<string, PanelComponent> = {
+  PERSON_DETAILS: PersonPanel as unknown as PanelComponent,
+  PROPERTY_DETAILS: PropertyPanel as unknown as PanelComponent,
+  CONTRACT_DETAILS: ContractPanel as unknown as PanelComponent,
+  REPORT_VIEWER: ReportPanel as unknown as PanelComponent,
+  LEGAL_NOTICE_GENERATOR: LegalNoticePanel as unknown as PanelComponent,
+  BULK_WHATSAPP: BulkWhatsAppPanel as unknown as PanelComponent,
+  SALES_LISTING_DETAILS: SalesPanel as unknown as PanelComponent,
+  CLEARANCE_REPORT: ClearanceReportPanel as unknown as PanelComponent,
+  CLEARANCE_WIZARD: ClearanceWizardPanel as unknown as PanelComponent,
+  PERSON_FORM: PersonFormPanel as unknown as PanelComponent,
+  PROPERTY_FORM: PropertyFormPanel as unknown as PanelComponent,
+  CONTRACT_FORM: ContractFormPanel as unknown as PanelComponent,
+  INSPECTION_FORM: InspectionFormPanel as unknown as PanelComponent,
+  BLACKLIST_FORM: BlacklistFormPanel as unknown as PanelComponent,
+  SMART_PROMPT: SmartPromptPanel as unknown as PanelComponent,
+  CALENDAR_EVENTS: CalendarEventsPanel as unknown as PanelComponent,
+  PAYMENT_NOTIFICATIONS: PaymentNotificationsPanel as unknown as PanelComponent,
+  GENERIC_ALERT: GenericAlertPanel as unknown as PanelComponent,
+  SECTION_VIEW: SectionViewPanel as unknown as PanelComponent,
+  SERVER_DRAWER: ServerDrawerPanel as unknown as PanelComponent,
+  SQL_SYNC_LOG: SqlSyncLogPanel as unknown as PanelComponent,
+  MARQUEE_ADS: MarqueeAdsPanel as unknown as PanelComponent,
 };
 
 const PANEL_TITLES: Partial<Record<PanelType, string>> = {
@@ -110,7 +113,7 @@ export const SmartModalEngine: React.FC = () => {
             return (
               <div
                 key={panel.id}
-                className={`fixed bottom-4 left-4 right-4 z-[210] ${isTop ? '' : 'hidden'}`}
+                className={`fixed bottom-4 left-4 right-4 layer-toast ${isTop ? '' : 'hidden'}`}
               >
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-2xl rounded-2xl px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
@@ -143,11 +146,11 @@ export const SmartModalEngine: React.FC = () => {
           return (
             <div
               key={panel.id}
-              className={`modal-overlay fixed inset-0 z-[200] flex items-center justify-center p-4 transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
+              className={`modal-overlay fixed inset-0 flex items-center justify-center p-4 transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
               onClick={doClose}
             >
               <div
-                className="w-full max-w-5xl bg-white dark:bg-slate-900 shadow-2xl border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] transform transition-transform duration-300 ease-out animate-scale-up"
+                className="modal-content app-modal-content dark:bg-slate-900 w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] transform transition-transform duration-300 ease-out animate-scale-up"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="no-print flex items-start gap-3 p-4 border-b border-gray-100 dark:border-slate-800">
@@ -188,11 +191,11 @@ export const SmartModalEngine: React.FC = () => {
           return (
             <div
               key={panel.id}
-              className={`modal-overlay fixed inset-0 z-[200] transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
+              className={`modal-overlay fixed inset-0 transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
               onClick={() => closePanel(panel.id)}
             >
               <div
-                className="absolute inset-y-0 right-0 w-full max-w-3xl bg-white dark:bg-slate-900 shadow-2xl border-l border-gray-200 dark:border-slate-700 overflow-hidden flex flex-col"
+                className="modal-content app-modal-content border-0 border-l absolute inset-y-0 right-0 w-full max-w-3xl dark:bg-slate-900 overflow-hidden flex flex-col"
                 onClick={e => e.stopPropagation()}
               >
                 <div className="no-print flex items-start gap-3 p-4 border-b border-gray-100 dark:border-slate-800">
@@ -236,8 +239,8 @@ export const SmartModalEngine: React.FC = () => {
               }
             };
             return (
-                <div key={panel.id} className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={handleCancel}>
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-gray-200 dark:border-slate-700 animate-scale-up" onClick={e => e.stopPropagation()}>
+              <div key={panel.id} className="confirm-overlay fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={handleCancel}>
+                <div className="modal-content app-modal-content p-6 max-w-sm w-full animate-scale-up" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{panel.props?.title || 'تأكيد'}</h3>
                         <p className="text-slate-600 dark:text-slate-300 text-sm mb-6 whitespace-pre-line">{panel.props?.message}</p>
                         <div className="flex justify-end gap-3">
@@ -268,8 +271,8 @@ export const SmartModalEngine: React.FC = () => {
               }
             };
             return (
-                <div key={panel.id} className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={handleClose}>
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 dark:border-slate-700 animate-scale-up overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div key={panel.id} className="modal-overlay app-modal-overlay bg-black/60 animate-fade-in" onClick={handleClose}>
+                <div className="modal-content app-modal-content w-full max-w-md animate-scale-up overflow-hidden" onClick={e => e.stopPropagation()}>
                         <Component {...panel.props} onClose={handleClose} />
                     </div>
                 </div>
@@ -284,13 +287,13 @@ export const SmartModalEngine: React.FC = () => {
         return (
           <div 
             key={panel.id} 
-            className={`modal-overlay fixed inset-0 z-[200] flex items-center justify-center p-4 transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
+            className={`modal-overlay fixed inset-0 flex items-center justify-center p-4 transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
             onClick={() => closePanel(panel.id)}
           >
             <div 
               className={`
-                w-full ${isSectionView ? 'max-w-6xl' : isWidePanel ? 'max-w-5xl' : 'max-w-2xl'} bg-white dark:bg-slate-900 shadow-2xl border border-gray-200 dark:border-slate-700
-                rounded-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]
+                modal-content app-modal-content dark:bg-slate-900 w-full ${isSectionView ? 'max-w-6xl' : isWidePanel ? 'max-w-5xl' : 'max-w-2xl'}
+                overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]
                 transform transition-transform duration-300 ease-out animate-scale-up
               `}
               onClick={e => e.stopPropagation()}

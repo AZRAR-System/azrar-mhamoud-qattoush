@@ -8,6 +8,10 @@ import { Save, Trash2, ClipboardCheck } from 'lucide-react';
 import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
 
+type UnknownRecord = Record<string, unknown>;
+const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
+const toRecordOrNull = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
+
 interface InspectionFormPanelProps {
   id?: string; // inspection id (edit)
   propertyId?: string; // used when creating a new inspection
@@ -20,11 +24,12 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
   const [inspectionId, setInspectionId] = useState<string | undefined>(id);
   const [resolvedPropertyId, setResolvedPropertyId] = useState<string>(propertyId || '');
 
-  const isDesktop = storage.isDesktop() && !!(window as any)?.desktopDb;
-  const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainGet;
+  const desktopDb = typeof window !== 'undefined' ? window.desktopDb : undefined;
+  const isDesktop = storage.isDesktop() && !!desktopDb;
+  const isDesktopFast = isDesktop && typeof desktopDb?.domainGet === 'function';
   const desktopUnsupported = isDesktop && !isDesktopFast;
 
-  const [desktopProperty, setDesktopProperty] = useState<any | null>(null);
+  const [desktopProperty, setDesktopProperty] = useState<unknown>(null);
 
   const [form, setForm] = useState({
     inspectionDate: new Date().toISOString().slice(0, 10),
@@ -65,7 +70,7 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
     void (async () => {
       try {
         const p = await domainGetSmart('properties', pid);
-        if (alive) setDesktopProperty(p as any);
+        if (alive) setDesktopProperty(p);
       } catch {
         if (alive) setDesktopProperty(null);
       }
@@ -78,9 +83,9 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
   const property = useMemo(() => {
     if (!resolvedPropertyId) return null;
     if (desktopUnsupported) return null;
-    if (isDesktopFast) return desktopProperty;
+    if (isDesktopFast) return toRecordOrNull(desktopProperty);
     const d = DbService.getPropertyDetails(resolvedPropertyId);
-    return d?.property || null;
+    return toRecordOrNull(d?.property);
   }, [resolvedPropertyId, isDesktopFast, desktopUnsupported, desktopProperty]);
 
   const handleSave = () => {
@@ -101,14 +106,15 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
         clientId: form.clientId || undefined,
         isReady: form.isReady,
         notes: form.notes || undefined,
-      } as any);
+      });
 
       if (!res.success) {
         toast.error(res.message || 'فشل إنشاء الكشف');
         return;
       }
 
-      const newId = (res.data as any)?.id as string | undefined;
+      const data = (res as unknown as { data?: unknown }).data;
+      const newId = isRecord(data) && typeof data.id === 'string' ? data.id : undefined;
       if (newId) setInspectionId(newId);
       toast.success(res.message || 'تم إنشاء الكشف');
       if (onSuccess) onSuccess();
@@ -121,7 +127,7 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
       clientId: form.clientId || undefined,
       isReady: form.isReady,
       notes: form.notes || undefined,
-    } as any);
+    });
 
     if (!res.success) {
       toast.error(res.message || 'فشل تعديل الكشف');
@@ -164,7 +170,18 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
           {inspectionId ? 'تعديل كشف' : 'كشف جديد'}
         </h2>
         <p className="text-sm text-indigo-600/80 dark:text-indigo-200/70 mt-1">
-          {property ? `العقار: ${property.الكود_الداخلي || property.رقم_العقار}` : resolvedPropertyId ? `رقم العقار: ${resolvedPropertyId}` : '—'}
+          {property
+            ? (() => {
+                const internal = property['الكود_الداخلي'];
+                const num = property['رقم_العقار'];
+                const internalText = typeof internal === 'string' || typeof internal === 'number' ? String(internal) : '';
+                const numText = typeof num === 'string' || typeof num === 'number' ? String(num) : '';
+                const label = internalText || numText;
+                return `العقار: ${label}`;
+              })()
+            : resolvedPropertyId
+              ? `رقم العقار: ${resolvedPropertyId}`
+              : '—'}
         </p>
       </div>
 

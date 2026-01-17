@@ -2,9 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { useToast } from '@/context/ToastContext';
-import { ShieldAlert, AlertTriangle, Save, X } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, Save } from 'lucide-react';
 import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
+
+type UnknownRecord = Record<string, unknown>;
+const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
+const toRecordOrNull = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
+
+const SEVERITIES = ['Low', 'Medium', 'High', 'Critical'] as const;
+type Severity = (typeof SEVERITIES)[number];
 
 interface BlacklistFormProps {
   id: string; // If mode is 'create', this is personId. If 'edit', this is blacklistRecordId.
@@ -14,15 +21,16 @@ interface BlacklistFormProps {
 }
 
 export const BlacklistFormPanel: React.FC<BlacklistFormProps> = ({ id, mode = 'create', onClose, onSuccess }) => {
-  const [person, setPerson] = useState<any>(null);
+    const [person, setPerson] = useState<UnknownRecord | null>(null);
   const [formData, setFormData] = useState({
     reason: '',
-    severity: 'Medium' as 'Low' | 'Medium' | 'High' | 'Critical'
+        severity: 'Medium' as Severity
   });
   const toast = useToast();
 
-    const isDesktop = storage.isDesktop() && !!(window as any)?.desktopDb;
-    const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainGet;
+        const desktopDb = typeof window !== 'undefined' ? window.desktopDb : undefined;
+        const isDesktop = storage.isDesktop() && !!desktopDb;
+        const isDesktopFast = isDesktop && typeof desktopDb?.domainGet === 'function';
     const desktopUnsupported = isDesktop && !isDesktopFast;
 
   useEffect(() => {
@@ -32,14 +40,14 @@ export const BlacklistFormPanel: React.FC<BlacklistFormProps> = ({ id, mode = 'c
             void (async () => {
                 try {
                     const p = await domainGetSmart('people', id);
-                    if (p) setPerson(p as any);
+                    setPerson(toRecordOrNull(p));
                 } catch {
                     setPerson(null);
                 }
             })();
         } else {
             const p = DbService.getPersonDetails(id);
-            if(p) setPerson(p.person);
+            if (p) setPerson(toRecordOrNull(p.person));
         }
     } else {
         // Edit Mode: Fetch Record then Person
@@ -50,14 +58,14 @@ export const BlacklistFormPanel: React.FC<BlacklistFormProps> = ({ id, mode = 'c
                 void (async () => {
                     try {
                         const p = await domainGetSmart('people', record.personId);
-                        if (p) setPerson(p as any);
+                        setPerson(toRecordOrNull(p));
                     } catch {
                         setPerson(null);
                     }
                 })();
             } else {
                 const p = DbService.getPersonDetails(record.personId);
-                if(p) setPerson(p.person);
+                if (p) setPerson(toRecordOrNull(p.person));
             }
         }
     }
@@ -107,7 +115,9 @@ export const BlacklistFormPanel: React.FC<BlacklistFormProps> = ({ id, mode = 'c
                 <ShieldAlert size={24} /> {mode === 'create' ? 'إضافة للقائمة السوداء' : 'تعديل سجل الحظر'}
             </h2>
             <p className="text-sm text-red-600/80 mt-1">
-                {mode === 'create' ? `إضافة "${person.الاسم}" للقائمة السوداء سيؤدي لظهور تحذيرات.` : `تعديل تفاصيل حظر "${person.الاسم}".`}
+                {mode === 'create'
+                    ? `إضافة "${String(person['الاسم'])}" للقائمة السوداء سيؤدي لظهور تحذيرات.`
+                    : `تعديل تفاصيل حظر "${String(person['الاسم'])}".`}
             </p>
         </div>
 
@@ -115,11 +125,11 @@ export const BlacklistFormPanel: React.FC<BlacklistFormProps> = ({ id, mode = 'c
             <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">درجة الخطورة</label>
                 <div className="grid grid-cols-4 gap-2">
-                    {['Low', 'Medium', 'High', 'Critical'].map((sev) => (
+                    {SEVERITIES.map((sev) => (
                         <button
                             key={sev}
                             type="button"
-                            onClick={() => setFormData({...formData, severity: sev as any})}
+                            onClick={() => setFormData({ ...formData, severity: sev })}
                             className={`py-2 rounded-lg text-xs font-bold border transition
                                 ${formData.severity === sev 
                                     ? 'bg-red-600 text-white border-red-600 shadow-md' 

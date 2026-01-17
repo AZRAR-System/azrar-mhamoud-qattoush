@@ -5,7 +5,7 @@
 */
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+   
   require('better-sqlite3');
   // If we got here, the addon loads and ABI matches Electron.
   // Print ABI for debugging.
@@ -13,9 +13,9 @@ try {
   console.log(`better-sqlite3 OK (electron=${process.versions.electron}, modules=${process.versions.modules})`);
   process.exit(0);
 } catch (e) {
-  // eslint-disable-next-line no-console
+   
   console.error('better-sqlite3 FAILED in Electron runtime');
-  // eslint-disable-next-line no-console
+   
   console.error(e && e.message ? e.message : e);
   process.exit(1);
 }

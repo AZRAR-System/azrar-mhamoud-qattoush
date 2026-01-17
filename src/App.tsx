@@ -3,7 +3,8 @@
  * AZRAR Real Estate Management System — All Rights Reserved
  */
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect } from 'react';
+import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ModalProvider } from './context/ModalContext';
 import { ToastProvider } from './context/ToastContext';
@@ -13,6 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { validateRoutes } from '@/routes/validate';
 import { DbService } from './services/mockDb';
+import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
 
 // Lazy Load Pages
 const Dashboard = React.lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
@@ -53,107 +55,129 @@ const PageLoader = () => (
   </div>
 );
 
-// Router Component to handle manual hash routing
-const RouterContent = () => {
+type ViteMeta = {
+  env?: {
+    DEV?: unknown;
+    VITE_AUTORUN_SYSTEM_TESTS?: unknown;
+  };
+};
+
+const DevRouteValidation: React.FC = () => {
+  useEffect(() => {
+    const isDev = !!(import.meta as unknown as ViteMeta)?.env?.DEV;
+    if (isDev) validateRoutes();
+  }, []);
+  return null;
+};
+
+const DailyAutomation: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [currentHash, setCurrentHash] = useState(window.location.hash.slice(1).split('?')[0] || '/');
-
   useEffect(() => {
-    const isDev = !!(import.meta as any)?.env?.DEV;
-    if (isDev) {
-      validateRoutes();
-    }
-  }, []);
+    if (!isAuthenticated) return;
 
-  useEffect(() => {
-    const handleHashChange = () => {
-      let hash = window.location.hash.slice(1);
-      if (hash.includes('?')) hash = hash.split('?')[0];
-      if (!hash) hash = '/';
-      setCurrentHash(hash);
-    };
-    
-    // Initial check
-    handleHashChange();
+    const timer = window.setTimeout(() => {
+      try {
+        DbService.runDailyScheduler();
+      } catch (err) {
+        console.warn('Failed to run daily scheduler:', err);
+      }
+    }, 2000);
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  // Run Daily Automation when a user logs in (Simulated Background Job)
-  useEffect(() => {
-      if (!isAuthenticated) return;
-
-      const timer = window.setTimeout(() => {
-        try {
-          DbService.runDailyScheduler();
-        } catch (err) {
-          console.warn('Failed to run daily scheduler:', err);
-        }
-      }, 2000);
-
-      return () => window.clearTimeout(timer);
+    return () => window.clearTimeout(timer);
   }, [isAuthenticated]);
 
-  // Auth Redirects
-  useEffect(() => {
-      if (!isAuthenticated && currentHash !== ROUTE_PATHS.LOGIN && currentHash !== ROUTE_PATHS.LOGOUT) {
-        window.location.hash = ROUTE_PATHS.LOGIN;
-      } else if (isAuthenticated && currentHash === ROUTE_PATHS.LOGIN) {
-        window.location.hash = ROUTE_PATHS.DASHBOARD;
-      }
-  }, [isAuthenticated, currentHash]);
+  return null;
+};
 
-  // Optional: in dev/test automation, jump straight to System Maintenance tests.
+const AutorunSystemTests: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+
   useEffect(() => {
-    const autorun = (import.meta as any)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
+    const autorun = (import.meta as unknown as ViteMeta)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
     const enabled = typeof autorun === 'string' ? autorun.toLowerCase() === 'true' : !!autorun;
     if (!enabled) return;
     if (!isAuthenticated) return;
-    if (currentHash === ROUTE_PATHS.SYS_MAINTENANCE) return;
+    if (location.pathname === ROUTE_PATHS.SYS_MAINTENANCE) return;
+    // Keep legacy behavior (hash-based navigation) to minimize changes.
     window.location.hash = ROUTE_PATHS.SYS_MAINTENANCE;
-  }, [currentHash, isAuthenticated]);
+  }, [isAuthenticated, location.pathname]);
 
-    // Public routes
-    if (currentHash === ROUTE_PATHS.LOGOUT) return <Logout />;
+  return null;
+};
 
-  if (!isAuthenticated) return <Login />;
+const RequireAuth: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
 
-  let Component = NotFound;
-  
-    switch (currentHash) {
-      case ROUTE_PATHS.DASHBOARD: Component = Dashboard; break;
-      case ROUTE_PATHS.SALES: Component = Sales; break;
-      case ROUTE_PATHS.PEOPLE: Component = People; break;
-      case ROUTE_PATHS.COMPANIES: Component = People; break;
-      case ROUTE_PATHS.PROPERTIES: Component = Properties; break;
-      case ROUTE_PATHS.CONTRACTS: Component = Contracts; break;
-      case ROUTE_PATHS.INSTALLMENTS: Component = Installments; break;
-      case ROUTE_PATHS.COMMISSIONS: Component = Commissions; break;
-      case ROUTE_PATHS.MAINTENANCE: Component = Maintenance; break;
-      case ROUTE_PATHS.SYS_MAINTENANCE: Component = SystemMaintenance; break;
-      case ROUTE_PATHS.ADMIN_PANEL: Component = AdminControlPanel; break;
-      case ROUTE_PATHS.DATABASE: Component = DatabaseManager; break;
-      case ROUTE_PATHS.BUILDER: Component = DynamicBuilder; break;
-      case ROUTE_PATHS.ALERTS: Component = Alerts; break;
-      case ROUTE_PATHS.OPERATIONS: Component = Operations; break;
-      case ROUTE_PATHS.SETTINGS: Component = Settings; break;
-      case ROUTE_PATHS.REPORTS: Component = Reports; break;
-      case ROUTE_PATHS.LEGAL: Component = LegalHub; break;
-      case ROUTE_PATHS.SMART_TOOLS: Component = SmartTools; break;
-      case ROUTE_PATHS.DOCS: Component = Documentation; break;
-      case ROUTE_PATHS.CONTACTS: Component = Contacts; break;
-      case ROUTE_PATHS.BULK_WHATSAPP: Component = BulkWhatsApp; break;
-      case ROUTE_PATHS.DOCUMENTS: Component = Documents; break;
-      case ROUTE_PATHS.COMPREHENSIVE_TESTS: Component = ComprehensiveTests; break;
-      case ROUTE_PATHS.RESET_DATABASE: Component = DatabaseReset; break;
-      default: Component = NotFound; break;
-    }
+  if (!isAuthenticated) {
+    return <Navigate to={ROUTE_PATHS.LOGIN} replace state={{ from: location.pathname }} />;
+  }
 
+  if (isAuthenticated && location.pathname === ROUTE_PATHS.LOGIN) {
+    return <Navigate to={ROUTE_PATHS.DASHBOARD} replace />;
+  }
+
+  return <Outlet />;
+};
+
+const LayoutRoute: React.FC = () => {
   return (
+    <AppShellErrorBoundary>
       <Layout>
-          <Component />
+        <DailyAutomation />
+        <AutorunSystemTests />
+        <Outlet />
       </Layout>
+    </AppShellErrorBoundary>
+  );
+};
+
+const AppRoutes: React.FC = () => {
+  return (
+    <HashRouter>
+      <DevRouteValidation />
+      <Routes>
+        {/* Public */}
+        <Route path={ROUTE_PATHS.LOGOUT} element={<Logout />} />
+        <Route path={ROUTE_PATHS.LOGIN} element={<Login />} />
+
+        {/* Protected */}
+        <Route element={<RequireAuth />}>
+          <Route element={<LayoutRoute />}>
+            <Route index element={<Dashboard />} />
+
+            <Route path={ROUTE_PATHS.SALES} element={<Sales />} />
+            <Route path={ROUTE_PATHS.PEOPLE} element={<People />} />
+            <Route path={ROUTE_PATHS.COMPANIES} element={<Navigate to={ROUTE_PATHS.PEOPLE} replace />} />
+            <Route path={ROUTE_PATHS.PROPERTIES} element={<Properties />} />
+            <Route path={ROUTE_PATHS.CONTRACTS} element={<Contracts />} />
+            <Route path={ROUTE_PATHS.INSTALLMENTS} element={<Installments />} />
+            <Route path={ROUTE_PATHS.COMMISSIONS} element={<Commissions />} />
+            <Route path={ROUTE_PATHS.MAINTENANCE} element={<Maintenance />} />
+            <Route path={ROUTE_PATHS.SYS_MAINTENANCE} element={<SystemMaintenance />} />
+            <Route path={ROUTE_PATHS.ADMIN_PANEL} element={<AdminControlPanel />} />
+            <Route path={ROUTE_PATHS.DATABASE} element={<DatabaseManager />} />
+            <Route path={ROUTE_PATHS.BUILDER} element={<DynamicBuilder />} />
+            <Route path={ROUTE_PATHS.ALERTS} element={<Alerts />} />
+            <Route path={ROUTE_PATHS.OPERATIONS} element={<Operations />} />
+            <Route path={ROUTE_PATHS.SETTINGS} element={<Settings />} />
+            <Route path={ROUTE_PATHS.REPORTS} element={<Reports />} />
+            <Route path={ROUTE_PATHS.LEGAL} element={<LegalHub />} />
+            <Route path={ROUTE_PATHS.SMART_TOOLS} element={<SmartTools />} />
+            <Route path={ROUTE_PATHS.DOCS} element={<Documentation />} />
+            <Route path={ROUTE_PATHS.CONTACTS} element={<Contacts />} />
+            <Route path={ROUTE_PATHS.BULK_WHATSAPP} element={<BulkWhatsApp />} />
+            <Route path={ROUTE_PATHS.DOCUMENTS} element={<Documents />} />
+            <Route path={ROUTE_PATHS.COMPREHENSIVE_TESTS} element={<ComprehensiveTests />} />
+            <Route path={ROUTE_PATHS.RESET_DATABASE} element={<DatabaseReset />} />
+
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Route>
+      </Routes>
+    </HashRouter>
   );
 };
 
@@ -164,7 +188,7 @@ function App() {
         <ToastProvider>
           <ModalProvider>
             <Suspense fallback={<PageLoader />}>
-              <RouterContent />
+              <AppRoutes />
             </Suspense>
           </ModalProvider>
         </ToastProvider>

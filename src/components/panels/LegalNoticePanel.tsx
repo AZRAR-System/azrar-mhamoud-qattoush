@@ -2,11 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { LegalNoticeTemplate } from '@/types';
-import { FileText, Send, Printer, MessageCircle, Save, ChevronDown, PenTool } from 'lucide-react';
+import { Printer, MessageCircle, ChevronDown, PenTool } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getOfficialBrandSignature } from '@/utils/brandSignature';
+
+const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
 export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
   // id here represents the Contract ID (Context)
@@ -37,7 +39,7 @@ export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
   const handleWhatsApp = () => {
     // In a real app, this would get the tenant phone
     const contract = DbService.getContractDetails(id);
-    const phones = [contract?.tenant?.رقم_الهاتف, (contract?.tenant as any)?.رقم_هاتف_اضافي].filter(Boolean) as string[];
+    const phones = [contract?.tenant?.رقم_الهاتف, contract?.tenant?.رقم_هاتف_اضافي].filter(isNonEmptyString);
     if (phones.length) {
         void openWhatsAppForPhones(generatedText, phones, { defaultCountryCode: '962', delayMs: 10_000 });
         saveHistory('WhatsApp');
@@ -64,7 +66,7 @@ export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
   return (
     <div className="h-full flex flex-col">
       {/* Header (No Print) */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm mb-4 print:hidden">
+      <div className="app-card p-6 mb-4 print:hidden">
         <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-4">
           <PenTool className="text-indigo-600" /> مولد الإخطارات القانونية
         </h2>

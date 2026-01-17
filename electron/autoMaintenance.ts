@@ -112,10 +112,14 @@ async function cleanupOldBackups(backupRoot: string, retentionDays = 30): Promis
 
 async function backupDbTo(dbBackupPath: string): Promise<void> {
   // Prefer better-sqlite3 online backup API if available.
-  const db: any = getDb();
-  if (typeof db?.backup === 'function') {
-    await db.backup(dbBackupPath);
-    return;
+  const db = getDb() as unknown;
+  if (typeof db === 'object' && db !== null) {
+    const maybeBackup = (db as { backup?: unknown }).backup;
+    if (typeof maybeBackup === 'function') {
+      const result = (maybeBackup as (dest: string) => unknown)(dbBackupPath);
+      await Promise.resolve(result);
+      return;
+    }
   }
 
   // Fallback: close, copy DB file, reopen (matches exportDatabase behavior).

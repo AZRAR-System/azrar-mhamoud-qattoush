@@ -24,12 +24,15 @@ type PersonRow = {
   roles?: string[];
 };
 
+const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+
 const normalizePhone = (raw?: string): string => {
   const value = String(raw || '').trim();
   if (!value) return '';
 
   // Remove control chars (incl. bidi control chars) and whitespace
-  const noControls = value.replace(/[\u0000-\u001F\u007F-\u009F\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '');
+  const controlAndBidiChars = /[\p{Cc}\u200E\u200F\u202A-\u202E\u2066-\u2069]/gu;
+  const noControls = value.replace(controlAndBidiChars, '');
   const compact = noControls.replace(/\s+/g, '');
 
   // Keep digits and a single leading + only
@@ -65,14 +68,21 @@ export const Contacts: React.FC = () => {
 
   const rows: PersonRow[] = useMemo(() => {
     return (directory || [])
-      .map((r: any) => ({
-        id: String(r?.id ?? r?.phone ?? r?.name ?? ''),
-        name: String(r?.name || '').trim() || 'غير محدد',
-        phone: String(r?.phone || '').trim() || undefined,
-        extraPhone: String(r?.extraPhone || '').trim() || undefined,
-        source: r?.source,
-        roles: Array.isArray(r?.roles) ? r.roles : undefined,
-      }))
+      .map((r) => {
+        const rec = toRecord(r);
+        const sourceRaw = String(rec.source || '').trim();
+        const source: PersonRow['source'] | undefined = sourceRaw === 'local' ? 'local' : sourceRaw === 'person' ? 'person' : undefined;
+        const rolesRaw = rec.roles;
+        const roles = Array.isArray(rolesRaw) ? (rolesRaw as unknown[]).map((x) => String(x || '').trim()).filter(Boolean) : undefined;
+        return {
+          id: String(rec.id ?? rec.phone ?? rec.name ?? ''),
+          name: String(rec.name || '').trim() || 'غير محدد',
+          phone: String(rec.phone || '').trim() || undefined,
+          extraPhone: String(rec.extraPhone || '').trim() || undefined,
+          source,
+          roles,
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [directory]);
 
@@ -118,7 +128,7 @@ export const Contacts: React.FC = () => {
 
   const renderGroup = (title: string, list: PersonRow[]) => {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="app-card">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 dark:border-slate-700">
           <div className="font-black text-slate-800 dark:text-white">{title}</div>
           <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
@@ -265,11 +275,12 @@ export const Contacts: React.FC = () => {
     });
     if (!ok) return;
 
-    let sheetRows: Array<Record<string, any>> = [];
+    let sheetRows: Array<Record<string, string>> = [];
     try {
       sheetRows = await readSpreadsheet(file);
-    } catch (e: any) {
-      toast.error(e?.message || 'فشل قراءة ملف الاستيراد');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(toRecord(e).message || '').trim();
+      toast.error(msg || 'فشل قراءة ملف الاستيراد');
       return;
     }
 
@@ -278,7 +289,7 @@ export const Contacts: React.FC = () => {
       return;
     }
 
-    const pick = (row: Record<string, any>, keys: string[]) => {
+    const pick = (row: Record<string, string>, keys: string[]) => {
       for (const k of keys) {
         const v = row[k];
         if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
@@ -308,11 +319,13 @@ export const Contacts: React.FC = () => {
         phone,
         extraPhone: extraPhone || undefined,
       });
-      if (!res?.success) {
+      const resRec = toRecord(res);
+      if (!resRec.success) {
         skipped++;
         continue;
       }
-      if (res?.data?.created) created++;
+      const dataRec = toRecord(resRec.data);
+      if (dataRec.created) created++;
       else updated++;
     }
 

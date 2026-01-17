@@ -214,8 +214,10 @@ class NotificationService {
   /**
    * Get notification logs
    */
-  getLogs(): any[] {
-    return JSON.parse(localStorage.getItem('notificationLogs') || '[]');
+  getLogs(): Array<Record<string, unknown>> {
+    const raw: unknown = JSON.parse(localStorage.getItem('notificationLogs') || '[]');
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null);
   }
 
   /**

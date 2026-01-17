@@ -4,29 +4,57 @@
  */
 
 import React, { useMemo } from 'react';
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Building2, Users, DollarSign } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
-import { formatCurrencyJOD, formatNumber } from '@/utils/format';
+import type { العمليات_tbl } from '@/types';
+import { formatCurrencyJOD } from '@/utils/format';
+
+const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+
+const isOperationLog = (v: unknown): v is العمليات_tbl => {
+  const rec = toRecord(v);
+  return typeof rec.id === 'string' && typeof rec['تاريخ_العملية'] === 'string' && typeof rec['نوع_العملية'] === 'string';
+};
+
+const getCommissionMonthKey = (comm: unknown): string | null => {
+  const rec = toRecord(comm);
+  const rawDate = rec['تاريخ_الإنشاء'] ?? rec['تاريخ_العقد'];
+  if (typeof rawDate !== 'string' || rawDate.length < 7) return null;
+  const date = new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const getPropertyTypeLabel = (prop: unknown): string => {
+  const rec = toRecord(prop);
+  const t1 = rec['نوع_العقار'];
+  if (typeof t1 === 'string' && t1.trim()) return t1;
+  const t2 = rec['النوع'];
+  if (typeof t2 === 'string' && t2.trim()) return t2;
+  return 'غير محدد';
+};
 
 interface OverviewLayerProps {
   data: DashboardData;
 }
 
 export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
+  const { commissionsAll, properties, contracts, desktopAggregations, logsRaw } = data;
+
   // ✅ Generate revenue trend data from real commissions
   const revenueTrendData = useMemo(() => {
-    const commissions = data.commissionsAll || [];
+    const commissions = commissionsAll || [];
     const monthlyRevenue: { [key: string]: number } = {};
 
     // Group commissions by month (fallback to تاريخ_العقد when creation date not present)
-    commissions.forEach((comm: any) => {
-      const rawDate = comm.تاريخ_الإنشاء || comm.تاريخ_العقد;
-      if (rawDate) {
-        const date = new Date(rawDate);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + (comm.المجموع || 0);
-      }
+    commissions.forEach((comm) => {
+      const monthKey = getCommissionMonthKey(comm);
+      if (!monthKey) return;
+      const rec = toRecord(comm);
+      const total = rec['المجموع'];
+      const amount = typeof total === 'number' ? total : Number(total || 0) || 0;
+      monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + amount;
     });
 
     // Get last 12 months
@@ -44,20 +72,19 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
     }
 
     return result;
-  }, [data.commissionsAll, data.meta?.updatedAt]);
+  }, [commissionsAll]);
 
   // ✅ Property distribution by type from real data
   const propertyDistribution = useMemo(() => {
-    const agg = (data as any)?.desktopAggregations;
-    const fromSql = Array.isArray(agg?.propertyTypeCounts) ? (agg.propertyTypeCounts as Array<{ name: string; value: number }>) : null;
+    const fromSql = desktopAggregations?.propertyTypeCounts;
 
     const typeCounts: Array<{ name: string; value: number }> = fromSql
       ? fromSql
       : (() => {
-          const properties = data.properties || [];
-          const map: { [key: string]: number } = {};
-          properties.forEach((prop: any) => {
-            const type = prop.نوع_العقار || 'غير محدد';
+          const list = properties || [];
+          const map: Record<string, number> = {};
+          list.forEach((prop) => {
+            const type = getPropertyTypeLabel(prop as unknown);
             map[type] = (map[type] || 0) + 1;
           });
           return Object.entries(map).map(([name, value]) => ({ name, value }));
@@ -69,21 +96,20 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
       value: row.value,
       color: colors[index % colors.length]
     }));
-  }, [data.properties, (data as any)?.desktopAggregations]);
+  }, [properties, desktopAggregations]);
 
   // ✅ Contract status distribution from real data
   const contractStatus = useMemo(() => {
-    const agg = (data as any)?.desktopAggregations;
-    const fromSql = Array.isArray(agg?.contractStatusCounts) ? (agg.contractStatusCounts as Array<{ name: string; value: number }>) : null;
+    const fromSql = desktopAggregations?.contractStatusCounts;
 
     const statusCounts: { [key: string]: number } = {};
     if (fromSql) {
       fromSql.forEach((r) => {
-        statusCounts[String(r?.name || 'غير محدد')] = Number((r as any)?.value || 0) || 0;
+        statusCounts[String(r?.name || 'غير محدد')] = Number(r?.value || 0) || 0;
       });
     } else {
-      const contracts = data.contracts || [];
-      contracts.forEach((contract: any) => {
+      const list = contracts || [];
+      list.forEach((contract) => {
         const status = contract.حالة_العقد || 'غير محدد';
         statusCounts[status] = (statusCounts[status] || 0) + 1;
       });
@@ -102,7 +128,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
       value,
       color: statusColors[name] || '#8b5cf6'
     }));
-  }, [data.contracts, (data as any)?.desktopAggregations]);
+  }, [contracts, desktopAggregations]);
 
   const overviewStats = [
     {
@@ -132,12 +158,12 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
 
   const recentActivities = useMemo(() => {
     try {
-      const logs = data.logsRaw || [];
+      const logs = (logsRaw || []).filter(isOperationLog);
       return logs
         .slice()
-        .sort((a: any, b: any) => new Date(b.تاريخ_العملية).getTime() - new Date(a.تاريخ_العملية).getTime())
+        .sort((a, b) => new Date(b.تاريخ_العملية).getTime() - new Date(a.تاريخ_العملية).getTime())
         .slice(0, 5)
-        .map((l: any) => ({
+        .map((l) => ({
           id: l.id,
           title: l.نوع_العملية,
           details: l.details || `${l.اسم_الجدول} • ${l.رقم_السجل}`,
@@ -146,7 +172,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
     } catch {
       return [] as Array<{ id: string; title: string; details: string; time: string }>;
     }
-  }, [data.logsRaw, data.meta?.updatedAt]);
+  }, [logsRaw]);
 
   return (
     <div className="space-y-6">
@@ -173,7 +199,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
 
       {/* Revenue Comparisons */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-5">
           <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">مقارنة الإيرادات (شهر)</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
@@ -187,7 +213,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-5">
           <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">مقارنة الإيرادات (سنة)</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20">
@@ -205,7 +231,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Trend Chart */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-6 overflow-visible">
           <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
             <TrendingUp className="text-indigo-500" />
             اتجاه الإيرادات - آخر 12 شهر
@@ -238,7 +264,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
         </div>
 
         {/* Property Distribution */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-6 overflow-visible">
           <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
             <Building2 className="text-green-500" />
             توزيع العقارات
@@ -265,7 +291,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
         </div>
 
         {/* Contract Status */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-6 overflow-visible">
           <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">
             حالة العقود
           </h3>
@@ -287,7 +313,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
         </div>
 
         {/* System Health */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="app-card p-6 overflow-visible">
           <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">
             صحة النظام
           </h3>
@@ -326,7 +352,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="app-card p-6">
         <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">
           آخر الأنشطة
         </h3>

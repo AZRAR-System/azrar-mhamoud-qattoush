@@ -5,9 +5,11 @@
  * لضمان سلامة البيانات وسرعة البحث
  */
 
-import { DbService } from './mockDb';
 import { العقارات_tbl, العقود_tbl, الأشخاص_tbl, شخص_دور_tbl } from '../types/types';
 import { isTenancyRelevant } from '@/utils/tenancy';
+
+type UnknownRecord = Record<string, unknown>;
+const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
 
 const KEYS = {
   PEOPLE: 'db_people',
@@ -59,7 +61,7 @@ export const checkPersonUniqueConstraints = (
 export const checkPersonRoleUniqueConstraint = (
   رقم_الشخص: string,
   رقم_الدور: string,
-  excludeId?: string
+  _excludeId?: string
 ): { isValid: boolean; error?: string } => {
   const roles = get<شخص_دور_tbl>(KEYS.ROLES);
   const duplicate = roles.find(
@@ -84,12 +86,19 @@ export const checkUserUniqueConstraints = (
   اسم_الدخول: string,
   excludeId?: string
 ): { isValid: boolean; error?: string } => {
-  const users = get<any>(KEYS.USERS);
+  const users = get<unknown>(KEYS.USERS);
 
   // التحقق من رقم_الشخص
   if (رقم_الشخص) {
     const duplicatePerson = users.find(
-      (u: any) => u.رقم_الشخص === رقم_الشخص && u.id !== excludeId
+      (u) => {
+        if (!isRecord(u)) return false;
+        const personId = u['رقم_الشخص'];
+        if (typeof personId !== 'string') return false;
+        const userId = u['id'];
+        const userIdComparable = typeof userId === 'string' ? userId : undefined;
+        return personId === رقم_الشخص && userIdComparable !== excludeId;
+      }
     );
     if (duplicatePerson) {
       return {
@@ -101,7 +110,14 @@ export const checkUserUniqueConstraints = (
 
   // التحقق من اسم_الدخول
   const duplicateUsername = users.find(
-    (u: any) => u.اسم_المستخدم === اسم_الدخول && u.id !== excludeId
+    (u) => {
+      if (!isRecord(u)) return false;
+      const username = u['اسم_المستخدم'];
+      if (typeof username !== 'string') return false;
+      const userId = u['id'];
+      const userIdComparable = typeof userId === 'string' ? userId : undefined;
+      return username === اسم_الدخول && userIdComparable !== excludeId;
+    }
   );
   if (duplicateUsername) {
     return {
@@ -237,9 +253,16 @@ export const checkSalePropertyUnique = (
   رقم_العقار: string,
   excludeId?: string
 ): { isValid: boolean; error?: string } => {
-  const sales = get<any>('db_sales');
+  const sales = get<unknown>('db_sales');
   const duplicate = sales.find(
-    (s: any) => s.رقم_العقار === رقم_العقار && s.id !== excludeId
+    (s) => {
+      if (!isRecord(s)) return false;
+      const propertyId = s['رقم_العقار'];
+      if (typeof propertyId !== 'string') return false;
+      const saleId = s['id'];
+      const saleIdComparable = typeof saleId === 'string' ? saleId : undefined;
+      return propertyId === رقم_العقار && saleIdComparable !== excludeId;
+    }
   );
 
   if (duplicate) {

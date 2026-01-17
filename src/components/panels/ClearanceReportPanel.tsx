@@ -1,15 +1,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
-import { ClearanceRecord } from '@/types';
-import { Printer, Download, CheckCircle, XCircle } from 'lucide-react';
+import { ClearanceRecord, ContractDetailsResult } from '@/types';
+import { Printer, CheckCircle, XCircle } from 'lucide-react';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { AttachmentManager } from '@/components/AttachmentManager';
 
 export const ClearanceReportPanel: React.FC<{ id: string }> = ({ id }) => {
   // ID passed here is the CONTRACT ID, we find the clearance record from it
   const [record, setRecord] = useState<ClearanceRecord | undefined>(undefined);
-  const [contract, setContract] = useState<any>(null);
+    const [contract, setContract] = useState<ContractDetailsResult | null>(null);
 
   useEffect(() => {
     const rec = DbService.getClearanceRecord(id);
@@ -91,7 +91,7 @@ export const ClearanceReportPanel: React.FC<{ id: string }> = ({ id }) => {
                      <tbody>
                          <tr><td className="border p-2">إيجارات متأخرة</td><td className="border p-2 font-bold">{record.rentArrears}</td></tr>
                          <tr><td className="border p-2">ذمم فواتير (كهرباء ومياه)</td><td className="border p-2 font-bold">{record.electricity.amountDue + record.water.amountDue}</td></tr>
-                         <tr><td className="border p-2">أضرار وصيانة</td><td className="border p-2 font-bold">{record.damages.reduce((a,b)=>a+b.cost,0)}</td></tr>
+                         <tr><td className="border p-2">أضرار وصيانة</td><td className="border p-2 font-bold">{record.damages.reduce((sum, d) => sum + d.cost, 0)}</td></tr>
                          <tr><td className="border p-2">رسوم تنظيف / أخرى</td><td className="border p-2 font-bold">{record.cleaningFee}</td></tr>
                          <tr className="bg-gray-200 font-black">
                              <td className="border p-2">المجموع الكلي للذمم</td>

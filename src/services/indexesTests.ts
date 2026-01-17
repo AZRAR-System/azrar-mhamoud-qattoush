@@ -7,18 +7,18 @@
 import {
   checkPersonUniqueConstraints,
   checkPersonRoleUniqueConstraint,
-  checkUserUniqueConstraints,
+  checkUserUniqueConstraints as _checkUserUniqueConstraints,
   checkPropertyCodeUnique,
   checkLandUniqueConstraint,
   checkApartmentUniqueConstraint,
   checkActiveContractUniqueConstraint,
-  checkSalePropertyUnique,
+  checkSalePropertyUnique as _checkSalePropertyUnique,
   validatePropertyIndexes,
   validateContractIndexes,
-  DATABASE_INDEXES
+  DATABASE_INDEXES as _DATABASE_INDEXES
 } from './databaseIndexes';
 
-import { get, save } from './storage';
+import { get, save as _save } from './storage';
 import { العقارات_tbl, العقود_tbl, الأشخاص_tbl, شخص_دور_tbl } from '../types/types';
 import { isTenancyRelevant } from '@/utils/tenancy';
 

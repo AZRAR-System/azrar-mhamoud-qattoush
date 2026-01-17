@@ -1,12 +1,28 @@
 ﻿
 import React, { useEffect, useMemo, useState } from 'react';
 import { Database, RefreshCw, Trash2, Key, Table, AlertTriangle, ShieldCheck, HardDrive, CheckCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { buildCache, DbCache } from '@/services/dbCache';
 import { useToast } from '@/context/ToastContext';
 import { storage } from '@/services/storage';
 import { validateAllData, type ValidationResult } from '@/services/dataValidation';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
+
+type LooseRow = Record<string, unknown>;
+
+const getArray = (key: string): LooseRow[] => {
+  const cached = DbCache.arrays[key];
+  if (DbCache.isInitialized && Array.isArray(cached)) return cached as LooseRow[];
+  const raw = localStorage.getItem(key);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as LooseRow[]) : [];
+  } catch {
+    return [];
+  }
+};
 
 export const DatabaseManager: React.FC = () => {
   const toast = useToast();
@@ -19,7 +35,7 @@ export const DatabaseManager: React.FC = () => {
   type LocalStorageEntry = {
     key: string;
     name: string;
-    icon: any;
+    icon: LucideIcon;
     kind: 'db' | 'system';
   };
 
@@ -85,12 +101,6 @@ export const DatabaseManager: React.FC = () => {
 
   // Hide legacy/development-only keys from production UI.
   const HIDDEN_KEYS = useMemo(() => new Set<string>(['demo_data_loaded']), []);
-
-  // Do not export/import sensitive session keys by default.
-  const SENSITIVE_KEYS = useMemo(
-    () => new Set<string>(['khaberni_user']),
-    []
-  );
 
   const KNOWN_ORDER = useMemo(
     () => [
@@ -219,19 +229,6 @@ export const DatabaseManager: React.FC = () => {
     }
   };
 
-  const getArray = (key: string): any[] => {
-    const cached = (DbCache as any)?.arrays?.[key];
-    if (DbCache.isInitialized && Array.isArray(cached)) return cached;
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
-
   const memoryIndexDiagnostics: IndexDiagnostic[] = useMemo(() => {
     // Force recompute when cache is rebuilt.
     void cacheTick;
@@ -254,15 +251,27 @@ export const DatabaseManager: React.FC = () => {
     const installmentsArr = getArray('db_installments');
     const usersArr = getArray('db_users');
 
-    const peopleWithNationalId = peopleArr.filter(p => p?.الرقم_الوطني).length;
-    const peopleWithPhone = peopleArr.filter(p => p?.رقم_الهاتف).length;
-    const propertiesWithCode = propertiesArr.filter(p => p?.الكود_الداخلي).length;
-    const usersWithUsername = usersArr.filter(u => u?.اسم_المستخدم).length;
+    const peopleWithNationalId = peopleArr.filter(p => p['الرقم_الوطني']).length;
+    const peopleWithPhone = peopleArr.filter(p => p['رقم_الهاتف']).length;
+    const propertiesWithCode = propertiesArr.filter(p => p['الكود_الداخلي']).length;
+    const usersWithUsername = usersArr.filter(u => u['اسم_المستخدم']).length;
 
-    const missingOwners = propertiesArr.filter(p => p?.رقم_المالك && !DbCache.people.has(String(p.رقم_المالك))).length;
-    const missingContractProperty = contractsArr.filter(c => c?.رقم_العقار && !DbCache.properties.has(String(c.رقم_العقار))).length;
-    const missingContractTenant = contractsArr.filter(c => c?.رقم_المستاجر && !DbCache.people.has(String(c.رقم_المستاجر))).length;
-    const missingInstallmentContract = installmentsArr.filter(i => i?.رقم_العقد && !DbCache.contracts.has(String(i.رقم_العقد))).length;
+    const missingOwners = propertiesArr.filter(p => {
+      const ownerId = p['رقم_المالك'];
+      return !!ownerId && !DbCache.people.has(String(ownerId));
+    }).length;
+    const missingContractProperty = contractsArr.filter(c => {
+      const propertyId = c['رقم_العقار'];
+      return !!propertyId && !DbCache.properties.has(String(propertyId));
+    }).length;
+    const missingContractTenant = contractsArr.filter(c => {
+      const tenantId = c['رقم_المستاجر'];
+      return !!tenantId && !DbCache.people.has(String(tenantId));
+    }).length;
+    const missingInstallmentContract = installmentsArr.filter(i => {
+      const contractId = i['رقم_العقد'];
+      return !!contractId && !DbCache.contracts.has(String(contractId));
+    }).length;
 
     const pkPeopleOk = DbCache.people.size === peopleArr.length;
     const pkPropertiesOk = DbCache.properties.size === propertiesArr.length;
@@ -474,7 +483,7 @@ export const DatabaseManager: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Table Stats */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+        <div className="app-card">
           <div className="p-4 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-100 dark:border-slate-700">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 leading-snug flex-wrap">
               <HardDrive size={18} className="text-slate-500" /> جداول النظام (LocalStorage)
@@ -482,7 +491,7 @@ export const DatabaseManager: React.FC = () => {
           </div>
           <div className="overflow-x-auto relative">
           <table className="min-w-[720px] w-full text-right text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500">
+            <thead className="app-table-thead">
               <tr>
                 <th className="p-4">الجدول</th>
                 <th className="p-4">عدد السجلات</th>
@@ -521,7 +530,7 @@ export const DatabaseManager: React.FC = () => {
         </div>
 
         {/* Index Manager */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+        <div className="app-card">
           <div className="p-4 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <Key size={18} className="text-orange-500" /> الفهارس والقيود (Memory Indexes)

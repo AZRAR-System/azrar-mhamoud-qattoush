@@ -3,13 +3,13 @@ import { DbService } from '@/services/mockDb';
 import type { DynamicFormField, FieldType } from '@/types';
 import { formatDynamicValue, isEmptyDynamicValue } from '@/components/dynamic/dynamicValue';
 
-type DynamicValues = Record<string, any>;
+type DynamicValues = Record<string, unknown>;
 
 type DisplayItem = {
   key: string;
   label: string;
   type?: FieldType;
-  value: any;
+  value: unknown;
 };
 
 export const DynamicFieldsDisplay: React.FC<{

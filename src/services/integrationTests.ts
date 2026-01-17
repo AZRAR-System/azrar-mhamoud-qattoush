@@ -26,6 +26,14 @@ export interface TestResult {
   duration?: number;
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+const getIdLike = (v: unknown): string => {
+  if (!isRecord(v)) return '';
+  const id = v['رقم_الشخص'] ?? v['id'];
+  return String(id ?? '').trim();
+};
+
 type WithMonthlyPrice = { السعر_الشهري?: unknown; الإيجار_التقديري?: unknown };
 
 const getMonthlyPrice = (property: العقارات_tbl): number => {
@@ -97,7 +105,7 @@ export class IntegrationTestSuite {
       }
 
       // إذا كنا في وضع Desktop، تحقق أن السجل وصل إلى جداول النطاق (SQL) بعد الـdomain migration
-      const isDesktop = typeof window !== 'undefined' && !!(window as any).desktopDb;
+      const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
       if (isDesktop) {
         const queryName = String(result.data.الاسم || '').trim();
         let foundInDomain = false;
@@ -106,11 +114,11 @@ export class IntegrationTestSuite {
         for (let i = 0; i < attempts; i++) {
           try {
             const items = await domainSearchSmart('people', queryName, 50);
-            if (Array.isArray(items) && items.some((p) => String((p as any).رقم_الشخص || (p as any).id || '').trim() === String(result.data.رقم_الشخص).trim())) {
+            if (Array.isArray(items) && items.some((p) => getIdLike(p) === String(result.data.رقم_الشخص).trim())) {
               foundInDomain = true;
               break;
             }
-          } catch (e) {
+          } catch {
             // ignore and retry
           }
           await new Promise((r) => setTimeout(r, delayMs));

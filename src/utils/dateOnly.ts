@@ -6,7 +6,7 @@ export const formatDateOnly = (d: Date) => {
 };
 
 export const toDateOnlyISO = (value: unknown): string | null => {
-  if (value == null) return null;
+  if (value === null || value === undefined) return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return formatDateOnly(value);
 
   const s = String(value).trim();
@@ -48,7 +48,8 @@ export const daysBetweenDateOnlySafe = (from: unknown, to: unknown) => {
 export const isBeforeTodayDateOnly = (value: unknown) => {
   const d = parseDateOnly(String(value ?? ''));
   if (!d) return false;
-  const today = parseDateOnly(todayDateOnlyISO())!;
+  const today = parseDateOnly(todayDateOnlyISO());
+  if (!today) return false;
   return d.getTime() < today.getTime();
 };
 

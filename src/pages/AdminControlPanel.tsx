@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useRef, useState, useEffect } from 'react';
+﻿import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { العمليات_tbl, المستخدمين_tbl, RoleType, الأشخاص_tbl, صلاحيات_المستخدمين_tbl, BlacklistRecord } from '@/types';
 import {
@@ -12,7 +12,6 @@ import {
   Lock,
   Edit2,
   Trash2,
-  Filter,
   Download,
   AlertTriangle,
   UserCheck,
@@ -21,15 +20,14 @@ import {
   Globe,
   Settings,
   UserPlus,
-  Key,
   ChevronDown,
   Link,
   ShieldAlert,
   Ban
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, CartesianGrid
+    Tooltip as ChartTooltip, ResponsiveContainer,
+    PieChart, Pie, Cell
 } from 'recharts';
 import { useToast } from '@/context/ToastContext';
 import { useSmartModal } from '@/context/ModalContext';
@@ -39,11 +37,22 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
 import { PersonPicker } from '@/components/shared/PersonPicker';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import type { DashboardStats } from '@/services/dbCache';
+import type { LucideIcon } from 'lucide-react';
 
 // --- SUB-COMPONENTS ---
 
-const StatCard = ({ title, value, sub, icon: Icon, color }: any) => (
-  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex items-center gap-4">
+type StatCardProps = {
+    title: string;
+    value: React.ReactNode;
+    sub?: React.ReactNode;
+    icon: LucideIcon;
+    color: string;
+};
+
+const StatCard = ({ title, value, sub, icon: Icon, color }: StatCardProps) => (
+    <div className="app-card p-6 flex items-center gap-4">
     <div className={`p-4 rounded-xl ${color}`}>
       <Icon size={24} className="text-white" />
     </div>
@@ -62,14 +71,21 @@ export const AdminControlPanel: React.FC = () => {
   const toast = useToast();
   const { openPanel } = useSmartModal();
 
-    const isDesktopFast =
-        typeof window !== 'undefined' && storage.isDesktop() && !!(window as any)?.desktopDb?.domainGet;
+    type NewUserForm = {
+        اسم_المستخدم: string;
+        اسم_للعرض: string;
+        كلمة_المرور: string;
+        الدور: RoleType;
+        linkedPersonId: string;
+    };
 
-    const fastPersonByIdRef = useRef<Map<string, any>>(new Map());
+    const isDesktopFast = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb?.domainGet;
+
+    const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
     const [fastPersonCacheVersion, setFastPersonCacheVersion] = useState(0);
 
   // Data States
-  const [analytics, setAnalytics] = useState<any>(null);
+    const [analytics, setAnalytics] = useState<DashboardStats | null>(null);
   const [logs, setLogs] = useState<العمليات_tbl[]>([]);
   const [users, setUsers] = useState<المستخدمين_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]); // To link employees
@@ -88,28 +104,34 @@ export const AdminControlPanel: React.FC = () => {
 
   // Add User Modal State
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ اسم_المستخدم: '', اسم_للعرض: '', كلمة_المرور: '', الدور: 'Employee' as RoleType, linkedPersonId: '' });
+    const [newUser, setNewUser] = useState<NewUserForm>({
+        اسم_المستخدم: '',
+        اسم_للعرض: '',
+        كلمة_المرور: '',
+        الدور: 'Employee',
+        linkedPersonId: '',
+    });
 
     const dbSignal = useDbSignal();
 
-  useEffect(() => {
-    loadData();
-    }, [activeTab, dbSignal]);
+    const loadData = useCallback(() => {
+        if (activeTab === 'analytics') {
+            setAnalytics(DbService.getAdminAnalytics());
+        } else if (activeTab === 'activity') {
+            setLogs(DbService.getLogs());
+        } else if (activeTab === 'users') {
+            setUsers(DbService.getSystemUsers());
+            setPeople(isDesktopFast ? [] : DbService.getPeople());
+            setAllPermissions(DbService.getPermissionDefinitions());
+        } else if (activeTab === 'blacklist') {
+            setBlacklist(DbService.getBlacklist());
+            setPeople(isDesktopFast ? [] : DbService.getPeople());
+        }
+    }, [activeTab, isDesktopFast]);
 
-  const loadData = () => {
-    if (activeTab === 'analytics') {
-      setAnalytics(DbService.getAdminAnalytics());
-    } else if (activeTab === 'activity') {
-      setLogs(DbService.getLogs());
-    } else if (activeTab === 'users') {
-      setUsers(DbService.getSystemUsers());
-            setPeople(isDesktopFast ? [] : DbService.getPeople());
-      setAllPermissions(DbService.getPermissionDefinitions());
-    } else if (activeTab === 'blacklist') {
-      setBlacklist(DbService.getBlacklist());
-            setPeople(isDesktopFast ? [] : DbService.getPeople());
-    }
-  };
+    useEffect(() => {
+        loadData();
+    }, [dbSignal, loadData]);
 
     // Desktop-fast: resolve linked/blacklist people names lazily via SQL
     useEffect(() => {
@@ -120,14 +142,14 @@ export const AdminControlPanel: React.FC = () => {
         const run = async () => {
             const ids = new Set<string>();
             if (activeTab === 'users') {
-                for (const u of users as any[]) {
-                    const pid = String((u as any)?.linkedPersonId || '').trim();
+                for (const u of users) {
+                    const pid = String(u.linkedPersonId || '').trim();
                     if (pid) ids.add(pid);
                 }
             }
             if (activeTab === 'blacklist') {
-                for (const rec of blacklist as any[]) {
-                    const pid = String((rec as any)?.personId || '').trim();
+                for (const rec of blacklist) {
+                    const pid = String(rec.personId || '').trim();
                     if (pid) ids.add(pid);
                 }
             }
@@ -216,7 +238,7 @@ export const AdminControlPanel: React.FC = () => {
   };
 
   // Add User Actions
-  const handleAddUser = (e: React.FormEvent) => {
+    const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
     try {
       DbService.addSystemUser(newUser);
@@ -224,8 +246,9 @@ export const AdminControlPanel: React.FC = () => {
       setIsAddUserModalOpen(false);
             setNewUser({ اسم_المستخدم: '', اسم_للعرض: '', كلمة_المرور: '', الدور: 'Employee', linkedPersonId: '' });
       toast.success('تم إضافة المستخدم بنجاح');
-    } catch (err: any) {
-      toast.error(err.message);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'حدث خطأ غير متوقع';
+            toast.error(msg);
     }
   };
 
@@ -280,7 +303,10 @@ export const AdminControlPanel: React.FC = () => {
         { name: 'عقارات شاغرة', value: analytics.vacantProps, color: '#3b82f6' }   // blue
     ];
 
-    const safeNum = (n: any) => Number(n) || 0;
+        const safeNum = (n: unknown): number => {
+            const v = Number(n);
+            return Number.isFinite(v) ? v : 0;
+        };
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -318,7 +344,7 @@ export const AdminControlPanel: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Occupancy Chart */}
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                <div className="app-card p-6">
                     <h3 className="font-bold text-slate-700 dark:text-white mb-4">توزيع العقارات</h3>
                     <div className="h-64 flex items-center justify-center">
                         <ResponsiveContainer width="100%" height="100%">
@@ -337,10 +363,10 @@ export const AdminControlPanel: React.FC = () => {
                 </div>
 
                 {/* Top Debtors List */}
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                <div className="app-card p-6">
                     <h3 className="font-bold text-slate-700 dark:text-white mb-4">أعلى 10 مستأجرين تأخيراً</h3>
                     <div className="overflow-y-auto max-h-64 space-y-3 custom-scrollbar">
-                        {analytics.topDebtors && analytics.topDebtors.map((d: any, i: number) => (
+                        {analytics.topDebtors && analytics.topDebtors.map((d, i: number) => (
                             <div key={i} className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/30">
                                 <div className="flex items-center gap-3">
                                     <span className="font-bold text-red-600 w-6">{i + 1}.</span>
@@ -385,9 +411,9 @@ export const AdminControlPanel: React.FC = () => {
             </div>
 
             {/* Table */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+            <div className="app-card">
                 <table className="w-full text-right text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-bold">
+                    <thead className="app-table-thead font-bold">
                         <tr>
                             <th className="p-4">الموظف</th>
                             <th className="p-4">الإجراء</th>
@@ -452,15 +478,15 @@ export const AdminControlPanel: React.FC = () => {
                 {users.filter(u => u.اسم_المستخدم.includes(userSearch)).map(user => {
                     const linkedName = getLinkedPersonName(user.linkedPersonId);
                     return (
-                        <div key={user.id} className={`bg-white dark:bg-slate-800 rounded-2xl border-2 p-6 flex flex-col gap-4 relative overflow-hidden transition hover:shadow-lg
+                        <div key={user.id} className={`app-card p-6 flex flex-col gap-4 relative overflow-hidden transition hover:shadow-lg
                             ${user.isActive ? 'border-transparent shadow-sm' : 'border-red-100 dark:border-red-900/30 opacity-75'}
                         `}>
                             {/* Status Badge */}
-                            <div className={`absolute top-4 left-4 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1
-                                ${user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}
-                            `}>
-                                {user.isActive ? <CheckCircle size={10}/> : <XCircle size={10}/>}
-                                {user.isActive ? 'نشط' : 'معطل'}
+                            <div className="absolute top-4 left-4">
+                                <StatusBadge
+                                    status={user.isActive ? 'نشط' : 'معطل'}
+                                    className="!text-[10px] !px-2 !py-0.5 !border-0"
+                                />
                             </div>
 
                             <div className="flex items-center gap-4">
@@ -512,8 +538,8 @@ export const AdminControlPanel: React.FC = () => {
 
             {/* ADD USER MODAL */}
             {isAddUserModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl animate-scale-up border border-gray-200 dark:border-slate-700">
+                <div className="modal-overlay app-modal-overlay">
+                    <div className="modal-content app-modal-content w-full max-w-md animate-scale-up">
                         <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800 rounded-t-2xl">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white">إضافة مستخدم جديد</h3>
                             <button
@@ -534,7 +560,7 @@ export const AdminControlPanel: React.FC = () => {
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">الاسم للعرض (اختياري)</label>
                                 <input className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" 
-                                    value={String((newUser as any).اسم_للعرض || '')} onChange={e => setNewUser({...newUser, اسم_للعرض: e.target.value})} placeholder="مثال: أحمد محمد" />
+                                    value={newUser.اسم_للعرض || ''} onChange={e => setNewUser({...newUser, اسم_للعرض: e.target.value})} placeholder="مثال: أحمد محمد" />
                                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">سيظهر في الواجهة بدلاً من اسم المستخدم.</p>
                             </div>
                             <div>
@@ -604,8 +630,8 @@ export const AdminControlPanel: React.FC = () => {
 
             {/* EDIT USER MODAL */}
             {editingUser && (
-                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-scale-up">
+                <div className="modal-overlay app-modal-overlay">
+                    <div className="modal-content app-modal-content w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-up">
                         <div className="p-6 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 flex justify-between items-center">
                             <h3 className="font-bold text-xl text-slate-800 dark:text-white flex items-center gap-2">
                                 <Settings size={24} className="text-indigo-600"/> إدارة صلاحيات: {editingUser.اسم_المستخدم}
@@ -683,7 +709,7 @@ export const AdminControlPanel: React.FC = () => {
 
   const renderBlacklist = () => {
       const filtered = blacklist.filter(b => {
-          const person = getPersonById((b as any).personId);
+          const person = getPersonById(b.personId);
           const name = String(person?.الاسم || '').toLowerCase();
           return name.includes(blacklistSearch.toLowerCase()) && (showArchivedBlacklist || b.isActive);
       });
@@ -692,7 +718,7 @@ export const AdminControlPanel: React.FC = () => {
           <RBACGuard requiredPermission="BLACKLIST_VIEW" fallback={<div className="p-8 text-center text-gray-400">ليس لديك صلاحية الوصول</div>}>
               <div className="animate-fade-in space-y-6">
                   {/* Controls */}
-                  <div className="flex justify-between items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                  <div className="app-card p-4 rounded-xl flex justify-between items-center gap-4">
                       <div className="flex items-center gap-2 flex-1">
                           <Search className="text-gray-400" size={20}/>
                           <input 
@@ -713,18 +739,16 @@ export const AdminControlPanel: React.FC = () => {
                   {/* List */}
                   <div className="grid grid-cols-1 gap-4">
                       {filtered.length === 0 ? (
-                          <div className="p-12 text-center text-slate-400 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-gray-200 dark:border-slate-700">
+                          <div className="p-12 text-center text-slate-400 app-card border-dashed">
                               <ShieldAlert size={48} className="mx-auto mb-4 opacity-20"/>
                               <p>لا توجد سجلات مطابقة</p>
                           </div>
                       ) : (
                           filtered.map(rec => {
-                              const person = getPersonById((rec as any).personId);
+                              const person = getPersonById(rec.personId);
                               return (
-                                  <div key={rec.id} className={`bg-white dark:bg-slate-800 p-6 rounded-2xl border-l-4 shadow-sm flex flex-col md:flex-row gap-6 items-start transition hover:shadow-md
-                                      ${rec.isActive 
-                                          ? 'border-l-red-500 border-t border-b border-r border-gray-100 dark:border-slate-700' 
-                                          : 'border-l-gray-400 border border-gray-100 dark:border-slate-700 opacity-70'}
+                                  <div key={rec.id} className={`app-card p-6 border-l-4 flex flex-col md:flex-row gap-6 items-start transition hover:shadow-md
+                                      ${rec.isActive ? 'border-l-red-500' : 'border-l-gray-400 opacity-70'}
                                   `}>
                                       <div className="flex items-start gap-4 flex-1">
                                           <div className={`p-3 rounded-full flex-shrink-0 ${rec.isActive ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
@@ -736,13 +760,7 @@ export const AdminControlPanel: React.FC = () => {
                                                   {!rec.isActive && <span className="text-xs bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded text-gray-500">تم رفع الحظر</span>}
                                               </h3>
                                               <div className="flex items-center gap-2 mt-1">
-                                                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold border
-                                                      ${rec.severity === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' : 
-                                                        rec.severity === 'High' ? 'bg-orange-50 text-orange-700 border-orange-200' : 
-                                                        'bg-yellow-50 text-yellow-700 border-yellow-200'}
-                                                  `}>
-                                                      {rec.severity}
-                                                  </span>
+                                                  <StatusBadge status={rec.severity} className="!text-[10px] !px-2 !py-0.5" />
                                                   <span className="text-xs text-slate-400">
                                                       {new Date(rec.dateAdded).toLocaleDateString()} • بواسطة {rec.addedBy}
                                                   </span>

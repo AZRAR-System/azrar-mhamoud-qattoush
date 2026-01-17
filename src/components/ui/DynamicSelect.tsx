@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Check, Loader2, ChevronDown } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { SystemLookup } from '@/types';
@@ -30,14 +30,14 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
-  useEffect(() => {
-    loadItems();
-  }, [category]);
-
-  const loadItems = () => {
+  const loadItems = useCallback(() => {
     const data = DbService.getLookupsByCategory(category);
     setItems(data);
-  };
+  }, [category]);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +53,7 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
             onChange(newItemLabel.trim()); // Auto-select new item
             setNewItemLabel('');
             setIsAdding(false);
-        } catch (error) {
+        } catch {
             toast.error('حدث خطأ أثناء الإضافة');
         } finally {
             setLoading(false);

@@ -41,7 +41,6 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
   const [selectedContract, setSelectedContract] = useState<العقود_tbl | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<العقارات_tbl | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<الأشخاص_tbl | null>(null);
-  const [selectedOwner, setSelectedOwner] = useState<الأشخاص_tbl | null>(null);
 
   // Modal data (Desktop: SQL-backed)
   const [rows, setRows] = useState<PickerRow[]>([]);
@@ -55,22 +54,18 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
           setSelectedContract(null);
           setSelectedProperty(null);
           setSelectedTenant(null);
-          setSelectedOwner(null);
         }
         return;
       }
 
-      const c = (await domainGetSmart('contracts', value)) as any;
-      const contract = (c as العقود_tbl) || null;
-      const prop = contract?.رقم_العقار ? ((await domainGetSmart('properties', String(contract.رقم_العقار))) as any) : null;
-      const tenant = contract?.رقم_المستاجر ? ((await domainGetSmart('people', String(contract.رقم_المستاجر))) as any) : null;
-      const owner = prop?.رقم_المالك ? ((await domainGetSmart('people', String(prop.رقم_المالك))) as any) : null;
+      const contract = await domainGetSmart('contracts', value);
+      const prop = contract?.رقم_العقار ? await domainGetSmart('properties', String(contract.رقم_العقار)) : null;
+      const tenant = contract?.رقم_المستاجر ? await domainGetSmart('people', String(contract.رقم_المستاجر)) : null;
 
       if (!alive) return;
       setSelectedContract(contract);
-      setSelectedProperty((prop as العقارات_tbl) || null);
-      setSelectedTenant((tenant as الأشخاص_tbl) || null);
-      setSelectedOwner((owner as الأشخاص_tbl) || null);
+      setSelectedProperty(prop);
+      setSelectedTenant(tenant);
     };
     void run();
     return () => {
@@ -82,7 +77,7 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
     setIsLoading(true);
     try {
       const items = await contractPickerSearchSmart({ query: q, limit: 250 });
-      setRows(Array.isArray(items) ? (items as any) : []);
+      setRows(items);
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +101,7 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
       alive = false;
       clearTimeout(t);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isOpen, searchTerm]);
 
   const handleSelect = (c: العقود_tbl) => {
@@ -170,7 +165,7 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
 
       {/* MODAL */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
+        <div className="modal-overlay app-modal-overlay z-[100] bg-slate-900/70 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[85vh] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 ring-1 ring-black/5 dark:ring-white/5 flex flex-col animate-scale-up overflow-hidden">
             {/* Header */}
             <div className="p-5 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/30 flex justify-between items-center">
@@ -226,7 +221,7 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
                         key={`${c.رقم_العقد}_${idx}`}
                         onClick={() => handleSelect(c)}
                         className={
-                          `bg-white dark:bg-slate-800 p-3 rounded-xl border cursor-pointer transition shadow-sm flex flex-col gap-2 ` +
+                          `app-card p-3 rounded-xl border cursor-pointer transition flex flex-col gap-2 ` +
                           (isSelected
                             ? 'border-indigo-500 ring-2 ring-indigo-200/60 dark:ring-indigo-500/20'
                             : 'border-slate-200/70 dark:border-slate-800 hover:border-indigo-400/70 dark:hover:border-indigo-400/30')

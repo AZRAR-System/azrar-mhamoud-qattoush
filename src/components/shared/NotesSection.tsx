@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { NoteRecord, ReferenceType } from '@/types';
 import { DbService } from '@/services/mockDb';
 import { MessageSquare, Send, User } from 'lucide-react';
@@ -13,13 +13,13 @@ export const NotesSection: React.FC<NotesSectionProps> = ({ referenceId, type })
   const [notes, setNotes] = useState<NoteRecord[]>([]);
   const [newNote, setNewNote] = useState('');
 
-  useEffect(() => {
-    loadNotes();
+  const loadNotes = useCallback(() => {
+    setNotes(DbService.getNotes(referenceId, type));
   }, [referenceId, type]);
 
-  const loadNotes = () => {
-    setNotes(DbService.getNotes(referenceId, type));
-  };
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
 
   const handleAdd = () => {
     if (!newNote.trim()) return;

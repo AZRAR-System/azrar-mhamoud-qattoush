@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { Attachment, ReferenceType } from '@/types';
-import { FileText, Download, Trash2, Upload, HardDrive, Image as ImageIcon, Eye } from 'lucide-react';
+import { FileText, Trash2, Upload, HardDrive, Image as ImageIcon, Eye } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { FileViewer } from '@/components/shared/FileViewer';
 
@@ -16,13 +16,15 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
   const [viewingFile, setViewingFile] = useState<Attachment | null>(null);
   const toast = useToast();
 
+  type UploadResult = Awaited<ReturnType<typeof DbService.uploadAttachment>>;
+
+  const loadFiles = useCallback(() => {
+    setFiles(DbService.getAttachments(referenceType, referenceId));
+  }, [referenceId, referenceType]);
+
   useEffect(() => {
     loadFiles();
-  }, [referenceId]);
-
-  const loadFiles = () => {
-    setFiles(DbService.getAttachments(referenceType, referenceId));
-  };
+  }, [loadFiles]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -34,13 +36,13 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
 
       for (const file of selectedFiles) {
         try {
-          const res = await DbService.uploadAttachment(referenceType, referenceId, file) as any;
+          const res: UploadResult = await DbService.uploadAttachment(referenceType, referenceId, file);
           if (res.success) {
             successCount++;
           } else {
             failCount++;
           }
-        } catch (err) {
+        } catch {
           failCount++;
         }
       }
@@ -114,7 +116,6 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
             onChange={handleUpload} 
             disabled={isUploading}
             multiple
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
           />
         </label>
       </div>
@@ -133,7 +134,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
                   className="flex items-center gap-3 overflow-hidden cursor-pointer flex-1"
                   onClick={() => setViewingFile(file)}
                 >
-                  <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 dark:border-slate-600">
+                  <div className="app-card p-2 rounded-lg dark:bg-slate-800 border-gray-100 dark:border-slate-600">
                     {getIcon(file.fileExtension)}
                   </div>
                   <div className="min-w-0">

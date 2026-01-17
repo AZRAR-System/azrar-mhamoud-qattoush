@@ -22,12 +22,13 @@
  * - غير مستخدم في هذه الصفحة (لا توجد بيانات مطلوبة مسبقاً)
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { الأشخاص_tbl, SystemLookup, العقارات_tbl, العقود_tbl, DynamicFormField } from '@/types';
+import type { PeoplePickerItem } from '@/types/domain.types';
 import {
-    Plus, Search, Trash2, Edit2, Phone, Users, Eye, Filter, Ban, ShieldAlert, ArrowRight, Download, SlidersHorizontal, ListTodo
+    Plus, Trash2, Edit2, Phone, Users, Eye, Filter, Ban, ShieldAlert, ArrowRight, Download, SlidersHorizontal, ListTodo
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
@@ -38,9 +39,9 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { DS } from '@/constants/designSystem';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { SearchEngine, FilterRule } from '@/services/searchEngine';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { getPersonColorClasses, getPersonSeedFromPerson } from '@/utils/personColor';
@@ -49,18 +50,20 @@ import { formatDynamicValue, isEmptyDynamicValue } from '@/components/dynamic/dy
 import { exportToXlsx, readSpreadsheet } from '@/utils/xlsx';
 import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
 import { domainCountsSmart, peoplePickerSearchPagedSmart } from '@/services/domainQueries';
-
-const PAGE_SIZE = 48;
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 
 export const People: React.FC = () => {
+    const pageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 18, xl: 24, '2xl': 32 });
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
     const [contracts, setContracts] = useState<العقود_tbl[]>([]);
 
-                const isDesktop = typeof window !== 'undefined' && !!(window as any)?.desktopDb;
-                const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainPeoplePickerSearch;
-                const desktopUnsupported = isDesktop && !isDesktopFast;
-        const [desktopRows, setDesktopRows] = useState<Array<{ person: any; roles?: string[]; isBlacklisted?: boolean; link?: any }>>([]);
+        const desktopDb = typeof window !== 'undefined' ? (window as unknown as { desktopDb?: unknown }).desktopDb : undefined;
+        const isDesktop = typeof window !== 'undefined' && !!desktopDb;
+        const isDesktopFast = isDesktop && typeof (desktopDb as { domainPeoplePickerSearch?: unknown } | undefined)?.domainPeoplePickerSearch === 'function';
+        const desktopUnsupported = isDesktop && !isDesktopFast;
+    const [desktopRows, setDesktopRows] = useState<PeoplePickerItem[]>([]);
         const [desktopTotal, setDesktopTotal] = useState(0);
         const [desktopPage, setDesktopPage] = useState(0);
         const [desktopLoading, setDesktopLoading] = useState(false);
@@ -75,6 +78,8 @@ export const People: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeRoleTab, setActiveRoleTab] = useState<string>('all');
   const [showOnlyIdleOwners, setShowOnlyIdleOwners] = useState(false);
+
+    const [uiPage, setUiPage] = useState(0);
   
   // Advanced Search
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -92,6 +97,18 @@ export const People: React.FC = () => {
     const dialogs = useAppDialogs();
     const importRef = useRef<HTMLInputElement | null>(null);
 
+    const hasMessage = (value: unknown): value is { message: string } => {
+        if (typeof value !== 'object' || value === null) return false;
+        return typeof (value as Record<string, unknown>).message === 'string';
+    };
+
+    const getErrorMessage = (error: unknown): string | undefined => {
+        if (error instanceof Error) return error.message;
+        if (typeof error === 'string') return error;
+        if (hasMessage(error)) return error.message;
+        return undefined;
+    };
+
     const todayYMD = useMemo(() => {
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -99,11 +116,37 @@ export const People: React.FC = () => {
 
     const dbSignal = useDbSignal();
 
-  useEffect(() => {
-        void loadData();
-    }, [dbSignal]);
+    const queryRef = useRef({
+        searchTerm,
+        activeRoleTab,
+        showOnlyIdleOwners,
+        showAdvanced,
+        advFilters,
+        desktopPage,
+        pageSize,
+    });
 
-      const loadData = async () => {
+    queryRef.current = {
+        searchTerm,
+        activeRoleTab,
+        showOnlyIdleOwners,
+        showAdvanced,
+        advFilters,
+        desktopPage,
+        pageSize,
+    };
+
+      const loadData = useCallback(async () => {
+          const {
+              searchTerm: qSearchTerm,
+              activeRoleTab: qActiveRoleTab,
+              showOnlyIdleOwners: qShowOnlyIdleOwners,
+              showAdvanced: qShowAdvanced,
+              advFilters: qAdvFilters,
+              desktopPage: qDesktopPage,
+              pageSize: qPageSize,
+          } = queryRef.current;
+
           if (isDesktopFast) {
               setDesktopLoading(true);
               try {
@@ -119,15 +162,15 @@ export const People: React.FC = () => {
                   }
 
                   const res = await peoplePickerSearchPagedSmart({
-                      query: String(searchTerm || ''),
-                      role: String(activeRoleTab || ''),
-                      onlyIdleOwners: activeRoleTab === 'مالك' ? showOnlyIdleOwners : false,
-                      address: showAdvanced ? String(advFilters.address || '') : '',
-                      nationalId: showAdvanced ? String(advFilters.nationalId || '') : '',
-                      classification: showAdvanced ? String(advFilters.classification || '') : 'All',
-                      minRating: showAdvanced ? Number(advFilters.minRating || 0) : 0,
-                      offset: desktopPage * PAGE_SIZE,
-                      limit: PAGE_SIZE,
+                      query: String(qSearchTerm || ''),
+                      role: String(qActiveRoleTab || ''),
+                      onlyIdleOwners: qActiveRoleTab === 'مالك' ? qShowOnlyIdleOwners : false,
+                      address: qShowAdvanced ? String(qAdvFilters.address || '') : '',
+                      nationalId: qShowAdvanced ? String(qAdvFilters.nationalId || '') : '',
+                      classification: qShowAdvanced ? String(qAdvFilters.classification || '') : 'All',
+                      minRating: qShowAdvanced ? Number(qAdvFilters.minRating || 0) : 0,
+                      offset: qDesktopPage * qPageSize,
+                      limit: qPageSize,
                   });
 
                   setDesktopRows(Array.isArray(res.items) ? res.items : []);
@@ -175,7 +218,11 @@ export const People: React.FC = () => {
           } catch {
               setDynamicFields([]);
           }
-      };
+      }, [isDesktopFast, desktopUnsupported, toast]);
+
+  useEffect(() => {
+        void loadData();
+    }, [dbSignal, loadData]);
 
   const getRoles = (id: string) => DbService.getPersonRoles(id);
 
@@ -218,7 +265,7 @@ export const People: React.FC = () => {
       return roles[0] || '';
   };
 
-    const isActiveContract = (c: any) => isTenancyRelevant(c);
+    const isActiveContract = (c: العقود_tbl) => isTenancyRelevant(c);
 
   const handleOpenForm = (id?: string) => {
       openPanel('PERSON_FORM', id || 'new', {
@@ -298,7 +345,7 @@ export const People: React.FC = () => {
           priority: 'Medium',
           personId,
           note: String(note || '').trim() || undefined,
-      } as any);
+      });
 
       dialogs.toast.success('تم حفظ التذكير');
       openPanel('CALENDAR_EVENTS', dueDate, { title: 'مهام اليوم' });
@@ -310,7 +357,7 @@ export const People: React.FC = () => {
 
           const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
 
-          const all: Array<{ person: any; roles?: string[]; isBlacklisted?: boolean; link?: any }> = [];
+          const all: PeoplePickerItem[] = [];
           let offset = 0;
           const limit = 500;
           while (true) {
@@ -333,7 +380,7 @@ export const People: React.FC = () => {
           }
 
           const rows = all.map((it) => {
-              const p = (it?.person || {}) as any;
+              const p = it.person;
               const roles = Array.isArray(it?.roles) ? it.roles : [];
               return {
                   ID: p.رقم_الشخص,
@@ -377,7 +424,7 @@ export const People: React.FC = () => {
           ID: p.رقم_الشخص,
           Name: p.الاسم,
           Phone: p.رقم_الهاتف,
-          ExtraPhone: (p as any).رقم_هاتف_اضافي || '',
+          ExtraPhone: p.رقم_هاتف_اضافي || '',
           NationalID: p.الرقم_الوطني || '',
           Address: p.العنوان || '',
           Role: getRoles(p.رقم_الشخص).join(' | '),
@@ -440,7 +487,7 @@ export const People: React.FC = () => {
       importRef.current?.click();
   };
 
-  const normalize = (v: any) => String(v ?? '').trim();
+    const normalize = (v: unknown) => String(v ?? '').trim();
 
   const handleImportFile = async (file: File) => {
       const ok = await toast.confirm({
@@ -452,11 +499,11 @@ export const People: React.FC = () => {
       });
       if (!ok) return;
 
-      let rows: Array<Record<string, any>> = [];
+      let rows: Array<Record<string, unknown>> = [];
       try {
           rows = await readSpreadsheet(file);
-      } catch (e: any) {
-          toast.error(e?.message || 'فشل قراءة ملف الاستيراد');
+      } catch (e: unknown) {
+          toast.error(getErrorMessage(e) || 'فشل قراءة ملف الاستيراد');
           return;
       }
       if (!rows.length) {
@@ -464,7 +511,7 @@ export const People: React.FC = () => {
           return;
       }
 
-      const pick = (row: Record<string, any>, keys: string[]) => {
+      const pick = (row: Record<string, unknown>, keys: string[]) => {
           for (const k of keys) {
               const v = row[k];
               if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
@@ -473,14 +520,14 @@ export const People: React.FC = () => {
       };
 
       const existing = DbService.getPeople();
-      const byNationalId = new Map<string, any>();
-      const byPhone = new Map<string, any>();
+      const byNationalId = new Map<string, الأشخاص_tbl>();
+      const byPhone = new Map<string, الأشخاص_tbl>();
       for (const p of existing) {
-          const nid = normalize((p as any).الرقم_الوطني);
+          const nid = normalize(p.الرقم_الوطني);
           if (nid) byNationalId.set(nid, p);
-          const ph = normalize((p as any).رقم_الهاتف);
+          const ph = normalize(p.رقم_الهاتف);
           if (ph) byPhone.set(ph, p);
-          const ex = normalize((p as any).رقم_هاتف_اضافي);
+          const ex = normalize(p.رقم_هاتف_اضافي);
           if (ex) byPhone.set(ex, p);
       }
 
@@ -513,10 +560,10 @@ export const People: React.FC = () => {
               DbService.updatePerson(match.رقم_الشخص, {
                   الاسم: name,
                   رقم_الهاتف: phone,
-                  رقم_هاتف_اضافي: extraPhone || (match as any).رقم_هاتف_اضافي,
+                  رقم_هاتف_اضافي: extraPhone || match.رقم_هاتف_اضافي,
                   الرقم_الوطني: nationalId || match.الرقم_الوطني,
                   العنوان: address || match.العنوان,
-              } as any);
+              });
               if (roles.length) DbService.updatePersonRoles(match.رقم_الشخص, roles);
               updated++;
           } else {
@@ -529,7 +576,7 @@ export const People: React.FC = () => {
                       العنوان: address || undefined,
                       تقييم: 0,
                       تصنيف: 'عادي',
-                  } as any,
+                  },
                   roles.length ? roles : ['مالك']
               );
               if (res.success) created++;
@@ -566,7 +613,7 @@ export const People: React.FC = () => {
             (p.الاسم || '').toLowerCase().includes(term) ||
             (p.الرقم_الوطني || '').includes(term) ||
                         (p.رقم_الهاتف || '').includes(term) ||
-                        String((p as any).رقم_هاتف_اضافي || '').includes(term)
+                                                String(p.رقم_هاتف_اضافي || '').includes(term)
           );
       }
 
@@ -584,7 +631,13 @@ export const People: React.FC = () => {
       return result;
   }, [people, searchTerm, activeRoleTab, showOnlyIdleOwners, properties, showAdvanced, advFilters]);
 
-    const desktopPageCount = isDesktopFast ? Math.max(1, Math.ceil(desktopTotal / PAGE_SIZE)) : 1;
+        const desktopPageCount = isDesktopFast ? Math.max(1, Math.ceil(desktopTotal / pageSize)) : 1;
+
+        const uiPageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+        const uiRows = useMemo(() => {
+                const start = uiPage * pageSize;
+                return filtered.slice(start, start + pageSize);
+        }, [filtered, uiPage, pageSize]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
@@ -594,14 +647,17 @@ export const People: React.FC = () => {
         } else {
             void loadData();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, isDesktopFast]);
+    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, pageSize, isDesktopFast, desktopPage, loadData]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
         void loadData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [desktopPage, isDesktopFast]);
+    }, [desktopPage, isDesktopFast, loadData]);
+
+    useEffect(() => {
+        if (isDesktopFast) return;
+        setUiPage(0);
+    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, pageSize, isDesktopFast]);
 
   const renderCard = (person: الأشخاص_tbl) => {
       const roles = getRoles(person.رقم_الشخص);
@@ -649,7 +705,7 @@ export const People: React.FC = () => {
                               <h3 className="font-bold text-slate-800 dark:text-white leading-tight flex items-center gap-2">
                                   <span className={`inline-block w-2.5 h-2.5 rounded-full ${isBlacklisted ? 'bg-red-500' : personColor.dot}`}></span>
                                   {person.الاسم || 'غير محدد'}
-                                                                    {(person as any).نوع_الملف === 'منشأة' && (
+                                                                    {person.نوع_الملف === 'منشأة' && (
                                                                         <span className="text-[10px] px-2 py-0.5 rounded-lg border bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-700">
                                                                             منشأة
                                                                         </span>
@@ -657,8 +713,8 @@ export const People: React.FC = () => {
                                   {isBlacklisted && <ShieldAlert size={16} className="text-red-600" />}
                               </h3>
                               <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{person.رقم_الهاتف || 'لا يوجد'}</p>
-                              {(person as any).رقم_هاتف_اضافي ? (
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{String((person as any).رقم_هاتف_اضافي)}</p>
+                              {person.رقم_هاتف_اضافي ? (
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{String(person.رقم_هاتف_اضافي)}</p>
                               ) : null}
                           </div>
                       </div>
@@ -704,7 +760,7 @@ export const People: React.FC = () => {
 
                   {showDynamicColumns && dynamicFields.length > 0 ? (
                       (() => {
-                          const values = (person as any)?.حقول_ديناميكية || {};
+                          const values = person.حقول_ديناميكية || {};
                           const visible = dynamicFields
                               .map((f) => ({ f, v: values?.[f.name] }))
                               .filter(({ v }) => !isEmptyDynamicValue(v));
@@ -727,16 +783,19 @@ export const People: React.FC = () => {
                       })()
                   ) : null}
 
-                                    <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-slate-700 md:flex-row md:items-center">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                                                className="flex-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100"
-                        onClick={() => openPanel('PERSON_DETAILS', person.رقم_الشخص)}
-                        leftIcon={<Eye size={14} />}
-                      >
-                          التفاصيل
-                      </Button>
+                                                                        <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-slate-700 md:flex-row md:items-center">
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                                                                className="flex-1 justify-center gap-2 whitespace-nowrap min-w-[140px] rounded-xl shadow-sm"
+                                                onClick={() => openPanel('PERSON_DETAILS', person.رقم_الشخص)}
+                                                                                                title="تفاصيل الشخص"
+                                                                                                aria-label="تفاصيل الشخص"
+                                                                                                rightIcon={<Eye size={14} className="shrink-0" />}
+                                                                                                leftIcon={<ArrowRight size={14} className="shrink-0 opacity-80" />}
+                                            >
+                                                    التفاصيل
+                                            </Button>
                       
                                             <div className="flex flex-wrap justify-end gap-1">
                         <RBACGuard requiredPermission="EDIT_PERSON">
@@ -768,7 +827,7 @@ export const People: React.FC = () => {
                                                     className="text-green-500 hover:text-green-600 hover:bg-green-50"
                                                     title="واتساب / اتصال"
                                                     aria-label="واتساب / اتصال"
-                                                    onClick={() => void openWhatsAppForPhones('', [person.رقم_الهاتف, (person as any).رقم_هاتف_اضافي], { defaultCountryCode: '962', delayMs: 10_000 })}
+                                                    onClick={() => void openWhatsAppForPhones('', [person.رقم_الهاتف, person.رقم_هاتف_اضافي], { defaultCountryCode: '962', delayMs: 10_000 })}
                                                 >
                                                     <Phone size={16} />
                                                 </Button>
@@ -791,9 +850,9 @@ export const People: React.FC = () => {
       );
   };
 
-    const renderDesktopCard = (row: { person: any; roles?: string[]; isBlacklisted?: boolean; link?: any }) => {
-        const person = (row?.person || {}) as الأشخاص_tbl;
-        const roles = Array.isArray(row?.roles) ? (row.roles as string[]) : [];
+    const renderDesktopCard = (row: PeoplePickerItem) => {
+        const person = row.person;
+        const roles = Array.isArray(row?.roles) ? row.roles : [];
         const isBlacklisted = !!row?.isBlacklisted;
         const primaryRole = getPrimaryRole(roles);
         const accent = getRoleClasses(primaryRole);
@@ -825,7 +884,7 @@ export const People: React.FC = () => {
                                 <h3 className="font-bold text-slate-800 dark:text-white leading-tight flex items-center gap-2">
                                     <span className={`inline-block w-2.5 h-2.5 rounded-full ${isBlacklisted ? 'bg-red-500' : personColor.dot}`}></span>
                                     {person.الاسم || 'غير محدد'}
-                                    {(person as any).نوع_الملف === 'منشأة' && (
+                                    {person.نوع_الملف === 'منشأة' && (
                                         <span className="text-[10px] px-2 py-0.5 rounded-lg border bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-700">
                                             منشأة
                                         </span>
@@ -833,8 +892,8 @@ export const People: React.FC = () => {
                                     {isBlacklisted && <ShieldAlert size={16} className="text-red-600" />}
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{person.رقم_الهاتف || 'لا يوجد'}</p>
-                                {(person as any).رقم_هاتف_اضافي ? (
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{String((person as any).رقم_هاتف_اضافي)}</p>
+                                {person.رقم_هاتف_اضافي ? (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 dir-ltr">{String(person.رقم_هاتف_اضافي)}</p>
                                 ) : null}
                             </div>
                         </div>
@@ -871,7 +930,7 @@ export const People: React.FC = () => {
 
                     {showDynamicColumns && dynamicFields.length > 0 ? (
                         (() => {
-                            const values = (person as any)?.حقول_ديناميكية || {};
+                            const values = person.حقول_ديناميكية || {};
                             const visible = dynamicFields
                                 .map((f) => ({ f, v: values?.[f.name] }))
                                 .filter(({ v }) => !isEmptyDynamicValue(v));
@@ -895,10 +954,13 @@ export const People: React.FC = () => {
                     <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-slate-700 md:flex-row md:items-center">
                         <Button
                             size="sm"
-                            variant="ghost"
-                            className="flex-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100"
+                            variant="outline"
+                            className="flex-1 justify-center gap-2 whitespace-nowrap min-w-[140px] rounded-xl shadow-sm"
                             onClick={() => openPanel('PERSON_DETAILS', person.رقم_الشخص)}
-                            leftIcon={<Eye size={14} />}
+                            title="تفاصيل الشخص"
+                            aria-label="تفاصيل الشخص"
+                            rightIcon={<Eye size={14} className="shrink-0" />}
+                            leftIcon={<ArrowRight size={14} className="shrink-0 opacity-80" />}
                         >
                             التفاصيل
                         </Button>
@@ -933,7 +995,7 @@ export const People: React.FC = () => {
                                 className="text-green-500 hover:text-green-600 hover:bg-green-50"
                                 title="واتساب / اتصال"
                                 aria-label="واتساب / اتصال"
-                                onClick={() => void openWhatsAppForPhones('', [person.رقم_الهاتف, (person as any).رقم_هاتف_اضافي], { defaultCountryCode: '962', delayMs: 10_000 })}
+                                onClick={() => void openWhatsAppForPhones('', [person.رقم_الهاتف, person.رقم_هاتف_اضافي], { defaultCountryCode: '962', delayMs: 10_000 })}
                             >
                                 <Phone size={16} />
                             </Button>
@@ -956,144 +1018,122 @@ export const People: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className={DS.components.pageHeader}>
-        <div>
-            <h2 className={DS.components.pageTitle}>إدارة الأشخاص</h2>
-            <p className={DS.components.pageSubtitle}>سجل العملاء، الملاك، والمستأجرين</p>
-        </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-            <input
-                ref={importRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (f) void handleImportFile(f);
-                }}
-            />
+      <input
+          ref={importRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          className="hidden"
+          onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void handleImportFile(f);
+          }}
+      />
 
-            <Button variant="secondary" onClick={handleDownloadTemplate} leftIcon={<Download size={18}/>}>قالب Excel</Button>
-            <RBACGuard requiredPermission="ADD_PERSON">
-                <Button variant="secondary" onClick={handlePickImportFile} leftIcon={<Download size={18}/>}>استيراد</Button>
-            </RBACGuard>
-            <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18}/>}>تصدير</Button>
-            <RBACGuard requiredPermission="ADD_PERSON">
-                <Button onClick={() => handleOpenForm()} leftIcon={<Plus size={18} />}>ملف جديد</Button>
-                <Button variant="secondary" onClick={handleOpenCompanyForm} leftIcon={<Plus size={18} />}>منشأة جديدة</Button>
-            </RBACGuard>
-        </div>
-      </div>
-
-      <Card className="p-3 space-y-4">
-          <div className="flex flex-col md:flex-row gap-3 items-center">
-            {/* Role Tabs */}
-            <div className="flex w-full md:w-auto overflow-x-auto no-scrollbar">
-                <div className="inline-flex items-center gap-2 bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800 p-1 rounded-2xl">
-                    <Button
-                        size="sm"
-                        variant={activeRoleTab === 'all' ? 'secondary' : 'ghost'}
-                        className="whitespace-nowrap"
-                        onClick={() => setActiveRoleTab('all')}
-                        leftIcon={<Users size={16} />}
-                    >
-                        الكل
-                    </Button>
-
-                    {availableRoles.map((role) => (
-                        <Button
-                            key={role.id}
-                            size="sm"
-                            variant={activeRoleTab === role.label ? 'secondary' : 'ghost'}
-                            className="whitespace-nowrap"
-                            onClick={() => setActiveRoleTab(role.label)}
-                        >
-                            {role.label}
-                        </Button>
-                    ))}
-
-                    <Button
-                        size="sm"
-                        variant={activeRoleTab === 'blacklisted' ? 'danger' : 'ghost'}
-                        className="whitespace-nowrap"
-                        onClick={() => setActiveRoleTab('blacklisted')}
-                        leftIcon={<ShieldAlert size={16} />}
-                    >
-                        القائمة السوداء
-                    </Button>
-                </div>
-            </div>
-            
-            {/* Search Input */}
-            <div className="flex-1 w-full flex gap-2">
-                <Input placeholder="بحث سريع..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} icon={<Search size={18} />} />
-                <Button 
-                    variant={showAdvanced ? 'outline' : 'secondary'}
-                    onClick={() => setShowAdvanced(!showAdvanced)} 
-                    leftIcon={<SlidersHorizontal size={18}/>}
-                >
-                    متقدم
-                </Button>
-            </div>
-          </div>
-
-          {/* Advanced Search Panel */}
-          {showAdvanced && (
-              <div className="pt-3 border-t border-gray-100 dark:border-slate-700 grid grid-cols-1 md:grid-cols-4 gap-4 animate-slide-up">
-                  <Input 
-                      placeholder="العنوان (يحتوي على)" 
-                      value={advFilters.address} 
-                      onChange={e => setAdvFilters({...advFilters, address: e.target.value})} 
-                  />
-                  <Input 
-                      placeholder="الرقم الوطني" 
-                      value={advFilters.nationalId} 
-                      onChange={e => setAdvFilters({...advFilters, nationalId: e.target.value})} 
-                  />
-                  <Select
-                      value={advFilters.classification}
-                      onChange={(e) => setAdvFilters({ ...advFilters, classification: e.target.value })}
-                      options={[
-                          { value: 'All', label: 'كل التصنيفات' },
-                          { value: 'VIP', label: 'VIP' },
-                          { value: 'Standard', label: 'Standard' },
+      <SmartFilterBar
+          title="إدارة الأشخاص"
+          subtitle="سجل العملاء، الملاك، والمستأجرين"
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="بحث: الاسم، الهاتف، الرقم الوطني..."
+          onRefresh={() => void loadData()}
+          extraActions={
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                  <SegmentedTabs
+                      tabs={[
+                          { id: 'all', label: 'الكل', icon: Users },
+                          ...availableRoles.map((role) => ({ id: role.label, label: role.label })),
+                          { id: 'blacklisted', label: 'القائمة السوداء', icon: ShieldAlert },
                       ]}
+                      activeId={activeRoleTab}
+                      onChange={(id) => setActiveRoleTab(id)}
                   />
-                  <Select
-                      value={String(advFilters.minRating)}
-                      onChange={(e) => setAdvFilters({ ...advFilters, minRating: Number(e.target.value) })}
-                      options={[
-                          { value: '0', label: 'كل التقييمات' },
-                          { value: '3', label: '3 نجوم فأكثر' },
-                          { value: '4', label: '4 نجوم فأكثر' },
-                          { value: '5', label: '5 نجوم فقط' },
-                      ]}
-                  />
-              </div>
-          )}
 
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-              {activeRoleTab === 'مالك' && (
                   <Button
-                      variant={showOnlyIdleOwners ? 'danger' : 'secondary'}
-                      size="sm"
-                      onClick={() => setShowOnlyIdleOwners(!showOnlyIdleOwners)}
-                      leftIcon={<Filter size={14}/>}
+                      variant={showAdvanced ? 'outline' : 'secondary'}
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      leftIcon={<SlidersHorizontal size={18} />}
                   >
-                      ملاك عقاراتهم شاغرة
+                      {showAdvanced ? 'إخفاء' : 'تصفية'}
                   </Button>
-              )}
 
-              <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowDynamicColumns((v) => !v)}
-              >
-                  {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
-              </Button>
-          </div>
-      </Card>
+                  {activeRoleTab === 'مالك' && (
+                      <Button
+                          variant={showOnlyIdleOwners ? 'danger' : 'secondary'}
+                          size="sm"
+                          onClick={() => setShowOnlyIdleOwners(!showOnlyIdleOwners)}
+                          leftIcon={<Filter size={14} />}
+                      >
+                          ملاك عقاراتهم شاغرة
+                      </Button>
+                  )}
+
+                  <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowDynamicColumns((v) => !v)}
+                  >
+                      {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
+                  </Button>
+
+                  <Button variant="secondary" onClick={handleDownloadTemplate} leftIcon={<Download size={18} />}
+                  >
+                      قالب Excel
+                  </Button>
+
+                  <RBACGuard requiredPermission="ADD_PERSON">
+                      <Button variant="secondary" onClick={handlePickImportFile} leftIcon={<Download size={18} />}>
+                          استيراد
+                      </Button>
+                  </RBACGuard>
+
+                  <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18} />}>
+                      تصدير
+                  </Button>
+
+                  <RBACGuard requiredPermission="ADD_PERSON">
+                      <Button onClick={() => handleOpenForm()} leftIcon={<Plus size={18} />}>ملف جديد</Button>
+                      <Button variant="secondary" onClick={handleOpenCompanyForm} leftIcon={<Plus size={18} />}>
+                          منشأة جديدة
+                      </Button>
+                  </RBACGuard>
+              </div>
+          }
+      />
+
+      {showAdvanced && (
+          <Card className="p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 animate-slide-up bg-indigo-50/50 dark:bg-slate-900/40 border-indigo-100/80 dark:border-slate-800">
+              <Input
+                  placeholder="العنوان (يحتوي على)"
+                  value={advFilters.address}
+                  onChange={e => setAdvFilters({ ...advFilters, address: e.target.value })}
+              />
+              <Input
+                  placeholder="الرقم الوطني"
+                  value={advFilters.nationalId}
+                  onChange={e => setAdvFilters({ ...advFilters, nationalId: e.target.value })}
+              />
+              <Select
+                  value={advFilters.classification}
+                  onChange={(e) => setAdvFilters({ ...advFilters, classification: e.target.value })}
+                  options={[
+                      { value: 'All', label: 'كل التصنيفات' },
+                      { value: 'VIP', label: 'VIP' },
+                      { value: 'Standard', label: 'Standard' },
+                  ]}
+              />
+              <Select
+                  value={String(advFilters.minRating)}
+                  onChange={(e) => setAdvFilters({ ...advFilters, minRating: Number(e.target.value) })}
+                  options={[
+                      { value: '0', label: 'كل التقييمات' },
+                      { value: '3', label: '3 نجوم فأكثر' },
+                      { value: '4', label: '4 نجوم فأكثر' },
+                      { value: '5', label: '5 نجوم فقط' },
+                  ]}
+              />
+          </Card>
+      )}
 
       {/* عرض EmptyState حسب الحالة */}
       {(isDesktopFast
@@ -1154,10 +1194,37 @@ export const People: React.FC = () => {
                           </Button>
                       </div>
                   </div>
-              ) : null}
+              ) : (
+                  <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                          {filtered.length.toLocaleString()} نتيجة
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={uiPage <= 0}
+                              onClick={() => setUiPage((p) => Math.max(0, p - 1))}
+                          >
+                              السابق
+                          </Button>
+                          <div className="text-sm text-slate-600 dark:text-slate-300">
+                              {uiPage + 1} / {uiPageCount}
+                          </div>
+                          <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={uiPage + 1 >= uiPageCount}
+                              onClick={() => setUiPage((p) => p + 1)}
+                          >
+                              التالي
+                          </Button>
+                      </div>
+                  </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {isDesktopFast ? desktopRows.map((r) => renderDesktopCard(r)) : filtered.map((person) => renderCard(person))}
+                  {isDesktopFast ? desktopRows.map((r) => renderDesktopCard(r)) : uiRows.map((person) => renderCard(person))}
               </div>
           </>
       )}

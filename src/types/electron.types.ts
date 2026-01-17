@@ -1,4 +1,17 @@
-﻿export interface DesktopDbBridge {
+﻿import type {
+  ContractDetailsResult,
+  ContractPickerItem,
+  DomainEntity,
+  DomainEntityMap,
+  InstallmentsContractsItem,
+  PeoplePickerItem,
+  PersonDetailsResult,
+  PropertyPickerItem,
+  PropertyPickerSearchPayload,
+} from '@/types/domain.types';
+import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types/types';
+
+export interface DesktopDbBridge {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<boolean>;
   delete(key: string): Promise<boolean>;
@@ -16,9 +29,12 @@
   runReport?: (id: string) => Promise<{ ok: boolean; result?: unknown; message?: string } | unknown>;
 
   // Domain queries (Desktop only)
-  domainSearchGlobal?: (query: string) => Promise<{ ok: boolean; people?: any[]; properties?: any[]; contracts?: any[]; message?: string } | unknown>;
-  domainSearch?: (payload: { entity: 'people' | 'properties' | 'contracts'; query: string; limit?: number }) => Promise<{ ok: boolean; items?: any[]; message?: string } | unknown>;
-  domainGet?: (payload: { entity: 'people' | 'properties' | 'contracts'; id: string }) => Promise<{ ok: boolean; data?: any; message?: string } | unknown>;
+  domainSearchGlobal?: (query: string) =>
+    Promise<{ ok: boolean; people?: الأشخاص_tbl[]; properties?: العقارات_tbl[]; contracts?: العقود_tbl[]; message?: string } | unknown>;
+  domainSearch?: <E extends DomainEntity>(payload: { entity: E; query: string; limit?: number }) =>
+    Promise<{ ok: boolean; items?: Array<DomainEntityMap[E]>; message?: string } | unknown>;
+  domainGet?: <E extends DomainEntity>(payload: { entity: E; id: string }) =>
+    Promise<{ ok: boolean; data?: DomainEntityMap[E]; message?: string } | unknown>;
 
   domainCounts?: () => Promise<{ ok: boolean; counts?: { people: number; properties: number; contracts: number }; message?: string } | unknown>;
 
@@ -94,64 +110,38 @@
   domainPersonDetails?: (payload: { personId: string }) =>
     Promise<{
       ok: boolean;
-      data?: {
-        person: any;
-        roles: string[];
-        ownedProperties: any[];
-        contracts: any[];
-        blacklistRecord?: any;
-        stats: {
-          totalInstallments: number;
-          lateInstallments: number;
-          commitmentRatio: number;
-        };
-      };
+      data?: PersonDetailsResult;
       message?: string;
     } | unknown>;
 
   domainPersonTenancyContracts?: (payload: { personId: string }) =>
     Promise<{
       ok: boolean;
-      items?: Array<{ contract: any; propertyCode?: string; propertyAddress?: string; tenantName?: string }>;
+      items?: Array<{ contract: العقود_tbl; propertyCode?: string; propertyAddress?: string; tenantName?: string }>;
       message?: string;
     } | unknown>;
 
   domainPropertyContracts?: (payload: { propertyId: string; limit?: number }) =>
     Promise<{
       ok: boolean;
-      items?: Array<{ contract: any; tenantName?: string; guarantorName?: string }>;
+      items?: Array<{ contract: العقود_tbl; tenantName?: string; guarantorName?: string }>;
       message?: string;
     } | unknown>;
 
+  domainContractDetails?: (payload: { contractId: string }) => Promise<{ ok: boolean; data?: ContractDetailsResult; message?: string } | unknown>;
+
   // Picker search (Desktop only)
-  domainPropertyPickerSearch?: (payload: {
-    query: string;
-    status?: string;
-    type?: string;
-    forceVacant?: boolean;
-    occupancy?: 'all' | 'rented' | 'vacant';
-    sale?: 'for-sale' | 'not-for-sale' | '';
-    offset?: number;
-    limit?: number;
-  }) =>
+  domainPropertyPickerSearch?: (payload: PropertyPickerSearchPayload) =>
     Promise<{
       ok: boolean;
-      items?: Array<{ property: any; ownerName?: string; ownerPhone?: string; ownerNationalId?: string; active?: any }>;
+      items?: PropertyPickerItem[];
       total?: number;
       message?: string;
     } | unknown>;
-  domainContractPickerSearch?: (payload: { query: string; tab?: string; offset?: number; limit?: number }) =>
+  domainContractPickerSearch?: (payload: { query: string; tab?: string; createdMonth?: string; offset?: number; limit?: number }) =>
     Promise<{
       ok: boolean;
-      items?: Array<{
-        contract: any;
-        propertyCode?: string;
-        ownerName?: string;
-        tenantName?: string;
-        ownerNationalId?: string;
-        tenantNationalId?: string;
-        remainingAmount?: number;
-      }>;
+      items?: ContractPickerItem[];
       total?: number;
       message?: string;
     } | unknown>;
@@ -169,19 +159,7 @@
   }) =>
     Promise<{
       ok: boolean;
-      items?: Array<{
-        person: any;
-        roles?: string[];
-        isBlacklisted?: boolean;
-        link?: {
-          contractId: string;
-          status?: string;
-          propertyCode?: string;
-          tenantName?: string;
-          guarantorName?: string;
-          source?: 'tenant' | 'guarantor' | 'owner' | '';
-        } | null;
-      }>;
+      items?: PeoplePickerItem[];
       total?: number;
       message?: string;
     } | unknown>;
@@ -189,15 +167,7 @@
   domainInstallmentsContractsSearch?: (payload: { query?: string; filter?: 'all' | 'debt' | 'paid' | 'due' | string; offset?: number; limit?: number }) =>
     Promise<{
       ok: boolean;
-      items?: Array<{
-        contract: any;
-        tenant?: any;
-        property?: any;
-        installments?: any[];
-        hasDebt?: boolean;
-        hasDueSoon?: boolean;
-        isFullyPaid?: boolean;
-      }>;
+      items?: InstallmentsContractsItem[];
       total?: number;
       message?: string;
     } | unknown>;
@@ -258,8 +228,61 @@
   sqlRestoreBackup?: () => Promise<{ ok: boolean; message: string; filePath?: string; rowCount?: number; applied?: number } | unknown>;
   sqlSyncNow?: () => Promise<{ ok: boolean; message: string } | unknown>;
 
+  sqlPullFullNow?: () => Promise<{ ok: boolean; message: string } | unknown>;
+
+  sqlMergePublishAdmin?: (payload?: { keys?: string[]; prefer?: 'local' | 'remote' }) =>
+    Promise<{ ok: boolean; message: string; applied?: number; errors?: number; keys?: string[] } | unknown>;
+
   sqlGetSyncLog?: () => Promise<{ ok: boolean; items: Array<{ id: string; ts: string; direction: 'push' | 'pull' | 'system'; action: string; key?: string; status: 'ok' | 'error'; message?: string }> } | unknown>;
   sqlClearSyncLog?: () => Promise<{ ok: boolean } | unknown>;
+
+  sqlGetCoverage?: () => Promise<
+    | {
+        ok: boolean;
+        remoteOk?: boolean;
+        remoteMessage?: string;
+        localCount?: number;
+        remoteCount?: number;
+        items?: Array<{
+          key: string;
+          localUpdatedAt?: string;
+          localDeletedAt?: string;
+          localBestTs?: string;
+          localIsDeleted: boolean;
+          localBytes: number;
+          remoteUpdatedAt?: string;
+          remoteIsDeleted?: boolean;
+          status: 'inSync' | 'localAhead' | 'remoteAhead' | 'missingRemote' | 'missingLocal' | 'different' | 'unknown';
+        }>;
+        message?: string;
+      }
+    | unknown
+  >;
+
+  // SQL Server Backups (stored on server)
+  sqlGetBackupAutomationSettings?: () => Promise<{ ok: boolean; settings?: { enabled: boolean; retentionDays: number }; message?: string } | unknown>;
+  sqlSaveBackupAutomationSettings?: (payload: {
+    enabled?: boolean;
+    retentionDays?: number;
+  }) => Promise<{ ok: boolean; settings?: { enabled: boolean; retentionDays: number }; message?: string } | unknown>;
+  sqlListServerBackups?: (payload?: { limit?: number }) => Promise<
+    | {
+        ok: boolean;
+        items?: Array<{ id: string; createdAt: string; createdBy?: string; rowCount?: number; payloadBytes?: number; note?: string }>;
+        message?: string;
+      }
+    | unknown
+  >;
+  sqlCreateServerBackup?: (payload?: { note?: string }) => Promise<
+    | {
+        ok: boolean;
+        message: string;
+        item?: { id: string; createdAt: string; createdBy?: string; rowCount?: number; payloadBytes?: number; note?: string };
+        deletedOld?: number;
+      }
+    | unknown
+  >;
+  sqlRestoreServerBackup?: (payload: { id: string; mode: 'merge' | 'replace' }) => Promise<{ ok: boolean; message: string; applied?: number; rowCount?: number } | unknown>;
 
   onRemoteUpdate?: (handler: (evt: { key: string; value?: string; isDeleted?: boolean; updatedAt?: string }) => void) => () => void;
 

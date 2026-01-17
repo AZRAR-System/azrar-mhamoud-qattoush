@@ -1,8 +1,8 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
-import { عروض_البيع_tbl, عروض_الشراء_tbl } from '@/types';
+import { الأشخاص_tbl, العقارات_tbl, العقود_tbl, عروض_البيع_tbl, عروض_الشراء_tbl } from '@/types';
 import { CheckCircle, XCircle, Clock, User, MessageCircle, FileText, Briefcase, Plus, Send } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
@@ -18,37 +18,41 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
       قيمة_العرض: 0,
       ملاحظات_التفاوض: ''
   });
-    const [noteByOfferId, setNoteByOfferId] = useState<Record<string, string>>({});
+    const noteDraftByOfferIdRef = useRef<Record<string, string>>({});
+    const noteInputByOfferIdRef = useRef<Record<string, HTMLInputElement | null>>({});
   
   const { openPanel } = useSmartModal();
   const toast = useToast();
 
+    const loadData = useCallback(() => {
+        const allListings = DbService.getSalesListings();
+        const current = allListings.find((l) => l.id === id);
+        if (current) {
+            setListing(current);
+            setOffers(DbService.getSalesOffers(id));
+        }
+    }, [id]);
+
   useEffect(() => {
     loadData();
-  }, [id]);
+    }, [loadData]);
 
-  const loadData = () => {
-    const allListings = DbService.getSalesListings();
-    const current = allListings.find(l => l.id === id);
-    if(current) {
-        setListing(current);
-        setOffers(DbService.getSalesOffers(id));
-    }
-  };
+                const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb;
+                const isDesktopFast = isDesktop && !!window.desktopDb?.domainGet;
+                const desktopUnsupported = isDesktop && !isDesktopFast;
+        const [desktopProperty, setDesktopProperty] = useState<العقارات_tbl | null>(null);
+        const [desktopOwner, setDesktopOwner] = useState<الأشخاص_tbl | null>(null);
+        const [desktopActiveContract, setDesktopActiveContract] = useState<العقود_tbl | null>(null);
+        const [desktopBuyerById, setDesktopBuyerById] = useState<Map<string, الأشخاص_tbl>>(() => new Map());
 
-        const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!(window as any)?.desktopDb;
-        const isDesktopFast = isDesktop && !!(window as any)?.desktopDb?.domainGet;
-        const desktopUnsupported = isDesktop && !isDesktopFast;
-    const [desktopProperty, setDesktopProperty] = useState<any | null>(null);
-    const [desktopOwner, setDesktopOwner] = useState<any | null>(null);
-    const [desktopActiveContract, setDesktopActiveContract] = useState<any | null>(null);
-    const [desktopBuyerById, setDesktopBuyerById] = useState<Map<string, any>>(() => new Map());
+        const listingPropertyId = listing?.رقم_العقار;
+        const listingOwnerId = listing?.رقم_المالك;
 
     useEffect(() => {
         if (!isDesktopFast) return;
         let alive = true;
         const run = async () => {
-            if (!listing?.رقم_العقار) {
+                        if (!listingPropertyId) {
                 if (alive) {
                     setDesktopProperty(null);
                     setDesktopOwner(null);
@@ -57,21 +61,21 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
                 return;
             }
 
-            const pid = String(listing.رقم_العقار);
+                        const pid = String(listingPropertyId);
             const prop = await domainGetSmart('properties', pid);
             if (!alive) return;
             setDesktopProperty(prop);
 
-            const ownerId = String((listing as any)?.رقم_المالك || (prop as any)?.رقم_المالك || '').trim();
+                        const ownerId = String(listingOwnerId ?? prop?.رقم_المالك ?? '').trim();
             const owner = ownerId ? await domainGetSmart('people', ownerId) : null;
             if (!alive) return;
             setDesktopOwner(owner);
 
             try {
                 const items = (await propertyContractsSmart(pid, 200)) || [];
-                const contracts = items.map((x) => x.contract).filter(Boolean);
-                const best = pickBestTenancyContract(contracts as any);
-                const active = best && isTenancyRelevant(best) && (best as any).isArchived !== true ? best : null;
+                                const contracts = items.map((x) => x.contract);
+                                const best = pickBestTenancyContract(contracts);
+                                const active = best && isTenancyRelevant(best) ? best : null;
                 if (!alive) return;
                 setDesktopActiveContract(active);
             } catch {
@@ -83,7 +87,7 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
         return () => {
             alive = false;
         };
-    }, [isDesktopFast, listing?.رقم_العقار, listing?.رقم_المالك]);
+        }, [isDesktopFast, listingPropertyId, listingOwnerId]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
@@ -93,30 +97,34 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
             const ids = Array.from(
                 new Set(
                     offers
-                        .map((o) => String((o as any)?.رقم_المشتري ?? '').trim())
+                        .map((o) => String(o.رقم_المشتري || '').trim())
                         .filter(Boolean)
                 )
             );
 
             if (!ids.length) {
-                if (alive) setDesktopBuyerById(new Map());
+                if (alive && desktopBuyerById.size !== 0) setDesktopBuyerById(new Map());
                 return;
             }
 
             const next = new Map(desktopBuyerById);
+            let changed = false;
             await Promise.all(
                 ids.map(async (buyerId) => {
                     if (next.has(buyerId)) return;
                     try {
                         const person = await domainGetSmart('people', buyerId);
-                        if (person) next.set(buyerId, person);
+                        if (person) {
+                            next.set(buyerId, person);
+                            changed = true;
+                        }
                     } catch {
                         // ignore per-id failures
                     }
                 })
             );
 
-            if (alive) setDesktopBuyerById(next);
+            if (alive && changed) setDesktopBuyerById(next);
         };
 
         void run();
@@ -172,12 +180,14 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
   };
 
   const handleAppendNote = (offerId: string) => {
-      const note = (noteByOfferId[offerId] || '').trim();
+      const note = (noteDraftByOfferIdRef.current[offerId] || '').trim();
       if (!note) return;
       const res = DbService.addSalesOfferNote(offerId, note);
       if (res.success) {
           toast.success('تمت إضافة الملاحظة');
-          setNoteByOfferId(prev => ({ ...prev, [offerId]: '' }));
+          noteDraftByOfferIdRef.current[offerId] = '';
+          const inputEl = noteInputByOfferIdRef.current[offerId];
+          if (inputEl) inputEl.value = '';
           loadData();
       } else {
           toast.error(res.message);
@@ -186,23 +196,23 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
 
   // IMPORTANT: Hooks must run on every render (React error #310 prevention)
     const propertyLegacy = useMemo(
-        () => ((isDesktopFast || desktopUnsupported) ? undefined : (listing ? DbService.getProperties().find(p => p.رقم_العقار === listing.رقم_العقار) : undefined)),
-        [isDesktopFast, desktopUnsupported, listing?.رقم_العقار]
+        () => ((isDesktopFast || desktopUnsupported) ? undefined : (listingPropertyId ? DbService.getProperties().find(p => p.رقم_العقار === listingPropertyId) : undefined)),
+        [isDesktopFast, desktopUnsupported, listingPropertyId]
     );
     const ownerLegacy = useMemo(
-        () => ((isDesktopFast || desktopUnsupported) ? undefined : (listing ? DbService.getPeople().find(p => p.رقم_الشخص === listing.رقم_المالك) : undefined)),
-        [isDesktopFast, desktopUnsupported, listing?.رقم_المالك]
+        () => ((isDesktopFast || desktopUnsupported) ? undefined : (listingOwnerId ? DbService.getPeople().find(p => p.رقم_الشخص === listingOwnerId) : undefined)),
+        [isDesktopFast, desktopUnsupported, listingOwnerId]
     );
     const activeContractLegacy = useMemo(() => {
         if (isDesktopFast || desktopUnsupported) return undefined;
-        if (!listing) return undefined;
+        if (!listingPropertyId) return undefined;
         const contracts = DbService.getContracts();
-        return contracts.find(c => c.رقم_العقار === listing.رقم_العقار && isTenancyRelevant(c) && c.isArchived !== true);
-    }, [isDesktopFast, desktopUnsupported, listing?.رقم_العقار]);
+        return contracts.find(c => c.رقم_العقار === listingPropertyId && isTenancyRelevant(c) && c.isArchived !== true);
+    }, [isDesktopFast, desktopUnsupported, listingPropertyId]);
 
-    const property: any = isDesktopFast ? desktopProperty : propertyLegacy;
-    const owner: any = isDesktopFast ? desktopOwner : ownerLegacy;
-    const activeContract: any = isDesktopFast ? desktopActiveContract : activeContractLegacy;
+    const property: العقارات_tbl | undefined = isDesktopFast ? (desktopProperty ?? undefined) : propertyLegacy;
+    const owner: الأشخاص_tbl | undefined = isDesktopFast ? (desktopOwner ?? undefined) : ownerLegacy;
+    const activeContract: العقود_tbl | undefined = isDesktopFast ? (desktopActiveContract ?? undefined) : activeContractLegacy;
 
   if (!listing) return <div className="p-8 text-center">جاري التحميل...</div>;
 
@@ -211,7 +221,7 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
   return (
     <div className="space-y-6">
        {/* Header */}
-       <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+    <div className="app-card p-6 relative overflow-hidden">
            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
            <div className="flex justify-between items-start">
                <div>
@@ -264,7 +274,7 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
        </div>
 
        {/* Offers Section */}
-       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+       <div className="app-card overflow-hidden">
            <div className="p-4 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
                <h3 className="font-bold text-slate-700 dark:text-white flex items-center gap-2">
                    <MessageCircle size={18} className="text-indigo-500" /> العروض المستلمة ({offers.length})
@@ -334,7 +344,7 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
                    <p className="p-6 text-center text-gray-400 text-sm">لا توجد عروض مقدمة بعد.</p>
                ) : (
                    offers.map(offer => {
-                       const buyerId = String((offer as any)?.رقم_المشتري ?? '').trim();
+                       const buyerId = String(offer.رقم_المشتري || '').trim();
                        const buyer = isDesktopFast
                            ? (buyerId ? desktopBuyerById.get(buyerId) : undefined)
                            : (desktopUnsupported ? undefined : DbService.getPeople().find(b => b.رقم_الشخص === offer.رقم_المشتري));
@@ -369,10 +379,14 @@ export const SalesPanel: React.FC<{ id: string }> = ({ id }) => {
                                <div className="mt-3 flex gap-2 items-center">
                                    <input
                                        type="text"
-                                       className="flex-1 p-2 rounded border text-xs bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700"
+                                       ref={(el) => {
+                                           noteInputByOfferIdRef.current[offer.id] = el;
+                                       }}
+                                       className="flex-1 p-2 rounded border text-xs bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                        placeholder="إضافة ملاحظة تفاوض..."
-                                       value={noteByOfferId[offer.id] || ''}
-                                       onChange={e => setNoteByOfferId(prev => ({ ...prev, [offer.id]: e.target.value }))}
+                                       onChange={(e) => {
+                                           noteDraftByOfferIdRef.current[offer.id] = e.target.value;
+                                       }}
                                    />
                                    <button
                                        type="button"

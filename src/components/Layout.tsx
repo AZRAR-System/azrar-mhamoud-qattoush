@@ -1,19 +1,25 @@
 ﻿import React, { useEffect, useState, memo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants';
-import { Bell, Menu, UserCircle, Moon, Sun, LogOut, Calendar, Clock as ClockIcon, X, Search, ChevronRight, ChevronDown, Server } from 'lucide-react';
+import { Bell, Menu, UserCircle, Moon, Sun, LogOut, Calendar, Clock as ClockIcon, X, ChevronRight, ChevronDown, Server } from 'lucide-react';
 import { SmartModalEngine } from '@/components/shared/SmartModalEngine';
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
 import { OnboardingGuide } from '@/components/shared/OnboardingGuide';
 import { useSmartModal } from '@/context/ModalContext';
 import { DbService } from '@/services/mockDb';
 import { useAuth } from '@/context/AuthContext';
-import { ROUTE_TITLES } from '@/routes/registry';
+import { ROUTE_SUBTITLES, ROUTE_TITLES, type NavItem } from '@/routes/registry';
 import { storage } from '@/services/storage';
 import { isRole } from '@/utils/roles';
 import { formatTimeHM } from '@/utils/format';
 import { useInAppReminderNotifier } from '@/hooks/useInAppReminderNotifier';
 import { getDatabaseStats } from '@/services/resetDatabase';
 import { useToast } from '@/context/ToastContext';
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+const getUnknownMessage = (v: unknown): string | undefined => (isRecord(v) && typeof v.message === 'string' ? v.message : undefined);
+const getUnknownSuccess = (v: unknown): boolean | undefined => (isRecord(v) && typeof v.success === 'boolean' ? v.success : undefined);
+const getUnknownPending = (v: unknown): boolean => (isRecord(v) ? Boolean(v.pending) : false);
 
 // --- Optimized Clock Component ---
 const LiveClock = memo(() => {
@@ -51,6 +57,7 @@ const LiveClock = memo(() => {
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   type SqlStatus = { configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string };
   type DesktopOkMessage = { ok?: boolean; message?: string };
+  type SqlSyncEvent = { id: string; ts: string; direction: 'push' | 'pull' | 'system'; action: string; key?: string; status: 'ok' | 'error'; message?: string };
 
   const { openPanel } = useSmartModal();
   const { user } = useAuth();
@@ -65,23 +72,24 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
   const hasDesktopBridge = !!window.desktopDb;
   const [sqlStatus, setSqlStatus] = useState<{ configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string } | null>(null);
-  // Manual Location Handling
-  const [pathname, setPathname] = useState(window.location.hash.slice(1).split('?')[0] || '/');
+  const rrLocation = useLocation();
+  const pathname = rrLocation.pathname || '/';
 
   // Global: toast notification when sync applies changes (throttled)
   const syncToastAggRef = useRef<{
     upserts: number;
     deletes: number;
     errors: number;
-    timer: any;
+    timer: ReturnType<typeof setTimeout> | null;
     lastToastAt: number;
   }>({ upserts: 0, deletes: 0, errors: 0, timer: null, lastToastAt: 0 });
 
   useEffect(() => {
     if (!hasDesktopBridge || !window.desktopDb?.onSqlSyncEvent) return;
 
+    const agg = syncToastAggRef.current;
+
     const flush = () => {
-      const agg = syncToastAggRef.current;
       if (agg.timer) {
         clearTimeout(agg.timer);
         agg.timer = null;
@@ -113,10 +121,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       agg.errors = 0;
     };
 
-    const onEvent = (evt: any) => {
+    const onEvent = (evt: SqlSyncEvent) => {
       // Only toast for applied changes (push/pull), ignore system events.
       if (!evt || evt.direction === 'system') return;
-      const agg = syncToastAggRef.current;
 
       if (evt.status === 'error') agg.errors += 1;
       else if (typeof evt.action === 'string' && evt.action.toLowerCase().includes('delete')) agg.deletes += 1;
@@ -137,7 +144,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       } catch {
         // ignore
       }
-      const agg = syncToastAggRef.current;
       if (agg.timer) {
         clearTimeout(agg.timer);
         agg.timer = null;
@@ -150,9 +156,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     if (!hasDesktopBridge || !window.desktopDb?.sqlStatus) return;
     let cancelled = false;
 
+    const sqlStatusFn = window.desktopDb.sqlStatus;
+    if (!sqlStatusFn) return;
+
     const tick = async () => {
       try {
-        const st = (await window.desktopDb!.sqlStatus!()) as unknown as SqlStatus | null;
+        const st = (await sqlStatusFn()) as unknown as SqlStatus | null;
         if (!cancelled) setSqlStatus(st || null);
       } catch {
         if (!cancelled) setSqlStatus(prev => prev ? { ...prev, connected: false } : { configured: false, enabled: false, connected: false });
@@ -216,16 +225,16 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let cancelled = false;
-    const getVersion = (window as any)?.desktopUpdater?.getVersion;
-    if (typeof getVersion === 'function') {
-      Promise.resolve(getVersion())
-        .then((v: any) => {
-          if (!cancelled) setAppVersion(String(v || ''));
-        })
-        .catch(() => {
-          // ignore
-        });
-    }
+    const bridge = window.desktopUpdater;
+    if (!bridge?.getVersion) return;
+
+    Promise.resolve(bridge.getVersion())
+      .then((v) => {
+        if (!cancelled) setAppVersion(String(v || ''));
+      })
+      .catch(() => {
+        // ignore
+      });
     return () => {
       cancelled = true;
     };
@@ -246,13 +255,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     }
 
     let cancelled = false;
-    const bridge: any = (window as any)?.desktopUpdater;
+    const bridge = window.desktopUpdater;
     if (!bridge?.getPendingRestore || !bridge?.restorePending || !bridge?.clearPendingRestore) return;
 
     Promise.resolve(bridge.getPendingRestore())
-      .then((info: any) => {
+      .then((info: unknown) => {
         if (cancelled) return;
-        if (!info?.pending) return;
+        if (!getUnknownPending(info)) return;
 
         openPanel('CONFIRM_MODAL', 'post_update_restore', {
           title: 'تم تحديث النظام',
@@ -267,21 +276,21 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           onConfirm: async () => {
             try {
               const res = await bridge.restorePending();
-              if (res?.success === false) {
+              if (getUnknownSuccess(res) === false) {
                 openPanel('CONFIRM_MODAL', 'restore_failed', {
                   title: 'فشل الاسترجاع',
                   confirmText: 'حسناً',
-                  message: res?.message || 'تعذر استرجاع النسخة الاحتياطية.',
+                  message: getUnknownMessage(res) || 'تعذر استرجاع النسخة الاحتياطية.',
                 });
                 return;
               }
               // Refresh the app after restore
               setTimeout(() => window.location.reload(), 700);
-            } catch (e: any) {
+            } catch (e: unknown) {
               openPanel('CONFIRM_MODAL', 'restore_failed_exception', {
                 title: 'فشل الاسترجاع',
                 confirmText: 'حسناً',
-                message: e?.message || 'تعذر استرجاع النسخة الاحتياطية.',
+                message: (e instanceof Error ? e.message : undefined) || 'تعذر استرجاع النسخة الاحتياطية.',
               });
             }
           },
@@ -302,17 +311,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       cancelled = true;
     };
   }, [openPanel]);
-
-  useEffect(() => {
-    const handleHashChange = () => {
-        let path = window.location.hash.slice(1);
-        if (path.includes('?')) path = path.split('?')[0];
-        if (!path) path = '/';
-        setPathname(path);
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
 
   const location = { pathname }; // Compatibility shim
 
@@ -400,17 +398,20 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     if (byRoute) return byRoute;
 
     // Search in top level
-    let current = NAV_ITEMS.find(n => n.path === location.pathname);
+    const current = NAV_ITEMS.find(n => n.path === location.pathname);
     if (current) return current.label;
 
     // Search in children
     for (const item of NAV_ITEMS) {
-        if ((item as any).children) {
-            const child = (item as any).children.find((c: any) => c.path === location.pathname);
-            if (child) return child.label;
-        }
+      const child = item.children?.find((c) => c.path === location.pathname);
+      if (child) return child.label;
     }
     return 'نظام AZRAR';
+  };
+
+  const getPageSubtitle = () => {
+    const byRoute = ROUTE_SUBTITLES[location.pathname];
+    return byRoute ? String(byRoute) : '';
   };
 
   const toggleMenu = (label: string) => {
@@ -427,7 +428,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       {/* ================================ */}
       {!isDesktop && sidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-fade-in"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm layer-sidebar animate-fade-in"
             onClick={() => setSidebarOpen(false)}
           />
       )}
@@ -437,7 +438,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       {/* ================================ */}
       <aside
         className={`
-          fixed lg:static inset-y-0 right-0 z-50
+          fixed lg:static inset-y-0 right-0 layer-sidebar
           w-72 bg-white dark:bg-slate-900 
           text-slate-800 dark:text-slate-100 transition-transform duration-300 ease-out
           flex flex-col shadow-2xl lg:shadow-none border-l border-gray-100 dark:border-slate-800
@@ -477,7 +478,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 custom-scrollbar">
-          {NAV_ITEMS.map((item: any) => {
+          {NAV_ITEMS.map((item: NavItem) => {
             const Icon = item.icon;
             const isOpenState = (sidebarOpen || !isDesktop);
             const hasChildren = item.children && item.children.length > 0;
@@ -485,11 +486,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             
             // Active State Logic
             const isSelfActive = location.pathname === item.path;
-            const isChildActive = hasChildren && item.children.some((c: any) => c.path === location.pathname);
+            const isChildActive = !!item.children?.some((c) => c.path === location.pathname);
             const isActive = isSelfActive || isChildActive;
 
             if (hasChildren) {
-                const visibleChildren = (item.children as any[]).filter((child: any) => {
+                const visibleChildren = (item.children ?? []).filter((child) => {
                   if (child?.role && !isRole(user?.الدور, child.role)) return false;
                   return true;
                 });
@@ -525,7 +526,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         {/* Submenu */}
                         {isOpenState && isExpanded && (
                             <div className="mt-1 mr-4 border-r-2 border-slate-100 dark:border-slate-700/50 pr-2 space-y-1 animate-slide-up">
-                            {visibleChildren.map((child: any) => {
+                                {visibleChildren.map((child) => {
                                     const ChildIcon = child.icon;
                                     const isChildActive = location.pathname === child.path;
                                     return (
@@ -622,10 +623,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       {/* ================================ */}
       {/* Main Content */}
       {/* ================================ */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full layer-content">
 
         {/* Header */}
-        <header className="h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between px-4 lg:px-8 shadow-sm z-30 transition-colors">
+        <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between px-4 lg:px-8 shadow-sm layer-header transition-colors py-3">
           
           <div className="flex items-center gap-4">
             {!isDesktop && (
@@ -634,10 +635,15 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 </button>
             )}
             
-            <div>
-                <h1 className="text-lg lg:text-xl font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
+            <div className="flex flex-col">
+              <h1 className="text-lg lg:text-xl font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
                 {getPageTitle()}
-                </h1>
+              </h1>
+              {getPageSubtitle() ? (
+                <p className="text-[11px] lg:text-xs text-slate-500 dark:text-slate-400 leading-snug mt-0.5 max-w-[48rem]">
+                  {getPageSubtitle()}
+                </p>
+              ) : null}
             </div>
           </div>
 

@@ -8,6 +8,9 @@
 import { notificationService } from '@/services/notificationService';
 import { useNotification } from '@/hooks/useNotification';
 
+type UnknownRecord = Record<string, unknown>;
+const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
+
 /**
  * Example 1: Basic Notifications with Sound
  * 
@@ -222,13 +225,19 @@ export const example6_paymentFlow = () => {
  */
 export const example7_realtimeAlerts = () => {
   // Check installments due today
-  const checkDueInstallments = (installations: any[]) => {
+  const checkDueInstallments = (installations: unknown[]) => {
     const today = new Date().toISOString().split('T')[0];
 
-    installations.forEach(inst => {
-      if (inst.دueDate === today && inst.status === 'unpaid') {
+    installations.forEach((inst) => {
+      if (!isRecord(inst)) return;
+      const dueDate = String(inst['دueDate'] ?? inst['dueDate'] ?? '').trim();
+      const status = String(inst['status'] ?? '').trim();
+      const amount = String(inst['amount'] ?? '').trim();
+      const tenant = String(inst['tenant'] ?? '').trim();
+
+      if (dueDate === today && status === 'unpaid') {
         notificationService.warning(
-          `دفعة مستحقة اليوم: ${inst.amount} د.أ من ${inst.tenant}`,
+          `دفعة مستحقة اليوم: ${amount} د.أ من ${tenant}`,
           'دفعة مستحقة'
         );
       }
@@ -236,16 +245,18 @@ export const example7_realtimeAlerts = () => {
   };
 
   // Check overdue installments
-  const checkOverdueInstallments = (installations: any[]) => {
+  const checkOverdueInstallments = (installations: unknown[]) => {
     const today = new Date();
 
-    installations.forEach(inst => {
-      const dueDate = new Date(inst.dueDate);
+    installations.forEach((inst) => {
+      if (!isRecord(inst)) return;
+      const dueDateStr = String(inst['dueDate'] ?? inst['دueDate'] ?? '').trim();
+      const dueDate = new Date(dueDateStr);
       const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (daysOverdue > 0 && inst.status === 'unpaid') {
+      if (daysOverdue > 0 && String(inst['status'] ?? '').trim() === 'unpaid') {
         notificationService.error(
-          `دفعة متأخرة منذ ${daysOverdue} يوم: ${inst.amount} د.أ`,
+          `دفعة متأخرة منذ ${daysOverdue} يوم: ${String(inst['amount'] ?? '').trim()} د.أ`,
           'دفعة متأخرة'
         );
       }
@@ -253,18 +264,19 @@ export const example7_realtimeAlerts = () => {
   };
 
   // Check expiring contracts
-  const checkExpiringContracts = (contracts: any[]) => {
+  const checkExpiringContracts = (contracts: unknown[]) => {
     const today = new Date();
     const thirtyDaysLater = new Date();
     thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
 
-    contracts.forEach(contract => {
-      const endDate = new Date(contract.endDate);
+    contracts.forEach((contract) => {
+      if (!isRecord(contract)) return;
+      const endDate = new Date(String(contract['endDate'] ?? '').trim());
 
       if (
         endDate > today &&
         endDate < thirtyDaysLater &&
-        contract.status === 'active'
+        String(contract['status'] ?? '').trim() === 'active'
       ) {
         const daysRemaining = Math.floor((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         notificationService.warning(
@@ -288,12 +300,12 @@ export const example7_realtimeAlerts = () => {
  * معالجة الأخطاء مع الإشعارات
  */
 export const example8_errorHandling = () => {
-  const handleDataOperation = async (operation: () => Promise<any>) => {
+  const handleDataOperation = async <T,>(operation: () => Promise<T>): Promise<T> => {
     try {
       const result = await operation();
       notificationService.success('تمت العملية بنجاح');
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // User-friendly error messages
       const errorMap: Record<string, string> = {
         'NETWORK_ERROR': 'فشل الاتصال بالخادم',
@@ -303,11 +315,13 @@ export const example8_errorHandling = () => {
         'CONFLICT': 'البيانات متضاربة مع بيانات موجودة'
       };
 
-      const errorMessage = errorMap[error.code] || error.message;
+      const code = isRecord(error) ? String(error['code'] ?? '').trim() : '';
+      const message = isRecord(error) ? String(error['message'] ?? '').trim() : '';
+      const errorMessage = (code && errorMap[code]) || message || 'حدث خطأ غير معروف';
       notificationService.error(errorMessage);
 
       // Log critical errors
-      if (error.critical) {
+      if (isRecord(error) && Boolean(error['critical'])) {
         notificationService.systemAlert(
           `خطأ حرج: ${errorMessage}`,
           'critical'

@@ -1,16 +1,29 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, User, Home, FileText, ChevronLeft, ArrowRight } from 'lucide-react';
+import { Search, User, Home, FileText, ChevronLeft, ArrowRight } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { domainSearchGlobalSmart } from '@/services/domainQueries';
+import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types';
 
 export const GLOBAL_SEARCH_OPEN_EVENT = 'azrar:global-search:open';
+
+type SearchPersonResult = الأشخاص_tbl & { matchReason?: string };
+type SearchPropertyResult = العقارات_tbl & { matchReason?: string };
+type SearchContractResult = العقود_tbl & { matchReason?: string };
+
+type GlobalSearchResults = {
+  people: SearchPersonResult[];
+  properties: SearchPropertyResult[];
+  contracts: SearchContractResult[];
+};
+
+const EMPTY_RESULTS: GlobalSearchResults = { people: [], properties: [], contracts: [] };
 
 export const GlobalSearch: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<{ people: any[], properties: any[], contracts: any[] }>({ people: [], properties: [], contracts: [] });
+  const [results, setResults] = useState<GlobalSearchResults>(EMPTY_RESULTS);
   const inputRef = useRef<HTMLInputElement>(null);
   const { openPanel } = useSmartModal();
 
@@ -42,7 +55,7 @@ export const GlobalSearch: React.FC = () => {
       setTimeout(() => inputRef.current?.focus(), 100);
     } else {
       setQuery('');
-      setResults({ people: [], properties: [], contracts: [] });
+      setResults(EMPTY_RESULTS);
     }
   }, [isOpen]);
 
@@ -52,7 +65,7 @@ export const GlobalSearch: React.FC = () => {
     const timer = setTimeout(async () => {
       const q = String(query || '').trim();
       if (!q) {
-        if (alive) setResults({ people: [], properties: [], contracts: [] });
+        if (alive) setResults(EMPTY_RESULTS);
         return;
       }
 
@@ -107,11 +120,11 @@ export const GlobalSearch: React.FC = () => {
 
       {/* Overlay & Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 bg-slate-900/60 backdrop-blur-sm transition-all animate-fade-in"
+        <div className="modal-overlay app-modal-overlay z-[100] items-start pt-20 transition-all animate-fade-in"
              onClick={() => setIsOpen(false)}>
           
           <div 
-            className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 ring-1 ring-black/5 dark:ring-white/5 animate-scale-up"
+            className="modal-content app-modal-content dark:bg-slate-900 dark:border-slate-800 w-full max-w-2xl overflow-hidden animate-scale-up"
             onClick={e => e.stopPropagation()}
           >
             {/* Search Input */}

@@ -1,6 +1,6 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
-import { tbl_Alerts } from '@/types';
+import { AlertDetail, الأشخاص_tbl, العقارات_tbl, العقود_tbl, tbl_Alerts } from '@/types';
 import { Bell, CheckCircle, Clock, AlertTriangle, CheckCheck, ExternalLink, X, User, Home, MessageCircle, Send, StickyNote, FileText, Layers, Database, ShieldAlert, PenTool } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
@@ -12,6 +12,12 @@ import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { NotificationTemplates } from '@/services/notificationTemplates';
+
+const isOnlyFilter = (value: string): value is 'unread' | 'all' => value === 'unread' || value === 'all';
+
+const isExpiryKind = (value: string): value is 'pre_notice' | 'approved' | 'rejected' | 'auto' => {
+    return value === 'pre_notice' || value === 'approved' || value === 'rejected' || value === 'auto';
+};
 
 export const Alerts = () => {
   const [alerts, setAlerts] = useState<tbl_Alerts[]>([]);
@@ -31,47 +37,48 @@ export const Alerts = () => {
     const dbSignal = useDbSignal();
 
     const loadAlerts = useCallback(() => {
-        const all = (DbService.getAlerts() || []) as any[];
+        const all = DbService.getAlerts() || [];
 
         try {
             const cats = Array.from(
                 new Set(
                     all
-                        .map((a: any) => String(a?.category || '').trim())
+                        .map((a) => String(a.category || '').trim())
                         .filter(Boolean)
                 )
             ).sort((a, b) => a.localeCompare(b));
             setAvailableCategories(cats);
-        } catch {
+        } catch (e: unknown) {
+            void e;
             setAvailableCategories([]);
         }
 
         let next = all;
 
         if (only === 'unread') {
-            next = next.filter((a: any) => !a.تم_القراءة);
+            next = next.filter((a) => !a.تم_القراءة);
         }
 
         if (category) {
-            next = next.filter((a: any) => String(a.category || '').trim() === category);
+            next = next.filter((a) => String(a.category || '').trim() === category);
         }
 
         const needle = q.trim().toLowerCase();
         if (needle) {
-            next = next.filter((a: any) => {
+            next = next.filter((a) => {
                 const parts = [
-                    a?.نوع_التنبيه,
-                    a?.الوصف,
-                    a?.tenantName,
-                    a?.propertyCode,
-                    a?.phone,
-                ]
-                    .map((x) => String(x ?? '').toLowerCase());
+                    a.نوع_التنبيه,
+                    a.الوصف,
+                    a.tenantName,
+                    a.propertyCode,
+                    a.phone,
+                ].map((x) => String(x ?? '').toLowerCase());
+
                 return parts.some((p) => p.includes(needle));
             });
         }
 
-        setAlerts(next as tbl_Alerts[]);
+        setAlerts(next);
     }, [only, category, q]);
 
     useEffect(() => {
@@ -91,7 +98,7 @@ export const Alerts = () => {
 
                 const onlyParam = String(params.get('only') || '').trim();
                 if (onlyParam === 'all' || onlyParam === 'unread') {
-                    setOnly(onlyParam as any);
+                    setOnly(onlyParam);
                 }
 
                 const cat = String(params.get('category') || '').trim();
@@ -171,15 +178,18 @@ export const Alerts = () => {
 
       // If linked directly to a person
       if (alert.مرجع_الجدول === 'الأشخاص_tbl' && alert.مرجع_المعرف) {
-          const person = (DbService.getPeople?.() || []).find((p: any) => String(p?.رقم_الشخص) === String(alert.مرجع_المعرف));
+          const people = (DbService.getPeople?.() || []) as الأشخاص_tbl[];
+          const person = people.find((p) => String(p?.رقم_الشخص) === String(alert.مرجع_المعرف));
           phones.push(person?.رقم_الهاتف, person?.رقم_هاتف_اضافي);
       }
 
       // If linked to a contract, derive tenant
       if (alert.مرجع_الجدول === 'العقود_tbl' && alert.مرجع_المعرف) {
-          const contract = (DbService.getContracts?.() || []).find((c: any) => String(c?.رقم_العقد) === String(alert.مرجع_المعرف));
+          const contracts = (DbService.getContracts?.() || []) as العقود_tbl[];
+          const contract = contracts.find((c) => String(c?.رقم_العقد) === String(alert.مرجع_المعرف));
           if (contract?.رقم_المستاجر) {
-              const tenant = (DbService.getPeople?.() || []).find((p: any) => String(p?.رقم_الشخص) === String(contract.رقم_المستاجر));
+              const people = (DbService.getPeople?.() || []) as الأشخاص_tbl[];
+              const tenant = people.find((p) => String(p?.رقم_الشخص) === String(contract.رقم_المستاجر));
               phones.push(tenant?.رقم_الهاتف, tenant?.رقم_هاتف_اضافي);
           }
       }
@@ -194,12 +204,13 @@ export const Alerts = () => {
   };
 
   const resolveOwnerPhonesForContract = (contractId: string): string[] => {
-      const contract = (DbService.getContracts?.() || []).find((c: any) => String(c?.رقم_العقد) === String(contractId));
+      const contracts = (DbService.getContracts?.() || []) as العقود_tbl[];
+      const contract = contracts.find((c) => String(c?.رقم_العقد) === String(contractId));
       const property = contract?.رقم_العقار
-          ? (DbService.getProperties?.() || []).find((p: any) => String(p?.رقم_العقار) === String(contract.رقم_العقار))
+          ? ((DbService.getProperties?.() || []) as العقارات_tbl[]).find((p) => String(p?.رقم_العقار) === String(contract.رقم_العقار))
           : null;
       const owner = property?.رقم_المالك
-          ? (DbService.getPeople?.() || []).find((p: any) => String(p?.رقم_الشخص) === String(property.رقم_المالك))
+          ? ((DbService.getPeople?.() || []) as الأشخاص_tbl[]).find((p) => String(p?.رقم_الشخص) === String(property.رقم_المالك))
           : null;
 
       const phones: Array<string | null | undefined> = [owner?.رقم_الهاتف, owner?.رقم_هاتف_اضافي];
@@ -313,10 +324,10 @@ export const Alerts = () => {
   };
 
   const resolveOwnerForProperty = (propertyId: string) => {
-      const property = (DbService.getProperties?.() || []).find((p: any) => String(p?.رقم_العقار) === String(propertyId));
+      const property = ((DbService.getProperties?.() || []) as العقارات_tbl[]).find((p) => String(p?.رقم_العقار) === String(propertyId));
       const ownerId = property?.رقم_المالك;
       const owner = ownerId
-          ? (DbService.getPeople?.() || []).find((p: any) => String(p?.رقم_الشخص) === String(ownerId))
+          ? ((DbService.getPeople?.() || []) as الأشخاص_tbl[]).find((p) => String(p?.رقم_الشخص) === String(ownerId))
           : null;
       return { property, owner };
   };
@@ -344,13 +355,15 @@ export const Alerts = () => {
       const missingOwners: string[] = [];
       const missingPhones: string[] = [];
 
-      for (const d of selectedAlert.details as any[]) {
+      for (const d of selectedAlert.details) {
           const propertyId = String(d?.id ?? '');
           if (!propertyId) continue;
 
           const { property, owner } = resolveOwnerForProperty(propertyId);
           const propLabel = String(d?.name || property?.الكود_الداخلي || property?.رقم_العقار || propertyId);
-          const missingFields: string[] = Array.isArray(d?.missingFields) ? d.missingFields : [];
+          const missingFields = Array.isArray(d?.missingFields)
+              ? d.missingFields.map((x) => String(x ?? '').trim()).filter(Boolean)
+              : [];
           const missingText = missingFields.length ? missingFields.map(getMissingFieldLabel).join('، ') : 'بيانات ناقصة';
           const line = `• ${propLabel} (ناقص: ${missingText})`;
 
@@ -361,7 +374,7 @@ export const Alerts = () => {
 
           const phones = [owner?.رقم_الهاتف, owner?.رقم_هاتف_اضافي]
               .filter(Boolean)
-              .map((x: any) => String(x).trim())
+              .map((x) => String(x).trim())
               .filter(Boolean);
 
           if (phones.length === 0) {
@@ -462,7 +475,10 @@ export const Alerts = () => {
                     <select
                         className="w-full text-sm border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 rounded px-3 py-2 outline-none"
                         value={only}
-                        onChange={(e) => setOnly(e.target.value as any)}
+                        onChange={(e) => {
+                            const nextOnly = String(e.target.value);
+                            if (isOnlyFilter(nextOnly)) setOnly(nextOnly);
+                        }}
                     >
                         <option value="unread">غير مقروء فقط</option>
                         <option value="all">الكل</option>
@@ -495,7 +511,7 @@ export const Alerts = () => {
                 </div>
             </Card>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden min-h-[400px]">
+            <div className="app-card min-h-[400px]">
         {alerts.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center py-20 text-center">
             <div className="w-20 h-20 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-4">
@@ -575,8 +591,8 @@ export const Alerts = () => {
 
       {/* QUICK ACTION MODAL */}
       {selectedAlert && (
-          <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden animate-scale-up flex flex-col max-h-[85vh]">
+          <div className="modal-overlay app-modal-overlay animate-fade-in">
+              <div className="modal-content app-modal-content w-full max-w-lg overflow-hidden animate-scale-up flex flex-col max-h-[85vh]">
                   
                   {/* Header */}
                   <div className={`p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-start ${getAlertStyle(selectedAlert)} bg-opacity-20 dark:bg-opacity-10`}>
@@ -614,7 +630,10 @@ export const Alerts = () => {
                                       <select
                                           className="flex-1 text-sm border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 rounded px-3 py-2 outline-none"
                                           value={expiryKind}
-                                          onChange={(e) => setExpiryKind(e.target.value as any)}
+                                          onChange={(e) => {
+                                              const nextKind = String(e.target.value);
+                                              if (isExpiryKind(nextKind)) setExpiryKind(nextKind);
+                                          }}
                                       >
                                           <option value="pre_notice">إخطار مبدئي قبل نهاية العقد</option>
                                           <option value="approved">الموافقة على التجديد</option>
@@ -669,8 +688,10 @@ export const Alerts = () => {
                                           </div>
                                       )}
 
-                                      {selectedAlert.details.map((d: any) => {
-                                          const missingFields: string[] = Array.isArray(d?.missingFields) ? d.missingFields : [];
+                                      {selectedAlert.details.map((d: AlertDetail) => {
+                                          const missingFields = Array.isArray(d?.missingFields)
+                                              ? d.missingFields.map((x) => String(x ?? '').trim()).filter(Boolean)
+                                              : [];
                                           const missingText = missingFields.length ? missingFields.map(getMissingFieldLabel).join('، ') : '—';
                                           return (
                                               <div key={d.id} className="p-4">

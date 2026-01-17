@@ -4,9 +4,9 @@
 
 **أهم رابط:**
 ```
-http://localhost:3000/integration-tests
+http://localhost:5173/#/login
 ```
-👆 اضغط على "تشغيل الاختبارات" لإضافة البيانات
+👆 سجّل الدخول ثم اذهب إلى صيانة النظام لتشغيل اختبارات السيناريوهات
 
 ---
 
@@ -39,31 +39,31 @@ http://localhost:3000/integration-tests
 
 ```
 🏠 الرئيسية:
-   http://localhost:3000/
+   http://localhost:5173/#/
 
 👥 الأشخاص:
-   http://localhost:3000/people
+   http://localhost:5173/#/people
 
 🏠 العقارات:
-   http://localhost:3000/properties
+   http://localhost:5173/#/properties
 
 📄 العقود:
-   http://localhost:3000/contracts
+   http://localhost:5173/#/contracts
 
 📋 الكمبيالات:
-   http://localhost:3000/contracts (ضمن العقد)
+   http://localhost:5173/#/installments
 
 💰 العمولات:
-   http://localhost:3000/commissions
+   http://localhost:5173/#/commissions
 
-🧪 الاختبارات:
-   http://localhost:3000/integration-tests
+🧪 صيانة النظام (اختبارات/تشخيص):
+   http://localhost:5173/#/sys-maintenance
 
 📊 الإدارة:
-   http://localhost:3000/admin
+   http://localhost:5173/#/admin
 
 ⚙️ الإعدادات:
-   http://localhost:3000/settings
+   http://localhost:5173/#/settings
 ```
 
 ---
@@ -100,12 +100,14 @@ http://localhost:3000/integration-tests
 
 ### الخطوة 1: افتح المتصفح
 ```
-http://localhost:3000/integration-tests
+http://localhost:5173/#/login
 ```
 
 ### الخطوة 2: شغّل الاختبارات
 ```
-اضغط على زر: "تشغيل الاختبارات" 🚀
+بعد تسجيل الدخول اذهب إلى:
+/#/sys-maintenance
+ثم اضغط: "تشغيل الاختبارات"
 ```
 
 ### الخطوة 3: انتظر النتائج
@@ -166,7 +168,7 @@ DbService.getCommissions()
 
 ### من localStorage
 ```javascript
-// F12 → Storage → Local Storage → localhost:3000
+// F12 → Storage → Local Storage → localhost:5173
 
 // ابحث عن:
 // db_people
@@ -201,7 +203,7 @@ DbService.getCommissions()
 ## 🎓 المزيد من المعلومات
 
 ### للفهم الكامل للاختبارات:
-→ اقرأ `INTEGRATION_TESTS_GUIDE.md`
+→ اقرأ `RUN_SYSTEM_GUIDE.md`
 
 ### للبدء السريع:
 → اقرأ `START_NOW.md`
@@ -223,7 +225,7 @@ DbService.getCommissions()
 ### الخادم لا يعمل
 ```
 ✓ تأكد من: npm run dev
-✓ تحقق من: http://localhost:3000
+✓ تحقق من: http://localhost:5173/#/login
 ✓ افتح Console للأخطاء
 ```
 
@@ -240,11 +242,12 @@ DbService.getCommissions()
 
 | الروابط | الوصف |
 |----------|--------|
-| [الرئيسية](http://localhost:3000/) | الصفحة الأولى |
-| [الاختبارات](http://localhost:3000/integration-tests) | تشغيل الاختبارات |
-| [الأشخاص](http://localhost:3000/people) | قائمة الأشخاص |
-| [العقارات](http://localhost:3000/properties) | قائمة العقارات |
-| [العقود](http://localhost:3000/contracts) | قائمة العقود |
+| [تسجيل الدخول](http://localhost:5173/#/login) | الدخول للنظام |
+| [الرئيسية](http://localhost:5173/#/) | لوحة التحكم |
+| [صيانة النظام](http://localhost:5173/#/sys-maintenance) | اختبارات/تشخيص |
+| [الأشخاص](http://localhost:5173/#/people) | قائمة الأشخاص |
+| [العقارات](http://localhost:5173/#/properties) | قائمة العقارات |
+| [العقود](http://localhost:5173/#/contracts) | قائمة العقود |
 
 ---
 
@@ -257,7 +260,7 @@ DbService.getCommissions()
 ✅ الواجهة احترافية
 ✅ 100% جاهز للمراجعة
 
-👉 اذهب الآن: http://localhost:3000/integration-tests
+👉 اذهب الآن: http://localhost:5173/#/login
 ```
 
 ---

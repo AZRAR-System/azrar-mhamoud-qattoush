@@ -1,6 +1,18 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
+export interface PanelProps extends Record<string, unknown> {
+  title?: ReactNode;
+  message?: ReactNode;
+  confirmText?: ReactNode;
+  cancelText?: ReactNode | null;
+  showCancel?: boolean;
+  variant?: string;
+  onClose?(): void;
+  onConfirm?(value?: string): void;
+  onCancel?(): void;
+}
+
 export type PanelType = 
   | 'PERSON_DETAILS'
   | 'PROPERTY_DETAILS'
@@ -32,12 +44,12 @@ export interface Panel {
   id: string;
   type: PanelType;
   dataId?: string;
-  props?: any;
+  props?: PanelProps;
 }
 
 interface ModalContextType {
   activePanels: Panel[];
-  openPanel: (type: PanelType, dataId?: string, props?: any) => void;
+  openPanel: (type: PanelType, dataId?: string, props?: PanelProps) => void;
   closePanel: (id: string) => void;
   closeAll: () => void;
 }
@@ -47,7 +59,7 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [activePanels, setActivePanels] = useState<Panel[]>([]);
 
-  const openPanel = (type: PanelType, dataId?: string, props?: any) => {
+  const openPanel = (type: PanelType, dataId?: string, props?: PanelProps) => {
     const id = Math.random().toString(36).substr(2, 9);
     setActivePanels((prev) => [...prev, { id, type, dataId, props }]);
   };

@@ -35,6 +35,17 @@ export const useInAppReminderNotifier = () => {
   useEffect(() => {
     const notified = loadNotifiedSet();
 
+    type ReminderLike = {
+      id?: unknown;
+      isDone?: unknown;
+      date?: unknown;
+      time?: unknown;
+      type?: unknown;
+      title?: unknown;
+    };
+
+    const isReminderLike = (v: unknown): v is ReminderLike => typeof v === 'object' && v !== null;
+
     const toMinutes = (hm: unknown): number | null => {
       const raw = String(hm || '').trim();
       if (!raw) return null;
@@ -45,22 +56,22 @@ export const useInAppReminderNotifier = () => {
 
     const scan = () => {
       const today = formatDateOnly(new Date());
-      const reminders = (DbService.getReminders?.() || []).filter((r: any) => !r?.isDone);
+      const reminders = (DbService.getReminders?.() || []).filter((r: unknown) => isReminderLike(r) && !r.isDone);
 
       const now = new Date();
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-      const dueToday = reminders.filter((r: any) => String(r?.date) === today);
+      const dueToday = reminders.filter((r) => String(r.date) === today);
       for (const r of dueToday) {
-        const id = String(r?.id || '');
+        const id = String(r.id || '');
         if (!id || notified.has(id)) continue;
 
-        const dueMinutes = toMinutes((r as any)?.time);
+        const dueMinutes = toMinutes(r.time);
         // If a time is set, only notify when the time has arrived.
         if (dueMinutes !== null && nowMinutes < dueMinutes) continue;
 
-        const title = String(r?.type) === 'Task' ? 'مهمة اليوم' : 'تذكير اليوم';
-        const message = String(r?.title || '').trim() || 'لديك تذكير جديد اليوم';
+        const title = String(r.type) === 'Task' ? 'مهمة اليوم' : 'تذكير اليوم';
+        const message = String(r.title || '').trim() || 'لديك تذكير جديد اليوم';
 
         notificationService.warning(message, title, { category: 'reminders', sound: true, showNotification: true });
 

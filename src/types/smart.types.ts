@@ -1,6 +1,6 @@
 /**
- * © 2025 — Developed by Mahmoud Qattoush
- * AZRAR Real Estate Management System — All Rights Reserved
+ * ï¿½ 2025 ï¿½ Developed by Mahmoud Qattoush
+ * AZRAR Real Estate Management System ï¿½ All Rights Reserved
  * 
  * Smart Engine types
  */
@@ -10,13 +10,13 @@ export type SmartCategory = 'person' | 'property' | 'contract' | 'maintenance';
 export interface SmartBehaviorPattern {
     category: SmartCategory;
     field: string;
-    value: any;
+    value: unknown;
     timestamp: number;
 }
 
 export interface SmartSuggestion {
     field: string;
-    suggestedValue: any;
+    suggestedValue: unknown;
     confidence: number; // 0 to 1
     reason?: string;
 }
