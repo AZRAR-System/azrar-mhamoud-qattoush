@@ -217,7 +217,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     };
 
     const ensureCommissionRecord = () => {
-        if (isDesktop) return undefined;
+        if (desktopUnsupported) return undefined;
         const existing = DbService.getCommissions().find((x) => x.رقم_العقد === id);
         if (existing) return existing;
 
@@ -234,8 +234,8 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     };
 
     const handleSetOpportunityNumber = async () => {
-        if (isDesktop) {
-            toast.error('هذه الميزة غير مدعومة في وضع الديسكتوب الحالي');
+        if (desktopUnsupported) {
+            toast.error('هذه الميزة تحتاج وضع السرعة/SQL في نسخة الديسكتوب');
             return;
         }
         const rec = ensureCommissionRecord();
@@ -265,8 +265,8 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     };
 
     const handleTogglePropertyIntro = (enabled: boolean) => {
-        if (isDesktop) {
-            toast.error('هذه الميزة غير مدعومة في وضع الديسكتوب الحالي');
+        if (desktopUnsupported) {
+            toast.error('هذه الميزة تحتاج وضع السرعة/SQL في نسخة الديسكتوب');
             return;
         }
         const rec = ensureCommissionRecord();
