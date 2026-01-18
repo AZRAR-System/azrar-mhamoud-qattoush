@@ -12,6 +12,8 @@ import { useToast } from '@/context/ToastContext';
 import { buildWhatsAppLink, collectWhatsAppPhones } from '@/utils/whatsapp';
 import { openExternalUrl } from '@/utils/externalLink';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 type ContactItem = {
   id: string;
@@ -163,6 +165,26 @@ export const BulkWhatsApp: React.FC = () => {
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [contactsList]);
+
+  const contactsPageSize = useResponsivePageSize({ base: 10, sm: 14, md: 20, lg: 24, xl: 30, '2xl': 40 });
+  const [contactsPage, setContactsPage] = useState(1);
+  const contactsPageCount = useMemo(
+    () => Math.max(1, Math.ceil((contacts.length || 0) / contactsPageSize)),
+    [contacts.length, contactsPageSize]
+  );
+
+  useEffect(() => {
+    setContactsPage(1);
+  }, [contactsPageSize, contacts.length]);
+
+  useEffect(() => {
+    setContactsPage((p) => Math.min(Math.max(1, p), contactsPageCount));
+  }, [contactsPageCount]);
+
+  const visibleContacts = useMemo(() => {
+    const start = (contactsPage - 1) * contactsPageSize;
+    return contacts.slice(start, start + contactsPageSize);
+  }, [contacts, contactsPage, contactsPageSize]);
 
   const selectedIds = useMemo(() => Object.keys(selected).filter((id) => selected[id]), [selected]);
 
@@ -514,16 +536,19 @@ export const BulkWhatsApp: React.FC = () => {
             <MessageCircle size={18} />
             جهات الاتصال
           </div>
-          <Button variant="secondary" onClick={toggleSelectAll} disabled={isRunning || contacts.length === 0}>
-            تحديد/إلغاء الكل
-          </Button>
+          <div className="flex items-center gap-2">
+            <PaginationControls page={contactsPage} pageCount={contactsPageCount} onPageChange={setContactsPage} />
+            <Button variant="secondary" onClick={toggleSelectAll} disabled={isRunning || contacts.length === 0}>
+              تحديد/إلغاء الكل
+            </Button>
+          </div>
         </div>
 
         {contacts.length === 0 ? (
           <div className="p-8 text-center text-slate-600 dark:text-slate-400">لا توجد بيانات أشخاص لعرضها</div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-slate-700 max-h-[520px] overflow-auto">
-            {contacts.map((c) => {
+            {visibleContacts.map((c) => {
               const phone = normalizePhoneLoose(c.phone) || normalizePhoneLoose(c.extraPhone);
               const disabled = !phone;
               const checked = !!selected[c.id];

@@ -11,7 +11,9 @@
      Header: 40
      Sidebar: 50
      Dropdown/Tooltip/Popover: 100
-     Toast: 1000
+      Slide-over Panel Overlay: 1500
+      Slide-over Panel Content: 1600
+      Toast: 4000
      Modal Overlay: 2000
      Modal Content: 2100
      Confirm Modal: 3000
@@ -21,7 +23,9 @@
   --z-header: 40;
   --z-sidebar: 50;
   --z-dropdown: 100;
-  --z-toast: 1000;
+    --z-panel-overlay: 1500;
+    --z-panel-content: 1600;
+  --z-toast: 4000;
   --z-modal-overlay: 2000;
   --z-modal-content: 2100;
   --z-confirm: 3000;
@@ -120,6 +124,16 @@ body,
 .modal-content {
   position: relative;
   z-index: var(--z-modal-content);
+}
+
+/* Slide-over panels should be below full modals but above the app UI */
+.panel-overlay {
+  z-index: var(--z-panel-overlay);
+}
+
+.panel-content {
+  position: relative;
+  z-index: var(--z-panel-content);
 }
 
 .confirm-overlay {

@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 Set-Location -Path $PSScriptRoot
 
 param(
+	[string]$DbPath = '',
 	[string]$DbDir = '',
 	[ValidateSet('WAL','DELETE')][string]$JournalMode = 'WAL'
 )
@@ -11,7 +12,9 @@ Write-Host "AZRAR Real Estate Management System" -ForegroundColor Cyan
 Write-Host "Starting Standalone Desktop App (Offline)" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor DarkCyan
 
-if ($DbDir) {
+if ($DbPath) {
+	$env:AZRAR_DESKTOP_DB_PATH = $DbPath
+} elseif ($DbDir) {
 	$env:AZRAR_DESKTOP_DB_DIR = $DbDir
 }
 $env:AZRAR_DESKTOP_JOURNAL_MODE = $JournalMode

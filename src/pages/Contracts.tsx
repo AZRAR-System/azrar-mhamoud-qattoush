@@ -264,7 +264,7 @@ const ContractCard = React.memo(({
 });
 
 export const Contracts: React.FC = () => {
-    const pageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 18, xl: 24, '2xl': 32 });
+    const pageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 16, '2xl': 20 });
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
@@ -281,7 +281,17 @@ export const Contracts: React.FC = () => {
     const [fastLoading, setFastLoading] = useState(false);
     const [fastError, setFastError] = useState<string>('');
     const [fastPage, setFastPage] = useState(1);
-    const fastPageSize = pageSize;
+    // Desktop fast paging uses a stable SQL page size (do not tie to responsive UI sizing).
+    // Keeping this consistent prevents "التالي" from being disabled when the backend returns a fixed page size.
+    const fastPageSize = 8;
+    const fastPageCount = useMemo(() => {
+        const total = Number(fastTotal || 0) || 0;
+        if (total > 0) return Math.max(1, Math.ceil(total / fastPageSize));
+
+        // Fallback when total isn't available: infer if next page exists.
+        const hasMaybeNext = Array.isArray(fastRows) && fastRows.length === fastPageSize;
+        return Math.max(1, hasMaybeNext ? fastPage + 1 : fastPage);
+    }, [fastPage, fastPageSize, fastRows, fastTotal]);
     const [fastReload, setFastReload] = useState(0);
     const warnedFastErrorRef = useRef<string>('');
 
@@ -422,6 +432,11 @@ export const Contracts: React.FC = () => {
         if (!isDesktopFast) return;
         setFastPage(1);
     }, [isDesktopFast, searchTerm, activeStatus, advFilters.createdMonth, fastPageSize]);
+
+    useEffect(() => {
+        if (!isDesktopFast) return;
+        setFastPage((p) => Math.min(Math.max(1, p), fastPageCount));
+    }, [fastPageCount, isDesktopFast]);
 
     useEffect(() => {
         if (isDesktopFast) return;
@@ -1174,7 +1189,7 @@ export const Contracts: React.FC = () => {
                           size="sm"
                           variant="secondary"
                           disabled={uiPage + 1 >= uiPageCount}
-                          onClick={() => setUiPage((p) => p + 1)}
+                          onClick={() => setUiPage((p) => Math.min(Math.max(0, uiPageCount - 1), p + 1))}
                       >
                           التالي
                       </Button>
@@ -1233,16 +1248,20 @@ export const Contracts: React.FC = () => {
             {isDesktopFast ? (
                 <div className="flex items-center justify-between gap-3 mt-4 text-sm">
                     <div className="text-slate-500">
-                        النتائج: {fastTotal.toLocaleString('ar-JO')} • الصفحة {fastPage} / {Math.max(1, Math.ceil(fastTotal / fastPageSize))}
+                        النتائج: {fastTotal.toLocaleString('ar-JO')} • الصفحة {fastPage} / {fastPageCount}
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="secondary" disabled={fastPage <= 1 || fastLoading} onClick={() => setFastPage((p) => Math.max(1, p - 1))}>
+                        <Button
+                            variant="secondary"
+                            disabled={fastPage <= 1 || fastLoading}
+                            onClick={() => setFastPage((p) => Math.max(1, Math.min(fastPageCount, p - 1)))}
+                        >
                             السابق
                         </Button>
                         <Button
                             variant="secondary"
-                            disabled={fastLoading || fastPage >= Math.ceil(Math.max(1, fastTotal) / fastPageSize)}
-                            onClick={() => setFastPage((p) => p + 1)}
+                            disabled={fastLoading || fastPage >= fastPageCount}
+                            onClick={() => setFastPage((p) => Math.min(fastPageCount, p + 1))}
                         >
                             التالي
                         </Button>

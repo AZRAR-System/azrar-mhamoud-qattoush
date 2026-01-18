@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, CheckCircle, AlertTriangle, Info, AlertCircle } from 'lucide-react';
 import { audioService } from '@/services/audioService';
 import { notificationService } from '@/services/notificationService';
+import { AppModal } from '@/components/ui/AppModal';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info' | 'delete';
 
@@ -240,28 +241,20 @@ const ConfirmDialog: React.FC<{
   onCancel: () => void
 }> = ({ options, onConfirm, onCancel }) => {
   return (
-    <div className="confirm-overlay fixed inset-0 flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="modal-content app-modal-content max-w-md w-full animate-scale-up">
-        {/* Header */}
-        <div className={`p-6 border-b border-slate-200 dark:border-slate-700 ${
-          options.isDangerous 
-            ? 'bg-gradient-to-r from-red-50 to-white dark:from-red-900/20 dark:to-slate-800' 
-            : 'bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/20 dark:to-slate-800'
-        }`}>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            {options.title}
-          </h2>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-            {options.message}
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex gap-3">
+    <AppModal
+      open
+      onClose={onCancel}
+      size="md"
+      closeOnBackdrop={false}
+      showCloseButton={false}
+      headerClassName={
+        options.isDangerous
+          ? 'bg-gradient-to-r from-red-50 to-white dark:from-red-900/20 dark:to-slate-800'
+          : 'bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/20 dark:to-slate-800'
+      }
+      title={options.title}
+      footer={
+        <div className="flex gap-3">
           <button
             onClick={onCancel}
             className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
@@ -271,15 +264,15 @@ const ConfirmDialog: React.FC<{
           <button
             onClick={onConfirm}
             className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium transition-colors ${
-              options.isDangerous
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-indigo-600 hover:bg-indigo-700'
+              options.isDangerous ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
             }`}
           >
             {options.confirmText || 'تأكيد'}
           </button>
         </div>
-      </div>
-    </div>
+      }
+    >
+      <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{options.message}</p>
+    </AppModal>
   );
 };

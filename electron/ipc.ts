@@ -185,6 +185,48 @@ const MAX_DB_IMPORT_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
 const MAX_TEMPLATE_BYTES = 25 * 1024 * 1024;
 const MAX_JSON_BACKUP_BYTES = 500 * 1024 * 1024; // 500MB
 
+const DB_KEYS = {
+  PEOPLE: 'db_people',
+  ROLES: 'db_roles',
+  PROPERTIES: 'db_properties',
+  CONTRACTS: 'db_contracts',
+  BLACKLIST: 'db_blacklist',
+  OWNERSHIP_HISTORY: 'db_ownership_history',
+  INSPECTIONS: 'db_property_inspections',
+  SALES_LISTINGS: 'db_sales_listings',
+  SALES_AGREEMENTS: 'db_sales_agreements',
+  SALES_OFFERS: 'db_sales_offers',
+  EXTERNAL_COMMISSIONS: 'db_external_commissions',
+  FOLLOW_UPS: 'db_followups',
+  REMINDERS: 'db_reminders',
+  ATTACHMENTS: 'db_attachments',
+  ACTIVITIES: 'db_activities',
+  NOTES: 'db_notes',
+} as const;
+
+const parseJsonArray = (raw: string | null): unknown[] => {
+  const s = String(raw ?? '').trim();
+  if (!s) return [];
+  try {
+    const parsed: unknown = JSON.parse(s);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const kvGetArray = (key: string): unknown[] => parseJsonArray(kvGet(key));
+
+const kvSetArray = (key: string, items: unknown[]): void => {
+  kvSet(key, JSON.stringify(items ?? []));
+};
+
+const mergeRecords = (base: unknown, patch: unknown): unknown => {
+  if (!isRecord(base)) return isRecord(patch) ? patch : base;
+  if (!isRecord(patch)) return base;
+  return { ...base, ...patch };
+};
+
 const isUncPath = (p: string): boolean => {
   const s = String(p || '');
   return s.startsWith('\\\\') || s.startsWith('//');
@@ -1284,6 +1326,313 @@ export function registerIpcHandlers() {
       return domainContractDetails(contractId);
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل تفاصيل العقد') };
+    }
+  });
+
+  // Fast-mode helpers for legacy arrays (read-only / targeted scans)
+  ipcMain.handle('domain:ownership:history', (_e, payload: unknown) => {
+    try {
+      const propertyId = String(getField(payload, 'propertyId') ?? '').trim();
+      const personId = String(getField(payload, 'personId') ?? '').trim();
+
+      const all = kvGetArray(DB_KEYS.OWNERSHIP_HISTORY);
+      const items = all.filter((row) => {
+        const rec = isRecord(row) ? row : null;
+        if (!rec) return false;
+        if (propertyId) return String(rec['رقم_العقار'] ?? '').trim() === propertyId;
+        if (personId) {
+          const oldId = String(rec['رقم_المالك_القديم'] ?? '').trim();
+          const newId = String(rec['رقم_المالك_الجديد'] ?? '').trim();
+          return oldId === personId || newId === personId;
+        }
+        return true;
+      });
+
+      return { ok: true, items };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل سجل الملكية') };
+    }
+  });
+
+  ipcMain.handle('domain:property:inspections', (_e, payload: unknown) => {
+    try {
+      const propertyId = String(getField(payload, 'propertyId') ?? payload ?? '').trim();
+      if (!propertyId) return { ok: false, message: 'معرف غير صالح' };
+      const all = kvGetArray(DB_KEYS.INSPECTIONS);
+      const items = all
+        .filter((row) => {
+          const rec = isRecord(row) ? row : null;
+          if (!rec) return false;
+          return String(rec['propertyId'] ?? '').trim() === propertyId;
+        })
+        .slice()
+        .sort((a, b) => {
+          const aa = isRecord(a) ? String(a['inspectionDate'] ?? '').trim() : '';
+          const bb = isRecord(b) ? String(b['inspectionDate'] ?? '').trim() : '';
+          return bb.localeCompare(aa);
+        });
+      return { ok: true, items };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل الكشوفات') };
+    }
+  });
+
+  ipcMain.handle('domain:sales:person', (_e, payload: unknown) => {
+    try {
+      const personId = String(getField(payload, 'personId') ?? payload ?? '').trim();
+      if (!personId) return { ok: false, message: 'معرف غير صالح' };
+
+      const listings = kvGetArray(DB_KEYS.SALES_LISTINGS);
+      const agreements = kvGetArray(DB_KEYS.SALES_AGREEMENTS);
+
+      const listingsById = new Map<string, unknown>();
+      for (const l of listings) {
+        if (!isRecord(l)) continue;
+        const id = String(l['id'] ?? '').trim();
+        if (!id) continue;
+        listingsById.set(id, l);
+      }
+
+      const listingsForOwner = listings.filter((l) => isRecord(l) && String(l['رقم_المالك'] ?? '').trim() === personId);
+
+      const agreementsForPerson = agreements.filter((a) => {
+        const rec = isRecord(a) ? a : null;
+        if (!rec) return false;
+        const buyer = String(rec['رقم_المشتري'] ?? '').trim();
+        if (buyer === personId) return true;
+        const seller = String(rec['رقم_البائع'] ?? '').trim();
+        if (seller === personId) return true;
+        const listingId = String(rec['listingId'] ?? '').trim();
+        const l = listingId ? listingsById.get(listingId) : undefined;
+        if (isRecord(l)) {
+          const owner = String(l['رقم_المالك'] ?? '').trim();
+          if (owner === personId) return true;
+        }
+        return false;
+      });
+
+      return { ok: true, listings: listingsForOwner, agreements: agreementsForPerson };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل بيانات البيع') };
+    }
+  });
+
+  ipcMain.handle('domain:sales:property', (_e, payload: unknown) => {
+    try {
+      const propertyId = String(getField(payload, 'propertyId') ?? payload ?? '').trim();
+      if (!propertyId) return { ok: false, message: 'معرف غير صالح' };
+
+      const listings = kvGetArray(DB_KEYS.SALES_LISTINGS);
+      const agreements = kvGetArray(DB_KEYS.SALES_AGREEMENTS);
+
+      const listingsById = new Map<string, unknown>();
+      for (const l of listings) {
+        if (!isRecord(l)) continue;
+        const id = String(l['id'] ?? '').trim();
+        if (!id) continue;
+        listingsById.set(id, l);
+      }
+
+      const listingsForProperty = listings
+        .filter((l) => isRecord(l) && String(l['رقم_العقار'] ?? '').trim() === propertyId)
+        .slice()
+        .sort((a, b) => {
+          const aa = isRecord(a) ? String(a['تاريخ_العرض'] ?? '').trim() : '';
+          const bb = isRecord(b) ? String(b['تاريخ_العرض'] ?? '').trim() : '';
+          return bb.localeCompare(aa);
+        });
+
+      const agreementsForProperty = agreements
+        .map((a) => {
+          const rec = isRecord(a) ? a : null;
+          if (!rec) return null;
+          const listingId = String(rec['listingId'] ?? '').trim();
+          const listing = listingId ? listingsById.get(listingId) : undefined;
+          const propId = String(rec['رقم_العقار'] ?? (isRecord(listing) ? listing['رقم_العقار'] : '') ?? '').trim();
+          if (propId !== propertyId) return null;
+          const sellerId = String(rec['رقم_البائع'] ?? (isRecord(listing) ? listing['رقم_المالك'] : '') ?? '').trim();
+          return { a, propId, sellerId, listing };
+        })
+        .filter((x) => x !== null);
+
+      return { ok: true, listings: listingsForProperty, agreements: agreementsForProperty };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحميل اتفاقيات البيع') };
+    }
+  });
+
+  // Mutations for details panels
+  ipcMain.handle('domain:blacklist:remove', (_e, payload: unknown) => {
+    try {
+      const id = String(getField(payload, 'id') ?? payload ?? '').trim();
+      if (!id) return { ok: false, message: 'معرف غير صالح' };
+      const all = kvGetArray(DB_KEYS.BLACKLIST);
+      let changed = false;
+
+      const next = all.map((row) => {
+        if (!isRecord(row)) return row;
+        if (id.startsWith('BL-')) {
+          if (String(row['id'] ?? '').trim() !== id) return row;
+        } else {
+          const pid = String(row['personId'] ?? '').trim();
+          const active = Boolean(row['isActive']);
+          if (pid !== id || !active) return row;
+        }
+        changed = true;
+        return { ...row, isActive: false };
+      });
+
+      if (changed) kvSetArray(DB_KEYS.BLACKLIST, next);
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل رفع الحظر') };
+    }
+  });
+
+  ipcMain.handle('domain:people:delete', (_e, payload: unknown) => {
+    try {
+      const personId = String(getField(payload, 'personId') ?? payload ?? '').trim();
+      if (!personId) return { ok: false, message: 'معرف غير صالح' };
+
+      const props = kvGetArray(DB_KEYS.PROPERTIES);
+      const hasOwnedProps = props.some((p) => isRecord(p) && String(p['رقم_المالك'] ?? '').trim() === personId);
+      if (hasOwnedProps) return { ok: false, message: 'لا يمكن حذف المالك لوجود عقارات مرتبطة به' };
+
+      const contracts = kvGetArray(DB_KEYS.CONTRACTS);
+      const hasContracts = contracts.some((c) => isRecord(c) && String(c['رقم_المستاجر'] ?? '').trim() === personId);
+      if (hasContracts) return { ok: false, message: 'لا يمكن حذف الشخص لوجود عقود مرتبطة به' };
+
+      const people = kvGetArray(DB_KEYS.PEOPLE);
+      const nextPeople = people.filter((p) => !(isRecord(p) && String(p['رقم_الشخص'] ?? '').trim() === personId));
+      kvSetArray(DB_KEYS.PEOPLE, nextPeople);
+
+      const roles = kvGetArray(DB_KEYS.ROLES);
+      const nextRoles = roles.filter((r) => !(isRecord(r) && String(r['رقم_الشخص'] ?? '').trim() === personId));
+      kvSetArray(DB_KEYS.ROLES, nextRoles);
+
+      // Best-effort: deactivate any active blacklist records for the person.
+      const bl = kvGetArray(DB_KEYS.BLACKLIST);
+      const nextBl = bl.map((row) => {
+        if (!isRecord(row)) return row;
+        if (String(row['personId'] ?? '').trim() !== personId) return row;
+        if (!row['isActive']) return row;
+        return { ...row, isActive: false };
+      });
+      kvSetArray(DB_KEYS.BLACKLIST, nextBl);
+
+      return { ok: true, message: 'تم حذف الشخص' };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل حذف الشخص') };
+    }
+  });
+
+  ipcMain.handle('domain:property:update', (_e, payload: unknown) => {
+    try {
+      const propertyId = String(getField(payload, 'propertyId') ?? payload ?? '').trim();
+      if (!propertyId) return { ok: false, message: 'معرف غير صالح' };
+      const patchRaw = getField(payload, 'patch');
+      const patch = isRecord(patchRaw) ? patchRaw : {};
+
+      const all = kvGetArray(DB_KEYS.PROPERTIES);
+      let updated: unknown = null;
+      const next = all.map((row) => {
+        if (!isRecord(row)) return row;
+        if (String(row['رقم_العقار'] ?? '').trim() !== propertyId) return row;
+
+        const patch2: Record<string, unknown> = { ...patch };
+        if (typeof patch2['حالة_العقار'] === 'string' && patch2['IsRented'] === undefined) {
+          patch2['IsRented'] = String(patch2['حالة_العقار']) === 'مؤجر';
+        }
+
+        const merged = mergeRecords(row, patch2);
+        updated = merged;
+        return merged;
+      });
+
+      if (!updated) return { ok: false, message: 'العقار غير موجود' };
+      kvSetArray(DB_KEYS.PROPERTIES, next);
+      return { ok: true, data: updated };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل تحديث العقار') };
+    }
+  });
+
+  ipcMain.handle('domain:followups:add', (_e, payload: unknown) => {
+    try {
+      const taskRaw = getField(payload, 'task');
+      if (!isRecord(taskRaw)) return { ok: false, message: 'بيانات غير صالحة' };
+      const task = taskRaw;
+
+      const id = `FUP-${Date.now()}`;
+      const nowIso = new Date().toISOString();
+
+      // Link general tasks to reminders for unified notifications/alerts (best-effort).
+      let reminderId = String(task['reminderId'] ?? '').trim();
+      const type = String(task['type'] ?? '').trim();
+      const dueDate = String(task['dueDate'] ?? '').trim();
+      const title = String(task['task'] ?? '').trim();
+
+      if (!reminderId && type === 'Task' && dueDate && title) {
+        const reminders = kvGetArray(DB_KEYS.REMINDERS);
+        reminderId = `REM-${Date.now()}`;
+        const nextReminders = [...reminders, { ...task, id: reminderId, title, date: dueDate, isDone: false }];
+        kvSetArray(DB_KEYS.REMINDERS, nextReminders);
+      }
+
+      const followups = kvGetArray(DB_KEYS.FOLLOW_UPS);
+      const nextFollowups = [
+        ...followups,
+        {
+          ...task,
+          id,
+          status: 'Pending',
+          reminderId: reminderId || undefined,
+          createdAt: String(task['createdAt'] ?? nowIso),
+          updatedAt: nowIso,
+        },
+      ];
+      kvSetArray(DB_KEYS.FOLLOW_UPS, nextFollowups);
+
+      return { ok: true, id, reminderId: reminderId || undefined };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل إضافة المتابعة') };
+    }
+  });
+
+  ipcMain.handle('domain:inspection:delete', (_e, payload: unknown) => {
+    try {
+      const id = String(getField(payload, 'id') ?? payload ?? '').trim();
+      if (!id) return { ok: false, message: 'معرف غير صالح' };
+      const all = kvGetArray(DB_KEYS.INSPECTIONS);
+      const next = all.filter((row) => !(isRecord(row) && String(row['id'] ?? '').trim() === id));
+      kvSetArray(DB_KEYS.INSPECTIONS, next);
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل حذف الكشف') };
+    }
+  });
+
+  ipcMain.handle('domain:sales:agreement:delete', (_e, payload: unknown) => {
+    try {
+      const id = String(getField(payload, 'id') ?? payload ?? '').trim();
+      if (!id) return { ok: false, message: 'معرف غير صالح' };
+
+      const agreements = kvGetArray(DB_KEYS.SALES_AGREEMENTS);
+      const nextAgreements = agreements.filter((row) => !(isRecord(row) && String(row['id'] ?? '').trim() === id));
+      kvSetArray(DB_KEYS.SALES_AGREEMENTS, nextAgreements);
+
+      // Best-effort cleanup: remove associated external commission records if present.
+      const commissions = kvGetArray(DB_KEYS.EXTERNAL_COMMISSIONS);
+      const nextCommissions = commissions.filter((row) => {
+        if (!isRecord(row)) return true;
+        const agreementId = String(row['agreementId'] ?? row['salesAgreementId'] ?? '').trim();
+        return agreementId !== id;
+      });
+      if (nextCommissions.length !== commissions.length) kvSetArray(DB_KEYS.EXTERNAL_COMMISSIONS, nextCommissions);
+
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل حذف اتفاقية البيع') };
     }
   });
 

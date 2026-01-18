@@ -151,6 +151,9 @@ export function getDb(): SqliteDb {
 
   const database = (db = new BetterSqlite3Ctor(dbPath) as SqliteDb);
   database.pragma(`journal_mode = ${getJournalMode()}`);
+  // Foreign keys are OFF by default in SQLite; enable enforcement per connection.
+  // This is forward-compatible with planned FK constraints and helps catch bad writes early.
+  database.pragma('foreign_keys = ON');
   // Performance + stability settings for long-term usage.
   // WAL is the default (see getJournalMode) and works well for desktop apps.
   database.pragma('busy_timeout = 5000');
@@ -3137,19 +3140,45 @@ export function kvGetDeletedAt(key: string): string | null {
   return row?.deletedAt ?? null;
 }
 
+function normalizeKvValueOnWrite(key: string, value: string): string {
+  // Only enforce invariants on the specific KV dataset requested.
+  if (key !== 'db_contracts') return value;
+
+  const parsed = safeJsonParseArray(value);
+  if (!Array.isArray(parsed) || parsed.length === 0) return value;
+
+  let changed = false;
+  const normalized = parsed.map((item) => {
+    const rec = toRecord(item);
+    if (!Object.keys(rec).length) return item;
+
+    const raw = rec['تكرار_الدفع'];
+    const n = Number(raw);
+    const needsDefault = !Number.isFinite(n) || n <= 0;
+    if (!needsDefault) return item;
+
+    changed = true;
+    return { ...rec, 'تكرار_الدفع': 12 };
+  });
+
+  return changed ? JSON.stringify(normalized) : value;
+}
+
 export function kvSet(key: string, value: string): void {
   // Any write cancels a pending deletion marker.
   getDb().prepare('DELETE FROM kv_deleted WHERE k = ?').run(key);
+  const normalizedValue = normalizeKvValueOnWrite(key, value);
   getDb()
     .prepare('INSERT INTO kv (k, v, updatedAt) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v, updatedAt=excluded.updatedAt')
-    .run(key, value, new Date().toISOString());
+    .run(key, normalizedValue, new Date().toISOString());
 }
 
 export function kvSetWithUpdatedAt(key: string, value: string, updatedAtIso: string): void {
   getDb().prepare('DELETE FROM kv_deleted WHERE k = ?').run(key);
+  const normalizedValue = normalizeKvValueOnWrite(key, value);
   getDb()
     .prepare('INSERT INTO kv (k, v, updatedAt) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v, updatedAt=excluded.updatedAt')
-    .run(key, value, updatedAtIso);
+    .run(key, normalizedValue, updatedAtIso);
 }
 
 export function kvDelete(key: string): void {

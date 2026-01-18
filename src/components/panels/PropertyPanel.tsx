@@ -15,7 +15,17 @@ import { isTenancyRelevant } from '@/utils/tenancy';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import type { FollowUpTask, PropertyDetailsResult, PropertyInspection, سجل_الملكية_tbl, اتفاقيات_البيع_tbl, عروض_البيع_tbl, الأشخاص_tbl, العقود_tbl } from '@/types';
 import { storage } from '@/services/storage';
-import { domainGetSmart, propertyContractsSmart } from '@/services/domainQueries';
+import {
+    addFollowUpSmart,
+    deleteInspectionSmart,
+    deleteSalesAgreementSmart,
+    domainGetSmart,
+    ownershipHistorySmart,
+    propertyContractsSmart,
+    propertyInspectionsSmart,
+    salesForPropertySmart,
+    updatePropertySmart,
+} from '@/services/domainQueries';
 import { pickBestTenancyContract } from '@/utils/tenancy';
 import { ROUTE_PATHS } from '@/routes/paths';
 
@@ -26,6 +36,11 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         byContractId: Map<string, { tenantName?: string; guarantorName?: string }>;
     }>({ byContractId: new Map() });
     const [inspectionPeople, setInspectionPeople] = useState<{ inspector?: الأشخاص_tbl | null; client?: الأشخاص_tbl | null }>({});
+        const [fastInspections, setFastInspections] = useState<PropertyInspection[]>([]);
+        const [fastOwnershipHistory, setFastOwnershipHistory] = useState<سجل_الملكية_tbl[]>([]);
+        const [fastSalesListings, setFastSalesListings] = useState<عروض_البيع_tbl[]>([]);
+        type SaleAgreementItem = { a: اتفاقيات_البيع_tbl; propId?: string; sellerId?: string; listing?: عروض_البيع_tbl };
+        const [fastSaleAgreements, setFastSaleAgreements] = useState<SaleAgreementItem[]>([]);
   const [activeTab, setActiveTab] = useState<'info' | 'activity'>('info');
   const { openPanel } = useSmartModal();
     const toast = useToast();
@@ -52,7 +67,14 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 !!storage.isDesktop() &&
                 typeof window !== 'undefined' &&
                 !!window.desktopDb?.domainGet &&
-                !!window.desktopDb?.domainPropertyContracts
+                !!window.desktopDb?.domainPropertyContracts &&
+                !!window.desktopDb?.domainPropertyInspections &&
+                !!window.desktopDb?.domainOwnershipHistory &&
+                !!window.desktopDb?.domainSalesForProperty &&
+                !!window.desktopDb?.domainPropertyUpdate &&
+                !!window.desktopDb?.domainInspectionDelete &&
+                !!window.desktopDb?.domainFollowUpAdd &&
+                !!window.desktopDb?.domainSalesAgreementDelete
             );
         } catch {
             return false;
@@ -64,12 +86,20 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     const reload = useCallback(async () => {
         if (desktopUnsupported) {
             setData(null);
+            setFastInspections([]);
+            setFastOwnershipHistory([]);
+            setFastSalesListings([]);
+            setFastSaleAgreements([]);
             return;
         }
 
         if (!isDesktopFast) {
             const d = DbService.getPropertyDetails(id);
             if (d) setData(d);
+            setFastInspections([]);
+            setFastOwnershipHistory([]);
+            setFastSalesListings([]);
+            setFastSaleAgreements([]);
             return;
         }
 
@@ -114,10 +144,24 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 currentContract: activeContract,
                 history,
             });
+
+            const [inspections, ownership, sales] = await Promise.all([
+                propertyInspectionsSmart(id),
+                ownershipHistorySmart({ propertyId: id }),
+                salesForPropertySmart(id),
+            ]);
+            setFastInspections(Array.isArray(inspections) ? (inspections as PropertyInspection[]) : []);
+            setFastOwnershipHistory(Array.isArray(ownership) ? (ownership as سجل_الملكية_tbl[]) : []);
+            setFastSalesListings(sales && Array.isArray(sales.listings) ? (sales.listings as عروض_البيع_tbl[]) : []);
+            setFastSaleAgreements(sales && Array.isArray(sales.agreements) ? (sales.agreements as SaleAgreementItem[]) : []);
         } catch {
             // Desktop focus: never fall back to legacy scans in renderer.
             if (isDesktop) {
                 setData(null);
+                setFastInspections([]);
+                setFastOwnershipHistory([]);
+                setFastSalesListings([]);
+                setFastSaleAgreements([]);
                 return;
             }
             const d = DbService.getPropertyDetails(id);
@@ -131,7 +175,9 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
     // Hooks MUST run on every render (prevents React error #310).
         const propertyId = String(data?.property?.رقم_العقار || '').trim();
-        const inspectionsForProperty: PropertyInspection[] = propertyId ? DbService.getPropertyInspections(propertyId) : [];
+        const inspectionsForProperty: PropertyInspection[] = propertyId
+            ? (isDesktopFast ? fastInspections : DbService.getPropertyInspections(propertyId))
+            : [];
     const latestInspection = inspectionsForProperty[0] || null;
 
     useEffect(() => {
@@ -229,7 +275,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     if (!data) return <div className="p-10 text-center">جاري التحميل...</div>;
 
     const { property: p, owner, currentTenant, currentGuarantor, currentContract } = data;
-    const ownershipHistory = DbService.getOwnershipHistory(p.رقم_العقار);
+    const ownershipHistory = isDesktopFast ? fastOwnershipHistory : DbService.getOwnershipHistory(p.رقم_العقار);
 
     const inspectionInspector = inspectionPeople.inspector ?? null;
     const inspectionClient = inspectionPeople.client ?? null;
@@ -244,21 +290,22 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         });
         if (!ok) return;
 
-        const res = DbService.deleteInspection(inspectionId);
+        const res = await deleteInspectionSmart(inspectionId);
         if (res.success) {
-            toast.success(res.message);
+            toast.success(res.message || 'تم الحذف');
             reload();
         } else {
-            toast.error(res.message);
+            toast.error(res.message || 'فشل الحذف');
         }
     };
 
     const salesListingsForProperty = (() => {
+        if (isDesktopFast) return fastSalesListings;
         const all = DbService.getSalesListings();
         return all
-            .filter(l => String(l.رقم_العقار) === String(p.رقم_العقار))
+            .filter((l) => String(l.رقم_العقار) === String(p.رقم_العقار))
             .slice()
-                .sort((a: عروض_البيع_tbl, b: عروض_البيع_tbl) => String(b.تاريخ_العرض || '').localeCompare(String(a.تاريخ_العرض || '')));
+            .sort((a: عروض_البيع_tbl, b: عروض_البيع_tbl) => String(b.تاريخ_العرض || '').localeCompare(String(a.تاريخ_العرض || '')));
     })();
 
     const openSalesListing = salesListingsForProperty.find(l => l.الحالة !== 'Sold' && l.الحالة !== 'Cancelled')
@@ -311,12 +358,17 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             note: String(note || '').trim() || undefined,
         };
 
-        DbService.addFollowUp(task);
+        const res = await addFollowUpSmart(task as unknown as Record<string, unknown>);
+        if (!res.success) {
+            dialogs.toast.error(res.message || 'فشل حفظ التذكير');
+            return;
+        }
 
-        dialogs.toast.success('تم حفظ التذكير');
+        dialogs.toast.success(res.message || 'تم حفظ التذكير');
         openPanel('CALENDAR_EVENTS', dueDate, { title: 'مهام اليوم' });
     };
   const saleAgreementsForProperty = (() => {
+      if (isDesktopFast) return fastSaleAgreements;
       const agreements = DbService.getSalesAgreements();
       const listings = DbService.getSalesListings();
       return agreements
@@ -333,8 +385,8 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
       .slice()
       .sort((x, y) => String((y.a.transferDate || y.a.تاريخ_الاتفاقية || '')).localeCompare(String((x.a.transferDate || x.a.تاريخ_الاتفاقية || ''))))[0];
 
-    const handleChangeStatus = (val: string) => {
-        const res = DbService.updateProperty(p.رقم_العقار, {
+    const handleChangeStatus = async (val: string) => {
+        const res = await updatePropertySmart(String(p.رقم_العقار), {
             حالة_العقار: val,
             IsRented: val === 'مؤجر',
         });
@@ -368,12 +420,12 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
           cancelText: 'إلغاء',
         });
         if (!ok) return;
-        const res = DbService.deleteSalesAgreement(agreementId);
+        const res = await deleteSalesAgreementSmart(agreementId);
         if (res.success) {
-            toast.success(res.message);
+            toast.success(res.message || 'تم الحذف');
             reload();
         } else {
-            toast.error(res.message);
+            toast.error(res.message || 'فشل الحذف');
         }
     };
 

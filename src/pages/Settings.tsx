@@ -15,6 +15,7 @@ import { isRole, isSuperAdmin } from '@/utils/roles';
 import { DS } from '@/constants/designSystem';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
+import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
 
 type SqlStatus = { configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string };
@@ -1940,27 +1941,52 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       </div>
 
       {isTableModalOpen && (
-          <div className="modal-overlay app-modal-overlay z-[60] animate-fade-in">
-            <div className="modal-content app-modal-content w-full max-w-md p-6 animate-scale-up">
-              <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-white">{isEditingTable ? 'تعديل اسم الجدول' : 'إنشاء جدول جديد'}</h3>
-                  {!isEditingTable && (
-                      <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">المعرف البرمجي (إنجليزي)</label>
-                  <input className="w-full border border-gray-200 dark:border-slate-600 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 outline-none text-sm font-mono text-slate-800 dark:text-white" 
-                              placeholder="e.g. city_list" value={tableForm.name} onChange={e => setTableForm({...tableForm, name: e.target.value.replace(/\s+/g, '_')})} />
-                      </div>
-                  )}
-                  <div className="mb-6">
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">الاسم الظاهر (عربي)</label>
-                <input className="w-full border border-gray-200 dark:border-slate-600 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 outline-none text-sm text-slate-800 dark:text-white" 
-                          placeholder="مثال: قائمة المدن" value={tableForm.label} onChange={e => setTableForm({...tableForm, label: e.target.value})} />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                <button onClick={() => setIsTableModalOpen(false)} className="px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition font-bold">إلغاء</button>
-                      <button onClick={handleSaveTable} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-bold shadow-lg">حفظ</button>
-                  </div>
-              </div>
+        <AppModal
+          open={isTableModalOpen}
+          title={isEditingTable ? 'تعديل اسم الجدول' : 'إنشاء جدول جديد'}
+          onClose={() => setIsTableModalOpen(false)}
+          size="md"
+          footer={
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsTableModalOpen(false)}
+                className="px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition font-bold"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveTable}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-bold shadow-lg"
+              >
+                حفظ
+              </button>
+            </div>
+          }
+        >
+          {!isEditingTable && (
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">المعرف البرمجي (إنجليزي)</label>
+              <input
+                className="w-full border border-gray-200 dark:border-slate-600 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 outline-none text-sm font-mono text-slate-800 dark:text-white"
+                placeholder="e.g. city_list"
+                value={tableForm.name}
+                onChange={(e) => setTableForm({ ...tableForm, name: e.target.value.replace(/\s+/g, '_') })}
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">الاسم الظاهر (عربي)</label>
+            <input
+              className="w-full border border-gray-200 dark:border-slate-600 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 outline-none text-sm text-slate-800 dark:text-white"
+              placeholder="مثال: قائمة المدن"
+              value={tableForm.label}
+              onChange={(e) => setTableForm({ ...tableForm, label: e.target.value })}
+            />
           </div>
+        </AppModal>
       )}
     </div>
   );

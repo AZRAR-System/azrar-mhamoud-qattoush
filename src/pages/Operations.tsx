@@ -29,6 +29,7 @@ import { storage } from '@/services/storage';
 import { installmentsContractsPagedSmart } from '@/services/domainQueries';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import type { InstallmentsContractsItem } from '@/types/domain.types';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 // --- Step-by-Step Payment Flow ---
 interface PaymentStepProps {
@@ -117,6 +118,9 @@ export const Operations: React.FC = () => {
   const [installments, setInstallments] = useState<الكمبيالات_tbl[]>([]);
   const [search, setSearch] = useState("");
 
+  const [contractsPage, setContractsPage] = useState(1);
+  const [pendingPage, setPendingPage] = useState(1);
+
   // Desktop fast mode: SQL-backed contract list (with installments) to avoid huge array loads
   const [fastRows, setFastRows] = useState<InstallmentsContractsItem[]>([]);
   const [fastLoading, setFastLoading] = useState(false);
@@ -203,6 +207,22 @@ export const Operations: React.FC = () => {
         );
       });
 
+  const contractsPageSize = 12;
+  const contractsTotal = desktopUnsupported
+    ? 0
+    : isDesktopFast
+      ? fastRows.length
+      : filteredContracts.length;
+  const contractsPageCount = Math.max(1, Math.ceil(contractsTotal / contractsPageSize));
+
+  useEffect(() => {
+    setContractsPage(1);
+  }, [search, currentStep, isDesktopFast, desktopUnsupported]);
+
+  useEffect(() => {
+    setContractsPage((p) => Math.min(Math.max(1, p), contractsPageCount));
+  }, [contractsPageCount]);
+
   // Get unpaid installments for selected contract
   const pendingInstallments = selectedContract
     ? installments.filter(i => 
@@ -211,6 +231,17 @@ export const Operations: React.FC = () => {
         i.نوع_الكمبيالة !== 'تأمين'
       )
     : [];
+
+  const pendingPageSize = 10;
+  const pendingPageCount = Math.max(1, Math.ceil(pendingInstallments.length / pendingPageSize));
+
+  useEffect(() => {
+    setPendingPage(1);
+  }, [selectedContract?.رقم_العقد]);
+
+  useEffect(() => {
+    setPendingPage((p) => Math.min(Math.max(1, p), pendingPageCount));
+  }, [pendingPageCount]);
 
   // Handlers
   const handleSelectContract = (contract: العقود_tbl) => {
@@ -429,7 +460,9 @@ export const Operations: React.FC = () => {
                         <p className="text-sm">لا توجد عقود مطابقة</p>
                       </div>
                     ) : (
-                      fastRows.map((row) => {
+                      fastRows
+                        .slice((contractsPage - 1) * contractsPageSize, contractsPage * contractsPageSize)
+                        .map((row) => {
                         const contract = row.contract;
                         const tenantName = String(row.tenant?.الاسم || '').trim() || '—';
                         const propertyCode = String(row.property?.الكود_الداخلي || '').trim() || '—';
@@ -465,7 +498,9 @@ export const Operations: React.FC = () => {
                       <p className="text-sm">لا توجد عقود مطابقة</p>
                     </div>
                   ) : (
-                    (desktopUnsupported ? [] : filteredContracts).map(contract => {
+                    (desktopUnsupported ? [] : filteredContracts)
+                      .slice((contractsPage - 1) * contractsPageSize, contractsPage * contractsPageSize)
+                      .map(contract => {
                       const tenant = getTenant(contract);
                       const property = getProperty(contract);
                       const contractInstalls = installments.filter(i => i.رقم_العقد === contract.رقم_العقد && i.حالة_الكمبيالة !== 'مدفوع' && i.نوع_الكمبيالة !== 'تأمين');
@@ -492,6 +527,12 @@ export const Operations: React.FC = () => {
                     })
                   )}
                 </div>
+
+                {!desktopUnsupported && contractsTotal > 0 ? (
+                  <div className="pt-2">
+                    <PaginationControls page={contractsPage} pageCount={contractsPageCount} onPageChange={setContractsPage} />
+                  </div>
+                ) : null}
               </div>
             )}
           </PaymentStep>
@@ -515,7 +556,9 @@ export const Operations: React.FC = () => {
                     <p className="font-bold">✅ جميع الدفعات مسددة!</p>
                   </div>
                 ) : (
-                  pendingInstallments.map(inst => {
+                  pendingInstallments
+                    .slice((pendingPage - 1) * pendingPageSize, pendingPage * pendingPageSize)
+                    .map(inst => {
                     const isLate = new Date(inst.تاريخ_استحقاق) < new Date();
                     return (
                       <button
@@ -548,6 +591,12 @@ export const Operations: React.FC = () => {
                     );
                   })
                 )}
+
+                {pendingInstallments.length > 0 ? (
+                  <div className="pt-2">
+                    <PaginationControls page={pendingPage} pageCount={pendingPageCount} onPageChange={setPendingPage} />
+                  </div>
+                ) : null}
               </div>
             )}
           </PaymentStep>

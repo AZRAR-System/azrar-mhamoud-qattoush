@@ -14,6 +14,8 @@ import { parseDateOnly, daysBetweenDateOnly, toDateOnly } from '@/utils/dateOnly
 import { useToast } from '@/context/ToastContext';
 import { storage } from '@/services/storage';
 import type { FollowUpTask, الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types';
+import { AppModal } from '@/components/ui/AppModal';
+import { Button } from '@/components/ui/Button';
 
 interface Task {
   id: string;
@@ -968,18 +970,81 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
       {/* Add/Edit Task Modal */}
       {(showAddModal || editingTask) && (
-        <div className="modal-overlay app-modal-overlay bg-black/50">
-          <div className="modal-content app-modal-content max-w-md w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-6 border-b border-indigo-400">
-              <h2 className="text-xl font-bold">
-                {editingTask ? 'تعديل المهمة' : 'مهمة جديدة'}
-              </h2>
-              <p className="text-indigo-100 text-sm mt-1">إضافة أو تعديل المهام بسهولة</p>
+        <AppModal
+          open={showAddModal || !!editingTask}
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingTask(null);
+            setNewTask({
+              title: '',
+              dueDate: formatDateYMD(new Date()),
+              dueTime: '',
+              priority: 'متوسطة',
+              status: 'pending',
+              category: 'عام',
+              description: '',
+              personId: '',
+              contractId: '',
+              propertyId: '',
+              clientName: '',
+              phone: '',
+            });
+          }}
+          size="md"
+          headerClassName="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white border-b border-indigo-400"
+          titleClassName="text-white"
+          title={
+            <div className="flex flex-col">
+              <span className="text-xl font-bold leading-tight">{editingTask ? 'تعديل المهمة' : 'مهمة جديدة'}</span>
+              <span className="text-indigo-100 text-sm font-medium mt-1">إضافة أو تعديل المهام بسهولة</span>
             </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-4">
+          }
+          footer={
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="primary"
+                className="flex-1"
+                onClick={() => {
+                  if (editingTask) {
+                    handleUpdateTask();
+                  } else {
+                    handleAddTask();
+                  }
+                }}
+              >
+                {editingTask ? 'تحديث' : 'إضافة'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setShowAddModal(false);
+                  setEditingTask(null);
+                  setNewTask({
+                    title: '',
+                    dueDate: formatDateYMD(new Date()),
+                    dueTime: '',
+                    priority: 'متوسطة',
+                    status: 'pending',
+                    category: 'عام',
+                    description: '',
+                    personId: '',
+                    contractId: '',
+                    propertyId: '',
+                    clientName: '',
+                    phone: '',
+                  });
+                }}
+              >
+                إلغاء
+              </Button>
+            </div>
+          }
+          bodyClassName="p-6"
+        >
+            <div className="space-y-4">
               {/* Title */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -1281,34 +1346,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                 />
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="sticky bottom-0 bg-gray-50 dark:bg-slate-700 p-4 border-t border-gray-200 dark:border-slate-600 flex gap-3">
-              <button
-                onClick={() => {
-                  if (editingTask) {
-                    handleUpdateTask();
-                  } else {
-                    handleAddTask();
-                  }
-                }}
-                className="flex-1 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-bold transition"
-              >
-                {editingTask ? 'تحديث' : 'إضافة'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowAddModal(false);
-                  setEditingTask(null);
-                  setNewTask({ title: '', dueDate: formatDateYMD(new Date()), dueTime: '', priority: 'متوسطة', status: 'pending', category: 'عام', description: '', personId: '', contractId: '', propertyId: '', clientName: '', phone: '' });
-                }}
-                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-slate-200 rounded-lg font-bold hover:bg-gray-300 dark:hover:bg-slate-500 transition"
-              >
-                إلغاء
-              </button>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
   );

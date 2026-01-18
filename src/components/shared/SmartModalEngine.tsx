@@ -1,6 +1,8 @@
 import React from 'react';
 import { useSmartModal, type PanelType } from '@/context/ModalContext';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { AppModal } from '@/components/ui/AppModal';
+import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 
 // Panels
 import { PersonPanel } from '@/components/panels/PersonPanel';
@@ -85,6 +87,58 @@ const PANEL_TITLES: Partial<Record<PanelType, string>> = {
 export const SmartModalEngine: React.FC = () => {
   const { activePanels, closePanel } = useSmartModal();
   const [minimized, setMinimized] = React.useState<Record<string, boolean>>({});
+
+  const shouldLockScroll = React.useMemo(() => {
+    return activePanels.some((panel) => panel.type !== 'BULK_WHATSAPP' || !minimized[panel.id]);
+  }, [activePanels, minimized]);
+
+  React.useEffect(() => {
+    if (shouldLockScroll) {
+      lockBodyScroll();
+      return () => unlockBodyScroll();
+    }
+  }, [shouldLockScroll]);
+
+  React.useEffect(() => {
+    if (!shouldLockScroll) return;
+    if (typeof window === 'undefined') return;
+    if (activePanels.length === 0) return;
+
+    const topPanel = activePanels[activePanels.length - 1];
+    // CONFIRM_MODAL uses AppModal which already handles ESC and calls onCancel.
+    if (topPanel.type === 'CONFIRM_MODAL') return;
+
+    const closeTopPanel = () => {
+      if (topPanel.type === 'BULK_WHATSAPP') {
+        setMinimized((prev) => {
+          const next = { ...prev };
+          delete next[topPanel.id];
+          return next;
+        });
+        closePanel(topPanel.id);
+        return;
+      }
+
+      if (topPanel.type === 'SMART_PROMPT') {
+        try {
+          if (topPanel.props?.onClose) topPanel.props.onClose();
+        } finally {
+          closePanel(topPanel.id);
+        }
+        return;
+      }
+
+      closePanel(topPanel.id);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      closeTopPanel();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activePanels, closePanel, shouldLockScroll]);
 
   if (activePanels.length === 0) return null;
 
@@ -185,39 +239,22 @@ export const SmartModalEngine: React.FC = () => {
           );
         }
 
-        // Right-side Drawer Panels
+        // Server Drawer -> centered modal (consistent sizing/behavior)
         if (panel.type === 'SERVER_DRAWER') {
-          const isTop = index === activePanels.length - 1;
+          const handleClose = () => closePanel(panel.id);
           return (
-            <div
+            <AppModal
               key={panel.id}
-              className={`modal-overlay fixed inset-0 transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
-              onClick={() => closePanel(panel.id)}
+              open
+              onClose={handleClose}
+              title={panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
+              size="6xl"
+              className="items-center p-4 bg-black/20 backdrop-blur-[1px]"
+              contentClassName="dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"
+              bodyClassName="p-0"
             >
-              <div
-                className="modal-content app-modal-content border-0 border-l absolute inset-y-0 right-0 w-full max-w-3xl dark:bg-slate-900 overflow-hidden flex flex-col"
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="no-print flex items-start gap-3 p-4 border-b border-gray-100 dark:border-slate-800">
-                  <button
-                    onClick={() => closePanel(panel.id)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500 dark:text-slate-300"
-                    title="إغلاق"
-                  >
-                    <X size={20} />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-slate-800 dark:text-white whitespace-normal break-words leading-snug">
-                      {panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
-                  <Component {...panel.props} onClose={() => closePanel(panel.id)} />
-                </div>
-              </div>
-            </div>
+              <Component {...panel.props} onClose={handleClose} />
+            </AppModal>
           );
         }
 
@@ -239,25 +276,35 @@ export const SmartModalEngine: React.FC = () => {
               }
             };
             return (
-              <div key={panel.id} className="confirm-overlay fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={handleCancel}>
-                <div className="modal-content app-modal-content p-6 max-w-sm w-full animate-scale-up" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{panel.props?.title || 'تأكيد'}</h3>
-                        <p className="text-slate-600 dark:text-slate-300 text-sm mb-6 whitespace-pre-line">{panel.props?.message}</p>
-                        <div className="flex justify-end gap-3">
-                            {showCancel && (
-                              <button onClick={handleCancel} className="px-4 py-2 text-slate-600 dark:text-slate-200 font-bold hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">
-                                {panel.props?.cancelText || 'إلغاء'}
-                              </button>
-                            )}
-                            <button 
-                                onClick={handleConfirm} 
-                              className={`px-4 py-2 text-white font-bold rounded-lg shadow-lg ${panel.props?.variant === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-                            >
-                                {panel.props?.confirmText || 'نعم'}
-                            </button>
-                        </div>
-                    </div>
+              <AppModal
+                key={panel.id}
+                open
+                onClose={handleCancel}
+                title={panel.props?.title || 'تأكيد'}
+                size="sm"
+                closeOnBackdrop={false}
+                showCloseButton={false}
+              >
+                <p className="text-slate-600 dark:text-slate-300 text-sm mb-6 whitespace-pre-line">{panel.props?.message}</p>
+                <div className="flex justify-end gap-3">
+                  {showCancel && (
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="px-4 py-2 text-slate-600 dark:text-slate-200 font-bold hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg"
+                    >
+                      {panel.props?.cancelText || 'إلغاء'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleConfirm}
+                    className={`px-4 py-2 text-white font-bold rounded-lg shadow-lg ${panel.props?.variant === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                  >
+                    {panel.props?.confirmText || 'نعم'}
+                  </button>
                 </div>
+              </AppModal>
             );
         }
 
@@ -279,41 +326,45 @@ export const SmartModalEngine: React.FC = () => {
             );
         }
 
-        // Standard Slide-over Panels
+        // Standard Slide-over Panels (Right-side drawer)
+        // Note: keep these *below* AppModal by using `.panel-*` z-index classes.
         const isTop = index === activePanels.length - 1;
         const isSectionView = panel.type === 'SECTION_VIEW';
         const isWidePanel = panel.type === 'CALENDAR_EVENTS' || panel.type === 'SQL_SYNC_LOG';
-        
+
+        const widthClass = isSectionView ? 'max-w-6xl' : isWidePanel ? 'max-w-5xl' : 'max-w-2xl';
+
         return (
-          <div 
-            key={panel.id} 
-            className={`modal-overlay fixed inset-0 flex items-center justify-center p-4 transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
+          <div
+            key={panel.id}
+            className={`panel-overlay fixed inset-0 ${isTop ? 'bg-black/30 backdrop-blur-[1px]' : 'hidden'}`}
             onClick={() => closePanel(panel.id)}
           >
-            <div 
-              className={`
-                modal-content app-modal-content dark:bg-slate-900 w-full ${isSectionView ? 'max-w-6xl' : isWidePanel ? 'max-w-5xl' : 'max-w-2xl'}
-                overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]
-                transform transition-transform duration-300 ease-out animate-scale-up
-              `}
-              onClick={e => e.stopPropagation()}
+            <div
+              className={`panel-content app-modal-content dark:bg-slate-900 fixed inset-y-0 right-0 w-full ${widthClass} overflow-hidden flex flex-col shadow-2xl animate-slide-left`}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
             >
-               {/* Panel Header */}
-               <div className="no-print flex items-start gap-3 p-4 border-b border-gray-100 dark:border-slate-800">
-                    <button onClick={() => closePanel(panel.id)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500 dark:text-slate-300">
-                      <X size={20} />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-slate-800 dark:text-white whitespace-normal break-words leading-snug">
-                      {panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
-                    </h3>
-                  </div>
-               </div>
-               
-               {/* Panel Body */}
-               <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
-                   <Component id={panel.dataId} {...panel.props} onClose={() => closePanel(panel.id)} />
-               </div>
+              {/* Panel Header */}
+              <div className="no-print flex items-start gap-3 p-4 border-b border-gray-100 dark:border-slate-800">
+                <button
+                  onClick={() => closePanel(panel.id)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500 dark:text-slate-300"
+                >
+                  <X size={20} />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white whitespace-normal break-words leading-snug">
+                    {panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
+                  </h3>
+                </div>
+              </div>
+
+              {/* Panel Body */}
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
+                <Component id={panel.dataId} {...panel.props} onClose={() => closePanel(panel.id)} />
+              </div>
             </div>
           </div>
         );

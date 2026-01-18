@@ -4,7 +4,7 @@ import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { ContractDetailsResult, LegalNoticeRecord, LegalNoticeTemplate, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types';
-import { Scale, FileText, Send, Printer, Copy, Clock, Search, CheckCircle, Plus, X, Trash2, MessageCircle, ExternalLink, Pencil } from 'lucide-react';
+import { Scale, FileText, Send, Printer, Copy, Clock, Search, CheckCircle, Plus, Trash2, MessageCircle, ExternalLink, Pencil } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatDateYMD, formatNumber } from '@/utils/format';
@@ -15,10 +15,12 @@ import { MergeVariablesCatalog } from '@/components/shared/MergeVariablesCatalog
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
+import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { openSafeBlankWindow } from '@/utils/externalLink';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { toDateOnly, parseDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 export const LegalHub: React.FC = () => {
   const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainGet;
@@ -35,6 +37,8 @@ export const LegalHub: React.FC = () => {
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
   const [templates, setTemplates] = useState<LegalNoticeTemplate[]>([]);
   const [historySearch, setHistorySearch] = useState('');
+
+  const [historyPage, setHistoryPage] = useState(1);
   
   // Generator State
   const [selectedContractId, setSelectedContractId] = useState('');
@@ -541,6 +545,22 @@ export const LegalHub: React.FC = () => {
     });
   })();
 
+  const historyPageSize = 12;
+  const historyPageCount = Math.max(1, Math.ceil(filteredHistory.length / historyPageSize));
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearch]);
+
+  useEffect(() => {
+    setHistoryPage((p) => Math.min(Math.max(1, p), historyPageCount));
+  }, [historyPageCount]);
+
+  const visibleHistory = filteredHistory.slice(
+    (historyPage - 1) * historyPageSize,
+    historyPage * historyPageSize
+  );
+
   return (
     <div className="animate-fade-in space-y-6">
       
@@ -715,6 +735,7 @@ export const LegalHub: React.FC = () => {
               <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-2 py-0.5 rounded text-xs font-bold">
                 {formatNumber(filteredHistory.length)}
               </span>
+              <PaginationControls page={historyPage} pageCount={historyPageCount} onPageChange={setHistoryPage} />
             </div>
           </div>
 
@@ -735,7 +756,7 @@ export const LegalHub: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                  {filteredHistory.map((rec) => (
+                  {visibleHistory.map((rec) => (
                     <tr key={rec.id} className="hover:bg-indigo-50/50 dark:hover:bg-slate-700/30 transition">
                       <td className="p-4 font-bold text-slate-700 dark:text-slate-200">{rec.templateTitle}</td>
                       <td className="p-4 text-slate-500 font-mono">
@@ -787,20 +808,23 @@ export const LegalHub: React.FC = () => {
 
       {/* ADD TEMPLATE MODAL */}
       {isAddTemplateOpen && (
-          <div className="modal-overlay app-modal-overlay animate-fade-in">
-            <div className="modal-content app-modal-content w-full max-w-lg animate-scale-up overflow-hidden">
-                  <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
-                      <h3 className="text-lg font-bold text-slate-800 dark:text-white">إضافة نموذج جديد</h3>
-                      <button
-                        onClick={() => setIsAddTemplateOpen(false)}
-                        className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 hover:text-red-600 transition"
-                        title="إغلاق"
-                        aria-label="إغلاق"
-                      >
-                        <X size={20}/>
-                      </button>
-                  </div>
-                  <form onSubmit={handleAddTemplate} className="p-6 space-y-4">
+          <AppModal
+            open={isAddTemplateOpen}
+            onClose={() => setIsAddTemplateOpen(false)}
+            size="lg"
+            title="إضافة نموذج جديد"
+            footer={
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="secondary" onClick={() => setIsAddTemplateOpen(false)}>
+                  إلغاء
+                </Button>
+                <Button type="submit" variant="primary" form="add-template-form">
+                  حفظ النموذج
+                </Button>
+              </div>
+            }
+          >
+                  <form id="add-template-form" onSubmit={handleAddTemplate} className="space-y-4">
                       <div>
                           <label className="block text-sm font-bold mb-1">عنوان النموذج</label>
                           <input 
@@ -844,32 +868,29 @@ export const LegalHub: React.FC = () => {
                               placeholder="أدخل نص النموذج هنا..."
                           />
                       </div>
-
-                      <div className="pt-2 flex justify-end gap-3">
-                          <button type="button" onClick={() => setIsAddTemplateOpen(false)} className="px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg font-bold">إلغاء</button>
-                          <button type="submit" className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold shadow-lg shadow-purple-600/20">حفظ النموذج</button>
-                      </div>
                   </form>
-              </div>
-          </div>
+                      </AppModal>
       )}
 
       {/* EDIT HISTORY MODAL */}
       {editingHistory && (
-        <div className="modal-overlay app-modal-overlay animate-fade-in">
-          <div className="modal-content app-modal-content w-full max-w-2xl animate-scale-up overflow-hidden">
-            <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">تعديل سجل الإخطار</h3>
-              <button
-                onClick={() => setEditingHistory(null)}
-                className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 hover:text-red-600 transition"
-                title="إغلاق"
-                aria-label="إغلاق"
-              >
-                <X size={20} />
-              </button>
+        <AppModal
+          open={!!editingHistory}
+          onClose={() => setEditingHistory(null)}
+          size="2xl"
+          title="تعديل سجل الإخطار"
+          footer={
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="secondary" onClick={() => setEditingHistory(null)}>
+                إلغاء
+              </Button>
+              <Button type="button" variant="primary" onClick={() => void handleSaveHistoryEdit()}>
+                حفظ التعديل
+              </Button>
             </div>
-            <div className="p-6 space-y-4">
+          }
+        >
+            <div className="space-y-4">
               <div className="text-xs text-slate-500 dark:text-slate-400">
                 عقد: <b className="font-mono">#{safeContractId(editingHistory.contractId)}</b> • {editingHistory.templateTitle}
               </div>
@@ -900,36 +921,15 @@ export const LegalHub: React.FC = () => {
                 <label className="block text-sm font-bold mb-2">صورة الرد / مرفقات الرد (اختياري)</label>
                 <AttachmentManager referenceType={'LegalNotice'} referenceId={editingHistory.id} />
               </div>
-
-              <div className="pt-2 flex justify-end gap-3">
-                <button type="button" onClick={() => setEditingHistory(null)} className="px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg font-bold">إلغاء</button>
-                <button type="button" onClick={() => void handleSaveHistoryEdit()} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-600/20">حفظ التعديل</button>
-              </div>
             </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
       {/* VARIABLES MODAL */}
       {isVariablesOpen && (
-        <div className="modal-overlay app-modal-overlay animate-fade-in">
-          <div className="modal-content app-modal-content w-full max-w-4xl animate-scale-up overflow-hidden">
-            <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">متغيرات الدمج (بالعربية)</h3>
-              <button
-                onClick={() => setIsVariablesOpen(false)}
-                className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 hover:text-red-600 transition"
-                title="إغلاق"
-                aria-label="إغلاق"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6">
-              <MergeVariablesCatalog title="كل المتغيرات المتاحة (اضغط للنسخ)" maxHeightClassName="max-h-[60vh]" />
-            </div>
-          </div>
-        </div>
+        <AppModal open={isVariablesOpen} onClose={() => setIsVariablesOpen(false)} size="4xl" title="متغيرات الدمج (بالعربية)">
+          <MergeVariablesCatalog title="كل المتغيرات المتاحة (اضغط للنسخ)" maxHeightClassName="max-h-[60vh]" />
+        </AppModal>
       )}
 
     </div>

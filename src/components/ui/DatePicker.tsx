@@ -49,6 +49,13 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setIsOpen(false);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
     const updatePopoverPosition = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
@@ -67,6 +74,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     window.addEventListener('scroll', updatePopoverPosition, true);
 
     return () => {
+      window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('resize', updatePopoverPosition);
       window.removeEventListener('scroll', updatePopoverPosition, true);
     };

@@ -54,7 +54,9 @@ import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 
 export const People: React.FC = () => {
-    const pageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 18, xl: 24, '2xl': 32 });
+    const pageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 16, '2xl': 20 });
+        // Desktop fast paging uses a stable SQL page size (do not tie to responsive UI sizing).
+        const DESKTOP_FAST_PAGE_SIZE = 8;
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
     const [contracts, setContracts] = useState<العقود_tbl[]>([]);
@@ -123,7 +125,6 @@ export const People: React.FC = () => {
         showAdvanced,
         advFilters,
         desktopPage,
-        pageSize,
     });
 
     queryRef.current = {
@@ -133,7 +134,6 @@ export const People: React.FC = () => {
         showAdvanced,
         advFilters,
         desktopPage,
-        pageSize,
     };
 
       const loadData = useCallback(async () => {
@@ -144,7 +144,6 @@ export const People: React.FC = () => {
               showAdvanced: qShowAdvanced,
               advFilters: qAdvFilters,
               desktopPage: qDesktopPage,
-              pageSize: qPageSize,
           } = queryRef.current;
 
           if (isDesktopFast) {
@@ -169,8 +168,8 @@ export const People: React.FC = () => {
                       nationalId: qShowAdvanced ? String(qAdvFilters.nationalId || '') : '',
                       classification: qShowAdvanced ? String(qAdvFilters.classification || '') : 'All',
                       minRating: qShowAdvanced ? Number(qAdvFilters.minRating || 0) : 0,
-                      offset: qDesktopPage * qPageSize,
-                      limit: qPageSize,
+                      offset: qDesktopPage * DESKTOP_FAST_PAGE_SIZE,
+                      limit: DESKTOP_FAST_PAGE_SIZE,
                   });
 
                   setDesktopRows(Array.isArray(res.items) ? res.items : []);
@@ -631,7 +630,15 @@ export const People: React.FC = () => {
       return result;
   }, [people, searchTerm, activeRoleTab, showOnlyIdleOwners, properties, showAdvanced, advFilters]);
 
-        const desktopPageCount = isDesktopFast ? Math.max(1, Math.ceil(desktopTotal / pageSize)) : 1;
+        const desktopPageCount = useMemo(() => {
+            if (!isDesktopFast) return 1;
+            const total = Number(desktopTotal || 0) || 0;
+            if (total > 0) return Math.max(1, Math.ceil(total / DESKTOP_FAST_PAGE_SIZE));
+
+            // Fallback when total isn't available: infer if next page exists.
+            const hasMaybeNext = Array.isArray(desktopRows) && desktopRows.length === DESKTOP_FAST_PAGE_SIZE;
+            return Math.max(1, hasMaybeNext ? desktopPage + 2 : desktopPage + 1);
+        }, [desktopPage, desktopRows, desktopTotal, isDesktopFast]);
 
         const uiPageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
         const uiRows = useMemo(() => {
@@ -642,17 +649,32 @@ export const People: React.FC = () => {
     useEffect(() => {
         if (!isDesktopFast) return;
         // Reset to first page when filters/search change.
-        if (desktopPage !== 0) {
-            setDesktopPage(0);
-        } else {
-            void loadData();
-        }
-    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, pageSize, isDesktopFast, desktopPage, loadData]);
+        // IMPORTANT: do NOT depend on `desktopPage` here, otherwise clicking next/prev will immediately reset back to page 0.
+        setDesktopPage((prev) => {
+            if (prev === 0) {
+                void loadData();
+                return prev;
+            }
+            return 0;
+        });
+    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, isDesktopFast, loadData]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
         void loadData();
     }, [desktopPage, isDesktopFast, loadData]);
+
+    useEffect(() => {
+        if (!isDesktopFast) return;
+        const maxPage = Math.max(0, desktopPageCount - 1);
+        if (desktopPage > maxPage) setDesktopPage(maxPage);
+    }, [desktopPage, desktopPageCount, isDesktopFast]);
+
+    useEffect(() => {
+        if (isDesktopFast) return;
+        const maxPage = Math.max(0, uiPageCount - 1);
+        if (uiPage > maxPage) setUiPage(maxPage);
+    }, [isDesktopFast, uiPage, uiPageCount]);
 
     useEffect(() => {
         if (isDesktopFast) return;
@@ -1188,7 +1210,7 @@ export const People: React.FC = () => {
                               size="sm"
                               variant="secondary"
                               disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
-                              onClick={() => setDesktopPage((p) => p + 1)}
+                              onClick={() => setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))}
                           >
                               التالي
                           </Button>
@@ -1215,7 +1237,7 @@ export const People: React.FC = () => {
                               size="sm"
                               variant="secondary"
                               disabled={uiPage + 1 >= uiPageCount}
-                              onClick={() => setUiPage((p) => p + 1)}
+                              onClick={() => setUiPage((p) => Math.min(Math.max(0, uiPageCount - 1), p + 1))}
                           >
                               التالي
                           </Button>

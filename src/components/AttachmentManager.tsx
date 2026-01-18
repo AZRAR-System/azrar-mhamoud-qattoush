@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { DbService } from '@/services/mockDb';
 import { Attachment, ReferenceType } from '@/types';
 import { FileText, Trash2, Upload, HardDrive, Image as ImageIcon, Eye } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { FileViewer } from '@/components/shared/FileViewer';
+import { deleteAttachmentSmart, listAttachmentsSmart, uploadAttachmentSmart } from '@/services/refsDataSmart';
 
 interface AttachmentManagerProps {
   referenceType: ReferenceType;
@@ -16,14 +16,25 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
   const [viewingFile, setViewingFile] = useState<Attachment | null>(null);
   const toast = useToast();
 
-  type UploadResult = Awaited<ReturnType<typeof DbService.uploadAttachment>>;
-
   const loadFiles = useCallback(() => {
-    setFiles(DbService.getAttachments(referenceType, referenceId));
+    let alive = true;
+    const run = async () => {
+      try {
+        const items = await listAttachmentsSmart(referenceType, referenceId);
+        if (alive) setFiles(items);
+      } catch {
+        if (alive) setFiles([]);
+      }
+    };
+    void run();
+    return () => {
+      alive = false;
+    };
   }, [referenceId, referenceType]);
 
   useEffect(() => {
-    loadFiles();
+    const cleanup = loadFiles();
+    return () => cleanup?.();
   }, [loadFiles]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,7 +47,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
 
       for (const file of selectedFiles) {
         try {
-          const res: UploadResult = await DbService.uploadAttachment(referenceType, referenceId, file);
+          const res = await uploadAttachmentSmart(referenceType, referenceId, file);
           if (res.success) {
             successCount++;
           } else {
@@ -71,7 +82,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
     });
     if (!ok) return;
 
-    const res = await DbService.deleteAttachment(id);
+    const res = await deleteAttachmentSmart(id);
     if (res.success) {
       toast.success(res.message);
       loadFiles();

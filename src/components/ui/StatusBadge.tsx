@@ -104,7 +104,10 @@ export const StatusBadge: React.FC<{ status: string, className?: string, showIco
   };
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${styles[config.type]} ${className}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border leading-none whitespace-nowrap flex-shrink-0 max-w-[12rem] overflow-hidden text-ellipsis ${styles[config.type]} ${className}`}
+      title={status}
+    >
       {showIcon && Icon ? (
         <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full ${iconBg[config.type as StatusType]}`}>
           <Icon size={12} strokeWidth={2.6} />

@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { الأشخاص_tbl, العقارات_tbl, عروض_البيع_tbl, اتفاقيات_البيع_tbl, SalesType } from '@/types';
-import { Plus, Briefcase, FileSignature, CheckCircle, Clock, Home, User, BadgeDollarSign, ArrowUpRight, Lock, HandCoins, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Briefcase, FileSignature, CheckCircle, Clock, Home, User, BadgeDollarSign, ArrowUpRight, Lock, HandCoins, Edit2, Trash2 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
@@ -11,6 +11,8 @@ import { domainGetSmart } from '@/services/domainQueries';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { Button } from '@/components/ui/Button';
+import { AppModal } from '@/components/ui/AppModal';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 import { DS } from '@/constants/designSystem';
 import { normalizeDigitsToLatin } from '@/utils/numberInput';
 import { computeEmployeeCommission } from '@/utils/employeeCommission';
@@ -103,6 +105,9 @@ export const Sales: React.FC = () => {
     const [listingMarketingFilter, setListingMarketingFilter] = useState<'all' | 'sale-only' | 'also-rentable'>('all');
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
     const [editingAgreementId, setEditingAgreementId] = useState<string | null>(null);
+
+    const [pageSize, setPageSize] = useState(12);
+    const [agreementsPage, setAgreementsPage] = useState(1);
   
   // Forms
   const [newListing, setNewListing] = useState<Partial<عروض_البيع_tbl>>({
@@ -153,6 +158,23 @@ export const Sales: React.FC = () => {
   useEffect(() => {
     loadData();
     }, [dbSignal]);
+
+  useEffect(() => {
+      const compute = () => {
+          if (typeof window === 'undefined') return;
+          const w = window.innerWidth;
+          if (w < 640) setPageSize(6);
+          else if (w < 1024) setPageSize(8);
+          else setPageSize(12);
+      };
+      compute();
+      window.addEventListener('resize', compute);
+      return () => window.removeEventListener('resize', compute);
+  }, []);
+
+  useEffect(() => {
+      if (activeTab === 'agreements') setAgreementsPage(1);
+  }, [activeTab]);
 
   useEffect(() => {
       // Allow deep-linking into agreement edit from other panels (e.g., Property details)
@@ -206,6 +228,18 @@ export const Sales: React.FC = () => {
     setAgreements(DbService.getSalesAgreements());
   };
 
+    const safeAgreementsPageSize = Math.max(1, Math.floor(pageSize));
+    const agreementsPageCount = Math.max(1, Math.ceil(agreements.length / safeAgreementsPageSize));
+
+    useEffect(() => {
+            setAgreementsPage((p) => Math.min(Math.max(1, p), agreementsPageCount));
+    }, [agreementsPageCount]);
+
+    const visibleAgreements = agreements.slice(
+            (agreementsPage - 1) * safeAgreementsPageSize,
+            agreementsPage * safeAgreementsPageSize
+    );
+
   const resetAgreementForm = () => {
       setEditingAgreementId(null);
       setSelectedOfferId('');
@@ -225,6 +259,82 @@ export const Sales: React.FC = () => {
           قيمة_التأمينات: 0,
           ملاحظات: ''
       });
+  };
+
+  const ListingsStatusTable: React.FC<{
+      status: 'Active' | 'Pending' | 'Sold' | 'Cancelled';
+      rows: عروض_البيع_tbl[];
+      resetKey: string;
+  }> = ({ status, rows, resetKey }) => {
+      const [page, setPage] = useState(1);
+      const safePageSize = Math.max(1, Math.floor(pageSize));
+      const pageCount = Math.max(1, Math.ceil(rows.length / safePageSize));
+
+      useEffect(() => {
+          setPage(1);
+      }, [resetKey]);
+
+      useEffect(() => {
+          setPage((p) => Math.min(Math.max(1, p), pageCount));
+      }, [pageCount]);
+
+      const visible = rows.slice((page - 1) * safePageSize, page * safePageSize);
+
+      return (
+          <div className={DS.components.table.wrapper}>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                  <h3 className="font-black text-slate-800 dark:text-white">
+                      {listingStatusLabel[status]} <span className="text-slate-400 font-bold">({rows.length})</span>
+                  </h3>
+                  <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
+              </div>
+              <table className="w-full text-right text-sm">
+                  <thead className={DS.components.table.header + ' text-slate-500 normal-case tracking-normal'}>
+                      <tr>
+                          <th className="p-4">العقار</th>
+                          <th className="p-4">المالك</th>
+                          <th className="p-4">السعر المطلوب</th>
+                          <th className="p-4">تاريخ العرض</th>
+                          <th className="p-4">الحالة</th>
+                          <th className="p-4">إجراء</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                      {visible.map(l => {
+                          const meta = getPropMeta(l.رقم_العقار);
+                          return (
+                              <tr key={l.id} className={DS.components.table.row}>
+                                  <td className="p-4">
+                                      <div className="font-bold">{getPropCode(l.رقم_العقار)}</div>
+                                      {(meta.status || meta.furnishing) && (
+                                          <div className="text-[11px] text-slate-500 mt-1">
+                                              {meta.status}{meta.furnishing ? ` • ${meta.furnishing}` : ''}
+                                          </div>
+                                      )}
+                                  </td>
+                                  <td className="p-4">{getPersonName(l.رقم_المالك)}</td>
+                                  <td className="p-4 text-emerald-600 font-bold">{l.السعر_المطلوب.toLocaleString()}</td>
+                                  <td className="p-4">{l.تاريخ_العرض}</td>
+                                  <td className="p-4">
+                                      <span className={`px-2 py-1 rounded text-xs font-bold ${l.الحالة === 'Active' ? 'bg-green-100 text-green-700' : l.الحالة === 'Sold' ? 'bg-gray-100 text-gray-500' : l.الحالة === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                                          {listingStatusLabel[l.الحالة] || l.الحالة}
+                                      </span>
+                                  </td>
+                                  <td className="p-4">
+                                      <button
+                                          onClick={() => openPanel('SALES_LISTING_DETAILS', l.id)}
+                                          className="text-indigo-600 hover:underline font-bold"
+                                      >
+                                          التفاصيل والعروض
+                                      </button>
+                                  </td>
+                              </tr>
+                          );
+                      })}
+                  </tbody>
+              </table>
+          </div>
+      );
   };
 
   const openCreateAgreementModal = () => {
@@ -635,66 +745,17 @@ export const Sales: React.FC = () => {
                        {listingStatusOrder.map(status => {
                            const rows = listings.filter(l => l.الحالة === status).filter(listingMatchesMarketing);
                            if (rows.length === 0) return null;
-                           return (
-                               <div key={status} className={DS.components.table.wrapper}>
-                                   <div className="flex items-center justify-between mb-2">
-                                       <h3 className="font-black text-slate-800 dark:text-white">
-                                           {listingStatusLabel[status]} <span className="text-slate-400 font-bold">({rows.length})</span>
-                                       </h3>
-                                   </div>
-                                   <table className="w-full text-right text-sm">
-                                       <thead className={DS.components.table.header + ' text-slate-500 normal-case tracking-normal'}>
-                                           <tr>
-                                               <th className="p-4">العقار</th>
-                                               <th className="p-4">المالك</th>
-                                               <th className="p-4">السعر المطلوب</th>
-                                               <th className="p-4">تاريخ العرض</th>
-                                               <th className="p-4">الحالة</th>
-                                               <th className="p-4">إجراء</th>
-                                           </tr>
-                                       </thead>
-                                       <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                                           {rows.map(l => {
-                                               const meta = getPropMeta(l.رقم_العقار);
-                                               return (
-                                                   <tr key={l.id} className={DS.components.table.row}>
-                                                       <td className="p-4">
-                                                           <div className="font-bold">{getPropCode(l.رقم_العقار)}</div>
-                                                           {(meta.status || meta.furnishing) && (
-                                                               <div className="text-[11px] text-slate-500 mt-1">
-                                                                   {meta.status}{meta.furnishing ? ` • ${meta.furnishing}` : ''}
-                                                               </div>
-                                                           )}
-                                                       </td>
-                                                       <td className="p-4">{getPersonName(l.رقم_المالك)}</td>
-                                                       <td className="p-4 text-emerald-600 font-bold">{l.السعر_المطلوب.toLocaleString()}</td>
-                                                       <td className="p-4">{l.تاريخ_العرض}</td>
-                                                       <td className="p-4">
-                                                           <span className={`px-2 py-1 rounded text-xs font-bold ${l.الحالة === 'Active' ? 'bg-green-100 text-green-700' : l.الحالة === 'Sold' ? 'bg-gray-100 text-gray-500' : l.الحالة === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                                                               {listingStatusLabel[l.الحالة] || l.الحالة}
-                                                           </span>
-                                                       </td>
-                                                       <td className="p-4">
-                                                           <button
-                                                               onClick={() => openPanel('SALES_LISTING_DETAILS', l.id)}
-                                                               className="text-indigo-600 hover:underline font-bold"
-                                                           >
-                                                               التفاصيل والعروض
-                                                           </button>
-                                                       </td>
-                                                   </tr>
-                                               );
-                                           })}
-                                       </tbody>
-                                   </table>
-                               </div>
-                           );
+                           return <ListingsStatusTable key={status} status={status} rows={rows} resetKey={listingMarketingFilter} />;
                        })}
                    </div>
                )}
 
-               {activeTab === 'agreements' && (
-                   <div className={DS.components.table.wrapper}>
+                             {activeTab === 'agreements' && (
+                                     <div className={DS.components.table.wrapper}>
+                                             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                                                 <div className="text-xs font-bold text-slate-500 dark:text-slate-400">إجمالي الاتفاقيات: {agreements.length}</div>
+                                                 <PaginationControls page={agreementsPage} pageCount={agreementsPageCount} onPageChange={setAgreementsPage} />
+                                             </div>
                        <table className="w-full text-right text-sm">
                            <thead className={DS.components.table.header + ' text-slate-500 normal-case tracking-normal'}>
                                <tr>
@@ -708,7 +769,7 @@ export const Sales: React.FC = () => {
                                </tr>
                            </thead>
                            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                               {agreements.map(a => {
+                               {visibleAgreements.map(a => {
                                    const listing = listings.find(l => l.id === a.listingId);
                                    const propId = a.رقم_العقار || listing?.رقم_العقار;
                                    const sellerId = a.رقم_البائع || listing?.رقم_المالك;
@@ -812,30 +873,33 @@ export const Sales: React.FC = () => {
 
        {/* Create Listing Modal */}
        {isModalOpen && (
-           <div className="modal-overlay app-modal-overlay z-[100]">
-               <div className="modal-content app-modal-content dark:bg-slate-900 dark:border-slate-800 w-full max-w-lg overflow-hidden animate-scale-up">
-                   <div className="p-5 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/30 flex justify-between items-center">
-                       <div className="flex items-center gap-3">
-                           <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-600/20">
-                               <Briefcase size={20} />
-                           </div>
-                           <div>
-                               <h3 className="font-bold text-lg text-slate-900 dark:text-white">إدراج عقار للبيع</h3>
-                               <p className="text-xs text-slate-500 dark:text-slate-400">اختر العقار ثم أدخل تفاصيل العرض</p>
-                           </div>
-                       </div>
-                       <button
-                           type="button"
-                           onClick={() => setIsModalOpen(false)}
-                           className="p-2 hover:bg-slate-200/70 dark:hover:bg-slate-800/60 rounded-xl transition text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400"
-                           title="إغلاق"
-                           aria-label="إغلاق"
-                       >
-                           <X size={18} />
-                       </button>
+           <AppModal
+               open={isModalOpen}
+               onClose={() => setIsModalOpen(false)}
+               size="lg"
+               title={
+                   <div className="flex items-center gap-3">
+                       <span className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-600/20">
+                           <Briefcase size={20} />
+                       </span>
+                       <span className="flex flex-col">
+                           <span className="font-bold text-slate-900 dark:text-white">إدراج عقار للبيع</span>
+                           <span className="text-xs text-slate-500 dark:text-slate-400">اختر العقار ثم أدخل تفاصيل العرض</span>
+                       </span>
                    </div>
-
-                   <form onSubmit={handleCreateListing} className="p-6 space-y-4">
+               }
+               footer={
+                   <div className="flex items-center justify-end gap-3">
+                       <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+                           إلغاء
+                       </Button>
+                       <Button type="submit" variant="primary" form="create-listing-form">
+                           حفظ العرض
+                       </Button>
+                   </div>
+               }
+           >
+                   <form id="create-listing-form" onSubmit={handleCreateListing} className="space-y-4">
                        <div className={`${DS.components.card} p-4`}>
                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">العقار <span className="text-red-500">*</span></label>
                            <PropertyPicker
@@ -909,36 +973,42 @@ export const Sales: React.FC = () => {
                                </select>
                            </div>
                        </div>
-
-                       <div className="flex items-center justify-end gap-3 pt-2">
-                           <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
-                               إلغاء
-                           </Button>
-                           <Button type="submit" variant="primary">
-                               حفظ العرض
-                           </Button>
-                       </div>
                    </form>
-               </div>
-           </div>
+           </AppModal>
        )}
 
        {/* Create Agreement Modal */}
        {isAgreementModalOpen && (
-           <div className="modal-overlay app-modal-overlay">
-               <div className="modal-content app-modal-content w-full max-w-lg overflow-hidden animate-scale-up h-[90vh] flex flex-col shadow-xl">
-                   <div className="p-5 border-b border-gray-100 dark:border-slate-700 bg-emerald-600 text-white flex justify-between">
-                       <h3 className="font-bold text-lg">{editingAgreementId ? 'تعديل اتفاقية بيع' : 'إنشاء اتفاقية بيع نهائية'}</h3>
-                                             <button
-                                                 onClick={() => { setIsAgreementModalOpen(false); setEditingAgreementId(null); }}
-                                                 className="p-2 rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition"
-                                                 title="إغلاق"
-                                                 aria-label="إغلاق"
-                                             >
-                                                 <span className="text-2xl leading-none">&times;</span>
-                                             </button>
+           <AppModal
+               open={isAgreementModalOpen}
+               onClose={() => {
+                   setIsAgreementModalOpen(false);
+                   setEditingAgreementId(null);
+               }}
+               size="lg"
+               headerClassName="bg-emerald-600 text-white border-b border-emerald-500"
+               titleClassName="text-white"
+               title={editingAgreementId ? 'تعديل اتفاقية بيع' : 'إنشاء اتفاقية بيع نهائية'}
+               footer={
+                   <div className="flex justify-end gap-3">
+                       <Button
+                           type="button"
+                           variant="secondary"
+                           onClick={() => {
+                               setIsAgreementModalOpen(false);
+                               setEditingAgreementId(null);
+                           }}
+                       >
+                           إلغاء
+                       </Button>
+                       <Button type="submit" variant="primary" form="create-agreement-form">
+                           {editingAgreementId ? 'حفظ التعديل' : 'حفظ الاتفاقية'}
+                       </Button>
                    </div>
-                   <form onSubmit={handleCreateAgreement} className="p-6 space-y-4 overflow-y-auto flex-1">
+               }
+               bodyClassName="p-6"
+           >
+                   <form id="create-agreement-form" onSubmit={handleCreateAgreement} className="space-y-4">
                        {!editingAgreementId ? (
                            <>
                                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-xs text-yellow-800 dark:text-yellow-300 mb-4">
@@ -1055,9 +1125,16 @@ export const Sales: React.FC = () => {
 
                        {/* Employee Commission (Sale) */}
                        {(() => {
+                                                     const agreementRec = newAgreement as unknown as Record<string, unknown>;
+                                                     const externalFromAgreement = Number(agreementRec['عمولة_وسيط_خارجي'] ?? 0) || 0;
+                                                     const officeSaleTotal =
+                                                         (Number(newAgreement.العمولة_الإجمالية || 0) || 0) +
+                                                         (externalFromAgreement || Number(salesCommissions.external || 0) || 0);
+
                            const breakdown = computeEmployeeCommission({
                                rentalOfficeCommissionTotal: 0,
-                               saleOfficeCommissionTotal: Number(newAgreement.العمولة_الإجمالية || 0),
+                                                             // Include external broker commission fully (per request)
+                                                             saleOfficeCommissionTotal: officeSaleTotal,
                                propertyIntroEnabled: !!newAgreement.يوجد_ادخال_عقار,
                            });
 
@@ -1068,7 +1145,7 @@ export const Sales: React.FC = () => {
                                    </h4>
                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
                                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700">
-                                           <div className="text-xs text-slate-500">إجمالي عمولة البيع (للمكتب)</div>
+                                           <div className="text-xs text-slate-500">إجمالي عمولات البيع (شامل الخارجي)</div>
                                            <div className="font-black text-slate-800 dark:text-white">{formatCurrencyJOD(breakdown.sale.officeCommissionTotal, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                                        </div>
                                        <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30">
@@ -1152,8 +1229,7 @@ export const Sales: React.FC = () => {
                            {editingAgreementId ? 'حفظ التعديلات' : 'توليد الاتفاقية'}
                        </button>
                    </form>
-               </div>
-           </div>
+           </AppModal>
        )}
 
     </div>

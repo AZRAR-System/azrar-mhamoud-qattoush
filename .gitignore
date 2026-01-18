@@ -77,6 +77,8 @@ tmp/
 lint-output.txt
 tmp-*.txt
 tmp.*.json
+tmp-db-audit*.json
+tmp_check_*.mjs
 smoke-report*.json
 .eslint-pages.json
 

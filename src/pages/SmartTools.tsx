@@ -24,6 +24,7 @@ import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { ContractPicker } from '@/components/shared/ContractPicker';
 import { domainGetSmart } from '@/services/domainQueries';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 const computeEndDateFromStartAndMonths = (startIso: string, months: number) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(startIso))) return '';
@@ -70,6 +71,7 @@ export const SmartTools: React.FC = () => {
   const [splitDownPayment, setSplitDownPayment] = useState<boolean>(false);
   const [downPaymentSplitCount, setDownPaymentSplitCount] = useState<number>(2);
   const [previewInstallments, setPreviewInstallments] = useState<الكمبيالات_tbl[]>([]);
+  const [previewPage, setPreviewPage] = useState(1);
 
   useEffect(() => {
     if (!hasDownPayment || !splitDownPayment) return;
@@ -209,6 +211,22 @@ export const SmartTools: React.FC = () => {
       totalAll,
     };
   }, [annualValue, durationMonths, previewInstallments]);
+
+  const previewPageSize = 12;
+  const previewPageCount = Math.max(1, Math.ceil(previewInstallments.length / previewPageSize));
+
+  useEffect(() => {
+    setPreviewPage(1);
+  }, [previewInstallments.length]);
+
+  useEffect(() => {
+    setPreviewPage((p) => Math.min(Math.max(1, p), previewPageCount));
+  }, [previewPageCount]);
+
+  const visiblePreviewInstallments = useMemo(
+    () => previewInstallments.slice((previewPage - 1) * previewPageSize, previewPage * previewPageSize),
+    [previewInstallments, previewPage]
+  );
 
   const handleGeneratePreview = () => {
     if (!startDate || !endDate) {
@@ -645,6 +663,9 @@ export const SmartTools: React.FC = () => {
             </div>
 
             <div className="max-h-80 overflow-auto border border-gray-200 dark:border-slate-700 rounded-xl">
+              <div className="p-2 bg-gray-50 dark:bg-slate-900/40 border-b border-gray-200 dark:border-slate-700">
+                <PaginationControls page={previewPage} pageCount={previewPageCount} onPageChange={setPreviewPage} />
+              </div>
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-slate-900/40">
                   <tr>
@@ -656,7 +677,7 @@ export const SmartTools: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {previewInstallments.map((i, idx) => (
+                  {visiblePreviewInstallments.map((i, idx) => (
                     <tr key={i.رقم_الكمبيالة || idx} className={idx % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-900/30'}>
                       <td className="p-2">{i.ترتيب_الكمبيالة ?? idx + 1}</td>
                       <td className="p-2">{i.نوع_الكمبيالة}</td>

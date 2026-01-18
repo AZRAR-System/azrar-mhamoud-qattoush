@@ -1,8 +1,8 @@
 import React from 'react';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import { audioService } from '@/services/audioService';
+import { AppModal } from '@/components/ui/AppModal';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -75,42 +75,33 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const styles = getTypeStyles();
 
   return (
-    <div className="confirm-overlay fixed inset-0 bg-black/50 flex items-center justify-center p-4 animate-fade-in">
-      <Card className={`modal-content app-modal-content w-full max-w-md border-2 ${styles.borderColor}`}>
-        {/* Header */}
-        <div className={`${styles.headerBg} p-6 border-b border-gray-200 dark:border-slate-700 flex items-start gap-4`}>
-          {styles.icon}
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-line">{message}</p>
-          </div>
-        </div>
-
-        {/* Body */}
-        {children && (
-          <div className="p-6 border-b border-gray-200 dark:border-slate-700">
-            {children}
-          </div>
-        )}
-
-        {/* Footer with Buttons */}
-        <div className="p-6 flex gap-3 justify-end">
-          <Button
-            variant="secondary"
-            className="bg-gray-400 hover:bg-gray-500 text-white"
-            onClick={handleCancel}
-          >
+    <AppModal
+      open={isOpen}
+      onClose={handleCancel}
+      size="md"
+      closeOnBackdrop={false}
+      showCloseButton={false}
+      title={title}
+      contentClassName={`border-2 ${styles.borderColor}`}
+      headerClassName={`${styles.headerBg} border-b border-gray-200 dark:border-slate-700`}
+      footer={
+        <div className="flex gap-3 justify-end">
+          <Button variant="secondary" className="bg-gray-400 hover:bg-gray-500 text-white" onClick={handleCancel}>
             {cancelText}
           </Button>
-          <Button
-            variant="primary"
-            className={`${styles.confirmBtn} text-white`}
-            onClick={handleConfirm}
-          >
+          <Button variant="primary" className={`${styles.confirmBtn} text-white`} onClick={handleConfirm}>
             {confirmText}
           </Button>
         </div>
-      </Card>
-    </div>
+      }
+    >
+      <div className="flex items-start gap-4">
+        {styles.icon}
+        <div>
+          <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line">{message}</p>
+        </div>
+      </div>
+      {children ? <div className="mt-4">{children}</div> : null}
+    </AppModal>
   );
 };

@@ -81,7 +81,9 @@ type PropertyExtras = {
 };
 
 export const Properties: React.FC = () => {
-    const pageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 18, xl: 24, '2xl': 32 });
+    const pageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 16, '2xl': 20 });
+        // Desktop fast paging uses a stable SQL page size (do not tie to responsive UI sizing).
+        const DESKTOP_FAST_PAGE_SIZE = 8;
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
     const [contracts, setContracts] = useState<العقود_tbl[]>([]);
     const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
@@ -185,8 +187,8 @@ export const Properties: React.FC = () => {
                   query: String(searchTerm || ''),
                   status: String(filters.status || ''),
                   type: String(filters.type || ''),
-                  offset: (pageOverride ?? desktopPage) * pageSize,
-                  limit: pageSize,
+                  offset: (pageOverride ?? desktopPage) * DESKTOP_FAST_PAGE_SIZE,
+                  limit: DESKTOP_FAST_PAGE_SIZE,
                   occupancy,
                   sale: filters.sale || '',
                   rent: filters.rent || '',
@@ -260,7 +262,6 @@ export const Properties: React.FC = () => {
             filters.type,
             isDesktopFast,
             occupancy,
-            pageSize,
             searchTerm,
             showAdvanced,
             toast,
@@ -309,7 +310,6 @@ export const Properties: React.FC = () => {
         advFilters.maxPrice,
         advFilters.floor,
         advFilters.contractLink,
-        pageSize,
         isDesktopFast,
     ]);
 
@@ -449,13 +449,33 @@ export const Properties: React.FC = () => {
       return result;
     }, [properties, searchTerm, filters, showAdvanced, advFilters, propertySearchIndex, occupancy, activeContractByPropertyId]);
 
-        const desktopPageCount = isDesktopFast ? Math.max(1, Math.ceil(desktopTotal / pageSize)) : 1;
+        const desktopPageCount = useMemo(() => {
+            if (!isDesktopFast) return 1;
+            const total = Number(desktopTotal || 0) || 0;
+            if (total > 0) return Math.max(1, Math.ceil(total / DESKTOP_FAST_PAGE_SIZE));
+
+            // Fallback when total isn't available: infer if next page exists.
+            const hasMaybeNext = Array.isArray(desktopRows) && desktopRows.length === DESKTOP_FAST_PAGE_SIZE;
+            return Math.max(1, hasMaybeNext ? desktopPage + 2 : desktopPage + 1);
+        }, [desktopPage, desktopRows, desktopTotal, isDesktopFast]);
 
         const uiPageCount = Math.max(1, Math.ceil(filteredProperties.length / pageSize));
         const uiRows = useMemo(() => {
                 const start = uiPage * pageSize;
                 return filteredProperties.slice(start, start + pageSize);
         }, [filteredProperties, uiPage, pageSize]);
+
+    useEffect(() => {
+        if (!isDesktopFast) return;
+        const maxPage = Math.max(0, desktopPageCount - 1);
+        if (desktopPage > maxPage) setDesktopPage(maxPage);
+    }, [desktopPage, desktopPageCount, isDesktopFast]);
+
+    useEffect(() => {
+        if (isDesktopFast) return;
+        const maxPage = Math.max(0, uiPageCount - 1);
+        if (uiPage > maxPage) setUiPage(maxPage);
+    }, [isDesktopFast, uiPage, uiPageCount]);
 
     const uniqueStrings = (values: unknown[]) => {
         const s = new Set<string>();
@@ -1057,7 +1077,8 @@ export const Properties: React.FC = () => {
                                variant="secondary"
                                disabled={desktopLoading || desktopPage <= 0}
                                onClick={() => {
-                                   const next = Math.max(0, desktopPage - 1);
+                                   const maxPage = Math.max(0, desktopPageCount - 1);
+                                   const next = Math.max(0, Math.min(maxPage, desktopPage - 1));
                                    setDesktopPage(next);
                                    void loadData(next);
                                }}
@@ -1072,7 +1093,8 @@ export const Properties: React.FC = () => {
                                variant="secondary"
                                disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
                                onClick={() => {
-                                   const next = desktopPage + 1;
+                                   const maxPage = Math.max(0, desktopPageCount - 1);
+                                   const next = Math.max(0, Math.min(maxPage, desktopPage + 1));
                                    setDesktopPage(next);
                                    void loadData(next);
                                }}
@@ -1102,7 +1124,7 @@ export const Properties: React.FC = () => {
                                size="sm"
                                variant="secondary"
                                disabled={uiPage + 1 >= uiPageCount}
-                               onClick={() => setUiPage((p) => p + 1)}
+                               onClick={() => setUiPage((p) => Math.min(Math.max(0, uiPageCount - 1), p + 1))}
                            >
                                التالي
                            </Button>

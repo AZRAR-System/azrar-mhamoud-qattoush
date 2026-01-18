@@ -6,13 +6,18 @@ import { HandCoins, Briefcase, Filter, ArrowUp, Plus, Globe, Tags, Trash2, Searc
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { DynamicSelect } from '@/components/ui/DynamicSelect';
+import { AppModal } from '@/components/ui/AppModal';
 import { DS } from '@/constants/designSystem';
 import { formatContractNumberShort } from '@/utils/contractNumber';
+import { formatCurrencyJOD } from '@/utils/format';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { getRentalTier } from '@/utils/employeeCommission';
 import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 type Tab = 'contracts' | 'external' | 'employee';
 
@@ -43,12 +48,17 @@ const asNumber = (v: unknown): number => {
 export const Commissions: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('contracts');
 
+    const listPageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 14, '2xl': 18 });
+    const [employeePage, setEmployeePage] = useState(1);
+    const [contractsPage, setContractsPage] = useState(1);
+    const [externalPage, setExternalPage] = useState(1);
+
     const isDesktopFast = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb?.domainGet;
   
-  // Contract Commissions Data
-  const [commissions, setCommissions] = useState<العمولات_tbl[]>([]);
-  const [contracts, setContracts] = useState<العقود_tbl[]>([]);
-  const [properties, setProperties] = useState<العقارات_tbl[]>([]);
+    // Contract Commissions Data
+    const [commissions, setCommissions] = useState<العمولات_tbl[]>([]);
+    const [contracts, setContracts] = useState<العقود_tbl[]>([]);
+    const [properties, setProperties] = useState<العقارات_tbl[]>([]);
     const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
 
     // Desktop-fast: resolve contract/property/people names lazily (avoid renderer loading huge arrays)
@@ -56,19 +66,19 @@ export const Commissions: React.FC = () => {
     const fastPropertyByIdRef = useRef<Map<string, العقارات_tbl>>(new Map());
     const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
     const [fastCacheVersion, setFastCacheVersion] = useState(0);
-  
-  // External Commissions Data
-  const [externalCommissions, setExternalCommissions] = useState<العمولات_الخارجية_tbl[]>([]);
+
+    // External Commissions Data
+    const [externalCommissions, setExternalCommissions] = useState<العمولات_الخارجية_tbl[]>([]);
     const [isExternalModalOpen, setIsExternalModalOpen] = useState(false);
     const [externalModalMode, setExternalModalMode] = useState<'add' | 'edit'>('add');
     const [editingExternalId, setEditingExternalId] = useState<string | null>(null);
-  const [newExtComm, setNewExtComm] = useState<Partial<العمولات_الخارجية_tbl>>({
-      التاريخ: new Date().toISOString().split('T')[0],
-      النوع: '',
-      القيمة: 0,
-      العنوان: '',
-      ملاحظات: ''
-  });
+    const [newExtComm, setNewExtComm] = useState<Partial<العمولات_الخارجية_tbl>>({
+        التاريخ: new Date().toISOString().split('T')[0],
+        العنوان: '',
+        القيمة: 0,
+        النوع: '',
+        ملاحظات: '',
+    });
 
     // Contract commission editing
     const [isContractModalOpen, setIsContractModalOpen] = useState(false);
@@ -81,15 +91,15 @@ export const Commissions: React.FC = () => {
     const [systemUsers, setSystemUsers] = useState<المستخدمين_tbl[]>([]);
     const [employeeUserFilter, setEmployeeUserFilter] = useState<string>('');
 
-  // Filters
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('All');
+    // Filters
+    const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('All');
 
-  const toast = useToast();
+    const toast = useToast();
     const dialogs = useAppDialogs();
     const dbSignal = useDbSignal();
-        const { user } = useAuth();
+    const { user } = useAuth();
 
     // Support deep-linking from Dashboard: #/commissions?tab=employee&month=YYYY-MM&user=username
     useEffect(() => {
@@ -141,6 +151,10 @@ export const Commissions: React.FC = () => {
             setContracts([]);
             setProperties([]);
             setPeople([]);
+            fastContractByIdRef.current = new Map();
+            fastPropertyByIdRef.current = new Map();
+            fastPersonByIdRef.current = new Map();
+            setFastCacheVersion((v) => v + 1);
         } else {
             setContracts(DbService.getContracts());
             setProperties(DbService.getProperties());
@@ -250,10 +264,22 @@ export const Commissions: React.FC = () => {
       setIsExternalModalOpen(true);
   };
 
+  const closeExternalModal = () => {
+      setIsExternalModalOpen(false);
+      setExternalModalMode('add');
+      setEditingExternalId(null);
+      setNewExtComm({ التاريخ: new Date().toISOString().split('T')[0], النوع: '', القيمة: 0, العنوان: '', ملاحظات: '' });
+  };
+
   const openEditContractModal = (c: العمولات_tbl) => {
       const currentUsername = asTrimmedString(user?.اسم_المستخدم);
       setEditingContractComm({ ...c, اسم_المستخدم: asTrimmedString(c.اسم_المستخدم || currentUsername) || undefined });
       setIsContractModalOpen(true);
+  };
+
+  const closeContractModal = () => {
+      setIsContractModalOpen(false);
+      setEditingContractComm(null);
   };
 
   const handleSaveContractEdit = (e: React.FormEvent) => {
@@ -544,11 +570,71 @@ export const Commissions: React.FC = () => {
       });
   }, [employeeReport, selectedMonth, employeeUserFilter, searchTerm, filterType]);
 
+    const employeePageCount = useMemo(
+        () => Math.max(1, Math.ceil((filteredEmployeeRows.length || 0) / listPageSize)),
+        [filteredEmployeeRows.length, listPageSize]
+    );
+    const contractsPageCount = useMemo(
+        () => Math.max(1, Math.ceil((filteredCommissions.length || 0) / listPageSize)),
+        [filteredCommissions.length, listPageSize]
+    );
+    const externalPageCount = useMemo(
+        () => Math.max(1, Math.ceil((filteredExternal.length || 0) / listPageSize)),
+        [filteredExternal.length, listPageSize]
+    );
+
+    useEffect(() => {
+        setEmployeePage(1);
+    }, [selectedMonth, employeeUserFilter, searchTerm, filterType, listPageSize]);
+
+    useEffect(() => {
+        setContractsPage(1);
+    }, [selectedMonth, listPageSize]);
+
+    useEffect(() => {
+        setExternalPage(1);
+    }, [selectedMonth, searchTerm, filterType, listPageSize]);
+
+    useEffect(() => {
+        setEmployeePage((p) => Math.min(Math.max(1, p), employeePageCount));
+    }, [employeePageCount]);
+
+    useEffect(() => {
+        setContractsPage((p) => Math.min(Math.max(1, p), contractsPageCount));
+    }, [contractsPageCount]);
+
+    useEffect(() => {
+        setExternalPage((p) => Math.min(Math.max(1, p), externalPageCount));
+    }, [externalPageCount]);
+
+    const visibleEmployeeRows = useMemo(() => {
+        const start = (employeePage - 1) * listPageSize;
+        return filteredEmployeeRows.slice(start, start + listPageSize);
+    }, [filteredEmployeeRows, employeePage, listPageSize]);
+
+    const visibleContractCommissions = useMemo(() => {
+        const start = (contractsPage - 1) * listPageSize;
+        return filteredCommissions.slice(start, start + listPageSize);
+    }, [filteredCommissions, contractsPage, listPageSize]);
+
+    const visibleExternal = useMemo(() => {
+        const start = (externalPage - 1) * listPageSize;
+        return filteredExternal.slice(start, start + listPageSize);
+    }, [filteredExternal, externalPage, listPageSize]);
+
   // Totals
   const totalOwner = filteredCommissions.reduce((acc, curr) => acc + curr.عمولة_المالك, 0);
   const totalTenant = filteredCommissions.reduce((acc, curr) => acc + curr.عمولة_المستأجر, 0);
   const grandTotalContracts = totalOwner + totalTenant;
   const totalExternal = filteredExternal.reduce((acc, curr) => acc + curr.القيمة, 0);
+
+    const externalMonthTotal = useMemo(() => {
+        const month = String(selectedMonth || '').trim();
+        if (!month) return 0;
+        return externalCommissions
+            .filter(c => String(c.التاريخ || '').startsWith(month))
+            .reduce((sum, c) => sum + (Number(c.القيمة) || 0), 0);
+    }, [externalCommissions, selectedMonth]);
 
     const employeeTotals = useMemo(() => {
             const totalOffice = filteredEmployeeRows.reduce((sum, r) => sum + asNumber(r.officeCommission), 0);
@@ -566,8 +652,10 @@ export const Commissions: React.FC = () => {
             .reduce((sum, r) => sum + asNumber(r.employeeBase), 0);
         const intro = filteredEmployeeRows.reduce((sum, r) => sum + asNumber(r.intro), 0);
         const total = filteredEmployeeRows.reduce((sum, r) => sum + asNumber(r.employeeTotal), 0);
-        return { rentBase, saleBase, intro, total };
-    }, [filteredEmployeeRows]);
+        const external = externalMonthTotal;
+        const totalWithExternal = total + external;
+        return { rentBase, saleBase, intro, total, external, totalWithExternal };
+    }, [filteredEmployeeRows, externalMonthTotal]);
 
     const contractEmployeeBreakdown = useMemo(() => {
         if (!editingContractComm) return null;
@@ -637,8 +725,22 @@ export const Commissions: React.FC = () => {
         toast.success('تم تصدير CSV');
     };
 
-  // Unique External Types for Filter
-  const availableTypes = useMemo(() => Array.from(new Set(externalCommissions.map(c => c.النوع))), [externalCommissions]);
+  // Unique External Types for Filter (prefer system lookups so the user can manage them)
+  const availableTypes = useMemo(() => {
+      try {
+          const fromLookups = DbService.getLookupsByCategory('ext_comm_type')
+              .map(l => String(l.label || '').trim())
+              .filter(Boolean);
+          if (fromLookups.length > 0) {
+              return Array.from(new Set(fromLookups)).sort((a, b) => a.localeCompare(b, 'ar'));
+          }
+      } catch {
+          // fall back
+      }
+
+      return Array.from(new Set(externalCommissions.map(c => String(c.النوع || '').trim()).filter(Boolean)))
+          .sort((a, b) => a.localeCompare(b, 'ar'));
+  }, [externalCommissions]);
 
     const inputClass = "w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm";
 
@@ -757,13 +859,13 @@ export const Commissions: React.FC = () => {
                    </div>
                    <div className="app-card p-6">
                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">إجمالي عمولة الموظفين</p>
-                       <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{employeeTotals.totalEmployee.toLocaleString()} <span className="text-sm text-gray-400">د.أ</span></h3>
+                       <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(employeeTotals.totalEmployee)}</h3>
                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">يشمل إدخال العقار (إن وجد)</div>
                    </div>
                    <div className="app-card p-6">
                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">إجمالي عمولات العمليات (للمكتب)</p>
-                       <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{employeeTotals.totalOffice.toLocaleString()} <span className="text-sm text-gray-400">د.أ</span></h3>
-                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">إدخال العقار: {employeeTotals.totalIntro.toLocaleString()} د.أ</div>
+                       <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(employeeTotals.totalOffice)}</h3>
+                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">إدخال العقار: {formatCurrencyJOD(employeeTotals.totalIntro)}</div>
                    </div>
                </div>
 
@@ -774,22 +876,26 @@ export const Commissions: React.FC = () => {
                            المستخدم المسجل: <b className="text-slate-900 dark:text-white" dir="ltr">{String(user?.اسم_المستخدم || '—')}</b>
                        </div>
                    </div>
-                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+                   <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mt-3">
                        <div className="bg-gray-50 dark:bg-slate-900 rounded-xl p-3">
                            <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">إيجار (قبل الإدخال)</div>
-                           <div className="text-lg font-bold text-slate-800 dark:text-white">{Math.round(employeeMonthSummary.rentBase).toLocaleString()} <span className="text-sm text-slate-400">د.أ</span></div>
+                           <div className="text-lg font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(employeeMonthSummary.rentBase)}</div>
                        </div>
                        <div className="bg-gray-50 dark:bg-slate-900 rounded-xl p-3">
                            <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">بيع (قبل الإدخال)</div>
-                           <div className="text-lg font-bold text-slate-800 dark:text-white">{Math.round(employeeMonthSummary.saleBase).toLocaleString()} <span className="text-sm text-slate-400">د.أ</span></div>
+                           <div className="text-lg font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(employeeMonthSummary.saleBase)}</div>
                        </div>
                        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-3">
                            <div className="text-xs text-orange-700 dark:text-orange-300 font-bold">إدخال عقار</div>
-                           <div className="text-lg font-bold text-orange-700 dark:text-orange-300">{Math.round(employeeMonthSummary.intro).toLocaleString()} <span className="text-sm opacity-80">د.أ</span></div>
+                           <div className="text-lg font-bold text-orange-700 dark:text-orange-300">{formatCurrencyJOD(employeeMonthSummary.intro)}</div>
+                       </div>
+                       <div className="bg-sky-50 dark:bg-sky-900/20 rounded-xl p-3">
+                           <div className="text-xs text-sky-700 dark:text-sky-300 font-bold">دخل خارجي</div>
+                           <div className="text-lg font-bold text-sky-700 dark:text-sky-300">{formatCurrencyJOD(employeeMonthSummary.external)}</div>
                        </div>
                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
-                           <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold">الإجمالي</div>
-                           <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{Math.round(employeeMonthSummary.total).toLocaleString()} <span className="text-sm opacity-80">د.أ</span></div>
+                           <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold">الإجمالي (شامل الدخل الخارجي)</div>
+                           <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{formatCurrencyJOD(employeeMonthSummary.totalWithExternal)}</div>
                        </div>
                    </div>
                </div>
@@ -798,12 +904,13 @@ export const Commissions: React.FC = () => {
                <div className="app-card">
                    <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
                        <h3 className="font-bold text-slate-700 dark:text-white">عمليات عمولة الموظف لشهر {selectedMonth}</h3>
+                       <PaginationControls page={employeePage} pageCount={employeePageCount} onPageChange={setEmployeePage} />
                    </div>
                    <div className="p-4 space-y-3">
                        {filteredEmployeeRows.length === 0 ? (
                            <div className="p-8 text-center text-gray-400">لا توجد عمليات ضمن الفلاتر الحالية</div>
                        ) : (
-                           filteredEmployeeRows.map((r, idx) => (
+                           visibleEmployeeRows.map((r, idx) => (
                                <div key={`${String(r.reference || '')}-${idx}`} className="app-card p-4">
                                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                                        <div className="space-y-1">
@@ -825,16 +932,16 @@ export const Commissions: React.FC = () => {
 
                                        <div className="flex flex-wrap items-center gap-2 justify-end">
                                            <div className="px-3 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm">
-                                               عمولة العملية: {Number(r.officeCommission || 0).toLocaleString()} <span className="text-xs opacity-80">د.أ</span>
+                                               عمولة العملية: {formatCurrencyJOD(Number(r.officeCommission || 0))}
                                            </div>
                                            <div className="px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-bold text-sm">
-                                               قبل الإدخال: {Number(r.employeeBase || 0).toLocaleString()} <span className="text-xs opacity-80">د.أ</span>
+                                               قبل الإدخال: {formatCurrencyJOD(Number(r.employeeBase || 0))}
                                            </div>
                                            <div className="px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-bold text-sm">
-                                               إدخال عقار: {Number(r.intro || 0).toLocaleString()} <span className="text-xs opacity-80">د.أ</span>
+                                               إدخال عقار: {formatCurrencyJOD(Number(r.intro || 0))}
                                            </div>
                                            <div className="px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 font-bold text-sm">
-                                               الإجمالي: {Number(r.employeeTotal || 0).toLocaleString()} <span className="text-xs opacity-80">د.أ</span>
+                                               الإجمالي: {formatCurrencyJOD(Number(r.employeeTotal || 0))}
                                            </div>
                                        </div>
                                    </div>
@@ -854,20 +961,20 @@ export const Commissions: React.FC = () => {
                     <div className="bg-emerald-500 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden">
                         <div className="relative z-10">
                             <p className="text-emerald-100 font-bold mb-1 flex items-center gap-2"><ArrowUp size={16}/> إجمالي العمولات</p>
-                            <h3 className="text-3xl font-bold">{grandTotalContracts.toLocaleString()} <span className="text-lg opacity-80">د.أ</span></h3>
+                            <h3 className="text-3xl font-bold">{formatCurrencyJOD(grandTotalContracts)}</h3>
                         </div>
                         <Briefcase className="absolute -bottom-4 -left-4 text-white opacity-20 w-32 h-32" />
                     </div>
                     <div className="app-card p-6">
                         <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">من الملاك</p>
-                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{totalOwner.toLocaleString()} <span className="text-sm text-gray-400">د.أ</span></h3>
+                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(totalOwner)}</h3>
                         <div className="h-1 w-full bg-gray-100 dark:bg-slate-700 mt-4 rounded-full overflow-hidden">
                             <div className="h-full bg-indigo-500" style={{ width: `${grandTotalContracts > 0 ? (totalOwner/grandTotalContracts)*100 : 0}%` }}></div>
                         </div>
                     </div>
                     <div className="app-card p-6">
                         <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">من المستأجرين</p>
-                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{totalTenant.toLocaleString()} <span className="text-sm text-gray-400">د.أ</span></h3>
+                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(totalTenant)}</h3>
                         <div className="h-1 w-full bg-gray-100 dark:bg-slate-700 mt-4 rounded-full overflow-hidden">
                             <div className="h-full bg-purple-500" style={{ width: `${grandTotalContracts > 0 ? (totalTenant/grandTotalContracts)*100 : 0}%` }}></div>
                         </div>
@@ -877,12 +984,13 @@ export const Commissions: React.FC = () => {
                 <div className="app-card">
                     <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
                         <h3 className="font-bold text-slate-700 dark:text-white">سجل العمولات لشهر {selectedMonth}</h3>
+                        <PaginationControls page={contractsPage} pageCount={contractsPageCount} onPageChange={setContractsPage} />
                     </div>
                     <div className="p-4 space-y-3">
                         {filteredCommissions.length === 0 ? (
                             <div className="p-8 text-center text-gray-400">لا توجد عمولات مسجلة في هذا الشهر</div>
                         ) : (
-                            filteredCommissions.map(c => (
+                            visibleContractCommissions.map(c => (
                                 <div key={c.رقم_العمولة} className="app-card p-4">
                                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                                         <div className="space-y-1">
@@ -943,15 +1051,15 @@ export const Commissions: React.FC = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
                                         <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
                                             <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">عمولة المالك</div>
-                                            <div className="text-lg font-bold text-slate-800 dark:text-white">{c.عمولة_المالك.toLocaleString()} <span className="text-sm text-slate-400">د.أ</span></div>
+                                            <div className="text-lg font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(Number(c.عمولة_المالك || 0))}</div>
                                         </div>
                                         <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
                                             <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">عمولة المستأجر</div>
-                                            <div className="text-lg font-bold text-slate-800 dark:text-white">{c.عمولة_المستأجر.toLocaleString()} <span className="text-sm text-slate-400">د.أ</span></div>
+                                            <div className="text-lg font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(Number(c.عمولة_المستأجر || 0))}</div>
                                         </div>
                                         <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
                                             <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold">المجموع</div>
-                                            <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{c.المجموع.toLocaleString()} <span className="text-sm opacity-80">د.أ</span></div>
+                                            <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{formatCurrencyJOD(Number(c.المجموع || 0))}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1005,7 +1113,7 @@ export const Commissions: React.FC = () => {
                    <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-600/20 relative overflow-hidden flex flex-col justify-center">
                         <div className="relative z-10">
                             <p className="text-indigo-100 font-bold mb-1 flex items-center gap-2"><Globe size={16}/> مجموع العمولات الخارجية</p>
-                            <h3 className="text-3xl font-bold">{totalExternal.toLocaleString()} <span className="text-lg opacity-80">د.أ</span></h3>
+                            <h3 className="text-3xl font-bold">{formatCurrencyJOD(totalExternal)}</h3>
                         </div>
                         <Globe className="absolute -bottom-4 -left-4 text-white opacity-20 w-32 h-32" />
                    </div>
@@ -1026,12 +1134,13 @@ export const Commissions: React.FC = () => {
                <div className="app-card">
                     <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
                         <h3 className="font-bold text-slate-700 dark:text-white">سجل العمولات الخارجية</h3>
+                        <PaginationControls page={externalPage} pageCount={externalPageCount} onPageChange={setExternalPage} />
                     </div>
                     <div className="p-4 space-y-3">
                         {filteredExternal.length === 0 ? (
                             <div className="p-8 text-center text-gray-400">لا توجد عمولات خارجية مسجلة</div>
                         ) : (
-                            filteredExternal.map(c => (
+                            visibleExternal.map(c => (
                                 <div key={c.id} className="app-card p-4">
                                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                                         <div className="space-y-1">
@@ -1049,7 +1158,7 @@ export const Commissions: React.FC = () => {
 
                                         <div className="flex items-center gap-2 justify-end">
                                             <div className="px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-bold text-sm">
-                                                {c.القيمة.toLocaleString()} <span className="text-xs opacity-80">د.أ</span>
+                                                {formatCurrencyJOD(Number(c.القيمة || 0))}
                                             </div>
                                             <button
                                                 onClick={() => openEditExternalModal(c)}
@@ -1073,69 +1182,83 @@ export const Commissions: React.FC = () => {
 
                {/* External Modal (Add/Edit) */}
                {isExternalModalOpen && (
-                   <div className="modal-overlay app-modal-overlay bg-black/40 dark:bg-black/60">
-                       <div className="modal-content app-modal-content p-6 max-w-md w-full mx-4">
-                           <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                               {externalModalMode === 'add' ? <><Plus size={20} /> إضافة عمولة خارجية</> : <><Pencil size={20} /> تعديل عمولة خارجية</>}
-                           </h3>
-                           <form onSubmit={handleAddExternal} className="space-y-4">
-                               <input 
-                                   type="date" 
-                                   className={inputClass}
-                                   value={newExtComm.التاريخ || ''}
-                                   onChange={(e) => setNewExtComm({...newExtComm, التاريخ: e.target.value})}
-                               />
-                               <input 
-                                   type="text" 
-                                   placeholder="العنوان" 
-                                   className={inputClass}
-                                   value={newExtComm.العنوان || ''}
-                                   onChange={(e) => setNewExtComm({...newExtComm, العنوان: e.target.value})}
-                               />
-                               <input 
-                                   type="text" 
-                                   placeholder="النوع (مثلا: إيجار سيارة، رسوم إدارية)" 
-                                   className={inputClass}
-                                   value={newExtComm.النوع || ''}
-                                   onChange={(e) => setNewExtComm({...newExtComm, النوع: e.target.value})}
-                               />
-                               <input 
-                                   type="number" 
-                                   placeholder="القيمة" 
-                                   className={inputClass}
-                                   value={newExtComm.القيمة || ''}
-                                   onChange={(e) => setNewExtComm({...newExtComm, القيمة: parseFloat(e.target.value)})}
-                               />
-                               <textarea 
-                                   placeholder="ملاحظات (اختياري)" 
-                                   className={`${inputClass} resize-none`}
-                                   rows={3}
-                                   value={newExtComm.ملاحظات || ''}
-                                   onChange={(e) => setNewExtComm({...newExtComm, ملاحظات: e.target.value})}
-                               />
-                               <div className="flex gap-3">
-                                   <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 font-bold transition">
-                                       {externalModalMode === 'add' ? 'حفظ' : 'حفظ التعديل'}
-                                   </button>
-                                   <button type="button" onClick={() => { setIsExternalModalOpen(false); setExternalModalMode('add'); setEditingExternalId(null); }} className="flex-1 bg-gray-200 dark:bg-slate-700 text-slate-800 dark:text-white py-2.5 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 font-bold transition">
-                                       إلغاء
-                                   </button>
-                               </div>
-                           </form>
-                       </div>
-                   </div>
+                   <AppModal
+                       open={isExternalModalOpen}
+                       title={externalModalMode === 'add' ? <><Plus size={20} /> إضافة عمولة خارجية</> : <><Pencil size={20} /> تعديل عمولة خارجية</>}
+                       onClose={closeExternalModal}
+                       size="lg"
+                       footer={(
+                           <div className="flex gap-3">
+                               <button type="submit" form="external-commission-form" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 font-bold transition">
+                                   {externalModalMode === 'add' ? 'حفظ' : 'حفظ التعديل'}
+                               </button>
+                               <button type="button" onClick={closeExternalModal} className="flex-1 bg-gray-200 dark:bg-slate-700 text-slate-800 dark:text-white py-2.5 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 font-bold transition">
+                                   إلغاء
+                               </button>
+                           </div>
+                       )}
+                   >
+                       <form id="external-commission-form" onSubmit={handleAddExternal} className="space-y-4">
+                           <input
+                               type="date"
+                               className={inputClass}
+                               value={newExtComm.التاريخ || ''}
+                               onChange={(e) => setNewExtComm({ ...newExtComm, التاريخ: e.target.value })}
+                           />
+                           <input
+                               type="text"
+                               placeholder="العنوان"
+                               className={inputClass}
+                               value={newExtComm.العنوان || ''}
+                               onChange={(e) => setNewExtComm({ ...newExtComm, العنوان: e.target.value })}
+                           />
+                           <DynamicSelect
+                               label="نوع الدخل الخارجي"
+                               category="ext_comm_type"
+                               value={newExtComm.النوع || ''}
+                               onChange={(val) => setNewExtComm((prev) => ({ ...prev, النوع: val }))}
+                               placeholder="اختر نوع الدخل..."
+                               required
+                           />
+                           <input
+                               type="number"
+                               placeholder="القيمة"
+                               className={inputClass}
+                               value={newExtComm.القيمة || ''}
+                               onChange={(e) => setNewExtComm({ ...newExtComm, القيمة: parseFloat(e.target.value) })}
+                           />
+                           <textarea
+                               placeholder="ملاحظات (اختياري)"
+                               className={`${inputClass} resize-none`}
+                               rows={3}
+                               value={newExtComm.ملاحظات || ''}
+                               onChange={(e) => setNewExtComm({ ...newExtComm, ملاحظات: e.target.value })}
+                           />
+                       </form>
+                   </AppModal>
                )}
            </div>
        )}
 
        {/* Contract Commission Modal (Edit) */}
        {isContractModalOpen && editingContractComm && (
-           <div className="modal-overlay app-modal-overlay bg-black/40 dark:bg-black/60">
-               <div className="modal-content app-modal-content p-6 max-w-md w-full mx-4">
-                   <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                       <Pencil size={20} /> تعديل عمولة العقد
-                   </h3>
-                   <form onSubmit={handleSaveContractEdit} className="space-y-4">
+           <AppModal
+               open={isContractModalOpen}
+               title={<><Pencil size={20} /> تعديل عمولة العقد</>}
+               onClose={closeContractModal}
+               size="lg"
+               footer={(
+                   <div className="flex gap-3">
+                       <button type="submit" form="contract-commission-form" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 font-bold transition">
+                           حفظ التعديل
+                       </button>
+                       <button type="button" onClick={closeContractModal} className="flex-1 bg-gray-200 dark:bg-slate-700 text-slate-800 dark:text-white py-2.5 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 font-bold transition">
+                           إلغاء
+                       </button>
+                   </div>
+               )}
+           >
+                   <form id="contract-commission-form" onSubmit={handleSaveContractEdit} className="space-y-4">
                        <div className="text-sm text-slate-600 dark:text-slate-400">
                            العقد: <b className="text-slate-800 dark:text-white">#{(editingContractComm.رقم_العقد || '').substring(0,5)}</b>
                        </div>
@@ -1186,13 +1309,13 @@ export const Commissions: React.FC = () => {
                        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-3">
                            <div className="text-xs text-orange-700 dark:text-orange-300 font-bold">عمولة إدخال عقار (5%) — محسوبة تلقائياً</div>
                            <div className="text-lg font-bold text-orange-700 dark:text-orange-300 mt-1">
-                               {Math.round(contractEmployeeBreakdown?.introEarned || 0).toLocaleString()} <span className="text-sm opacity-80">د.أ</span>
+                               {formatCurrencyJOD(contractEmployeeBreakdown?.introEarned || 0)}
                            </div>
                            <div className="text-xs text-slate-600 dark:text-slate-300 mt-1" dir="rtl">
-                               المعادلة: {Math.round(contractEmployeeBreakdown?.officeTotal || 0).toLocaleString()} × 5% = {Math.round(contractEmployeeBreakdown?.introEarned || 0).toLocaleString()} د.أ
+                               المعادلة: {formatCurrencyJOD(contractEmployeeBreakdown?.officeTotal || 0)} × 5% = {formatCurrencyJOD(contractEmployeeBreakdown?.introEarned || 0)}
                            </div>
                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                               الشريحة (حسب إجمالي الإيجار لهذا الشهر): {String(contractEmployeeBreakdown?.tierId || '—')} — قبل الإدخال: {Math.round(contractEmployeeBreakdown?.baseEarned || 0).toLocaleString()} د.أ — الإجمالي: {Math.round(contractEmployeeBreakdown?.finalEarned || 0).toLocaleString()} د.أ
+                               الشريحة (حسب إجمالي الإيجار لهذا الشهر): {String(contractEmployeeBreakdown?.tierId || '—')} — قبل الإدخال: {formatCurrencyJOD(contractEmployeeBreakdown?.baseEarned || 0)} — الإجمالي: {formatCurrencyJOD(contractEmployeeBreakdown?.finalEarned || 0)}
                            </div>
                        </div>
                        <input
@@ -1209,17 +1332,8 @@ export const Commissions: React.FC = () => {
                            value={Number(editingContractComm.عمولة_المستأجر ?? 0)}
                            onChange={(e) => setEditingContractComm({ ...editingContractComm, عمولة_المستأجر: Number(e.target.value) })}
                        />
-                       <div className="flex gap-3">
-                           <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 font-bold transition">
-                               حفظ التعديل
-                           </button>
-                           <button type="button" onClick={() => { setIsContractModalOpen(false); setEditingContractComm(null); }} className="flex-1 bg-gray-200 dark:bg-slate-700 text-slate-800 dark:text-white py-2.5 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 font-bold transition">
-                               إلغاء
-                           </button>
-                       </div>
                    </form>
-               </div>
-           </div>
+           </AppModal>
        )}
     </div>
   );

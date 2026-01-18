@@ -12,6 +12,91 @@ import { DS } from '@/constants/designSystem';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { PaginationControls } from '@/components/shared/PaginationControls';
+
+const DocumentsKindSection: React.FC<{
+  kind: 'PDF' | 'صور' | 'مستندات';
+  items: Attachment[];
+  onView: (a: Attachment) => void;
+  describeReference: (a: Attachment) => { title: string; subtitle?: string | null; roles?: string[] };
+  formatSize: (n: number) => string;
+}> = ({ kind, items, onView, describeReference, formatSize }) => {
+  const pageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 14, '2xl': 18 });
+  const [page, setPage] = useState(1);
+  const pageCount = useMemo(() => Math.max(1, Math.ceil((items.length || 0) / pageSize)), [items.length, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [kind, items.length, pageSize]);
+
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), pageCount));
+  }, [pageCount]);
+
+  const visible = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return items.slice(start, start + pageSize);
+  }, [items, page, pageSize]);
+
+  return (
+    <div className="rounded-xl border border-gray-100 dark:border-slate-700 overflow-hidden">
+      <div className="px-4 py-2 bg-white dark:bg-slate-800 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200">
+          {kind === 'صور' ? <ImageIcon size={16} className="text-purple-500" /> : <FileText size={16} className="text-indigo-500" />}
+          {kind}
+          <span className="text-xs text-slate-500 dark:text-slate-400">({items.length})</span>
+        </div>
+        <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
+      </div>
+
+      <div className="divide-y divide-gray-100 dark:divide-slate-700">
+        {visible.map((a) => {
+          const ref = describeReference(a);
+          return (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => onView(a)}
+              className="w-full text-right p-4 hover:bg-gray-50 dark:hover:bg-slate-700/40 transition flex items-start justify-between gap-3"
+            >
+              <div className="min-w-0">
+                <div className="font-bold text-slate-800 dark:text-white truncate" title={a.fileName}>
+                  {a.fileName}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{ref.title}</span>
+                  {ref.subtitle ? <span className="ml-2 font-mono dir-ltr">• {ref.subtitle}</span> : null}
+                </div>
+                {Array.isArray(ref.roles) && ref.roles.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {ref.roles.slice(0, 4).map((r) => (
+                      <span
+                        key={r}
+                        className="text-[10px] px-2 py-0.5 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800"
+                      >
+                        {r}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="text-[10px] text-slate-400 mt-2 flex items-center gap-2">
+                  <span className="font-mono">{formatSize(a.fileSize)}</span>
+                  <span>•</span>
+                  <span dir="ltr">{new Date(a.uploadDate).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0 text-slate-500 dark:text-slate-300">
+                <Eye size={16} />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 export const Documents: React.FC = () => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -303,58 +388,14 @@ export const Documents: React.FC = () => {
                       .map((k) => {
                         const items = groups[k] || [];
                         return (
-                          <div key={k} className="rounded-xl border border-gray-100 dark:border-slate-700 overflow-hidden">
-                            <div className="px-4 py-2 bg-white dark:bg-slate-800 flex items-center justify-between">
-                              <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200">
-                                {k === 'صور' ? <ImageIcon size={16} className="text-purple-500" /> : <FileText size={16} className="text-indigo-500" />}
-                                {k}
-                              </div>
-                              <span className="text-xs text-slate-500 dark:text-slate-400">{items.length}</span>
-                            </div>
-
-                            <div className="divide-y divide-gray-100 dark:divide-slate-700">
-                              {items.map((a) => {
-                                const ref = describeReference(a);
-                                return (
-                                  <button
-                                    key={a.id}
-                                    type="button"
-                                    onClick={() => setViewingFile(a)}
-                                    className="w-full text-right p-4 hover:bg-gray-50 dark:hover:bg-slate-700/40 transition flex items-start justify-between gap-3"
-                                  >
-                                    <div className="min-w-0">
-                                      <div className="font-bold text-slate-800 dark:text-white truncate" title={a.fileName}>{a.fileName}</div>
-                                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                        <span className="font-semibold text-slate-700 dark:text-slate-200">{ref.title}</span>
-                                        {ref.subtitle ? <span className="ml-2 font-mono dir-ltr">• {ref.subtitle}</span> : null}
-                                      </div>
-                                      {Array.isArray(ref.roles) && ref.roles.length > 0 ? (
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                          {ref.roles.slice(0, 4).map((r) => (
-                                            <span
-                                              key={r}
-                                              className="text-[10px] px-2 py-0.5 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800"
-                                            >
-                                              {r}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : null}
-                                      <div className="text-[10px] text-slate-400 mt-2 flex items-center gap-2">
-                                        <span className="font-mono">{formatSize(a.fileSize)}</span>
-                                        <span>•</span>
-                                        <span dir="ltr">{new Date(a.uploadDate).toLocaleDateString()}</span>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 flex-shrink-0 text-slate-500 dark:text-slate-300">
-                                      <Eye size={16} />
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
+                          <DocumentsKindSection
+                            key={k}
+                            kind={k}
+                            items={items}
+                            onView={setViewingFile}
+                            describeReference={describeReference}
+                            formatSize={formatSize}
+                          />
                         );
                       })}
                   </div>

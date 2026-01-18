@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 import type { العقود_tbl, الكمبيالات_tbl } from '@/types/types';
 import {
   PieChart,
@@ -463,7 +464,18 @@ interface PerformanceViewProps {
   performanceReport: PerformanceRow[];
 }
 
-const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => (
+const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => {
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
+  const pageCount = Math.max(1, Math.ceil(performanceReport.length / pageSize));
+
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), pageCount));
+  }, [pageCount]);
+
+  const visible = performanceReport.slice((page - 1) * pageSize, page * pageSize);
+
+  return (
   <div className="app-card p-8 rounded-3xl animate-slide-up">
     
     <div className="flex flex-col md:flex-row md:items-start gap-6 mb-8">
@@ -548,6 +560,9 @@ const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => (
 
     {/* Table Details */}
     <div className="app-card">
+      <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
+        <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
+      </div>
       <table className="w-full text-right text-sm">
         <thead className="bg-gray-50 dark:bg-slate-900/80 text-slate-500 font-bold">
           <tr>
@@ -558,7 +573,7 @@ const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => (
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-          {performanceReport.map((res) => {
+          {visible.map((res) => {
               const improvement = res.before > 0 ? ((res.before - res.after) / res.before) * 100 : 0;
             return (
               <tr key={res.name} className="bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition">
@@ -587,7 +602,8 @@ const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => (
       </table>
     </div>
   </div>
-));
+  );
+});
 
 /* ========================= */
 /*     Testing View (NEW)    */
@@ -600,6 +616,8 @@ const SystemTestView = memo(() => {
   const [running, setRunning] = useState(false);
   const [allowMutation, setAllowMutation] = useState(false);
   const [results, setResults] = useState<UiTestResult[] | null>(null);
+  const [resultsPage, setResultsPage] = useState(1);
+  const resultsPageSize = 12;
 
   const isAutorunEnabled = (() => {
     const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
@@ -696,6 +714,18 @@ const SystemTestView = memo(() => {
       }
     : null;
 
+  const resultsPageCount = Math.max(1, Math.ceil((results?.length ?? 0) / resultsPageSize));
+
+  useEffect(() => {
+    setResultsPage(1);
+  }, [results?.length]);
+
+  useEffect(() => {
+    setResultsPage((p) => Math.min(Math.max(1, p), resultsPageCount));
+  }, [resultsPageCount]);
+
+  const visibleResults = (results || []).slice((resultsPage - 1) * resultsPageSize, resultsPage * resultsPageSize);
+
   return (
     <div className="app-card p-8 rounded-3xl animate-slide-up space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -757,7 +787,9 @@ const SystemTestView = memo(() => {
         </div>
       ) : (
         <div className="space-y-3">
-          {results.map(r => (
+          <PaginationControls page={resultsPage} pageCount={resultsPageCount} onPageChange={setResultsPage} />
+
+          {visibleResults.map(r => (
             <div key={r.id} className="app-card p-4 rounded-2xl bg-white dark:bg-slate-900/20">
               <div className="flex items-center justify-between gap-3">
                 <div className="font-bold text-slate-800 dark:text-white text-sm">{r.name}</div>

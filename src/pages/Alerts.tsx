@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { AlertDetail, الأشخاص_tbl, العقارات_tbl, العقود_tbl, tbl_Alerts } from '@/types';
-import { Bell, CheckCircle, Clock, AlertTriangle, CheckCheck, ExternalLink, X, User, Home, MessageCircle, Send, StickyNote, FileText, Layers, Database, ShieldAlert, PenTool } from 'lucide-react';
+import { Bell, CheckCircle, Clock, AlertTriangle, CheckCheck, ExternalLink, User, Home, MessageCircle, Send, StickyNote, FileText, Layers, Database, ShieldAlert, PenTool } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
@@ -10,8 +10,11 @@ import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { NotificationTemplates } from '@/services/notificationTemplates';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 const isOnlyFilter = (value: string): value is 'unread' | 'all' => value === 'unread' || value === 'all';
 
@@ -23,6 +26,9 @@ export const Alerts = () => {
   const [alerts, setAlerts] = useState<tbl_Alerts[]>([]);
   const [selectedAlert, setSelectedAlert] = useState<tbl_Alerts | null>(null);
   const [noteText, setNoteText] = useState('');
+
+    const pageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 14, '2xl': 16 });
+    const [page, setPage] = useState(1);
 
     const [only, setOnly] = useState<'unread' | 'all'>('unread');
     const [category, setCategory] = useState<string>('');
@@ -84,6 +90,18 @@ export const Alerts = () => {
     useEffect(() => {
         loadAlerts();
     }, [dbSignal, loadAlerts]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [only, category, q, pageSize]);
+
+    const pageCount = Math.max(1, Math.ceil((alerts.length || 0) / pageSize));
+
+    useEffect(() => {
+        setPage((p) => Math.min(Math.max(1, p), pageCount));
+    }, [pageCount]);
+
+    const pagedAlerts = alerts.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
     // Support deep links: #/alerts?only=unread|all&category=...&q=...
     useEffect(() => {
@@ -521,8 +539,14 @@ export const Alerts = () => {
             <p className="text-slate-500 dark:text-slate-400 text-sm">النظام يعمل بكفاءة ولا توجد مشاكل معلقة.</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50 dark:divide-slate-700">
-            {alerts.map((alert) => (
+                    <>
+                        <div className="p-3 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-2">
+                            <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {alerts.length.toLocaleString()} تنبيه</div>
+                            <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
+                        </div>
+
+                        <div className="divide-y divide-gray-50 dark:divide-slate-700">
+                        {pagedAlerts.map((alert) => (
               <div 
                 key={alert.id} 
                 onClick={() => setSelectedAlert(alert)}
@@ -585,38 +609,47 @@ export const Alerts = () => {
 
               </div>
             ))}
-          </div>
+                        </div>
+                    </>
         )}
       </div>
 
       {/* QUICK ACTION MODAL */}
       {selectedAlert && (
-          <div className="modal-overlay app-modal-overlay animate-fade-in">
-              <div className="modal-content app-modal-content w-full max-w-lg overflow-hidden animate-scale-up flex flex-col max-h-[85vh]">
-                  
-                  {/* Header */}
-                  <div className={`p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-start ${getAlertStyle(selectedAlert)} bg-opacity-20 dark:bg-opacity-10`}>
-                      <div>
-                          <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
-                              {selectedAlert.نوع_التنبيه}
-                              {selectedAlert.count && selectedAlert.count > 1 && (
-                                  <span className="bg-white/50 dark:bg-black/20 text-sm px-2 py-0.5 rounded">مجمع</span>
-                              )}
-                          </h3>
-                          <p className="text-sm opacity-80">{selectedAlert.الوصف}</p>
-                      </div>
-                      <button
-                        onClick={() => setSelectedAlert(null)}
-                        className="p-2 rounded-full text-slate-700 hover:bg-black/10 dark:text-slate-200 dark:hover:bg-white/10 transition"
-                        title="إغلاق"
-                        aria-label="إغلاق"
+          <AppModal
+              open={!!selectedAlert}
+              title={
+                  <div className="flex items-center gap-2">
+                      <span>{selectedAlert.نوع_التنبيه}</span>
+                      {selectedAlert.count && selectedAlert.count > 1 ? (
+                          <span className="bg-white/50 dark:bg-black/20 text-xs px-2 py-0.5 rounded">مجمع</span>
+                      ) : null}
+                  </div>
+              }
+              onClose={() => setSelectedAlert(null)}
+              size="lg"
+              headerClassName={`${getAlertStyle(selectedAlert)} bg-opacity-20 dark:bg-opacity-10`}
+              bodyClassName="p-0"
+              footer={(
+                  <div className="flex justify-between items-center">
+                      <button 
+                          onClick={() => handleDismiss(selectedAlert)}
+                          className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
                       >
-                        <X size={20}/>
+                          <CheckCircle size={16} /> تعليم كمقروء (تجاهل)
+                      </button>
+                      <button
+                          onClick={() => setSelectedAlert(null)}
+                          className="text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white text-sm"
+                      >
+                          إغلاق
                       </button>
                   </div>
+              )}
+          >
+                  <div className="p-6 space-y-6">
 
-                  {/* Scrollable Content */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                      <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{selectedAlert.الوصف}</p>
 
                       {/* Fixed expiry/renewal quick notifications */}
                       {selectedAlert.category === 'Expiry' && selectedAlert.مرجع_الجدول === 'العقود_tbl' && selectedAlert.مرجع_المعرف !== 'batch' && (
@@ -784,25 +817,7 @@ export const Alerts = () => {
                       )}
 
                   </div>
-
-                  {/* Footer */}
-                  <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/30 flex justify-between items-center">
-                      <button 
-                          onClick={() => handleDismiss(selectedAlert)}
-                          className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
-                      >
-                          <CheckCircle size={16} /> تعليم كمقروء (تجاهل)
-                      </button>
-                                            <button
-                                                onClick={() => setSelectedAlert(null)}
-                                                className="text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white text-sm"
-                                            >
-                                                إغلاق
-                                            </button>
-                  </div>
-
-              </div>
-          </div>
+          </AppModal>
       )}
 
     </div>

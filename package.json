@@ -3,7 +3,7 @@
   "description": "AZRAR Real Estate Management System (Desktop)",
   "author": "AZRAR",
   "private": true,
-  "version": "3.1.27",
+  "version": "3.1.43",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -46,7 +46,10 @@
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --coverage",
     "lint": "node scripts/lint.mjs",
-    "format": "prettier --write src/**/* electron/**/*"
+    "format": "prettier --write src/**/* electron/**/*",
+    "db:audit": "node scripts/db-audit-readonly-sqljs.mjs",
+    "db:fix": "npx --no-install electron scripts/db-apply-fixes-electron.mjs --",
+    "db:fix:node": "node scripts/db-apply-fixes-node.mjs"
   },
   "dependencies": {
     "@fontsource/tajawal": "^5.2.7",
@@ -98,6 +101,7 @@
     "postcss": "^8.5.1",
     "prettier": "^3.7.4",
     "tailwindcss": "^3.4.17",
+    "sql.js": "^1.13.0",
     "ts-jest": "^29.4.6",
     "typescript": "~5.8.2",
     "vite": "^6.4.1",

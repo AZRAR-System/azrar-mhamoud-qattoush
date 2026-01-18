@@ -9,6 +9,7 @@ import { DS } from '@/constants/designSystem';
 import { Input } from '@/components/ui/Input';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { runReportSmart } from '@/services/reporting';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 const CATEGORIES: { id: ReportCategory; label: string; icon: LucideIcon; color: string }[] = [
     { id: 'Financial', label: 'التقارير المالية', icon: Wallet, color: 'bg-emerald-500' },
@@ -17,6 +18,78 @@ const CATEGORIES: { id: ReportCategory; label: string; icon: LucideIcon; color: 
     { id: 'Tenants', label: 'تقارير المستأجرين', icon: Users, color: 'bg-orange-500' },
     { id: 'Maintenance', label: 'الصيانة والدعم', icon: Wrench, color: 'bg-slate-500' },
 ];
+
+const CategorySection: React.FC<{
+    cat: { id: ReportCategory; label: string; icon: LucideIcon; color: string };
+    catReports: ReportDefinition[];
+    openPanel: (type: string, id: string) => void;
+    resetKey: string;
+}> = ({ cat, catReports, openPanel, resetKey }) => {
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(6);
+
+    useEffect(() => {
+        const compute = () => {
+            if (typeof window === 'undefined') return;
+            const w = window.innerWidth;
+            if (w < 640) setPageSize(4);
+            else if (w < 1024) setPageSize(6);
+            else setPageSize(9);
+        };
+        compute();
+        window.addEventListener('resize', compute);
+        return () => window.removeEventListener('resize', compute);
+    }, []);
+
+    useEffect(() => {
+        setPage(1);
+    }, [resetKey, cat.id]);
+
+    const safePageSize = Math.max(1, Math.floor(pageSize));
+    const pageCount = Math.max(1, Math.ceil(catReports.length / safePageSize));
+
+    useEffect(() => {
+        setPage((p) => Math.min(Math.max(1, p), pageCount));
+    }, [pageCount]);
+
+    const visible = catReports.slice((page - 1) * safePageSize, page * safePageSize);
+
+    return (
+        <div className="app-card">
+            <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center gap-3 bg-gray-50 dark:bg-slate-900/50">
+                <div className={`p-2 rounded-lg text-white ${cat.color}`}>
+                    <cat.icon size={20} />
+                </div>
+                <div className="flex flex-wrap items-center justify-between w-full gap-3">
+                    <div>
+                        <h3 className="font-bold text-lg text-slate-800 dark:text-white">{cat.label}</h3>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(catReports.length)} تقرير</span>
+                    </div>
+                    <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
+                </div>
+            </div>
+
+            <div className="p-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {visible.map(rep => (
+                    <button
+                        key={rep.id}
+                        onClick={() => openPanel('REPORT_VIEWER', rep.id)}
+                        className="flex items-start gap-4 p-4 rounded-xl hover:bg-indigo-50 dark:hover:bg-slate-700/50 transition text-right group border border-transparent hover:border-indigo-100 dark:hover:border-slate-600"
+                    >
+                        <div className="mt-1 p-2 bg-gray-100 dark:bg-slate-700 rounded-lg group-hover:bg-white dark:group-hover:bg-slate-600 text-slate-500 dark:text-slate-400 transition">
+                            <BarChart3 size={18} />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">{rep.title}</h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{rep.description}</p>
+                        </div>
+                        <ArrowRight size={16} className="mr-auto text-gray-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-all self-center" />
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 export const Reports: React.FC = () => {
   const [reports, setReports] = useState<ReportDefinition[]>([]);
@@ -179,36 +252,13 @@ export const Reports: React.FC = () => {
               if (catReports.length === 0) return null;
 
               return (
-                  <div key={cat.id} className="app-card">
-                      <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center gap-3 bg-gray-50 dark:bg-slate-900/50">
-                          <div className={`p-2 rounded-lg text-white ${cat.color}`}>
-                              <cat.icon size={20} />
-                          </div>
-                          <div className="flex items-center justify-between w-full">
-                              <h3 className="font-bold text-lg text-slate-800 dark:text-white">{cat.label}</h3>
-                              <span className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(catReports.length)} تقرير</span>
-                          </div>
-                      </div>
-                      
-                      <div className="p-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {catReports.map(rep => (
-                              <button 
-                                key={rep.id}
-                                onClick={() => openPanel('REPORT_VIEWER', rep.id)}
-                                                                className="flex items-start gap-4 p-4 rounded-xl hover:bg-indigo-50 dark:hover:bg-slate-700/50 transition text-right group border border-transparent hover:border-indigo-100 dark:hover:border-slate-600"
-                              >
-                                  <div className="mt-1 p-2 bg-gray-100 dark:bg-slate-700 rounded-lg group-hover:bg-white dark:group-hover:bg-slate-600 text-slate-500 dark:text-slate-400 transition">
-                                      <BarChart3 size={18} />
-                                  </div>
-                                  <div>
-                                      <h4 className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">{rep.title}</h4>
-                                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{rep.description}</p>
-                                  </div>
-                                  <ArrowRight size={16} className="mr-auto text-gray-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-all self-center" />
-                              </button>
-                          ))}
-                      </div>
-                  </div>
+                <CategorySection
+                  key={cat.id}
+                  cat={cat}
+                  catReports={catReports}
+                  openPanel={openPanel}
+                  resetKey={search}
+                />
               );
                     }))}
        </div>

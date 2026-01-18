@@ -1,0 +1,63 @@
+-- Plan/template: add CHECK / DEFAULT / FOREIGN KEY constraints in SQLite
+-- NOTE: SQLite cannot add most constraints via ALTER TABLE easily.
+-- The safe approach is: CREATE new table -> copy data -> swap.
+-- This file is NOT executed automatically.
+-- Apply only after a backup.
+
+-- PRE-CHECKS (read-only)
+-- 1) Identify rows that would violate the new constraints.
+--    Example: contracts.paymentFrequency must be > 0 (audited DB had rows with 0).
+-- SELECT id, paymentFrequency FROM contracts WHERE COALESCE(paymentFrequency,0) <= 0;
+
+-- 2) Identify orphans before adding FKs.
+-- (See FINAL_DB_AUDIT_REPORT.md Appendix A)
+
+-- MIGRATION TEMPLATE (DO NOT RUN AS-IS)
+--
+-- BEGIN IMMEDIATE;
+-- PRAGMA foreign_keys = OFF;
+--
+-- -- Example: rebuild contracts with CHECK constraints and FK references
+-- CREATE TABLE contracts_new (
+--   id TEXT PRIMARY KEY,
+--   propertyId TEXT,
+--   tenantId TEXT,
+--   guarantorId TEXT,
+--   status TEXT,
+--   startDate TEXT,
+--   endDate TEXT,
+--   annualValue REAL CHECK (annualValue IS NULL OR annualValue > 0),
+--   paymentFrequency INTEGER CHECK (paymentFrequency IS NULL OR paymentFrequency > 0),
+--   paymentMethod TEXT,
+--   isArchived INTEGER DEFAULT 0 CHECK (isArchived IN (0,1)),
+--   data TEXT NOT NULL,
+--   updatedAt TEXT NOT NULL,
+--   FOREIGN KEY(propertyId) REFERENCES properties(id) ON DELETE SET NULL,
+--   FOREIGN KEY(tenantId) REFERENCES people(id) ON DELETE SET NULL,
+--   FOREIGN KEY(guarantorId) REFERENCES people(id) ON DELETE SET NULL
+-- );
+--
+-- INSERT INTO contracts_new
+--   (id, propertyId, tenantId, guarantorId, status, startDate, endDate, annualValue, paymentFrequency, paymentMethod, isArchived, data, updatedAt)
+-- SELECT
+--   id, propertyId, tenantId, guarantorId, status, startDate, endDate, annualValue, paymentFrequency, paymentMethod,
+--   COALESCE(isArchived,0), data, updatedAt
+-- FROM contracts;
+--
+-- DROP TABLE contracts;
+-- ALTER TABLE contracts_new RENAME TO contracts;
+--
+-- -- Recreate needed indexes
+-- CREATE INDEX idx_contracts_propertyId ON contracts(propertyId);
+-- CREATE INDEX idx_contracts_tenantId ON contracts(tenantId);
+-- CREATE INDEX idx_contracts_guarantorId ON contracts(guarantorId);
+-- CREATE INDEX idx_contracts_status ON contracts(status);
+-- CREATE INDEX idx_contracts_isArchived ON contracts(isArchived);
+-- CREATE INDEX idx_contracts_endDate ON contracts(endDate);
+--
+-- PRAGMA foreign_keys = ON;
+-- COMMIT;
+
+-- IMPORTANT
+-- - If any row violates constraints, the INSERT will fail.
+-- - Clean/normalize data first (especially paymentFrequency).

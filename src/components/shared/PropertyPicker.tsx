@@ -1,12 +1,12 @@
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, X, Home, MapPin, Plus, ChevronDown, Check, Building2, Filter } from 'lucide-react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Search, Home, MapPin, Plus, ChevronDown, Check, Building2, Filter } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { العقارات_tbl, الأشخاص_tbl, العقود_tbl, تذاكر_الصيانة_tbl, سجل_الملكية_tbl } from '@/types';
 import type { PropertyPickerItem } from '@/types/domain.types';
 import { useToast } from '@/context/ToastContext';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { AppModal } from '@/components/ui/AppModal';
 import { getTenancyStatusScore, isTenancyRelevant } from '@/utils/tenancy';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { domainGetSmart, propertyPickerSearchPagedSmart } from '@/services/domainQueries';
@@ -60,6 +60,8 @@ export const PropertyPicker: React.FC<PropertyPickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<العقارات_tbl | null>(null);
+
+  const modalSearchInputId = useId();
 
   const isRtl = typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl';
 
@@ -481,43 +483,35 @@ export const PropertyPicker: React.FC<PropertyPickerProps> = ({
         <ChevronDown size={16} className="text-slate-400 group-hover:text-indigo-500 transition" />
       </div>
 
-      {/* MODAL (Portal to avoid nested-modal clipping) */}
-      {isOpen &&
-        (typeof document !== 'undefined'
-          ? createPortal(
-              <div
-                className="modal-overlay app-modal-overlay z-[100] bg-slate-900/70 animate-fade-in"
-                role="dialog"
-                aria-modal="true"
-                onClick={() => setIsOpen(false)}
-              >
-                <div
-                  className="modal-content app-modal-content dark:bg-slate-900 dark:border-slate-800 w-full max-w-5xl h-[85vh] flex flex-col animate-scale-up overflow-hidden"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                
-                {/* Header */}
-                <div className="p-5 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/30 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-600/20">
-                            <Building2 size={24} />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">اختيار عقار</h3>
-                            <p className="text-xs text-slate-500">ابحث واختر العقار المناسب للعملية</p>
-                        </div>
-                    </div>
-                    <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-slate-200/70 dark:hover:bg-slate-800/60 rounded-full transition text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400">
-                        <X size={24} />
-                    </button>
-                </div>
+      {/* MODAL */}
+      {isOpen && (
+        <AppModal
+          open={isOpen}
+          onClose={() => setIsOpen(false)}
+          size="6xl"
+          initialFocusSelector={`#${modalSearchInputId}`}
+          className="items-center p-4 bg-black/20 backdrop-blur-[1px]"
+          contentClassName="dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"
+          bodyClassName="p-0 overflow-hidden flex flex-col"
+          title={
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-600/20">
+                <Building2 size={22} />
+              </div>
+              <div>
+                <div className="font-bold text-lg">اختيار عقار</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">ابحث واختر العقار المناسب للعملية</div>
+              </div>
+            </div>
+          }
+        >
 
                 {/* Search & Filters */}
                 <div className="p-4 space-y-4 bg-white dark:bg-slate-900 border-b border-slate-200/70 dark:border-slate-800">
                     <div className="flex gap-3">
                         <div className="relative flex-1">
                             <input 
-                                autoFocus
+                                id={modalSearchInputId}
                                 type="text" 
                                 placeholder="بحث: الكود، اسم المالك، رقم القطعة، الحوض..." 
                               dir={isRtl ? 'rtl' : 'ltr'}
@@ -862,11 +856,8 @@ export const PropertyPicker: React.FC<PropertyPickerProps> = ({
                   </button>
                 </div>
 
-                </div>
-              </div>,
-              document.body
-            )
-          : null)}
+        </AppModal>
+      )}
     </div>
   );
 };

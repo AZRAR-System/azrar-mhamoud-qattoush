@@ -130,6 +130,26 @@ export interface DesktopDbBridge {
 
   domainContractDetails?: (payload: { contractId: string }) => Promise<{ ok: boolean; data?: ContractDetailsResult; message?: string } | unknown>;
 
+  // Details panels helpers (Desktop fast mode)
+  domainOwnershipHistory?: (payload: { propertyId?: string; personId?: string }) =>
+    Promise<{ ok: boolean; items?: unknown[]; message?: string } | unknown>;
+  domainPropertyInspections?: (payload: { propertyId: string }) =>
+    Promise<{ ok: boolean; items?: unknown[]; message?: string } | unknown>;
+  domainSalesForPerson?: (payload: { personId: string }) =>
+    Promise<{ ok: boolean; listings?: unknown[]; agreements?: unknown[]; message?: string } | unknown>;
+  domainSalesForProperty?: (payload: { propertyId: string }) =>
+    Promise<{ ok: boolean; items?: unknown[]; message?: string } | unknown>;
+
+  // Mutations (Desktop fast mode)
+  domainPeopleDelete?: (payload: { personId: string }) => Promise<{ ok: boolean; message?: string } | unknown>;
+  domainBlacklistRemove?: (payload: { id: string }) => Promise<{ ok: boolean; message?: string } | unknown>;
+  domainPropertyUpdate?: (payload: { propertyId: string; patch: Record<string, unknown> }) =>
+    Promise<{ ok: boolean; data?: unknown; message?: string } | unknown>;
+  domainInspectionDelete?: (payload: { id: string }) => Promise<{ ok: boolean; message?: string } | unknown>;
+  domainFollowUpAdd?: (payload: { task: Record<string, unknown> }) =>
+    Promise<{ ok: boolean; id?: string; reminderId?: string; message?: string } | unknown>;
+  domainSalesAgreementDelete?: (payload: { id: string }) => Promise<{ ok: boolean; message?: string } | unknown>;
+
   // Picker search (Desktop only)
   domainPropertyPickerSearch?: (payload: PropertyPickerSearchPayload) =>
     Promise<{

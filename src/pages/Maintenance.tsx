@@ -1,5 +1,5 @@
 ﻿
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { DbService } from '@/services/mockDb';
 import { تذاكر_الصيانة_tbl, العقارات_tbl, الأشخاص_tbl, العقود_tbl, DynamicFormField } from '@/types';
 import { Wrench, Plus, CheckCircle, Clock, User, Home, ChevronDown, DollarSign, Key, Trash2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { PersonPicker } from '@/components/shared/PersonPicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { useToast } from '@/context/ToastContext';
 import { Button } from '@/components/ui/Button';
+import { AppModal } from '@/components/ui/AppModal';
 import { DS } from '@/constants/designSystem';
 import { pickBestTenancyContract } from '@/utils/tenancy';
 import { RBACGuard } from '@/components/shared/RBACGuard';
@@ -19,6 +20,8 @@ import { formatDynamicValue, isEmptyDynamicValue } from '@/components/dynamic/dy
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { storage } from '@/services/storage';
 import { domainGetSmart, propertyContractsSmart } from '@/services/domainQueries';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 export const Maintenance: React.FC = () => {
   const [tickets, setTickets] = useState<تذاكر_الصيانة_tbl[]>([]);
@@ -315,6 +318,23 @@ export const Maintenance: React.FC = () => {
     return true;
   });
 
+  const pageSize = useResponsivePageSize({ base: 6, sm: 6, md: 8, lg: 9, xl: 12, '2xl': 15 });
+  const [page, setPage] = useState(1);
+  const pageCount = useMemo(() => Math.max(1, Math.ceil((filteredTickets.length || 0) / pageSize)), [filteredTickets.length, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, pageSize]);
+
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), pageCount));
+  }, [pageCount]);
+
+  const visibleTickets = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredTickets.slice(start, start + pageSize);
+  }, [filteredTickets, page, pageSize]);
+
   const selectClass = "w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer";
   const selectWrapper = "relative";
   const selectIcon = "absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500 dark:text-slate-400";
@@ -345,8 +365,13 @@ export const Maintenance: React.FC = () => {
           </Button>
        </div>
 
+       <div className="flex items-center justify-between gap-2">
+         <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {filteredTickets.length.toLocaleString()} تذكرة</div>
+         <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
+       </div>
+
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-         {filteredTickets.map(ticket => {
+         {visibleTickets.map(ticket => {
              const context = getPropertyContext(ticket.رقم_العقار);
              return (
             <div key={ticket.رقم_التذكرة} className="app-card p-5 hover:shadow-md transition group">
@@ -465,20 +490,49 @@ export const Maintenance: React.FC = () => {
 
        {/* Add/Edit Modal */}
        {isModalOpen && (
-        <div className="modal-overlay app-modal-overlay">
-          <div className="modal-content app-modal-content w-full max-w-lg animate-scale-up overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">{editingId ? 'تعديل تذكرة' : 'طلب صيانة جديد'}</h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-black/10 hover:text-slate-700 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white transition"
-                title="إغلاق"
-                aria-label="إغلاق"
-              >
-                <span className="text-2xl leading-none">&times;</span>
-              </button>
+        <AppModal
+          open={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          size="lg"
+          title={editingId ? 'تعديل تذكرة' : 'طلب صيانة جديد'}
+          bodyClassName="p-6"
+          footer={
+            <div className="flex justify-end gap-3">
+              {editingId && (
+                <div className="flex-1 flex items-center gap-2">
+                  <RBACGuard requiredPermission="CLOSE_MAINTENANCE">
+                    <button
+                      type="button"
+                      onClick={() => handleFinishTicket(editingId)}
+                      disabled={formData.الحالة === 'مغلق'}
+                      className="px-4 py-2.5 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 font-bold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <CheckCircle size={18} /> إنهاء
+                    </button>
+                  </RBACGuard>
+                  <RBACGuard requiredPermission="DELETE_MAINTENANCE">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTicket(editingId)}
+                      className="px-4 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 font-bold transition flex items-center gap-2"
+                    >
+                      <Trash2 size={18} /> حذف
+                    </button>
+                  </RBACGuard>
+                </div>
+              )}
+              <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+                إلغاء
+              </Button>
+              <RBACGuard requiredPermission="EDIT_MAINTENANCE">
+                <Button type="submit" variant="primary" form="maintenance-ticket-form">
+                  حفظ التذكرة
+                </Button>
+              </RBACGuard>
             </div>
-              <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto min-h-0">
+          }
+        >
+              <form id="maintenance-ticket-form" onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">العقار <span className="text-red-500">*</span></label>
                 
@@ -605,39 +659,8 @@ export const Maintenance: React.FC = () => {
               )}
 
               <DynamicFieldsSection formId="maintenance" values={dynamicValues} onChange={setDynamicValues} />
-
-              <div className="flex justify-end gap-3 pt-4">
-                 {editingId && (
-                   <div className="flex-1 flex items-center gap-2">
-                     <RBACGuard requiredPermission="CLOSE_MAINTENANCE">
-                       <button
-                         type="button"
-                         onClick={() => handleFinishTicket(editingId)}
-                         disabled={formData.الحالة === 'مغلق'}
-                         className="px-4 py-2.5 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 font-bold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                       >
-                         <CheckCircle size={18} /> إنهاء
-                       </button>
-                     </RBACGuard>
-                     <RBACGuard requiredPermission="DELETE_MAINTENANCE">
-                       <button
-                         type="button"
-                         onClick={() => handleDeleteTicket(editingId)}
-                         className="px-4 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 font-bold transition flex items-center gap-2"
-                       >
-                         <Trash2 size={18} /> حذف
-                       </button>
-                     </RBACGuard>
-                   </div>
-                 )}
-                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl font-medium transition">إلغاء</button>
-                 <RBACGuard requiredPermission="EDIT_MAINTENANCE">
-                   <button type="submit" className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 font-bold transition">حفظ التذكرة</button>
-                 </RBACGuard>
-              </div>
             </form>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
   );

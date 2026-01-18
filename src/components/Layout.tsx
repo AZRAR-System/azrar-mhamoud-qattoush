@@ -15,6 +15,7 @@ import { formatTimeHM } from '@/utils/format';
 import { useInAppReminderNotifier } from '@/hooks/useInAppReminderNotifier';
 import { getDatabaseStats } from '@/services/resetDatabase';
 import { useToast } from '@/context/ToastContext';
+import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 const getUnknownMessage = (v: unknown): string | undefined => (isRecord(v) && typeof v.message === 'string' ? v.message : undefined);
@@ -356,6 +357,25 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
       if (!isDesktop) setSidebarOpen(false);
   }, [location.pathname, isDesktop]);
+
+  // Mobile sidebar parity: ESC closes + lock body scroll
+  useEffect(() => {
+    if (isDesktop) return;
+    if (!sidebarOpen) return;
+
+    lockBodyScroll();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setSidebarOpen(false);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      unlockBodyScroll();
+    };
+  }, [isDesktop, sidebarOpen]);
 
   // Header notification badge (real data)
   useEffect(() => {

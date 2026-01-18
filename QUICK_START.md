@@ -90,6 +90,27 @@ npm run desktop:dist:skipWU
 dir release2_build
 ```
 
+---
+
+## 🗄️ تثبيت مسار قاعدة البيانات (منع خلط النسخ)
+
+التطبيق يدعم تثبيت مسار DB عبر متغيرات البيئة (بدون تعديل الكود):
+
+- `AZRAR_DESKTOP_DB_PATH` (مُفضّل): مسار كامل لملف `khaberni.sqlite`
+- `AZRAR_DESKTOP_DB_DIR` (بديل): مجلد تُستخدم داخله `khaberni.sqlite`
+
+### مثال (PowerShell) لتثبيت مسار رسمي قبل تشغيل التطبيق
+
+```powershell
+# مثال: تثبيت مسار قاعدة البيانات الرسمي
+$env:AZRAR_DESKTOP_DB_PATH = "C:\Users\qpqp_\AppData\Roaming\copy-of-khaberni-real-estate-system-mastar1\Cache\copy-of-khaberni-real-estate-system-mastar1\khaberni.sqlite"
+
+# تشغيل التطبيق
+npm run desktop:run
+```
+
+> ملاحظة: إذا كان `AZRAR_DESKTOP_DB_PATH` موجوداً، سيتم استخدامه مباشرة وتجاهل المسارات الافتراضية.
+
 ### 2. اختبار الاختبارات
 
 ```powershell

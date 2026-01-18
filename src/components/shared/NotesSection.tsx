@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { NoteRecord, ReferenceType } from '@/types';
-import { DbService } from '@/services/mockDb';
+import { addNoteSmart, listNotesSmart } from '@/services/refsDataSmart';
 import { MessageSquare, Send, User } from 'lucide-react';
 
 interface NotesSectionProps {
@@ -14,20 +14,31 @@ export const NotesSection: React.FC<NotesSectionProps> = ({ referenceId, type })
   const [newNote, setNewNote] = useState('');
 
   const loadNotes = useCallback(() => {
-    setNotes(DbService.getNotes(referenceId, type));
+    let alive = true;
+    const run = async () => {
+      try {
+        const items = await listNotesSmart(type, referenceId);
+        if (alive) setNotes(items);
+      } catch {
+        if (alive) setNotes([]);
+      }
+    };
+    void run();
+    return () => {
+      alive = false;
+    };
   }, [referenceId, type]);
 
   useEffect(() => {
-    loadNotes();
+    const cleanup = loadNotes();
+    return () => cleanup?.();
   }, [loadNotes]);
 
-  const handleAdd = () => {
-    if (!newNote.trim()) return;
-    const res = DbService.addNote({
-      content: newNote,
-      referenceId,
-      referenceType: type
-    });
+  const handleAdd = async () => {
+    const content = newNote.trim();
+    if (!content) return;
+
+    const res = await addNoteSmart({ referenceType: type, referenceId, content });
     if (res.success) {
       setNewNote('');
       loadNotes();
@@ -67,10 +78,10 @@ export const NotesSection: React.FC<NotesSectionProps> = ({ referenceId, type })
             placeholder="اكتب ملاحظة..."
             value={newNote}
             onChange={e => setNewNote(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            onKeyDown={e => e.key === 'Enter' && void handleAdd()}
           />
           <button 
-            onClick={handleAdd}
+            onClick={() => void handleAdd()}
             className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition shadow-sm"
           >
             <Send size={18} />

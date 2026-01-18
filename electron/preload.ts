@@ -35,6 +35,16 @@ export type DbChannel =
   | 'domain:person:tenancyContracts'
   | 'domain:property:contracts'
   | 'domain:contract:details'
+  | 'domain:ownership:history'
+  | 'domain:property:inspections'
+  | 'domain:sales:person'
+  | 'domain:sales:property'
+  | 'domain:people:delete'
+  | 'domain:blacklist:remove'
+  | 'domain:property:update'
+  | 'domain:inspection:delete'
+  | 'domain:followups:add'
+  | 'domain:sales:agreement:delete'
   | 'domain:picker:properties'
   | 'domain:picker:contracts'
   | 'domain:picker:people'
@@ -100,6 +110,20 @@ contextBridge.exposeInMainWorld('desktopDb', {
   domainPropertyContracts: (payload: { propertyId: string; limit?: number }) => ipcRenderer.invoke('domain:property:contracts', payload),
 
   domainContractDetails: (payload: { contractId: string }) => ipcRenderer.invoke('domain:contract:details', payload),
+
+  // Domain helpers for details panels (Desktop fast mode)
+  domainOwnershipHistory: (payload: { propertyId?: string; personId?: string }) => ipcRenderer.invoke('domain:ownership:history', payload),
+  domainPropertyInspections: (payload: { propertyId: string }) => ipcRenderer.invoke('domain:property:inspections', payload),
+  domainSalesForPerson: (payload: { personId: string }) => ipcRenderer.invoke('domain:sales:person', payload),
+  domainSalesForProperty: (payload: { propertyId: string }) => ipcRenderer.invoke('domain:sales:property', payload),
+
+  // Domain mutations (Desktop fast mode)
+  domainPeopleDelete: (payload: { personId: string }) => ipcRenderer.invoke('domain:people:delete', payload),
+  domainBlacklistRemove: (payload: { id: string }) => ipcRenderer.invoke('domain:blacklist:remove', payload),
+  domainPropertyUpdate: (payload: { propertyId: string; patch: Record<string, unknown> }) => ipcRenderer.invoke('domain:property:update', payload),
+  domainInspectionDelete: (payload: { id: string }) => ipcRenderer.invoke('domain:inspection:delete', payload),
+  domainFollowUpAdd: (payload: { task: Record<string, unknown> }) => ipcRenderer.invoke('domain:followups:add', payload),
+  domainSalesAgreementDelete: (payload: { id: string }) => ipcRenderer.invoke('domain:sales:agreement:delete', payload),
 
   domainPropertyPickerSearch: (payload: { query: string; status?: string; type?: string; forceVacant?: boolean; offset?: number; limit?: number }) =>
     ipcRenderer.invoke('domain:picker:properties', payload),

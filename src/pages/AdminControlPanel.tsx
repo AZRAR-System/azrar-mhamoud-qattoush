@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useRef, useState, useEffect } from 'react';
+﻿import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { العمليات_tbl, المستخدمين_tbl, RoleType, الأشخاص_tbl, صلاحيات_المستخدمين_tbl, BlacklistRecord } from '@/types';
 import {
@@ -8,7 +8,6 @@ import {
   BarChart3,
   Search,
   CheckCircle,
-  XCircle,
   Lock,
   Edit2,
   Trash2,
@@ -36,10 +35,15 @@ import { DS } from '@/constants/designSystem';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
+import { runReportSmart } from '@/services/reporting';
 import { PersonPicker } from '@/components/shared/PersonPicker';
+import { AppModal } from '@/components/ui/AppModal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { formatCurrencyJOD } from '@/utils/format';
 import type { DashboardStats } from '@/services/dbCache';
 import type { LucideIcon } from 'lucide-react';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 // --- SUB-COMPONENTS ---
 
@@ -98,9 +102,87 @@ export const AdminControlPanel: React.FC = () => {
   const [blacklistSearch, setBlacklistSearch] = useState('');
   const [showArchivedBlacklist, setShowArchivedBlacklist] = useState(false);
 
+    const logsPageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 16, xl: 20, '2xl': 24 });
+    const usersPageSize = useResponsivePageSize({ base: 6, sm: 8, md: 9, lg: 12, xl: 15, '2xl': 18 });
+
+    const [logsPage, setLogsPage] = useState(1);
+    const [usersPage, setUsersPage] = useState(1);
+
+    const filteredLogs = useMemo(() => {
+        return logs.filter(
+            (log) =>
+                (!logFilter.user || log.اسم_المستخدم.includes(logFilter.user)) &&
+                (!logFilter.action || log.نوع_العملية.includes(logFilter.action)) &&
+                (!logFilter.date || log.تاريخ_العملية.startsWith(logFilter.date))
+        );
+    }, [logs, logFilter]);
+
+    useEffect(() => {
+        setLogsPage(1);
+    }, [logFilter.user, logFilter.action, logFilter.date, logsPageSize]);
+
+    const logsPageCount = useMemo(
+        () => Math.max(1, Math.ceil((filteredLogs.length || 0) / logsPageSize)),
+        [filteredLogs.length, logsPageSize]
+    );
+
+    useEffect(() => {
+        setLogsPage((p) => Math.min(Math.max(1, p), logsPageCount));
+    }, [logsPageCount]);
+
+    const visibleLogs = useMemo(() => {
+        const start = (logsPage - 1) * logsPageSize;
+        return filteredLogs.slice(start, start + logsPageSize);
+    }, [filteredLogs, logsPage, logsPageSize]);
+
+    const filteredUsers = useMemo(() => {
+        return users.filter((u) => u.اسم_المستخدم.includes(userSearch));
+    }, [users, userSearch]);
+
+    useEffect(() => {
+        setUsersPage(1);
+    }, [userSearch, usersPageSize]);
+
+    const usersPageCount = useMemo(
+        () => Math.max(1, Math.ceil((filteredUsers.length || 0) / usersPageSize)),
+        [filteredUsers.length, usersPageSize]
+    );
+
+    useEffect(() => {
+        setUsersPage((p) => Math.min(Math.max(1, p), usersPageCount));
+    }, [usersPageCount]);
+
+    const visibleUsers = useMemo(() => {
+        const start = (usersPage - 1) * usersPageSize;
+        return filteredUsers.slice(start, start + usersPageSize);
+    }, [filteredUsers, usersPage, usersPageSize]);
+
   // User Edit Modal State
   const [editingUser, setEditingUser] = useState<المستخدمين_tbl | null>(null);
   const [tempPermissions, setTempPermissions] = useState<string[]>([]); // Array of codes
+
+    const [employeeCommissionMonthKey, setEmployeeCommissionMonthKey] = useState<string>(() => new Date().toISOString().slice(0, 7));
+    const [employeeCommissionSummary, setEmployeeCommissionSummary] = useState<{
+        loading: boolean;
+        error?: string;
+        monthKey: string;
+        countThisMonth: number;
+        totalOfficeThisMonth: number;
+        totalIntroThisMonth: number;
+        totalEmployeeThisMonth: number;
+        rentOfficeThisMonth: number;
+        rentEmployeeThisMonth: number;
+        saleOfficeThisMonth: number;
+        saleEmployeeThisMonth: number;
+        countAll: number;
+        totalOfficeAll: number;
+        totalIntroAll: number;
+        totalEmployeeAll: number;
+        rentOfficeAll: number;
+        rentEmployeeAll: number;
+        saleOfficeAll: number;
+        saleEmployeeAll: number;
+    } | null>(null);
 
   // Add User Modal State
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
@@ -132,6 +214,133 @@ export const AdminControlPanel: React.FC = () => {
     useEffect(() => {
         loadData();
     }, [dbSignal, loadData]);
+
+    useEffect(() => {
+        let alive = true;
+
+        const toRecord = (value: unknown): Record<string, unknown> =>
+            typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+        const toNumber = (value: unknown): number => {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : 0;
+        };
+
+        const currentMonthKey = String(employeeCommissionMonthKey || '').trim() || new Date().toISOString().slice(0, 7);
+        const username = String(editingUser?.اسم_المستخدم || '').trim();
+
+        if (!editingUser || !username) {
+            setEmployeeCommissionSummary(null);
+            return () => {
+                alive = false;
+            };
+        }
+
+        // When opening a new user, default the picker to current month.
+        setEmployeeCommissionMonthKey((prev) => (prev ? prev : new Date().toISOString().slice(0, 7)));
+
+        setEmployeeCommissionSummary({
+            loading: true,
+            monthKey: currentMonthKey,
+            countThisMonth: 0,
+            totalOfficeThisMonth: 0,
+            totalIntroThisMonth: 0,
+            totalEmployeeThisMonth: 0,
+            rentOfficeThisMonth: 0,
+            rentEmployeeThisMonth: 0,
+            saleOfficeThisMonth: 0,
+            saleEmployeeThisMonth: 0,
+            countAll: 0,
+            totalOfficeAll: 0,
+            totalIntroAll: 0,
+            totalEmployeeAll: 0,
+            rentOfficeAll: 0,
+            rentEmployeeAll: 0,
+            saleOfficeAll: 0,
+            saleEmployeeAll: 0,
+        });
+
+        (async () => {
+            try {
+                const report = await runReportSmart('employee_commissions');
+                const rows = Array.isArray(report?.data) ? report.data : [];
+
+                const userRows = rows.filter((r) => String(toRecord(r)['employeeUsername'] ?? '').trim() === username);
+                const monthRows = userRows.filter((r) => String(toRecord(r)['date'] ?? '').slice(0, 7) === currentMonthKey);
+
+                const byType = (arr: unknown[], type: string) =>
+                    arr.filter((r) => String(toRecord(r)['type'] ?? '').trim() === type);
+
+                const sumOffice = (arr: unknown[]): number =>
+                    arr
+                        .map((r) => toNumber(toRecord(r)['officeCommission']))
+                        .reduce((s, n) => s + n, 0);
+                const sumEmployee = (arr: unknown[]): number =>
+                    arr
+                        .map((r) => toNumber(toRecord(r)['employeeTotal']))
+                        .reduce((s, n) => s + n, 0);
+                const sumIntro = (arr: unknown[]): number =>
+                    arr
+                        .map((r) => toNumber(toRecord(r)['intro']))
+                        .reduce((s, n) => s + n, 0);
+
+                const monthRent = byType(monthRows, 'إيجار');
+                const monthSale = byType(monthRows, 'بيع');
+                const allRent = byType(userRows, 'إيجار');
+                const allSale = byType(userRows, 'بيع');
+
+                const next = {
+                    loading: false,
+                    monthKey: currentMonthKey,
+                    countThisMonth: monthRows.length,
+                    totalOfficeThisMonth: sumOffice(monthRows),
+                    totalIntroThisMonth: sumIntro(monthRows),
+                    totalEmployeeThisMonth: sumEmployee(monthRows),
+                    rentOfficeThisMonth: sumOffice(monthRent),
+                    rentEmployeeThisMonth: sumEmployee(monthRent),
+                    saleOfficeThisMonth: sumOffice(monthSale),
+                    saleEmployeeThisMonth: sumEmployee(monthSale),
+                    countAll: userRows.length,
+                    totalOfficeAll: sumOffice(userRows),
+                    totalIntroAll: sumIntro(userRows),
+                    totalEmployeeAll: sumEmployee(userRows),
+                    rentOfficeAll: sumOffice(allRent),
+                    rentEmployeeAll: sumEmployee(allRent),
+                    saleOfficeAll: sumOffice(allSale),
+                    saleEmployeeAll: sumEmployee(allSale),
+                };
+
+                if (!alive) return;
+                setEmployeeCommissionSummary(next);
+            } catch (e) {
+                if (!alive) return;
+                setEmployeeCommissionSummary({
+                    loading: false,
+                    error: (e as Error)?.message || 'فشل تحميل ملخص العمولات',
+                    monthKey: currentMonthKey,
+                    countThisMonth: 0,
+                    totalOfficeThisMonth: 0,
+                    totalIntroThisMonth: 0,
+                    totalEmployeeThisMonth: 0,
+                    rentOfficeThisMonth: 0,
+                    rentEmployeeThisMonth: 0,
+                    saleOfficeThisMonth: 0,
+                    saleEmployeeThisMonth: 0,
+                    countAll: 0,
+                    totalOfficeAll: 0,
+                    totalIntroAll: 0,
+                    totalEmployeeAll: 0,
+                    rentOfficeAll: 0,
+                    rentEmployeeAll: 0,
+                    saleOfficeAll: 0,
+                    saleEmployeeAll: 0,
+                });
+            }
+        })();
+
+        return () => {
+            alive = false;
+        };
+    }, [editingUser, employeeCommissionMonthKey]);
 
     // Desktop-fast: resolve linked/blacklist people names lazily via SQL
     useEffect(() => {
@@ -383,12 +592,6 @@ export const AdminControlPanel: React.FC = () => {
   };
 
   const renderActivity = () => {
-    const filteredLogs = logs.filter(log => 
-        (!logFilter.user || log.اسم_المستخدم.includes(logFilter.user)) &&
-        (!logFilter.action || log.نوع_العملية.includes(logFilter.action)) &&
-        (!logFilter.date || log.تاريخ_العملية.startsWith(logFilter.date))
-    );
-
     return (
         <div className="space-y-4 animate-fade-in">
             {/* Filters */}
@@ -412,6 +615,10 @@ export const AdminControlPanel: React.FC = () => {
 
             {/* Table */}
             <div className="app-card">
+                <div className="p-3 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-2">
+                    <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {filteredLogs.length.toLocaleString()} سجل</div>
+                    <PaginationControls page={logsPage} pageCount={logsPageCount} onPageChange={setLogsPage} />
+                </div>
                 <table className="w-full text-right text-sm">
                     <thead className="app-table-thead font-bold">
                         <tr>
@@ -423,7 +630,7 @@ export const AdminControlPanel: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                        {filteredLogs.map(log => (
+                        {visibleLogs.map(log => (
                             <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                                 <td className="p-4 font-bold text-slate-700 dark:text-white flex items-center gap-2">
                                     <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">
@@ -466,6 +673,7 @@ export const AdminControlPanel: React.FC = () => {
                     className="border p-2 rounded-xl text-sm w-64 bg-white dark:bg-slate-800 dark:border-slate-600 outline-none"
                     value={userSearch} onChange={e => setUserSearch(e.target.value)}
                 />
+                <PaginationControls page={usersPage} pageCount={usersPageCount} onPageChange={setUsersPage} />
                 <button 
                     onClick={() => setIsAddUserModalOpen(true)} 
                     className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 flex items-center gap-2 transition shadow-lg shadow-indigo-600/20 font-bold text-sm"
@@ -474,8 +682,10 @@ export const AdminControlPanel: React.FC = () => {
                 </button>
             </div>
 
+            <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {filteredUsers.length.toLocaleString()} مستخدم</div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {users.filter(u => u.اسم_المستخدم.includes(userSearch)).map(user => {
+                {visibleUsers.map(user => {
                     const linkedName = getLinkedPersonName(user.linkedPersonId);
                     return (
                         <div key={user.id} className={`app-card p-6 flex flex-col gap-4 relative overflow-hidden transition hover:shadow-lg
@@ -537,21 +747,19 @@ export const AdminControlPanel: React.FC = () => {
             </div>
 
             {/* ADD USER MODAL */}
-            {isAddUserModalOpen && (
-                <div className="modal-overlay app-modal-overlay">
-                    <div className="modal-content app-modal-content w-full max-w-md animate-scale-up">
-                        <div className="p-5 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800 rounded-t-2xl">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">إضافة مستخدم جديد</h3>
-                            <button
-                                onClick={() => setIsAddUserModalOpen(false)}
-                                className="p-2 rounded-lg text-slate-500 hover:bg-black/10 hover:text-slate-700 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white transition"
-                                title="إغلاق"
-                                aria-label="إغلاق"
-                            >
-                                <span className="text-2xl leading-none">&times;</span>
-                            </button>
-                        </div>
-                        <form onSubmit={handleAddUser} className="p-6 space-y-4">
+            <AppModal
+                open={isAddUserModalOpen}
+                title="إضافة مستخدم جديد"
+                onClose={() => setIsAddUserModalOpen(false)}
+                size="md"
+                footer={(
+                    <div className="flex justify-end gap-3">
+                        <button type="button" onClick={() => setIsAddUserModalOpen(false)} className="px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">إلغاء</button>
+                        <button type="submit" form="add-user-form" className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold">حفظ</button>
+                    </div>
+                )}
+            >
+                        <form id="add-user-form" onSubmit={handleAddUser} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">اسم المستخدم</label>
                                 <input required className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" 
@@ -618,35 +826,136 @@ export const AdminControlPanel: React.FC = () => {
                                                                 )}
                                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">يُستخدم لربط حساب الدخول ببيانات الموظف أو الشخص في النظام.</p>
                             </div>
-
-                            <div className="pt-4 flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsAddUserModalOpen(false)} className="px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">إلغاء</button>
-                                <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold">حفظ</button>
-                            </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </AppModal>
 
             {/* EDIT USER MODAL */}
-            {editingUser && (
-                <div className="modal-overlay app-modal-overlay">
-                    <div className="modal-content app-modal-content w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-up">
-                        <div className="p-6 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 flex justify-between items-center">
-                            <h3 className="font-bold text-xl text-slate-800 dark:text-white flex items-center gap-2">
-                                <Settings size={24} className="text-indigo-600"/> إدارة صلاحيات: {editingUser.اسم_المستخدم}
-                            </h3>
-                            <button
-                                onClick={() => setEditingUser(null)}
-                                className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 hover:text-red-600 transition"
-                                title="إغلاق"
-                                aria-label="إغلاق"
-                            >
-                                <XCircle size={24}/>
-                            </button>
+            <AppModal
+                open={!!editingUser}
+                title={editingUser ? <><Settings size={20} className="text-indigo-600"/> إدارة صلاحيات: {editingUser.اسم_المستخدم}</> : 'إدارة الصلاحيات'}
+                onClose={() => setEditingUser(null)}
+                size="2xl"
+                footer={
+                    editingUser ? (
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setEditingUser(null)} className="px-5 py-2.5 rounded-xl text-gray-500 hover:bg-gray-200 font-bold transition">إلغاء</button>
+                            <button onClick={handleSaveUser} className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-600/20 transition">حفظ التغييرات</button>
                         </div>
+                    ) : null
+                }
+                bodyClassName="p-0"
+            >
+                        <div className="p-6 space-y-6">
 
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            {/* Employee Commissions Summary */}
+                            <div className="app-card p-5 rounded-2xl border border-gray-100 dark:border-slate-700">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-black text-slate-800 dark:text-white truncate">ملخص عمولات الموظف</div>
+                                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">شامل عمولة الوسيط الخارجي</div>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400">الشهر</label>
+                                            <input
+                                                type="month"
+                                                value={employeeCommissionMonthKey}
+                                                onChange={(e) => setEmployeeCommissionMonthKey(e.target.value)}
+                                                className="px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs"
+                                            />
+                                        </div>
+                                        <StatusBadge status="نشط" />
+                                    </div>
+                                </div>
+
+                                {employeeCommissionSummary?.loading ? (
+                                    <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">جارٍ التحميل…</div>
+                                ) : employeeCommissionSummary?.error ? (
+                                    <div className="mt-4 text-sm text-red-600">{employeeCommissionSummary.error}</div>
+                                ) : (
+                                    <div className="mt-4 space-y-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                            <div className="p-3 rounded-xl bg-gray-50 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">الشهر المحدد ({employeeCommissionSummary?.monthKey})</div>
+                                                <div className="text-sm font-bold text-slate-800 dark:text-white">عدد العمليات: {employeeCommissionSummary?.countThisMonth ?? 0}</div>
+                                            </div>
+                                            <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">إجمالي عمولة الموظف</div>
+                                                <div className="text-lg font-black text-emerald-700 dark:text-emerald-300">{formatCurrencyJOD(employeeCommissionSummary?.totalEmployeeThisMonth ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                            </div>
+                                            <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">إجمالي العمولات (الأساس)</div>
+                                                <div className="text-lg font-black text-indigo-700 dark:text-indigo-300">{formatCurrencyJOD(employeeCommissionSummary?.totalOfficeThisMonth ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <div className="p-3 rounded-xl bg-white dark:bg-slate-900/20 border border-gray-100 dark:border-slate-700">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">تفصيل الشهر: إيجار</div>
+                                                <div className="flex items-center justify-between gap-3 mt-1">
+                                                    <div className="text-xs text-slate-600 dark:text-slate-300">المكتب</div>
+                                                    <div className="text-sm font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(employeeCommissionSummary?.rentOfficeThisMonth ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="text-xs text-slate-600 dark:text-slate-300">الموظف</div>
+                                                    <div className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatCurrencyJOD(employeeCommissionSummary?.rentEmployeeThisMonth ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                                </div>
+                                            </div>
+                                            <div className="p-3 rounded-xl bg-white dark:bg-slate-900/20 border border-gray-100 dark:border-slate-700">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">تفصيل الشهر: بيع</div>
+                                                <div className="flex items-center justify-between gap-3 mt-1">
+                                                    <div className="text-xs text-slate-600 dark:text-slate-300">المكتب</div>
+                                                    <div className="text-sm font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(employeeCommissionSummary?.saleOfficeThisMonth ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="text-xs text-slate-600 dark:text-slate-300">الموظف</div>
+                                                    <div className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatCurrencyJOD(employeeCommissionSummary?.saleEmployeeThisMonth ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                            <div className="p-3 rounded-xl bg-white dark:bg-slate-900/20 border border-gray-100 dark:border-slate-700">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">إجمالي العمليات (كل الفترة)</div>
+                                                <div className="text-sm font-bold text-slate-800 dark:text-white">{employeeCommissionSummary?.countAll ?? 0}</div>
+                                            </div>
+                                            <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">عمولة الموظف (كل الفترة)</div>
+                                                <div className="text-lg font-black text-amber-700 dark:text-amber-300">{formatCurrencyJOD(employeeCommissionSummary?.totalEmployeeAll ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                            </div>
+                                            <div className="p-3 rounded-xl bg-purple-50/60 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">إدخال عقار (5%)</div>
+                                                <div className="text-lg font-black text-purple-700 dark:text-purple-300">{formatCurrencyJOD(employeeCommissionSummary?.totalIntroAll ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <div className="p-3 rounded-xl bg-gray-50/60 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">كل الفترة: إيجار</div>
+                                                <div className="flex items-center justify-between gap-3 mt-1">
+                                                    <div className="text-xs text-slate-600 dark:text-slate-300">المكتب</div>
+                                                    <div className="text-sm font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(employeeCommissionSummary?.rentOfficeAll ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="text-xs text-slate-600 dark:text-slate-300">الموظف</div>
+                                                    <div className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatCurrencyJOD(employeeCommissionSummary?.rentEmployeeAll ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                                </div>
+                                            </div>
+                                            <div className="p-3 rounded-xl bg-gray-50/60 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700">
+                                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">كل الفترة: بيع</div>
+                                                <div className="flex items-center justify-between gap-3 mt-1">
+                                                    <div className="text-xs text-slate-600 dark:text-slate-300">المكتب</div>
+                                                    <div className="text-sm font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(employeeCommissionSummary?.saleOfficeAll ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="text-xs text-slate-600 dark:text-slate-300">الموظف</div>
+                                                    <div className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatCurrencyJOD(employeeCommissionSummary?.saleEmployeeAll ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                             
                             {/* Role Selection */}
                             <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800">
@@ -695,14 +1004,7 @@ export const AdminControlPanel: React.FC = () => {
                             </div>
 
                         </div>
-
-                        <div className="p-4 border-t border-gray-200 dark:border-slate-700 flex justify-end gap-3 bg-gray-50 dark:bg-slate-900">
-                            <button onClick={() => setEditingUser(null)} className="px-5 py-2.5 rounded-xl text-gray-500 hover:bg-gray-200 font-bold transition">إلغاء</button>
-                            <button onClick={handleSaveUser} className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-600/20 transition">حفظ التغييرات</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            </AppModal>
         </div>
     );
   };

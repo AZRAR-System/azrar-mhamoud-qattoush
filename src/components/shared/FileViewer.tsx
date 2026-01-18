@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { X, Download, ZoomIn, ZoomOut, AlertCircle, Loader2, FileQuestion, FileText } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { sanitizeDocxHtml } from '@/utils/sanitizeHtml';
+import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -191,6 +192,23 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
   const isText = ['txt', 'csv', 'log', 'md', 'json', 'xml', 'yml', 'yaml', 'ini'].includes(cleanExt);
   const isAudio = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'webm'].includes(cleanExt);
   const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].includes(cleanExt);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    lockBodyScroll();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      onClose();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      unlockBodyScroll();
+    };
+  }, [onClose]);
 
   useEffect(() => {
     let active = true;
@@ -466,7 +484,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
   };
 
   return (
-    <div className="modal-overlay app-modal-overlay z-[100] bg-black/95 animate-fade-in">
+    <div className="modal-overlay app-modal-overlay bg-black/95 animate-fade-in">
       
       {/* Header / Toolbar */}
       <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">

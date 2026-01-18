@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Search, X, FileText, ChevronDown, ExternalLink } from 'lucide-react';
+import React, { useEffect, useId, useState } from 'react';
+import { Search, FileText, ChevronDown, ExternalLink } from 'lucide-react';
 import { العقود_tbl, الأشخاص_tbl, العقارات_tbl } from '@/types';
 import { formatDateYMD } from '@/utils/format';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { contractPickerSearchSmart, domainGetSmart } from '@/services/domainQueries';
+import { AppModal } from '@/components/ui/AppModal';
 
 interface ContractPickerProps {
   label?: string;
@@ -34,6 +35,7 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
   disabled = false,
   onOpenContract,
 }) => {
+  const modalSearchInputId = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -165,32 +167,31 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
 
       {/* MODAL */}
       {isOpen && (
-        <div className="modal-overlay app-modal-overlay z-[100] bg-slate-900/70 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[85vh] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 ring-1 ring-black/5 dark:ring-white/5 flex flex-col animate-scale-up overflow-hidden">
-            {/* Header */}
-            <div className="p-5 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/30 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-600/20">
-                  <FileText size={24} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg text-slate-800 dark:text-white">اختيار عقد</h3>
-                  <p className="text-xs text-slate-500">بحث: الكود الداخلي، الرقم الوطني، اسم المالك/المستأجر، رقم العقد</p>
-                </div>
+        <AppModal
+          open={isOpen}
+          onClose={() => setIsOpen(false)}
+          size="6xl"
+          className="items-center p-4 bg-black/20 backdrop-blur-[1px]"
+          contentClassName="dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"
+          bodyClassName="p-0 overflow-hidden flex flex-col"
+          initialFocusSelector={`#${modalSearchInputId}`}
+          title={
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-600/20">
+                <FileText size={22} />
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full transition text-slate-500 hover:text-red-500"
-              >
-                <X size={24} />
-              </button>
+              <div>
+                <div className="font-bold text-lg">اختيار عقد</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">بحث: الكود الداخلي، الرقم الوطني، اسم المالك/المستأجر، رقم العقد</div>
+              </div>
             </div>
-
+          }
+        >
             {/* Search */}
             <div className="p-4 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700">
               <div className="relative">
                 <input
-                  autoFocus
+                  id={modalSearchInputId}
                   type="text"
                   placeholder="بحث سريع..."
                   className="w-full pl-4 pr-12 py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
@@ -262,8 +263,7 @@ export const ContractPicker: React.FC<ContractPickerProps> = ({
                 </div>
               )}
             </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
   );

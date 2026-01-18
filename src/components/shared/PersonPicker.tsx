@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, Plus, X, User, Phone, Activity, Check, Filter, ChevronDown, UserPlus, FileText } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useId } from 'react';
+import { Search, Plus, User, Phone, Activity, Check, Filter, ChevronDown, UserPlus, FileText } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { الأشخاص_tbl, PersonRole } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import { domainGetSmart, domainSearchSmart } from '@/services/domainQueries';
+import { AppModal } from '@/components/ui/AppModal';
 
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
@@ -38,6 +38,8 @@ export const PersonPicker: React.FC<PersonPickerProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<الأشخاص_tbl | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+        const modalSearchInputId = useId();
 
     const isRtl = typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl';
   
@@ -329,49 +331,35 @@ export const PersonPicker: React.FC<PersonPickerProps> = ({
         <ChevronDown size={16} className="text-slate-400" />
       </div>
 
-            {/* MODAL (Portal to avoid nested-modal clipping) */}
-            {isOpen &&
-                (typeof document !== 'undefined'
-                    ? createPortal(
+            {/* MODAL */}
+            {isOpen && (
+                <AppModal
+                    open={isOpen}
+                    onClose={() => setIsOpen(false)}
+                    size="6xl"
+                    initialFocusSelector={`#${modalSearchInputId}`}
+                    className="items-center p-4 bg-black/20 backdrop-blur-[1px]"
+                    title={
+                        <div className="flex items-center gap-3">
                             <div
-                                className="modal-overlay app-modal-overlay animate-fade-in"
-                                role="dialog"
-                                aria-modal="true"
-                                onClick={() => setIsOpen(false)}
+                                className={`p-2 text-white rounded-lg shadow-lg ${
+                                    view === 'list' ? 'bg-indigo-600 shadow-indigo-600/20' : 'bg-emerald-600 shadow-emerald-600/20'
+                                }`}
                             >
-                                <div
-                                    className="modal-content app-modal-content dark:bg-slate-900 dark:border-slate-800 w-full max-w-4xl flex flex-col max-h-[85vh] animate-scale-up overflow-hidden"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                
-                {/* Header */}
-                                <div className="p-5 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/30 flex justify-between items-center">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`p-2 text-white rounded-lg shadow-lg ${view === 'list' ? 'bg-indigo-600 shadow-indigo-600/20' : 'bg-emerald-600 shadow-emerald-600/20'}`}>
-                                                {view === 'list' ? <User size={22} /> : <UserPlus size={22} />}
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-lg text-slate-800 dark:text-white">
-                                                    {view === 'list' ? 'اختيار شخص' : 'إضافة شخص جديد'}
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    {view === 'list'
-                                                        ? 'ابحث واختر الشخص المناسب للعملية'
-                                                        : 'أدخل البيانات الأساسية ثم احفظ واختيار'}
-                                                </p>
-                                            </div>
-                                        </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsOpen(false)}
-                      className="p-2 hover:bg-slate-200/70 dark:hover:bg-slate-800/60 rounded-full transition text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400"
-                    >
-                        <X size={22} />
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 flex flex-col overflow-hidden">
+                                {view === 'list' ? <User size={22} /> : <UserPlus size={22} />}
+                            </div>
+                            <div>
+                                <div className="font-bold text-lg">{view === 'list' ? 'اختيار شخص' : 'إضافة شخص جديد'}</div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                    {view === 'list' ? 'ابحث واختر الشخص المناسب للعملية' : 'أدخل البيانات الأساسية ثم احفظ واختيار'}
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    contentClassName="dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"
+                    bodyClassName="p-0 overflow-hidden"
+                >
+                    <div className="flex flex-col overflow-hidden max-h-[85vh]">
                     
                     {/* VIEW: LIST */}
                     {view === 'list' && (
@@ -385,7 +373,7 @@ export const PersonPicker: React.FC<PersonPickerProps> = ({
                                                             >
                                                                 <div className="relative flex-1 min-w-0">
                                                                     <input
-                                                                        autoFocus
+                                                                        id={modalSearchInputId}
                                                                         type="text"
                                                                         placeholder="بحث: الاسم، الهاتف، أو الرقم الوطني..."
                                                                         dir={isRtl ? 'rtl' : 'ltr'}
@@ -485,22 +473,15 @@ export const PersonPicker: React.FC<PersonPickerProps> = ({
                                 ) : (
                                                                     <table
                                                                         dir={isRtl ? 'rtl' : 'ltr'}
-                                                                        className="w-full text-right border-collapse table-fixed"
+                                                                        className="w-full min-w-[880px] text-right border-collapse table-auto"
                                                                     >
-                                                                        <colgroup>
-                                                                            <col style={{ width: '44%' }} />
-                                                                            <col style={{ width: '18%' }} />
-                                                                            <col style={{ width: '18%' }} />
-                                                                            <col style={{ width: '16%' }} />
-                                                                            <col style={{ width: '4%' }} />
-                                                                        </colgroup>
                                                                     <thead className="bg-slate-100/70 dark:bg-slate-950/40 text-slate-600 dark:text-slate-300 text-xs font-bold sticky top-0 z-10 shadow-sm whitespace-nowrap [overflow-wrap:normal] [word-break:normal]">
                                                                             <tr>
-                                                                    <th className="px-4 py-3 whitespace-nowrap">الاسم</th>
-                                                                        <th className="px-4 py-3 whitespace-nowrap text-center">الهاتف</th>
-                                                                        <th className="px-4 py-3 whitespace-nowrap text-center hidden md:table-cell">الرقم الوطني</th>
-                                                                                            <th className="px-4 py-3 whitespace-nowrap text-center">الأدوار</th>
-                                                                        <th className="px-4 py-3"></th>
+                                                                    <th className="px-4 py-3 whitespace-nowrap w-[44%]">الاسم</th>
+                                                                        <th className="px-4 py-3 whitespace-nowrap text-center w-[18%]">الهاتف</th>
+                                                                        <th className="px-4 py-3 whitespace-nowrap text-center hidden md:table-cell w-[18%]">الرقم الوطني</th>
+                                                                                            <th className="px-4 py-3 whitespace-nowrap text-center w-[16%]">الأدوار</th>
+                                                                        <th className="px-4 py-3 w-[64px]"></th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
@@ -565,7 +546,7 @@ export const PersonPicker: React.FC<PersonPickerProps> = ({
                                                                                             </div>
                                                                                         </td>
 
-                                                                                        <td className="px-4 py-3 text-center">
+                                                                                        <td className="px-4 py-3 text-center w-[64px]">
                                                                                             {value === p.رقم_الشخص ? (
                                                                                                 <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center">
                                                                                                     <Check size={16} />
@@ -659,12 +640,9 @@ export const PersonPicker: React.FC<PersonPickerProps> = ({
                         </form>
                     )}
 
-                </div>
-                                </div>
-                            </div>,
-                            document.body
-                        )
-                    : null)}
+                    </div>
+                </AppModal>
+            )}
     </div>
   );
 };

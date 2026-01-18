@@ -2205,6 +2205,11 @@ const initData = async () => {
             { category: 'prop_floor', label: 'الأول' },
             { category: 'prop_floor', label: 'الثاني' },
             { category: 'prop_floor', label: 'الثالث' },
+
+            // External income types (editable via DynamicSelect)
+            { category: 'ext_comm_type', label: 'عمولة خدمة' },
+            { category: 'ext_comm_type', label: 'رسوم خدمة' },
+            { category: 'ext_comm_type', label: 'إحالة (Referral)' },
         ];
 
         const existingLookups = get<SystemLookup>(KEYS.LOOKUPS);
@@ -5062,6 +5067,40 @@ export const DbService = {
       }
   },
   downloadAttachment: async (id: string) => {
+      const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+      // Desktop: prefer reading attachment metadata from SQLite KV via IPC.
+      if (isDesktop() && (window as unknown as { desktopDb?: unknown }).desktopDb) {
+          const bridge = (window as unknown as { desktopDb?: unknown }).desktopDb;
+          if (isObj(bridge) && typeof bridge.get === 'function') {
+              try {
+                  const raw = await (bridge.get as (key: string) => Promise<unknown>)(KEYS.ATTACHMENTS);
+                  const s = typeof raw === 'string' ? raw : String(raw ?? '');
+                  const parsed: unknown = s.trim() ? JSON.parse(s) : [];
+                  const arr: unknown[] = Array.isArray(parsed) ? parsed : [];
+                  const match = arr.find(x => isObj(x) && String(x.id || '') === id);
+                  if (match && isObj(match)) {
+                      const filePath = typeof match.filePath === 'string' ? match.filePath : '';
+                      const fileData = typeof match.fileData === 'string' ? match.fileData : '';
+
+                      if (filePath && isObj(bridge) && typeof bridge.readAttachmentFile === 'function') {
+                          try {
+                              const res = await (bridge.readAttachmentFile as (p: string) => Promise<unknown>)(filePath);
+                              const rr = isObj(res) ? res : null;
+                              return rr && rr.success ? (typeof rr.dataUri === 'string' ? rr.dataUri : null) : null;
+                          } catch {
+                              return null;
+                          }
+                      }
+
+                      return fileData || null;
+                  }
+              } catch {
+                  // fall back below
+              }
+          }
+      }
+
       const att = get<Attachment>(KEYS.ATTACHMENTS).find(a => a.id === id);
       if (!att) return null;
 
@@ -5364,7 +5403,12 @@ export const DbService = {
 
               const { employeeUsername, employee } = toEmployee((a as any)?.اسم_المستخدم);
 
-              const saleTotal = Number((a as any).العمولة_الإجمالية ?? 0) || 0;
+              // ✅ Include external broker commission fully (per request).
+              // Prefer إجمالي_العمولات (buyer + seller + external). Fallback to explicit sum.
+              const saleTotal = Number(
+                  (a as any).إجمالي_العمولات ??
+                  ((Number((a as any).العمولة_الإجمالية ?? 0) || 0) + (Number((a as any).عمولة_وسيط_خارجي ?? 0) || 0))
+              ) || 0;
               const introEnabled = !!(a as any).يوجد_ادخال_عقار;
               const breakdown = computeEmployeeCommission({
                   rentalOfficeCommissionTotal: 0,

@@ -14,6 +14,8 @@ import { exportToXlsx, readSpreadsheet } from '@/utils/xlsx';
 import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
 import { useSmartModal } from '@/context/ModalContext';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 type PersonRow = {
   id: string;
@@ -44,6 +46,97 @@ const normalizePhone = (raw?: string): string => {
   if (digits.length < 6 || digits.length > 15) return '';
 
   return cleaned.startsWith('+') ? `+${digits}` : digits;
+};
+
+const ContactsGroupCard: React.FC<{
+  title: string;
+  list: PersonRow[];
+  onCall: (phone?: string, extraPhone?: string) => void;
+  onWhatsApp: (phone?: string, extraPhone?: string) => void;
+}> = ({ title, list, onCall, onWhatsApp }) => {
+  const pageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 16, xl: 20, '2xl': 24 });
+  const [page, setPage] = useState(1);
+
+  const pageCount = useMemo(() => Math.max(1, Math.ceil((list?.length || 0) / pageSize)), [list?.length, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [title, list?.length, pageSize]);
+
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), pageCount));
+  }, [pageCount]);
+
+  const visible = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return (list || []).slice(start, start + pageSize);
+  }, [list, page, pageSize]);
+
+  return (
+    <div className="app-card">
+      <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 dark:border-slate-700">
+        <div className="font-black text-slate-800 dark:text-white">{title}</div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <Users size={16} />
+            {list.length}
+          </div>
+          <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
+        </div>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="p-6 text-center text-slate-600 dark:text-slate-400">لا توجد بيانات</div>
+      ) : (
+        <div className="divide-y divide-gray-100 dark:divide-slate-700">
+          {visible.map((r) => {
+            const hasPhone = !!(normalizePhone(r.phone) || normalizePhone(r.extraPhone));
+            return (
+              <div key={r.id} className="flex items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <div className="font-bold text-slate-800 dark:text-white truncate">{r.name}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-mono dir-ltr truncate">{r.phone || 'لا يوجد رقم'}</div>
+                  {r.extraPhone ? <div className="text-xs text-slate-500 dark:text-slate-400 font-mono dir-ltr truncate">{r.extraPhone}</div> : null}
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onCall(r.phone, r.extraPhone)}
+                    disabled={!hasPhone}
+                    className={`px-3 py-2 rounded-lg border text-sm font-bold transition flex items-center gap-2 ${
+                      hasPhone
+                        ? 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                        : 'border-gray-200 dark:border-slate-700 opacity-50 cursor-not-allowed text-slate-500 dark:text-slate-400'
+                    }`}
+                    title={hasPhone ? 'اتصال' : 'لا يوجد رقم هاتف'}
+                  >
+                    <Phone size={16} />
+                    اتصال
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onWhatsApp(r.phone, r.extraPhone)}
+                    disabled={!hasPhone}
+                    className={`px-3 py-2 rounded-lg border text-sm font-bold transition flex items-center gap-2 ${
+                      hasPhone
+                        ? 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                        : 'border-gray-200 dark:border-slate-700 opacity-50 cursor-not-allowed text-slate-500 dark:text-slate-400'
+                    }`}
+                    title={hasPhone ? 'إرسال رسالة واتساب' : 'لا يوجد رقم هاتف'}
+                  >
+                    <MessageCircle size={16} />
+                    واتساب
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const Contacts: React.FC = () => {
@@ -125,73 +218,6 @@ export const Contacts: React.FC = () => {
       noRole: noRole.sort((a, b) => a.name.localeCompare(b.name)),
     };
   }, [rows]);
-
-  const renderGroup = (title: string, list: PersonRow[]) => {
-    return (
-      <div className="app-card">
-        <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 dark:border-slate-700">
-          <div className="font-black text-slate-800 dark:text-white">{title}</div>
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-            <Users size={16} />
-            {list.length}
-          </div>
-        </div>
-
-        {list.length === 0 ? (
-          <div className="p-6 text-center text-slate-600 dark:text-slate-400">لا توجد بيانات</div>
-        ) : (
-          <div className="divide-y divide-gray-100 dark:divide-slate-700">
-            {list.map((r) => {
-              const hasPhone = !!(normalizePhone(r.phone) || normalizePhone(r.extraPhone));
-              return (
-                <div key={r.id} className="flex items-center justify-between gap-3 p-4">
-                  <div className="min-w-0">
-                    <div className="font-bold text-slate-800 dark:text-white truncate">{r.name}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-mono dir-ltr truncate">{r.phone || 'لا يوجد رقم'}</div>
-                    {r.extraPhone ? (
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-mono dir-ltr truncate">{r.extraPhone}</div>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleCall(r.phone, r.extraPhone)}
-                      disabled={!hasPhone}
-                      className={`px-3 py-2 rounded-lg border text-sm font-bold transition flex items-center gap-2 ${
-                        hasPhone
-                          ? 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
-                          : 'border-gray-200 dark:border-slate-700 opacity-50 cursor-not-allowed text-slate-500 dark:text-slate-400'
-                      }`}
-                      title={hasPhone ? 'اتصال' : 'لا يوجد رقم هاتف'}
-                    >
-                      <Phone size={16} />
-                      اتصال
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleWhatsApp(r.phone, r.extraPhone)}
-                      disabled={!hasPhone}
-                      className={`px-3 py-2 rounded-lg border text-sm font-bold transition flex items-center gap-2 ${
-                        hasPhone
-                          ? 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
-                          : 'border-gray-200 dark:border-slate-700 opacity-50 cursor-not-allowed text-slate-500 dark:text-slate-400'
-                      }`}
-                      title={hasPhone ? 'إرسال رسالة واتساب' : 'لا يوجد رقم هاتف'}
-                    >
-                      <MessageCircle size={16} />
-                      واتساب
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const handleCall = (phone?: string, extraPhone?: string) => {
     const normalized = normalizePhone(phone) || normalizePhone(extraPhone);
@@ -382,9 +408,11 @@ export const Contacts: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        {grouped.roleSections.map((sec) => renderGroup(sec.role, sec.list))}
-        {renderGroup('بدون دور', grouped.noRole)}
-        {renderGroup('محليين', grouped.locals)}
+        {grouped.roleSections.map((sec) => (
+          <ContactsGroupCard key={sec.role} title={sec.role} list={sec.list} onCall={handleCall} onWhatsApp={handleWhatsApp} />
+        ))}
+        <ContactsGroupCard title="بدون دور" list={grouped.noRole} onCall={handleCall} onWhatsApp={handleWhatsApp} />
+        <ContactsGroupCard title="محليين" list={grouped.locals} onCall={handleCall} onWhatsApp={handleWhatsApp} />
       </div>
     </div>
   );

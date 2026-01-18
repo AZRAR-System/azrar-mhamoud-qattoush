@@ -18,6 +18,10 @@ echo ========================================
 echo.
 
 REM Optional: put the desktop SQLite inside OneDrive for syncing
+REM Option A (recommended): pin the DB to an explicit file path
+REM set "AZRAR_DESKTOP_DB_PATH=%USERPROFILE%\OneDrive\AZRAR-Data\khaberni.sqlite"
+
+REM Option B: pin the DB to a directory (app will use <dir>\khaberni.sqlite)
 REM set "AZRAR_DESKTOP_DB_DIR=%USERPROFILE%\OneDrive\AZRAR-Data"
 REM Recommended for OneDrive to avoid WAL sidecar files:
 REM set "AZRAR_DESKTOP_JOURNAL_MODE=DELETE"

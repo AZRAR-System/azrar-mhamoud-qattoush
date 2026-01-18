@@ -460,6 +460,257 @@ export async function contractDetailsSmart(contractId: string): Promise<
   return DbService.getContractDetails(cid) || null;
 }
 
+type SimpleResult = { success: boolean; message: string };
+
+const asSimpleResult = (res: unknown, successMessage: string, fallbackErrorMessage: string): SimpleResult => {
+  if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
+    const msg = isRecord(res) && hasUnknownProp(res, 'message') ? asString(res.message) : '';
+    return { success: true, message: msg || successMessage };
+  }
+  const msg = isRecord(res) && hasUnknownProp(res, 'message') ? asString(res.message) : '';
+  return { success: false, message: msg || fallbackErrorMessage };
+};
+
+export async function ownershipHistorySmart(payload: { propertyId?: string; personId?: string }): Promise<unknown[]> {
+  const propertyId = asString(payload?.propertyId);
+  const personId = asString(payload?.personId);
+
+  if (isDesktop() && window.desktopDb?.domainOwnershipHistory) {
+    try {
+      const res: unknown = await window.desktopDb.domainOwnershipHistory({ propertyId: propertyId || undefined, personId: personId || undefined });
+      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
+        return asArray<unknown>(res.items);
+      }
+      // Desktop safety: do not fall back to in-memory scans.
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  if (!isDesktop()) {
+    try {
+      return DbService.getOwnershipHistory(propertyId || undefined, personId || undefined) as unknown[];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+export async function propertyInspectionsSmart(propertyId: string): Promise<unknown[]> {
+  const id = asString(propertyId);
+  if (!id) return [];
+
+  if (isDesktop() && window.desktopDb?.domainPropertyInspections) {
+    try {
+      const res: unknown = await window.desktopDb.domainPropertyInspections({ propertyId: id });
+      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
+        return asArray<unknown>(res.items);
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  if (!isDesktop()) {
+    try {
+      return DbService.getPropertyInspections(id) as unknown[];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+export async function salesForPersonSmart(personId: string): Promise<{ listings: unknown[]; agreements: unknown[] } | null> {
+  const id = asString(personId);
+  if (!id) return null;
+
+  if (isDesktop() && window.desktopDb?.domainSalesForPerson) {
+    try {
+      const res: unknown = await window.desktopDb.domainSalesForPerson({ personId: id });
+      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
+        return {
+          listings: hasUnknownProp(res, 'listings') ? asArray<unknown>(res.listings) : [],
+          agreements: hasUnknownProp(res, 'agreements') ? asArray<unknown>(res.agreements) : [],
+        };
+      }
+      return { listings: [], agreements: [] };
+    } catch {
+      return { listings: [], agreements: [] };
+    }
+  }
+
+  if (!isDesktop()) {
+    try {
+      const listings = DbService.getSalesListings().filter((l) => String((l as unknown as Record<string, unknown>)['رقم_المالك'] ?? '') === id);
+      const agreements = DbService.getSalesAgreements();
+      // Keep legacy consumer-side filtering/mapping in panels.
+      return { listings: listings as unknown[], agreements: agreements as unknown[] };
+    } catch {
+      return { listings: [], agreements: [] };
+    }
+  }
+
+  return { listings: [], agreements: [] };
+}
+
+export async function salesForPropertySmart(propertyId: string): Promise<{ listings: unknown[]; agreements: unknown[] } | null> {
+  const id = asString(propertyId);
+  if (!id) return null;
+
+  if (isDesktop() && window.desktopDb?.domainSalesForProperty) {
+    try {
+      const res: unknown = await window.desktopDb.domainSalesForProperty({ propertyId: id });
+      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
+        return {
+          listings: hasUnknownProp(res, 'listings') ? asArray<unknown>(res.listings) : [],
+          agreements: hasUnknownProp(res, 'agreements') ? asArray<unknown>(res.agreements) : [],
+        };
+      }
+      return { listings: [], agreements: [] };
+    } catch {
+      return { listings: [], agreements: [] };
+    }
+  }
+
+  if (!isDesktop()) {
+    // Keep legacy consumer-side mapping in the panel.
+    return { listings: [], agreements: [] };
+  }
+
+  return { listings: [], agreements: [] };
+}
+
+export async function removeFromBlacklistSmart(id: string): Promise<SimpleResult> {
+  const pid = asString(id);
+  if (!pid) return { success: false, message: 'معرف غير صالح' };
+
+  if (isDesktop() && window.desktopDb?.domainBlacklistRemove) {
+    try {
+      const res: unknown = await window.desktopDb.domainBlacklistRemove({ id: pid });
+      return asSimpleResult(res, 'تم رفع الحظر بنجاح', 'فشل رفع الحظر');
+    } catch {
+      return { success: false, message: 'فشل رفع الحظر' };
+    }
+  }
+
+  try {
+    DbService.removeFromBlacklist(pid);
+    return { success: true, message: 'تم رفع الحظر بنجاح' };
+  } catch {
+    return { success: false, message: 'فشل رفع الحظر' };
+  }
+}
+
+export async function deletePersonSmart(personId: string): Promise<SimpleResult> {
+  const pid = asString(personId);
+  if (!pid) return { success: false, message: 'معرف غير صالح' };
+
+  if (isDesktop() && window.desktopDb?.domainPeopleDelete) {
+    try {
+      const res: unknown = await window.desktopDb.domainPeopleDelete({ personId: pid });
+      return asSimpleResult(res, 'تم حذف الشخص', 'فشل حذف الشخص');
+    } catch {
+      return { success: false, message: 'فشل حذف الشخص' };
+    }
+  }
+
+  try {
+    const res = DbService.deletePerson(pid);
+    return { success: Boolean((res as unknown as Record<string, unknown>)['success']), message: asString((res as unknown as Record<string, unknown>)['message']) };
+  } catch {
+    return { success: false, message: 'فشل حذف الشخص' };
+  }
+}
+
+export async function updatePropertySmart(propertyId: string, patch: Record<string, unknown>): Promise<SimpleResult> {
+  const pid = asString(propertyId);
+  if (!pid) return { success: false, message: 'معرف غير صالح' };
+
+  if (isDesktop() && window.desktopDb?.domainPropertyUpdate) {
+    try {
+      const res: unknown = await window.desktopDb.domainPropertyUpdate({ propertyId: pid, patch });
+      return asSimpleResult(res, 'تم تحديث العقار', 'فشل تحديث العقار');
+    } catch {
+      return { success: false, message: 'فشل تحديث العقار' };
+    }
+  }
+
+  try {
+    const res = DbService.updateProperty(pid, patch as never);
+    return { success: Boolean((res as unknown as Record<string, unknown>)['success']), message: asString((res as unknown as Record<string, unknown>)['message']) || 'تم تحديث العقار' };
+  } catch {
+    return { success: false, message: 'فشل تحديث العقار' };
+  }
+}
+
+export async function deleteInspectionSmart(id: string): Promise<SimpleResult> {
+  const iid = asString(id);
+  if (!iid) return { success: false, message: 'معرف غير صالح' };
+
+  if (isDesktop() && window.desktopDb?.domainInspectionDelete) {
+    try {
+      const res: unknown = await window.desktopDb.domainInspectionDelete({ id: iid });
+      return asSimpleResult(res, 'تم حذف الكشف', 'فشل حذف الكشف');
+    } catch {
+      return { success: false, message: 'فشل حذف الكشف' };
+    }
+  }
+
+  try {
+    const res = DbService.deleteInspection(iid);
+    return { success: Boolean((res as unknown as Record<string, unknown>)['success']), message: asString((res as unknown as Record<string, unknown>)['message']) };
+  } catch {
+    return { success: false, message: 'فشل حذف الكشف' };
+  }
+}
+
+export async function addFollowUpSmart(task: Record<string, unknown>): Promise<SimpleResult> {
+  if (!isRecord(task)) return { success: false, message: 'بيانات غير صالحة' };
+
+  if (isDesktop() && window.desktopDb?.domainFollowUpAdd) {
+    try {
+      const res: unknown = await window.desktopDb.domainFollowUpAdd({ task });
+      return asSimpleResult(res, 'تم حفظ التذكير', 'فشل حفظ التذكير');
+    } catch {
+      return { success: false, message: 'فشل حفظ التذكير' };
+    }
+  }
+
+  try {
+    DbService.addFollowUp(task as never);
+    return { success: true, message: 'تم حفظ التذكير' };
+  } catch {
+    return { success: false, message: 'فشل حفظ التذكير' };
+  }
+}
+
+export async function deleteSalesAgreementSmart(id: string): Promise<SimpleResult> {
+  const aid = asString(id);
+  if (!aid) return { success: false, message: 'معرف غير صالح' };
+
+  if (isDesktop() && window.desktopDb?.domainSalesAgreementDelete) {
+    try {
+      const res: unknown = await window.desktopDb.domainSalesAgreementDelete({ id: aid });
+      return asSimpleResult(res, 'تم حذف الاتفاقية', 'فشل حذف الاتفاقية');
+    } catch {
+      return { success: false, message: 'فشل حذف الاتفاقية' };
+    }
+  }
+
+  try {
+    const res = DbService.deleteSalesAgreement(aid);
+    return { success: Boolean((res as unknown as Record<string, unknown>)['success']), message: asString((res as unknown as Record<string, unknown>)['message']) };
+  } catch {
+    return { success: false, message: 'فشل حذف الاتفاقية' };
+  }
+}
+
 export async function peoplePickerSearchPagedSmart(payload: {
   query: string;
   role?: string;

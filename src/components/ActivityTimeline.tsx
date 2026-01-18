@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { ActivityRecord } from '@/types';
-import { DbService } from '@/services/mockDb';
+import { ActivityRecord, ReferenceType } from '@/types';
+import { listActivitiesSmart } from '@/services/refsDataSmart';
 import { Edit2, Plus, Trash2, FileText, CheckCircle, AlertOctagon, Wrench, DollarSign } from 'lucide-react';
 
 interface ActivityTimelineProps {
@@ -13,7 +13,19 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ referenceId,
   const [activities, setActivities] = useState<ActivityRecord[]>([]);
 
   useEffect(() => {
-    setActivities(DbService.getActivities(referenceId, type));
+    let alive = true;
+    const run = async () => {
+      try {
+        const items = await listActivitiesSmart(type as ReferenceType, referenceId);
+        if (alive) setActivities(items);
+      } catch {
+        if (alive) setActivities([]);
+      }
+    };
+    void run();
+    return () => {
+      alive = false;
+    };
   }, [referenceId, type]);
 
   const getIcon = (action: string) => {

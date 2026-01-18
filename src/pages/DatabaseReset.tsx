@@ -11,6 +11,7 @@ import { Trash2, RefreshCw, Database, AlertTriangle, CheckCircle } from 'lucide-
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DS } from '@/constants/designSystem';
+import { AppModal } from '@/components/ui/AppModal';
 import { isSuperAdmin } from '@/utils/roles';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { clearAllData, resetToFreshState, getDatabaseStats } from '../services/resetDatabase';
@@ -198,45 +199,52 @@ const DatabaseReset: React.FC = () => {
         </div>
 
         {/* Confirmation Dialog */}
-        {showConfirm && (
-          <div className="confirm-overlay fixed inset-0 bg-black/50 flex items-center justify-center" onClick={() => setShowConfirm(false)}>
-            <div className="modal-content app-modal-content p-6 rounded-lg shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">تأكيد العملية</h3>
+        <AppModal
+          open={!!showConfirm}
+          title="تأكيد العملية"
+          onClose={() => {
+            setShowConfirm(false);
+            setConfirmText('');
+          }}
+          size="md"
+          footer={
+            <div className="flex gap-3">
+              <button
+                onClick={showConfirm === 'reset' ? handleResetToFresh : handleClearAll}
+                disabled={isWorking}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                تأكيد
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirm(false);
+                  setConfirmText('');
+                }}
+                disabled={isWorking}
+                className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-gray-800 dark:text-white rounded-lg transition-colors"
+              >
+                إلغاء
+              </button>
+            </div>
+          }
+        >
+          {showConfirm ? (
+            <>
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                {showConfirm === 'reset' 
-                  ? 'اكتب "إعادة تهيئة" للتأكيد:' 
-                  : 'اكتب "حذف نهائي" للتأكيد:'}
+                {showConfirm === 'reset' ? 'اكتب "إعادة تهيئة" للتأكيد:' : 'اكتب "حذف نهائي" للتأكيد:'}
               </p>
               <input
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                className="w-full p-3 border border-gray-300 dark:border-slate-600 rounded-lg mb-4 bg-white dark:bg-slate-700 text-gray-800 dark:text-white"
+                className="w-full p-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-white"
                 placeholder={showConfirm === 'reset' ? 'إعادة تهيئة' : 'حذف نهائي'}
                 autoFocus
               />
-              <div className="flex gap-3">
-                <button
-                  onClick={showConfirm === 'reset' ? handleResetToFresh : handleClearAll}
-                  disabled={isWorking}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                >
-                  تأكيد
-                </button>
-                <button
-                  onClick={() => {
-                    setShowConfirm(false);
-                    setConfirmText('');
-                  }}
-                  disabled={isWorking}
-                  className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-gray-800 dark:text-white rounded-lg transition-colors"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+            </>
+          ) : null}
+        </AppModal>
 
         {/* Result Message */}
         {result && (

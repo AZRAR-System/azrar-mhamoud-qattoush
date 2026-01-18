@@ -40,7 +40,6 @@ import {
   FileText,
   Lock,
   Clock,
-  X,
   Calendar,
   MessageSquare,
   Star,
@@ -54,6 +53,7 @@ import { useAppDialogs } from "@/hooks/useAppDialogs";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { AppModal } from "@/components/ui/AppModal";
 import { DS } from "@/constants/designSystem";
 import { ROUTE_PATHS } from '@/routes/paths';
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -70,7 +70,7 @@ import { formatNumber } from '@/utils/format';
 import { normalizeDigitsToLatin, parseNumberOrUndefined } from '@/utils/numberInput';
 import { domainCountsSmart, domainGetSmart, installmentsContractsPagedSmart } from '@/services/domainQueries';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 8;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ثوابت حالات الكمبيالات - Installment Status Constants
@@ -296,20 +296,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ installment, tenant, onClos
   };
 
   return (
-    <div className="modal-overlay app-modal-overlay bg-black/50 dark:bg-black/60">
-      <Card className="modal-content app-modal-content w-full max-w-md">
-        <div className="p-6 space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold">سداد دفعة</h3>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg text-slate-500 hover:bg-black/10 hover:text-slate-700 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white transition"
-              title="إغلاق"
-              aria-label="إغلاق"
-            >
-              <X size={24} />
-            </button>
-          </div>
+    <AppModal open title="سداد دفعة" onClose={onClose} size="md">
+        <div className="space-y-4">
 
           {/* Tenant Info */}
           <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg">
@@ -398,8 +386,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ installment, tenant, onClos
             </Button>
           </div>
         </div>
-      </Card>
-    </div>
+    </AppModal>
   );
 };
 
@@ -1126,7 +1113,21 @@ export const Installments: React.FC = () => {
     return () => window.removeEventListener('azrar:installments-changed', onChanged);
   }, [loadData]);
 
-  const desktopPageCount = isDesktopFast ? Math.max(1, Math.ceil(desktopTotal / PAGE_SIZE)) : 1;
+  const desktopPageCount = useMemo(() => {
+    if (!isDesktopFast) return 1;
+    const total = Number(desktopTotal || 0) || 0;
+    if (total > 0) return Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+    // Fallback: if total isn't provided, infer whether there's a next page.
+    const hasMaybeNext = Array.isArray(desktopRows) && desktopRows.length === PAGE_SIZE;
+    return Math.max(1, hasMaybeNext ? desktopPage + 2 : desktopPage + 1);
+  }, [desktopPage, desktopRows, desktopTotal, isDesktopFast]);
+
+  useEffect(() => {
+    if (!isDesktopFast) return;
+    const maxPage = Math.max(0, desktopPageCount - 1);
+    if (desktopPage > maxPage) setDesktopPage(maxPage);
+  }, [desktopPage, desktopPageCount, isDesktopFast]);
 
   useEffect(() => {
     if (!isDesktopFast) return;
@@ -1477,7 +1478,7 @@ export const Installments: React.FC = () => {
                      size="sm"
                      variant="secondary"
                      disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
-                     onClick={() => setDesktopPage((p) => p + 1)}
+                     onClick={() => setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))}
                    >
                      التالي
                    </Button>
@@ -1617,23 +1618,15 @@ export const Installments: React.FC = () => {
 
       {/* Message Composer Modal */}
       {messageModalOpen && messageContext && (
-        <div className="modal-overlay app-modal-overlay bg-black/50 dark:bg-black/60">
-          <Card className="modal-content app-modal-content w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold">كاتب الرسائل</h3>
-                <button
-                  onClick={() => {
-                    setMessageModalOpen(false);
-                    setMessageContext(null);
-                  }}
-                  className="p-2 rounded-lg text-slate-500 hover:bg-black/10 hover:text-slate-700 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white transition"
-                  title="إغلاق"
-                  aria-label="إغلاق"
-                >
-                  <X size={24} />
-                </button>
-              </div>
+        <AppModal
+          open
+          title="كاتب الرسائل"
+          onClose={() => {
+            setMessageModalOpen(false);
+            setMessageContext(null);
+          }}
+          size="2xl"
+        >
               <div className="mb-4">
                 <MergeVariablesCatalog title="متغيرات الدمج (العقد / العقار / المستأجر / الكمبيالة)" maxHeightClassName="max-h-48" />
               </div>
@@ -1670,9 +1663,7 @@ export const Installments: React.FC = () => {
                   console.warn('Message sent:', message);
                 }}
               />
-            </div>
-          </Card>
-        </div>
+        </AppModal>
       )}
       </div>
     </DataGuard>

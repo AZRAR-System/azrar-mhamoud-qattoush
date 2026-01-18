@@ -8,6 +8,7 @@ import { storage } from '@/services/storage';
 import { validateAllData, type ValidationResult } from '@/services/dataValidation';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 type LooseRow = Record<string, unknown>;
 
@@ -154,6 +155,43 @@ export const DatabaseManager: React.FC = () => {
   );
 
   const [tables, setTables] = useState<LocalStorageEntry[]>([]);
+
+  const [tablesPage, setTablesPage] = useState(1);
+  const tablesPageSize = 12;
+  const tablesPageCount = Math.max(1, Math.ceil(tables.length / tablesPageSize));
+
+  useEffect(() => {
+    setTablesPage((p) => Math.min(Math.max(1, p), tablesPageCount));
+  }, [tablesPageCount]);
+
+  const visibleTables = useMemo(
+    () => tables.slice((tablesPage - 1) * tablesPageSize, tablesPage * tablesPageSize),
+    [tables, tablesPage]
+  );
+
+  const [validationPage, setValidationPage] = useState(1);
+  const validationItems = useMemo(() => {
+    if (!validation) return [] as Array<{ kind: 'error' | 'warning'; msg: string }>;
+    const errors = (validation.errors || []).map((msg) => ({ kind: 'error' as const, msg }));
+    const warnings = (validation.warnings || []).map((msg) => ({ kind: 'warning' as const, msg }));
+    return [...errors, ...warnings];
+  }, [validation]);
+
+  useEffect(() => {
+    setValidationPage(1);
+  }, [validatedAt]);
+
+  const validationPageSize = 10;
+  const validationPageCount = Math.max(1, Math.ceil(validationItems.length / validationPageSize));
+
+  useEffect(() => {
+    setValidationPage((p) => Math.min(Math.max(1, p), validationPageCount));
+  }, [validationPageCount]);
+
+  const visibleValidationItems = useMemo(
+    () => validationItems.slice((validationPage - 1) * validationPageSize, validationPage * validationPageSize),
+    [validationItems, validationPage]
+  );
 
   type IndexDiagnostic = {
     name: string;
@@ -484,10 +522,11 @@ export const DatabaseManager: React.FC = () => {
         
         {/* Table Stats */}
         <div className="app-card">
-          <div className="p-4 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-100 dark:border-slate-700">
+          <div className="p-4 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-100 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 leading-snug flex-wrap">
               <HardDrive size={18} className="text-slate-500" /> جداول النظام (LocalStorage)
             </h3>
+            <PaginationControls page={tablesPage} pageCount={tablesPageCount} onPageChange={setTablesPage} />
           </div>
           <div className="overflow-x-auto relative">
           <table className="min-w-[720px] w-full text-right text-sm">
@@ -500,7 +539,7 @@ export const DatabaseManager: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-              {tables.map(t => (
+              {visibleTables.map(t => (
                 <tr key={t.key} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30">
                   <td className="p-4 font-medium">
                     <div className="flex items-start gap-2 min-w-0">
@@ -596,17 +635,22 @@ export const DatabaseManager: React.FC = () => {
                 </div>
 
                 {(validation.errors.length > 0 || validation.warnings.length > 0) ? (
-                  <div className="mt-3 space-y-2 max-h-48 overflow-auto">
-                    {validation.errors.map((msg, idx) => (
-                      <div key={`e-${idx}`} className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg p-2">
-                        {msg}
-                      </div>
-                    ))}
-                    {validation.warnings.map((msg, idx) => (
-                      <div key={`w-${idx}`} className="text-sm text-orange-700 bg-orange-50 border border-orange-100 rounded-lg p-2">
-                        {msg}
-                      </div>
-                    ))}
+                  <div className="mt-3 space-y-2">
+                    <PaginationControls page={validationPage} pageCount={validationPageCount} onPageChange={setValidationPage} />
+                    <div className="space-y-2 max-h-48 overflow-auto">
+                      {visibleValidationItems.map((it, idx) => (
+                        <div
+                          key={`${it.kind}-${validationPage}-${idx}`}
+                          className={`text-sm rounded-lg p-2 border ${
+                            it.kind === 'error'
+                              ? 'text-red-700 bg-red-50 border-red-100'
+                              : 'text-orange-700 bg-orange-50 border-orange-100'
+                          }`}
+                        >
+                          {it.msg}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>

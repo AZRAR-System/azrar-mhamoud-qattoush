@@ -1,9 +1,11 @@
 ﻿
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { useToast } from '@/context/ToastContext';
 import { DS } from '@/constants/designSystem';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
+import { PaginationControls } from '@/components/shared/PaginationControls';
 
 import {
   DynamicTable,
@@ -52,6 +54,26 @@ export const DynamicBuilder: React.FC = () => {
   const [tables, setTables] = useState<DynamicTable[]>([]);
   const [activeTable, setActiveTable] = useState<string | null>(null);
   const [records, setRecords] = useState<DynamicRecord[]>([]);
+
+  const recordsPageSize = useResponsivePageSize({ base: 10, sm: 12, md: 16, lg: 20, xl: 24, '2xl': 30 });
+  const [recordsPage, setRecordsPage] = useState(1);
+  const recordsPageCount = useMemo(
+    () => Math.max(1, Math.ceil((records.length || 0) / recordsPageSize)),
+    [records.length, recordsPageSize]
+  );
+
+  useEffect(() => {
+    setRecordsPage(1);
+  }, [activeTable, recordsPageSize, dbSignal]);
+
+  useEffect(() => {
+    setRecordsPage((p) => Math.min(Math.max(1, p), recordsPageCount));
+  }, [recordsPageCount]);
+
+  const visibleRecords = useMemo(() => {
+    const start = (recordsPage - 1) * recordsPageSize;
+    return records.slice(start, start + recordsPageSize);
+  }, [records, recordsPage, recordsPageSize]);
 
   // Dynamic Fields for Forms
   const [activeForm, setActiveForm] = useState<string>('people');
@@ -447,6 +469,10 @@ export const DynamicBuilder: React.FC = () => {
 
               {/* DATA TABLE */}
               <div className="flex-1 p-4 overflow-y-auto">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {records.length.toLocaleString()} سجل</div>
+                  <PaginationControls page={recordsPage} pageCount={recordsPageCount} onPageChange={setRecordsPage} />
+                </div>
                 <table className="w-full text-right border-collapse">
                   <thead>
                     <tr className="bg-gray-100 text-xs">
@@ -457,7 +483,7 @@ export const DynamicBuilder: React.FC = () => {
                   </thead>
 
                   <tbody>
-                    {records.map(r => (
+                    {visibleRecords.map(r => (
                       <tr key={r.id} className="border-b">
                         {tables.find(t => t.id === activeTable)?.fields.map(f => (
                           <td key={f.id} className="p-3 border">

@@ -13,7 +13,14 @@ import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { storage } from '@/services/storage';
-import { personDetailsSmart, personTenancyContractsSmart } from '@/services/domainQueries';
+import {
+  deletePersonSmart,
+  ownershipHistorySmart,
+  personDetailsSmart,
+  personTenancyContractsSmart,
+  removeFromBlacklistSmart,
+  salesForPersonSmart,
+} from '@/services/domainQueries';
 import type { PersonDetailsResult, الأشخاص_tbl, العقارات_tbl, العقود_tbl, سجل_الملكية_tbl, عروض_البيع_tbl, اتفاقيات_البيع_tbl } from '@/types';
 
 type FastTenancyItem = {
@@ -26,6 +33,9 @@ type FastTenancyItem = {
 export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id, onClose }) => {
   const [profileData, setProfileData] = useState<PersonDetailsResult | null>(null);
   const [fastTenancy, setFastTenancy] = useState<FastTenancyItem[]>([]);
+  const [fastOwnershipHistory, setFastOwnershipHistory] = useState<سجل_الملكية_tbl[]>([]);
+  const [fastSalesListings, setFastSalesListings] = useState<عروض_البيع_tbl[]>([]);
+  const [fastSalesAgreements, setFastSalesAgreements] = useState<اتفاقيات_البيع_tbl[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const { openPanel } = useSmartModal();
   const toast = useToast();
@@ -34,7 +44,11 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
   const isDesktopFast =
     isDesktop &&
     !!window.desktopDb?.domainPersonDetails &&
-    !!window.desktopDb?.domainPersonTenancyContracts;
+    !!window.desktopDb?.domainPersonTenancyContracts &&
+    !!window.desktopDb?.domainOwnershipHistory &&
+    !!window.desktopDb?.domainSalesForPerson &&
+    !!window.desktopDb?.domainPeopleDelete &&
+    !!window.desktopDb?.domainBlacklistRemove;
   const desktopUnsupported = isDesktop && !isDesktopFast;
 
   const loadData = useCallback(() => {
@@ -51,9 +65,11 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
 
       if (isDesktopFast) {
         try {
-          const [details, tenancy] = await Promise.all([
+          const [details, tenancy, ownership, sales] = await Promise.all([
             personDetailsSmart(id),
             personTenancyContractsSmart(id),
+            ownershipHistorySmart({ personId: id }),
+            salesForPersonSmart(id),
           ]);
 
           if (!alive) return;
@@ -63,11 +79,18 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
           else setProfileData(null);
 
           setFastTenancy(Array.isArray(tenancy) ? (tenancy as FastTenancyItem[]) : []);
+
+          setFastOwnershipHistory(Array.isArray(ownership) ? (ownership as سجل_الملكية_tbl[]) : []);
+          setFastSalesListings(sales && Array.isArray(sales.listings) ? (sales.listings as عروض_البيع_tbl[]) : []);
+          setFastSalesAgreements(sales && Array.isArray(sales.agreements) ? (sales.agreements as اتفاقيات_البيع_tbl[]) : []);
         } catch {
           if (!alive) return;
           setLoadError('تعذر تحميل بيانات الشخص في وضع السرعة');
           setProfileData(null);
           setFastTenancy([]);
+          setFastOwnershipHistory([]);
+          setFastSalesListings([]);
+          setFastSalesAgreements([]);
         }
         return;
       }
@@ -175,9 +198,13 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
         cancelText: 'إلغاء',
       });
       if (!ok) return;
-      DbService.removeFromBlacklist(id);
-      toast.success('تم رفع الحظر بنجاح');
-      loadData();
+      const res = await removeFromBlacklistSmart(id);
+      if (res.success) {
+        toast.success(res.message);
+        loadData();
+      } else {
+        toast.error(res.message);
+      }
   };
 
     const handleEdit = () => {
@@ -194,12 +221,12 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
         cancelText: 'إلغاء',
       });
       if (!ok) return;
-      const res = DbService.deletePerson(id);
+      const res = await deletePersonSmart(id);
       if (res.success) {
-        toast.success(res.message);
+        toast.success(res.message || 'تم الحذف');
         if (onClose) onClose();
       } else {
-        toast.error(res.message);
+        toast.error(res.message || 'فشل الحذف');
       }
     };
 
@@ -234,7 +261,7 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
   }
 
   const { person: p, roles, stats, blacklistRecord } = profileData;
-  const ownershipHistory: سجل_الملكية_tbl[] = DbService.getOwnershipHistory(undefined, id);
+  const ownershipHistory: سجل_الملكية_tbl[] = isDesktopFast ? fastOwnershipHistory : DbService.getOwnershipHistory(undefined, id);
 
   const getPropCode = (propId: string) => propertyCodeById.get(String(propId || '')) || propId;
 
@@ -284,20 +311,21 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
     };
 
     const salesListingsForPerson: عروض_البيع_tbl[] = (() => {
+      if (isDesktopFast) return fastSalesListings;
       const listings: عروض_البيع_tbl[] = DbService.getSalesListings();
-      return listings.filter(l => String(l.رقم_المالك) === String(id));
+      return listings.filter((l) => String(l.رقم_المالك) === String(id));
     })();
 
     const salesAgreementsForPerson: Array<{ a: اتفاقيات_البيع_tbl; listing?: عروض_البيع_tbl; sellerId?: string }> = (() => {
-      const agreements: اتفاقيات_البيع_tbl[] = DbService.getSalesAgreements();
-      const listings: عروض_البيع_tbl[] = DbService.getSalesListings();
+      const agreements: اتفاقيات_البيع_tbl[] = isDesktopFast ? fastSalesAgreements : DbService.getSalesAgreements();
+      const listings: عروض_البيع_tbl[] = isDesktopFast ? fastSalesListings : DbService.getSalesListings();
       return agreements
-        .map(a => {
-          const l = listings.find(x => x.id === a.listingId);
+        .map((a) => {
+          const l = listings.find((x) => x.id === a.listingId);
           const sellerId = a.رقم_البائع || l?.رقم_المالك;
           return { a, listing: l, sellerId };
         })
-        .filter(x => String(x.a.رقم_المشتري) === String(id) || String(x.sellerId) === String(id));
+        .filter((x) => String(x.a.رقم_المشتري) === String(id) || String(x.sellerId) === String(id));
     })();
 
   type PersonExtras = { رقم_هاتف_اضافي?: unknown; حقول_ديناميكية?: Record<string, unknown> };
