@@ -153,6 +153,7 @@ export const SmartModalEngine: React.FC = () => {
           const isTop = index === activePanels.length - 1;
           const isMin = !!minimized[panel.id];
           const title = panel.props?.title ?? PANEL_TITLES[panel.type] ?? '';
+          const titleId = `panel-title-${panel.id}`;
 
           const doClose = () => {
             setMinimized((prev) => {
@@ -200,12 +201,15 @@ export const SmartModalEngine: React.FC = () => {
           return (
             <div
               key={panel.id}
-              className={`modal-overlay fixed inset-0 flex items-center justify-center p-4 transition-all duration-300 ${isTop ? 'bg-black/20 backdrop-blur-[1px]' : 'hidden'}`}
+              className={`modal-overlay app-modal-overlay animate-fade-in ${isTop ? '' : 'hidden'}`}
               onClick={doClose}
             >
               <div
                 className="modal-content app-modal-content dark:bg-slate-900 w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] transform transition-transform duration-300 ease-out animate-scale-up"
                 onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
               >
                 <div className="no-print flex items-start gap-3 p-4 border-b border-gray-100 dark:border-slate-800">
                   <button
@@ -227,7 +231,12 @@ export const SmartModalEngine: React.FC = () => {
                   </button>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-slate-800 dark:text-white whitespace-normal break-words leading-snug">{title}</h3>
+                    <h3
+                      id={titleId}
+                      className="text-sm font-bold text-slate-800 dark:text-white whitespace-normal break-words leading-snug"
+                    >
+                      {title}
+                    </h3>
                   </div>
                 </div>
 
@@ -317,12 +326,23 @@ export const SmartModalEngine: React.FC = () => {
                 closePanel(panel.id);
               }
             };
+            const titleId = `panel-title-${panel.id}`;
+            const title = panel.props?.title ?? PANEL_TITLES[panel.type] ?? '';
             return (
-              <div key={panel.id} className="modal-overlay app-modal-overlay bg-black/60 animate-fade-in" onClick={handleClose}>
-                <div className="modal-content app-modal-content w-full max-w-md animate-scale-up overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <Component {...panel.props} onClose={handleClose} />
-                    </div>
+              <div key={panel.id} className="modal-overlay app-modal-overlay animate-fade-in" onClick={handleClose}>
+                <div
+                  className="modal-content app-modal-content w-full max-w-md animate-scale-up overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby={titleId}
+                >
+                  <h3 id={titleId} className="sr-only">
+                    {title}
+                  </h3>
+                  <Component {...panel.props} onClose={handleClose} />
                 </div>
+              </div>
             );
         }
 
@@ -331,42 +351,24 @@ export const SmartModalEngine: React.FC = () => {
         const isTop = index === activePanels.length - 1;
         const isSectionView = panel.type === 'SECTION_VIEW';
         const isWidePanel = panel.type === 'CALENDAR_EVENTS' || panel.type === 'SQL_SYNC_LOG';
-
-        const widthClass = isSectionView ? 'max-w-6xl' : isWidePanel ? 'max-w-5xl' : 'max-w-2xl';
+        const size = isSectionView ? '6xl' : isWidePanel ? '5xl' : '3xl';
+        const handleClose = () => closePanel(panel.id);
 
         return (
-          <div
+          <AppModal
             key={panel.id}
-            className={`panel-overlay fixed inset-0 ${isTop ? 'bg-black/30 backdrop-blur-[1px]' : 'hidden'}`}
-            onClick={() => closePanel(panel.id)}
+            open={isTop}
+            onClose={handleClose}
+            title={panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
+            size={size}
+            className="items-center p-4"
+            contentClassName="dark:bg-slate-900 dark:border-slate-800 h-[85vh]"
+            bodyClassName="p-0"
           >
-            <div
-              className={`panel-content app-modal-content dark:bg-slate-900 fixed inset-y-0 right-0 w-full ${widthClass} overflow-hidden flex flex-col shadow-2xl animate-slide-left`}
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              {/* Panel Header */}
-              <div className="no-print flex items-start gap-3 p-4 border-b border-gray-100 dark:border-slate-800">
-                <button
-                  onClick={() => closePanel(panel.id)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500 dark:text-slate-300"
-                >
-                  <X size={20} />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-white whitespace-normal break-words leading-snug">
-                    {panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
-                  </h3>
-                </div>
-              </div>
-
-              {/* Panel Body */}
-              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
-                <Component id={panel.dataId} {...panel.props} onClose={() => closePanel(panel.id)} />
-              </div>
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
+              <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
             </div>
-          </div>
+          </AppModal>
         );
       })}
     </>

@@ -199,6 +199,37 @@
 
 ---
 
+## 8) التشخيص والاستقرار (Diagnostics)
+
+الهدف: منع “الشاشة البيضاء” عند الأخطاء غير المعالجة، وتوفير تقرير تشخيص سريع يمكن نسخه أو تصديره للمراجعة.
+
+### أين يتم التقاط الأخطاء؟
+- Error Boundary + التقاط `window error` و `unhandledrejection`:
+  - [src/components/shared/GlobalErrorBoundary.tsx](../src/components/shared/GlobalErrorBoundary.tsx)
+
+### مفاتيح التخزين المستخدمة
+يتم حفظ التشخيص داخل `localStorage` / `sessionStorage`:
+- `app_last_error`: آخر خطأ (للتوافق)
+- `app_error_log`: سجل دائري لآخر 20 خطأ (يدعم React + window + unhandledrejection)
+- `app_session_id` (في `sessionStorage`): معرّف جلسة يساعد على تجميع تقارير متعددة من نفس الجلسة
+
+### تجربة المستخدم (User Flow)
+- داخل الإعدادات → تبويب “التشخيص” (SuperAdmin):
+  - عرض آخر خطأ + سجل الأخطاء
+  - نسخ السجل أو نسخ “تقرير تشخيص” كامل
+  - تصدير ملف JSON
+  - مسح السجل
+  - عرض `sessionId` مع زر نسخ
+- داخل شاشة الانهيار (Fallback):
+  - أزرار: نسخ التقرير / تنزيل التقرير / مسح السجل / تحديث
+  - التقرير يحاول (إن توفّر Desktop bridge) إرفاق معلومات SQL (`sqlStatus`/`sqlGetSettings`) مع timeout لتجنب التعليق
+
+### ملاحظات أمان
+- التقارير موجهة للمطور/الدعم؛ تجنّب مشاركتها علنًا لأنها قد تحتوي URLs/حالة runtime ومعلومات إعدادات غير حساسة.
+
+
+---
+
 ## 8) خريطة الملفات (File Map)
 
 ### Electron

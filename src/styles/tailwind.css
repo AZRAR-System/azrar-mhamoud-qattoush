@@ -104,16 +104,45 @@ body,
   overflow: visible !important;
   -webkit-box-orient: initial !important;
   -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
 }
 
 /* Hide scrollbars (used by PersonPicker tabs, etc.) */
 .no-scrollbar {
   -ms-overflow-style: none; /* IE/Edge */
-  scrollbar-width: none; /* Firefox */
+}
+
+/* Firefox-only scrollbar hiding (guarded for compatibility tooling) */
+@supports (scrollbar-width: none) {
+  .no-scrollbar {
+    scrollbar-width: none; /* Firefox */
+  }
 }
 
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
+}
+
+/* Default comfortable padding for form controls inside modals (automatic, even if controls use p-2) */
+@layer utilities {
+  .app-modal-content :where(
+      input:not([type]),
+      input[type='text'],
+      input[type='number'],
+      input[type='date'],
+      input[type='datetime-local'],
+      input[type='time'],
+      input[type='email'],
+      input[type='password'],
+      input[type='search'],
+      input[type='tel'],
+      input[type='url'],
+      select,
+      textarea
+    ) {
+    /* Responsive padding: grows a bit on larger screens */
+    padding-inline: clamp(0.75rem, 1.5vw, 1rem);
+  }
 }
 
 /* Modal / sub-page overlays should always be above the app UI */
@@ -178,6 +207,11 @@ body,
   /* Unified modal surface (visuals only; z-index stays on `.modal-content`) */
   .app-modal-content {
     @apply bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xl ring-1 ring-black/5 dark:ring-white/10;
+  }
+
+  /* Unified slide-over panel overlay (layout + backdrop; z-index stays on `.panel-overlay`) */
+  .app-panel-overlay {
+    @apply fixed inset-0 bg-slate-900/30 dark:bg-black/50 backdrop-blur-[1px];
   }
 
   .app-card-header {

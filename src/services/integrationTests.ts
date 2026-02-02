@@ -28,6 +28,16 @@ export interface TestResult {
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
+const makeJordanTestPhone = (seed: number): string => {
+  const suffix = String(Math.abs(seed)).slice(-7).padStart(7, '0');
+  return `+96279${suffix}`;
+};
+
+const makeJordanNationalId10 = (seed: number): string => {
+  const digits = String(Math.abs(seed)).replace(/\D/g, '');
+  return digits.slice(-10).padStart(10, '0');
+};
+
 const getIdLike = (v: unknown): string => {
   if (!isRecord(v)) return '';
   const id = v['رقم_الشخص'] ?? v['id'];
@@ -69,10 +79,11 @@ export class IntegrationTestSuite {
         };
       }
 
+      const runId = Date.now();
       const personData = {
         الاسم: 'محمد أحمد الخطيب',
-        رقم_الهاتف: '+962791234567',
-        البريد_الإلكتروني: 'mohammad@khaberni.com',
+        رقم_الهاتف: makeJordanTestPhone(runId),
+        البريد_الإلكتروني: `mohammad+${runId}@khaberni.com`,
         عنوان_السكن: 'عمّان، الأردن',
         رقم_الهوية: '123456789',
         نوع_الهوية: 'الهوية الوطنية'
@@ -248,18 +259,20 @@ export class IntegrationTestSuite {
       }
 
       // إضافة مستأجر جديد
+      const runId = Date.now() + Math.floor(Math.random() * 10000);
       const tenantResult = DbService.addPerson({
         الاسم: 'علي محمد الدعيج',
-        رقم_الهاتف: '+962792345678',
-        العنوان: 'عمّان، الأردن',
-        الرقم_الوطني: '987654321'
+        رقم_الهاتف: makeJordanTestPhone(runId + 1),
+        عنوان_السكن: 'عمّان، الأردن',
+        البريد_الإلكتروني: `ali+${runId}@khaberni.com`,
+        الرقم_الوطني: makeJordanNationalId10(runId + 2)
       }, ['مستأجر']);
 
       if (!tenantResult.success || !tenantResult.data) {
         return {
           testName: 'إنشاء عقد إيجار',
           status: 'FAIL',
-          message: 'فشل في إضافة المستأجر',
+          message: `فشل في إضافة المستأجر${tenantResult?.message ? `: ${tenantResult.message}` : ''}`,
           duration: performance.now() - start
         };
       }
@@ -790,6 +803,20 @@ const isIntegrationTestDataEnabled = (): boolean => {
   const viteFlag = (import.meta as unknown as ViteMeta)?.env?.VITE_ENABLE_INTEGRATION_TEST_DATA;
   if (typeof viteFlag === 'string') return viteFlag.toLowerCase() === 'true';
   if (typeof viteFlag === 'boolean') return viteFlag;
+
+  // Desktop dev-tests override (Electron main injects flags via query params)
+  try {
+    if (typeof window !== 'undefined') {
+      const qs = new URLSearchParams(window.location.search);
+      const v = qs.get('integrationData');
+      if (v) {
+        const s = String(v).toLowerCase();
+        if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true;
+      }
+    }
+  } catch {
+    // ignore
+  }
 
   // Runtime override (DevTools)
   type IntegrationTestWindow = Window & { ENABLE_INTEGRATION_TEST_DATA?: boolean };

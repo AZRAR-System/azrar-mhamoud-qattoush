@@ -17,6 +17,7 @@ import './styles/tailwind.css';
 import './styles/animations.css';
 import './styles/mobile-improvements.css';
 import { storage } from '@/services/storage';
+import { isAppActivated } from '@/services/activation';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -25,21 +26,27 @@ if (!rootElement) {
 
 async function bootstrap() {
   try {
-    await storage.hydrateDbKeysToLocalStorage('db_');
+    const activated = await isAppActivated();
+    if (activated) {
+      await storage.hydrateDbKeysToLocalStorage('db_');
 
-    // Keep some non-db_ app/admin keys in sync across desktop devices.
-    // (They are managed in Database Manager / admin flows and should reflect remote updates.)
-    const extraSyncKeys = [
-      'theme',
-      'app_update_feed_url',
-      'audioConfig',
-      'notification_templates',
-      'notificationLogs',
-      'dashboard_tasks',
-      'daily_scheduler_last_run',
-    ];
-    await storage.hydrateKeysToLocalStorage(extraSyncKeys);
-    storage.subscribeDesktopRemoteUpdates?.({ prefix: 'db_', includeKeys: extraSyncKeys });
+      // Keep some non-db_ app/admin keys in sync across desktop devices.
+      // (They are managed in Database Manager / admin flows and should reflect remote updates.)
+      const extraSyncKeys = [
+        'theme',
+        'app_update_feed_url',
+        'audioConfig',
+        'notification_templates',
+        'notificationLogs',
+        'dashboard_tasks',
+        'daily_scheduler_last_run',
+      ];
+      await storage.hydrateKeysToLocalStorage(extraSyncKeys);
+      storage.subscribeDesktopRemoteUpdates?.({ prefix: 'db_', includeKeys: extraSyncKeys });
+    } else {
+      // Minimal hydration so UI theme can still load before activation.
+      await storage.hydrateKeysToLocalStorage(['theme']);
+    }
   } finally {
     const root = ReactDOM.createRoot(rootElement);
     root.render(

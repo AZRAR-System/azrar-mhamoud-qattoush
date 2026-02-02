@@ -180,7 +180,18 @@ export async function propertyPickerSearchPagedSmart(payload: PropertyPickerSear
   return { items, total: items.length };
 }
 
-export async function contractPickerSearchSmart(payload: { query: string; createdMonth?: string; limit?: number }): Promise<
+export async function contractPickerSearchSmart(payload: {
+  query: string;
+  createdMonth?: string;
+  startDateFrom?: string;
+  startDateTo?: string;
+  endDateFrom?: string;
+  endDateTo?: string;
+  minValue?: number | string;
+  maxValue?: number | string;
+  sort?: string;
+  limit?: number;
+}): Promise<
   Array<Omit<ContractPickerItem, 'remainingAmount'>>
 > {
   if (isDesktop() && window.desktopDb?.domainContractPickerSearch) {
@@ -202,6 +213,13 @@ export async function contractPickerSearchPagedSmart(payload: {
   query: string;
   tab?: string;
   createdMonth?: string;
+  startDateFrom?: string;
+  startDateTo?: string;
+  endDateFrom?: string;
+  endDateTo?: string;
+  minValue?: number | string;
+  maxValue?: number | string;
+  sort?: string;
   offset?: number;
   limit?: number;
 }): Promise<{
@@ -719,6 +737,7 @@ export async function peoplePickerSearchPagedSmart(payload: {
   nationalId?: string;
   classification?: string;
   minRating?: number;
+  sort?: string;
   offset?: number;
   limit?: number;
 }): Promise<{ items: PeoplePickerItem[]; total: number }> {
@@ -817,6 +836,7 @@ export async function peoplePickerSearchPagedSmart(payload: {
 export async function installmentsContractsPagedSmart(payload: {
   query?: string;
   filter?: 'all' | 'debt' | 'paid' | 'due' | string;
+  sort?: string;
   offset?: number;
   limit?: number;
 }): Promise<{
@@ -854,6 +874,7 @@ export async function installmentsContractsPagedSmart(payload: {
   try {
     const q = String(payload?.query || '').trim().toLowerCase();
     const filter = String(payload?.filter || 'all');
+    const sort = String(payload?.sort || 'due-asc').trim();
     const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
     const limit = Math.max(1, Math.min(200, Math.trunc(Number(payload?.limit) || 48)));
 
@@ -915,6 +936,45 @@ export async function installmentsContractsPagedSmart(payload: {
     if (filter === 'debt') rows = rows.filter((r) => r.hasDebt);
     if (filter === 'due') rows = rows.filter((r) => r.hasDueSoon);
     if (filter === 'paid') rows = rows.filter((r) => r.isFullyPaid);
+
+    const getNextDueTs = (installs: unknown[] | undefined) => {
+      const list = Array.isArray(installs) ? installs : [];
+      let best = Number.POSITIVE_INFINITY;
+      for (const it of list) {
+        const inst = it as Partial<الكمبيالات_tbl>;
+        if (String(inst?.نوع_الكمبيالة ?? '').trim() === 'تأمين') continue;
+        if (String(inst?.حالة_الكمبيالة ?? '').trim() === 'ملغي') continue;
+        const remaining = Math.max(0, Number(inst?.القيمة_المتبقية ?? inst?.القيمة ?? 0) || 0);
+        if (remaining <= 0) continue;
+        const t = parseDate(inst?.تاريخ_استحقاق);
+        if (!Number.isFinite(t)) continue;
+        if (t < best) best = t;
+      }
+      return Number.isFinite(best) ? best : NaN;
+    };
+
+    rows.sort((a, b) => {
+      if (sort === 'due-asc' || sort === 'due-desc') {
+        const aTs = getNextDueTs(a.installments);
+        const bTs = getNextDueTs(b.installments);
+        const aHas = Number.isFinite(aTs);
+        const bHas = Number.isFinite(bTs);
+        if (aHas !== bHas) return aHas ? -1 : 1; // nulls last
+        if (aHas && bHas && aTs !== bTs) return sort === 'due-asc' ? aTs - bTs : bTs - aTs;
+      }
+
+      const aName = String(a.tenant?.الاسم ?? '').trim();
+      const bName = String(b.tenant?.الاسم ?? '').trim();
+      if (sort === 'tenant-desc') {
+        if (aName !== bName) return bName.localeCompare(aName, 'ar');
+      } else {
+        if (aName !== bName) return aName.localeCompare(bName, 'ar');
+      }
+
+      const aId = String(a.contract?.رقم_العقد ?? '').trim();
+      const bId = String(b.contract?.رقم_العقد ?? '').trim();
+      return aId.localeCompare(bId, 'ar');
+    });
 
     const total = rows.length;
     const items = rows.slice(offset, offset + limit);

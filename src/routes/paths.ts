@@ -6,6 +6,9 @@ export const ROUTE_PATHS = {
   LOGIN: '/login',
   LOGOUT: '/logout',
 
+  // Activation / licensing
+  ACTIVATION: '/activation',
+
   // Main
   DASHBOARD: '/',
   SALES: '/sales',

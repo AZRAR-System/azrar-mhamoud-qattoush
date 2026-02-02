@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AZRAR - مولّد ملفات التفعيل</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b1220;
+        --card: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.12);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.65);
+        --ok: #10b981;
+        --err: #f43f5e;
+        --info: #60a5fa;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        background: radial-gradient(1000px 500px at 10% 10%, rgba(99, 102, 241, 0.25), transparent),
+          radial-gradient(1000px 500px at 100% 90%, rgba(168, 85, 247, 0.18), transparent),
+          var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: 920px;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .logo {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #4f46e5, #4338ca);
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+        font-size: 22px;
+        box-shadow: 0 12px 35px rgba(79, 70, 229, 0.25);
+      }
+
+      .title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .title h1 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.2;
+      }
+
+      .title p {
+        margin: 3px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .field label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .field input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.15);
+        color: var(--text);
+        outline: none;
+      }
+
+      .field input:focus {
+        border-color: rgba(99, 102, 241, 0.65);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      button {
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      button.primary {
+        background: linear-gradient(135deg, #4f46e5, #4338ca);
+        border-color: transparent;
+      }
+
+      button:hover {
+        filter: brightness(1.05);
+      }
+
+      .kv {
+        margin-top: 14px;
+        border-top: 1px solid var(--border);
+        padding-top: 12px;
+        display: grid;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .kv-row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 8px;
+        align-items: start;
+      }
+
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        word-break: break-all;
+        color: rgba(255, 255, 255, 0.86);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+      .badge.ok {
+        border-color: rgba(16, 185, 129, 0.4);
+        color: rgba(16, 185, 129, 0.95);
+      }
+
+      #status {
+        margin-top: 12px;
+        font-size: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      #status[data-kind='ok'] {
+        border-color: rgba(16, 185, 129, 0.35);
+        color: rgba(16, 185, 129, 0.92);
+      }
+
+      #status[data-kind='error'] {
+        border-color: rgba(244, 63, 94, 0.35);
+        color: rgba(244, 63, 94, 0.92);
+      }
+
+      #status[data-kind='info'] {
+        border-color: rgba(96, 165, 250, 0.35);
+        color: rgba(96, 165, 250, 0.92);
+      }
+
+      @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .kv-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .mt-12 {
+        margin-top: 12px;
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .hint {
+        margin-top: 6px;
+        font-size: 12px;
+        color: rgba(100, 116, 139, 0.95);
+      }
+
+      button.ghost {
+        background: transparent;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        color: rgba(51, 65, 85, 0.95);
+      }
+
+      button.danger {
+        border-color: rgba(244, 63, 94, 0.35);
+        color: rgba(244, 63, 94, 0.92);
+        background: rgba(255, 241, 242, 0.6);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <div class="header">
+        <div class="title">
+          <div class="logo">A</div>
+          <div>
+            <h1>مولّد ملفات التفعيل (License Generator)</h1>
+            <p>ينشئ ملف تفعيل موقّع ومربوط ببصمة الجهاز</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="grid">
+          <div>
+            <div class="field">
+              <label>بصمة الجهاز (deviceId)</label>
+              <input id="deviceId" type="text" placeholder="الصق deviceId من جهاز العميل" />
+            </div>
+
+            <div class="field mt-12">
+              <label>اسم العميل</label>
+              <div class="row">
+                <input id="customer" type="text" placeholder="مثال: شركة الهدى" list="customersList" />
+                <button id="btnSaveCustomer" class="ghost" type="button" title="حفظ بيانات العميل">حفظ</button>
+              </div>
+              <datalist id="customersList"></datalist>
+              <div class="hint">
+                <span id="customerStats">—</span>
+              </div>
+            </div>
+
+            <div class="field mt-12">
+              <label>عدد الأجهزة (Seats)</label>
+              <input id="seatCount" type="number" min="0" step="1" placeholder="مثال: 3" dir="ltr" />
+              <div class="hint">للمتابعة: كم جهاز مسموح/تم تفعيله لهذا العميل.</div>
+            </div>
+
+            <div class="field mt-12">
+              <label>مدة التفعيل</label>
+              <select id="durationPreset" title="اختر مدة التفعيل">
+                <option value="">بدون مدة (يدوي)</option>
+                <option value="days:30">30 يوم</option>
+                <option value="months:3">3 أشهر</option>
+                <option value="months:6">6 أشهر</option>
+                <option value="months:12">سنة</option>
+              </select>
+              <div class="hint">اختيار المدة سيقوم بتعبئة تاريخ الانتهاء تلقائيًا.</div>
+            </div>
+
+            <div class="field mt-12">
+              <label>تاريخ الانتهاء (ISO اختياري)</label>
+              <input id="expiresAt" type="text" placeholder="2027-01-31T00:00:00.000Z" dir="ltr" />
+            </div>
+
+            <div class="actions">
+              <button id="btnGenKey">توليد مفتاح جديد</button>
+              <button id="btnPickKey">تحميل مفتاح التوقيع (Private Key)</button>
+              <button id="btnGenerate" class="primary">إنشاء ملف التفعيل</button>
+              <button id="btnForgetKey" class="danger" type="button" title="نسيان المفتاح المحفوظ">نسيان المفتاح</button>
+            </div>
+
+            <div id="status" data-kind="info">جاهز.</div>
+          </div>
+
+          <div>
+            <div class="kv">
+              <div class="kv-row">
+                <div>حالة المفتاح:</div>
+                <div><span id="hasKey" class="badge">غير محمّل</span></div>
+              </div>
+              <div class="kv-row">
+                <div>المفتاح العام (Public Key):</div>
+                <div class="mono" id="publicKey">—</div>
+              </div>
+              <div class="kv-row">
+                <div>ملاحظة أمان:</div>
+                <div class="mono">لا تُرسل المفتاح الخاص للعميل. احتفظ به عند الدعم فقط.</div>
+              </div>
+              <div class="kv-row">
+                <div>صيغة الملف:</div>
+                <div class="mono">{ payload: { v:1, product:'AZRAR', deviceId, issuedAt, expiresAt?, customer? }, sig }</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

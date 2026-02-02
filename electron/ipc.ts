@@ -47,6 +47,7 @@ import {
   disconnectSql,
   ensureDailyServerBackupIfEnabled,
   exportServerBackupToFile,
+  getOrCreateDeviceId,
   getRemoteKvStoreMeta,
   getRemoteKvStoreRow,
   getSqlStatus,
@@ -68,7 +69,10 @@ import {
 } from './sqlSync';
 import { validateInstallerCandidate } from './security/updaterInstallValidation.js';
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+import { ensureInsideRoot } from './utils/pathSafety';
+import { toErrorMessage } from './utils/errors';
+import { isRecord } from './utils/unknown';
+import { safeJsonParseArray } from './utils/json';
 
 const getField = (obj: unknown, field: string): unknown => (isRecord(obj) ? obj[field] : undefined);
 
@@ -88,12 +92,6 @@ const getOptionalNumberField = (obj: unknown, field: string): number | undefined
 
 type DomainEntity = 'people' | 'properties' | 'contracts';
 const isDomainEntity = (v: string): v is DomainEntity => v === 'people' || v === 'properties' || v === 'contracts';
-
-const toErrorMessage = (err: unknown, fallback: string): string => {
-  if (err instanceof Error) return err.message || fallback;
-  const s = String(err ?? '').trim();
-  return s || fallback;
-};
 
 type FspCpOptions = { recursive: boolean; force: boolean };
 type FspCpFn = (src: string, dest: string, options: FspCpOptions) => Promise<void>;
@@ -204,18 +202,7 @@ const DB_KEYS = {
   NOTES: 'db_notes',
 } as const;
 
-const parseJsonArray = (raw: string | null): unknown[] => {
-  const s = String(raw ?? '').trim();
-  if (!s) return [];
-  try {
-    const parsed: unknown = JSON.parse(s);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const kvGetArray = (key: string): unknown[] => parseJsonArray(kvGet(key));
+const kvGetArray = (key: string): unknown[] => safeJsonParseArray(kvGet(key));
 
 const kvSetArray = (key: string, items: unknown[]): void => {
   kvSet(key, JSON.stringify(items ?? []));
@@ -230,6 +217,24 @@ const mergeRecords = (base: unknown, patch: unknown): unknown => {
 const isUncPath = (p: string): boolean => {
   const s = String(p || '');
   return s.startsWith('\\\\') || s.startsWith('//');
+};
+
+const getBetterSqlite3RebuildHint = (e: unknown): string | null => {
+  const msg = String((e as { message?: unknown } | null)?.message ?? e ?? '');
+  const lower = msg.toLowerCase();
+  const mentionsAddon = lower.includes('better_sqlite3.node') || lower.includes('better-sqlite3');
+  const isWin32BinaryError = lower.includes('not a valid win32 application');
+  const isDlopen = lower.includes('err_dlopen_failed') || lower.includes('dlopen');
+
+  if (!mentionsAddon) return null;
+  if (!isWin32BinaryError && !isDlopen) return null;
+
+  return [
+    'يبدو أن مكتبة قاعدة البيانات المحلية (better-sqlite3) غير مبنية لنسخة Electron الحالية أو لمعمارية مختلفة.',
+    'الحل (Windows):',
+    '1) npx electron-rebuild -f -w better-sqlite3',
+    '2) npm run desktop:dev',
+  ].join('\n');
 };
 
 type AuthenticodeVerification =
@@ -975,6 +980,92 @@ export function registerIpcHandlers() {
     }, 3000);
   }
 
+  // =====================
+  // App helpers (Desktop)
+  // =====================
+
+  ipcMain.handle('app:getDeviceId', async () => {
+    return await getOrCreateDeviceId();
+  });
+
+  ipcMain.handle('app:quit', async () => {
+    try {
+      // Allow renderer to request a clean shutdown (used by desktop autorun tests).
+      // Defer quit so the IPC response can be sent before the app terminates.
+      setTimeout(() => {
+        try {
+          app.quit();
+        } catch {
+          // ignore
+        }
+      }, 0);
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'تعذر إغلاق التطبيق') };
+    }
+  });
+
+  ipcMain.handle('app:pickLicenseFile', async () => {
+        const win = BrowserWindow.getFocusedWindow();
+        const options: Electron.OpenDialogOptions = {
+          title: 'اختر ملف التفعيل',
+          properties: ['openFile'],
+          filters: [
+            { name: 'Activation / License', extensions: ['json', 'lic', 'txt'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        };
+    
+        const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    
+        if (result.canceled || result.filePaths.length === 0) {
+          return { ok: false, canceled: true };
+        }
+
+    const filePath = result.filePaths[0];
+    try {
+      const st = await fsp.stat(filePath);
+      // License files should be tiny; guard against accidental huge files.
+      if (st.size > 2 * 1024 * 1024) {
+        return { ok: false, canceled: false, error: 'ملف التفعيل كبير جداً.' };
+      }
+      const content = await fsp.readFile(filePath, 'utf8');
+      return { ok: true, canceled: false, fileName: path.basename(filePath), content };
+    } catch (e: unknown) {
+      return { ok: false, canceled: false, error: toErrorMessage(e, 'تعذر قراءة ملف التفعيل') };
+    }
+  });
+
+  ipcMain.handle('app:getLicensePublicKey', async () => {
+    try {
+      const envKey = String(process.env.AZRAR_LICENSE_PUBLIC_KEY_B64 || process.env.VITE_AZRAR_LICENSE_PUBLIC_KEY || '').trim();
+      if (envKey) return { ok: true, publicKeyB64: envKey, source: 'env' };
+
+      // Packaged fallback: ship a PUBLIC key file inside the app.
+      const rel = path.join('electron', 'assets', 'azrar-license-public.key.json');
+      const candidates = [
+        path.join(app.getAppPath(), rel),
+        path.join(process.resourcesPath, 'app.asar', rel),
+        path.join(process.resourcesPath, rel),
+      ];
+
+      for (const p of candidates) {
+        try {
+          const raw = await fsp.readFile(p, 'utf8');
+          const parsed = JSON.parse(String(raw || '').trim());
+          const b64 = typeof parsed?.publicKeyB64 === 'string' ? String(parsed.publicKeyB64).trim() : '';
+          if (b64) return { ok: true, publicKeyB64: b64, source: p };
+        } catch {
+          // try next
+        }
+      }
+
+      return { ok: false, error: 'Missing license public key.' };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to load license public key') };
+    }
+  });
+
   ipcMain.handle('updater:getVersion', () => app.getVersion());
   ipcMain.handle('updater:getStatus', () => ({
     isPackaged: app.isPackaged,
@@ -1140,13 +1231,25 @@ export function registerIpcHandlers() {
     if (dbMaintenanceMode) return null;
     const k = String(key || '').trim();
     if (!k.startsWith('db_')) return null;
-    return kvGet(k);
+    try {
+      return kvGet(k);
+    } catch (e: unknown) {
+      const hint = getBetterSqlite3RebuildHint(e);
+      const base = toErrorMessage(e, 'فشل قراءة بيانات محلية (db:get)');
+      throw new Error(hint ? `${base}\n\n${hint}` : base);
+    }
   });
   ipcMain.handle('db:set', (_e, key: string, value: string) => {
     if (dbMaintenanceMode) return false;
     const k = String(key || '').trim();
     if (!k.startsWith('db_')) return false;
-    kvSet(k, value);
+    try {
+      kvSet(k, value);
+    } catch (e: unknown) {
+      const hint = getBetterSqlite3RebuildHint(e);
+      const base = toErrorMessage(e, 'فشل حفظ بيانات محلية (db:set)');
+      throw new Error(hint ? `${base}\n\n${hint}` : base);
+    }
     try {
       const meta = kvGetMeta(k);
       const updatedAt = meta?.updatedAt || new Date().toISOString();
@@ -1160,7 +1263,13 @@ export function registerIpcHandlers() {
     if (dbMaintenanceMode) return false;
     const k = String(key || '').trim();
     if (!k.startsWith('db_')) return false;
-    kvDelete(k);
+    try {
+      kvDelete(k);
+    } catch (e: unknown) {
+      const hint = getBetterSqlite3RebuildHint(e);
+      const base = toErrorMessage(e, 'فشل حذف بيانات محلية (db:delete)');
+      throw new Error(hint ? `${base}\n\n${hint}` : base);
+    }
     try {
       const deletedAt = kvGetDeletedAt(k) || new Date().toISOString();
       void pushKvDelete({ key: k, deletedAt }).catch(() => void 0);
@@ -1171,7 +1280,13 @@ export function registerIpcHandlers() {
   });
   ipcMain.handle('db:keys', () => {
     if (dbMaintenanceMode) return [];
-    return kvKeys().filter((k) => String(k || '').startsWith('db_'));
+    try {
+      return kvKeys().filter((k) => String(k || '').startsWith('db_'));
+    } catch (e: unknown) {
+      const hint = getBetterSqlite3RebuildHint(e);
+      const base = toErrorMessage(e, 'فشل قراءة مفاتيح البيانات (db:keys)');
+      throw new Error(hint ? `${base}\n\n${hint}` : base);
+    }
   });
   ipcMain.handle('db:resetAll', () => {
     if (dbMaintenanceMode) return { deleted: 0 };
@@ -1641,10 +1756,39 @@ export function registerIpcHandlers() {
       const q = trimString(getStringField(payload, 'query'), 128, 'نص البحث');
       const status = trimString(getStringField(payload, 'status'), 64, 'الحالة');
       const type = trimString(getStringField(payload, 'type'), 64, 'النوع');
+      const furnishing = trimString(getStringField(payload, 'furnishing'), 64, 'صفة العقار');
       const forceVacant = Boolean(getField(payload, 'forceVacant'));
+      const occupancy = trimString(getStringField(payload, 'occupancy'), 16, 'الإشغال');
+      const sale = trimString(getStringField(payload, 'sale'), 16, 'البيع');
+      const rent = trimString(getStringField(payload, 'rent'), 16, 'الإيجار');
+      const minArea = trimString(getStringField(payload, 'minArea'), 32, 'أقل مساحة');
+      const maxArea = trimString(getStringField(payload, 'maxArea'), 32, 'أكبر مساحة');
+      const floor = trimString(getStringField(payload, 'floor'), 64, 'الطابق');
+      const minPrice = trimString(getStringField(payload, 'minPrice'), 32, 'أقل سعر');
+      const maxPrice = trimString(getStringField(payload, 'maxPrice'), 32, 'أكبر سعر');
+      const contractLink = trimString(getStringField(payload, 'contractLink'), 16, 'ارتباط عقد');
+      const sort = trimString(getStringField(payload, 'sort'), 32, 'الترتيب');
       const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
       const limit = getOptionalNumberField(payload, 'limit');
-      return domainPropertyPickerSearch({ query: q, status, type, forceVacant, offset, limit });
+      return domainPropertyPickerSearch({
+        query: q,
+        status,
+        type,
+        furnishing,
+        forceVacant,
+        occupancy: occupancy as unknown as 'all' | 'rented' | 'vacant',
+        sale: sale as unknown as 'for-sale' | 'not-for-sale' | '',
+        rent: rent as unknown as 'for-rent' | 'not-for-rent' | '',
+        minArea,
+        maxArea,
+        floor,
+        minPrice,
+        maxPrice,
+        contractLink: contractLink as unknown as '' | 'linked' | 'unlinked' | 'all',
+        sort,
+        offset,
+        limit,
+      });
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل البحث عن العقارات') };
     }
@@ -1656,30 +1800,75 @@ export function registerIpcHandlers() {
       const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
       const limit = getOptionalNumberField(payload, 'limit');
       const tab = trimString(getStringField(payload, 'tab'), 32, 'التبويب');
+      const sort = trimString(getStringField(payload, 'sort'), 32, 'الترتيب');
       const createdMonthRaw = trimString(getStringField(payload, 'createdMonth'), 16, 'شهر الإنشاء');
       const createdMonth = /^\d{4}-\d{2}$/.test(createdMonthRaw) ? createdMonthRaw : '';
-      return domainContractPickerSearch({ query: q, offset, limit, tab, createdMonth });
+      const startDateFromRaw = trimString(getStringField(payload, 'startDateFrom'), 16, 'تاريخ البداية (من)');
+      const startDateToRaw = trimString(getStringField(payload, 'startDateTo'), 16, 'تاريخ البداية (إلى)');
+      const endDateFromRaw = trimString(getStringField(payload, 'endDateFrom'), 16, 'تاريخ النهاية (من)');
+      const endDateToRaw = trimString(getStringField(payload, 'endDateTo'), 16, 'تاريخ النهاية (إلى)');
+      const startDateFrom = /^\d{4}-\d{2}-\d{2}$/.test(startDateFromRaw) ? startDateFromRaw : '';
+      const startDateTo = /^\d{4}-\d{2}-\d{2}$/.test(startDateToRaw) ? startDateToRaw : '';
+      const endDateFrom = /^\d{4}-\d{2}-\d{2}$/.test(endDateFromRaw) ? endDateFromRaw : '';
+      const endDateTo = /^\d{4}-\d{2}-\d{2}$/.test(endDateToRaw) ? endDateToRaw : '';
+
+      const minValueRaw = String(getField(payload, 'minValue') ?? '').trim();
+      const maxValueRaw = String(getField(payload, 'maxValue') ?? '').trim();
+      const minValue = minValueRaw ? Number(minValueRaw) : undefined;
+      const maxValue = maxValueRaw ? Number(maxValueRaw) : undefined;
+
+      return domainContractPickerSearch({
+        query: q,
+        offset,
+        limit,
+        tab,
+        sort,
+        createdMonth,
+        startDateFrom,
+        startDateTo,
+        endDateFrom,
+        endDateTo,
+        minValue: Number.isFinite(minValue as number) ? (minValue as number) : undefined,
+        maxValue: Number.isFinite(maxValue as number) ? (maxValue as number) : undefined,
+      });
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل البحث عن العقود') };
     }
   });
 
   ipcMain.handle('domain:picker:people', (_e, payload: unknown) => {
-    const q = getStringField(payload, 'query').trim();
-    const role = getStringField(payload, 'role').trim();
+    const q = trimString(getStringField(payload, 'query'), 128, 'نص البحث');
+    const role = trimString(getStringField(payload, 'role'), 32, 'الدور');
     const onlyIdleOwners = Boolean(getField(payload, 'onlyIdleOwners'));
+    const address = trimString(getStringField(payload, 'address'), 128, 'العنوان');
+    const nationalId = trimString(getStringField(payload, 'nationalId'), 32, 'الرقم الوطني');
+    const classification = trimString(getStringField(payload, 'classification'), 64, 'التصنيف');
+    const minRating = Math.max(0, Math.min(5, Number(getField(payload, 'minRating') ?? 0) || 0));
+    const sort = trimString(getStringField(payload, 'sort'), 32, 'الترتيب');
     const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
     const limit = Math.max(1, Math.min(200, Math.trunc(Number(getField(payload, 'limit')) || 48)));
-    return domainPeoplePickerSearch({ query: q, role, onlyIdleOwners, offset, limit });
+    return domainPeoplePickerSearch({
+      query: q,
+      role,
+      onlyIdleOwners,
+      address,
+      nationalId,
+      classification,
+      minRating,
+      sort,
+      offset,
+      limit,
+    });
   });
 
   ipcMain.handle('domain:installments:contracts', (_e, payload: unknown) => {
     try {
       const q = trimString(getStringField(payload, 'query'), 128, 'نص البحث');
       const filter = trimString(getStringField(payload, 'filter') || 'all', 16, 'الفلتر') || 'all';
+      const sort = trimString(getStringField(payload, 'sort'), 32, 'الترتيب');
       const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
       const limit = Math.max(1, Math.min(100, Math.trunc(Number(getField(payload, 'limit')) || 20)));
-      return domainInstallmentsContractsSearch({ query: q, filter, offset, limit });
+      return domainInstallmentsContractsSearch({ query: q, filter, sort, offset, limit });
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل الأقساط') };
     }
@@ -2800,16 +2989,6 @@ export function registerIpcHandlers() {
     const safeRaw = cleanedNoControl || 'غير_معروف';
     const safe = safeRaw === '.' || safeRaw === '..' ? 'غير_معروف' : safeRaw;
     return safe.length > maxLen ? safe.slice(0, maxLen).trim() : safe;
-  };
-
-  const ensureInsideRoot = (root: string, target: string) => {
-    const rootResolved = path.resolve(root);
-    const targetResolved = path.resolve(target);
-    const rel = path.relative(rootResolved, targetResolved);
-    if (!rel || rel === '.') return;
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
-      throw new Error('Invalid attachment path');
-    }
   };
 
   const mimeFromExt = (extRaw: string): string => {

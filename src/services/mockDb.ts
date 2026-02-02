@@ -2583,8 +2583,11 @@ export const DbService = {
       return ok();
   },
   
-  getLogs: () => get<العمليات_tbl>(KEYS.LOGS),
-  getSystemUsers: () => get<المستخدمين_tbl>(KEYS.USERS),
+    getLogs: () => get<العمليات_tbl>(KEYS.LOGS),
+    getSystemUsers: () =>
+        get<any>(KEYS.USERS).filter(
+            (u): u is المستخدمين_tbl => !!u && typeof u === 'object' && typeof (u as any).id === 'string'
+        ),
   getAlerts: () => get<tbl_Alerts>(KEYS.ALERTS),
 
     getPaymentNotificationTargets: (daysAhead: number = 7) => getPaymentNotificationTargetsInternal(daysAhead),

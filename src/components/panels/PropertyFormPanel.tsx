@@ -1,9 +1,9 @@
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { العقارات_tbl, SmartSuggestion } from '@/types';
 import { useToast } from '@/context/ToastContext';
-import { Home, MapPin, Layers, Briefcase, LayoutGrid, Check, X, type LucideIcon } from 'lucide-react';
+import { Home, MapPin, Layers, Briefcase, LayoutGrid, Check, X, ChevronLeft, type LucideIcon } from 'lucide-react';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { DynamicSelect } from '@/components/ui/DynamicSelect';
 import { SmartEngine } from '@/services/smartEngine';
@@ -21,6 +21,8 @@ interface PropertyFormProps {
 export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, onSuccess }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'specs' | 'reg' | 'sales' | 'notes'>('basic');
     const [initialIsForSale, setInitialIsForSale] = useState<boolean>(false);
+    const reactId = useId();
+    const fieldId = (suffix: string) => `property-form-${reactId}-${suffix}`;
   const [formData, setFormData] = useState<Partial<العقارات_tbl>>({
       الكود_الداخلي: '', 
       العنوان: '', 
@@ -44,6 +46,7 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
         const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
   const toast = useToast();
         const isDesktop = storage.isDesktop();
+      const isNewProperty = !id || id === 'new';
 
     const initialFormDataRef = useRef(formData);
 
@@ -216,8 +219,38 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
       }
   };
 
+    const getNextTab = (current: typeof activeTab): typeof activeTab | null => {
+        const idx = tabs.findIndex((t) => t.id === current);
+        if (idx < 0) return null;
+        return tabs[idx + 1]?.id ?? null;
+    };
+
+    const canProceedFromTab = (tab: typeof activeTab): boolean => {
+        if (tab === 'basic') {
+            if (!String(formData.رقم_المالك || '').trim() || !String(formData.الكود_الداخلي || '').trim()) {
+                toast.warning('الرجاء إدخال المالك والكود الداخلي أولاً');
+                return false;
+            }
+        }
+        if (tab === 'sales' && formData.isForSale) {
+            const asking = Number(formData.salePrice || 0);
+            if (!asking || asking <= 0) {
+                toast.warning('عند تفعيل خيار (للبيع) يجب إدخال السعر المطلوب');
+                return false;
+            }
+        }
+        return true;
+    };
+
+    const handleNext = () => {
+        if (!canProceedFromTab(activeTab)) return;
+        const next = getNextTab(activeTab);
+        if (!next) return;
+        setActiveTab(next);
+    };
+
     const inputClass =
-        'w-full py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm text-slate-900 dark:text-white placeholder-slate-400';
+        'w-full px-4 py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm text-slate-900 dark:text-white placeholder-slate-400';
     const labelClass = 'block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1';
     const sectionClass = 'bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-sm p-5';
     const helperTextClass = 'text-[11px] text-slate-500 dark:text-slate-400 mt-1';
@@ -290,8 +323,11 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                             unlinkedFirstByDefault
                         />
                         <div>
-                            <label className={labelClass}>الكود الداخلي <span className="text-red-500">*</span></label>
+                            <label className={labelClass} htmlFor={fieldId('internalCode')}>
+                                الكود الداخلي <span className="text-red-500">*</span>
+                            </label>
                             <input
+                                id={fieldId('internalCode')}
                                 required
                                 className={`${inputClass} font-mono font-bold`}
                                 value={formData.الكود_الداخلي}
@@ -306,8 +342,11 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                             <DynamicSelect label="الحالة الحالية" category="prop_status" value={formData.حالة_العقار} onChange={(val) => setFormData({...formData, حالة_العقار: val})} />
                         </div>
                         <div>
-                            <label className={labelClass}>الإيجار التقديري (سنوي)</label>
+                            <label className={labelClass} htmlFor={fieldId('estimatedRent')}>
+                                الإيجار التقديري (سنوي)
+                            </label>
                             <input
+                                id={fieldId('estimatedRent')}
                                 type="number"
                                 className={inputClass}
                                 value={formData.الإيجار_التقديري}
@@ -328,23 +367,42 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                         <div className={helperTextClass}>معلومات عامة عن العقار لتسهيل البحث والفلاتر</div>
                     </div>
                     <div>
-                        <label className={labelClass}>العنوان التفصيلي</label>
-                        <input className={inputClass} value={formData.العنوان} onChange={e => setFormData({...formData, العنوان: e.target.value})} placeholder="مثال: عمان - شارع ..." />
+                        <label className={labelClass} htmlFor={fieldId('address')}>العنوان التفصيلي</label>
+                        <input
+                            id={fieldId('address')}
+                            className={inputClass}
+                            value={formData.العنوان}
+                            onChange={e => setFormData({...formData, العنوان: e.target.value})}
+                            placeholder="مثال: عمان - شارع ..."
+                        />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <DynamicSelect label="المدينة" category="prop_city" value={formData.المدينة} onChange={(val) => setFormData({...formData, المدينة: val})} />
                         <DynamicSelect label="المنطقة" category="prop_region" value={formData.المنطقة} onChange={(val) => setFormData({...formData, المنطقة: val})} />
                         
                         <div>
-                            <label className={labelClass}>المساحة (م²)</label>
-                            <input type="number" className={inputClass} value={formData.المساحة} onChange={e => setFormData({...formData, المساحة: Number(e.target.value)})} min={0} />
+                            <label className={labelClass} htmlFor={fieldId('area')}>المساحة (م²)</label>
+                            <input
+                                id={fieldId('area')}
+                                type="number"
+                                className={inputClass}
+                                value={formData.المساحة}
+                                onChange={e => setFormData({...formData, المساحة: Number(e.target.value)})}
+                                min={0}
+                            />
                         </div>
                         
                         <DynamicSelect label="اسم الدور" category="prop_floor" value={formData.الطابق} onChange={(val) => setFormData({...formData, الطابق: val})} />
                         
                         <div>
-                            <label className={labelClass}>عدد الغرف</label>
-                            <input className={inputClass} value={formData.عدد_الغرف} onChange={e => setFormData({...formData, عدد_الغرف: e.target.value})} placeholder="مثال: 3" />
+                            <label className={labelClass} htmlFor={fieldId('rooms')}>عدد الغرف</label>
+                            <input
+                                id={fieldId('rooms')}
+                                className={inputClass}
+                                value={formData.عدد_الغرف}
+                                onChange={e => setFormData({...formData, عدد_الغرف: e.target.value})}
+                                placeholder="مثال: 3"
+                            />
                         </div>
                         
                         <DynamicSelect label="صفة العقار" category="prop_furnishing" value={formData.نوع_التاثيث} onChange={(val) => setFormData({...formData, نوع_التاثيث: val})} />
@@ -361,28 +419,58 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
-                            <label className={labelClass}>اسم الحوض</label>
-                            <input className={inputClass} value={formData.اسم_الحوض} onChange={e => setFormData({...formData, اسم_الحوض: e.target.value})} />
+                            <label className={labelClass} htmlFor={fieldId('pondName')}>اسم الحوض</label>
+                            <input
+                                id={fieldId('pondName')}
+                                className={inputClass}
+                                value={formData.اسم_الحوض}
+                                onChange={e => setFormData({...formData, اسم_الحوض: e.target.value})}
+                            />
                         </div>
                         <div>
-                            <label className={labelClass}>رقم القطعة</label>
-                            <input className={inputClass} value={formData.رقم_قطعة} onChange={e => setFormData({...formData, رقم_قطعة: e.target.value})} />
+                            <label className={labelClass} htmlFor={fieldId('plotNumber')}>رقم القطعة</label>
+                            <input
+                                id={fieldId('plotNumber')}
+                                className={inputClass}
+                                value={formData.رقم_قطعة}
+                                onChange={e => setFormData({...formData, رقم_قطعة: e.target.value})}
+                            />
                         </div>
                         <div>
-                            <label className={labelClass}>رقم اللوحة</label>
-                            <input className={inputClass} value={formData.رقم_لوحة} onChange={e => setFormData({...formData, رقم_لوحة: e.target.value})} />
+                            <label className={labelClass} htmlFor={fieldId('boardNumber')}>رقم اللوحة</label>
+                            <input
+                                id={fieldId('boardNumber')}
+                                className={inputClass}
+                                value={formData.رقم_لوحة}
+                                onChange={e => setFormData({...formData, رقم_لوحة: e.target.value})}
+                            />
                         </div>
                         <div>
-                            <label className={labelClass}>رقم الشقة</label>
-                            <input className={inputClass} value={formData.رقم_شقة} onChange={e => setFormData({...formData, رقم_شقة: e.target.value})} />
+                            <label className={labelClass} htmlFor={fieldId('apartmentNumber')}>رقم الشقة</label>
+                            <input
+                                id={fieldId('apartmentNumber')}
+                                className={inputClass}
+                                value={formData.رقم_شقة}
+                                onChange={e => setFormData({...formData, رقم_شقة: e.target.value})}
+                            />
                         </div>
                         <div>
-                            <label className={labelClass}>رقم اشتراك الكهرباء</label>
-                            <input className={inputClass} value={formData.رقم_اشتراك_الكهرباء} onChange={e => setFormData({...formData, رقم_اشتراك_الكهرباء: e.target.value})} />
+                            <label className={labelClass} htmlFor={fieldId('electricitySub')}>رقم اشتراك الكهرباء</label>
+                            <input
+                                id={fieldId('electricitySub')}
+                                className={inputClass}
+                                value={formData.رقم_اشتراك_الكهرباء}
+                                onChange={e => setFormData({...formData, رقم_اشتراك_الكهرباء: e.target.value})}
+                            />
                         </div>
                         <div>
-                            <label className={labelClass}>رقم اشتراك المياه</label>
-                            <input className={inputClass} value={formData.رقم_اشتراك_المياه} onChange={e => setFormData({...formData, رقم_اشتراك_المياه: e.target.value})} />
+                            <label className={labelClass} htmlFor={fieldId('waterSub')}>رقم اشتراك المياه</label>
+                            <input
+                                id={fieldId('waterSub')}
+                                className={inputClass}
+                                value={formData.رقم_اشتراك_المياه}
+                                onChange={e => setFormData({...formData, رقم_اشتراك_المياه: e.target.value})}
+                            />
                         </div>
                     </div>
                 </div>
@@ -444,13 +532,29 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                     {formData.isForSale && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className={labelClass}>السعر المطلوب <span className="text-red-500">*</span></label>
-                                <input type="number" className={inputClass} value={formData.salePrice} onChange={e => setFormData({...formData, salePrice: Number(e.target.value)})} min={0} />
+                                <label className={labelClass} htmlFor={fieldId('salePrice')}>
+                                    السعر المطلوب <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    id={fieldId('salePrice')}
+                                    type="number"
+                                    className={inputClass}
+                                    value={formData.salePrice}
+                                    onChange={e => setFormData({...formData, salePrice: Number(e.target.value)})}
+                                    min={0}
+                                />
                                 <div className={helperTextClass}>إجباري عند تفعيل خيار البيع</div>
                             </div>
                             <div>
-                                <label className={labelClass}>أقل سعر</label>
-                                <input type="number" className={inputClass} value={formData.minSalePrice} onChange={e => setFormData({...formData, minSalePrice: Number(e.target.value)})} min={0} />
+                                <label className={labelClass} htmlFor={fieldId('minSalePrice')}>أقل سعر</label>
+                                <input
+                                    id={fieldId('minSalePrice')}
+                                    type="number"
+                                    className={inputClass}
+                                    value={formData.minSalePrice}
+                                    onChange={e => setFormData({...formData, minSalePrice: Number(e.target.value)})}
+                                    min={0}
+                                />
                                 <div className={helperTextClass}>اختياري — لتحديد الحد الأدنى للتفاوض</div>
                             </div>
                         </div>
@@ -465,12 +569,24 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                         <div className={helperTextClass}>اكتب أي تفاصيل مهمة لتظهر لاحقاً في التقارير</div>
                     </div>
                     <div>
-                        <label className={labelClass}>حدود المأجور</label>
-                        <textarea className={inputClass} rows={3} value={formData.حدود_المأجور} onChange={e => setFormData({...formData, حدود_المأجور: e.target.value})}></textarea>
+                        <label className={labelClass} htmlFor={fieldId('leasedBounds')}>حدود المأجور</label>
+                        <textarea
+                            id={fieldId('leasedBounds')}
+                            className={inputClass}
+                            rows={3}
+                            value={formData.حدود_المأجور}
+                            onChange={e => setFormData({...formData, حدود_المأجور: e.target.value})}
+                        ></textarea>
                     </div>
                     <div>
-                        <label className={labelClass}>ملاحظات</label>
-                        <textarea className={inputClass} rows={4} value={formData.ملاحظات} onChange={e => setFormData({...formData, ملاحظات: e.target.value})}></textarea>
+                        <label className={labelClass} htmlFor={fieldId('notes')}>ملاحظات</label>
+                        <textarea
+                            id={fieldId('notes')}
+                            className={inputClass}
+                            rows={4}
+                            value={formData.ملاحظات}
+                            onChange={e => setFormData({...formData, ملاحظات: e.target.value})}
+                        ></textarea>
                     </div>
                     <DynamicFieldsSection formId="properties" values={dynamicValues} onChange={setDynamicValues} />
                 </div>
@@ -481,9 +597,16 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                 <Button type="button" variant="secondary" onClick={onClose}>
                     إلغاء
                 </Button>
-                <Button type="submit" variant="primary" rightIcon={<Check size={18} />}>
-                    حفظ
-                </Button>
+
+                {isNewProperty && getNextTab(activeTab) ? (
+                    <Button type="button" variant="primary" rightIcon={<ChevronLeft size={18} />} onClick={handleNext}>
+                        التالي
+                    </Button>
+                ) : (
+                    <Button type="submit" variant="primary" rightIcon={<Check size={18} />}>
+                        حفظ
+                    </Button>
+                )}
             </div>
         </form>
     </div>

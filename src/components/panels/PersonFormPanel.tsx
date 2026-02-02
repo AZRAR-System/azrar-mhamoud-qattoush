@@ -190,25 +190,25 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
                         </div>
 
             <div>
-                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{formData.نوع_الملف === 'منشأة' ? 'اسم المنشأة' : 'الاسم الكامل'} <span className="text-red-500">*</span></label>
-                <input required className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
+                                <label htmlFor="personForm_name" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{formData.نوع_الملف === 'منشأة' ? 'اسم المنشأة' : 'الاسم الكامل'} <span className="text-red-500">*</span></label>
+                <input id="personForm_name" required className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
                     value={formData.الاسم} onChange={e => setFormData({...formData, الاسم: e.target.value})} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">رقم الهاتف <span className="text-red-500">*</span></label>
-                    <input required className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
+                    <label htmlFor="personForm_phone" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">رقم الهاتف <span className="text-red-500">*</span></label>
+                    <input id="personForm_phone" required className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
                         value={formData.رقم_الهاتف} onChange={e => setFormData({...formData, رقم_الهاتف: e.target.value})} />
                 </div>
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">رقم هاتف إضافي <span className="text-slate-400">(اختياري)</span></label>
-                    <input className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
+                    <label htmlFor="personForm_phone2" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">رقم هاتف إضافي <span className="text-slate-400">(اختياري)</span></label>
+                    <input id="personForm_phone2" className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
                         value={formData.رقم_هاتف_اضافي} onChange={e => setFormData({...formData, رقم_هاتف_اضافي: e.target.value})} />
                 </div>
                 <div>
-                                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{formData.نوع_الملف === 'منشأة' ? 'الرقم الوطني للمنشأة' : 'الرقم الوطني'}</label>
-                    <input className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
+                                        <label htmlFor="personForm_nationalId" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{formData.نوع_الملف === 'منشأة' ? 'الرقم الوطني للمنشأة' : 'الرقم الوطني'}</label>
+                    <input id="personForm_nationalId" className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
                         value={formData.الرقم_الوطني} onChange={e => setFormData({...formData, الرقم_الوطني: e.target.value})} />
                 </div>
             </div>
@@ -216,7 +216,7 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
                         {formData.نوع_الملف === 'منشأة' && (
                             <div className="p-4 bg-gray-50 dark:bg-slate-900/40 rounded-xl border border-gray-200 dark:border-slate-700">
                                 <div className="flex justify-between items-center mb-3">
-                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">طبيعة المنشأة</label>
+                                    <label htmlFor="personForm_companyNature" className="text-sm font-bold text-slate-700 dark:text-slate-300">طبيعة المنشأة</label>
                                     <button type="button" onClick={() => setIsAddingNature(true)} className="text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded shadow-sm text-indigo-600 hover:text-indigo-700">
                                         <Plus size={12} className="inline mr-1"/> جديد
                                     </button>
@@ -224,16 +224,44 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
 
                                 {isAddingNature && (
                                     <div className="flex gap-2 mb-3">
-                                        <input className="flex-1 text-sm p-1.5 rounded border" placeholder="طبيعة المنشأة..." value={newNatureName} onChange={e => setNewNatureName(e.target.value)} autoFocus />
-                                        <button type="button" onClick={handleAddNewNature} className="bg-green-500 text-white p-1 rounded"><Check size={16}/></button>
-                                        <button type="button" onClick={() => setIsAddingNature(false)} className="bg-gray-300 text-gray-700 p-1 rounded"><FilterX size={16}/></button>
+                                                                                <input
+                                                                                    id="personForm_newCompanyNature"
+                                                                                    className="flex-1 text-sm p-1.5 rounded border"
+                                                                                    placeholder="طبيعة المنشأة..."
+                                                                                    title="طبيعة المنشأة"
+                                                                                    aria-label="طبيعة المنشأة"
+                                                                                    value={newNatureName}
+                                                                                    onChange={e => setNewNatureName(e.target.value)}
+                                                                                    autoFocus
+                                                                                />
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={handleAddNewNature}
+                                                                                    className="bg-green-500 text-white p-1 rounded"
+                                                                                    aria-label="حفظ طبيعة المنشأة"
+                                                                                    title="حفظ طبيعة المنشأة"
+                                                                                >
+                                                                                    <Check size={16}/>
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setIsAddingNature(false)}
+                                                                                    className="bg-gray-300 text-gray-700 p-1 rounded"
+                                                                                    aria-label="إلغاء إضافة طبيعة المنشأة"
+                                                                                    title="إلغاء إضافة طبيعة المنشأة"
+                                                                                >
+                                                                                    <FilterX size={16}/>
+                                                                                </button>
                                     </div>
                                 )}
 
                                 <select
+                                                                        id="personForm_companyNature"
                                     className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none"
                                     value={formData.طبيعة_الشركة}
                                     onChange={e => setFormData({ ...formData, طبيعة_الشركة: e.target.value })}
+                                                                        title="طبيعة المنشأة"
+                                                                        aria-label="طبيعة المنشأة"
                                 >
                                     <option value="">—</option>
                                     {availableCompanyNatures.map(n => (
@@ -253,9 +281,34 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
                 
                 {isAddingRole && (
                     <div className="flex gap-2 mb-3">
-                        <input className="flex-1 text-sm p-1.5 rounded border" placeholder="اسم الدور..." value={newRoleName} onChange={e => setNewRoleName(e.target.value)} autoFocus />
-                        <button type="button" onClick={handleAddNewRole} className="bg-green-500 text-white p-1 rounded"><Check size={16}/></button>
-                        <button type="button" onClick={() => setIsAddingRole(false)} className="bg-gray-300 text-gray-700 p-1 rounded"><FilterX size={16}/></button>
+                                                <input
+                                                    id="personForm_newRole"
+                                                    className="flex-1 text-sm p-1.5 rounded border"
+                                                    placeholder="اسم الدور..."
+                                                    title="اسم الدور"
+                                                    aria-label="اسم الدور"
+                                                    value={newRoleName}
+                                                    onChange={e => setNewRoleName(e.target.value)}
+                                                    autoFocus
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddNewRole}
+                                                    className="bg-green-500 text-white p-1 rounded"
+                                                    aria-label="حفظ الدور"
+                                                    title="حفظ الدور"
+                                                >
+                                                    <Check size={16}/>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsAddingRole(false)}
+                                                    className="bg-gray-300 text-gray-700 p-1 rounded"
+                                                    aria-label="إلغاء إضافة دور"
+                                                    title="إلغاء إضافة دور"
+                                                >
+                                                    <FilterX size={16}/>
+                                                </button>
                     </div>
                 )}
 
@@ -272,14 +325,14 @@ export const PersonFormPanel: React.FC<PersonFormProps> = ({ id, onClose, onSucc
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">العنوان</label>
-                <input className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
+                <label htmlFor="personForm_address" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">العنوان</label>
+                <input id="personForm_address" className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500" 
                     value={formData.العنوان} onChange={e => setFormData({...formData, العنوان: e.target.value})} />
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">ملاحظات</label>
-                <textarea className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 h-24" 
+                <label htmlFor="personForm_notes" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">ملاحظات</label>
+                <textarea id="personForm_notes" className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 h-24" 
                     value={formData.ملاحظات} onChange={e => setFormData({...formData, ملاحظات: e.target.value})} />
             </div>
 

@@ -43,6 +43,12 @@ const notifyUiKeyChange = (key: string) => {
   }
 };
 
+const isKvKey = (key: string): boolean => {
+  // Desktop SQLite KV currently stores only db_* keys.
+  // Non-db keys (theme, activation, etc.) must be kept in renderer localStorage.
+  return String(key || '').startsWith('db_');
+};
+
 export const storage = {
   isDesktop: isElectron,
 
@@ -136,6 +142,7 @@ export const storage = {
 
   async getItem(key: string): Promise<string | null> {
     if (isElectron()) {
+      if (!isKvKey(key)) return localStorage.getItem(key);
       const bridge = desktopDb();
       if (!bridge) return localStorage.getItem(key);
       return (await bridge.get(key)) ?? null;
@@ -145,9 +152,12 @@ export const storage = {
 
   async setItem(key: string, value: string): Promise<void> {
     if (isElectron()) {
-      // Update localStorage first so sync consumers (DbCache/get()) see the new value immediately.
+      // Always update localStorage first so sync consumers (DbCache/get()) see the new value immediately.
       localStorage.setItem(key, value);
       notifyUiKeyChange(key);
+
+      // Only persist db_* keys through the desktop KV bridge.
+      if (!isKvKey(key)) return;
       const bridge = desktopDb();
       if (!bridge) return;
       await bridge.set(key, value);
@@ -159,9 +169,11 @@ export const storage = {
 
   async removeItem(key: string): Promise<void> {
     if (isElectron()) {
-      const bridge = desktopDb();
-      if (bridge) {
-        await bridge.delete(key);
+      if (isKvKey(key)) {
+        const bridge = desktopDb();
+        if (bridge) {
+          await bridge.delete(key);
+        }
       }
       localStorage.removeItem(key);
       notifyUiKeyChange(key);

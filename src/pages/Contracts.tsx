@@ -52,12 +52,14 @@ import { useToast } from '@/context/ToastContext';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { SearchEngine, FilterRule } from '@/services/searchEngine';
 import { Card } from '@/components/ui/Card';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
+import { normalizeSearchTextStrict } from '@/utils/searchNormalize';
 import { formatCurrencyJOD } from '@/utils/format';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
@@ -271,6 +273,7 @@ export const Contracts: React.FC = () => {
     const [installments, setInstallments] = useState<الكمبيالات_tbl[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
     const [activeStatus, setActiveStatus] = useState<'active' | 'expiring' | 'expired' | 'terminated' | 'archived'>('active');
+        const [sortMode, setSortMode] = useState<'created-desc' | 'created-asc' | 'end-desc' | 'end-asc'>('created-desc');
 
     const [uiPage, setUiPage] = useState(0);
 
@@ -400,10 +403,24 @@ export const Contracts: React.FC = () => {
         const offset = (Math.max(1, fastPage) - 1) * fastPageSize;
         const run = async () => {
             try {
+                const startDateFrom = showAdvanced ? String(advFilters.startDateFrom || '').trim() : '';
+                const startDateTo = showAdvanced ? String(advFilters.startDateTo || '').trim() : '';
+                const endDateFrom = showAdvanced ? String(advFilters.endDateFrom || '').trim() : '';
+                const endDateTo = showAdvanced ? String(advFilters.endDateTo || '').trim() : '';
+                const minValue = showAdvanced ? String(advFilters.minValue || '').trim() : '';
+                const maxValue = showAdvanced ? String(advFilters.maxValue || '').trim() : '';
+
                 const res = await contractPickerSearchPagedSmart({
                     query: searchTerm,
                     tab: activeStatus,
+                    sort: sortMode,
                     createdMonth: createdMonthApplied ? String(advFilters.createdMonth || '').trim() : '',
+                    startDateFrom,
+                    startDateTo,
+                    endDateFrom,
+                    endDateTo,
+                    minValue,
+                    maxValue,
                     offset,
                     limit: fastPageSize,
                 });
@@ -426,12 +443,12 @@ export const Contracts: React.FC = () => {
         return () => {
             alive = false;
         };
-    }, [isDesktopFast, searchTerm, activeStatus, fastPage, fastPageSize, advFilters.createdMonth, createdMonthApplied, dbSignal, fastReload]);
+    }, [isDesktopFast, searchTerm, activeStatus, sortMode, fastPage, fastPageSize, advFilters, showAdvanced, createdMonthApplied, dbSignal, fastReload]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
         setFastPage(1);
-    }, [isDesktopFast, searchTerm, activeStatus, advFilters.createdMonth, fastPageSize]);
+    }, [isDesktopFast, searchTerm, activeStatus, sortMode, advFilters.createdMonth, fastPageSize]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
@@ -441,7 +458,7 @@ export const Contracts: React.FC = () => {
     useEffect(() => {
         if (isDesktopFast) return;
         setUiPage(0);
-    }, [searchTerm, activeStatus, showAdvanced, advFilters, pageSize, isDesktopFast]);
+    }, [searchTerm, activeStatus, sortMode, showAdvanced, advFilters, pageSize, isDesktopFast]);
 
     const remainingByContractId = useMemo(() => {
         const map = new Map<string, number>();
@@ -462,6 +479,18 @@ export const Contracts: React.FC = () => {
 
   const filteredContracts = useMemo(() => {
         if (isDesktopFast) return [];
+    const isTerminatedStatus = (status: unknown) => {
+        const s = normalizeSearchTextStrict(String(status || '')).trim();
+        return s.startsWith('مفسوخ') || s.startsWith('ملغ') || s.includes('الغاء');
+    };
+    const isExpiredStatus = (status: unknown) => {
+        const s = normalizeSearchTextStrict(String(status || '')).trim();
+        return s.startsWith('منتهي');
+    };
+    const isExpiringStatus = (status: unknown) => {
+        const s = normalizeSearchTextStrict(String(status || '')).trim();
+        return s === 'قريب الانتهاء' || s === 'قريبة الانتهاء';
+    };
     // 1. Status Filter
     let result = contracts.filter(c => {
         if (activeStatus === 'archived') return c.isArchived;
@@ -469,9 +498,9 @@ export const Contracts: React.FC = () => {
 
         switch(activeStatus) {
             case 'active': return isTenancyRelevant(c);
-            case 'expiring': return c.حالة_العقد === 'قريب الانتهاء';
-            case 'expired': return c.حالة_العقد === 'منتهي';
-            case 'terminated': return c.حالة_العقد === 'مفسوخ' || c.حالة_العقد === 'ملغي';
+            case 'expiring': return isExpiringStatus(c.حالة_العقد);
+            case 'expired': return isExpiredStatus(c.حالة_العقد);
+            case 'terminated': return isTerminatedStatus(c.حالة_العقد);
             default: return true;
         }
     });
@@ -520,8 +549,31 @@ export const Contracts: React.FC = () => {
         result = SearchEngine.applyFilters(result, rules);
     }
 
-    return result;
-    }, [contracts, activeStatus, searchTerm, peopleMap, propsCodeMap, showAdvanced, advFilters, createdMonthApplied, isDesktopFast]);
+    // 4. Sorting
+    const sorted = [...result];
+    const createdKey = (c: العقود_tbl) => {
+        const createdRaw = String(c.تاريخ_الانشاء || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(createdRaw)) return createdRaw;
+        const start = String(c.تاريخ_البداية || '').trim();
+        return /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : '';
+    };
+    const endKey = (c: العقود_tbl) => {
+        const end = String(c.تاريخ_النهاية || '').trim();
+        return /^\d{4}-\d{2}-\d{2}$/.test(end) ? end : '';
+    };
+    if (sortMode === 'created-asc') {
+        sorted.sort((a, b) => createdKey(a).localeCompare(createdKey(b)) || String(a.رقم_العقد || '').localeCompare(String(b.رقم_العقد || '')));
+    } else if (sortMode === 'end-asc') {
+        sorted.sort((a, b) => endKey(a).localeCompare(endKey(b)) || String(a.رقم_العقد || '').localeCompare(String(b.رقم_العقد || '')));
+    } else if (sortMode === 'end-desc') {
+        sorted.sort((a, b) => endKey(b).localeCompare(endKey(a)) || String(b.رقم_العقد || '').localeCompare(String(a.رقم_العقد || '')));
+    } else {
+        // created-desc
+        sorted.sort((a, b) => createdKey(b).localeCompare(createdKey(a)) || String(b.رقم_العقد || '').localeCompare(String(a.رقم_العقد || '')));
+    }
+
+    return sorted;
+    }, [contracts, activeStatus, searchTerm, peopleMap, propsCodeMap, showAdvanced, advFilters, createdMonthApplied, sortMode, isDesktopFast]);
 
     const uiPageCount = Math.max(1, Math.ceil(filteredContracts.length / pageSize));
     const uiRows = useMemo(() => {
@@ -925,10 +977,31 @@ export const Contracts: React.FC = () => {
               };
 
               // Export the currently filtered Desktop set (paged fetch) on demand.
+              const createdMonth = createdMonthApplied ? String(advFilters.createdMonth || '').trim() : '';
+              const startDateFrom = showAdvanced ? String(advFilters.startDateFrom || '').trim() : '';
+              const startDateTo = showAdvanced ? String(advFilters.startDateTo || '').trim() : '';
+              const endDateFrom = showAdvanced ? String(advFilters.endDateFrom || '').trim() : '';
+              const endDateTo = showAdvanced ? String(advFilters.endDateTo || '').trim() : '';
+              const minValue = showAdvanced ? String(advFilters.minValue || '').trim() : '';
+              const maxValue = showAdvanced ? String(advFilters.maxValue || '').trim() : '';
+
               const allItems: ContractPickerItem[] = [];
               const batch = 500;
               for (let off = 0; off < fastTotal; off += batch) {
-                  const res = await contractPickerSearchPagedSmart({ query: searchTerm, tab: activeStatus, offset: off, limit: batch });
+                  const res = await contractPickerSearchPagedSmart({
+                      query: searchTerm,
+                      tab: activeStatus,
+                      sort: sortMode,
+                      createdMonth,
+                      startDateFrom,
+                      startDateTo,
+                      endDateFrom,
+                      endDateTo,
+                      minValue,
+                      maxValue,
+                      offset: off,
+                      limit: batch,
+                  });
                   allItems.push(...(res.items || []));
                   if ((res.items || []).length < batch) break;
               }
@@ -1043,6 +1116,8 @@ export const Contracts: React.FC = () => {
                     ref={importRef}
                     type="file"
                     accept=".xlsx,.xls,.csv"
+                    aria-label="استيراد ملف العقود"
+                    title="استيراد ملف العقود"
                     className="hidden"
                     onChange={(e) => {
                         const f = e.target.files?.[0];
@@ -1074,13 +1149,41 @@ export const Contracts: React.FC = () => {
                       />
 
                   <div className="app-card px-3 py-2 flex items-center gap-2">
+                      <Select
+                          value={sortMode}
+                          onChange={(e) => setSortMode(e.target.value as 'created-desc' | 'created-asc' | 'end-desc' | 'end-asc')}
+                          options={[
+                              { value: 'created-desc', label: 'الأحدث (حسب الإنشاء)' },
+                              { value: 'created-asc', label: 'الأقدم (حسب الإنشاء)' },
+                              { value: 'end-desc', label: 'النهاية: تنازلي' },
+                              { value: 'end-asc', label: 'النهاية: تصاعدي' },
+                          ]}
+                      />
                       <Filter size={16} className="text-gray-400" />
                       <input
-                          type="month"
+                          type="text"
                           dir="ltr"
                           className="bg-transparent text-slate-700 dark:text-white outline-none text-sm font-bold"
                           value={advFilters.createdMonth}
-                          onChange={(e) => setAdvFilters({ ...advFilters, createdMonth: e.target.value })}
+                          inputMode="numeric"
+                          placeholder="YYYY-MM"
+                          aria-label="شهر إنشاء العقد (YYYY-MM)"
+                          onChange={(e) => {
+                              const raw = e.target.value;
+                              const digitsAndDash = raw.replace(/[^0-9-]/g, '');
+
+                              let next = digitsAndDash;
+                              if (next.length > 7) next = next.slice(0, 7);
+
+                              const onlyDigits = next.replace(/-/g, '');
+                              const yyyy = onlyDigits.slice(0, 4);
+                              const mm = onlyDigits.slice(4, 6);
+
+                              next = yyyy;
+                              if (mm.length > 0) next += `-${mm}`;
+
+                              setAdvFilters({ ...advFilters, createdMonth: next });
+                          }}
                           title="تصفية حسب شهر إنشاء العقد"
                       />
                       {createdMonthApplied && (
@@ -1125,15 +1228,15 @@ export const Contracts: React.FC = () => {
                <div>
                    <label className="text-xs font-bold block mb-1">تاريخ البداية (من - إلى)</label>
                    <div className="flex gap-2">
-                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.startDateFrom} onChange={e => setAdvFilters({...advFilters, startDateFrom: e.target.value})} />
-                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.startDateTo} onChange={e => setAdvFilters({...advFilters, startDateTo: e.target.value})} />
+                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.startDateFrom} onChange={e => setAdvFilters({...advFilters, startDateFrom: e.target.value})} aria-label="تاريخ البداية من" title="تاريخ البداية من" />
+                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.startDateTo} onChange={e => setAdvFilters({...advFilters, startDateTo: e.target.value})} aria-label="تاريخ البداية إلى" title="تاريخ البداية إلى" />
                    </div>
                </div>
                <div>
                    <label className="text-xs font-bold block mb-1">تاريخ النهاية (من - إلى)</label>
                    <div className="flex gap-2">
-                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.endDateFrom} onChange={e => setAdvFilters({...advFilters, endDateFrom: e.target.value})} />
-                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.endDateTo} onChange={e => setAdvFilters({...advFilters, endDateTo: e.target.value})} />
+                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.endDateFrom} onChange={e => setAdvFilters({...advFilters, endDateFrom: e.target.value})} aria-label="تاريخ النهاية من" title="تاريخ النهاية من" />
+                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.endDateTo} onChange={e => setAdvFilters({...advFilters, endDateTo: e.target.value})} aria-label="تاريخ النهاية إلى" title="تاريخ النهاية إلى" />
                    </div>
                </div>
                <div>

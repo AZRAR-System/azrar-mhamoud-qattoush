@@ -69,6 +69,9 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { formatNumber } from '@/utils/format';
 import { normalizeDigitsToLatin, parseNumberOrUndefined } from '@/utils/numberInput';
 import { domainCountsSmart, domainGetSmart, installmentsContractsPagedSmart } from '@/services/domainQueries';
+import { Select } from '@/components/ui/Select';
+
+import './Installments.css';
 
 const PAGE_SIZE = 8;
 
@@ -184,8 +187,7 @@ const TenantRatingStrip: React.FC<TenantRatingStripProps> = ({ tenant }) => {
         <div className="flex-1 mx-3 flex items-center gap-2">
           <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
-              className={`h-full bg-gradient-to-r ${getRatingColor(rating.type)} transition-all duration-300 rounded-full flex items-center justify-end px-1`}
-              style={{ width: `${rating.points}%` }}
+              className={`h-full bg-gradient-to-r ${getRatingColor(rating.type)} transition-all duration-300 rounded-full flex items-center justify-end px-1 azrar-w-${rating.points}`}
             />
           </div>
           <span className="text-xs font-bold text-slate-500 min-w-[30px]">{rating.points}%</span>
@@ -431,6 +433,7 @@ const ContractFinancialCard: React.FC<ContractCardProps> = ({ contract, tenant, 
   const paidAmount = rentInstallments.reduce((sum, i) => sum + getPaidAndRemaining(i).paid, 0);
   const remainingAmount = rentInstallments.reduce((sum, i) => sum + getPaidAndRemaining(i).remaining, 0);
   const progress = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
+  const progressPct = Math.round(Math.max(0, Math.min(100, progress)));
   
   // Late Check
   const lateCount = visibleInstallments.filter(i => {
@@ -500,8 +503,7 @@ const ContractFinancialCard: React.FC<ContractCardProps> = ({ contract, tenant, 
              </div>
              <div className="w-full h-2.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
                 <div 
-                  className={`h-full rounded-full transition-all duration-500 ${lateCount > 0 ? 'bg-red-500' : 'bg-green-500'}`} 
-                  style={{ width: `${progress}%` }}
+                  className={`h-full rounded-full transition-all duration-500 ${lateCount > 0 ? 'bg-red-500' : 'bg-green-500'} azrar-w-${progressPct}`}
                 ></div>
              </div>
              <div className="text-right mt-1">
@@ -949,6 +951,7 @@ export const Installments: React.FC = () => {
   
   const [filter, setFilter] = useState<"all" | "debt" | "paid" | "due">("all");
   const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc'>('due-asc');
   const [selectedInstallment, setSelectedInstallment] = useState<الكمبيالات_tbl | null>(null);
   
   // Confirmation Dialog State
@@ -1050,6 +1053,7 @@ export const Installments: React.FC = () => {
       const res = await installmentsContractsPagedSmart({
         query: String(search || ''),
         filter,
+        sort: sortMode,
         offset: desktopPage * PAGE_SIZE,
         limit: PAGE_SIZE,
       });
@@ -1074,7 +1078,7 @@ export const Installments: React.FC = () => {
     } finally {
       setDesktopLoading(false);
     }
-  }, [desktopPage, filter, search, toast]);
+  }, [desktopPage, filter, search, sortMode, toast]);
 
   const loadData = useCallback(() => {
     if (isDesktopFast) {
@@ -1135,7 +1139,7 @@ export const Installments: React.FC = () => {
     if (desktopPage !== 0) setDesktopPage(0);
     else void loadDesktopData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, search, isDesktopFast]);
+  }, [filter, search, sortMode, isDesktopFast]);
 
   useEffect(() => {
     if (!isDesktopFast) return;
@@ -1366,8 +1370,48 @@ export const Installments: React.FC = () => {
           );
       }
 
+      const getNextDueISO = (installs: الكمبيالات_tbl[]) => {
+        let best: Date | null = null;
+        for (const i of installs) {
+          if (i.نوع_الكمبيالة === 'تأمين') continue;
+          const status = String(i.حالة_الكمبيالة ?? '').trim();
+          if (status === INSTALLMENT_STATUS.CANCELLED) continue;
+          const { remaining } = getPaidAndRemaining(i);
+          if (remaining <= 0) continue;
+          const due = parseDateOnlyLocal(i.تاريخ_استحقاق);
+          if (!due) continue;
+          // Keep the earliest due date (including overdue/ today)
+          if (!best || due.getTime() < best.getTime()) best = due;
+        }
+        // If no remaining installments, return null.
+        return best ? best.toISOString() : null;
+      };
+
+      data = [...data].sort((a, b) => {
+        if (sortMode === 'due-asc' || sortMode === 'due-desc') {
+          const aDue = getNextDueISO(Array.isArray(a.installments) ? a.installments : []);
+          const bDue = getNextDueISO(Array.isArray(b.installments) ? b.installments : []);
+          const aHas = !!aDue;
+          const bHas = !!bDue;
+          if (aHas !== bHas) return aHas ? -1 : 1; // nulls last
+          if (aHas && bHas && aDue !== bDue) return sortMode === 'due-asc' ? aDue.localeCompare(bDue) : bDue.localeCompare(aDue);
+        }
+
+        const aName = String(a.tenant?.الاسم ?? '').trim();
+        const bName = String(b.tenant?.الاسم ?? '').trim();
+        if (sortMode === 'tenant-desc') {
+          if (aName !== bName) return bName.localeCompare(aName, 'ar');
+        } else {
+          if (aName !== bName) return aName.localeCompare(bName, 'ar');
+        }
+
+        const aId = String(a.contract?.رقم_العقد ?? '').trim();
+        const bId = String(b.contract?.رقم_العقد ?? '').trim();
+        return aId.localeCompare(bId, 'ar');
+      });
+
       return data;
-  }, [isDesktopFast, groupedData, filter, search]);
+  }, [isDesktopFast, groupedData, filter, search, sortMode]);
 
   // Calculate Global Totals
   // (Removed) Global financial summary: user requested summary per-contract only.
@@ -1419,6 +1463,17 @@ export const Installments: React.FC = () => {
                 ]}
                 activeId={filter}
                 onChange={(id) => setFilter(id)}
+              />
+
+              <Select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as 'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc')}
+                options={[
+                  { value: 'tenant-asc', label: 'المستأجر: تصاعدي' },
+                  { value: 'tenant-desc', label: 'المستأجر: تنازلي' },
+                  { value: 'due-asc', label: 'الاستحقاق: الأقرب' },
+                  { value: 'due-desc', label: 'الاستحقاق: الأبعد' },
+                ]}
               />
 
               <Button

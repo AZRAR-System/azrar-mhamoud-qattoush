@@ -84,18 +84,7 @@ npm run desktop:dev
 start-desktop.bat
 ```
 
-### تشغيل الواجهة (Web) بدون Electron (اختياري)
-
-```bash
-npm run dev
-```
-
-افتح:
-```
-http://localhost:5173/#/login
-```
-
-- إذا كانت هذه أول مرة ولا يوجد مستخدمون، أنشئ حساب SuperAdmin من بطاقة "إعداد أول مرة" داخل صفحة الدخول.
+> ملاحظة مهمة: هذا المشروع **Desktop-only**. خادم Vite يُستخدم فقط لتشغيل واجهة Electron أثناء التطوير (على المنفذ 3000).
 
 ### بناء التطبيق
 
@@ -109,6 +98,16 @@ npm run desktop:dist:signed
 # بناء بدون win-unpacked (أسرع)
 npm run desktop:dist:skipWU
 ```
+
+### تشغيل اختبارات الديسكتوب end-to-end (Autorun)
+
+```bash
+# يشغّل Electron + autorun system tests ثم يُغلق تلقائياً
+npm run desktop:e2e
+```
+
+سيتم حفظ log افتراضي في:
+- `tmp/desktop-dev-tests-latest.log`
 
 ---
 
@@ -159,6 +158,7 @@ azrar-desktop/
 | أمر | الوصف |
 |-----|-------|
 | `npm run desktop:dev` | تشغيل في وضع التطوير |
+| `npm run desktop:e2e` | تشغيل autorun tests للديسكتوب (E2E) |
 | `npm run desktop:dev+dist` | تطوير + بناء متزامن |
 | `npm run desktop:build` | بناء واجهة المستخدم |
 
@@ -177,6 +177,8 @@ azrar-desktop/
 |-----|-------|
 | `npm run desktop:version:bump` | تحديث رقم الإصدار |
 | `npm run electron:build` | بناء ملفات Electron فقط |
+| `npm run verify:desktop` | تحقق E2E للديسكتوب فقط |
+| `npm run verify:full` | verify + verify:desktop |
 
 ---
 
@@ -234,6 +236,9 @@ azrar-desktop/
 ## 📚 التوثيق
 
 - 🚀 [ابدأ من هنا](./docs/START_HERE_UPDATED.md)
+- 🖥️ [إعداد وتشغيل الديسكتوب](./docs/DESKTOP_SETUP_FINAL.md)
+- 🔐 [نظام التفعيل (License)](./docs/LICENSE_ACTIVATION.md)
+- 🧯 [Troubleshooting](./docs/TROUBLESHOOTING.md)
 - 🧭 [فهرس التوثيق](./docs/INDEX.md)
 - ▶️ [دليل تشغيل النظام](./docs/RUN_SYSTEM_GUIDE.md)
 - 🧱 [معمارية الواجهة وطبقة البيانات](./docs/UI_ARCHITECTURE_REPORT.md)

@@ -75,6 +75,7 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
   NAV_ITEMS.forEach(visit);
 
   // Non-sidebar / utility routes
+  titles[ROUTE_PATHS.ACTIVATION] = 'تفعيل النظام';
   titles[ROUTE_PATHS.LOGIN] = 'تسجيل الدخول';
   titles[ROUTE_PATHS.LOGOUT] = 'تسجيل الخروج';
   titles[ROUTE_PATHS.SMART_TOOLS] = 'أدوات ذكية';
@@ -91,6 +92,7 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
 // Optional: per-route subtitle/description (shown in the global header).
 // Keep aligned with page headers where available.
 export const ROUTE_SUBTITLES: Record<string, string> = {
+  [ROUTE_PATHS.ACTIVATION]: 'إدخال رمز التفعيل لتفعيل النظام',
   [ROUTE_PATHS.DASHBOARD]: 'نظام مراقبة شامل متعدد الطبقات مع تحديثات فورية',
   [ROUTE_PATHS.SALES]: 'نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية',
   [ROUTE_PATHS.PEOPLE]: 'سجل العملاء، الملاك، والمستأجرين',

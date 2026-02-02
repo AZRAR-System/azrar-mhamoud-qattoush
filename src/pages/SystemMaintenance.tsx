@@ -66,6 +66,7 @@ interface PerformanceRow {
 type ViteMeta = {
   env?: {
     VITE_AUTORUN_SYSTEM_TESTS?: unknown;
+    VITE_AUTORUN_SYSTEM_TESTS_MUTATION?: unknown;
     VITE_ENABLE_INTEGRATION_TEST_DATA?: unknown;
   };
 };
@@ -430,7 +431,9 @@ const PredictiveView = memo<PredictiveViewProps>(({ predictiveInsight }) => {
                {predictiveInsight.riskFactors.map((factor, idx) => (
                   <div key={idx} className="flex items-center justify-between p-5 bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-gray-100 dark:border-slate-800">
                      <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: riskColors[idx % riskColors.length] }}></div>
+                    <svg className="w-4 h-4" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <circle cx="8" cy="8" r="8" fill={riskColors[idx % riskColors.length]} />
+                    </svg>
                         <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{factor.category}</span>
                      </div>
                      <div className="flex items-center gap-3">
@@ -589,9 +592,11 @@ const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => {
                 </td>
                 <td className="p-4">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden max-w-[100px]">
-                       <div className="h-full bg-emerald-500" style={{ width: `${Math.min(improvement, 100)}%` }}></div>
-                    </div>
+                    <progress
+                      className="flex-1 h-2 max-w-[100px] rounded-full overflow-hidden bg-gray-100 dark:bg-slate-700 accent-emerald-500"
+                      value={Math.min(improvement, 100)}
+                      max={100}
+                    />
                     <span className="text-xs font-bold text-emerald-600">{improvement.toFixed(1)}%</span>
                   </div>
                 </td>
@@ -609,6 +614,8 @@ const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => {
 /*     Testing View (NEW)    */
 /* ========================= */
 
+let systemTestsAutorunStarted = false;
+
 const SystemTestView = memo(() => {
   const toast = useToast();
   const { user } = useAuth();
@@ -622,12 +629,36 @@ const SystemTestView = memo(() => {
   const isAutorunEnabled = (() => {
     const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
     if (typeof flag === 'string') return flag.toLowerCase() === 'true';
+    try {
+      if (typeof window !== 'undefined') {
+        const qs = new URLSearchParams(window.location.search);
+        const v = qs.get('autorun');
+        if (v) {
+          const s = String(v).toLowerCase();
+          return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+        }
+      }
+    } catch {
+      // ignore
+    }
     return !!flag;
   })();
 
   const isIntegrationDataEnabled = (() => {
     const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_ENABLE_INTEGRATION_TEST_DATA;
     if (typeof flag === 'string') return flag.toLowerCase() === 'true';
+    try {
+      if (typeof window !== 'undefined') {
+        const qs = new URLSearchParams(window.location.search);
+        const v = qs.get('integrationData');
+        if (v) {
+          const s = String(v).toLowerCase();
+          return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+        }
+      }
+    } catch {
+      // ignore
+    }
     return !!flag;
   })();
 
@@ -648,24 +679,78 @@ const SystemTestView = memo(() => {
   // Optional automation: run tests immediately and print a summary for terminal logs.
   useEffect(() => {
     if (!isAutorunEnabled) return;
+    if (systemTestsAutorunStarted) return;
     if (running) return;
     if (results) return;
 
-    const allowDataMutation = isIntegrationDataEnabled;
+    systemTestsAutorunStarted = true;
+
+    const forceMutation = (() => {
+      const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_AUTORUN_SYSTEM_TESTS_MUTATION;
+      if (typeof flag === 'string') return flag.toLowerCase() === 'true';
+      try {
+        if (typeof window !== 'undefined') {
+          const qs = new URLSearchParams(window.location.search);
+          const v = qs.get('mutation');
+          if (v) {
+            const s = String(v).toLowerCase();
+            return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+          }
+        }
+      } catch {
+        // ignore
+      }
+      return !!flag;
+    })();
+
+    const allowDataMutation = forceMutation || isIntegrationDataEnabled;
     setAllowMutation(allowDataMutation);
     setRunning(true);
 
     (async () => {
       try {
+        try {
+          console.warn(`[autorun] system tests start (mutation=${allowDataMutation ? 'on' : 'off'})`);
+        } catch {
+          // ignore
+        }
         const r = await runSystemScenarioTests({ allowDataMutation });
         setResults(r);
 
         const fail = r.filter(x => x.status === 'FAIL').length;
+        try {
+          console.warn(`[autorun] system tests done (failed=${fail})`);
+        } catch {
+          // ignore
+        }
         toast[fail > 0 ? 'warning' : 'success'](fail > 0 ? `تم الانتهاء: ${fail} اختبار فشل` : 'تم تشغيل الاختبارات بنجاح');
       } catch (e: unknown) {
         toast.error(getErrorMessage(e) || 'فشل تشغيل الاختبارات');
       } finally {
         setRunning(false);
+
+        // Desktop automation: request a clean Electron quit so dev-tests can complete
+        // without SIGTERM noise from the dev server. Fallback to window.close().
+        try {
+          const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
+          if (isDesktop) {
+            setTimeout(() => {
+              try {
+                const quit = (window.desktopDb as unknown as { quitApp?: () => Promise<unknown> })?.quitApp;
+                if (typeof quit === 'function') {
+                  void quit();
+                  return;
+                }
+
+                window.close();
+              } catch {
+                // ignore
+              }
+            }, 900);
+          }
+        } catch {
+          // ignore
+        }
       }
     })();
   }, [isAutorunEnabled, isIntegrationDataEnabled, results, running, toast]);

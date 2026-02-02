@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Plus, X, Check, Loader2, ChevronDown } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { SystemLookup } from '@/types';
@@ -24,11 +24,18 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
   required = false,
   className
 }) => {
+  const controlId = useId();
   const [items, setItems] = useState<SystemLookup[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newItemLabel, setNewItemLabel] = useState('');
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+
+  const selectedLabel = useMemo(() => {
+    const v = String(value ?? '').trim();
+    if (!v) return placeholder;
+    return items.find((x) => x.label === v)?.label ?? v;
+  }, [items, placeholder, value]);
 
   const loadItems = useCallback(() => {
     const data = DbService.getLookupsByCategory(category);
@@ -64,7 +71,10 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
   return (
     <div className={`relative ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+        <label
+          htmlFor={controlId}
+          className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1"
+        >
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
@@ -72,19 +82,33 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
       {!isAdding ? (
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <select
+            <div
+              className="w-full py-2.5 pr-4 pl-10 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none transition text-sm appearance-none cursor-pointer focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 focus-within:ring-offset-white dark:focus-within:ring-offset-slate-950"
+            >
+              <div
+                className={`whitespace-normal break-words leading-snug ${!String(value ?? '').trim() ? 'text-slate-400 dark:text-slate-400' : 'text-slate-800 dark:text-white'}`}
+              >
+                {selectedLabel}
+              </div>
+
+              <select
+                id={controlId}
                 required={required}
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm appearance-none cursor-pointer"
-            >
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
                 <option value="">{placeholder}</option>
-                {items.map(item => (
-                    <option key={item.id} value={item.label}>{item.label}</option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.label}>
+                    {item.label}
+                  </option>
                 ))}
-            </select>
+              </select>
+            </div>
+
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
-                <ChevronDown size={14} />
+              <ChevronDown size={14} />
             </div>
           </div>
           
@@ -93,6 +117,7 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
             onClick={() => setIsAdding(true)}
             className="p-2.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition"
             title="إضافة عنصر جديد"
+            aria-label="إضافة عنصر جديد"
           >
             <Plus size={18} />
           </button>
@@ -100,10 +125,11 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
       ) : (
         <div className="flex gap-2 animate-fade-in">
             <input
+                id={controlId}
                 autoFocus
                 type="text"
                 placeholder="أدخل القيمة الجديدة..."
-              className="flex-1 p-2.5 bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 rounded-xl outline-none text-sm focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 py-2.5 px-4 bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 rounded-xl outline-none text-sm focus:ring-2 focus:ring-indigo-500"
                 value={newItemLabel}
                 onChange={(e) => setNewItemLabel(e.target.value)}
                 onKeyDown={(e) => {
@@ -116,6 +142,8 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
                 onClick={handleAddItem}
                 disabled={loading || !newItemLabel.trim()}
                 className="p-2.5 bg-green-500 text-white rounded-xl hover:bg-green-600 transition shadow-sm disabled:opacity-50"
+                title="تأكيد الإضافة"
+                aria-label="تأكيد الإضافة"
             >
                 {loading ? <Loader2 size={18} className="animate-spin"/> : <Check size={18} />}
             </button>
@@ -123,6 +151,8 @@ export const DynamicSelect: React.FC<DynamicSelectProps> = ({
                 type="button"
                 onClick={() => setIsAdding(false)}
                 className="p-2.5 bg-gray-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+                title="إلغاء"
+                aria-label="إلغاء"
             >
                 <X size={18} />
             </button>

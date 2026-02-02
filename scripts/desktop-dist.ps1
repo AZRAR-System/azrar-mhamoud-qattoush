@@ -19,6 +19,40 @@ foreach ($k in @('npm_config_arch','npm_config_disturl','npm_config_runtime','np
 # Run from repo root
 Set-Location -Path (Join-Path $PSScriptRoot '..')
 
+# Ensure license verification public key is present at build time.
+# This is a PUBLIC key (safe to embed) and is required for production activation via signed license files.
+if (-not $env:VITE_AZRAR_LICENSE_PUBLIC_KEY -or -not $env:VITE_AZRAR_LICENSE_PUBLIC_KEY.Trim()) {
+  try {
+    $pubPath = Join-Path (Get-Location) 'secrets\azrar-license-public.key.json'
+    if (Test-Path $pubPath) {
+      $pub = (Get-Content -Raw -Path $pubPath | ConvertFrom-Json)
+      if ($pub -and $pub.publicKeyB64 -and ($pub.publicKeyB64.ToString().Trim())) {
+        $env:VITE_AZRAR_LICENSE_PUBLIC_KEY = $pub.publicKeyB64.ToString().Trim()
+        Write-Host 'Loaded VITE_AZRAR_LICENSE_PUBLIC_KEY from secrets\azrar-license-public.key.json'
+      }
+    }
+  } catch {
+    # ignore
+  }
+}
+
+# Also write a packaged asset file so the app can fetch the public key via IPC as a fallback.
+# This file contains ONLY the PUBLIC verification key (safe to ship).
+try {
+  if ($env:VITE_AZRAR_LICENSE_PUBLIC_KEY -and $env:VITE_AZRAR_LICENSE_PUBLIC_KEY.Trim()) {
+    $assetDir = Join-Path (Get-Location) 'electron\assets'
+    if (-not (Test-Path $assetDir)) {
+      New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
+    }
+    $assetPath = Join-Path $assetDir 'azrar-license-public.key.json'
+    $obj = @{ publicKeyB64 = $env:VITE_AZRAR_LICENSE_PUBLIC_KEY.Trim(); note = 'Public key for AZRAR license verification (safe to embed)' }
+    ($obj | ConvertTo-Json -Compress) | Set-Content -Path $assetPath -Encoding UTF8
+    Write-Host 'Wrote electron\assets\azrar-license-public.key.json (public key asset)'
+  }
+} catch {
+  # ignore
+}
+
 # Auto-bump version on each dist build so every installer has a new version.
 # Allow opting out (for reproducible builds) via -NoBump or DESKTOP_NO_BUMP=1.
 $envNoBump = ($env:DESKTOP_NO_BUMP -eq '1' -or $env:DESKTOP_NO_BUMP -eq 'true' -or $env:DESKTOP_NO_BUMP -eq 'TRUE')
@@ -147,7 +181,25 @@ if ($Sign) {
   $ebArgs += ('--config.win.rfc3161TimeStampServer=' + $Rfc3161TimeStampServer)
 }
 
-npx --no-install electron-builder @ebArgs
+# electron-builder currently emits some non-actionable warnings in our setup:
+# - Node DeprecationWarning DEP0190 (from downstream deps)
+# - "cannot find path for dependency @napi-rs/canvas-..." (optional/platform deps pulled by pdfjs-dist)
+# We keep output clean by suppressing deprecation warnings and filtering only these known noisy lines.
+$prevNodeOptions = $env:NODE_OPTIONS
+try {
+  if (-not $env:NODE_OPTIONS -or -not $env:NODE_OPTIONS.Trim()) {
+    $env:NODE_OPTIONS = '--no-deprecation'
+  } elseif ($env:NODE_OPTIONS -notmatch '(?i)(^|\s)--no-deprecation(\s|$)') {
+    $env:NODE_OPTIONS = ($env:NODE_OPTIONS.Trim() + ' --no-deprecation')
+  }
+
+  $noise = '(?i)(\bDEP0190\b|cannot find path for dependency.*@napi-rs/canvas-)'
+  npx --no-install electron-builder @ebArgs 2>&1 | ForEach-Object {
+    if ($_ -notmatch $noise) { $_ }
+  }
+} finally {
+  $env:NODE_OPTIONS = $prevNodeOptions
+}
 if ($LASTEXITCODE -ne 0) {
   throw ('electron-builder failed with exit code ' + $LASTEXITCODE)
 }

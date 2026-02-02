@@ -599,16 +599,22 @@ export const AdminControlPanel: React.FC = () => {
                 <input 
                     placeholder="بحث بالموظف..." 
                     className="border p-2 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
+                    aria-label="بحث بالموظف"
+                    title="بحث بالموظف"
                     value={logFilter.user} onChange={e => setLogFilter({...logFilter, user: e.target.value})}
                 />
                 <input 
                     placeholder="بحث بنوع الإجراء..." 
                     className="border p-2 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
+                    aria-label="بحث بنوع الإجراء"
+                    title="بحث بنوع الإجراء"
                     value={logFilter.action} onChange={e => setLogFilter({...logFilter, action: e.target.value})}
                 />
                 <input 
                     type="date"
                     className="border p-2 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
+                    aria-label="بحث بتاريخ العملية"
+                    title="بحث بتاريخ العملية"
                     value={logFilter.date} onChange={e => setLogFilter({...logFilter, date: e.target.value})}
                 />
             </div>
@@ -671,6 +677,8 @@ export const AdminControlPanel: React.FC = () => {
                 <input 
                     placeholder="بحث عن مستخدم..." 
                     className="border p-2 rounded-xl text-sm w-64 bg-white dark:bg-slate-800 dark:border-slate-600 outline-none"
+                    aria-label="بحث عن مستخدم"
+                    title="بحث عن مستخدم"
                     value={userSearch} onChange={e => setUserSearch(e.target.value)}
                 />
                 <PaginationControls page={usersPage} pageCount={usersPageCount} onPageChange={setUsersPage} />
@@ -729,6 +737,7 @@ export const AdminControlPanel: React.FC = () => {
                                 <button 
                                     onClick={() => handleToggleUserStatus(user.id, user.isActive)}
                                     className={`p-2 rounded-lg transition text-white ${user.isActive ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-500 hover:bg-green-600'}`}
+                                    aria-label={user.isActive ? 'إيقاف الحساب' : 'تفعيل الحساب'}
                                     title={user.isActive ? 'إيقاف الحساب' : 'تفعيل الحساب'}
                                 >
                                     {user.isActive ? <UserX size={18} /> : <UserCheck size={18} />}
@@ -736,6 +745,7 @@ export const AdminControlPanel: React.FC = () => {
                                 <button 
                                     onClick={() => handleDeleteUser(user.id)}
                                     className="p-2 rounded-lg transition text-white bg-red-500 hover:bg-red-600"
+                                    aria-label="حذف الحساب"
                                     title="حذف الحساب"
                                 >
                                     <Trash2 size={18} />
@@ -761,25 +771,36 @@ export const AdminControlPanel: React.FC = () => {
             >
                         <form id="add-user-form" onSubmit={handleAddUser} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">اسم المستخدم</label>
-                                <input required className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" htmlFor="admin-add-user-username">اسم المستخدم</label>
+                                <input
+                                    id="admin-add-user-username"
+                                    required
+                                    className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" 
                                     value={newUser.اسم_المستخدم} onChange={e => setNewUser({...newUser, اسم_المستخدم: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">الاسم للعرض (اختياري)</label>
-                                <input className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" htmlFor="admin-add-user-display-name">الاسم للعرض (اختياري)</label>
+                                <input
+                                    id="admin-add-user-display-name"
+                                    className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" 
                                     value={newUser.اسم_للعرض || ''} onChange={e => setNewUser({...newUser, اسم_للعرض: e.target.value})} placeholder="مثال: أحمد محمد" />
                                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">سيظهر في الواجهة بدلاً من اسم المستخدم.</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">كلمة المرور</label>
-                                <input required type="password" className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" htmlFor="admin-add-user-password">كلمة المرور</label>
+                                <input
+                                    id="admin-add-user-password"
+                                    required
+                                    type="password"
+                                    className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" 
                                     value={newUser.كلمة_المرور} onChange={e => setNewUser({...newUser, كلمة_المرور: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">الصلاحية / الدور</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" htmlFor="admin-add-user-role">الصلاحية / الدور</label>
                                 <div className="relative">
-                                    <select className="w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+                                    <select
+                                        id="admin-add-user-role"
+                                        className="w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
                                         value={newUser.الدور} onChange={e => setNewUser({...newUser, الدور: e.target.value as RoleType})}>
                                         <option value="Employee">موظف (صلاحيات محدودة)</option>
                                         <option value="Admin">مدير النظام (صلاحيات كاملة)</option>
@@ -812,7 +833,10 @@ export const AdminControlPanel: React.FC = () => {
                                                                     </div>
                                                                 ) : (
                                                                     <div className="relative">
-                                                                            <select className="w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+                                                                        <select
+                                                                            className="w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+                                                                            aria-label="ربط بملف شخص"
+                                                                            title="ربط بملف شخص"
                                                                                     value={newUser.linkedPersonId} onChange={e => setNewUser({...newUser, linkedPersonId: e.target.value})}>
                                                                                     <option value="">-- غير مرتبط --</option>
                                                                                     {people.map(p => (
@@ -845,7 +869,8 @@ export const AdminControlPanel: React.FC = () => {
                 }
                 bodyClassName="p-0"
             >
-                        <div className="p-6 space-y-6">
+                {editingUser ? (
+                    <div className="p-6 space-y-6">
 
                             {/* Employee Commissions Summary */}
                             <div className="app-card p-5 rounded-2xl border border-gray-100 dark:border-slate-700">
@@ -856,11 +881,14 @@ export const AdminControlPanel: React.FC = () => {
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <div className="flex items-center gap-2">
-                                            <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400">الشهر</label>
+                                            <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400" htmlFor="admin-employee-commission-month">الشهر</label>
                                             <input
-                                                type="month"
-                                                value={employeeCommissionMonthKey}
-                                                onChange={(e) => setEmployeeCommissionMonthKey(e.target.value)}
+                                                id="admin-employee-commission-month"
+                                                type="date"
+                                                aria-label="اختيار الشهر"
+                                                title="اختيار الشهر (اختر أي يوم ضمن الشهر)"
+                                                value={employeeCommissionMonthKey ? `${employeeCommissionMonthKey}-01` : ''}
+                                                onChange={(e) => setEmployeeCommissionMonthKey(e.target.value ? e.target.value.slice(0, 7) : '')}
                                                 className="px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs"
                                             />
                                         </div>
@@ -1003,7 +1031,8 @@ export const AdminControlPanel: React.FC = () => {
                                 </div>
                             </div>
 
-                        </div>
+                                                </div>
+                                ) : null}
             </AppModal>
         </div>
     );
@@ -1026,6 +1055,8 @@ export const AdminControlPanel: React.FC = () => {
                           <input 
                               placeholder="بحث بالاسم..."
                               className="bg-transparent outline-none flex-1 text-sm text-slate-700 dark:text-white"
+                              aria-label="بحث بالاسم"
+                              title="بحث بالاسم"
                               value={blacklistSearch}
                               onChange={e => setBlacklistSearch(e.target.value)}
                           />

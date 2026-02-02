@@ -5,6 +5,10 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   base: './', // CRITICAL: Makes paths relative for Electron (file:// protocol)
+
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? 'unknown'),
+  },
   
   resolve: {
     alias: {

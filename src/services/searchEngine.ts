@@ -1,3 +1,5 @@
+import { parseNumberOrUndefined } from '@/utils/numberInput';
+import { normalizeSearchTextStrict } from '@/utils/searchNormalize';
 
 export type FilterOperator = 'contains' | 'equals' | 'gte' | 'lte' | 'between' | 'dateBetween' | 'in';
 
@@ -6,6 +8,13 @@ export interface FilterRule {
   operator: FilterOperator;
   value: unknown;
 }
+
+const toFiniteNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'string') return parseNumberOrUndefined(value);
+  if (value === null || value === undefined) return undefined;
+  return parseNumberOrUndefined(String(value));
+};
 
 export const SearchEngine = {
   applyFilters: <T>(data: T[], rules: FilterRule[]): T[] => {
@@ -18,16 +27,30 @@ export const SearchEngine = {
 
         switch (rule.operator) {
           case 'contains':
-            return String(val).toLowerCase().includes(String(rule.value).toLowerCase());
+            return normalizeSearchTextStrict(val).includes(normalizeSearchTextStrict(rule.value));
           case 'equals':
-            return String(val) === String(rule.value);
+            return normalizeSearchTextStrict(val) === normalizeSearchTextStrict(rule.value);
           case 'gte':
-            return Number(val) >= Number(rule.value);
+            {
+              const a = toFiniteNumber(val);
+              const b = toFiniteNumber(rule.value);
+              if (a === undefined || b === undefined) return false;
+              return a >= b;
+            }
           case 'lte':
-            return Number(val) <= Number(rule.value);
+            {
+              const a = toFiniteNumber(val);
+              const b = toFiniteNumber(rule.value);
+              if (a === undefined || b === undefined) return false;
+              return a <= b;
+            }
           case 'between': {
             const range = rule.value as unknown as [unknown, unknown];
-            return Number(val) >= Number(range?.[0]) && Number(val) <= Number(range?.[1]);
+            const n = toFiniteNumber(val);
+            const a = toFiniteNumber(range?.[0]);
+            const b = toFiniteNumber(range?.[1]);
+            if (n === undefined || a === undefined || b === undefined) return false;
+            return n >= a && n <= b;
           }
           case 'dateBetween': {
             const range = rule.value as unknown as [unknown, unknown];

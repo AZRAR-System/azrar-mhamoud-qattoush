@@ -73,6 +73,12 @@ export type DbChannel =
   
 
 contextBridge.exposeInMainWorld('desktopDb', {
+  // App helpers
+  getDeviceId: () => ipcRenderer.invoke('app:getDeviceId'),
+  quitApp: () => ipcRenderer.invoke('app:quit'),
+  pickLicenseFile: () => ipcRenderer.invoke('app:pickLicenseFile'),
+  getLicensePublicKey: () => ipcRenderer.invoke('app:getLicensePublicKey'),
+
   get: (key: string) => ipcRenderer.invoke('db:get', key),
   set: (key: string, value: string) => ipcRenderer.invoke('db:set', key, value),
   delete: (key: string) => ipcRenderer.invoke('db:delete', key),
@@ -125,14 +131,56 @@ contextBridge.exposeInMainWorld('desktopDb', {
   domainFollowUpAdd: (payload: { task: Record<string, unknown> }) => ipcRenderer.invoke('domain:followups:add', payload),
   domainSalesAgreementDelete: (payload: { id: string }) => ipcRenderer.invoke('domain:sales:agreement:delete', payload),
 
-  domainPropertyPickerSearch: (payload: { query: string; status?: string; type?: string; forceVacant?: boolean; offset?: number; limit?: number }) =>
+  domainPropertyPickerSearch: (payload: {
+    query: string;
+    status?: string;
+    type?: string;
+    furnishing?: string;
+    forceVacant?: boolean;
+    occupancy?: 'all' | 'rented' | 'vacant';
+    sale?: 'for-sale' | 'not-for-sale' | '';
+    rent?: 'for-rent' | 'not-for-rent' | '';
+    minArea?: string;
+    maxArea?: string;
+    floor?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    contractLink?: '' | 'linked' | 'unlinked' | 'all';
+    sort?: string;
+    offset?: number;
+    limit?: number;
+  }) =>
     ipcRenderer.invoke('domain:picker:properties', payload),
-  domainContractPickerSearch: (payload: { query: string; tab?: string; createdMonth?: string; offset?: number; limit?: number }) =>
+  domainContractPickerSearch: (payload: {
+    query: string;
+    tab?: string;
+    createdMonth?: string;
+    startDateFrom?: string;
+    startDateTo?: string;
+    endDateFrom?: string;
+    endDateTo?: string;
+    minValue?: number | string;
+    maxValue?: number | string;
+    sort?: string;
+    offset?: number;
+    limit?: number;
+  }) =>
     ipcRenderer.invoke('domain:picker:contracts', payload),
-  domainPeoplePickerSearch: (payload: { query: string; role?: string; onlyIdleOwners?: boolean; offset?: number; limit?: number }) =>
+  domainPeoplePickerSearch: (payload: {
+    query: string;
+    role?: string;
+    onlyIdleOwners?: boolean;
+    address?: string;
+    nationalId?: string;
+    classification?: string;
+    minRating?: number;
+    sort?: string;
+    offset?: number;
+    limit?: number;
+  }) =>
     ipcRenderer.invoke('domain:picker:people', payload),
 
-  domainInstallmentsContractsSearch: (payload: { query?: string; filter?: string; offset?: number; limit?: number }) =>
+  domainInstallmentsContractsSearch: (payload: { query?: string; filter?: string; sort?: string; offset?: number; limit?: number }) =>
     ipcRenderer.invoke('domain:installments:contracts', payload),
 
   // SQL Server Sync (Desktop only)

@@ -7,7 +7,7 @@ import { SystemLookup, LookupCategory, SystemSettings, PermissionCode, العم�
 import {
   Database, Building, List, Upload, Globe, Phone,
   Image as ImageIcon, Plus, Trash2, Download, Search, Check, FolderOpen, ArrowRight,
-  RefreshCcw, Edit2, X, BadgeDollarSign, History, FileJson, Shield, FileSpreadsheet, Info, PlayCircle, AlertTriangle
+  RefreshCcw, Edit2, X, BadgeDollarSign, History, FileJson, Shield, FileSpreadsheet, Info, PlayCircle, AlertTriangle, Copy
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { RBACGuard } from '@/components/shared/RBACGuard';
@@ -75,6 +75,25 @@ type SqlServerBackupItem = {
   note?: string;
 };
 
+type AppLastError = {
+  at?: string;
+  message?: string;
+  stack?: string;
+};
+
+type AppErrorLogEntry = {
+  id?: string;
+  at?: string;
+  kind?: string;
+  message?: string;
+  sessionId?: string;
+  stack?: string;
+  componentStack?: string;
+  url?: string;
+  hash?: string;
+  userAgent?: string;
+};
+
 const hasMessage = (value: unknown): value is { message: string } => {
   if (typeof value !== 'object' || value === null) return false;
   return typeof (value as Record<string, unknown>).message === 'string';
@@ -117,6 +136,12 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
   const [sqlBackupAutoBusy, setSqlBackupAutoBusy] = useState(false);
   const [sqlServerBackups, setSqlServerBackups] = useState<SqlServerBackupItem[]>([]);
   const [sqlServerBackupsBusy, setSqlServerBackupsBusy] = useState(false);
+
+  const [appLastErrorRaw, setAppLastErrorRaw] = useState<string>('');
+  const [appLastError, setAppLastError] = useState<AppLastError | null>(null);
+  const [appErrorLogRaw, setAppErrorLogRaw] = useState<string>('');
+  const [appErrorLog, setAppErrorLog] = useState<AppErrorLogEntry[]>([]);
+  const [diagnosticsSessionId, setDiagnosticsSessionId] = useState<string>('');
 
   const [sqlCoverage, setSqlCoverage] = useState<SqlCoverageResponse | null>(null);
   const [sqlCoverageBusy, setSqlCoverageBusy] = useState(false);
@@ -313,6 +338,243 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
     }
   }, []);
 
+  const loadDiagnostics = useCallback(() => {
+    try {
+      const raw = String(localStorage.getItem('app_last_error') || '').trim();
+      setAppLastErrorRaw(raw);
+
+      const rawLog = String(localStorage.getItem('app_error_log') || '').trim();
+      setAppErrorLogRaw(rawLog);
+      if (!rawLog) {
+        setAppErrorLog([]);
+      } else {
+        try {
+          const parsed = JSON.parse(rawLog) as unknown;
+          if (Array.isArray(parsed)) {
+            setAppErrorLog(parsed as AppErrorLogEntry[]);
+          } else {
+            setAppErrorLog([]);
+          }
+        } catch {
+          setAppErrorLog([]);
+        }
+      }
+
+      // Session ID helps correlate multiple reports from the same session.
+      try {
+        let sid = String(sessionStorage.getItem('app_session_id') || '').trim();
+        if (!sid && rawLog) {
+          try {
+            const parsed = JSON.parse(rawLog) as unknown;
+            if (Array.isArray(parsed)) {
+              const firstWithSid = (parsed as AppErrorLogEntry[]).find(e => typeof e?.sessionId === 'string' && e.sessionId.trim());
+              if (firstWithSid?.sessionId) sid = firstWithSid.sessionId.trim();
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (!sid) {
+          sid = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        }
+        try {
+          sessionStorage.setItem('app_session_id', sid);
+        } catch {
+          // ignore
+        }
+        setDiagnosticsSessionId(sid);
+      } catch {
+        setDiagnosticsSessionId('');
+      }
+
+      if (!raw) {
+        setAppLastError(null);
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (typeof parsed === 'object' && parsed !== null) {
+          const rec = parsed as Record<string, unknown>;
+          setAppLastError({
+            at: typeof rec.at === 'string' ? rec.at : undefined,
+            message: typeof rec.message === 'string' ? rec.message : undefined,
+            stack: typeof rec.stack === 'string' ? rec.stack : undefined,
+          });
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      setAppLastError({ message: raw });
+    } catch {
+      setAppLastErrorRaw('');
+      setAppLastError(null);
+    }
+  }, []);
+
+  const handleCopyDiagnosticsSessionId = async () => {
+    const sid = String(diagnosticsSessionId || '').trim();
+    if (!sid) {
+      toast.info('لا يوجد معرّف جلسة متاح');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(sid);
+      toast.success('تم نسخ معرّف الجلسة');
+    } catch {
+      toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
+    }
+  };
+
+  const handleCopyDiagnosticsReport = async () => {
+    try {
+      const report = buildDiagnosticsReport();
+      const text = JSON.stringify(report, null, 2);
+      await navigator.clipboard.writeText(text);
+      toast.success('تم نسخ تقرير التشخيص');
+    } catch {
+      toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
+    }
+  };
+
+  const handleCopyDiagnostics = async () => {
+    const text = appLastErrorRaw || '';
+    if (!text.trim()) {
+      toast.info('لا يوجد سجل أخطاء لنسخه');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('تم نسخ سجل الأخطاء');
+    } catch {
+      toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
+    }
+  };
+
+  const buildDiagnosticsReport = () => {
+    const now = new Date();
+    let sessionId: string | undefined;
+    try {
+      sessionId = String(sessionStorage.getItem('app_session_id') || '').trim() || undefined;
+    } catch {
+      sessionId = undefined;
+    }
+
+    return {
+      generatedAt: now.toISOString(),
+      app: {
+        version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown',
+        mode: import.meta.env.MODE,
+        isDev: import.meta.env.DEV,
+        isProd: import.meta.env.PROD,
+      },
+      runtime: {
+        sessionId,
+        isDesktop: !!window.desktopDb,
+        hasDesktopUpdater: !!(window as unknown as { desktopUpdater?: unknown })?.desktopUpdater,
+        online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        language: typeof navigator !== 'undefined' ? navigator.language : '',
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        hash: typeof window !== 'undefined' ? window.location.hash : '',
+      },
+      lastError: appLastErrorRaw ? (appLastError ?? { raw: appLastErrorRaw }) : null,
+      lastErrorRaw: appLastErrorRaw || '',
+      errorLog: appErrorLogRaw ? (appErrorLog.length ? appErrorLog : { raw: appErrorLogRaw }) : [],
+      errorLogRaw: appErrorLogRaw || '',
+    };
+  };
+
+  const getDesktopDbCapabilities = () => {
+    const db = (window as unknown as { desktopDb?: Record<string, unknown> }).desktopDb;
+    if (!db) return null;
+
+    const hasFn = (k: string) => typeof (db as Record<string, unknown>)[k] === 'function';
+    const hasVal = (k: string) => typeof (db as Record<string, unknown>)[k] !== 'undefined';
+
+    return {
+      hasDesktopDb: true,
+      methods: {
+        get: hasFn('get'),
+        set: hasFn('set'),
+        del: hasFn('del'),
+        sqlStatus: hasFn('sqlStatus'),
+        sqlGetSettings: hasFn('sqlGetSettings'),
+        sqlSaveSettings: hasFn('sqlSaveSettings'),
+        sqlTestConnection: hasFn('sqlTestConnection'),
+        sqlConnect: hasFn('sqlConnect'),
+        sqlCoverage: hasFn('sqlCoverage'),
+        sqlSyncNow: hasFn('sqlSyncNow'),
+        getBackupDir: hasFn('getBackupDir'),
+        chooseBackupDir: hasFn('chooseBackupDir'),
+        saveAttachmentFile: hasFn('saveAttachmentFile'),
+        readAttachmentFile: hasFn('readAttachmentFile'),
+      },
+      values: {
+        isDesktop: hasVal('isDesktop'),
+      },
+    };
+  };
+
+  const downloadTextFile = (filename: string, text: string) => {
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportDiagnosticsFile = async () => {
+    try {
+      const base = buildDiagnosticsReport();
+      const desktopCaps = getDesktopDbCapabilities();
+
+      const sql = await (async () => {
+        if (!window.desktopDb) return null;
+        const out: Record<string, unknown> = {};
+        try {
+          if (window.desktopDb.sqlStatus) out.status = await window.desktopDb.sqlStatus();
+        } catch (e: unknown) {
+          out.statusError = getErrorMessage(e) || String(e ?? 'sqlStatus failed');
+        }
+        try {
+          if (window.desktopDb.sqlGetSettings) out.settings = await window.desktopDb.sqlGetSettings();
+        } catch (e: unknown) {
+          out.settingsError = getErrorMessage(e) || String(e ?? 'sqlGetSettings failed');
+        }
+        return out;
+      })();
+
+      const report = { ...base, desktop: desktopCaps, sql };
+      const safeStamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const sid = typeof base?.runtime?.sessionId === 'string' ? base.runtime.sessionId.trim() : '';
+      const safeSid = sid ? sid.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) : '';
+      const filename = safeSid ? `azrar-diagnostics-${safeSid}-${safeStamp}.json` : `azrar-diagnostics-${safeStamp}.json`;
+      downloadTextFile(filename, JSON.stringify(report, null, 2));
+      toast.success('تم تصدير ملف التشخيص');
+    } catch {
+      toast.error('تعذر تصدير ملف التشخيص');
+    }
+  };
+
+  const handleClearDiagnostics = () => {
+    try {
+      localStorage.removeItem('app_last_error');
+      localStorage.removeItem('app_error_log');
+    } catch {
+      // ignore
+    }
+    setAppLastErrorRaw('');
+    setAppLastError(null);
+    setAppErrorLogRaw('');
+    setAppErrorLog([]);
+    toast.success('تم مسح سجل الأخطاء');
+  };
+
   const visibleTabs = useMemo(() => {
       const tabs = [
           { id: 'general', label: 'الإعدادات العامة', icon: Building, desc: 'الهوية والاتصال', permission: 'SETTINGS_ADMIN' as PermissionCode },
@@ -321,6 +583,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
         { id: 'server', label: 'إعدادات المخدم', icon: Globe, desc: 'SQL Server والمزامنة', role: 'SuperAdmin' },
           { id: 'backup', label: 'النسخ الاحتياطي', icon: Database, desc: 'تصدير واستيراد', role: 'SuperAdmin' },
           { id: 'audit', label: 'سجل التغييرات', icon: History, desc: 'تتبع تعديلات النظام', permission: 'SETTINGS_AUDIT' as PermissionCode },
+          { id: 'diagnostics', label: 'التشخيص', icon: FileJson, desc: 'آخر أخطاء الواجهة', role: 'SuperAdmin' },
           { id: 'about', label: 'حول النظام', icon: Info, desc: 'حقوق النشر والإصدار', role: 'SuperAdmin' }
       ];
 
@@ -356,10 +619,11 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       loadSettings();
       if (activeSection === 'lookups') loadCategories();
       if (activeSection === 'audit') loadAuditLogs();
+      if (activeSection === 'diagnostics') loadDiagnostics();
       if (activeSection === 'server') void loadSqlSection();
       if (activeSection === 'backup') void loadBackupSection();
     }
-  }, [activeSection, visibleTabs, dbSignal, loadSettings, loadCategories, loadAuditLogs, loadSqlSection, loadBackupSection]);
+  }, [activeSection, visibleTabs, dbSignal, loadSettings, loadCategories, loadAuditLogs, loadDiagnostics, loadSqlSection, loadBackupSection]);
 
   const refreshSqlStatus = async () => {
     try {
@@ -1004,12 +1268,36 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         <div className="w-32 h-32 rounded-2xl border-2 border-dashed border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden hover:border-indigo-400 transition">
                             {settings.logoUrl ? <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain p-2" /> : <ImageIcon className="text-gray-300" size={40} />}
                         </div>
-                        <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleLogoUpload} />
+                        <input
+                          id="settings-logo-upload"
+                          type="file"
+                          accept="image/*"
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          onChange={handleLogoUpload}
+                          aria-label="تحميل شعار الشركة"
+                          title="تحميل شعار الشركة"
+                        />
                         </div>
                     </div>
                     <div className="flex-1 grid grid-cols-1 gap-4">
-                        <div><label className={labelClass}>اسم الشركة الرسمي</label><input className={inputClass} value={settings.companyName} onChange={e => setSettings({...settings, companyName: e.target.value})} /></div>
-                        <div><label className={labelClass}>الشعار اللفظي</label><input className={inputClass} value={settings.companySlogan || ''} onChange={e => setSettings({...settings, companySlogan: e.target.value})} /></div>
+                        <div>
+                          <label className={labelClass} htmlFor="settings-company-name">اسم الشركة الرسمي</label>
+                          <input
+                            id="settings-company-name"
+                            className={inputClass}
+                            value={settings.companyName}
+                            onChange={e => setSettings({...settings, companyName: e.target.value})}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass} htmlFor="settings-company-slogan">الشعار اللفظي</label>
+                          <input
+                            id="settings-company-slogan"
+                            className={inputClass}
+                            value={settings.companySlogan || ''}
+                            onChange={e => setSettings({...settings, companySlogan: e.target.value})}
+                          />
+                        </div>
                     </div>
                     </div>
                 </section>
@@ -1018,11 +1306,43 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                     <Phone className="text-green-500" size={20}/> معلومات الاتصال
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
-                        <div><label className={labelClass}>الهاتف</label><input className={inputClass} value={settings.companyPhone} onChange={e => setSettings({...settings, companyPhone: e.target.value})} /></div>
-                        <div><label className={labelClass}>البريد الإلكتروني</label><input className={inputClass} value={settings.companyEmail} onChange={e => setSettings({...settings, companyEmail: e.target.value})} /></div>
-                        <div><label className={labelClass}>الموقع</label><input className={inputClass} value={settings.companyWebsite} onChange={e => setSettings({...settings, companyWebsite: e.target.value})} /></div>
+                        <div>
+                          <label className={labelClass} htmlFor="settings-company-phone">الهاتف</label>
+                          <input
+                            id="settings-company-phone"
+                            className={inputClass}
+                            value={settings.companyPhone}
+                            onChange={e => setSettings({...settings, companyPhone: e.target.value})}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass} htmlFor="settings-company-email">البريد الإلكتروني</label>
+                          <input
+                            id="settings-company-email"
+                            className={inputClass}
+                            value={settings.companyEmail}
+                            onChange={e => setSettings({...settings, companyEmail: e.target.value})}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass} htmlFor="settings-company-website">الموقع</label>
+                          <input
+                            id="settings-company-website"
+                            className={inputClass}
+                            value={settings.companyWebsite}
+                            onChange={e => setSettings({...settings, companyWebsite: e.target.value})}
+                          />
+                        </div>
                     </div>
-                    <div><label className={labelClass}>العنوان</label><input className={inputClass} value={settings.companyAddress} onChange={e => setSettings({...settings, companyAddress: e.target.value})} /></div>
+                    <div>
+                      <label className={labelClass} htmlFor="settings-company-address">العنوان</label>
+                      <input
+                        id="settings-company-address"
+                        className={inputClass}
+                        value={settings.companyAddress}
+                        onChange={e => setSettings({...settings, companyAddress: e.target.value})}
+                      />
+                    </div>
                 </section>
 
                 {/* Letterhead */}
@@ -1051,12 +1371,22 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                       <div>
-                        <label className={labelClass}>الرقم الضريبي</label>
-                        <input className={inputClass} value={settings.taxNumber || ''} onChange={e => setSettings({ ...settings, taxNumber: e.target.value })} />
+                        <label className={labelClass} htmlFor="settings-letterhead-tax-number">الرقم الضريبي</label>
+                        <input
+                          id="settings-letterhead-tax-number"
+                          className={inputClass}
+                          value={settings.taxNumber || ''}
+                          onChange={e => setSettings({ ...settings, taxNumber: e.target.value })}
+                        />
                       </div>
                       <div>
-                        <label className={labelClass}>السجل التجاري</label>
-                        <input className={inputClass} value={settings.commercialRegister || ''} onChange={e => setSettings({ ...settings, commercialRegister: e.target.value })} />
+                        <label className={labelClass} htmlFor="settings-letterhead-commercial-register">السجل التجاري</label>
+                        <input
+                          id="settings-letterhead-commercial-register"
+                          className={inputClass}
+                          value={settings.commercialRegister || ''}
+                          onChange={e => setSettings({ ...settings, commercialRegister: e.target.value })}
+                        />
                       </div>
                     </div>
 
@@ -1100,13 +1430,40 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                 <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-8 animate-fade-in">
                 <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">عمولات البيع</h3>
-                    <div><label className={labelClass}>نسبة عمولة البيع (%)</label><input type="number" className={inputClass} value={settings.salesCommissionPercent} onChange={e => setSettings({...settings, salesCommissionPercent: Number(e.target.value)})} /></div>
+                    <div>
+                      <label className={labelClass} htmlFor="settings-sales-commission-percent">نسبة عمولة البيع (%)</label>
+                      <input
+                        id="settings-sales-commission-percent"
+                        type="number"
+                        className={inputClass}
+                        value={settings.salesCommissionPercent}
+                        onChange={e => setSettings({...settings, salesCommissionPercent: Number(e.target.value)})}
+                      />
+                    </div>
                 </section>
                 <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">عمولات الإيجار</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label className={labelClass}>عمولة المالك (%)</label><input type="number" className={inputClass} value={settings.rentalCommissionOwnerPercent || 0} onChange={e => setSettings({...settings, rentalCommissionOwnerPercent: Number(e.target.value)})} /></div>
-                        <div><label className={labelClass}>عمولة المستأجر (%)</label><input type="number" className={inputClass} value={settings.rentalCommissionTenantPercent || 0} onChange={e => setSettings({...settings, rentalCommissionTenantPercent: Number(e.target.value)})} /></div>
+                        <div>
+                          <label className={labelClass} htmlFor="settings-rental-commission-owner-percent">عمولة المالك (%)</label>
+                          <input
+                            id="settings-rental-commission-owner-percent"
+                            type="number"
+                            className={inputClass}
+                            value={settings.rentalCommissionOwnerPercent || 0}
+                            onChange={e => setSettings({...settings, rentalCommissionOwnerPercent: Number(e.target.value)})}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass} htmlFor="settings-rental-commission-tenant-percent">عمولة المستأجر (%)</label>
+                          <input
+                            id="settings-rental-commission-tenant-percent"
+                            type="number"
+                            className={inputClass}
+                            value={settings.rentalCommissionTenantPercent || 0}
+                            onChange={e => setSettings({...settings, rentalCommissionTenantPercent: Number(e.target.value)})}
+                          />
+                        </div>
                     </div>
                 </section>
                 </div>
@@ -1129,8 +1486,26 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                                     <span className="text-[10px] text-slate-400">{cat.name}</span>
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                              <button onClick={(e) => { e.stopPropagation(); openEditTableModal(cat); }} className="p-1 text-indigo-400 hover:bg-indigo-50 rounded"><Edit2 size={12}/></button>
-                                    {!cat.isSystem && <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 size={12}/></button>}
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openEditTableModal(cat); }}
+                                className="p-1 text-indigo-400 hover:bg-indigo-50 rounded"
+                                aria-label="تعديل الجدول"
+                                title="تعديل الجدول"
+                              >
+                                <Edit2 size={12}/>
+                              </button>
+                                    {!cat.isSystem && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }}
+                                        className="p-1 text-red-400 hover:bg-red-50 rounded"
+                                        aria-label="حذف الجدول"
+                                        title="حذف الجدول"
+                                      >
+                                        <Trash2 size={12}/>
+                                      </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -1147,7 +1522,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                                 <div className="flex gap-2">
                                     <label className="py-2 px-3 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-gray-50">
                                         <Upload size={14}/> استيراد
-                                        <input type="file" accept=".json" className="hidden" onChange={handleImportLookups} />
+                                      <input type="file" accept=".json" className="hidden" onChange={handleImportLookups} aria-label="استيراد JSON" title="استيراد JSON" />
                                     </label>
                                     <button onClick={handleExportLookupsJSON} className="py-2 px-3 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-gray-50">
                                         <FileJson size={14}/> JSON
@@ -1163,7 +1538,15 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                                     {lookupItems.map(item => (
                                         <div key={item.id} className="group relative bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 p-4 rounded-xl hover:shadow-md transition">
                                             <span className="font-bold text-sm text-slate-700 dark:text-slate-300">{item.label}</span>
-                                            <button onClick={() => handleDeleteLookup(item.id)} className="absolute top-2 left-2 text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteLookup(item.id)}
+                                              className="absolute top-2 left-2 text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-50 p-1 rounded"
+                                              aria-label="حذف العنصر"
+                                              title="حذف العنصر"
+                                            >
+                                              <Trash2 size={14}/>
+                                            </button>
                                         </div>
                                     ))}
                                     {lookupItems.length === 0 && <div className="col-span-full text-center py-10 text-slate-400">القائمة فارغة</div>}
@@ -1200,7 +1583,14 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         ) : (
                           <label className="mt-4 px-6 py-2 bg-amber-500 text-white rounded-xl font-bold cursor-pointer">
                               اختيار ملف
-                              <input type="file" accept=".json" className="hidden" onChange={(e) => e.target.files && handleRestore(e.target.files[0])} />
+                              <input
+                                type="file"
+                                accept=".json"
+                                className="hidden"
+                                onChange={(e) => e.target.files && handleRestore(e.target.files[0])}
+                                aria-label="اختيار ملف لاستعادة البيانات"
+                                title="اختيار ملف لاستعادة البيانات"
+                              />
                           </label>
                         )}
                     </div>
@@ -1301,8 +1691,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Server</label>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-server">Server</label>
                         <input
+                          id="settings-sql-server"
                           className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                           placeholder="مثال: 192.168.1.10 أو SQLSERVER\\INSTANCE"
                           value={sqlForm.server}
@@ -1312,8 +1703,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Port</label>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-port">Port</label>
                         <input
+                          id="settings-sql-port"
                           className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                           placeholder="1433"
                           value={String(sqlForm.port ?? 1433)}
@@ -1323,8 +1715,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Database</label>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-database">Database</label>
                         <input
+                          id="settings-sql-database"
                           className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                           placeholder="AZRAR"
                           value={sqlForm.database}
@@ -1334,8 +1727,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300">نوع الدخول</label>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-auth-mode">نوع الدخول</label>
                         <select
+                          id="settings-sql-auth-mode"
                           className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                           value={sqlForm.authMode}
                           onChange={e => setSqlForm(p => ({ ...p, authMode: e.target.value === 'windows' ? 'windows' : 'sql' }))}
@@ -1352,8 +1746,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Username</label>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-username">Username</label>
                         <input
+                          id="settings-sql-username"
                           className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                           placeholder="sa أو user"
                           value={sqlForm.user}
@@ -1363,8 +1758,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Password</label>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-password">Password</label>
                         <input
+                          id="settings-sql-password"
                           type="password"
                           className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                           placeholder={sqlForm.hasPassword ? '•••••• (محفوظة) - اكتب لتغييرها' : 'ادخل كلمة المرور'}
@@ -1524,8 +1920,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
 
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                               <div>
-                                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">مدة الاحتفاظ (بالأيام)</label>
+                                <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-backup-retention-days">مدة الاحتفاظ (بالأيام)</label>
                                 <input
+                                  id="settings-sql-backup-retention-days"
                                   className="w-full mt-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl py-2.5 px-3 text-sm"
                                   type="number"
                                   min={1}
@@ -1798,8 +2195,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
 
                           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">مدير SQL (Username)</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-provision-admin-user">مدير SQL (Username)</label>
                               <input
+                                id="settings-sql-provision-admin-user"
                                 className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                                 placeholder="sa أو admin"
                                 value={sqlProvision.adminUser}
@@ -1808,8 +2206,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                               />
                             </div>
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">مدير SQL (Password)</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-provision-admin-password">مدير SQL (Password)</label>
                               <input
+                                id="settings-sql-provision-admin-password"
                                 type="password"
                                 className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                                 value={sqlProvision.adminPassword}
@@ -1819,8 +2218,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                             </div>
 
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">حساب المدير (Username)</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-provision-manager-user">حساب المدير (Username)</label>
                               <input
+                                id="settings-sql-provision-manager-user"
                                 className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                                 value={sqlProvision.managerUser}
                                 onChange={e => setSqlProvision(p => ({ ...p, managerUser: e.target.value }))}
@@ -1828,8 +2228,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                               />
                             </div>
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">حساب المدير (Password)</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-provision-manager-password">حساب المدير (Password)</label>
                               <input
+                                id="settings-sql-provision-manager-password"
                                 type="password"
                                 className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                                 value={sqlProvision.managerPassword}
@@ -1839,8 +2240,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                             </div>
 
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">حساب الموظفين (Username)</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-provision-employee-user">حساب الموظفين (Username)</label>
                               <input
+                                id="settings-sql-provision-employee-user"
                                 className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                                 value={sqlProvision.employeeUser}
                                 onChange={e => setSqlProvision(p => ({ ...p, employeeUser: e.target.value }))}
@@ -1848,8 +2250,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                               />
                             </div>
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">حساب الموظفين (Password)</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-provision-employee-password">حساب الموظفين (Password)</label>
                               <input
+                                id="settings-sql-provision-employee-password"
                                 type="password"
                                 className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
                                 value={sqlProvision.employeePassword}
@@ -1913,6 +2316,130 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
               </RBACGuard>
           )}
 
+          {!settingsLoading && activeSection === 'diagnostics' && (
+            <RBACGuard requiredRole="SuperAdmin" fallback={settingsNoAccessFallback}>
+              <div className="p-8 h-full flex flex-col animate-fade-in">
+                <div className="max-w-4xl mx-auto w-full">
+                  <div className="app-card p-6 rounded-3xl">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-xl font-black text-slate-800 dark:text-white">التشخيص</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          يعرض آخر خطأ وسجل مختصر لآخر الأخطاء التي تم التقاطها من الواجهة (Unhandled error / unhandled promise rejection).
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Button variant="secondary" onClick={loadDiagnostics}>
+                          <RefreshCcw size={14} /> تحديث
+                        </Button>
+                        <Button variant="secondary" onClick={handleCopyDiagnostics}>
+                          <FileJson size={14} /> نسخ
+                        </Button>
+                        <Button variant="secondary" onClick={handleCopyDiagnosticsReport}>
+                          <FileJson size={14} /> نسخ التقرير
+                        </Button>
+                        <Button variant="secondary" onClick={handleExportDiagnosticsFile}>
+                          <Download size={14} /> تصدير ملف
+                        </Button>
+                        <Button variant="danger" onClick={handleClearDiagnostics}>
+                          <Trash2 size={14} /> مسح
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        معرّف الجلسة (Session ID):
+                        <span className="mx-2 font-mono text-slate-700 dark:text-slate-200" dir="ltr">
+                          {diagnosticsSessionId || '—'}
+                        </span>
+                        {!!diagnosticsSessionId && (
+                          <span className="block mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                            سيتم تضمين معرّف الجلسة في اسم ملف التصدير (وكذلك تقرير الانهيار).
+                          </span>
+                        )}
+                      </div>
+                      <Button variant="secondary" onClick={handleCopyDiagnosticsSessionId}>
+                        <Copy size={14} /> نسخ المعرّف
+                      </Button>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 gap-4">
+                      {!appLastErrorRaw.trim() && appErrorLog.length === 0 && (
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300">
+                          لا يوجد سجل أخطاء محفوظ حالياً.
+                        </div>
+                      )}
+
+                      {appLastErrorRaw.trim() && (
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
+                          <div className="flex flex-col gap-2">
+                            {appLastError?.at && (
+                              <div className="text-xs text-slate-500 dark:text-slate-400" dir="ltr">
+                                at={appLastError.at}
+                              </div>
+                            )}
+                            {appLastError?.message && (
+                              <div className="text-sm font-bold text-slate-800 dark:text-white whitespace-pre-wrap">
+                                {appLastError.message}
+                              </div>
+                            )}
+                            {appLastError?.stack && (
+                              <pre className="mt-2 bg-white dark:bg-slate-950/40 p-3 rounded-xl text-xs text-slate-700 dark:text-slate-200 overflow-auto max-h-64 border border-slate-200 dark:border-slate-800 whitespace-pre-wrap" dir="ltr">
+                                {appLastError.stack}
+                              </pre>
+                            )}
+                            {!appLastError?.stack && (
+                              <pre className="mt-2 bg-white dark:bg-slate-950/40 p-3 rounded-xl text-xs text-slate-700 dark:text-slate-200 overflow-auto max-h-64 border border-slate-200 dark:border-slate-800 whitespace-pre-wrap" dir="ltr">
+                                {appLastErrorRaw}
+                              </pre>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {appErrorLog.length > 0 && (
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-bold text-slate-800 dark:text-white">سجل الأخطاء (آخر {appErrorLog.length})</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">يُحدَّث تلقائياً ويُقصَر إلى آخر 20 خطأ</div>
+                          </div>
+                          <div className="mt-3 flex flex-col gap-2">
+                            {appErrorLog.map((e, idx) => (
+                              <details key={String(e?.id || `${e?.at || 'na'}_${idx}`)} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/30">
+                                <summary className="cursor-pointer select-none px-3 py-2 text-sm text-slate-800 dark:text-slate-100">
+                                  <span className="font-bold">{e?.message || 'Unknown error'}</span>
+                                  <span className="mx-2 text-slate-400">—</span>
+                                  <span className="text-xs font-mono text-slate-500" dir="ltr">{e?.at || ''}</span>
+                                  {e?.kind && <span className="mx-2 text-xs text-slate-400">({e.kind})</span>}
+                                </summary>
+                                <div className="px-3 pb-3">
+                                  {e?.stack && (
+                                    <pre className="mt-2 bg-white dark:bg-slate-950/40 p-3 rounded-xl text-xs text-slate-700 dark:text-slate-200 overflow-auto max-h-64 border border-slate-200 dark:border-slate-800 whitespace-pre-wrap" dir="ltr">
+                                      {e.stack}
+                                    </pre>
+                                  )}
+                                  {!e?.stack && (
+                                    <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">لا يوجد stack.</div>
+                                  )}
+                                  {e?.componentStack && (
+                                    <pre className="mt-2 bg-white dark:bg-slate-950/40 p-3 rounded-xl text-xs text-slate-700 dark:text-slate-200 overflow-auto max-h-64 border border-slate-200 dark:border-slate-800 whitespace-pre-wrap" dir="ltr">
+                                      {e.componentStack}
+                                    </pre>
+                                  )}
+                                </div>
+                              </details>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </RBACGuard>
+          )}
+
           {!settingsLoading && activeSection === 'about' && (
               <div className="flex items-center justify-center h-full p-8 animate-fade-in bg-gray-50 dark:bg-slate-900/50">
                 <div className="app-card p-8 rounded-3xl text-center max-w-md border-gray-100 dark:border-slate-700">
@@ -1967,8 +2494,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
         >
           {!isEditingTable && (
             <div className="mb-4">
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">المعرف البرمجي (إنجليزي)</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1" htmlFor="settings-lookup-table-key">المعرف البرمجي (إنجليزي)</label>
               <input
+                id="settings-lookup-table-key"
                 className="w-full border border-gray-200 dark:border-slate-600 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 outline-none text-sm font-mono text-slate-800 dark:text-white"
                 placeholder="e.g. city_list"
                 value={tableForm.name}
@@ -1978,8 +2506,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           )}
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">الاسم الظاهر (عربي)</label>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1" htmlFor="settings-lookup-table-label">الاسم الظاهر (عربي)</label>
             <input
+              id="settings-lookup-table-label"
               className="w-full border border-gray-200 dark:border-slate-600 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 outline-none text-sm text-slate-800 dark:text-white"
               placeholder="مثال: قائمة المدن"
               value={tableForm.label}

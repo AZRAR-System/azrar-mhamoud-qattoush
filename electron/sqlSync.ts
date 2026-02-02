@@ -787,8 +787,42 @@ export async function getOrCreateDeviceId(): Promise<string> {
   try {
     if (fs.existsSync(getDeviceIdPath())) {
       const raw = await fsp.readFile(getDeviceIdPath(), 'utf8');
-      const id = raw.trim();
-      if (id) return id;
+      const trimmed = raw.trim();
+      if (trimmed) {
+        // New format (JSON) allows encrypting the ID using OS-bound safeStorage.
+        if (trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed) as unknown;
+            if (parsed && typeof parsed === 'object') {
+              const rec = parsed as Record<string, unknown>;
+              const encB64 = typeof rec.encB64 === 'string' ? rec.encB64.trim() : '';
+              const v = typeof rec.v === 'number' ? rec.v : Number(rec.v ?? 0);
+              if (v === 2 && encB64) {
+                const id = decryptPassword(encB64);
+                if (id) return id;
+              }
+            }
+          } catch {
+            // fall through
+          }
+        }
+
+        // Legacy format: plaintext UUID.
+        const legacyId = trimmed;
+        if (legacyId) {
+          // Best-effort migration: if encryption is available, rewrite in encrypted format.
+          try {
+            if (safeStorage?.isEncryptionAvailable?.() === true) {
+              const encB64 = encryptPassword(legacyId);
+              const payload = { v: 2, encB64 };
+              await fsp.writeFile(getDeviceIdPath(), JSON.stringify(payload), 'utf8');
+            }
+          } catch {
+            // ignore migration failure
+          }
+          return legacyId;
+        }
+      }
     }
   } catch {
     // ignore
@@ -796,6 +830,16 @@ export async function getOrCreateDeviceId(): Promise<string> {
 
   const id = crypto.randomUUID();
   await fsp.mkdir(path.dirname(getDeviceIdPath()), { recursive: true });
+  try {
+    if (safeStorage?.isEncryptionAvailable?.() === true) {
+      const encB64 = encryptPassword(id);
+      await fsp.writeFile(getDeviceIdPath(), JSON.stringify({ v: 2, encB64 }), 'utf8');
+      return id;
+    }
+  } catch {
+    // fall back to plaintext
+  }
+
   await fsp.writeFile(getDeviceIdPath(), id, 'utf8');
   return id;
 }

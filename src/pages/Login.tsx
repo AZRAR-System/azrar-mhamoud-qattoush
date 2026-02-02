@@ -2,8 +2,11 @@
 import { useAuth } from '@/context/AuthContext';
 import { Lock, User, LogIn, AlertCircle, Info, Eye, EyeOff } from 'lucide-react';
 import { storage } from '@/services/storage';
+import { isCodeActivationAllowed } from '@/services/activation';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
+import { useActivation } from '@/context/ActivationContext';
+import { safeJsonParseArray } from '@/utils/json';
 
 type StoredUser = {
     id?: unknown;
@@ -27,10 +30,20 @@ export const Login = () => {
         const [rememberUsername, setRememberUsername] = useState(true);
         const [submitAttempted, setSubmitAttempted] = useState(false);
 
+        const [activationCode, setActivationCode] = useState('');
+        const [activationError, setActivationError] = useState('');
+        const [activationBusy, setActivationBusy] = useState(false);
+        const [deviceId, setDeviceId] = useState<string>('');
+
         const usernameRef = useRef<HTMLInputElement | null>(null);
         const passwordRef = useRef<HTMLInputElement | null>(null);
   
-  const { login } = useAuth();
+    const { login } = useAuth();
+    const { isActivated, loading: activationLoading, activatedAt, activationError: activationStatusError, activate, activateWithLicenseFileContent, refresh } = useActivation();
+
+    const canUseCodeActivation = useMemo(() => {
+        return isCodeActivationAllowed();
+    }, []);
       const dialogs = useAppDialogs();
 
     const REMEMBER_KEY = 'azrar_login_remember_username';
@@ -72,6 +85,10 @@ export const Login = () => {
 
         setLoading(true);
         try {
+            if (!isActivated) {
+                setError('يرجى تفعيل النظام أولاً قبل تسجيل الدخول.');
+                return;
+            }
             const success = await login(u, p);
             if (success) {
                 if (rememberUsername) {
@@ -90,15 +107,86 @@ export const Login = () => {
         }
   };
 
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const id = await window.desktopDb?.getDeviceId?.();
+                if (!mounted) return;
+                if (typeof id === 'string' && id.trim()) setDeviceId(id.trim());
+            } catch {
+                // ignore
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const handleActivateByCode = async () => {
+        if (!canUseCodeActivation) {
+            setActivationError('في نسخة الإنتاج: التفعيل يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز.');
+            return;
+        }
+        setActivationError('');
+        setError('');
+        setNotice('');
+        const code = activationCode.trim();
+        if (code.length < 6) {
+            setActivationError('يرجى إدخال رمز تفعيل صحيح.');
+            return;
+        }
+
+        setActivationBusy(true);
+        try {
+            await activate(code);
+            await refresh();
+
+            // Re-run bootstrap so desktop KV hydration happens after activation.
+            window.location.reload();
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            setActivationError(msg || 'تعذر تفعيل النظام.');
+        } finally {
+            setActivationBusy(false);
+        }
+    };
+
+    const handlePickLicenseFile = async () => {
+        setActivationError('');
+        setError('');
+        setNotice('');
+        setActivationBusy(true);
+        try {
+            const res = await window.desktopDb?.pickLicenseFile?.();
+            const rec = (res && typeof res === 'object') ? (res as Record<string, unknown>) : {};
+            if (rec.canceled) return;
+            if (rec.ok !== true) {
+                const err = typeof rec.error === 'string' ? rec.error : 'تعذر تحميل ملف التفعيل.';
+                setActivationError(err);
+                return;
+            }
+            const content = typeof rec.content === 'string' ? rec.content : '';
+            if (!content.trim()) {
+                setActivationError('ملف التفعيل فارغ.');
+                return;
+            }
+
+            await activateWithLicenseFileContent(content);
+            await refresh();
+            window.location.reload();
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            setActivationError(msg || 'تعذر تحميل ملف التفعيل.');
+        } finally {
+            setActivationBusy(false);
+        }
+    };
+
     const getUsers = async (): Promise<StoredUser[]> => {
         const raw = await storage.getItem('db_users');
         if (!raw) return [];
-        try {
-            const parsed: unknown = JSON.parse(raw);
-            return Array.isArray(parsed) ? (parsed as StoredUser[]) : [];
-        } catch {
-            return [];
-        }
+        return safeJsonParseArray(raw) as StoredUser[];
     };
 
     const persistUsers = async (users: StoredUser[]) => {
@@ -257,17 +345,119 @@ export const Login = () => {
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="app-card p-8 rounded-3xl shadow-2xl w-full max-w-md border-gray-100 dark:border-slate-700 relative z-10 animate-scale-up">
+            <div className="app-card p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-5xl border-gray-100 dark:border-slate-700 relative z-10 animate-scale-up">
         
         <div className="text-center mb-8">
             <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30">
                 <span className="text-3xl font-bold text-white">A</span>
             </div>
             <h1 className="text-2xl font-bold text-slate-800 dark:text-white">نظام AZRAR لإدارة العقارات</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">يرجى تسجيل الدخول للمتابعة</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">يرجى تفعيل النظام ثم تسجيل الدخول للمتابعة</p>
         </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+
+                    {/* Activation panel */}
+                    <div className="rounded-2xl border border-slate-100 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-5 md:p-6">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <div className="text-sm font-bold text-slate-800 dark:text-white">التفعيل</div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">تفعيل البرنامج قبل استخدامه</div>
+                            </div>
+                            <button
+                                type="button"
+                                className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline"
+                                onClick={() => void refresh()}
+                                disabled={activationBusy}
+                            >
+                                تحديث الحالة
+                            </button>
+                        </div>
+
+                        <div className="mt-4 space-y-4">
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3">
+                                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">بصمة الجهاز</div>
+                                <div className="mt-1 text-[11px] text-slate-700 dark:text-slate-200 break-all" dir="ltr">
+                                    {deviceId || 'غير متاح'}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="text-xs font-bold text-slate-700 dark:text-slate-200">الحالة:</div>
+                                <div className={"text-xs font-bold " + (isActivated ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300')}>
+                                    {activationLoading ? '...' : (isActivated ? 'مُفعّل' : 'غير مُفعّل')}
+                                </div>
+                            </div>
+
+                            {isActivated && activatedAt && (
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                    آخر تفعيل: {new Date(activatedAt).toLocaleString()}
+                                </div>
+                            )}
+
+                            {!isActivated && (
+                                <>
+                                    {canUseCodeActivation && (
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">رمز التفعيل</label>
+                                            <input
+                                                type="text"
+                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 outline-none transition text-slate-800 dark:text-white"
+                                                placeholder="أدخل رمز التفعيل"
+                                                value={activationCode}
+                                                onChange={(e) => {
+                                                    setActivationCode(e.target.value);
+                                                    if (activationError) setActivationError('');
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {(activationError || activationStatusError) && (
+                                        <div className="text-xs text-rose-600 dark:text-rose-300 font-semibold">{activationError || activationStatusError}</div>
+                                    )}
+
+                                    <div className="flex gap-3">
+                                        {canUseCodeActivation && (
+                                            <button
+                                                type="button"
+                                                onClick={() => void handleActivateByCode()}
+                                                disabled={activationBusy || activationLoading || activationCode.trim().length < 6}
+                                                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-indigo-600/30 disabled:opacity-70 disabled:cursor-not-allowed"
+                                            >
+                                                {activationBusy ? 'جاري التفعيل...' : 'تفعيل'}
+                                            </button>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => void handlePickLicenseFile()}
+                                            disabled={activationBusy || activationLoading || !window.desktopDb?.pickLicenseFile}
+                                            className="flex-1 text-xs font-bold py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            تحميل ملف التفعيل
+                                        </button>
+                                    </div>
+
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        {canUseCodeActivation
+                                            ? 'إن كان لديك ملف/رمز تفعيل من الدعم، استخدمه هنا.'
+                                            : 'في نسخة الإنتاج: التفعيل يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز.'}
+                                    </div>
+                                </>
+                            )}
+
+                            {isActivated && (
+                                <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200 text-xs font-semibold p-3">
+                                    النظام مُفعّل ويمكنك تسجيل الدخول.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Login panel */}
+                    <div>
+                        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             
             <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">اسم المستخدم</label>
@@ -390,7 +580,7 @@ export const Login = () => {
 
             <button 
                 type="submit" 
-                disabled={loading}
+                disabled={loading || activationLoading || !isActivated}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
                 {loading ? (
@@ -423,7 +613,16 @@ export const Login = () => {
                 </div>
             )}
 
-        </form>
+                        {!isActivated && (
+                            <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                                تسجيل الدخول معطّل حتى يتم تفعيل النظام.
+                            </div>
+                        )}
+
+                </form>
+
+                    </div>
+                </div>
 
         <div className="mt-8 text-center border-t border-gray-100 dark:border-slate-700 pt-4 text-[10px] text-slate-400 dark:text-slate-500">
             <p dir="ltr">&copy; 2025 — Developed by <span className="font-bold">Mahmoud Qattoush</span></p>

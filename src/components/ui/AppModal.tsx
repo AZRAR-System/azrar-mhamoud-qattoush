@@ -78,6 +78,11 @@ export const AppModal: React.FC<AppModalProps> = ({
   const modalInstanceId = useMemo(() => `app-modal-${reactId}`, [reactId]);
   const titleId = useMemo(() => labelledById ?? `app-modal-title-${reactId}`, [labelledById, reactId]);
   const contentRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -146,7 +151,7 @@ export const AppModal: React.FC<AppModalProps> = ({
       if (!isTopAppModal(modalInstanceId)) return;
       if (!closeOnEsc) return;
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -185,19 +190,19 @@ export const AppModal: React.FC<AppModalProps> = ({
       if (lockScroll) unlockBodyScroll();
       if (trapFocus) previouslyFocused?.focus?.();
     };
-  }, [open, closeOnEsc, lockScroll, onClose, trapFocus, initialFocusSelector, modalInstanceId]);
+  }, [open, closeOnEsc, lockScroll, trapFocus, initialFocusSelector, modalInstanceId]);
 
   if (!open) return null;
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div
-      className={`modal-overlay app-modal-overlay animate-fade-in items-end sm:items-center p-0 sm:p-4 ${className ?? ''}`}
-      onClick={closeOnBackdrop ? onClose : undefined}
+      className={`modal-overlay app-modal-overlay animate-fade-in items-center p-4 ${className ?? ''}`}
+      onClick={closeOnBackdrop ? () => onCloseRef.current() : undefined}
     >
       <div
         ref={contentRef}
-        className={`modal-content app-modal-content w-full ${SIZE_CLASS[size]} max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col animate-scale-up rounded-t-3xl sm:rounded-2xl ${contentClassName ?? ''}`}
+        className={`modal-content app-modal-content w-full ${SIZE_CLASS[size]} max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col animate-scale-up rounded-2xl ${contentClassName ?? ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -215,7 +220,7 @@ export const AppModal: React.FC<AppModalProps> = ({
             {showCloseButton ? (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => onCloseRef.current()}
                 className="p-2 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-full transition text-slate-600 dark:text-slate-200"
                 aria-label="إغلاق"
                 title="إغلاق"

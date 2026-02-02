@@ -484,13 +484,25 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           )}
 
           {!isDesktop && (
-              <button onClick={() => setSidebarOpen(false)} className="p-2 text-slate-400 hover:text-red-500">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 text-slate-400 hover:text-red-500"
+                aria-label="إغلاق الشريط الجانبي"
+                title="إغلاق الشريط الجانبي"
+              >
                   <X size={20} />
               </button>
           )}
           
           {isDesktop && sidebarOpen && (
-             <button onClick={() => setSidebarOpen(false)} className="p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg text-slate-400 hover:text-indigo-500">
+             <button
+               type="button"
+               onClick={() => setSidebarOpen(false)}
+               className="p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg text-slate-400 hover:text-indigo-500"
+               aria-label="طي الشريط الجانبي"
+               title="طي الشريط الجانبي"
+             >
                  <ChevronRight size={16} />
              </button>
           )}
@@ -604,7 +616,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         {/* Desktop Toggle (When collapsed) */}
         {isDesktop && !sidebarOpen && (
             <div className="p-3 border-t border-gray-100 dark:border-slate-800 flex justify-center">
-            <button onClick={() => setSidebarOpen(true)} className="p-2 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition"
+            aria-label="فتح الشريط الجانبي"
+            title="فتح الشريط الجانبي"
+          >
                     <Menu size={20} />
                 </button>
             </div>
@@ -650,7 +668,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           
           <div className="flex items-center gap-4">
             {!isDesktop && (
-                <button onClick={() => setSidebarOpen(true)} className="p-2 -mr-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 -mr-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                aria-label="فتح الشريط الجانبي"
+                title="فتح الشريط الجانبي"
+              >
                     <Menu size={24} />
                 </button>
             )}
@@ -711,8 +735,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             )}
 
             <button
+              type="button"
               onClick={toggleTheme}
               className="p-2.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-yellow-300 transition-colors"
+              aria-label={isDark ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
+              title={isDark ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
             >
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>

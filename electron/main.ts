@@ -229,6 +229,7 @@ async function createMainWindow() {
       nodeIntegration: false,
       sandbox: true,
       webviewTag: false,
+      devTools: isDev,
       safeDialogs: true,
       safeDialogsMessage: 'تم حظر نافذة حوار غير آمنة',
       navigateOnDragDrop: false,
@@ -299,9 +300,18 @@ async function createMainWindow() {
   });
 
   if (isDev) {
-    logger.info('[Electron] Loading dev URL: http://localhost:3000');
+    const baseUrl = 'http://localhost:3000';
+    const qs = new URLSearchParams();
+    // Dev-test flags (passed from scripts/desktop-dev-tests.mjs).
+    if (String(process.env.VITE_AUTORUN_SYSTEM_TESTS || '').toLowerCase() === 'true') qs.set('autorun', '1');
+    if (String(process.env.VITE_ENABLE_INTEGRATION_TEST_DATA || '').toLowerCase() === 'true') qs.set('integrationData', '1');
+    if (String(process.env.VITE_AUTORUN_SYSTEM_TESTS_MUTATION || '').toLowerCase() === 'true') qs.set('mutation', '1');
+    if (String(process.env.VITE_ALLOW_CODE_ACTIVATION || '').toLowerCase() === 'true') qs.set('allowCodeActivation', '1');
+
+    const devUrl = qs.toString() ? `${baseUrl}/?${qs.toString()}` : baseUrl;
+    logger.info('[Electron] Loading dev URL:', devUrl);
     try {
-      await mainWindow.loadURL('http://localhost:3000');
+      await mainWindow.loadURL(devUrl);
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     } catch (err) {
       logger.error('[Electron] Failed to load URL:', err);

@@ -33,6 +33,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { SearchEngine, FilterRule } from '@/services/searchEngine';
@@ -118,6 +119,7 @@ export const Properties: React.FC = () => {
                 sale: '',
                 rent: '',
         });
+        const [sortMode, setSortMode] = useState<'code-asc' | 'code-desc' | 'updated-desc' | 'updated-asc'>('code-asc');
         const [occupancy, setOccupancy] = useState<'all' | 'rented' | 'vacant'>('all');
   
   // Advanced Filters
@@ -187,6 +189,8 @@ export const Properties: React.FC = () => {
                   query: String(searchTerm || ''),
                   status: String(filters.status || ''),
                   type: String(filters.type || ''),
+                  furnishing: String(filters.furnishing || ''),
+                  sort: sortMode,
                   offset: (pageOverride ?? desktopPage) * DESKTOP_FAST_PAGE_SIZE,
                   limit: DESKTOP_FAST_PAGE_SIZE,
                   occupancy,
@@ -256,6 +260,7 @@ export const Properties: React.FC = () => {
             advFilters.contractLink,
             desktopPage,
             desktopUnsupported,
+            filters.furnishing,
             filters.rent,
             filters.sale,
             filters.status,
@@ -264,6 +269,7 @@ export const Properties: React.FC = () => {
             occupancy,
             searchTerm,
             showAdvanced,
+            sortMode,
             toast,
     ]);
 
@@ -275,15 +281,6 @@ export const Properties: React.FC = () => {
     useEffect(() => {
         void loadDataRef.current();
     }, [dbSignal]);
-
-    useEffect(() => {
-        if (!isDesktopFast) return;
-        if (filters.furnishing) {
-            toast.warning('فلتر "صفة العقار" غير مدعوم في وضع السرعة حالياً');
-            setFilters(prev => ({ ...prev, furnishing: '' }));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filters.furnishing, isDesktopFast]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
@@ -302,6 +299,8 @@ export const Properties: React.FC = () => {
         filters.type,
         filters.sale,
         filters.rent,
+        filters.furnishing,
+        sortMode,
         occupancy,
         showAdvanced,
         advFilters.minArea,
@@ -316,7 +315,7 @@ export const Properties: React.FC = () => {
     useEffect(() => {
         if (isDesktopFast) return;
         setUiPage(0);
-    }, [searchTerm, filters, occupancy, showAdvanced, advFilters, pageSize, isDesktopFast]);
+    }, [searchTerm, filters, occupancy, showAdvanced, advFilters, sortMode, pageSize, isDesktopFast]);
 
     const peopleMap = useMemo(() => new Map(people.map(p => [String(p.رقم_الشخص), p])), [people]);
     const getOwnerName = (id: string) => peopleMap.get(String(id))?.الاسم || 'غير معروف';
@@ -402,7 +401,6 @@ export const Properties: React.FC = () => {
           const matchSearch = searchTerm.trim()
               ? (propertySearchIndex.get(String(p.رقم_العقار)) || '').includes(normalize(searchTerm))
               : true;
-          const matchStatus = filters.status ? p.حالة_العقار === filters.status : true;
           const matchType = filters.type ? p.النوع === filters.type : true;
           const furnishingType = (p as العقارات_tbl & PropertyExtras).نوع_التاثيث;
           const matchFurnishing = filters.furnishing ? String(furnishingType || '') === filters.furnishing : true;
@@ -413,6 +411,14 @@ export const Properties: React.FC = () => {
           const matchRent = filters.rent ? (filters.rent === 'for-rent' ? isForRent !== false : isForRent === false) : true;
           const isRentedValue = (p as العقارات_tbl & PropertyExtras).IsRented;
           const isRented = typeof isRentedValue === 'boolean' ? isRentedValue : String(p.حالة_العقار || '').trim() === 'مؤجر';
+          const statusFilter = String(filters.status || '').trim();
+          const matchStatus = !statusFilter
+              ? true
+              : statusFilter === 'شاغر'
+                  ? isRented === false
+                  : statusFilter === 'مؤجر'
+                      ? isRented === true
+                      : String(p.حالة_العقار || '').trim() === statusFilter;
           const matchOccupancy = occupancy === 'all'
               ? true
               : occupancy === 'rented'
@@ -446,8 +452,29 @@ export const Properties: React.FC = () => {
           result = SearchEngine.applyFilters(result, rules);
       }
 
-      return result;
-    }, [properties, searchTerm, filters, showAdvanced, advFilters, propertySearchIndex, occupancy, activeContractByPropertyId]);
+      // 3. Sorting
+      const sorted = [...result];
+      const updatedKey = (p: العقارات_tbl) => {
+          const anyP = p as unknown as Record<string, unknown>;
+          const v = String(anyP['updatedAt'] ?? anyP['تاريخ_التعديل'] ?? '').trim();
+          return v;
+      };
+      const idKey = (p: العقارات_tbl) => String(p.رقم_العقار || '').trim();
+      const codeKey = (p: العقارات_tbl) => String(p.الكود_الداخلي || '').trim();
+
+      if (sortMode === 'updated-asc') {
+          sorted.sort((a, b) => updatedKey(a).localeCompare(updatedKey(b)) || idKey(a).localeCompare(idKey(b)));
+      } else if (sortMode === 'updated-desc') {
+          sorted.sort((a, b) => updatedKey(b).localeCompare(updatedKey(a)) || idKey(b).localeCompare(idKey(a)));
+      } else if (sortMode === 'code-desc') {
+          sorted.sort((a, b) => codeKey(b).localeCompare(codeKey(a)) || idKey(b).localeCompare(idKey(a)));
+      } else {
+          // code-asc
+          sorted.sort((a, b) => codeKey(a).localeCompare(codeKey(b)) || idKey(a).localeCompare(idKey(b)));
+      }
+
+      return sorted;
+    }, [properties, searchTerm, filters, showAdvanced, advFilters, propertySearchIndex, occupancy, activeContractByPropertyId, sortMode]);
 
         const desktopPageCount = useMemo(() => {
             if (!isDesktopFast) return 1;
@@ -711,6 +738,13 @@ export const Properties: React.FC = () => {
 
               const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
 
+              const minArea = showAdvanced ? String(advFilters.minArea || '').trim() : '';
+              const maxArea = showAdvanced ? String(advFilters.maxArea || '').trim() : '';
+              const floor = showAdvanced ? String(advFilters.floor || '').trim() : '';
+              const minPrice = showAdvanced ? String(advFilters.minPrice || '').trim() : '';
+              const maxPrice = showAdvanced ? String(advFilters.maxPrice || '').trim() : '';
+              const contractLink = showAdvanced ? (advFilters.contractLink || 'all') : 'all';
+
               const allItems: DesktopPropertyPickerItem[] = [];
               let offset = 0;
               const limit = 500;
@@ -719,11 +753,19 @@ export const Properties: React.FC = () => {
                       query: String(searchTerm || ''),
                       status: String(filters.status || ''),
                       type: String(filters.type || ''),
+                      furnishing: String(filters.furnishing || ''),
+                      sort: sortMode,
                       offset,
                       limit,
                       occupancy,
                       sale: filters.sale || '',
                       rent: filters.rent || '',
+                      minArea,
+                      maxArea,
+                      floor,
+                      minPrice,
+                      maxPrice,
+                      contractLink: contractLink !== 'all' ? contractLink : '',
                   });
                   const items = Array.isArray(res.items) ? (res.items as DesktopPropertyPickerItem[]) : [];
                   if (!items.length) break;
@@ -841,7 +883,7 @@ export const Properties: React.FC = () => {
       return [
           { key: 'type', label: 'النوع', options: typeOptions },
           { key: 'status', label: 'الحالة', options: statusOptions },
-          ...(isDesktopFast ? [] : [{ key: 'furnishing', label: 'صفة العقار', options: furnishingOptions }]),
+          { key: 'furnishing', label: 'صفة العقار', options: furnishingOptions },
           {
               key: 'sale',
               label: 'البيع',
@@ -859,7 +901,7 @@ export const Properties: React.FC = () => {
               ],
           },
       ];
-  }, [properties, isDesktopFast]);
+    }, [properties]);
 
   const quickListForSale = (propertyId: string) => {
       const pid = String(propertyId || '').trim();
@@ -882,6 +924,8 @@ export const Properties: React.FC = () => {
                  ref={importRef}
                  type="file"
                  accept=".xlsx,.xls,.csv"
+                 aria-label="استيراد ملف العقارات"
+                 title="استيراد ملف العقارات"
                  className="hidden"
                  onChange={(e) => {
                          const f = e.target.files?.[0];
@@ -918,6 +962,17 @@ export const Properties: React.FC = () => {
                               setFilters(prev => (prev.status === 'مؤجر' || prev.status === 'شاغر' ? { ...prev, status: '' } : prev));
                           }
                       }}
+                  />
+
+                  <Select
+                      value={sortMode}
+                      onChange={(e) => setSortMode(e.target.value as 'code-asc' | 'code-desc' | 'updated-desc' | 'updated-asc')}
+                      options={[
+                          { value: 'code-asc', label: 'الكود: تصاعدي' },
+                          { value: 'code-desc', label: 'الكود: تنازلي' },
+                          { value: 'updated-desc', label: 'الأحدث' },
+                          { value: 'updated-asc', label: 'الأقدم' },
+                      ]}
                   />
 
                   <Button
@@ -1029,6 +1084,8 @@ export const Properties: React.FC = () => {
                            className={advInputClass}
                            value={advFilters.contractLink}
                            onChange={e => setAdvFilters({ ...advFilters, contractLink: e.target.value as ContractLinkFilter })}
+                           aria-label="الارتباط بالعقد"
+                           title="الارتباط بالعقد"
                        >
                            <option value="all">الكل</option>
                            <option value="linked">مرتبط بعقد</option>

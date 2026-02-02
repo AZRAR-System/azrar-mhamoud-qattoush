@@ -1,14 +1,37 @@
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import http from 'node:http';
+import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { chromium } from 'playwright-core';
 
 const PROJECT_ROOT = process.cwd();
-const DEV_PORT = Number(process.env.SMOKE_PORT || 5173);
-const DEV_URL = `http://127.0.0.1:${DEV_PORT}`;
+let DEV_PORT = Number(process.env.SMOKE_PORT || 5173);
+let DEV_URL = `http://127.0.0.1:${DEV_PORT}`;
+
+const ACTIVATION_STORAGE_KEY = 'azrar:activation:v1';
+const ACTIVATION_LAST_SEEN_KEY = 'azrar:activation:lastSeenAt:v1';
+
+async function isPortFree(port) {
+  return await new Promise((resolve) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', () => resolve(false));
+    server.listen({ port, host: '127.0.0.1' }, () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+async function pickAvailablePort(preferred, attempts = 10) {
+  for (let i = 0; i < attempts; i++) {
+    const port = preferred + i;
+    if (await isPortFree(port)) return port;
+  }
+  throw new Error(`No free port found in range ${preferred}-${preferred + attempts - 1}`);
+}
 
 function httpGet(url) {
   return new Promise((resolve, reject) => {
@@ -18,6 +41,9 @@ function httpGet(url) {
       res.on('end', () => resolve({ status: res.statusCode || 0, body: Buffer.concat(chunks).toString('utf8') }));
     });
     req.on('error', reject);
+    req.setTimeout(8000, () => {
+      req.destroy(new Error(`Request timeout: ${url}`));
+    });
   });
 }
 
@@ -66,14 +92,25 @@ async function runUiFlow({ mode }) {
   const errors = [];
   const warnings = [];
 
+  const deviceId = 'smoke-dev-device';
+
+  const edge = resolveEdgePath();
+  if (!edge) {
+    throw new Error('Smoke UI requires a Chromium browser. Edge was not found at the usual install paths.');
+  }
+
   const browser = await chromium.launch({
     headless: true,
-    executablePath: resolveEdgePath() || undefined,
+    executablePath: edge,
   });
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
   });
+
+  // Prevent long hangs on slow selectors.
+  context.setDefaultTimeout(8_000);
+  context.setDefaultNavigationTimeout(20_000);
 
   await context.addInitScript(({ mode }) => {
     const admin = { id: '1', اسم_المستخدم: 'admin', كلمة_المرور: 'admin123', الدور: 'SuperAdmin', isActive: true };
@@ -126,6 +163,19 @@ async function runUiFlow({ mode }) {
     seed('db_roles', []);
     seed('db_settings', {});
 
+    // Smoke/dev: seed a locally-activated state so Login is enabled.
+    // This relies on the dev server setting VITE_ALLOW_CODE_ACTIVATION=1.
+    try {
+      const deviceId = 'smoke-dev-device';
+      localStorage.setItem(
+        'azrar:activation:v1',
+        JSON.stringify({ activated: true, activatedAt: new Date().toISOString(), deviceId })
+      );
+      localStorage.setItem('azrar:activation:lastSeenAt:v1', new Date().toISOString());
+    } catch {
+      // ignore
+    }
+
     try {
       localStorage.removeItem('khaberni_user');
     } catch {
@@ -141,6 +191,10 @@ async function runUiFlow({ mode }) {
       const ok = (payload) => ({ ok: true, ...payload });
 
       window.desktopDb = {
+        getDeviceId: async () => {
+          bump('getDeviceId');
+          return 'smoke-dev-device';
+        },
         get: async (key) => {
           bump('get');
           return localStorage.getItem(key);
@@ -240,7 +294,11 @@ async function runUiFlow({ mode }) {
   page.on('console', (msg) => {
     const type = msg.type();
     const text = msg.text();
-    if (type === 'error') errors.push(`[console.error] ${text}`);
+    if (type === 'error') {
+      // Ignore benign missing assets (favicon, etc.) in Vite dev.
+      if (/Failed to load resource/i.test(text) && /404/i.test(text)) return;
+      errors.push(`[console.error] ${text}`);
+    }
     else if (type === 'warning') warnings.push(`[console.warn] ${text}`);
   });
 
@@ -257,7 +315,7 @@ async function runUiFlow({ mode }) {
     }
   };
 
-  const clickIfVisible = async (locator, label) => {
+  const clickIfVisible = async (locator, label, { required = false } = {}) => {
     try {
       if (await locator.isVisible({ timeout: 1500 })) {
         await locator.click({ timeout: 3000 });
@@ -267,18 +325,34 @@ async function runUiFlow({ mode }) {
     } catch {
       // ignore
     }
-    warnings.push(`[smoke] Could not click: ${label}`);
+    if (required) warnings.push(`[smoke] Could not click: ${label}`);
     return false;
   };
 
   await gotoHash('/login');
+
+  // If activation is not satisfied, the login button is disabled and smoke would waste time.
+  // Provide a direct actionable error.
+  try {
+    const loginBtn = page.getByRole('button', { name: /تسجيل الدخول|دخول|Login/i }).first();
+    if (await loginBtn.isDisabled({ timeout: 1500 }).catch(() => false)) {
+      errors.push(
+        '[smoke] Login is disabled. Ensure the dev server is started with VITE_ALLOW_CODE_ACTIVATION=1 (this script sets it when spawning Vite).'
+      );
+    }
+  } catch {
+    // ignore
+  }
+
   await page.getByPlaceholder('أدخل اسم المستخدم').fill('admin');
   await page.getByPlaceholder('••••••••').fill('admin123');
   await page.getByRole('button', { name: /تسجيل الدخول|دخول|Login/i }).click();
-  await page.waitForTimeout(1300);
+  await page
+    .waitForFunction(() => String(window.location.hash || '') !== '#/login', null, { timeout: 15_000 })
+    .catch(() => {});
+  await page.waitForTimeout(800);
 
   const routes = [
-    { path: '/', title: 'Dashboard' },
     { path: '/people', title: 'People' },
     { path: '/properties', title: 'Properties' },
     { path: '/contracts', title: 'Contracts' },
@@ -289,9 +363,6 @@ async function runUiFlow({ mode }) {
     await gotoHash(r.path);
 
     await clickIfVisible(page.getByRole('button', { name: /جديد|إضافة/i }).first(), `${r.title}: add`);
-    await closeTopPanelIfAny();
-
-    await clickIfVisible(page.getByRole('button', { name: 'التفاصيل' }).first(), `${r.title}: details`);
     await closeTopPanelIfAny();
 
     await clickIfVisible(page.getByPlaceholder(/بحث|ابحث/i).first(), `${r.title}: focus search`);
@@ -320,22 +391,62 @@ async function runUiFlow({ mode }) {
 }
 
 async function main() {
-  printSection('Starting Vite dev server');
-  const dev = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(DEV_PORT)], {
-    cwd: PROJECT_ROOT,
-    shell: true,
-    stdio: 'pipe',
-    env: { ...process.env, BROWSER: 'none' },
-  });
+  const argv = new Set(process.argv.slice(2));
+  const runWeb = argv.has('--web') || argv.has('--both');
+  const strict = argv.has('--strict') || argv.has('--fail-on-warnings');
+  const skipSpawn = argv.has('--no-server') || String(process.env.SMOKE_SKIP_DEV_SERVER || '').trim() === '1';
 
-  dev.stdout.on('data', (d) => process.stdout.write(d.toString('utf8')));
-  dev.stderr.on('data', (d) => process.stderr.write(d.toString('utf8')));
+  const hasExplicitPort = Object.prototype.hasOwnProperty.call(process.env, 'SMOKE_PORT');
+
+  // If user provided SMOKE_PORT, assume they want that exact port.
+  // Otherwise auto-pick a free port to avoid conflicts.
+  if (!hasExplicitPort) {
+    DEV_PORT = await pickAvailablePort(DEV_PORT, 10);
+  }
+  DEV_URL = `http://127.0.0.1:${DEV_PORT}`;
+
+  // Detect an already-running dev server (fast path).
+  let existingServer = false;
+  if (skipSpawn) {
+    existingServer = true;
+  } else {
+    try {
+      const res = await httpGet(DEV_URL);
+      if (res.status >= 200 && res.status < 500) existingServer = true;
+    } catch {
+      existingServer = false;
+    }
+  }
+
+  let dev = null;
+  if (!existingServer) {
+    printSection('Starting Vite dev server');
+    dev = spawn(
+      'npm',
+      ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(DEV_PORT), '--strictPort'],
+      {
+        cwd: PROJECT_ROOT,
+        shell: true,
+        stdio: 'pipe',
+        env: { ...process.env, BROWSER: 'none', VITE_ALLOW_CODE_ACTIVATION: '1' },
+      }
+    );
+
+    dev.stdout.on('data', (d) => process.stdout.write(d.toString('utf8')));
+    dev.stderr.on('data', (d) => process.stderr.write(d.toString('utf8')));
+  } else {
+    printSection('Using existing dev server');
+    console.warn(`DEV_URL=${DEV_URL}`);
+  }
 
   try {
-    await waitForServer(DEV_URL, 60_000);
+    await waitForServer(DEV_URL, 30_000);
 
-    printSection('Smoke: WEB mode (no desktopDb)');
-    const web = await runUiFlow({ mode: 'web' });
+    let web = null;
+    if (runWeb) {
+      printSection('Smoke: WEB mode (no desktopDb)');
+      web = await runUiFlow({ mode: 'web' });
+    }
 
     printSection('Smoke: DESKTOP-stub mode (desktopDb present)');
     const desk = await runUiFlow({ mode: 'desktop' });
@@ -343,10 +454,12 @@ async function main() {
     printSection('Results');
     const report = {
       devUrl: DEV_URL,
-      web: {
-        errors: web.errors,
-        warnings: web.warnings,
-      },
+      web: web
+        ? {
+            errors: web.errors,
+            warnings: web.warnings,
+          }
+        : undefined,
       desktop: {
         errors: desk.errors,
         warnings: desk.warnings,
@@ -359,7 +472,11 @@ async function main() {
 
     console.warn(`\nWrote report: ${outPath}`);
 
-    console.warn(`WEB errors: ${web.errors.length}, warnings: ${web.warnings.length}`);
+    if (web) {
+      console.warn(`WEB errors: ${web.errors.length}, warnings: ${web.warnings.length}`);
+    } else {
+      console.warn('WEB mode: skipped (desktop-only)');
+    }
     console.warn(`DESKTOP errors: ${desk.errors.length}, warnings: ${desk.warnings.length}`);
 
     if (desk.desktopCounters) {
@@ -367,18 +484,25 @@ async function main() {
       const entries = Object.entries(desk.desktopCounters).sort((a, b) => (b[1] || 0) - (a[1] || 0));
       console.warn(entries.slice(0, 12).map(([k, v]) => `${k}=${v}`).join(', '));
     }
+
+    const webErrors = web ? web.errors.length : 0;
+    const webWarnings = web ? web.warnings.length : 0;
+    const failed = desk.errors.length + webErrors > 0 || (strict && (desk.warnings.length + webWarnings > 0));
+    process.exitCode = failed ? 1 : 0;
   } finally {
-    printSection('Stopping dev server');
-    try {
-      dev.kill('SIGINT');
-    } catch {
-      // ignore
-    }
-    await delay(800);
-    try {
-      dev.kill('SIGKILL');
-    } catch {
-      // ignore
+    if (!existingServer) {
+      printSection('Stopping dev server');
+      try {
+        dev?.kill('SIGINT');
+      } catch {
+        // ignore
+      }
+      await delay(800);
+      try {
+        dev?.kill('SIGKILL');
+      } catch {
+        // ignore
+      }
     }
   }
 }

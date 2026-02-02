@@ -65,14 +65,15 @@ module.exports = {
 
     // إعدادات التوقيع الرقمي (فعّلها فقط عند توفر الشهادة/صلاحيات symlink)
     signAndEditExecutable: false,
-    signingHashAlgorithms: ['sha256'],
-    rfc3161TimeStampServer: 'http://timestamp.digicert.com',
+    signtoolOptions: {
+      signingHashAlgorithms: ['sha256'],
+      rfc3161TimeStampServer: 'http://timestamp.digicert.com',
+    },
 
     // استخدم هذه الإعدادات عندما تكون لديك شهادة
     // certificateFile: process.env.CSC_LINK,
     // certificatePassword: process.env.CSC_KEY_PASSWORD,
 
-    publisherName: 'AZRAR',
     verifyUpdateCodeSignature: false // غيره إلى true عند استخدام شهادة موقعة
   },
 

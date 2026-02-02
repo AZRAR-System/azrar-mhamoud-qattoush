@@ -33,9 +33,10 @@ export const DS = {
       row: 'border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors last:border-0 group',
       cell: 'p-4 text-sm text-slate-700 dark:text-slate-200 whitespace-normal break-words align-middle',
     },
-    pageHeader: 'flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6',
-    pageTitle: 'text-2xl font-bold text-slate-800 dark:text-white tracking-tight',
-    pageSubtitle: 'text-sm text-slate-500 dark:text-slate-400 mt-1',
+    pageHeader:
+      'bg-white/90 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5 relative p-4 lg:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6',
+    pageTitle: 'text-xl lg:text-2xl font-black text-slate-800 dark:text-white tracking-tight leading-tight',
+    pageSubtitle: 'text-xs lg:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-snug',
   },
   durations: {
     fast: '150ms',

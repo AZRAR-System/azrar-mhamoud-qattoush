@@ -1,5 +1,5 @@
 ﻿
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { الأشخاص_tbl, العقارات_tbl, عروض_البيع_tbl, اتفاقيات_البيع_tbl, SalesType } from '@/types';
 import { Plus, Briefcase, FileSignature, CheckCircle, Clock, Home, User, BadgeDollarSign, ArrowUpRight, Lock, HandCoins, Edit2, Trash2 } from 'lucide-react';
@@ -93,6 +93,25 @@ const SalesDashboard = () => {
 export const Sales: React.FC = () => {
     const dbSignal = useDbSignal();
     const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainGet;
+
+    const formId = useId();
+    const formIds = {
+        listingSaleType: `${formId}-listing-saleType`,
+        agreementAcceptedOffer: `${formId}-agreement-accepted-offer`,
+        agreementTotalCommission: `${formId}-agreement-total-commission`,
+        agreementOpportunityNumber: `${formId}-agreement-opportunity-number`,
+        agreementDownPayment: `${formId}-agreement-down-payment`,
+        agreementPaymentMethod: `${formId}-agreement-payment-method`,
+        agreementCommissionSeller: `${formId}-agreement-commission-seller`,
+        agreementCommissionBuyer: `${formId}-agreement-commission-buyer`,
+        agreementCommissionExternal: `${formId}-agreement-commission-external`,
+        agreementExpenseFee: `${formId}-agreement-expense-fee`,
+        agreementExpenseBuildingTax: `${formId}-agreement-expense-building-tax`,
+        agreementExpenseElectricity: `${formId}-agreement-expense-electricity`,
+        agreementExpenseWater: `${formId}-agreement-expense-water`,
+        agreementExpenseDeposits: `${formId}-agreement-expense-deposits`,
+        agreementExpenseNotes: `${formId}-agreement-expense-notes`,
+    };
 
     const fastPropByIdRef = useRef<Map<string, العقارات_tbl>>(new Map());
     const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
@@ -726,8 +745,15 @@ export const Sales: React.FC = () => {
                {activeTab === 'listings' && (
                    <div className="space-y-6">
                        <div className="flex flex-wrap items-center justify-between gap-3">
-                           <div className="text-xs font-bold text-slate-500 dark:text-slate-400">تصنيف عروض البيع حسب الإيجار</div>
+                           <label
+                               htmlFor="listingMarketingFilter"
+                               className="text-xs font-bold text-slate-500 dark:text-slate-400"
+                           >
+                               تصنيف عروض البيع حسب الإيجار
+                           </label>
                            <select
+                               id="listingMarketingFilter"
+                               aria-label="تصنيف عروض البيع حسب الإيجار"
                                value={listingMarketingFilter}
                                onChange={(e) => {
                                    const next = String(e.target.value || '').trim();
@@ -937,7 +963,7 @@ export const Sales: React.FC = () => {
                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">السعر المطلوب <span className="text-red-500">*</span></label>
                                    <input
                                        type="number"
-                                       className="w-full py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
+                                       className="w-full px-4 py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
                                        required
                                        min={0}
                                        value={newListing.السعر_المطلوب}
@@ -950,7 +976,7 @@ export const Sales: React.FC = () => {
                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">أقل سعر مقبول</label>
                                    <input
                                        type="number"
-                                       className="w-full py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
+                                       className="w-full px-4 py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
                                        min={0}
                                        value={newListing.أقل_سعر_مقبول}
                                        onChange={e => setNewListing({ ...newListing, أقل_سعر_مقبول: Number(normalizeDigitsToLatin(e.target.value)) })}
@@ -961,9 +987,15 @@ export const Sales: React.FC = () => {
                            </div>
 
                            <div>
-                               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">نوع البيع</label>
+                               <label
+                                   htmlFor={formIds.listingSaleType}
+                                   className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1"
+                               >
+                                   نوع البيع
+                               </label>
                                <select
-                                   className="w-full py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
+                                   id={formIds.listingSaleType}
+                                   className="w-full px-4 py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
                                    value={newListing.نوع_البيع}
                                    onChange={e => setNewListing({ ...newListing, نوع_البيع: e.target.value as SalesType })}
                                >
@@ -1015,8 +1047,11 @@ export const Sales: React.FC = () => {
                                    يرجى اختيار العرض المقبول الذي سيتم بناء الاتفاقية عليه. سيتم تعبئة بيانات المشتري والسعر تلقائياً.
                                </div>
                                <div>
-                                   <label className="block text-sm font-bold mb-1">العرض المقبول</label>
-                                   <select className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600" required
+                                   <label htmlFor={formIds.agreementAcceptedOffer} className="block text-sm font-bold mb-1">العرض المقبول</label>
+                                   <select
+                                       id={formIds.agreementAcceptedOffer}
+                                       className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
+                                       required
                                        value={selectedOfferId} onChange={e => setSelectedOfferId(e.target.value)}>
                                        <option value="">-- اختر العرض --</option>
                                        {getAcceptedOffers().map(o => {
@@ -1042,16 +1077,21 @@ export const Sales: React.FC = () => {
                                <DatePicker value={newAgreement.تاريخ_الاتفاقية} onChange={d => setNewAgreement({...newAgreement, تاريخ_الاتفاقية: d})} />
                            </div>
                            <div>
-                               <label className="block text-sm font-bold mb-1">إجمالي العمولة</label>
-                               <input type="number" className="w-full p-2 border rounded-lg text-sm bg-gray-100 dark:bg-slate-800 border-gray-300 dark:border-slate-600" readOnly
+                               <label htmlFor={formIds.agreementTotalCommission} className="block text-sm font-bold mb-1">إجمالي العمولة</label>
+                               <input
+                                   id={formIds.agreementTotalCommission}
+                                   type="number"
+                                   className="w-full p-2 border rounded-lg text-sm bg-gray-100 dark:bg-slate-800 border-gray-300 dark:border-slate-600"
+                                   readOnly
                                    value={newAgreement.العمولة_الإجمالية} />
                            </div>
                        </div>
 
                        <div className="grid grid-cols-2 gap-4">
                            <div>
-                               <label className="block text-sm font-bold mb-1">رقم الفرصة</label>
+                               <label htmlFor={formIds.agreementOpportunityNumber} className="block text-sm font-bold mb-1">رقم الفرصة</label>
                                <input
+                                   id={formIds.agreementOpportunityNumber}
                                    type="text"
                                    dir="ltr"
                                    inputMode="numeric"
@@ -1078,8 +1118,12 @@ export const Sales: React.FC = () => {
 
                        <div className="grid grid-cols-2 gap-4">
                            <div>
-                               <label className="block text-sm font-bold mb-1">الدفعة الأولى / العربون</label>
-                               <input type="number" className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600" required
+                               <label htmlFor={formIds.agreementDownPayment} className="block text-sm font-bold mb-1">الدفعة الأولى / العربون</label>
+                               <input
+                                   id={formIds.agreementDownPayment}
+                                   type="number"
+                                   className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
+                                   required
                                    value={newAgreement.قيمة_الدفعة_الاولى ?? ''}
                                    onChange={e => {
                                        const raw = e.target.value;
@@ -1090,8 +1134,10 @@ export const Sales: React.FC = () => {
                                    }} />
                            </div>
                            <div>
-                               <label className="block text-sm font-bold mb-1">طريقة الدفع</label>
-                               <select className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600" 
+                               <label htmlFor={formIds.agreementPaymentMethod} className="block text-sm font-bold mb-1">طريقة الدفع</label>
+                               <select
+                                   id={formIds.agreementPaymentMethod}
+                                   className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600" 
                                    value={newAgreement.طريقة_الدفع} onChange={e => setNewAgreement({...newAgreement, طريقة_الدفع: e.target.value as SalesType})}>
                                    <option value="Cash">كاش كامل</option>
                                    <option value="Installment">أقساط</option>
@@ -1106,18 +1152,27 @@ export const Sales: React.FC = () => {
                            </h4>
                            <div className="grid grid-cols-2 gap-3">
                                <div>
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">من البائع</label>
-                                   <input type="number" className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
+                                              <label htmlFor={formIds.agreementCommissionSeller} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">من البائع</label>
+                                              <input
+                                                  id={formIds.agreementCommissionSeller}
+                                                  type="number"
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
                                       value={salesCommissions.seller} onChange={e => setSalesCommissions({...salesCommissions, seller: Number(e.target.value)})} />
                                </div>
                                <div>
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">من المشتري</label>
-                                   <input type="number" className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
+                                              <label htmlFor={formIds.agreementCommissionBuyer} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">من المشتري</label>
+                                              <input
+                                                  id={formIds.agreementCommissionBuyer}
+                                                  type="number"
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
                                       value={salesCommissions.buyer} onChange={e => setSalesCommissions({...salesCommissions, buyer: Number(e.target.value)})} />
                                </div>
                                <div className="col-span-2">
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">وسيط خارجي (إن وجد)</label>
-                                   <input type="number" className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
+                                              <label htmlFor={formIds.agreementCommissionExternal} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">وسيط خارجي (إن وجد)</label>
+                                              <input
+                                                  id={formIds.agreementCommissionExternal}
+                                                  type="number"
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
                                       value={salesCommissions.external} onChange={e => setSalesCommissions({...salesCommissions, external: Number(e.target.value)})} />
                                </div>
                            </div>
@@ -1176,43 +1231,61 @@ export const Sales: React.FC = () => {
                            </h4>
                            <div className="grid grid-cols-2 gap-3">
                                <div>
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">رسوم التنازل</label>
-                                   <input type="number" className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
+                                              <label htmlFor={formIds.agreementExpenseFee} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">رسوم التنازل</label>
+                                              <input
+                                                  id={formIds.agreementExpenseFee}
+                                                  type="number"
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
                                       value={saleExpenses.رسوم_التنازل}
                                       onChange={e => setSaleExpenses({ ...saleExpenses, رسوم_التنازل: Number(e.target.value) })}
                                    />
                                </div>
                                <div>
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">ضريبة الأبنية</label>
-                                   <input type="number" className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
+                                              <label htmlFor={formIds.agreementExpenseBuildingTax} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">ضريبة الأبنية</label>
+                                              <input
+                                                  id={formIds.agreementExpenseBuildingTax}
+                                                  type="number"
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
                                       value={saleExpenses.ضريبة_الابنية}
                                       onChange={e => setSaleExpenses({ ...saleExpenses, ضريبة_الابنية: Number(e.target.value) })}
                                    />
                                </div>
                                <div>
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">نقل اشتراك الكهرباء</label>
-                                   <input type="number" className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
+                                              <label htmlFor={formIds.agreementExpenseElectricity} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">نقل اشتراك الكهرباء</label>
+                                              <input
+                                                  id={formIds.agreementExpenseElectricity}
+                                                  type="number"
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
                                       value={saleExpenses.نقل_اشتراك_الكهرباء}
                                       onChange={e => setSaleExpenses({ ...saleExpenses, نقل_اشتراك_الكهرباء: Number(e.target.value) })}
                                    />
                                </div>
                                <div>
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">نقل اشتراك المياه</label>
-                                   <input type="number" className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
+                                              <label htmlFor={formIds.agreementExpenseWater} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">نقل اشتراك المياه</label>
+                                              <input
+                                                  id={formIds.agreementExpenseWater}
+                                                  type="number"
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
                                       value={saleExpenses.نقل_اشتراك_المياه}
                                       onChange={e => setSaleExpenses({ ...saleExpenses, نقل_اشتراك_المياه: Number(e.target.value) })}
                                    />
                                </div>
                                <div className="col-span-2">
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">قيمة التأمينات (إن لم يتنازل عنها البائع)</label>
-                                   <input type="number" className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
+                                              <label htmlFor={formIds.agreementExpenseDeposits} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">قيمة التأمينات (إن لم يتنازل عنها البائع)</label>
+                                              <input
+                                                  id={formIds.agreementExpenseDeposits}
+                                                  type="number"
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
                                       value={saleExpenses.قيمة_التأمينات}
                                       onChange={e => setSaleExpenses({ ...saleExpenses, قيمة_التأمينات: Number(e.target.value) })}
                                    />
                                </div>
                                <div className="col-span-2">
-                                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">ملاحظات</label>
-                                   <textarea className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" rows={2}
+                                              <label htmlFor={formIds.agreementExpenseNotes} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">ملاحظات</label>
+                                              <textarea
+                                                  id={formIds.agreementExpenseNotes}
+                                                  className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
+                                                  rows={2}
                                       value={saleExpenses.ملاحظات}
                                       onChange={e => setSaleExpenses({ ...saleExpenses, ملاحظات: e.target.value })}
                                    />

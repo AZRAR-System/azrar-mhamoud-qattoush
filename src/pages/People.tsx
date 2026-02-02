@@ -80,6 +80,7 @@ export const People: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeRoleTab, setActiveRoleTab] = useState<string>('all');
   const [showOnlyIdleOwners, setShowOnlyIdleOwners] = useState(false);
+    const [sortMode, setSortMode] = useState<'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc'>('name-asc');
 
     const [uiPage, setUiPage] = useState(0);
   
@@ -122,6 +123,7 @@ export const People: React.FC = () => {
         searchTerm,
         activeRoleTab,
         showOnlyIdleOwners,
+        sortMode,
         showAdvanced,
         advFilters,
         desktopPage,
@@ -131,6 +133,7 @@ export const People: React.FC = () => {
         searchTerm,
         activeRoleTab,
         showOnlyIdleOwners,
+        sortMode,
         showAdvanced,
         advFilters,
         desktopPage,
@@ -141,6 +144,7 @@ export const People: React.FC = () => {
               searchTerm: qSearchTerm,
               activeRoleTab: qActiveRoleTab,
               showOnlyIdleOwners: qShowOnlyIdleOwners,
+              sortMode: qSortMode,
               showAdvanced: qShowAdvanced,
               advFilters: qAdvFilters,
               desktopPage: qDesktopPage,
@@ -164,6 +168,7 @@ export const People: React.FC = () => {
                       query: String(qSearchTerm || ''),
                       role: String(qActiveRoleTab || ''),
                       onlyIdleOwners: qActiveRoleTab === 'مالك' ? qShowOnlyIdleOwners : false,
+                      sort: qSortMode,
                       address: qShowAdvanced ? String(qAdvFilters.address || '') : '',
                       nationalId: qShowAdvanced ? String(qAdvFilters.nationalId || '') : '',
                       classification: qShowAdvanced ? String(qAdvFilters.classification || '') : 'All',
@@ -364,6 +369,7 @@ export const People: React.FC = () => {
                   query: String(searchTerm || ''),
                   role: String(activeRoleTab || ''),
                   onlyIdleOwners: activeRoleTab === 'مالك' ? showOnlyIdleOwners : false,
+                  sort: sortMode,
                   address: showAdvanced ? String(advFilters.address || '') : '',
                   nationalId: showAdvanced ? String(advFilters.nationalId || '') : '',
                   classification: showAdvanced ? String(advFilters.classification || '') : 'All',
@@ -627,8 +633,27 @@ export const People: React.FC = () => {
           result = SearchEngine.applyFilters(result, rules);
       }
 
-      return result;
-  }, [people, searchTerm, activeRoleTab, showOnlyIdleOwners, properties, showAdvanced, advFilters]);
+      // 4. Sorting
+      const sorted = [...result];
+      const nameKey = (p: الأشخاص_tbl) => String(p.الاسم || '').trim();
+      const idKey = (p: الأشخاص_tbl) => String(p.رقم_الشخص || '').trim();
+      const updatedKey = (p: الأشخاص_tbl) => {
+          const anyP = p as unknown as Record<string, unknown>;
+          return String(anyP['updatedAt'] ?? anyP['تاريخ_التعديل'] ?? '').trim();
+      };
+      if (sortMode === 'updated-asc') {
+          sorted.sort((a, b) => updatedKey(a).localeCompare(updatedKey(b)) || idKey(a).localeCompare(idKey(b)));
+      } else if (sortMode === 'updated-desc') {
+          sorted.sort((a, b) => updatedKey(b).localeCompare(updatedKey(a)) || idKey(b).localeCompare(idKey(a)));
+      } else if (sortMode === 'name-desc') {
+          sorted.sort((a, b) => nameKey(b).localeCompare(nameKey(a)) || idKey(b).localeCompare(idKey(a)));
+      } else {
+          // name-asc
+          sorted.sort((a, b) => nameKey(a).localeCompare(nameKey(b)) || idKey(a).localeCompare(idKey(b)));
+      }
+
+      return sorted;
+  }, [people, searchTerm, activeRoleTab, showOnlyIdleOwners, properties, showAdvanced, advFilters, sortMode]);
 
         const desktopPageCount = useMemo(() => {
             if (!isDesktopFast) return 1;
@@ -657,7 +682,7 @@ export const People: React.FC = () => {
             }
             return 0;
         });
-    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, isDesktopFast, loadData]);
+    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, sortMode, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, isDesktopFast, loadData]);
 
     useEffect(() => {
         if (!isDesktopFast) return;
@@ -679,7 +704,7 @@ export const People: React.FC = () => {
     useEffect(() => {
         if (isDesktopFast) return;
         setUiPage(0);
-    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, pageSize, isDesktopFast]);
+    }, [searchTerm, activeRoleTab, showOnlyIdleOwners, sortMode, showAdvanced, advFilters.address, advFilters.nationalId, advFilters.classification, advFilters.minRating, pageSize, isDesktopFast]);
 
   const renderCard = (person: الأشخاص_tbl) => {
       const roles = getRoles(person.رقم_الشخص);
@@ -1045,6 +1070,8 @@ export const People: React.FC = () => {
           type="file"
           accept=".xlsx,.xls,.csv"
           className="hidden"
+                    aria-label="استيراد ملف أشخاص (Excel/CSV)"
+                    title="استيراد ملف أشخاص (Excel/CSV)"
           onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = '';
@@ -1069,6 +1096,17 @@ export const People: React.FC = () => {
                       ]}
                       activeId={activeRoleTab}
                       onChange={(id) => setActiveRoleTab(id)}
+                  />
+
+                  <Select
+                      value={sortMode}
+                      onChange={(e) => setSortMode(e.target.value as 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc')}
+                      options={[
+                          { value: 'name-asc', label: 'الاسم: تصاعدي' },
+                          { value: 'name-desc', label: 'الاسم: تنازلي' },
+                          { value: 'updated-desc', label: 'الأحدث' },
+                          { value: 'updated-asc', label: 'الأقدم' },
+                      ]}
                   />
 
                   <Button

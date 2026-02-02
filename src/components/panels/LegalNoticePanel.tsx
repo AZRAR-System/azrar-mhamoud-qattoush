@@ -72,9 +72,15 @@ export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
         </h2>
         
         <div>
-          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">اختر نوع الإخطار</label>
+          <label
+            htmlFor="legal-notice-template"
+            className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2"
+          >
+            اختر نوع الإخطار
+          </label>
           <div className="relative">
-            <select 
+            <select
+              id="legal-notice-template"
               className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-xl p-3 appearance-none outline-none focus:ring-2 focus:ring-indigo-500"
               value={selectedTemplateId}
               onChange={(e) => handleTemplateChange(e.target.value)}

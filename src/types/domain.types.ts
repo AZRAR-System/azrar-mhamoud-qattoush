@@ -24,6 +24,7 @@ export type PropertyPickerSearchPayload = {
   query: string;
   status?: string;
   type?: string;
+  furnishing?: string;
   forceVacant?: boolean;
   occupancy?: PropertyPickerOccupancy;
   sale?: PropertyPickerSale;
@@ -34,6 +35,7 @@ export type PropertyPickerSearchPayload = {
   minPrice?: string;
   maxPrice?: string;
   contractLink?: PropertyPickerContractLink;
+  sort?: string;
   offset?: number;
   limit?: number;
 };
@@ -46,6 +48,23 @@ export type PropertyPickerItem = {
   active?: العقود_tbl;
 };
 
+export type ContractPickerTab = 'active' | 'expiring' | 'expired' | 'terminated' | 'archived' | 'all' | '';
+
+export type ContractPickerSearchPayload = {
+  query: string;
+  tab?: ContractPickerTab | string;
+  createdMonth?: string;
+  startDateFrom?: string;
+  startDateTo?: string;
+  endDateFrom?: string;
+  endDateTo?: string;
+  minValue?: number | string;
+  maxValue?: number | string;
+  sort?: string;
+  offset?: number;
+  limit?: number;
+};
+
 export type ContractPickerItem = {
   contract: العقود_tbl;
   propertyCode?: string;
@@ -54,6 +73,19 @@ export type ContractPickerItem = {
   ownerNationalId?: string;
   tenantNationalId?: string;
   remainingAmount?: number;
+};
+
+export type PeoplePickerSearchPayload = {
+  query: string;
+  role?: string;
+  onlyIdleOwners?: boolean;
+  address?: string;
+  nationalId?: string;
+  classification?: string;
+  minRating?: number;
+  sort?: string;
+  offset?: number;
+  limit?: number;
 };
 
 export type PeoplePickerLink = {

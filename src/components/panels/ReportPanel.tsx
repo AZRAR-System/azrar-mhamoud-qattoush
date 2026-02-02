@@ -244,7 +244,12 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
                </>
              )}
 
-             <button className="px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-xl text-slate-500 hover:bg-gray-50 dark:hover:bg-slate-800">
+             <button
+               type="button"
+               className="px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-xl text-slate-500 hover:bg-gray-50 dark:hover:bg-slate-800"
+               aria-label="خيارات التصفية"
+               title="خيارات التصفية"
+             >
                  <Filter size={18} />
              </button>
          </div>

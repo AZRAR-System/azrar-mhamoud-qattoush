@@ -43,6 +43,20 @@ jobs:
       run: npm test
       continue-on-error: true
 
+    - name: Desktop E2E (autorun)
+      run: npm run desktop:e2e
+      env:
+        DESKTOP_DEV_TESTS_TIMEOUT_MS: '180000'
+        DESKTOP_DEV_TESTS_LOG_PATH: 'tmp/desktop-dev-tests-ci.log'
+
+    - name: Upload Desktop E2E Log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: desktop-e2e-log
+        path: tmp/desktop-dev-tests-ci.log
+        retention-days: 14
+
     - name: Upload coverage
       uses: codecov/codecov-action@v3
       with:

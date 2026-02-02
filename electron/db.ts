@@ -947,6 +947,7 @@ export function domainPropertyPickerSearch(payload: {
   query?: string;
   status?: string;
   type?: string;
+  furnishing?: string;
   forceVacant?: boolean;
   occupancy?: 'all' | 'rented' | 'vacant';
   sale?: 'for-sale' | 'not-for-sale' | '';
@@ -957,6 +958,7 @@ export function domainPropertyPickerSearch(payload: {
   minPrice?: string;
   maxPrice?: string;
   contractLink?: '' | 'linked' | 'unlinked' | 'all';
+  sort?: string;
   offset?: number;
   limit?: number;
 }): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
@@ -966,10 +968,13 @@ export function domainPropertyPickerSearch(payload: {
   if (!ready.ok) return { ok: false, message: ready.message };
 
   const q = String(payload?.query || '').trim();
-  const qLower = q.toLowerCase();
+  const qText = normalizeSearchText(q);
+  const qDigits = normalizeDigitsLoose(q);
   const status = String(payload?.status || '').trim();
   const type = String(payload?.type || '').trim();
+  const furnishing = String(payload?.furnishing || '').trim();
   const forceVacant = !!payload?.forceVacant;
+  const sort = String(payload?.sort || '').trim();
   const occupancyRaw = String(payload?.occupancy || '').trim();
   const occupancy: 'rented' | 'vacant' | 'all' =
     occupancyRaw === 'rented' || occupancyRaw === 'vacant' || occupancyRaw === 'all' ? occupancyRaw : 'all';
@@ -1000,24 +1005,60 @@ export function domainPropertyPickerSearch(payload: {
 
   const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
   const cap = Math.max(1, Math.min(500, Math.trunc(Number(payload?.limit) || 200)));
-  const like = `%${qLower}%`;
+  const likeText = `%${qText}%`;
+  const likeDigits = qDigits ? `%${qDigits}%` : '';
   const today = toIsoDateOnly(new Date());
 
   try {
+    const contractStatusExpr = (alias: string) => sqlNormalizeArabicTextLower(`TRIM(COALESCE(${alias}.status, ''))`);
+    const contractIsTerminatedSql = (alias: string) => {
+      const s = contractStatusExpr(alias);
+      return `(${s} LIKE 'مفسوخ%' OR ${s} LIKE 'ملغ%' OR ${s} LIKE '%الغاء%')`;
+    };
+    const contractIsExpiredSql = (alias: string) => {
+      const s = contractStatusExpr(alias);
+      return `(${s} LIKE 'منتهي%')`;
+    };
+
     const whereParts: string[] = [];
     const args: unknown[] = [];
 
     if (q) {
-      whereParts.push('(lower(COALESCE(pr.internalCode,\'\')) LIKE ? OR lower(COALESCE(pr.address,\'\')) LIKE ? OR lower(COALESCE(owner.name,\'\')) LIKE ?)');
-      args.push(like, like, like);
+      const orParts: string[] = [];
+      orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(pr.internalCode,'')")} LIKE ?`);
+      orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(pr.address,'')")} LIKE ?`);
+      orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(owner.name,'')")} LIKE ?`);
+      args.push(likeText, likeText, likeText);
+
+      if (qDigits) {
+        orParts.push(`${sqlNormalizeDigits("COALESCE(owner.phone,'')")} LIKE ?`);
+        orParts.push(`${sqlNormalizeDigits("COALESCE(owner.nationalId,'')")} LIKE ?`);
+        args.push(likeDigits, likeDigits);
+      }
+
+      whereParts.push(`(${orParts.join(' OR ')})`);
     }
     if (status) {
-      whereParts.push('COALESCE(pr.status,\'\') = ?');
-      args.push(status);
+      // Treat some legacy/UX statuses as occupancy filters rather than exact-string matches.
+      // This keeps "شاغر" and "مؤجر" working even when datasets store other vacancy/rent labels.
+      const statusNorm = normalizeSearchText(status);
+      if (statusNorm === 'شاغر') {
+        whereParts.push('COALESCE(pr.isRented, 0) = 0');
+      } else if (statusNorm === 'مؤجر') {
+        whereParts.push('COALESCE(pr.isRented, 0) = 1');
+      } else {
+        whereParts.push("COALESCE(pr.status,'') = ?");
+        args.push(status);
+      }
     }
     if (type) {
       whereParts.push('COALESCE(pr.type,\'\') = ?');
       args.push(type);
+    }
+
+    if (furnishing) {
+      whereParts.push("COALESCE(JSON_EXTRACT(pr.data, '$.\\\"نوع_التاثيث\\\"'), '') = ?");
+      args.push(furnishing);
     }
 
     if (occupancy === 'rented') {
@@ -1075,11 +1116,12 @@ export function domainPropertyPickerSearch(payload: {
           WHERE c2.propertyId = pr.id
             AND (c2.isArchived IS NULL OR c2.isArchived = 0)
             AND (
-              c2.status IN ('نشط', 'قريب الانتهاء', 'مجدد')
+              c2.status IN ('نشط', 'قريب الانتهاء', 'قريبة الانتهاء', 'مجدد')
               OR (
                 c2.endDate IS NOT NULL
                 AND c2.endDate >= ?
-                AND COALESCE(c2.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
+                AND NOT ${contractIsExpiredSql('c2')}
+                AND NOT ${contractIsTerminatedSql('c2')}
               )
             )
         )`
@@ -1096,11 +1138,12 @@ export function domainPropertyPickerSearch(payload: {
           WHERE c3.propertyId = pr.id
             AND (c3.isArchived IS NULL OR c3.isArchived = 0)
             AND (
-              c3.status IN ('نشط', 'قريب الانتهاء', 'مجدد')
+              c3.status IN ('نشط', 'قريب الانتهاء', 'قريبة الانتهاء', 'مجدد')
               OR (
                 c3.endDate IS NOT NULL
                 AND c3.endDate >= ?
-                AND COALESCE(c3.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
+                AND NOT ${contractIsExpiredSql('c3')}
+                AND NOT ${contractIsTerminatedSql('c3')}
               )
             )
         )`
@@ -1141,11 +1184,12 @@ export function domainPropertyPickerSearch(payload: {
         WHERE c.propertyId = pr.id
           AND (c.isArchived IS NULL OR c.isArchived = 0)
           AND (
-            c.status IN ('نشط', 'قريب الانتهاء', 'مجدد')
+            c.status IN ('نشط', 'قريب الانتهاء', 'قريبة الانتهاء', 'مجدد')
             OR (
               c.endDate IS NOT NULL
               AND c.endDate >= ?
-              AND COALESCE(c.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
+              AND NOT ${contractIsExpiredSql('c')}
+              AND NOT ${contractIsTerminatedSql('c')}
             )
           )
         ORDER BY
@@ -1162,7 +1206,20 @@ export function domainPropertyPickerSearch(payload: {
       LEFT JOIN people t ON t.id = ac.tenantId
       LEFT JOIN people g ON g.id = ac.guarantorId
       ${whereSql}
-      ORDER BY COALESCE(pr.internalCode, '') ASC
+      ORDER BY ${(() => {
+        // NOTE: Keep SQL injection-safe by mapping to fixed ORDER BY clauses.
+        switch (sort) {
+          case 'updated-asc':
+            return 'COALESCE(pr.updatedAt, \'\') ASC, pr.id ASC';
+          case 'updated-desc':
+            return 'COALESCE(pr.updatedAt, \'\') DESC, pr.id DESC';
+          case 'code-desc':
+            return "COALESCE(pr.internalCode, '') DESC";
+          case 'code-asc':
+          default:
+            return "COALESCE(pr.internalCode, '') ASC";
+        }
+      })()}
       LIMIT ? OFFSET ?
     `;
 
@@ -1213,6 +1270,13 @@ export function domainContractPickerSearch(payload: {
   query?: string;
   tab?: string;
   createdMonth?: string;
+  startDateFrom?: string;
+  startDateTo?: string;
+  endDateFrom?: string;
+  endDateTo?: string;
+  minValue?: number | string;
+  maxValue?: number | string;
+  sort?: string;
   offset?: number;
   limit?: number;
 }): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
@@ -1222,17 +1286,31 @@ export function domainContractPickerSearch(payload: {
   if (!ready.ok) return { ok: false, message: ready.message };
 
   const q = String(payload?.query || '').trim();
-  const qLower = q.toLowerCase();
+  const qText = normalizeSearchText(q);
+  const qDigits = normalizeDigitsLoose(q);
   const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
   const cap = Math.max(1, Math.min(500, Math.trunc(Number(payload?.limit) || 200)));
-  const like = `%${qLower}%`;
+  const likeText = `%${qText}%`;
+  const likeDigits = qDigits ? `%${qDigits}%` : '';
 
   const today = toIsoDateOnly(new Date());
   const soon = toIsoDateOnly(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
   const tab = String(payload?.tab || '').trim();
   const createdMonth = String(payload?.createdMonth || '').trim();
+  const sort = String(payload?.sort || '').trim();
+
+  const startDateFrom = String(payload?.startDateFrom || '').trim();
+  const startDateTo = String(payload?.startDateTo || '').trim();
+  const endDateFrom = String(payload?.endDateFrom || '').trim();
+  const endDateTo = String(payload?.endDateTo || '').trim();
+  const minValueNum = Number(payload?.minValue ?? NaN);
+  const maxValueNum = Number(payload?.maxValue ?? NaN);
 
   const tabWhere = () => {
+    const statusExpr = sqlNormalizeArabicTextLower("TRIM(COALESCE(c.status, ''))");
+    const isTerminated = `(${statusExpr} LIKE 'مفسوخ%' OR ${statusExpr} LIKE 'ملغ%' OR ${statusExpr} LIKE '%الغاء%')`;
+    const isExpired = `(${statusExpr} LIKE 'منتهي%')`;
+
     // NOTE: Tabs are in UI hash: active|expiring|expired|terminated|archived.
     // Keep best-effort alignment with existing logic.
     if (tab === 'archived') return { sql: 'COALESCE(CAST(c.isArchived AS INTEGER), 0) = 1', args: [] as unknown[] };
@@ -1245,19 +1323,19 @@ export function domainContractPickerSearch(payload: {
     if (tab === 'active') {
       return {
         // Be tolerant of legacy values (e.g., 'ساري/سارية/Active') and avoid relying on string date comparisons.
-        sql: `${base.sql} AND TRIM(COALESCE(c.status, '')) NOT IN ('منتهي', 'مفسوخ', 'ملغي')`,
+        sql: `${base.sql} AND NOT ${isTerminated} AND NOT ${isExpired}`,
         args: [],
       };
     }
     if (tab === 'expiring') {
       return {
         sql: `${base.sql} AND (
-          TRIM(COALESCE(c.status, '')) = 'قريب الانتهاء'
-          OR TRIM(COALESCE(c.status, '')) = 'قريبة الانتهاء'
+          ${statusExpr} IN ('قريب الانتهاء', 'قريبة الانتهاء')
           OR (
             c.endDate IS NOT NULL AND c.endDate <> ''
             AND c.endDate >= ? AND c.endDate <= ?
-            AND TRIM(COALESCE(c.status, '')) NOT IN ('منتهي', 'مفسوخ', 'ملغي')
+            AND NOT ${isTerminated}
+            AND NOT ${isExpired}
           )
         )`,
         args: [today, soon],
@@ -1266,18 +1344,18 @@ export function domainContractPickerSearch(payload: {
     if (tab === 'expired') {
       return {
         sql: `${base.sql} AND (
-          TRIM(COALESCE(c.status, '')) = 'منتهي'
+          ${isExpired}
           OR (
             c.endDate IS NOT NULL AND c.endDate <> ''
             AND c.endDate < ?
-            AND TRIM(COALESCE(c.status, '')) NOT IN ('مفسوخ', 'ملغي')
+            AND NOT ${isTerminated}
           )
         )`,
         args: [today],
       };
     }
     if (tab === 'terminated') {
-      return { sql: `${base.sql} AND TRIM(COALESCE(c.status, '')) IN ('مفسوخ', 'ملغي')`, args: [] as unknown[] };
+      return { sql: `${base.sql} AND ${isTerminated}`, args: [] as unknown[] };
     }
 
     // all / unknown
@@ -1286,16 +1364,24 @@ export function domainContractPickerSearch(payload: {
 
   try {
     const tabClause = tabWhere();
-    const searchSql = q
-      ? `(
-          lower(COALESCE(c.id, '')) LIKE ?
-          OR lower(COALESCE(pr.internalCode, '')) LIKE ?
-          OR lower(COALESCE(owner.name, '')) LIKE ?
-          OR lower(COALESCE(tenant.name, '')) LIKE ?
-          OR lower(COALESCE(owner.nationalId, '')) LIKE ?
-          OR lower(COALESCE(tenant.nationalId, '')) LIKE ?
-        )`
-      : '';
+    const searchSql = (() => {
+      if (!q) return '';
+
+      const orParts: string[] = [];
+      orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(c.id, '')")} LIKE ?`);
+      orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(pr.internalCode, '')")} LIKE ?`);
+      orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(owner.name, '')")} LIKE ?`);
+      orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(tenant.name, '')")} LIKE ?`);
+
+      if (qDigits) {
+        orParts.push(`${sqlNormalizeDigits("COALESCE(owner.nationalId, '')")} LIKE ?`);
+        orParts.push(`${sqlNormalizeDigits("COALESCE(tenant.nationalId, '')")} LIKE ?`);
+        orParts.push(`${sqlNormalizeDigits("COALESCE(owner.phone, '')")} LIKE ?`);
+        orParts.push(`${sqlNormalizeDigits("COALESCE(tenant.phone, '')")} LIKE ?`);
+      }
+
+      return `(${orParts.join(' OR ')})`;
+    })();
 
     const whereParts: string[] = [];
     const whereArgs: unknown[] = [];
@@ -1305,7 +1391,8 @@ export function domainContractPickerSearch(payload: {
     }
     if (searchSql) {
       whereParts.push(searchSql);
-      whereArgs.push(like, like, like, like, like, like);
+      whereArgs.push(likeText, likeText, likeText, likeText);
+      if (qDigits) whereArgs.push(likeDigits, likeDigits, likeDigits, likeDigits);
     }
 
     if (/^\d{4}-\d{2}$/.test(createdMonth)) {
@@ -1314,6 +1401,35 @@ export function domainContractPickerSearch(payload: {
         "SUBSTR(COALESCE(NULLIF(JSON_EXTRACT(c.data, '$.تاريخ_الانشاء'), ''), COALESCE(c.startDate, ''), ''), 1, 7) = ?"
       );
       whereArgs.push(createdMonth);
+    }
+
+    // Advanced date range filters (YYYY-MM-DD). String compare is safe for ISO date-only.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(startDateFrom)) {
+      whereParts.push("COALESCE(NULLIF(c.startDate, ''), '0000-00-00') >= ?");
+      whereArgs.push(startDateFrom);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(startDateTo)) {
+      whereParts.push("COALESCE(NULLIF(c.startDate, ''), '0000-00-00') <= ?");
+      whereArgs.push(startDateTo);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(endDateFrom)) {
+      whereParts.push("COALESCE(NULLIF(c.endDate, ''), '0000-00-00') >= ?");
+      whereArgs.push(endDateFrom);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(endDateTo)) {
+      whereParts.push("COALESCE(NULLIF(c.endDate, ''), '9999-12-31') <= ?");
+      whereArgs.push(endDateTo);
+    }
+
+    // Advanced value range filters (annual value in contract JSON)
+    const annualValueExpr = "CAST(COALESCE(NULLIF(JSON_EXTRACT(c.data, '$.القيمة_السنوية'), ''), 0) AS REAL)";
+    if (Number.isFinite(minValueNum) && minValueNum > 0) {
+      whereParts.push(`${annualValueExpr} >= ?`);
+      whereArgs.push(minValueNum);
+    }
+    if (Number.isFinite(maxValueNum) && maxValueNum > 0) {
+      whereParts.push(`${annualValueExpr} <= ?`);
+      whereArgs.push(maxValueNum);
     }
     const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
 
@@ -1356,7 +1472,21 @@ export function domainContractPickerSearch(payload: {
           GROUP BY i.contractId
         ) inst ON inst.contractId = c.id
         ${whereSql}
-        ORDER BY COALESCE(c.endDate, '') DESC, c.id DESC
+        ORDER BY ${(() => {
+          // NOTE: Keep SQL injection-safe by mapping to fixed ORDER BY clauses.
+          const createdExpr = "COALESCE(NULLIF(JSON_EXTRACT(c.data, '$.تاريخ_الانشاء'), ''), COALESCE(c.startDate, ''), '')";
+          switch (sort) {
+            case 'created-asc':
+              return `${createdExpr} ASC, c.id ASC`;
+            case 'end-asc':
+              return "COALESCE(c.endDate, '') ASC, c.id ASC";
+            case 'end-desc':
+              return "COALESCE(c.endDate, '') DESC, c.id DESC";
+            case 'created-desc':
+            default:
+              return `${createdExpr} DESC, c.id DESC`;
+          }
+        })()}
         LIMIT ? OFFSET ?
       `
       )
@@ -1400,6 +1530,7 @@ export function domainPeoplePickerSearch(payload: {
   nationalId?: string;
   classification?: string;
   minRating?: number;
+  sort?: string;
   offset?: number;
   limit?: number;
 }): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
@@ -1409,39 +1540,61 @@ export function domainPeoplePickerSearch(payload: {
   if (!ready.ok) return { ok: false, message: ready.message };
 
   const q = String(payload?.query || '').trim();
-  const qLower = q.toLowerCase();
+  const qText = normalizeSearchText(q);
+  const qDigits = normalizeDigitsLoose(q);
   const role = String(payload?.role || '').trim();
   const onlyIdleOwners = !!payload?.onlyIdleOwners;
   const address = String(payload?.address || '').trim();
-  const addressLower = address.toLowerCase();
+  const addressText = normalizeSearchText(address);
   const nationalIdFilter = String(payload?.nationalId || '').trim();
+  const nationalIdDigits = normalizeDigitsLoose(nationalIdFilter);
   const classification = String(payload?.classification || '').trim();
   const minRating = Number(payload?.minRating ?? 0) || 0;
+  const sort = String(payload?.sort || '').trim();
   const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
   const cap = Math.max(1, Math.min(200, Math.trunc(Number(payload?.limit) || 48)));
-  const like = `%${qLower}%`;
-  const addressLike = `%${addressLower}%`;
-  const nidLike = `%${nationalIdFilter}%`;
+  const likeText = `%${qText}%`;
+  const likeDigits = qDigits ? `%${qDigits}%` : '';
+  const addressLike = `%${addressText}%`;
+  const nidLike = nationalIdDigits ? `%${nationalIdDigits}%` : '';
   const today = toIsoDateOnly(new Date());
 
   try {
+    const contractStatusExpr = (alias: string) => sqlNormalizeArabicTextLower(`TRIM(COALESCE(${alias}.status, ''))`);
+    const contractIsTerminatedSql = (alias: string) => {
+      const s = contractStatusExpr(alias);
+      return `(${s} LIKE 'مفسوخ%' OR ${s} LIKE 'ملغ%' OR ${s} LIKE '%الغاء%')`;
+    };
+    const contractIsExpiredSql = (alias: string) => {
+      const s = contractStatusExpr(alias);
+      return `(${s} LIKE 'منتهي%')`;
+    };
+
     const whereParts: string[] = [];
     const args: unknown[] = [];
 
     if (q) {
-      whereParts.push(
-        "(lower(COALESCE(pe.name,'')) LIKE ? OR COALESCE(pe.phone,'') LIKE ? OR COALESCE(pe.nationalId,'') LIKE ? OR COALESCE(JSON_EXTRACT(pe.data, '$.رقم_هاتف_اضافي'), '') LIKE ?)"
-      );
-      args.push(like, q, q, q);
+      const orParts: string[] = [];
+      orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(pe.name,'')")} LIKE ?`);
+      args.push(likeText);
+
+      if (qDigits) {
+        orParts.push(`${sqlNormalizeDigits("COALESCE(pe.phone,'')")} LIKE ?`);
+        orParts.push(`${sqlNormalizeDigits("COALESCE(pe.nationalId,'')")} LIKE ?`);
+        orParts.push(`${sqlNormalizeDigits("COALESCE(JSON_EXTRACT(pe.data, '$.رقم_هاتف_اضافي'), '')")} LIKE ?`);
+        args.push(likeDigits, likeDigits, likeDigits);
+      }
+
+      whereParts.push(`(${orParts.join(' OR ')})`);
     }
 
-    if (addressLower) {
-      whereParts.push("lower(COALESCE(JSON_EXTRACT(pe.data, '$.العنوان'), '')) LIKE ?");
+    if (addressText) {
+      whereParts.push(`${sqlNormalizeArabicTextLower("COALESCE(JSON_EXTRACT(pe.data, '$.العنوان'), '')")} LIKE ?`);
       args.push(addressLike);
     }
 
-    if (nationalIdFilter) {
-      whereParts.push("COALESCE(pe.nationalId,'') LIKE ?");
+    if (nationalIdDigits) {
+      whereParts.push(`${sqlNormalizeDigits("COALESCE(pe.nationalId,'')")} LIKE ?`);
       args.push(nidLike);
     }
 
@@ -1467,7 +1620,15 @@ export function domainPeoplePickerSearch(payload: {
     if (onlyIdleOwners && role === 'مالك') {
       // Owners whose properties are all vacant (no rented property).
       whereParts.push(
-        "NOT EXISTS (SELECT 1 FROM properties pr WHERE pr.ownerId = pe.id AND (COALESCE(pr.isRented,0) = 1 OR COALESCE(pr.status,'') = 'مؤجر'))"
+        `NOT EXISTS (
+          SELECT 1
+          FROM properties pr
+          WHERE pr.ownerId = pe.id
+            AND (
+              COALESCE(pr.isRented,0) = 1
+              OR ${sqlNormalizeArabicTextLower("TRIM(COALESCE(pr.status,''))")} LIKE 'مؤجر%'
+            )
+        )`
       );
     }
 
@@ -1483,6 +1644,7 @@ export function domainPeoplePickerSearch(payload: {
           pe.name AS personName,
           pe.phone AS personPhone,
           pe.nationalId AS personNationalId,
+          pe.updatedAt AS personUpdatedAt,
           (SELECT GROUP_CONCAT(role, ' | ') FROM person_roles pr WHERE pr.personId = pe.id) AS rolesCsv,
           EXISTS (SELECT 1 FROM blacklist bl WHERE bl.personId = pe.id AND COALESCE(bl.isActive, 1) = 1) AS isBlacklisted,
           (
@@ -1491,11 +1653,12 @@ export function domainPeoplePickerSearch(payload: {
             WHERE c.tenantId = pe.id
               AND (c.isArchived IS NULL OR c.isArchived = 0)
               AND (
-                c.status IN ('نشط', 'قريب الانتهاء', 'مجدد')
+                c.status IN ('نشط', 'قريب الانتهاء', 'قريبة الانتهاء', 'مجدد')
                 OR (
                   c.endDate IS NOT NULL
                   AND c.endDate >= ?
-                  AND COALESCE(c.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
+                  AND NOT ${contractIsExpiredSql('c')}
+                  AND NOT ${contractIsTerminatedSql('c')}
                 )
               )
             ORDER BY COALESCE(c.startDate, '') DESC, c.id DESC
@@ -1507,11 +1670,12 @@ export function domainPeoplePickerSearch(payload: {
             WHERE c.guarantorId = pe.id
               AND (c.isArchived IS NULL OR c.isArchived = 0)
               AND (
-                c.status IN ('نشط', 'قريب الانتهاء', 'مجدد')
+                c.status IN ('نشط', 'قريب الانتهاء', 'قريبة الانتهاء', 'مجدد')
                 OR (
                   c.endDate IS NOT NULL
                   AND c.endDate >= ?
-                  AND COALESCE(c.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
+                  AND NOT ${contractIsExpiredSql('c')}
+                  AND NOT ${contractIsTerminatedSql('c')}
                 )
               )
             ORDER BY COALESCE(c.startDate, '') DESC, c.id DESC
@@ -1523,11 +1687,12 @@ export function domainPeoplePickerSearch(payload: {
             WHERE c.propertyId IN (SELECT pr2.id FROM properties pr2 WHERE pr2.ownerId = pe.id)
               AND (c.isArchived IS NULL OR c.isArchived = 0)
               AND (
-                c.status IN ('نشط', 'قريب الانتهاء', 'مجدد')
+                c.status IN ('نشط', 'قريب الانتهاء', 'قريبة الانتهاء', 'مجدد')
                 OR (
                   c.endDate IS NOT NULL
                   AND c.endDate >= ?
-                  AND COALESCE(c.status, '') NOT IN ('منتهي', 'مفسوخ', 'ملغي')
+                  AND NOT ${contractIsExpiredSql('c')}
+                  AND NOT ${contractIsTerminatedSql('c')}
                 )
               )
             ORDER BY COALESCE(c.startDate, '') DESC, c.id DESC
@@ -1556,7 +1721,21 @@ export function domainPeoplePickerSearch(payload: {
       LEFT JOIN properties pr ON pr.id = c.propertyId
       LEFT JOIN people t ON t.id = c.tenantId
       LEFT JOIN people g ON g.id = c.guarantorId
-      ORDER BY COALESCE(JSON_EXTRACT(b.personData, '$.الاسم'), b.personName, '') ASC
+      ORDER BY ${(() => {
+        // NOTE: Keep SQL injection-safe by mapping to fixed ORDER BY clauses.
+        const nameExpr = "COALESCE(JSON_EXTRACT(b.personData, '$.الاسم'), b.personName, '')";
+        switch (sort) {
+          case 'updated-asc':
+            return "COALESCE(b.personUpdatedAt, '') ASC, b.personId ASC";
+          case 'updated-desc':
+            return "COALESCE(b.personUpdatedAt, '') DESC, b.personId DESC";
+          case 'name-desc':
+            return `${nameExpr} DESC`;
+          case 'name-asc':
+          default:
+            return `${nameExpr} ASC`;
+        }
+      })()}
       LIMIT ? OFFSET ?
     `;
 
@@ -1605,6 +1784,7 @@ export function domainPeoplePickerSearch(payload: {
 export function domainInstallmentsContractsSearch(payload: {
   query?: string;
   filter?: 'all' | 'debt' | 'paid' | 'due' | string;
+  sort?: string;
   offset?: number;
   limit?: number;
 }): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
@@ -1616,6 +1796,7 @@ export function domainInstallmentsContractsSearch(payload: {
   const q = String(payload?.query || '').trim();
   const qLower = q.toLowerCase();
   const filter = String(payload?.filter || 'all').trim() as 'all' | 'debt' | 'paid' | 'due' | string;
+  const sort = String(payload?.sort || 'due-asc').trim();
   const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
   const cap = Math.max(1, Math.min(100, Math.trunc(Number(payload?.limit) || 20)));
 
@@ -1693,6 +1874,17 @@ export function domainInstallmentsContractsSearch(payload: {
       )
     )`;
 
+    const nextDueDateExpr = `(
+      SELECT MIN(i.dueDate)
+      FROM installments i
+      WHERE i.contractId = c.id
+        AND (i.isArchived IS NULL OR i.isArchived = 0)
+        AND COALESCE(i.type,'') <> 'تأمين'
+        AND COALESCE(i.status,'') <> 'ملغي'
+        AND COALESCE(i.remaining,0) > 0
+        AND i.dueDate IS NOT NULL
+    )`;
+
     const filterWhereParts: string[] = [];
     const filterArgs: unknown[] = [];
     if (filter === 'debt') {
@@ -1713,7 +1905,8 @@ export function domainInstallmentsContractsSearch(payload: {
           p.data AS propertyData,
           ${debtExpr} AS hasDebt,
           ${dueSoonExpr} AS hasDueSoon,
-          ${fullyPaidExpr} AS isFullyPaid
+          ${fullyPaidExpr} AS isFullyPaid,
+          ${nextDueDateExpr} AS nextDueDate
         FROM contracts c
         LEFT JOIN people t ON t.id = c.tenantId
         LEFT JOIN properties p ON p.id = c.propertyId
@@ -1726,7 +1919,22 @@ export function domainInstallmentsContractsSearch(payload: {
       SELECT *
       FROM base
       ${filterWhereSql}
-      ORDER BY lower(COALESCE(JSON_EXTRACT(tenantData, '$.الاسم'), '')) ASC, contractId ASC
+      ORDER BY ${(() => {
+        // NOTE: Keep SQL injection-safe by mapping to fixed ORDER BY clauses.
+        const tenantNameExpr = "lower(COALESCE(JSON_EXTRACT(tenantData, '$.الاسم'), ''))";
+        const nullsLast = "CASE WHEN nextDueDate IS NULL OR TRIM(COALESCE(nextDueDate,'')) = '' THEN 1 ELSE 0 END";
+        switch (sort) {
+          case 'due-asc':
+            return `${nullsLast} ASC, COALESCE(nextDueDate,'') ASC, contractId ASC`;
+          case 'due-desc':
+            return `${nullsLast} ASC, COALESCE(nextDueDate,'') DESC, contractId DESC`;
+          case 'tenant-desc':
+            return `${tenantNameExpr} DESC, contractId DESC`;
+          case 'tenant-asc':
+          default:
+            return `${tenantNameExpr} ASC, contractId ASC`;
+        }
+      })()}
       LIMIT ? OFFSET ?;
     `;
 
@@ -2419,6 +2627,138 @@ function toIsoDateOnly(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function normalizeDigitsToLatin(input: string): string {
+  const map: Record<string, string> = {
+    '٠': '0',
+    '١': '1',
+    '٢': '2',
+    '٣': '3',
+    '٤': '4',
+    '٥': '5',
+    '٦': '6',
+    '٧': '7',
+    '٨': '8',
+    '٩': '9',
+    '۰': '0',
+    '۱': '1',
+    '۲': '2',
+    '۳': '3',
+    '۴': '4',
+    '۵': '5',
+    '۶': '6',
+    '۷': '7',
+    '۸': '8',
+    '۹': '9',
+    '٫': '.',
+    '٬': ',',
+  };
+
+  return String(input || '').replace(/[٠-٩۰-۹٫٬]/g, (ch) => map[ch] ?? ch);
+}
+
+type SearchNormalizeMode = 'strict' | 'lenient';
+
+function normalizeArabicLetters(input: string, mode: SearchNormalizeMode = 'strict'): string {
+  const base = String(input || '')
+    .replace(/[آأإ]/g, 'ا')
+    .replace(/ٱ/g, 'ا')
+    .replace(/ى/g, 'ي');
+
+  if (mode === 'strict') return base;
+  return base.replace(/ئ/g, 'ي').replace(/ؤ/g, 'و').replace(/ة/g, 'ه').replace(/ء/g, '');
+}
+
+function normalizeSearchText(input: unknown, mode: SearchNormalizeMode = 'strict'): string {
+  const s = normalizeDigitsToLatin(String(input ?? ''));
+  return normalizeArabicLetters(s, mode)
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/\u0640/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeDigitsLoose(input: unknown): string {
+  const s = normalizeDigitsToLatin(String(input ?? ''));
+  return s.replace(/\D+/g, '').trim();
+}
+
+function sqlNormalizeDigits(expr: string): string {
+  // Best-effort digit matching: normalize Arabic/Persian digits + remove common separators.
+  // IMPORTANT: expr must be a trusted SQL expression (not user input).
+  let e = expr;
+  const rep = (from: string, to: string) => {
+    e = `REPLACE(${e}, '${from}', '${to}')`;
+  };
+
+  // Remove separators
+  rep(' ', '');
+  rep('-', '');
+  rep('+', '');
+  rep('(', '');
+  rep(')', '');
+
+  // Arabic-Indic digits
+  rep('٠', '0');
+  rep('١', '1');
+  rep('٢', '2');
+  rep('٣', '3');
+  rep('٤', '4');
+  rep('٥', '5');
+  rep('٦', '6');
+  rep('٧', '7');
+  rep('٨', '8');
+  rep('٩', '9');
+
+  // Persian digits
+  rep('۰', '0');
+  rep('۱', '1');
+  rep('۲', '2');
+  rep('۳', '3');
+  rep('۴', '4');
+  rep('۵', '5');
+  rep('۶', '6');
+  rep('۷', '7');
+  rep('۸', '8');
+  rep('۹', '9');
+
+  return e;
+}
+
+function sqlNormalizeArabicTextLower(expr: string, mode: SearchNormalizeMode = 'strict'): string {
+  // Best-effort Arabic search normalization (no custom extensions): unify common letter variants.
+  // IMPORTANT: expr must be a trusted SQL expression (not user input).
+  let e = expr;
+  const rep = (from: string, to: string) => {
+    e = `REPLACE(${e}, '${from}', '${to}')`;
+  };
+
+  // Tatweel
+  rep('ـ', '');
+
+  // Alef variants
+  rep('أ', 'ا');
+  rep('إ', 'ا');
+  rep('آ', 'ا');
+  rep('ٱ', 'ا');
+
+  // Yeh variants
+  rep('ى', 'ي');
+
+  if (mode === 'lenient') {
+    // Lenient-only variants
+    rep('ئ', 'ي');
+    rep('ؤ', 'و');
+    rep('ة', 'ه');
+    rep('ء', '');
+  }
+
+  // Strip common tashkeel (best-effort)
+  for (const ch of ['ً', 'ٌ', 'ٍ', 'َ', 'ُ', 'ِ', 'ّ', 'ْ', 'ٰ']) rep(ch, '');
+
+  return `lower(${e})`;
 }
 
 function computeInstallmentAmounts(inst: unknown): { amount: number; paid: number; remaining: number } {

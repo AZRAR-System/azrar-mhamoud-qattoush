@@ -23,6 +23,12 @@ export interface DesktopDbBridge {
   getBackupDir?: () => Promise<string>;
   chooseBackupDir?: () => Promise<{ success: boolean; message?: string; backupDir?: string } | unknown>;
 
+  // App helpers (Desktop only)
+  getDeviceId?: () => Promise<string>;
+  quitApp?: () => Promise<{ ok: boolean; message?: string } | unknown>;
+  pickLicenseFile?: () => Promise<{ ok: boolean; canceled?: boolean; fileName?: string; content?: string; error?: string } | unknown>;
+  getLicensePublicKey?: () => Promise<{ ok: boolean; publicKeyB64?: string; source?: string; error?: string } | unknown>;
+
   // Domain schema + SQL-backed reports (Desktop only)
   domainStatus?: () => Promise<{ ok: boolean; schemaVersion?: number; migrated?: boolean; migratedAt?: string; message?: string } | unknown>;
   domainMigrate?: () => Promise<{ ok: boolean; message?: string; migrated?: boolean; counts?: Record<string, number> } | unknown>;
@@ -158,7 +164,20 @@ export interface DesktopDbBridge {
       total?: number;
       message?: string;
     } | unknown>;
-  domainContractPickerSearch?: (payload: { query: string; tab?: string; createdMonth?: string; offset?: number; limit?: number }) =>
+  domainContractPickerSearch?: (payload: {
+    query: string;
+    tab?: string;
+    createdMonth?: string;
+    startDateFrom?: string;
+    startDateTo?: string;
+    endDateFrom?: string;
+    endDateTo?: string;
+    minValue?: number | string;
+    maxValue?: number | string;
+    sort?: string;
+    offset?: number;
+    limit?: number;
+  }) =>
     Promise<{
       ok: boolean;
       items?: ContractPickerItem[];
@@ -174,6 +193,7 @@ export interface DesktopDbBridge {
     nationalId?: string;
     classification?: string;
     minRating?: number;
+    sort?: string;
     offset?: number;
     limit?: number;
   }) =>
@@ -184,7 +204,13 @@ export interface DesktopDbBridge {
       message?: string;
     } | unknown>;
 
-  domainInstallmentsContractsSearch?: (payload: { query?: string; filter?: 'all' | 'debt' | 'paid' | 'due' | string; offset?: number; limit?: number }) =>
+  domainInstallmentsContractsSearch?: (payload: {
+    query?: string;
+    filter?: 'all' | 'debt' | 'paid' | 'due' | string;
+    sort?: string;
+    offset?: number;
+    limit?: number;
+  }) =>
     Promise<{
       ok: boolean;
       items?: InstallmentsContractsItem[];
