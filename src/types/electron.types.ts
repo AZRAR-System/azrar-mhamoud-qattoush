@@ -576,7 +576,16 @@ export interface DesktopLicenseAdminBridge {
     | unknown
   >;
 
-  setAdminToken(payload: { token: string }): Promise<{ ok: boolean; error?: string } | unknown>;
+  getAdminTokenStatus(payload?: { serverUrl?: string }): Promise<
+    | {
+        ok: boolean;
+        configured?: boolean;
+        error?: string;
+      }
+    | unknown
+  >;
+
+  setAdminToken(payload: { token: string; serverUrl?: string }): Promise<{ ok: boolean; error?: string } | unknown>;
 
   list(payload: { serverUrl: string; q?: string; limit?: number }): Promise<
     | {
@@ -641,6 +650,11 @@ export interface DesktopLicenseAdminBridge {
         };
         error?: string;
       }
+    | unknown
+  >;
+
+  delete(payload: { serverUrl: string; licenseKey: string }): Promise<
+    | { ok: boolean; result?: unknown; error?: string }
     | unknown
   >;
 

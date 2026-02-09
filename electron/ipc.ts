@@ -8,7 +8,7 @@
   refreshOnlineStatus,
   setLicenseServerUrl,
 } from './license/licenseManager';
-import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
+import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage, clipboard } from 'electron';
 import {
   kvApplyRemoteDelete,
   kvDelete,
@@ -2150,6 +2150,15 @@ export function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('app:writeClipboardText', async (_event, text: string) => {
+    try {
+      clipboard.writeText(String(text ?? ''));
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'clipboard_write_failed') };
+    }
+  });
+
   ipcMain.handle('app:getLicensePublicKey', async () => {
     try {
       const envKey = String(
@@ -2210,16 +2219,89 @@ export function registerIpcHandlers() {
   // License Admin Tool (Main process)
   // Local auth gate; server admin token can come from env (preferred) or a local KV setting.
   const ADMIN_TOKEN_KEY = 'lic_admin_server_token_v1';
-  let adminToken = String(
+
+  type StoredAdminTokens = {
+    v: 2;
+    defaultToken?: string;
+    byOrigin?: Record<string, string>;
+    updatedAt?: string;
+  };
+
+  const readStoredAdminTokensUnsafe = (): StoredAdminTokens | null => {
+    try {
+      const raw = String(kvGet(ADMIN_TOKEN_KEY) ?? '').trim();
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as StoredAdminTokens;
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (parsed.v !== 2) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  const envDefaultToken = String(
     process.env.AZRAR_LICENSE_SERVER_ADMIN_TOKEN || process.env.AZRAR_LICENSE_ADMIN_TOKEN || ''
   ).trim();
-  if (!adminToken) {
+
+  // Backwards-compatible migration:
+  // - v1 stored value was a plain string token.
+  // - v2 stores JSON with optional per-origin tokens.
+  let storedAdminTokens: StoredAdminTokens = {
+    v: 2,
+    defaultToken: envDefaultToken || undefined,
+    byOrigin: {},
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    const v2 = readStoredAdminTokensUnsafe();
+    if (v2) {
+      storedAdminTokens = {
+        v: 2,
+        defaultToken: typeof v2.defaultToken === 'string' ? v2.defaultToken : (envDefaultToken || undefined),
+        byOrigin: v2.byOrigin && typeof v2.byOrigin === 'object' ? v2.byOrigin : {},
+        updatedAt: typeof v2.updatedAt === 'string' ? v2.updatedAt : storedAdminTokens.updatedAt,
+      };
+    } else if (!envDefaultToken) {
+      const legacy = String(kvGet(ADMIN_TOKEN_KEY) ?? '').trim();
+      if (legacy) {
+        storedAdminTokens.defaultToken = legacy;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  const persistStoredAdminTokensBestEffort = () => {
     try {
-      adminToken = String(kvGet(ADMIN_TOKEN_KEY) ?? '').trim();
+      kvSet(ADMIN_TOKEN_KEY, JSON.stringify(storedAdminTokens));
     } catch {
       // ignore
     }
-  }
+  };
+
+  const getAdminTokenForOrigin = (origin: string | ''): string => {
+    const byOrigin = storedAdminTokens.byOrigin || {};
+    if (origin && typeof byOrigin[origin] === 'string' && String(byOrigin[origin] || '').trim()) {
+      return String(byOrigin[origin]).trim();
+    }
+    // Prefer stored default; env token is already merged into storedAdminTokens.defaultToken.
+    return String(storedAdminTokens.defaultToken || '').trim();
+  };
+
+  const setAdminTokenForOrigin = (origin: string | '', token: string) => {
+    const t = String(token || '').trim();
+    if (!t) return;
+    if (origin) {
+      storedAdminTokens.byOrigin = storedAdminTokens.byOrigin || {};
+      storedAdminTokens.byOrigin[origin] = t;
+    } else {
+      storedAdminTokens.defaultToken = t;
+    }
+    storedAdminTokens.updatedAt = new Date().toISOString();
+    persistStoredAdminTokensBestEffort();
+  };
 
   let adminSessionOk = false;
 
@@ -2324,6 +2406,7 @@ export function registerIpcHandlers() {
   };
 
   const postJson = async (serverUrl: string, pathname: string, body: unknown): Promise<unknown> => {
+    const adminToken = getAdminTokenForOrigin(serverUrl);
     if (!adminToken) throw new Error('Admin token not configured.');
     const resp = await fetch(`${serverUrl}${pathname}`, {
       method: 'POST',
@@ -2361,28 +2444,28 @@ export function registerIpcHandlers() {
     return { ok: true };
   });
 
-  ipcMain.handle('licenseAdmin:getAdminTokenStatus', async () => {
+  ipcMain.handle('licenseAdmin:getAdminTokenStatus', async (_e, payload?: { serverUrl?: string }) => {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      return { ok: true, configured: !!String(adminToken || '').trim() };
+      // Backwards-compatible: missing/invalid serverUrl means "default" token status.
+      const origin = normalizeServerUrl(payload?.serverUrl);
+      const configured = !!getAdminTokenForOrigin(origin);
+      return { ok: true, configured };
     } catch (e: unknown) {
       return { ok: false, error: toErrorMessage(e, 'Failed to get token status') };
     }
   });
 
-  ipcMain.handle('licenseAdmin:setAdminToken', async (_e, payload: { token?: string }) => {
+  ipcMain.handle('licenseAdmin:setAdminToken', async (_e, payload: { token?: string; serverUrl?: string }) => {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
       const token = String(payload?.token ?? '').trim();
       if (!token) return { ok: false, error: 'token is required.' };
-      adminToken = token;
-      try {
-        kvSet(ADMIN_TOKEN_KEY, token);
-      } catch {
-        // ignore
-      }
+      const origin = normalizeServerUrl(payload?.serverUrl);
+      // If serverUrl is invalid or missing, store as default token.
+      setAdminTokenForOrigin(origin, token);
       return { ok: true };
     } catch (e: unknown) {
       return { ok: false, error: toErrorMessage(e, 'Failed to set token') };
@@ -2650,6 +2733,26 @@ export function registerIpcHandlers() {
         return { ok: true, result: json };
       } catch (e: unknown) {
         return { ok: false, error: toErrorMessage(e, 'Failed to update after-sales') };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'licenseAdmin:delete',
+    async (_e, payload: { serverUrl?: string; licenseKey?: string }) => {
+      try {
+        const auth = requireAdminSession();
+        if (!auth.ok) return { ok: false, error: auth.error };
+
+        const serverUrl = normalizeServerUrl(payload?.serverUrl);
+        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+        const licenseKey = String(payload?.licenseKey || '').trim();
+        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+
+        const json = (await postJson(serverUrl, '/api/license/admin/delete', { licenseKey })) as unknown;
+        return { ok: true, result: json };
+      } catch (e: unknown) {
+        return { ok: false, error: toErrorMessage(e, 'Failed to delete license') };
       }
     }
   );

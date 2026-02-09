@@ -89,7 +89,8 @@ export const LicenseAdminUsers: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto" dir="rtl">
+    <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950" dir="rtl">
+      <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">المستخدمين</h1>
@@ -97,7 +98,10 @@ export const LicenseAdminUsers: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Link to={ROUTE_PATHS.LICENSE_ADMIN}>
-            <Button variant="secondary">رجوع لإدارة التفعيل</Button>
+            <Button variant="secondary">لوحة التحكم</Button>
+          </Link>
+          <Link to={ROUTE_PATHS.LICENSE_ADMIN_LICENSES}>
+            <Button variant="secondary">التراخيص</Button>
           </Link>
         </div>
       </div>
@@ -138,6 +142,7 @@ export const LicenseAdminUsers: React.FC = () => {
         {error ? <div className="text-sm text-red-600">{error}</div> : null}
         {info ? <div className="text-sm text-slate-600 dark:text-slate-300">{info}</div> : null}
       </Card>
+      </div>
     </div>
   );
 };

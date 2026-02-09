@@ -7,6 +7,12 @@ import { Select } from '@/components/ui/Select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { safeCopyToClipboard } from '@/utils/clipboard';
 import { ROUTE_PATHS } from '@/routes/paths';
+import {
+  loadLicenseAdminServerSettings,
+  normalizeServerOrigin,
+  saveLicenseAdminSelectedServer,
+  saveLicenseAdminServers,
+} from '@/features/licenseAdmin/settings';
 
 type AdminListItem = {
   licenseKey: string;
@@ -82,6 +88,40 @@ const followUpStatusOptions = [
   { value: 'cancelled', label: 'ملغي' },
 ];
 
+type IssueDuration = '' | 'trial14d' | '1m' | '3m' | '6m' | '1y' | 'custom';
+
+const toIsoDate = (d: Date): string => {
+  // yyyy-mm-dd in UTC is sufficient for server parsing.
+  return d.toISOString().slice(0, 10);
+};
+
+const computeExpiresAtFromDuration = (duration: IssueDuration): string => {
+  const now = new Date();
+  const d = new Date(now);
+  if (!duration) return '';
+  if (duration === 'trial14d') {
+    d.setDate(d.getDate() + 14);
+    return toIsoDate(d);
+  }
+  if (duration === '1m') {
+    d.setMonth(d.getMonth() + 1);
+    return toIsoDate(d);
+  }
+  if (duration === '3m') {
+    d.setMonth(d.getMonth() + 3);
+    return toIsoDate(d);
+  }
+  if (duration === '6m') {
+    d.setMonth(d.getMonth() + 6);
+    return toIsoDate(d);
+  }
+  if (duration === '1y') {
+    d.setFullYear(d.getFullYear() + 1);
+    return toIsoDate(d);
+  }
+  return '';
+};
+
 export const LicenseAdmin: React.FC = () => {
   const [serverUrl, setServerUrl] = useState('http://127.0.0.1:5056');
   const [username, setUsername] = useState('admin');
@@ -101,6 +141,7 @@ export const LicenseAdmin: React.FC = () => {
 
   const [issueMaxActivations, setIssueMaxActivations] = useState('1');
   const [issueExpiresAt, setIssueExpiresAt] = useState('');
+  const [issueDuration, setIssueDuration] = useState<IssueDuration>('custom');
   const [issueFeaturesJson, setIssueFeaturesJson] = useState('');
 
   const [setStatusValue, setSetStatusValue] = useState<'active' | 'suspended' | 'revoked'>('active');
@@ -128,6 +169,11 @@ export const LicenseAdmin: React.FC = () => {
   const [exportConfirmPassword, setExportConfirmPassword] = useState('');
 
   const canUseBridge = typeof window !== 'undefined' && !!window.desktopLicenseAdmin;
+
+  useEffect(() => {
+    const st = loadLicenseAdminServerSettings();
+    if (st.selectedServer) setServerUrl(st.selectedServer);
+  }, []);
 
   const selectedItem = useMemo(
     () => items.find((x) => x.licenseKey === selectedKey) || null,
@@ -162,6 +208,10 @@ export const LicenseAdmin: React.FC = () => {
           activationsCount: typeof r.activationsCount === 'number' ? r.activationsCount : undefined,
           statusUpdatedAt: typeof r.statusUpdatedAt === 'string' ? String(r.statusUpdatedAt) : undefined,
           statusNote: typeof r.statusNote === 'string' ? String(r.statusNote) : undefined,
+          customerName: typeof r.customerName === 'string' ? String(r.customerName) : undefined,
+          customerCompany: typeof r.customerCompany === 'string' ? String(r.customerCompany) : undefined,
+          customerPhone: typeof r.customerPhone === 'string' ? String(r.customerPhone) : undefined,
+          customerCity: typeof r.customerCity === 'string' ? String(r.customerCity) : undefined,
         }))
         .filter((x) => x.licenseKey);
 
@@ -186,7 +236,7 @@ export const LicenseAdmin: React.FC = () => {
       return;
     }
     try {
-      const res = await window.desktopLicenseAdmin?.getAdminTokenStatus();
+      const res = await window.desktopLicenseAdmin?.getAdminTokenStatus({ serverUrl });
       const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
       if (rec.ok === true) {
         setServerAdminTokenConfigured(Boolean(rec.configured));
@@ -271,6 +321,35 @@ export const LicenseAdmin: React.FC = () => {
     }
   };
 
+  const doDelete = async () => {
+    if (!canUseBridge) {
+      setError('Desktop bridge not available. Run in Electron.');
+      return;
+    }
+    if (!selectedKey) return;
+
+    const ok = window.confirm(`تأكيد حذف الكود نهائياً؟\n\n${selectedKey}\n\nلا يمكن التراجع عن هذه العملية.`);
+    if (!ok) return;
+
+    setError('');
+    setInfo('');
+    setBusy(true);
+    try {
+      const res = await window.desktopLicenseAdmin?.delete({ serverUrl, licenseKey: selectedKey });
+      const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
+      if (rec.ok !== true) throw new Error(String(rec.error || 'Failed'));
+
+      setSelectedKey('');
+      setSelectedRecord(null);
+      await refreshList();
+      setInfo('تم حذف الكود');
+    } catch (e: unknown) {
+      setError(getErr(e) || 'Failed to delete');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const doLogin = async () => {
     if (!canUseBridge) {
       setError('Desktop bridge not available. Run in Electron.');
@@ -312,7 +391,7 @@ export const LicenseAdmin: React.FC = () => {
     setError('');
     setInfo('');
     try {
-      const res = await window.desktopLicenseAdmin?.setAdminToken({ token: t });
+      const res = await window.desktopLicenseAdmin?.setAdminToken({ token: t, serverUrl });
       const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
       if (rec.ok !== true) throw new Error(String(rec.error || 'Failed'));
       setInfo('تم حفظ توكن السيرفر');
@@ -596,20 +675,39 @@ export const LicenseAdmin: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey]);
 
+  const applyIssueDuration = (duration: IssueDuration) => {
+    setIssueDuration(duration);
+    if (duration === 'custom') return;
+    setIssueExpiresAt(computeExpiresAtFromDuration(duration));
+  };
+
   return (
-    <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto" dir="rtl">
+    <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950" dir="rtl">
+      <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">برنامج إدارة التفعيل</h1>
+          <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">إدارة التراخيص</h1>
           <div className="text-xs text-slate-500 dark:text-slate-400">
             إدارة الأكواد والأجهزة + متابعة ما بعد البيع (بيانات عميل / ملاحظات / مواعيد)
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link to={ROUTE_PATHS.LICENSE_ADMIN}>
+            <Button variant="secondary" disabled={busy}>
+              لوحة التحكم
+            </Button>
+          </Link>
           {loggedIn ? (
             <Link to={ROUTE_PATHS.LICENSE_ADMIN_USERS}>
               <Button variant="secondary" disabled={busy}>
                 المستخدمين
+              </Button>
+            </Link>
+          ) : null}
+          {loggedIn ? (
+            <Link to={ROUTE_PATHS.LICENSE_ADMIN_CUSTOMERS}>
+              <Button variant="secondary" disabled={busy}>
+                العملاء
               </Button>
             </Link>
           ) : null}
@@ -625,7 +723,20 @@ export const LicenseAdmin: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="md:col-span-2">
             <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">رابط سيرفر التفعيل</div>
-            <Input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} placeholder="http://127.0.0.1:5056" />
+            <Input
+              value={serverUrl}
+              onChange={(e) => {
+                const nextRaw = e.target.value;
+                setServerUrl(nextRaw);
+                const origin = normalizeServerOrigin(nextRaw);
+                if (origin) {
+                  const st = loadLicenseAdminServerSettings();
+                  saveLicenseAdminSelectedServer(origin);
+                  saveLicenseAdminServers(Array.from(new Set([origin, ...st.servers])));
+                }
+              }}
+              placeholder="http://127.0.0.1:5056"
+            />
           </div>
           <div>
             <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">اسم المستخدم</div>
@@ -683,20 +794,54 @@ export const LicenseAdmin: React.FC = () => {
       </Card>
 
       {loggedIn ? (
-        <Card className="p-4 space-y-3">
+        <Card className="p-4 space-y-3 overflow-visible">
           <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">إصدار ترخيص جديد</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <div className="text-xs text-slate-500 mb-1">عدد الأجهزة المسموح (maxActivations)</div>
               <Input value={issueMaxActivations} onChange={(e) => setIssueMaxActivations(e.target.value)} placeholder="1" />
             </div>
             <div>
-              <div className="text-xs text-slate-500 mb-1">تاريخ الانتهاء (expiresAt ISO)</div>
-              <Input value={issueExpiresAt} onChange={(e) => setIssueExpiresAt(e.target.value)} placeholder="2026-01-01T00:00:00.000Z" />
+              <div className="text-xs text-slate-500 mb-1">مدة الاشتراك</div>
+              <Select
+                value={issueDuration}
+                onChange={(e) => applyIssueDuration(String(e.target.value) as IssueDuration)}
+                disabled={busy}
+                options={[
+                  { value: 'trial14d', label: 'تجربة 14 يوم' },
+                  { value: '1m', label: 'شهر' },
+                  { value: '3m', label: '3 شهور' },
+                  { value: '6m', label: '6 شهور' },
+                  { value: '1y', label: 'سنة' },
+                  { value: '', label: 'بدون انتهاء' },
+                  { value: 'custom', label: 'مخصص (يدوي)' },
+                ]}
+              />
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 mb-1">تاريخ الانتهاء (expiresAt)</div>
+              <Input
+                value={issueExpiresAt}
+                onChange={(e) => {
+                  setIssueExpiresAt(e.target.value);
+                  setIssueDuration('custom');
+                }}
+                placeholder="2026-02-10"
+                dir="ltr"
+                lang="en"
+              />
             </div>
             <div>
               <div className="text-xs text-slate-500 mb-1">المزايا (features JSON)</div>
-              <Input value={issueFeaturesJson} onChange={(e) => setIssueFeaturesJson(e.target.value)} placeholder='{"featureA": true}' />
+              <Input
+                value={issueFeaturesJson}
+                onChange={(e) => setIssueFeaturesJson(e.target.value)}
+                placeholder='{"featureA": true}'
+                dir="ltr"
+                lang="en"
+                className="font-mono text-xs"
+                spellCheck={false}
+              />
             </div>
           </div>
           <div>
@@ -713,62 +858,67 @@ export const LicenseAdmin: React.FC = () => {
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">قائمة التراخيص</div>
               <div className="flex items-center gap-2">
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالمفتاح (licenseKey)" />
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="بحث بالمفتاح (licenseKey)"
+                  className="min-w-[16rem]"
+                />
                 <Button variant="secondary" onClick={() => void refreshList()} disabled={busy}>
                   بحث
                 </Button>
               </div>
             </div>
 
-            <div className="overflow-auto border border-slate-200 dark:border-slate-800 rounded-lg">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-900/30">
-                  <tr className="text-right">
-                    <th className="p-2 whitespace-nowrap">المفتاح</th>
-                    <th className="p-2 whitespace-nowrap">الحالة</th>
-                    <th className="p-2 whitespace-nowrap">العميل</th>
-                    <th className="p-2 whitespace-nowrap">تاريخ الإنشاء</th>
-                    <th className="p-2 whitespace-nowrap">الأجهزة</th>
-                    <th className="p-2 whitespace-nowrap">الانتهاء</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((it) => {
-                    const active = it.licenseKey === selectedKey;
-                    const customerLabel =
-                      String(it.customerCompany || '').trim() || String(it.customerName || '').trim() || '';
-                    return (
-                      <tr
-                        key={it.licenseKey}
-                        className={`cursor-pointer border-t border-slate-200 dark:border-slate-800 ${
-                          active ? 'bg-indigo-50 dark:bg-indigo-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-900/20'
-                        }`}
-                        onClick={() => setSelectedKey(it.licenseKey)}
-                      >
-                        <td className="p-2 font-mono break-all" title={it.licenseKey}>
-                          {it.licenseKey}
-                        </td>
-                        <td className="p-2">
-                          {it.status ? <StatusBadge status={statusToArabic(it.status)} /> : ''}
-                        </td>
-                        <td className="p-2 max-w-[12rem] truncate" title={customerLabel}>
-                          {customerLabel}
-                        </td>
-                        <td className="p-2">{it.createdAt ? fmt(it.createdAt) : ''}</td>
-                        <td className="p-2">{typeof it.activationsCount === 'number' ? it.activationsCount : ''}</td>
-                        <td className="p-2">{it.expiresAt ? fmt(it.expiresAt) : ''}</td>
-                      </tr>
-                    );
-                  })}
-                  {items.length === 0 ? (
-                    <tr>
-                      <td className="p-3 text-slate-500" colSpan={6}>
-                        لا توجد بيانات
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
+            <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+              <div className="max-h-[50vh] overflow-auto">
+                {items.length === 0 ? (
+                  <div className="p-6 text-sm text-slate-500 text-center">لا توجد بيانات</div>
+                ) : (
+                  <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                    {items.map((it) => {
+                      const active = it.licenseKey === selectedKey;
+                      const customerLabel =
+                        String(it.customerCompany || '').trim() || String(it.customerName || '').trim() || '';
+                      return (
+                        <button
+                          key={it.licenseKey}
+                          type="button"
+                          className={`w-full text-right p-3 transition-colors ${
+                            active
+                              ? 'bg-indigo-50 dark:bg-indigo-950/20'
+                              : 'bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900/20'
+                          }`}
+                          onClick={() => setSelectedKey(it.licenseKey)}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-mono text-xs overflow-x-auto whitespace-nowrap" dir="ltr" title={it.licenseKey}>
+                                {it.licenseKey}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
+                                <span className="whitespace-nowrap">الإنشاء: {it.createdAt ? fmt(it.createdAt) : '—'}</span>
+                                <span className="whitespace-nowrap">الانتهاء: {it.expiresAt ? fmt(it.expiresAt) : '—'}</span>
+                                <span className="whitespace-nowrap">
+                                  الأجهزة: {typeof it.activationsCount === 'number' ? it.activationsCount : '—'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              {it.status ? <StatusBadge status={statusToArabic(it.status)} /> : null}
+                              {customerLabel ? (
+                                <div className="text-xs text-slate-600 dark:text-slate-300 max-w-[12rem] truncate" title={customerLabel}>
+                                  {customerLabel}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
 
@@ -776,7 +926,7 @@ export const LicenseAdmin: React.FC = () => {
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">تفاصيل الترخيص</div>
               {selectedKey ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     variant="secondary"
                     onClick={() => {
@@ -785,6 +935,9 @@ export const LicenseAdmin: React.FC = () => {
                     disabled={!selectedKey}
                   >
                     نسخ المفتاح
+                  </Button>
+                  <Button variant="danger" onClick={() => void doDelete()} disabled={busy || !selectedKey}>
+                    حذف الكود
                   </Button>
                 </div>
               ) : null}
@@ -797,7 +950,11 @@ export const LicenseAdmin: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                   <div>
                     <div className="text-xs text-slate-500">licenseKey</div>
-                    <div className="font-mono break-all">{selectedKey}</div>
+                    <div className="mt-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 px-2 py-1 overflow-x-auto">
+                      <span className="font-mono text-xs whitespace-nowrap" dir="ltr">
+                        {selectedKey}
+                      </span>
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">status</div>
@@ -832,10 +989,13 @@ export const LicenseAdmin: React.FC = () => {
                 <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
                   <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">المزايا (Features)</div>
                   <textarea
-                    className="w-full h-28 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950"
+                    className="w-full h-28 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 overflow-x-auto"
                     value={selectedRecord?.features ? JSON.stringify(selectedRecord.features, null, 2) : ''}
                     readOnly
                     placeholder="لا يوجد"
+                    dir="ltr"
+                    wrap="off"
+                    spellCheck={false}
                   />
                 </div>
 
@@ -1006,9 +1166,12 @@ export const LicenseAdmin: React.FC = () => {
                         {savePath ? <div className="text-xs text-slate-500">تم الحفظ: {savePath}</div> : null}
                       </div>
                       <textarea
-                        className="w-full h-48 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950"
+                        className="w-full h-48 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 overflow-x-auto"
                         value={activateResultJson}
                         readOnly
+                        dir="ltr"
+                        wrap="off"
+                        spellCheck={false}
                       />
                     </div>
                   ) : null}
@@ -1041,9 +1204,12 @@ export const LicenseAdmin: React.FC = () => {
                   </div>
                   {statusCheckResult ? (
                     <textarea
-                      className="w-full h-36 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950"
+                      className="w-full h-36 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 overflow-x-auto"
                       value={statusCheckResult}
                       readOnly
+                      dir="ltr"
+                      wrap="off"
+                      spellCheck={false}
                     />
                   ) : null}
                 </div>
@@ -1089,6 +1255,7 @@ export const LicenseAdmin: React.FC = () => {
           </Card>
         </div>
       ) : null}
+      </div>
     </div>
   );
 };

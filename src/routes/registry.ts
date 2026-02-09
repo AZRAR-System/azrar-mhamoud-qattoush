@@ -77,8 +77,10 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
 
   // Non-sidebar / utility routes
   titles[ROUTE_PATHS.ACTIVATION] = 'تفعيل النظام';
-  titles[ROUTE_PATHS.LICENSE_ADMIN] = 'إدارة التفعيل';
+  titles[ROUTE_PATHS.LICENSE_ADMIN] = 'لوحة إدارة التفعيل';
+  titles[ROUTE_PATHS.LICENSE_ADMIN_LICENSES] = 'إدارة التراخيص';
   titles[ROUTE_PATHS.LICENSE_ADMIN_USERS] = 'المستخدمين';
+  titles[ROUTE_PATHS.LICENSE_ADMIN_CUSTOMERS] = 'العملاء والمفاتيح';
   titles[ROUTE_PATHS.LOGIN] = 'تسجيل الدخول';
   titles[ROUTE_PATHS.LOGOUT] = 'تسجيل الخروج';
   titles[ROUTE_PATHS.SMART_TOOLS] = 'أدوات ذكية';
@@ -96,7 +98,10 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
 // Keep aligned with page headers where available.
 export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.ACTIVATION]: 'إدخال رمز التفعيل لتفعيل النظام',
+  [ROUTE_PATHS.LICENSE_ADMIN]: 'إعداد السيرفر/الدخول ثم إدارة التراخيص والمتابعة',
+  [ROUTE_PATHS.LICENSE_ADMIN_LICENSES]: 'إصدار وإدارة مفاتيح الترخيص وربط الأجهزة وتصدير ملفات الترخيص',
   [ROUTE_PATHS.LICENSE_ADMIN_USERS]: 'تعديل اسم المستخدم وكلمة المرور لبرنامج إدارة التفعيل',
+  [ROUTE_PATHS.LICENSE_ADMIN_CUSTOMERS]: 'عرض العملاء المرتبطين بمفاتيح الترخيص وحالاتها',
   [ROUTE_PATHS.DASHBOARD]: 'نظام مراقبة شامل متعدد الطبقات مع تحديثات فورية',
   [ROUTE_PATHS.SALES]: 'نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية',
   [ROUTE_PATHS.PEOPLE]: 'سجل العملاء، الملاك، والمستأجرين',

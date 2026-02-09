@@ -9,7 +9,9 @@ export const ROUTE_PATHS = {
   // Activation / licensing
   ACTIVATION: '/activation',
   LICENSE_ADMIN: '/license-admin',
+  LICENSE_ADMIN_LICENSES: '/license-admin/licenses',
   LICENSE_ADMIN_USERS: '/license-admin/users',
+  LICENSE_ADMIN_CUSTOMERS: '/license-admin/customers',
 
   // Main
   DASHBOARD: '/',

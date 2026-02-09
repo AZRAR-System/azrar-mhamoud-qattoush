@@ -112,6 +112,24 @@ const readBodyJson = async (req) => {
 
 const normalizeKey = (s) => String(s || '').trim();
 
+// License keys are treated case/whitespace-insensitively to avoid common copy/paste issues.
+// Do NOT apply this normalization to deviceId, since device binding must remain exact.
+const normalizeLicenseKey = (s) => String(s || '').trim().replace(/\s+/g, '').toUpperCase();
+
+const normalizeDeviceId = (s) => String(s || '').trim().replace(/\s+/g, '');
+
+const findLicenseRecord = (store, licenseKeyNormalized) => {
+  try {
+    const licenses = store?.licenses;
+    if (!licenses || typeof licenses !== 'object') return null;
+    if (licenses[licenseKeyNormalized]) return licenses[licenseKeyNormalized];
+    const foundKey = Object.keys(licenses).find((k) => normalizeLicenseKey(k) === licenseKeyNormalized);
+    return foundKey ? licenses[foundKey] : null;
+  } catch {
+    return null;
+  }
+};
+
 const parseIsoOrNull = (s) => {
   if (!s) return null;
   const t = Date.parse(String(s));
@@ -191,6 +209,7 @@ const server = http.createServer(async (req, res) => {
           adminSetStatus: { method: 'POST', path: '/api/license/admin/setStatus', header: 'X-Admin-Token' },
           adminList: { method: 'POST', path: '/api/license/admin/list', header: 'X-Admin-Token' },
           adminGet: { method: 'POST', path: '/api/license/admin/get', header: 'X-Admin-Token' },
+          adminDelete: { method: 'POST', path: '/api/license/admin/delete', header: 'X-Admin-Token' },
           adminUpdateAfterSales: { method: 'POST', path: '/api/license/admin/updateAfterSales', header: 'X-Admin-Token' },
         },
         note: 'This is an API server; most endpoints require POST with JSON body.',
@@ -214,7 +233,7 @@ const server = http.createServer(async (req, res) => {
       const maxActivations = Number.isFinite(Number(body?.maxActivations)) ? Number(body.maxActivations) : 1;
 
       const store = await readStore();
-      const licenseKey = normalizeKey(body?.licenseKey) || issueLicenseKey();
+      const licenseKey = normalizeLicenseKey(body?.licenseKey) || issueLicenseKey();
       if (store.licenses[licenseKey]) {
         return sendJson(res, 409, { ok: false, error: 'License key already exists.' });
       }
@@ -249,7 +268,7 @@ const server = http.createServer(async (req, res) => {
       if (!auth.ok) return sendJson(res, 401, { ok: false, error: auth.error });
 
       const body = await readBodyJson(req);
-      const licenseKey = normalizeKey(body?.licenseKey);
+      const licenseKey = normalizeLicenseKey(body?.licenseKey);
       const status = normalizeKey(body?.status);
       if (!licenseKey) return sendJson(res, 400, { ok: false, error: 'licenseKey is required' });
       if (!['active', 'suspended', 'revoked'].includes(status)) {
@@ -257,7 +276,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const store = await readStore();
-      const rec = store.licenses[licenseKey];
+      const rec = findLicenseRecord(store, licenseKey);
       if (!rec) return sendJson(res, 404, { ok: false, error: 'Not found' });
 
       rec.status = status;
@@ -321,14 +340,44 @@ const server = http.createServer(async (req, res) => {
       if (!auth.ok) return sendJson(res, 401, { ok: false, error: auth.error });
 
       const body = await readBodyJson(req);
-      const licenseKey = normalizeKey(body?.licenseKey);
+      const licenseKey = normalizeLicenseKey(body?.licenseKey);
       if (!licenseKey) return sendJson(res, 400, { ok: false, error: 'licenseKey is required' });
 
       const store = await readStore();
-      const rec = store.licenses?.[licenseKey];
+      const rec = findLicenseRecord(store, licenseKey);
       if (!rec) return sendJson(res, 404, { ok: false, error: 'Not found' });
 
       sendJson(res, 200, { ok: true, time: nowIso(), record: rec });
+      return;
+    }
+
+    // Admin: delete a license key (hard delete).
+    if (req.method === 'POST' && url.pathname === '/api/license/admin/delete') {
+      const auth = requireAdmin(req);
+      if (!auth.ok) return sendJson(res, 401, { ok: false, error: auth.error });
+
+      const body = await readBodyJson(req);
+      const licenseKeyNorm = normalizeLicenseKey(body?.licenseKey);
+      if (!licenseKeyNorm) return sendJson(res, 400, { ok: false, error: 'licenseKey is required' });
+
+      const store = await readStore();
+      const licenses = store.licenses && typeof store.licenses === 'object' ? store.licenses : {};
+
+      let deletedKey = '';
+      if (licenses[licenseKeyNorm]) {
+        deletedKey = licenseKeyNorm;
+      } else {
+        const found = Object.keys(licenses).find((k) => normalizeLicenseKey(k) === licenseKeyNorm);
+        if (found) deletedKey = found;
+      }
+
+      if (!deletedKey) return sendJson(res, 404, { ok: false, error: 'Not found' });
+
+      delete licenses[deletedKey];
+      store.licenses = licenses;
+      await writeStore(store);
+
+      sendJson(res, 200, { ok: true, time: nowIso(), deleted: { licenseKey: licenseKeyNorm } });
       return;
     }
 
@@ -338,11 +387,11 @@ const server = http.createServer(async (req, res) => {
       if (!auth.ok) return sendJson(res, 401, { ok: false, error: auth.error });
 
       const body = await readBodyJson(req);
-      const licenseKey = normalizeKey(body?.licenseKey);
+      const licenseKey = normalizeLicenseKey(body?.licenseKey);
       if (!licenseKey) return sendJson(res, 400, { ok: false, error: 'licenseKey is required' });
 
       const store = await readStore();
-      const rec = store.licenses?.[licenseKey];
+      const rec = findLicenseRecord(store, licenseKey);
       if (!rec) return sendJson(res, 404, { ok: false, error: 'Not found' });
 
       rec.afterSales = rec.afterSales && typeof rec.afterSales === 'object' ? rec.afterSales : {};
@@ -407,13 +456,13 @@ const server = http.createServer(async (req, res) => {
     // Client: status check
     if (req.method === 'POST' && url.pathname === '/api/license/status') {
       const body = await readBodyJson(req);
-      const licenseKey = normalizeKey(body?.licenseKey);
-      const deviceId = normalizeKey(body?.deviceId);
+      const licenseKey = normalizeLicenseKey(body?.licenseKey);
+      const deviceId = normalizeDeviceId(body?.deviceId);
       if (!licenseKey) return sendJson(res, 400, { ok: false, error: 'licenseKey is required' });
       if (!deviceId) return sendJson(res, 400, { ok: false, error: 'deviceId is required' });
 
       const store = await readStore();
-      const rec = store.licenses[licenseKey];
+      const rec = findLicenseRecord(store, licenseKey);
       if (!rec) return sendJson(res, 404, { ok: false, error: 'invalid_license' });
 
       const exp = parseIsoOrNull(rec.expiresAt);
@@ -457,13 +506,13 @@ const server = http.createServer(async (req, res) => {
     // Client: activate/bind device → returns signed offline license JSON
     if (req.method === 'POST' && url.pathname === '/api/license/activate') {
       const body = await readBodyJson(req);
-      const licenseKey = normalizeKey(body?.licenseKey);
-      const deviceId = normalizeKey(body?.deviceId);
+      const licenseKey = normalizeLicenseKey(body?.licenseKey);
+      const deviceId = normalizeDeviceId(body?.deviceId);
       if (!licenseKey) return sendJson(res, 400, { ok: false, error: 'licenseKey is required' });
       if (!deviceId) return sendJson(res, 400, { ok: false, error: 'deviceId is required' });
 
       const store = await readStore();
-      const rec = store.licenses[licenseKey];
+      const rec = findLicenseRecord(store, licenseKey);
       if (!rec) return sendJson(res, 404, { ok: false, error: 'invalid_license' });
 
       const exp = parseIsoOrNull(rec.expiresAt);

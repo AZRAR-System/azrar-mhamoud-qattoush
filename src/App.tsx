@@ -39,9 +39,15 @@ const Sales = React.lazy(() => import('./pages/Sales').then(module => ({ default
 const Login = React.lazy(() => import('./pages/Login').then(module => ({ default: module.Login })));
 const Logout = React.lazy(() => import('./pages/Logout').then(module => ({ default: module.Logout })));
 const Activation = React.lazy(() => import('./pages/Activation').then(module => ({ default: module.Activation })));
+const LicenseAdminDashboard = React.lazy(() =>
+  import('./pages/LicenseAdminDashboard').then(module => ({ default: module.LicenseAdminDashboard }))
+);
 const LicenseAdmin = React.lazy(() => import('./pages/LicenseAdmin').then(module => ({ default: module.LicenseAdmin })));
 const LicenseAdminUsers = React.lazy(() =>
   import('./pages/LicenseAdminUsers').then(module => ({ default: module.LicenseAdminUsers }))
+);
+const LicenseAdminCustomers = React.lazy(() =>
+  import('./pages/LicenseAdminCustomers').then(module => ({ default: module.LicenseAdminCustomers }))
 );
 const NotFound = React.lazy(() => import('./pages/NotFound').then(module => ({ default: module.NotFound })));
 const Documentation = React.lazy(() => import('./pages/Documentation').then(module => ({ default: module.Documentation })));
@@ -311,8 +317,10 @@ const AppRoutes: React.FC = () => {
       <Routes>
         {/* Public */}
         <Route path={ROUTE_PATHS.ACTIVATION} element={<Activation />} />
-        <Route path={ROUTE_PATHS.LICENSE_ADMIN} element={<LicenseAdmin />} />
+        <Route path={ROUTE_PATHS.LICENSE_ADMIN} element={<LicenseAdminDashboard />} />
+        <Route path={ROUTE_PATHS.LICENSE_ADMIN_LICENSES} element={<LicenseAdmin />} />
         <Route path={ROUTE_PATHS.LICENSE_ADMIN_USERS} element={<LicenseAdminUsers />} />
+        <Route path={ROUTE_PATHS.LICENSE_ADMIN_CUSTOMERS} element={<LicenseAdminCustomers />} />
 
         {/* Everything else requires activation */}
         <Route element={<RequireActivation />}>

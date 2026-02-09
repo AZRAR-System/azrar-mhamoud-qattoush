@@ -187,6 +187,23 @@ function inferIsLicenseAdminMode(): boolean {
     const envMode = String(process.env.AZRAR_APP_MODE || '').trim().toLowerCase();
     if (envMode) return envMode === 'license-admin';
 
+    // Packaged builds: prefer reliable identifiers.
+    // - process.execPath contains the actual installed executable path.
+    // - appId is set by electron-builder per product.
+    try {
+      const execPath = String(process.execPath || '').toLowerCase();
+      if (execPath.includes('licenseadmin') || execPath.includes('license-admin')) return true;
+    } catch {
+      // ignore
+    }
+
+    try {
+      const id = String(app.getAppUserModelId?.() || '').toLowerCase();
+      if (id.includes('licenseadmin') || id.includes('license-admin')) return true;
+    } catch {
+      // ignore
+    }
+
     const argv = Array.isArray(process.argv) ? process.argv.map((s) => String(s || '').toLowerCase()) : [];
     if (argv.includes('--license-admin')) return true;
     if (argv.includes('--app=license-admin')) return true;

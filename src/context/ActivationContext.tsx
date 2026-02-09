@@ -34,6 +34,8 @@ type ActivationContextType = {
 
 const ActivationContext = createContext<ActivationContextType | undefined>(undefined);
 
+const ACTIVATION_POLL_MS = 60_000;
+
 const messageForReason = (r?: string): string | undefined => {
   if (!r) return undefined;
   if (r === 'remote:suspended') return 'تم تعليق الترخيص — راجع الشركة.';
@@ -53,6 +55,49 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [reason, setReason] = useState<string | undefined>(undefined);
   const [review, setReview] = useState<ActivationContextType['review'] | undefined>(undefined);
 
+  const applyBridgeStatus = useCallback(
+    (res: unknown, opts?: { setLoading?: boolean }) => {
+      const rec = res as {
+        ok?: boolean;
+        status?: {
+          activated?: boolean;
+          activatedAt?: string;
+          reason?: string;
+          review?: ActivationContextType['review'];
+        };
+        error?: string;
+      };
+
+      if (!rec?.ok) {
+        setIsActivated(false);
+        setActivatedAt(undefined);
+        setActivationError(rec?.error || 'تعذر قراءة حالة التفعيل');
+        setReason(undefined);
+        setReview(undefined);
+        if (opts?.setLoading) setLoading(false);
+        return;
+      }
+
+      const activated = Boolean(rec.status?.activated);
+      const r = typeof rec.status?.reason === 'string' ? rec.status.reason : undefined;
+      const rv = rec.status?.review;
+
+      setIsActivated(activated);
+      setActivatedAt(rec.status?.activatedAt);
+      setReason(r);
+      setReview(rv);
+
+      if (!activated) {
+        setActivationError(messageForReason(r));
+      } else {
+        setActivationError(undefined);
+      }
+
+      if (opts?.setLoading) setLoading(false);
+    },
+    []
+  );
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -68,40 +113,7 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
 
         const res = await window.desktopLicense.getStatus();
-        const rec = res as {
-          ok?: boolean;
-          status?: {
-            activated?: boolean;
-            activatedAt?: string;
-            reason?: string;
-            review?: ActivationContextType['review'];
-          };
-          error?: string;
-        };
-
-        if (!rec?.ok) {
-          setIsActivated(false);
-          setActivatedAt(undefined);
-          setActivationError(rec?.error || 'تعذر قراءة حالة التفعيل');
-          setReason(undefined);
-          setReview(undefined);
-          return;
-        }
-
-        const activated = Boolean(rec.status?.activated);
-        const r = typeof rec.status?.reason === 'string' ? rec.status.reason : undefined;
-        const rv = rec.status?.review;
-
-        setIsActivated(activated);
-        setActivatedAt(rec.status?.activatedAt);
-        setReason(r);
-        setReview(rv);
-
-        if (!activated) {
-          setActivationError(messageForReason(r));
-        } else {
-          setActivationError(undefined);
-        }
+        applyBridgeStatus(res);
         return;
       }
 
@@ -115,11 +127,42 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyBridgeStatus]);
+
+  const refreshSilent = useCallback(async () => {
+    try {
+      if (!window.desktopLicense?.getStatus) return;
+      const res = await window.desktopLicense.getStatus();
+      applyBridgeStatus(res);
+    } catch {
+      // ignore transient failures
+    }
+  }, [applyBridgeStatus]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    // Keep activation enforcement responsive while the app is running.
+    // Main process already polls the server; here we just pull the latest status via IPC
+    // so router guards can react without requiring app restart.
+    const onFocus = () => {
+      void refreshSilent();
+    };
+
+    window.addEventListener('focus', onFocus);
+
+    const timer = window.setInterval(() => {
+      if (!isActivated) return;
+      void refreshSilent();
+    }, ACTIVATION_POLL_MS);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(timer);
+    };
+  }, [isActivated, refreshSilent]);
 
   const activateWithLicense = useCallback(
     async (rawLicense: string) => {

@@ -406,7 +406,7 @@ export const activateOnline = async (payload: {
   serverUrl?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> => {
   try {
-    const licenseKey = String(payload.licenseKey || '').trim();
+    const licenseKey = String(payload.licenseKey || '').trim().replace(/\s+/g, '').toUpperCase();
     if (licenseKey.length < 6) return { ok: false, error: 'يرجى إدخال مفتاح ترخيص صحيح.' };
 
     const serverUrl = normalizeUrl(payload.serverUrl || getLicenseServerUrl());
@@ -429,6 +429,12 @@ export const activateOnline = async (payload: {
       const err = String(rec?.error || `HTTP ${resp.status}`).trim();
       if (err === 'suspended') return { ok: false, error: 'تم تعليق الترخيص — راجع الشركة.' };
       if (err === 'revoked') return { ok: false, error: 'تم إلغاء الترخيص — راجع الشركة.' };
+      if (err === 'invalid_license') {
+        return {
+          ok: false,
+          error: 'مفتاح الترخيص غير موجود على السيرفر. تأكد أنك أدخلت مفتاح LIC-... الصحيح وأنك تستخدم نفس رابط سيرفر التفعيل.',
+        };
+      }
       if (err === 'requires_new_activation') return { ok: false, error: 'هذا المفتاح مستخدم على جهاز آخر. يلزم تفعيل جديد.' };
       if (err === 'expired') return { ok: false, error: 'انتهت صلاحية الترخيص.' };
       return { ok: false, error: err || 'فشل التفعيل عبر الإنترنت.' };

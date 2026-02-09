@@ -1,4 +1,4 @@
-﻿import { clipboard, contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+﻿import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
 type SqlSettings = Record<string, unknown>;
 type SqlProvisionPayload = Record<string, unknown>;
@@ -87,13 +87,7 @@ contextBridge.exposeInMainWorld('desktopDb', {
   pickLicenseFile: () => ipcRenderer.invoke('app:pickLicenseFile'),
   getLicensePublicKey: () => ipcRenderer.invoke('app:getLicensePublicKey'),
   writeClipboardText: async (text: string) => {
-    try {
-      clipboard.writeText(String(text ?? ''));
-      return { ok: true };
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      return { ok: false, error: msg || 'clipboard_write_failed' };
-    }
+    return await ipcRenderer.invoke('app:writeClipboardText', text);
   },
 
   get: (key: string) => ipcRenderer.invoke('db:get', key),
@@ -339,8 +333,10 @@ contextBridge.exposeInMainWorld('desktopLicenseAdmin', {
   updateUser: (payload: { username: string; newPassword?: string }) =>
     ipcRenderer.invoke('licenseAdmin:updateUser', payload),
 
-  getAdminTokenStatus: () => ipcRenderer.invoke('licenseAdmin:getAdminTokenStatus'),
-  setAdminToken: (payload: { token: string }) => ipcRenderer.invoke('licenseAdmin:setAdminToken', payload),
+  getAdminTokenStatus: (payload?: { serverUrl?: string }) =>
+    ipcRenderer.invoke('licenseAdmin:getAdminTokenStatus', payload),
+  setAdminToken: (payload: { token: string; serverUrl?: string }) =>
+    ipcRenderer.invoke('licenseAdmin:setAdminToken', payload),
 
   list: (payload: { serverUrl: string; q?: string; limit?: number }) =>
     ipcRenderer.invoke('licenseAdmin:list', payload),
@@ -359,6 +355,8 @@ contextBridge.exposeInMainWorld('desktopLicenseAdmin', {
     ipcRenderer.invoke('licenseAdmin:activate', payload),
   checkStatus: (payload: { serverUrl: string; licenseKey: string; deviceId: string }) =>
     ipcRenderer.invoke('licenseAdmin:checkStatus', payload),
+  delete: (payload: { serverUrl: string; licenseKey: string }) =>
+    ipcRenderer.invoke('licenseAdmin:delete', payload),
   updateAfterSales: (payload: { serverUrl: string; licenseKey: string; patch: Record<string, unknown> }) =>
     ipcRenderer.invoke('licenseAdmin:updateAfterSales', payload),
   saveLicenseFile: (payload: { defaultFileName?: string; content: string; confirmPassword?: string }) =>
