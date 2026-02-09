@@ -539,14 +539,14 @@ if ($Sign -and $finalExePath -and (Test-Path $finalExePath)) {
     $signScript = Join-Path $PSScriptRoot 'code-sign-installer.ps1'
 
     if ($env:CSC_LINK -and $env:CSC_LINK.Trim()) {
-      & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -PfxPath $env:CSC_LINK -PfxPasswordEnvVar 'CSC_KEY_PASSWORD' -TimestampUrl $Rfc3161TimeStampServer
+      & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -PfxPath $env:CSC_LINK -PfxPasswordEnvVar 'CSC_KEY_PASSWORD' -TimestampUrl $Rfc3161TimeStampServer -SigningProfile $SigningProfile
     } elseif ($env:CSC_THUMBPRINT -and $env:CSC_THUMBPRINT.Trim()) {
       $thumb = ($env:CSC_THUMBPRINT -replace '\s', '').ToUpperInvariant()
-      & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -CertThumbprint $thumb -TimestampUrl $Rfc3161TimeStampServer
+      & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -CertThumbprint $thumb -TimestampUrl $Rfc3161TimeStampServer -SigningProfile $SigningProfile
     } elseif ($env:CSC_NAME -and $env:CSC_NAME.Trim()) {
       $thumb = Find-CodeSigningCertThumbprintByName $env:CSC_NAME
       if ($thumb) {
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -CertThumbprint $thumb -TimestampUrl $Rfc3161TimeStampServer
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -CertThumbprint $thumb -TimestampUrl $Rfc3161TimeStampServer -SigningProfile $SigningProfile
       } else {
         Write-Warning 'CSC_NAME is set but no matching code-signing certificate with private key was found in the Windows Certificate Store. Use CSC_THUMBPRINT or CSC_LINK/CSC_KEY_PASSWORD.'
       }

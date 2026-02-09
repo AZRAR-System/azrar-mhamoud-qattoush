@@ -24,7 +24,14 @@ param(
   [string]$DescriptionUrl,
 
   [Parameter(Mandatory = $false)]
+  [ValidateSet('dev','prod')]
+  [string]$SigningProfile,
+
+  [Parameter(Mandatory = $false)]
   [switch]$NoTimestamp,
+
+  [Parameter(Mandatory = $false)]
+  [switch]$SkipTrustVerify,
 
   [Parameter(Mandatory = $false)]
   [switch]$NoCleanup
@@ -156,13 +163,41 @@ Write-Host ''
 Write-Host 'Signing (final EXE only)...'
 & $signtool @args
 
+if ($LASTEXITCODE -ne 0) {
+  throw ("signtool sign failed with exit code {0}" -f $LASTEXITCODE)
+}
+
+$post = Get-AuthenticodeSignature -FilePath $InstallerPath
+if (-not $post -or -not $post.SignerCertificate) {
+  throw 'Signing completed, but no Authenticode signer certificate was detected on the installer.'
+}
+
+if (-not $NoTimestamp -and (-not $post.TimeStamperCertificate)) {
+  Write-Warning 'Installer was signed, but no timestamp certificate was detected. Consider signing again with a timestamp server.'
+}
+
 Write-Host ''
 Write-Host 'Verifying signature...'
-& $signtool verify /pa /v $InstallerPath
+
+$effectiveProfile = ([string]$SigningProfile).Trim().ToLowerInvariant()
+if (-not $effectiveProfile) {
+  $effectiveProfile = ([string]$env:AZRAR_SIGNING_PROFILE).Trim().ToLowerInvariant()
+}
+
+$skipTrust = $SkipTrustVerify -or ($effectiveProfile -eq 'dev')
+
+if ($skipTrust) {
+  Write-Host 'Skipping certificate chain trust verification (dev/self-signed).'
+  Write-Host 'Note: the file is signed, but Windows may show "Unknown publisher" unless the certificate is trusted on the target machine.'
+} else {
+  & $signtool verify /pa /v $InstallerPath
+  if ($LASTEXITCODE -ne 0) {
+    throw ("signtool verify failed with exit code {0}. Certificate chain may be untrusted." -f $LASTEXITCODE)
+  }
+}
 
 Write-Host ''
 Write-Host 'Authenticode status:'
-$post = Get-AuthenticodeSignature -FilePath $InstallerPath
 $post | Format-List
 
 Print-FileHash $InstallerPath
