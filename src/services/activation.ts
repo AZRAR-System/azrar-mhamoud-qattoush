@@ -1,11 +1,17 @@
 import { storage } from '@/services/storage';
 import { tryParseJson } from '@/utils/json';
+import { verifyLicenseFile } from '@/services/license';
 
 export const ACTIVATION_STORAGE_KEY = 'azrar:activation:v1';
+const ACTIVATION_LAST_SEEN_KEY = 'azrar:activation:lastSeenAt:v1';
+const CLOCK_ROLLBACK_TOLERANCE_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 export type ActivationState = {
   activated: boolean;
   activatedAt?: string;
+  // Optional legacy fields used by non-desktop (web/test) validation.
+  deviceId?: string;
+  license?: unknown;
 };
 
 const parseStoredActivationState = (raw: string): ActivationState | null => {
@@ -31,8 +37,47 @@ export async function isActivationValid(state: ActivationState): Promise<boolean
     // fall back
   }
 
-  // Non-desktop runtime fallback (should not be used for production licensing).
-  return Boolean(state.activated);
+  // Non-desktop runtime fallback (best-effort): validate a provided signed license
+  // and enforce a simple anti-clock-rollback rule.
+  if (!state.activated) return false;
+
+  if (state.license) {
+    const now = new Date();
+
+    // Anti-rollback: if the system time moves backwards too far compared to our last seen time,
+    // reject before any expensive verification.
+    try {
+      const lastSeenRaw = await storage.getItem(ACTIVATION_LAST_SEEN_KEY);
+      if (lastSeenRaw) {
+        const lastSeenMs = Date.parse(String(lastSeenRaw));
+        const nowMs = now.getTime();
+        if (!Number.isNaN(lastSeenMs) && lastSeenMs - nowMs > CLOCK_ROLLBACK_TOLERANCE_MS) {
+          return false;
+        }
+      }
+    } catch {
+      // ignore anti-rollback read failures
+    }
+
+    try {
+      // Device id is optional here; if present we bind verification to it.
+      const deviceId = typeof state.deviceId === 'string' ? state.deviceId : undefined;
+      await verifyLicenseFile(state.license as never, { deviceId, now });
+
+      // Best-effort: update lastSeenAt on successful validation.
+      try {
+        await storage.setItem(ACTIVATION_LAST_SEEN_KEY, now.toISOString());
+      } catch {
+        // ignore
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export async function getActivationState(): Promise<ActivationState> {
