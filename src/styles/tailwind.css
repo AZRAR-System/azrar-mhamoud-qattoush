@@ -71,12 +71,18 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Global text wrapping (prevents horizontal clipping for long Arabic/IDs) */
+/*
+  Global wrapping policy
+  ---------------------
+  NOTE: `overflow-wrap:anywhere` causes Arabic headers/titles to break letter-by-letter.
+  Keep global wrapping conservative; opt-in locally for technical strings (IDs) using
+  Tailwind utilities like `break-all` / `break-words`.
+*/
 html,
 body,
 #root {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 /* Never truncate text (no ellipsis / no line clamping) */

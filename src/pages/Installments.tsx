@@ -67,7 +67,7 @@ import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection'
 import { formatDynamicValue } from '@/components/dynamic/dynamicValue';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { formatNumber } from '@/utils/format';
-import { normalizeDigitsToLatin, parseNumberOrUndefined } from '@/utils/numberInput';
+import { MoneyInput } from '@/components/ui/MoneyInput';
 import { domainCountsSmart, domainGetSmart, installmentsContractsPagedSmart } from '@/services/domainQueries';
 import { Select } from '@/components/ui/Select';
 
@@ -315,17 +315,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ installment, tenant, onClos
           <div>
             <label className="block text-sm font-bold mb-2">المبلغ المدفوع (د.أ)</label>
             <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                inputMode="decimal"
+              <MoneyInput
                 dir="ltr"
-                value={paidAmount}
-                onChange={(e) => {
-                  const raw = normalizeDigitsToLatin(e.target.value);
-                  const n = parseNumberOrUndefined(raw);
-                  setPaidAmount(n === undefined ? '' : Math.max(0, n));
-                }}
                 className="flex-1"
+                min={0}
+                value={typeof paidAmount === 'number' ? paidAmount : undefined}
+                onValueChange={(v) => setPaidAmount(v === undefined ? '' : Math.max(0, v))}
               />
               <button
                 type="button"

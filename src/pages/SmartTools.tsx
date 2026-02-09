@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { MoneyInput } from '@/components/ui/MoneyInput';
 import { Select } from '@/components/ui/Select';
 import { DS } from '@/constants/designSystem';
 import { useSmartModal } from '@/context/ModalContext';
@@ -18,7 +19,7 @@ import { العقارات_tbl, الأشخاص_tbl, العقود_tbl, الكمب�
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { formatNumber } from '@/utils/format';
-import { normalizeDigitsToLatin, parseIntOrUndefined, parseNumberOrUndefined } from '@/utils/numberInput';
+import { parseIntOrUndefined } from '@/utils/numberInput';
 import { storage } from '@/services/storage';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
@@ -465,8 +466,7 @@ export const SmartTools: React.FC = () => {
               dir="ltr"
               value={durationMonths}
               onChange={e => {
-                const raw = normalizeDigitsToLatin(e.target.value);
-                const n = parseIntOrUndefined(raw);
+                const n = parseIntOrUndefined(e.target.value);
                 setDurationMonths(n === undefined ? 0 : Math.max(1, n));
               }}
             />
@@ -480,16 +480,11 @@ export const SmartTools: React.FC = () => {
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">القيمة السنوية (د.أ)</div>
-            <Input
-              type="text"
-              inputMode="decimal"
+            <MoneyInput
               dir="ltr"
-              value={annualValue}
-              onChange={e => {
-                const raw = normalizeDigitsToLatin(e.target.value);
-                const n = parseNumberOrUndefined(raw);
-                setAnnualValue(n === undefined ? '' : Math.max(0, n));
-              }}
+              min={0}
+              value={typeof annualValue === 'number' ? annualValue : undefined}
+              onValueChange={(v) => setAnnualValue(v === undefined ? '' : Math.max(0, v))}
             />
           </div>
           <div>
@@ -524,16 +519,11 @@ export const SmartTools: React.FC = () => {
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">قيمة التأمين (د.أ)</div>
-            <Input
-              type="text"
-              inputMode="decimal"
+            <MoneyInput
               dir="ltr"
-              value={securityDeposit}
-              onChange={e => {
-                const raw = normalizeDigitsToLatin(e.target.value);
-                const n = parseNumberOrUndefined(raw);
-                setSecurityDeposit(n === undefined ? '' : Math.max(0, n));
-              }}
+              min={0}
+              value={typeof securityDeposit === 'number' ? securityDeposit : undefined}
+              onValueChange={(v) => setSecurityDeposit(v === undefined ? '' : Math.max(0, v))}
             />
           </div>
           <div className="flex items-center gap-2 mt-6">
@@ -552,16 +542,11 @@ export const SmartTools: React.FC = () => {
             {downPaymentMonths > 0 ? (
               <Input type="text" disabled value={formatNumber(Math.round((Math.max(0, Number(annualValue || 0)) / 12) * Math.max(0, downPaymentMonths)))} />
             ) : (
-              <Input
-                type="text"
-                inputMode="decimal"
+              <MoneyInput
                 dir="ltr"
-                value={downPaymentValue}
-                onChange={e => {
-                  const raw = normalizeDigitsToLatin(e.target.value);
-                  const n = parseNumberOrUndefined(raw);
-                  setDownPaymentValue(n === undefined ? '' : Math.max(0, n));
-                }}
+                min={0}
+                value={typeof downPaymentValue === 'number' ? downPaymentValue : undefined}
+                onValueChange={(v) => setDownPaymentValue(v === undefined ? '' : Math.max(0, v))}
               />
             )}
 
@@ -595,7 +580,7 @@ export const SmartTools: React.FC = () => {
                     value={downPaymentMonths}
                     onChange={e => {
                       const maxAllowed = Math.min(60, Math.max(1, Number(durationMonths || 12)));
-                      const n = parseIntOrUndefined(normalizeDigitsToLatin(e.target.value));
+                      const n = parseIntOrUndefined(e.target.value);
                       const clamped = Number.isFinite(n) ? Math.max(1, Math.min(maxAllowed, n)) : 1;
                       setDownPaymentMonths(clamped);
                     }}
@@ -635,7 +620,7 @@ export const SmartTools: React.FC = () => {
                   value={downPaymentSplitCount}
                   onChange={e => {
                     const maxAllowed = Math.min(60, Math.max(1, Number(durationMonths || 12)));
-                    const n = parseIntOrUndefined(normalizeDigitsToLatin(e.target.value));
+                    const n = parseIntOrUndefined(e.target.value);
                     const clamped = Number.isFinite(n) ? Math.max(2, Math.min(maxAllowed, n)) : 2;
                     setDownPaymentSplitCount(clamped);
                   }}
@@ -743,30 +728,20 @@ export const SmartTools: React.FC = () => {
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">عمولة المالك (د.أ)</div>
-            <Input
-              type="text"
-              inputMode="decimal"
+            <MoneyInput
               dir="ltr"
-              value={commOwner}
-              onChange={e => {
-                const raw = normalizeDigitsToLatin(e.target.value);
-                const n = parseNumberOrUndefined(raw);
-                setCommOwner(n === undefined ? '' : Math.max(0, n));
-              }}
+              min={0}
+              value={typeof commOwner === 'number' ? commOwner : undefined}
+              onValueChange={(v) => setCommOwner(v === undefined ? '' : Math.max(0, v))}
             />
           </div>
           <div>
             <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">عمولة المستأجر (د.أ)</div>
-            <Input
-              type="text"
-              inputMode="decimal"
+            <MoneyInput
               dir="ltr"
-              value={commTenant}
-              onChange={e => {
-                const raw = normalizeDigitsToLatin(e.target.value);
-                const n = parseNumberOrUndefined(raw);
-                setCommTenant(n === undefined ? '' : Math.max(0, n));
-              }}
+              min={0}
+              value={typeof commTenant === 'number' ? commTenant : undefined}
+              onValueChange={(v) => setCommTenant(v === undefined ? '' : Math.max(0, v))}
             />
           </div>
           <div>
