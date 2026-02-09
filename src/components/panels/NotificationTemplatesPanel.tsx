@@ -24,6 +24,7 @@ import {
   openWhatsApp
 } from '@/services/notificationTemplates';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
+import { safeCopyToClipboard } from '@/utils/clipboard';
 import { DS } from '@/constants/designSystem';
 
 const getStringProp = (value: unknown, key: string): string | undefined => {
@@ -139,7 +140,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
     const preview = fillTemplateComplete(template, previewContext);
     const raw = `${preview.title}\n\n${preview.body}`;
     const text = raw.trim().length > 0 ? applyOfficialBrandSignature(raw) : raw;
-    navigator.clipboard.writeText(text);
+    void safeCopyToClipboard(text);
   };
 
   const handleOpenWhatsApp = (template: NotificationTemplate) => {

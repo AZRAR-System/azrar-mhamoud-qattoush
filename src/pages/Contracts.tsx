@@ -27,6 +27,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { DbService } from '@/services/mockDb';
 import { العقود_tbl, الأشخاص_tbl, العقارات_tbl, الكمبيالات_tbl, type PaymentMethodType } from '@/types';
 import { isTenancyRelevant } from '@/utils/tenancy';
+import { Input } from '@/components/ui/Input';
 import { exportToXlsx, readSpreadsheet, type XlsxColumn } from '@/utils/xlsx';
 import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
 import {
@@ -1228,22 +1229,62 @@ export const Contracts: React.FC = () => {
                <div>
                    <label className="text-xs font-bold block mb-1">تاريخ البداية (من - إلى)</label>
                    <div className="flex gap-2">
-                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.startDateFrom} onChange={e => setAdvFilters({...advFilters, startDateFrom: e.target.value})} aria-label="تاريخ البداية من" title="تاريخ البداية من" />
-                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.startDateTo} onChange={e => setAdvFilters({...advFilters, startDateTo: e.target.value})} aria-label="تاريخ البداية إلى" title="تاريخ البداية إلى" />
+                       <Input
+                           type="date"
+                           className="p-2 rounded border w-full text-xs"
+                           value={advFilters.startDateFrom}
+                           onChange={e => setAdvFilters({ ...advFilters, startDateFrom: e.target.value })}
+                           aria-label="تاريخ البداية من"
+                           title="تاريخ البداية من"
+                       />
+                       <Input
+                           type="date"
+                           className="p-2 rounded border w-full text-xs"
+                           value={advFilters.startDateTo}
+                           onChange={e => setAdvFilters({ ...advFilters, startDateTo: e.target.value })}
+                           aria-label="تاريخ البداية إلى"
+                           title="تاريخ البداية إلى"
+                       />
                    </div>
                </div>
                <div>
                    <label className="text-xs font-bold block mb-1">تاريخ النهاية (من - إلى)</label>
                    <div className="flex gap-2">
-                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.endDateFrom} onChange={e => setAdvFilters({...advFilters, endDateFrom: e.target.value})} aria-label="تاريخ النهاية من" title="تاريخ النهاية من" />
-                       <input type="date" className="p-2 rounded border w-full text-xs" value={advFilters.endDateTo} onChange={e => setAdvFilters({...advFilters, endDateTo: e.target.value})} aria-label="تاريخ النهاية إلى" title="تاريخ النهاية إلى" />
+                       <Input
+                           type="date"
+                           className="p-2 rounded border w-full text-xs"
+                           value={advFilters.endDateFrom}
+                           onChange={e => setAdvFilters({ ...advFilters, endDateFrom: e.target.value })}
+                           aria-label="تاريخ النهاية من"
+                           title="تاريخ النهاية من"
+                       />
+                       <Input
+                           type="date"
+                           className="p-2 rounded border w-full text-xs"
+                           value={advFilters.endDateTo}
+                           onChange={e => setAdvFilters({ ...advFilters, endDateTo: e.target.value })}
+                           aria-label="تاريخ النهاية إلى"
+                           title="تاريخ النهاية إلى"
+                       />
                    </div>
                </div>
                <div>
                    <label className="text-xs font-bold block mb-1">القيمة (من - إلى)</label>
                    <div className="flex gap-2">
-                       <input type="number" placeholder="min" className="p-2 rounded border w-full text-xs" value={advFilters.minValue} onChange={e => setAdvFilters({...advFilters, minValue: e.target.value})} />
-                       <input type="number" placeholder="max" className="p-2 rounded border w-full text-xs" value={advFilters.maxValue} onChange={e => setAdvFilters({...advFilters, maxValue: e.target.value})} />
+                       <Input
+                           type="number"
+                           placeholder="min"
+                           className="p-2 rounded border w-full text-xs"
+                           value={advFilters.minValue}
+                           onChange={e => setAdvFilters({ ...advFilters, minValue: e.target.value })}
+                       />
+                       <Input
+                           type="number"
+                           placeholder="max"
+                           className="p-2 rounded border w-full text-xs"
+                           value={advFilters.maxValue}
+                           onChange={e => setAdvFilters({ ...advFilters, maxValue: e.target.value })}
+                       />
                    </div>
                </div>
            </Card>

@@ -1,6 +1,7 @@
 ﻿import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCcw, Home, Download, Copy, Trash2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { safeCopyToClipboard } from '@/utils/clipboard';
 
 interface Props {
   children: ReactNode;
@@ -349,7 +350,8 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
     try {
       this.setState({ actionMessage: 'جاري تجهيز التقرير...' });
       const report = await this.buildCrashDiagnosticsReport();
-      await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+      const res = await safeCopyToClipboard(JSON.stringify(report, null, 2));
+      if (!res.ok) throw new Error(res.error || 'copy_failed');
       this.setState({ actionMessage: 'تم نسخ تقرير التشخيص' });
     } catch {
       this.setState({ actionMessage: 'تعذر نسخ التقرير (قد تكون الصلاحيات غير متاحة)' });

@@ -6,6 +6,7 @@ import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { ContractDetailsResult, LegalNoticeRecord, LegalNoticeTemplate, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types';
 import { Scale, FileText, Send, Printer, Copy, Clock, Search, CheckCircle, Plus, Trash2, MessageCircle, ExternalLink, Pencil } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
+import { safeCopyToClipboard } from '@/utils/clipboard';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatDateYMD, formatNumber } from '@/utils/format';
 import { domainGetSmart, installmentsContractsPagedSmart } from '@/services/domainQueries';
@@ -342,10 +343,11 @@ export const LegalHub: React.FC = () => {
     await approveAndSaveToHistory(pendingSend);
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     try {
       const text = generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
-      void navigator.clipboard.writeText(text);
+      const res = await safeCopyToClipboard(text);
+      if (!res.ok) throw new Error(res.error || 'copy_failed');
       toast.success('تم نسخ النص');
     } catch {
       toast.error('تعذر نسخ النص');

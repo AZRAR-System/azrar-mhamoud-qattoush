@@ -11,6 +11,8 @@ import { SmartAssistant } from '@/components/smart/SmartAssistant';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
 import { storage } from '@/services/storage';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { MoneyInput } from '@/components/ui/MoneyInput';
 
 interface PropertyFormProps {
   id?: string;
@@ -345,12 +347,11 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                             <label className={labelClass} htmlFor={fieldId('estimatedRent')}>
                                 الإيجار التقديري (سنوي)
                             </label>
-                            <input
+                            <MoneyInput
                                 id={fieldId('estimatedRent')}
-                                type="number"
                                 className={inputClass}
-                                value={formData.الإيجار_التقديري}
-                                onChange={e => setFormData({...formData, الإيجار_التقديري: Number(e.target.value)})}
+                                value={typeof formData.الإيجار_التقديري === 'number' ? formData.الإيجار_التقديري : Number(formData.الإيجار_التقديري ?? 0)}
+                                onValueChange={(v) => setFormData({ ...formData, الإيجار_التقديري: v ?? 0 })}
                                 placeholder="0"
                                 min={0}
                             />
@@ -382,7 +383,7 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                         
                         <div>
                             <label className={labelClass} htmlFor={fieldId('area')}>المساحة (م²)</label>
-                            <input
+                            <Input
                                 id={fieldId('area')}
                                 type="number"
                                 className={inputClass}
@@ -535,24 +536,22 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                                 <label className={labelClass} htmlFor={fieldId('salePrice')}>
                                     السعر المطلوب <span className="text-red-500">*</span>
                                 </label>
-                                <input
+                                <MoneyInput
                                     id={fieldId('salePrice')}
-                                    type="number"
                                     className={inputClass}
-                                    value={formData.salePrice}
-                                    onChange={e => setFormData({...formData, salePrice: Number(e.target.value)})}
+                                    value={typeof formData.salePrice === 'number' ? formData.salePrice : Number(formData.salePrice ?? 0)}
+                                    onValueChange={(v) => setFormData({ ...formData, salePrice: v ?? 0 })}
                                     min={0}
                                 />
                                 <div className={helperTextClass}>إجباري عند تفعيل خيار البيع</div>
                             </div>
                             <div>
                                 <label className={labelClass} htmlFor={fieldId('minSalePrice')}>أقل سعر</label>
-                                <input
+                                <MoneyInput
                                     id={fieldId('minSalePrice')}
-                                    type="number"
                                     className={inputClass}
-                                    value={formData.minSalePrice}
-                                    onChange={e => setFormData({...formData, minSalePrice: Number(e.target.value)})}
+                                    value={typeof formData.minSalePrice === 'number' ? formData.minSalePrice : Number(formData.minSalePrice ?? 0)}
+                                    onValueChange={(v) => setFormData({ ...formData, minSalePrice: v ?? 0 })}
                                     min={0}
                                 />
                                 <div className={helperTextClass}>اختياري — لتحديد الحد الأدنى للتفاوض</div>

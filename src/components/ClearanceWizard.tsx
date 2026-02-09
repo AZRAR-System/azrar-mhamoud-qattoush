@@ -3,7 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { InspectionItem, DamageRecord, ClearanceRecord, العقود_tbl, LegalNoticeTemplate } from '@/types';
 import { formatContractNumberShort } from '@/utils/contractNumber';
+import { formatCurrencyJOD } from '@/utils/format';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import { Input } from '@/components/ui/Input';
+import { MoneyInput } from '@/components/ui/MoneyInput';
 import { 
     CheckCircle, XCircle, FileCheck, 
     Zap, Droplets, Trash2, Plus, Camera, ArrowRight, ArrowLeft, ShieldAlert
@@ -285,7 +288,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 mb-1">آخر قراءة عداد</label>
-                                    <input 
+                                    <Input 
                                         type="number" 
                                         className="w-full border p-2 rounded-lg" 
                                         value={electricity.reading}
@@ -304,11 +307,10 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                                 {!electricity.paid && (
                                     <div className="animate-slide-up">
                                         <label className="block text-xs font-bold text-red-500 mb-1">المبلغ المطلوب سداده</label>
-                                        <input 
-                                            type="number" 
+                                        <MoneyInput
                                             className="w-full border border-red-300 p-2 rounded-lg bg-red-50"
                                             value={electricity.amountDue}
-                                            onChange={e => setElectricity({...electricity, amountDue: Number(e.target.value)})}
+                                            onValueChange={(v) => setElectricity({ ...electricity, amountDue: v ?? 0 })}
                                         />
                                     </div>
                                 )}
@@ -323,7 +325,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 mb-1">آخر قراءة عداد</label>
-                                    <input 
+                                    <Input 
                                         type="number" 
                                         className="w-full border p-2 rounded-lg" 
                                         value={water.reading}
@@ -342,11 +344,10 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                                 {!water.paid && (
                                     <div className="animate-slide-up">
                                         <label className="block text-xs font-bold text-red-500 mb-1">المبلغ المطلوب سداده</label>
-                                        <input 
-                                            type="number" 
+                                        <MoneyInput
                                             className="w-full border border-red-300 p-2 rounded-lg bg-red-50"
                                             value={water.amountDue}
-                                            onChange={e => setWater({...water, amountDue: Number(e.target.value)})}
+                                            onValueChange={(v) => setWater({ ...water, amountDue: v ?? 0 })}
                                         />
                                     </div>
                                 )}
@@ -373,11 +374,10 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                         </div>
                         <div className="w-32">
                             <label className="block text-xs font-bold text-slate-500 mb-1">التكلفة (د.أ)</label>
-                            <input 
-                                type="number" 
+                            <MoneyInput
                                 className="w-full border p-2 rounded-lg text-sm" 
-                                value={newDamage.cost || ''}
-                                onChange={e => setNewDamage({...newDamage, cost: Number(e.target.value)})}
+                                value={newDamage.cost || undefined}
+                                onValueChange={(v) => setNewDamage({ ...newDamage, cost: v ?? 0 })}
                             />
                         </div>
                         <button onClick={addDamage} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition">
@@ -399,7 +399,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                                 {damages.map(d => (
                                     <tr key={d.id}>
                                         <td className="p-3">{d.description}</td>
-                                        <td className="p-3 font-bold text-red-600">{d.cost} د.أ</td>
+                                        <td className="p-3 font-bold text-red-600">{formatCurrencyJOD(d.cost)}</td>
                                         <td className="p-3">
                                             <button onClick={() => removeDamage(d.id)} className="text-red-500 hover:bg-red-50 p-1 rounded">
                                                 <Trash2 size={16}/>
@@ -414,7 +414,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                             <tfoot className="bg-gray-50 dark:bg-slate-900 font-bold">
                                 <tr>
                                     <td className="p-3">المجموع</td>
-                                    <td className="p-3 text-red-600">{damagesTotal} د.أ</td>
+                                    <td className="p-3 text-red-600">{formatCurrencyJOD(damagesTotal)}</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -433,28 +433,27 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                             <div className="p-4 space-y-3">
                                 <div className="flex justify-between border-b border-dashed pb-2">
                                     <span>إيجارات متأخرة</span>
-                                    <span className="font-bold">{rentArrears} د.أ</span>
+                                    <span className="font-bold">{formatCurrencyJOD(rentArrears)}</span>
                                 </div>
                                 <div className="flex justify-between border-b border-dashed pb-2">
                                     <span>ذمم فواتير (كهرباء/مياه)</span>
-                                    <span className="font-bold">{electricity.amountDue + water.amountDue} د.أ</span>
+                                    <span className="font-bold">{formatCurrencyJOD(electricity.amountDue + water.amountDue)}</span>
                                 </div>
                                 <div className="flex justify-between border-b border-dashed pb-2">
                                     <span>تعويضات أضرار</span>
-                                    <span className="font-bold">{damagesTotal} د.أ</span>
+                                    <span className="font-bold">{formatCurrencyJOD(damagesTotal)}</span>
                                 </div>
                                 <div className="flex justify-between items-center pb-2">
                                     <span>رسوم تنظيف / أخرى</span>
-                                    <input 
-                                        type="number" 
+                                    <MoneyInput
                                         className="w-24 border p-1 rounded text-center" 
                                         value={cleaningFee}
-                                        onChange={e => setCleaningFee(Number(e.target.value))}
+                                        onValueChange={(v) => setCleaningFee(v ?? 0)}
                                     />
                                 </div>
                                 <div className="flex justify-between bg-red-50 p-3 rounded-lg text-red-800 font-bold text-lg">
                                     <span>المجموع الكلي للذمم</span>
-                                    <span>{totalDebt} د.أ</span>
+                                    <span>{formatCurrencyJOD(totalDebt)}</span>
                                 </div>
                             </div>
                         </div>
@@ -463,7 +462,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                         <div className="bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-200 dark:border-purple-800 p-6 flex flex-col justify-center">
                             <div className="flex justify-between items-center mb-6">
                                 <span className="text-purple-800 dark:text-purple-300 font-bold">قيمة ورقة الضمان المحفوظة</span>
-                                <span className="text-2xl font-black text-purple-700 dark:text-white">{securityDeposit} د.أ</span>
+                                <span className="text-2xl font-black text-purple-700 dark:text-white">{formatCurrencyJOD(securityDeposit)}</span>
                             </div>
 
                             <div className={`p-4 rounded-xl border-2 text-center ${
@@ -479,8 +478,8 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({ contract, onCl
                                 </h3>
                                 <p className="text-xs opacity-80">
                                     {depositAction === 'Return' ? 'لا توجد ذمم مالية عالقة.' :
-                                     depositAction === 'Execute' ? `الذمم (${totalDebt}) تتجاوز أو تساوي قيمة الضمان.` :
-                                     `الذمم (${totalDebt}) أقل من قيمة الضمان. يتم التنفيذ بالمقدار المطلوب.`}
+                                     depositAction === 'Execute' ? `الذمم (${formatCurrencyJOD(totalDebt)}) تتجاوز أو تساوي قيمة الضمان.` :
+                                     `الذمم (${formatCurrencyJOD(totalDebt)}) أقل من قيمة الضمان. يتم التنفيذ بالمقدار المطلوب.`}
                                 </p>
                             </div>
                         </div>

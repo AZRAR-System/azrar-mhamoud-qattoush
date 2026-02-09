@@ -15,6 +15,7 @@ import {
   openWhatsAppMulti,
 } from '@/services/notificationTemplates';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
+import { safeCopyToClipboard } from '@/utils/clipboard';
 
 /**
  * خصائص مكون منشئ الرسائل
@@ -105,7 +106,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   // معالج نسخ الرسالة
   const handleCopy = () => {
     const text = messageText.trim().length > 0 ? applyOfficialBrandSignature(messageText) : messageText;
-    navigator.clipboard.writeText(text);
+    void safeCopyToClipboard(text);
   };
 
   // معالج فتح في واتساب

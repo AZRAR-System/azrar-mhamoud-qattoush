@@ -10,8 +10,10 @@ import { Calculator, HandCoins, Check, ArrowRight, ArrowLeft } from 'lucide-reac
 import { SmartEngine } from '@/services/smartEngine';
 import { SmartAssistant } from '@/components/smart/SmartAssistant';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
+import { Input } from '@/components/ui/Input';
+import { MoneyInput } from '@/components/ui/MoneyInput';
 import { formatNumber } from '@/utils/format';
-import { normalizeDigitsToLatin, parseIntOrUndefined, parseNumberOrUndefined } from '@/utils/numberInput';
+import { parseIntOrUndefined } from '@/utils/numberInput';
 import { domainGetSmart } from '@/services/domainQueries';
 
 type InstallmentPreviewRow = {
@@ -560,17 +562,15 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-1">المدة (أشهر)</label>
-                            <input 
-                                type="text" 
-                                inputMode="numeric"
-                                min="1"
-                                max="240"
+                            <Input
+                                type="number"
+                                min={1}
+                                max={240}
                                 className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" 
                                 dir="ltr"
                                 value={contract.مدة_العقد_بالاشهر ?? ''} 
                                 onChange={e => {
-                                  const raw = normalizeDigitsToLatin(e.target.value);
-                                  const n = parseIntOrUndefined(raw);
+                                  const n = parseIntOrUndefined(e.target.value);
                                   const clamped = n === undefined ? undefined : Math.max(1, Math.min(240, n));
                                                                     setContract(prev => ({ ...prev, مدة_العقد_بالاشهر: clamped }));
                                 }} 
@@ -578,18 +578,12 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-1">القيمة السنوية (د.أ)</label>
-                            <input 
-                                type="text" 
-                                inputMode="decimal"
-                                min="0"
-                                className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                            <MoneyInput
+                                min={0}
+                                className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 dir="ltr"
-                                value={contract.القيمة_السنوية ?? ''} 
-                                onChange={e => {
-                                  const raw = normalizeDigitsToLatin(e.target.value);
-                                  const n = parseNumberOrUndefined(raw);
-                                  setContract(prev => ({ ...prev, القيمة_السنوية: n === undefined ? undefined : Math.max(0, n) }));
-                                }} 
+                                value={typeof contract.القيمة_السنوية === 'number' ? contract.القيمة_السنوية : undefined}
+                                onValueChange={(v) => setContract(prev => ({ ...prev, القيمة_السنوية: v === undefined ? undefined : Math.max(0, v) }))}
                             />
                         </div>
                     </div>
@@ -616,24 +610,18 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold mb-1">قيمة التأمين (د.أ)</label>
-                            <input 
-                                type="text" 
-                                inputMode="decimal"
-                                min="0"
-                                className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                            <MoneyInput
+                                min={0}
+                                className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 dir="ltr"
-                                value={contract.قيمة_التأمين ?? ''} 
-                                onChange={e => {
-                                  const raw = normalizeDigitsToLatin(e.target.value);
-                                  const n = parseNumberOrUndefined(raw);
-                                  setContract(prev => ({ ...prev, قيمة_التأمين: n === undefined ? undefined : Math.max(0, n) }));
-                                }} 
+                                value={typeof contract.قيمة_التأمين === 'number' ? contract.قيمة_التأمين : undefined}
+                                onValueChange={(v) => setContract(prev => ({ ...prev, قيمة_التأمين: v === undefined ? undefined : Math.max(0, v) }))}
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-1">تاريخ استحقاق التأمين (قبل الانتهاء بيوم)</label>
-                            <input 
-                                type="date" 
+                            <Input
+                                type="date"
                                 className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" 
                                 value={
                                     contract.تاريخ_النهاية 
@@ -709,7 +697,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
 
                                 {Number(contract.عدد_أشهر_الدفعة_الأولى || 0) > 0 ? (
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input
+                                        <Input
                                             type="number"
                                             min={1}
                                             max={Math.min(60, Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12)))}
@@ -724,7 +712,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                                                 setContract(prev => ({...prev, عدد_أشهر_الدفعة_الأولى: clamped}));
                                             }}
                                         />
-                                        <input
+                                        <Input
                                             type="number"
                                             disabled
                                             className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-white"
@@ -732,19 +720,13 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                                         />
                                     </div>
                                 ) : (
-                                    <input 
-                                                                                        type="text" 
-                                                                                        inputMode="decimal"
+                                    <MoneyInput
                                         placeholder="قيمة الدفعة" 
-                                        min="0"
-                                        className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                                                                                        dir="ltr"
-                                                                                        value={contract.قيمة_الدفعة_الاولى ?? ''} 
-                                                                                        onChange={e => {
-                                                                                            const raw = normalizeDigitsToLatin(e.target.value);
-                                                                                            const n = parseNumberOrUndefined(raw);
-                                                                                            setContract(prev => ({ ...prev, قيمة_الدفعة_الاولى: n === undefined ? undefined : Math.max(0, n) }));
-                                                                                        }} 
+                                        min={0}
+                                        className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        dir="ltr"
+                                        value={typeof contract.قيمة_الدفعة_الاولى === 'number' ? contract.قيمة_الدفعة_الاولى : undefined}
+                                        onValueChange={(v) => setContract(prev => ({ ...prev, قيمة_الدفعة_الاولى: v === undefined ? undefined : Math.max(0, v) }))}
                                     />
                                 )}
 
@@ -764,7 +746,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                                 </label>
 
                                 {Boolean(contract.تقسيط_الدفعة_الأولى) && (
-                                    <input
+                                    <Input
                                         type="number"
                                         min={2}
                                         max={Math.min(60, Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12)))}
@@ -795,37 +777,29 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                         <div className="flex gap-4 mt-2 flex-wrap">
                             <div className="flex-1">
                                 <label className="text-xs block mb-1">عمولة مستأجر (د.أ)</label>
-                                <input 
-                                    type="text" 
-                                    inputMode="decimal"
-                                    min="0"
-                                    className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                                    dir="ltr"
-                                    value={commTenant} 
-                                    onChange={e => {
-                                      commissionTouchedRef.current = true;
-                                      const raw = normalizeDigitsToLatin(e.target.value);
-                                      const n = parseNumberOrUndefined(raw);
-                                      setCommTenant(n === undefined ? '' : Math.max(0, n));
-                                    }} 
-                                />
+                                                                <MoneyInput
+                                                                        min={0}
+                                                                        className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                                        dir="ltr"
+                                                                        value={typeof commTenant === 'number' ? commTenant : undefined}
+                                                                        onValueChange={(v) => {
+                                                                            commissionTouchedRef.current = true;
+                                                                            setCommTenant(v === undefined ? '' : Math.max(0, v));
+                                                                        }}
+                                                                />
                             </div>
                             <div className="flex-1">
                                 <label className="text-xs block mb-1">عمولة مالك (د.أ)</label>
-                                <input 
-                                    type="text" 
-                                    inputMode="decimal"
-                                    min="0"
-                                    className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                                    dir="ltr"
-                                    value={commOwner} 
-                                    onChange={e => {
-                                      commissionTouchedRef.current = true;
-                                      const raw = normalizeDigitsToLatin(e.target.value);
-                                      const n = parseNumberOrUndefined(raw);
-                                      setCommOwner(n === undefined ? '' : Math.max(0, n));
-                                    }} 
-                                />
+                                                                <MoneyInput
+                                                                        min={0}
+                                                                        className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                                        dir="ltr"
+                                                                        value={typeof commOwner === 'number' ? commOwner : undefined}
+                                                                        onValueChange={(v) => {
+                                                                            commissionTouchedRef.current = true;
+                                                                            setCommOwner(v === undefined ? '' : Math.max(0, v));
+                                                                        }}
+                                                                />
                             </div>
                             <div className="flex-1 min-w-[200px]">
                                 <label className="text-xs block mb-1">شهر دفع العمولة</label>

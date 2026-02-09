@@ -18,6 +18,8 @@ import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
+import { Input } from '@/components/ui/Input';
+import { MoneyInput } from '@/components/ui/MoneyInput';
 
 type Tab = 'contracts' | 'external' | 'employee';
 
@@ -1199,7 +1201,7 @@ export const Commissions: React.FC = () => {
                        )}
                    >
                        <form id="external-commission-form" onSubmit={handleAddExternal} className="space-y-4">
-                           <input
+                           <Input
                                type="date"
                                className={inputClass}
                                value={newExtComm.التاريخ || ''}
@@ -1220,12 +1222,11 @@ export const Commissions: React.FC = () => {
                                placeholder="اختر نوع الدخل..."
                                required
                            />
-                           <input
-                               type="number"
+                           <MoneyInput
                                placeholder="القيمة"
                                className={inputClass}
-                               value={newExtComm.القيمة || ''}
-                               onChange={(e) => setNewExtComm({ ...newExtComm, القيمة: parseFloat(e.target.value) })}
+                               value={typeof newExtComm.القيمة === 'number' ? newExtComm.القيمة : undefined}
+                               onValueChange={(v) => setNewExtComm({ ...newExtComm, القيمة: v })}
                            />
                            <textarea
                                placeholder="ملاحظات (اختياري)"
@@ -1262,12 +1263,12 @@ export const Commissions: React.FC = () => {
                        <div className="text-sm text-slate-600 dark:text-slate-400">
                            العقد: <b className="text-slate-800 dark:text-white">#{(editingContractComm.رقم_العقد || '').substring(0,5)}</b>
                        </div>
-                       <input
-                           type="date"
-                           className={inputClass}
-                           value={asString(editingContractComm.تاريخ_العقد) || ''}
-                           onChange={(e) => setEditingContractComm({ ...editingContractComm, تاريخ_العقد: e.target.value })}
-                       />
+                      <Input
+                          type="date"
+                          className={inputClass}
+                          value={asString(editingContractComm.تاريخ_العقد) || ''}
+                          onChange={(e) => setEditingContractComm({ ...editingContractComm, تاريخ_العقد: e.target.value })}
+                      />
 
                        <select
                            className={inputClass}
@@ -1318,19 +1319,17 @@ export const Commissions: React.FC = () => {
                                الشريحة (حسب إجمالي الإيجار لهذا الشهر): {String(contractEmployeeBreakdown?.tierId || '—')} — قبل الإدخال: {formatCurrencyJOD(contractEmployeeBreakdown?.baseEarned || 0)} — الإجمالي: {formatCurrencyJOD(contractEmployeeBreakdown?.finalEarned || 0)}
                            </div>
                        </div>
-                       <input
-                           type="number"
+                       <MoneyInput
                            placeholder="عمولة المالك"
                            className={inputClass}
-                           value={Number(editingContractComm.عمولة_المالك ?? 0)}
-                           onChange={(e) => setEditingContractComm({ ...editingContractComm, عمولة_المالك: Number(e.target.value) })}
+                           value={typeof editingContractComm.عمولة_المالك === 'number' ? editingContractComm.عمولة_المالك : Number(editingContractComm.عمولة_المالك ?? 0)}
+                           onValueChange={(v) => setEditingContractComm({ ...editingContractComm, عمولة_المالك: v ?? 0 })}
                        />
-                       <input
-                           type="number"
+                       <MoneyInput
                            placeholder="عمولة المستأجر"
                            className={inputClass}
-                           value={Number(editingContractComm.عمولة_المستأجر ?? 0)}
-                           onChange={(e) => setEditingContractComm({ ...editingContractComm, عمولة_المستأجر: Number(e.target.value) })}
+                           value={typeof editingContractComm.عمولة_المستأجر === 'number' ? editingContractComm.عمولة_المستأجر : Number(editingContractComm.عمولة_المستأجر ?? 0)}
+                           onValueChange={(v) => setEditingContractComm({ ...editingContractComm, عمولة_المستأجر: v ?? 0 })}
                        />
                    </form>
            </AppModal>

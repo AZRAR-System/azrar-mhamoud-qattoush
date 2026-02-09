@@ -62,7 +62,7 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-2 overflow-x-auto no-scrollbar flex-nowrap w-full lg:w-auto lg:flex-wrap lg:overflow-visible">
             {extraActions}
 
             {onRefresh && (
@@ -93,10 +93,10 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
         {/* Filter & Search Bar */}
         {shouldShowBar && (
           <div className="mt-4 pt-4 border-t border-slate-200/70 dark:border-slate-800">
-            <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex flex-col gap-3 md:flex-row md:flex-nowrap md:overflow-x-auto md:no-scrollbar lg:flex-wrap lg:overflow-visible">
               {/* Search */}
               {shouldShowSearch && (
-                <div className="flex-1 min-w-[14rem]">
+                <div className="flex-1 min-w-[16rem] md:shrink-0 lg:shrink">
                   <Input
                     type="text"
                     placeholder={searchPlaceholder}
@@ -109,7 +109,7 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
 
               {/* Dynamic Filters */}
               {filters.map((filter) => (
-                <div key={filter.key} className="w-full md:w-auto md:min-w-[12rem]">
+                <div key={filter.key} className="w-full md:w-auto md:min-w-[12rem] shrink-0">
                   <Select
                     options={filter.options}
                     value={activeFilters[filter.key] || ''}

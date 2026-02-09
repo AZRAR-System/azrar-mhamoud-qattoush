@@ -16,7 +16,9 @@ import { DS } from '@/constants/designSystem';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
+import { Input } from '@/components/ui/Input';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { safeCopyToClipboard } from '@/utils/clipboard';
 
 type SqlStatus = { configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string };
 type DesktopOkMessage = { ok?: boolean; message?: string };
@@ -419,7 +421,8 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       return;
     }
     try {
-      await navigator.clipboard.writeText(sid);
+      const res = await safeCopyToClipboard(sid);
+      if (!res.ok) throw new Error(res.error || 'copy_failed');
       toast.success('تم نسخ معرّف الجلسة');
     } catch {
       toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
@@ -430,7 +433,8 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
     try {
       const report = buildDiagnosticsReport();
       const text = JSON.stringify(report, null, 2);
-      await navigator.clipboard.writeText(text);
+      const res = await safeCopyToClipboard(text);
+      if (!res.ok) throw new Error(res.error || 'copy_failed');
       toast.success('تم نسخ تقرير التشخيص');
     } catch {
       toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
@@ -444,7 +448,8 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       return;
     }
     try {
-      await navigator.clipboard.writeText(text);
+      const res = await safeCopyToClipboard(text);
+      if (!res.ok) throw new Error(res.error || 'copy_failed');
       toast.success('تم نسخ سجل الأخطاء');
     } catch {
       toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
@@ -1432,7 +1437,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">عمولات البيع</h3>
                     <div>
                       <label className={labelClass} htmlFor="settings-sales-commission-percent">نسبة عمولة البيع (%)</label>
-                      <input
+                      <Input
                         id="settings-sales-commission-percent"
                         type="number"
                         className={inputClass}
@@ -1446,7 +1451,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label className={labelClass} htmlFor="settings-rental-commission-owner-percent">عمولة المالك (%)</label>
-                          <input
+                          <Input
                             id="settings-rental-commission-owner-percent"
                             type="number"
                             className={inputClass}
@@ -1456,7 +1461,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         </div>
                         <div>
                           <label className={labelClass} htmlFor="settings-rental-commission-tenant-percent">عمولة المستأجر (%)</label>
-                          <input
+                          <Input
                             id="settings-rental-commission-tenant-percent"
                             type="number"
                             className={inputClass}
@@ -1921,7 +1926,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                               <div>
                                 <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-backup-retention-days">مدة الاحتفاظ (بالأيام)</label>
-                                <input
+                                <Input
                                   id="settings-sql-backup-retention-days"
                                   className="w-full mt-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl py-2.5 px-3 text-sm"
                                   type="number"

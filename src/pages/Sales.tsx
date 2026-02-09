@@ -10,11 +10,12 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { domainGetSmart } from '@/services/domainQueries';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
+import { Input } from '@/components/ui/Input';
+import { MoneyInput } from '@/components/ui/MoneyInput';
 import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { DS } from '@/constants/designSystem';
-import { normalizeDigitsToLatin } from '@/utils/numberInput';
 import { computeEmployeeCommission } from '@/utils/employeeCommission';
 import { formatCurrencyJOD } from '@/utils/format';
 
@@ -961,26 +962,22 @@ export const Sales: React.FC = () => {
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                <div>
                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">السعر المطلوب <span className="text-red-500">*</span></label>
-                                   <input
-                                       type="number"
+                                   <MoneyInput
                                        className="w-full px-4 py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
                                        required
-                                       min={0}
-                                       value={newListing.السعر_المطلوب}
-                                       onChange={e => setNewListing({ ...newListing, السعر_المطلوب: Number(normalizeDigitsToLatin(e.target.value)) })}
-                                       placeholder="0"
+                                       placeholder="0.00"
+                                       value={newListing.السعر_المطلوب ?? undefined}
+                                       onValueChange={(v) => setNewListing({ ...newListing, السعر_المطلوب: Math.max(0, Number(v ?? 0)) })}
                                    />
                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">سيظهر للمستخدمين كـ “السعر المطلوب”</div>
                                </div>
                                <div>
                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">أقل سعر مقبول</label>
-                                   <input
-                                       type="number"
+                                   <MoneyInput
                                        className="w-full px-4 py-3 bg-slate-50/70 dark:bg-slate-950/30 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/35 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950 transition text-sm"
-                                       min={0}
-                                       value={newListing.أقل_سعر_مقبول}
-                                       onChange={e => setNewListing({ ...newListing, أقل_سعر_مقبول: Number(normalizeDigitsToLatin(e.target.value)) })}
-                                       placeholder="0"
+                                       placeholder="0.00"
+                                       value={newListing.أقل_سعر_مقبول ?? undefined}
+                                       onValueChange={(v) => setNewListing({ ...newListing, أقل_سعر_مقبول: Math.max(0, Number(v ?? 0)) })}
                                    />
                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">اختياري — لتحديد حد التفاوض</div>
                                </div>
@@ -1078,7 +1075,7 @@ export const Sales: React.FC = () => {
                            </div>
                            <div>
                                <label htmlFor={formIds.agreementTotalCommission} className="block text-sm font-bold mb-1">إجمالي العمولة</label>
-                               <input
+                               <Input
                                    id={formIds.agreementTotalCommission}
                                    type="number"
                                    className="w-full p-2 border rounded-lg text-sm bg-gray-100 dark:bg-slate-800 border-gray-300 dark:border-slate-600"
@@ -1090,17 +1087,14 @@ export const Sales: React.FC = () => {
                        <div className="grid grid-cols-2 gap-4">
                            <div>
                                <label htmlFor={formIds.agreementOpportunityNumber} className="block text-sm font-bold mb-1">رقم الفرصة</label>
-                               <input
+                               <Input
                                    id={formIds.agreementOpportunityNumber}
                                    type="text"
                                    dir="ltr"
                                    inputMode="numeric"
                                    className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
                                    value={String(newAgreement.رقم_الفرصة ?? '')}
-                                   onChange={(e) => {
-                                       const next = normalizeDigitsToLatin(e.target.value);
-                                       setNewAgreement((prev) => ({ ...prev, رقم_الفرصة: next }));
-                                   }}
+                                   onChange={(e) => setNewAgreement((prev) => ({ ...prev, رقم_الفرصة: e.target.value }))}
                                    placeholder="Opportunity #"
                                />
                            </div>
@@ -1119,19 +1113,13 @@ export const Sales: React.FC = () => {
                        <div className="grid grid-cols-2 gap-4">
                            <div>
                                <label htmlFor={formIds.agreementDownPayment} className="block text-sm font-bold mb-1">الدفعة الأولى / العربون</label>
-                               <input
+                               <MoneyInput
                                    id={formIds.agreementDownPayment}
-                                   type="number"
                                    className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
                                    required
-                                   value={newAgreement.قيمة_الدفعة_الاولى ?? ''}
-                                   onChange={e => {
-                                       const raw = e.target.value;
-                                       setNewAgreement({
-                                           ...newAgreement,
-                                           قيمة_الدفعة_الاولى: raw === '' ? undefined : Number(raw)
-                                       });
-                                   }} />
+                                   value={newAgreement.قيمة_الدفعة_الاولى}
+                                   onValueChange={(v) => setNewAgreement((prev) => ({ ...prev, قيمة_الدفعة_الاولى: v }))}
+                               />
                            </div>
                            <div>
                                <label htmlFor={formIds.agreementPaymentMethod} className="block text-sm font-bold mb-1">طريقة الدفع</label>
@@ -1153,27 +1141,30 @@ export const Sales: React.FC = () => {
                            <div className="grid grid-cols-2 gap-3">
                                <div>
                                               <label htmlFor={formIds.agreementCommissionSeller} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">من البائع</label>
-                                              <input
+                                              <MoneyInput
                                                   id={formIds.agreementCommissionSeller}
-                                                  type="number"
                                                   className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
-                                      value={salesCommissions.seller} onChange={e => setSalesCommissions({...salesCommissions, seller: Number(e.target.value)})} />
+                                                  value={salesCommissions.seller}
+                                                  onValueChange={(v) => setSalesCommissions({ ...salesCommissions, seller: v ?? 0 })}
+                                              />
                                </div>
                                <div>
                                               <label htmlFor={formIds.agreementCommissionBuyer} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">من المشتري</label>
-                                              <input
+                                              <MoneyInput
                                                   id={formIds.agreementCommissionBuyer}
-                                                  type="number"
                                                   className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
-                                      value={salesCommissions.buyer} onChange={e => setSalesCommissions({...salesCommissions, buyer: Number(e.target.value)})} />
+                                                  value={salesCommissions.buyer}
+                                                  onValueChange={(v) => setSalesCommissions({ ...salesCommissions, buyer: v ?? 0 })}
+                                              />
                                </div>
                                <div className="col-span-2">
                                               <label htmlFor={formIds.agreementCommissionExternal} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">وسيط خارجي (إن وجد)</label>
-                                              <input
+                                              <MoneyInput
                                                   id={formIds.agreementCommissionExternal}
-                                                  type="number"
                                                   className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm" 
-                                      value={salesCommissions.external} onChange={e => setSalesCommissions({...salesCommissions, external: Number(e.target.value)})} />
+                                                  value={salesCommissions.external}
+                                                  onValueChange={(v) => setSalesCommissions({ ...salesCommissions, external: v ?? 0 })}
+                                              />
                                </div>
                            </div>
                        </div>
@@ -1232,53 +1223,48 @@ export const Sales: React.FC = () => {
                            <div className="grid grid-cols-2 gap-3">
                                <div>
                                               <label htmlFor={formIds.agreementExpenseFee} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">رسوم التنازل</label>
-                                              <input
+                                              <MoneyInput
                                                   id={formIds.agreementExpenseFee}
-                                                  type="number"
                                                   className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                                      value={saleExpenses.رسوم_التنازل}
-                                      onChange={e => setSaleExpenses({ ...saleExpenses, رسوم_التنازل: Number(e.target.value) })}
-                                   />
+                                                  value={saleExpenses.رسوم_التنازل}
+                                                  onValueChange={(v) => setSaleExpenses({ ...saleExpenses, رسوم_التنازل: v ?? 0 })}
+                                              />
                                </div>
                                <div>
                                               <label htmlFor={formIds.agreementExpenseBuildingTax} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">ضريبة الأبنية</label>
-                                              <input
+                                              <MoneyInput
                                                   id={formIds.agreementExpenseBuildingTax}
-                                                  type="number"
                                                   className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                                      value={saleExpenses.ضريبة_الابنية}
-                                      onChange={e => setSaleExpenses({ ...saleExpenses, ضريبة_الابنية: Number(e.target.value) })}
-                                   />
+                                                  value={saleExpenses.ضريبة_الابنية}
+                                                  onValueChange={(v) => setSaleExpenses({ ...saleExpenses, ضريبة_الابنية: v ?? 0 })}
+                                              />
                                </div>
                                <div>
                                               <label htmlFor={formIds.agreementExpenseElectricity} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">نقل اشتراك الكهرباء</label>
-                                              <input
+                                              <MoneyInput
                                                   id={formIds.agreementExpenseElectricity}
-                                                  type="number"
                                                   className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                                      value={saleExpenses.نقل_اشتراك_الكهرباء}
-                                      onChange={e => setSaleExpenses({ ...saleExpenses, نقل_اشتراك_الكهرباء: Number(e.target.value) })}
-                                   />
+                                                  value={saleExpenses.نقل_اشتراك_الكهرباء}
+                                                  onValueChange={(v) => setSaleExpenses({ ...saleExpenses, نقل_اشتراك_الكهرباء: v ?? 0 })}
+                                              />
                                </div>
                                <div>
                                               <label htmlFor={formIds.agreementExpenseWater} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">نقل اشتراك المياه</label>
-                                              <input
+                                              <MoneyInput
                                                   id={formIds.agreementExpenseWater}
-                                                  type="number"
                                                   className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                                      value={saleExpenses.نقل_اشتراك_المياه}
-                                      onChange={e => setSaleExpenses({ ...saleExpenses, نقل_اشتراك_المياه: Number(e.target.value) })}
-                                   />
+                                                  value={saleExpenses.نقل_اشتراك_المياه}
+                                                  onValueChange={(v) => setSaleExpenses({ ...saleExpenses, نقل_اشتراك_المياه: v ?? 0 })}
+                                              />
                                </div>
                                <div className="col-span-2">
                                               <label htmlFor={formIds.agreementExpenseDeposits} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">قيمة التأمينات (إن لم يتنازل عنها البائع)</label>
-                                              <input
+                                              <MoneyInput
                                                   id={formIds.agreementExpenseDeposits}
-                                                  type="number"
                                                   className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                                      value={saleExpenses.قيمة_التأمينات}
-                                      onChange={e => setSaleExpenses({ ...saleExpenses, قيمة_التأمينات: Number(e.target.value) })}
-                                   />
+                                                  value={saleExpenses.قيمة_التأمينات}
+                                                  onValueChange={(v) => setSaleExpenses({ ...saleExpenses, قيمة_التأمينات: v ?? 0 })}
+                                              />
                                </div>
                                <div className="col-span-2">
                                               <label htmlFor={formIds.agreementExpenseNotes} className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">ملاحظات</label>

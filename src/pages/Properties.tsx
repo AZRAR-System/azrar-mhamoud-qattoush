@@ -33,6 +33,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -1025,8 +1026,7 @@ export const Properties: React.FC = () => {
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                    <div>
                        <label className={advLabelClass}>المساحة (من)</label>
-                       <input
-                           inputMode="numeric"
+                       <Input
                            type="number"
                            placeholder="0"
                            className={advInputClass}
@@ -1036,8 +1036,7 @@ export const Properties: React.FC = () => {
                    </div>
                    <div>
                        <label className={advLabelClass}>المساحة (إلى)</label>
-                       <input
-                           inputMode="numeric"
+                       <Input
                            type="number"
                            placeholder="0"
                            className={advInputClass}
@@ -1047,8 +1046,7 @@ export const Properties: React.FC = () => {
                    </div>
                    <div>
                        <label className={advLabelClass}>السعر (من)</label>
-                       <input
-                           inputMode="numeric"
+                       <Input
                            type="number"
                            placeholder="0"
                            className={advInputClass}
@@ -1058,8 +1056,7 @@ export const Properties: React.FC = () => {
                    </div>
                    <div>
                        <label className={advLabelClass}>السعر (إلى)</label>
-                       <input
-                           inputMode="numeric"
+                       <Input
                            type="number"
                            placeholder="0"
                            className={advInputClass}

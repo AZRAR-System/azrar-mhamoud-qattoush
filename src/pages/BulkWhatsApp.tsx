@@ -8,6 +8,7 @@ import { MessageCircle, PauseCircle, PlayCircle, Users } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { useToast } from '@/context/ToastContext';
 import { buildWhatsAppLink, collectWhatsAppPhones } from '@/utils/whatsapp';
 import { openExternalUrl } from '@/utils/externalLink';
@@ -464,7 +465,7 @@ export const BulkWhatsApp: React.FC = () => {
 
           <div>
             <label className="block text-sm font-bold text-slate-800 dark:text-white mb-2">المهلة بين كل فتح (ثواني)</label>
-            <input
+            <Input
               type="number"
               min={8}
               className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -474,7 +475,7 @@ export const BulkWhatsApp: React.FC = () => {
             />
 
             <label className="block text-sm font-bold text-slate-800 dark:text-white mt-4 mb-2">الحد الأقصى لكل دفعة</label>
-            <input
+            <Input
               type="number"
               min={1}
               className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none"

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useToast } from '@/context/ToastContext';
 import { DbService } from '@/services/mockDb';
+import { safeCopyToClipboard } from '@/utils/clipboard';
 
 type Catalog = ReturnType<typeof DbService.getMergePlaceholderCatalog>;
 
@@ -21,7 +22,8 @@ export const MergeVariablesCatalog: React.FC<Props> = ({
   const copy = async (key: string) => {
     const text = `{{${key}}}`;
     try {
-      await navigator.clipboard.writeText(text);
+      const res = await safeCopyToClipboard(text);
+      if (!res.ok) throw new Error(res.error || 'copy_failed');
       toast.success(`تم نسخ ${text}`);
     } catch {
       toast.warning('تعذر النسخ تلقائياً');
