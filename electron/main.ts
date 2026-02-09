@@ -6,6 +6,8 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { registerIpcHandlers } from './ipc';
 import { startAutoMaintenance } from './autoMaintenance';
+import { startOnlineStatusMonitor, stopOnlineStatusMonitor } from './license/licenseManager';
+import { verifyAppIntegrityOrQuit } from './security/integrity';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,10 +56,13 @@ if (isDev) {
 }
 
 // Best-effort: enable Chromium sandboxing globally (must be called before app is ready).
-try {
-  app.enableSandbox();
-} catch {
-  // ignore
+// In some dev environments this can cause sandbox bundle/runtime issues; keep prod strict.
+if (!isDev) {
+  try {
+    app.enableSandbox();
+  } catch {
+    // ignore
+  }
 }
 
 // Best-effort: ensure Chromium caches use a writable location.
@@ -110,8 +115,10 @@ function getContentSecurityPolicy(prodScriptHashes: string[] = []): string {
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:3000",
       "style-src 'self' 'unsafe-inline' http://localhost:3000",
       "img-src 'self' data: blob: http://localhost:3000",
+      "media-src 'self' data: blob: http://localhost:3000",
       "font-src 'self' data: http://localhost:3000",
       "connect-src 'self' http://localhost:3000 ws://localhost:3000",
+      "worker-src 'self' blob: http://localhost:3000",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -125,8 +132,10 @@ function getContentSecurityPolicy(prodScriptHashes: string[] = []): string {
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
+    "media-src 'self' data: blob:",
     "font-src 'self' data:",
     "connect-src 'self'",
+    "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -155,6 +164,13 @@ async function installContentSecurityPolicy() {
 
         const responseHeaders = details.responseHeaders ?? {};
         responseHeaders['Content-Security-Policy'] = [csp];
+        // Defense-in-depth headers (best-effort in Electron)
+        responseHeaders['X-Content-Type-Options'] = ['nosniff'];
+        responseHeaders['Referrer-Policy'] = ['no-referrer'];
+        responseHeaders['X-Frame-Options'] = ['DENY'];
+        responseHeaders['Permissions-Policy'] = [
+          'camera=(), microphone=(), geolocation=(), payment=(), usb=(), hid=(), serial=(), clipboard-read=(), clipboard-write=()'
+        ];
         callback({ responseHeaders });
       }
     );
@@ -165,6 +181,24 @@ async function installContentSecurityPolicy() {
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
+
+function inferIsLicenseAdminMode(): boolean {
+  try {
+    const envMode = String(process.env.AZRAR_APP_MODE || '').trim().toLowerCase();
+    if (envMode) return envMode === 'license-admin';
+
+    const argv = Array.isArray(process.argv) ? process.argv.map((s) => String(s || '').toLowerCase()) : [];
+    if (argv.includes('--license-admin')) return true;
+    if (argv.includes('--app=license-admin')) return true;
+    if (argv.includes('--app-mode=license-admin')) return true;
+
+    const name = String(app.getName() || '').trim().toLowerCase();
+    if (!name) return false;
+    return name.includes('license-admin') || name.includes('licenseadmin') || name.includes('azrar-license-admin');
+  } catch {
+    return false;
+  }
+}
 
 function isAllowedExternalUrl(rawUrl: string): boolean {
   try {
@@ -216,10 +250,10 @@ async function clearAppCacheOnExit(timeoutMs = 900) {
 async function createMainWindow() {
   // In dev mode after esbuild bundle, preload.cjs is in same folder as main.js
   const preloadPath = path.join(__dirname, 'preload.cjs');
-  
+
   logger.info('[Electron] Preload path:', preloadPath);
   logger.info('[Electron] isDev:', isDev);
-  
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -227,7 +261,7 @@ async function createMainWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: !isDev,
       webviewTag: false,
       devTools: isDev,
       safeDialogs: true,
@@ -237,6 +271,16 @@ async function createMainWindow() {
       preload: preloadPath,
     },
   });
+
+  const appMode = String(process.env.AZRAR_APP_MODE || '').trim().toLowerCase();
+  const isLicenseAdminMode = inferIsLicenseAdminMode();
+  if (isLicenseAdminMode) {
+    try {
+      mainWindow.setTitle('AZRAR License Admin');
+    } catch {
+      // ignore
+    }
+  }
 
   mainWindow.once('ready-to-show', () => {
     logger.info('[Electron] Window ready to show');
@@ -303,12 +347,17 @@ async function createMainWindow() {
     const baseUrl = 'http://localhost:3000';
     const qs = new URLSearchParams();
     // Dev-test flags (passed from scripts/desktop-dev-tests.mjs).
-    if (String(process.env.VITE_AUTORUN_SYSTEM_TESTS || '').toLowerCase() === 'true') qs.set('autorun', '1');
-    if (String(process.env.VITE_ENABLE_INTEGRATION_TEST_DATA || '').toLowerCase() === 'true') qs.set('integrationData', '1');
-    if (String(process.env.VITE_AUTORUN_SYSTEM_TESTS_MUTATION || '').toLowerCase() === 'true') qs.set('mutation', '1');
-    if (String(process.env.VITE_ALLOW_CODE_ACTIVATION || '').toLowerCase() === 'true') qs.set('allowCodeActivation', '1');
+    if (String(process.env.VITE_AUTORUN_SYSTEM_TESTS || '').toLowerCase() === 'true')
+      qs.set('autorun', '1');
+    if (String(process.env.VITE_ENABLE_INTEGRATION_TEST_DATA || '').toLowerCase() === 'true')
+      qs.set('integrationData', '1');
+    if (String(process.env.VITE_AUTORUN_SYSTEM_TESTS_MUTATION || '').toLowerCase() === 'true')
+      qs.set('mutation', '1');
+    if (String(process.env.VITE_ALLOW_CODE_ACTIVATION || '').toLowerCase() === 'true')
+      qs.set('allowCodeActivation', '1');
 
-    const devUrl = qs.toString() ? `${baseUrl}/?${qs.toString()}` : baseUrl;
+    const hash = isLicenseAdminMode ? '#/license-admin' : '';
+    const devUrl = qs.toString() ? `${baseUrl}/?${qs.toString()}${hash}` : `${baseUrl}/${hash}`;
     logger.info('[Electron] Loading dev URL:', devUrl);
     try {
       await mainWindow.loadURL(devUrl);
@@ -319,13 +368,18 @@ async function createMainWindow() {
   } else {
     const indexHtmlPath = path.join(app.getAppPath(), 'dist', 'index.html');
     logger.info('[Electron] Loading production file:', indexHtmlPath);
-    await mainWindow.loadFile(indexHtmlPath);
+    await mainWindow.loadFile(indexHtmlPath, {
+      hash: isLicenseAdminMode ? '/license-admin' : undefined,
+    });
   }
 }
 
 app.whenReady().then(async () => {
   logger.info('[Electron] App ready');
   await installContentSecurityPolicy();
+
+  // Integrity check (prod only). If tampering is detected, the app quits.
+  await verifyAppIntegrityOrQuit();
 
   // Apply the same navigation/open/webview restrictions to ALL web contents.
   // This prevents bypasses via unexpected secondary windows.
@@ -375,13 +429,16 @@ app.whenReady().then(async () => {
 
   // Deny permission requests by default (camera/mic/geolocation/notifications/etc).
   try {
-    session.defaultSession?.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+    session.defaultSession?.setPermissionRequestHandler((_wc, _permission, callback) =>
+      callback(false)
+    );
     session.defaultSession?.setPermissionCheckHandler?.((_wc, _permission) => false);
   } catch {
     // Best-effort only
   }
 
   registerIpcHandlers();
+  startOnlineStatusMonitor();
   startAutoMaintenance();
   await createMainWindow();
 
@@ -397,6 +454,7 @@ app.on('before-quit', (event) => {
   if (isQuitting) return;
   isQuitting = true;
   event.preventDefault();
+  stopOnlineStatusMonitor();
   void clearAppCacheOnExit().finally(() => {
     app.exit(0);
   });
@@ -407,4 +465,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-

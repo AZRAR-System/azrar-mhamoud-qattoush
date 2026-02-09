@@ -12,22 +12,142 @@
 import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types/types';
 
 export interface DesktopDbBridge {
+  writeClipboardText?: (text: string) => Promise<{ ok: boolean; error?: string } | unknown>;
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<boolean>;
   delete(key: string): Promise<boolean>;
   keys(): Promise<string[]>;
   resetAll(): Promise<{ deleted: number } | unknown>;
-  export(): Promise<{ success: boolean; message: string; path?: string; latestPath?: string; archivePath?: string }>;
-  import(): Promise<{ success: boolean; message: string; path?: string }>;
+  export(): Promise<{
+    success: boolean;
+    message: string;
+    path?: string;
+    latestPath?: string;
+    archivePath?: string;
+    attachmentsLatestPath?: string;
+    attachmentsArchivePath?: string;
+  }>;
+  import(): Promise<{ success: boolean; message: string; path?: string; attachmentsRestored?: boolean }>;
   getPath(): Promise<string>;
   getBackupDir?: () => Promise<string>;
   chooseBackupDir?: () => Promise<{ success: boolean; message?: string; backupDir?: string } | unknown>;
+  openBackupDir?: () => Promise<{ ok: boolean; message?: string } | unknown>;
+  getLocalBackupAutomationSettings?: () =>
+    Promise<
+      | {
+          v: 1;
+          enabled?: boolean;
+          timeHHmm?: string;
+          retentionDays?: number;
+          lastRunAt?: string;
+          updatedAt?: string;
+        }
+      | unknown
+    >;
+  saveLocalBackupAutomationSettings?: (payload: {
+    enabled?: boolean;
+    timeHHmm?: string;
+    retentionDays?: number;
+  }) =>
+    Promise<
+      | {
+          success: boolean;
+          message?: string;
+          settings?: {
+            v: 1;
+            enabled?: boolean;
+            timeHHmm?: string;
+            retentionDays?: number;
+            lastRunAt?: string;
+            updatedAt?: string;
+          };
+        }
+      | unknown
+    >;
+  runLocalBackupNow?: () =>
+    Promise<
+      | {
+          success: boolean;
+          message?: string;
+          latestPath?: string;
+          archivePath?: string;
+          attachmentsLatestPath?: string;
+          attachmentsArchivePath?: string;
+        }
+      | unknown
+    >;
+
+  getLocalBackupStats?: () =>
+    Promise<
+      | {
+          ok: boolean;
+          message?: string;
+          backupDir?: string;
+          dbArchivesCount: number;
+          attachmentsArchivesCount: number;
+          latestDbExists: boolean;
+          latestAttachmentsExists: boolean;
+          totalBytes: number;
+          newestMtimeMs: number;
+          files: Array<{ name: string; mtimeMs: number; size: number }>;
+        }
+      | unknown
+    >;
+  getLocalBackupLog?: (payload?: { limit?: number }) =>
+    Promise<
+      | Array<{
+          ts: string;
+          ok: boolean;
+          trigger: 'auto' | 'manual';
+          message?: string;
+          latestPath?: string;
+          archivePath?: string;
+          attachmentsLatestPath?: string;
+          attachmentsArchivePath?: string;
+        }>
+      | unknown
+    >;
+  clearLocalBackupLog?: () => Promise<{ ok: boolean } | unknown>;
+  getBackupEncryptionSettings?: () =>
+    Promise<
+      | {
+          success: boolean;
+          message?: string;
+          available?: boolean;
+          enabled?: boolean;
+          hasPassword?: boolean;
+        }
+      | unknown
+    >;
+  saveBackupEncryptionSettings?: (payload: {
+    enabled?: boolean;
+    password?: string;
+    clearPassword?: boolean;
+  }) =>
+    Promise<
+      | {
+          success: boolean;
+          message?: string;
+          available?: boolean;
+          enabled?: boolean;
+          hasPassword?: boolean;
+        }
+      | unknown
+    >;
 
   // App helpers (Desktop only)
   getDeviceId?: () => Promise<string>;
   quitApp?: () => Promise<{ ok: boolean; message?: string } | unknown>;
   pickLicenseFile?: () => Promise<{ ok: boolean; canceled?: boolean; fileName?: string; content?: string; error?: string } | unknown>;
   getLicensePublicKey?: () => Promise<{ ok: boolean; publicKeyB64?: string; source?: string; error?: string } | unknown>;
+  pullAttachmentsNow: () =>
+    Promise<{
+      success: boolean;
+      message?: string;
+      downloaded?: number;
+      skipped?: number;
+      missingRemote?: number;
+    }>;
 
   // Domain schema + SQL-backed reports (Desktop only)
   domainStatus?: () => Promise<{ ok: boolean; schemaVersion?: number; migrated?: boolean; migratedAt?: string; message?: string } | unknown>;
@@ -343,11 +463,20 @@ export interface DesktopDbBridge {
   }) => Promise<{ success: boolean; relativePath?: string; filePath?: string; storedFileName?: string; message?: string }>;
   readAttachmentFile?: (relativePath: string) => Promise<{ success: boolean; dataUri?: string; message?: string }>;
   deleteAttachmentFile?: (relativePath: string) => Promise<{ success: boolean; message?: string }>;
+  openAttachmentFile?: (relativePath: string) => Promise<{ success: boolean; message?: string }>;
 
   // Word templates (Desktop only)
-  readTemplateFile?: (payload: { templateName: string }) => Promise<{ success: boolean; dataUri?: string; fileName?: string; message?: string }>;
-  listTemplates?: () => Promise<{ success: boolean; items?: string[]; message?: string }>;
-  importTemplate?: () => Promise<{ success: boolean; fileName?: string; message?: string }>;
+  readTemplateFile?: (payload: { templateName: string; templateType?: string }) => Promise<{ success: boolean; dataUri?: string; fileName?: string; message?: string }>;
+  listTemplates?: (payload?: { templateType?: string }) => Promise<{
+    success: boolean;
+    items?: string[];
+    details?: Array<{ fileName: string; kvKey?: string; key?: string; updatedAt?: string }>;
+    dir?: string;
+    templateType?: string;
+    message?: string;
+  }>;
+  importTemplate?: (payload?: { templateType?: string }) => Promise<{ success: boolean; fileName?: string; dir?: string; templateType?: string; message?: string }>;
+  deleteTemplate?: (payload: { templateName: string; templateType?: string }) => Promise<{ success: boolean; message?: string }>;
 }
 
 export interface DesktopUpdaterBridge {
@@ -364,10 +493,174 @@ export interface DesktopUpdaterBridge {
   onEvent?(handler: (evt: unknown) => void): () => void;
 }
 
+export interface DesktopLicenseBridge {
+  getDeviceFingerprint(): Promise<{ ok: boolean; fingerprint?: string; warning?: string; error?: string } | unknown>;
+  getStatus(): Promise<
+    | {
+        ok: boolean;
+        status?: {
+          activated: boolean;
+          deviceFingerprint?: string;
+          activatedAt?: string;
+          lastCheckAt?: string;
+          reason?: string;
+          review?: {
+            serverUrl?: string;
+            remoteStatus?:
+              | 'active'
+              | 'suspended'
+              | 'revoked'
+              | 'expired'
+              | 'mismatch'
+              | 'invalid_license'
+              | 'unknown';
+            remoteCheckedAt?: string;
+            remoteLastAttemptAt?: string;
+            remoteLastError?: string;
+            remoteStatusUpdatedAt?: string;
+            remoteStatusNote?: string;
+          };
+          license?: {
+            expiresAt?: string;
+            features?: Record<string, boolean>;
+            deviceId?: string;
+          };
+        };
+        error?: string;
+      }
+    | unknown
+  >;
+  hasFeature(featureName: string): Promise<{ ok: boolean; enabled?: boolean; reason?: string; error?: string } | unknown>;
+  activateFromContent(raw: string): Promise<{ ok: boolean; error?: string } | unknown>;
+  activateOnline(payload: { licenseKey: string; serverUrl?: string }): Promise<{ ok: boolean; error?: string } | unknown>;
+  getServerUrl(): Promise<{ ok: boolean; url?: string; error?: string } | unknown>;
+  setServerUrl(url: string): Promise<{ ok: boolean; url?: string; error?: string } | unknown>;
+  refreshOnlineStatus(): Promise<{ ok: boolean; status?: unknown; error?: string } | unknown>;
+  deactivate(): Promise<{ ok: boolean; error?: string } | unknown>;
+}
+
+export interface DesktopLicenseAdminBridge {
+  login(payload: { username: string; password: string }): Promise<{ ok: boolean; error?: string } | unknown>;
+  logout(): Promise<{ ok: boolean; error?: string } | unknown>;
+
+  getUser(): Promise<
+    | {
+        ok: boolean;
+        user?: {
+          username?: string;
+          updatedAt?: string;
+        };
+        error?: string;
+      }
+    | unknown
+  >;
+
+  updateUser(payload: { username: string; newPassword?: string }): Promise<
+    | {
+        ok: boolean;
+        user?: {
+          username?: string;
+          updatedAt?: string;
+        };
+        error?: string;
+      }
+    | unknown
+  >;
+
+  getAdminTokenStatus(): Promise<
+    | {
+        ok: boolean;
+        configured?: boolean;
+        error?: string;
+      }
+    | unknown
+  >;
+
+  setAdminToken(payload: { token: string }): Promise<{ ok: boolean; error?: string } | unknown>;
+
+  list(payload: { serverUrl: string; q?: string; limit?: number }): Promise<
+    | {
+        ok: boolean;
+        result?: {
+          ok?: boolean;
+          time?: string;
+          total?: number;
+          items?: Array<{
+            licenseKey: string;
+            status?: string;
+            createdAt?: string;
+            expiresAt?: string;
+            maxActivations?: number;
+            activationsCount?: number;
+            statusUpdatedAt?: string;
+            statusNote?: string;
+          }>;
+        };
+        error?: string;
+      }
+    | unknown
+  >;
+
+  get(payload: { serverUrl: string; licenseKey: string }): Promise<
+    | {
+        ok: boolean;
+        result?: { ok?: boolean; time?: string; record?: unknown };
+        error?: string;
+      }
+    | unknown
+  >;
+
+  issue(payload: {
+    serverUrl: string;
+    licenseKey?: string;
+    expiresAt?: string;
+    maxActivations?: number;
+    features?: Record<string, unknown>;
+  }): Promise<{ ok: boolean; result?: unknown; error?: string } | unknown>;
+
+  setStatus(payload: { serverUrl: string; licenseKey: string; status: string; note?: string }): Promise<
+    | { ok: boolean; result?: unknown; error?: string }
+    | unknown
+  >;
+
+  activate(payload: { serverUrl: string; licenseKey: string; deviceId: string }): Promise<
+    | { ok: boolean; result?: unknown; error?: string }
+    | unknown
+  >;
+
+  checkStatus(payload: { serverUrl: string; licenseKey: string; deviceId: string }): Promise<
+    | {
+        ok: boolean;
+        result?: {
+          ok?: boolean;
+          time?: string;
+          status?: string;
+          statusUpdatedAt?: string;
+          statusNote?: string;
+          error?: string;
+        };
+        error?: string;
+      }
+    | unknown
+  >;
+
+  updateAfterSales(payload: { serverUrl: string; licenseKey: string; patch: Record<string, unknown> }): Promise<
+    | { ok: boolean; result?: unknown; error?: string }
+    | unknown
+  >;
+
+  saveLicenseFile(payload: { defaultFileName?: string; content: string; confirmPassword?: string }): Promise<
+    | { ok: boolean; filePath?: string; error?: string }
+    | unknown
+  >;
+}
+
 declare global {
   interface Window {
     desktopDb?: DesktopDbBridge;
     desktopUpdater?: DesktopUpdaterBridge;
+    desktopLicense?: DesktopLicenseBridge;
+    desktopLicenseAdmin?: DesktopLicenseAdminBridge;
   }
 }
 

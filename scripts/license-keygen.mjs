@@ -1,7 +1,11 @@
-import { getPublicKeyAsync } from '@noble/ed25519';
+import { hashes, getPublicKeyAsync } from '@noble/ed25519';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+
+if (!hashes.sha512) {
+  hashes.sha512 = (message) => crypto.createHash('sha512').update(message).digest();
+}
 
 const args = process.argv.slice(2);
 const outIdx = args.findIndex((a) => a === '--out');

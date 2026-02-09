@@ -1,9 +1,10 @@
 ﻿import path from 'node:path';
-import { app, dialog } from 'electron';
+import { app, dialog, safeStorage } from 'electron';
 import { createRequire } from 'node:module';
 import type BetterSqlite3 from 'better-sqlite3';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
+import crypto from 'node:crypto';
 
 type SqliteDb = InstanceType<typeof BetterSqlite3>;
 
@@ -11,18 +12,88 @@ const require = createRequire(import.meta.url);
 
 type SqliteCtor = new (...args: unknown[]) => SqliteDb;
 
-const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+const toRecord = (v: unknown): Record<string, unknown> =>
+  typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 const isNonNull = <T>(v: T | null | undefined): v is T => v !== null && v !== undefined;
 const toNumber = (v: unknown): number => {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : 0;
 };
 
+const LOCALE_AR_LATN_GREGORY = 'ar-JO-u-ca-gregory-nu-latn';
+
+type ErrorCode =
+  | 'ERR_INVALID_ID'
+  | 'ERR_NOT_FOUND'
+  | 'ERR_INVALID_DATA'
+  | 'ERR_CONTRACT_NOT_FOUND'
+  | 'ERR_INVALID_CONTRACT_DATA'
+  | 'ERR_INVALID_DATES'
+  | 'ERR_INVALID_MONTH'
+  | 'ERR_INVALID_DATE';
+
+const errorResult = (code: ErrorCode, message?: string) => ({ ok: false, code, message });
+
 let BetterSqlite3Ctor: SqliteCtor | null = null;
 
 let db: SqliteDb | null = null;
 
 let resolvedDbPath: string | null = null;
+
+type DbEncryptionMode = 'none' | 'sqlcipher';
+
+const getDbEncryptionMode = (): DbEncryptionMode => {
+  const raw = String(process.env.AZRAR_DB_ENCRYPTION || '').trim().toLowerCase();
+  if (raw === 'sqlcipher') return 'sqlcipher';
+  return 'none';
+};
+
+const isSqlcipherEnabled = (): boolean => getDbEncryptionMode() === 'sqlcipher';
+
+const getDbCipherKeyFilePath = (): string => {
+  return path.join(app.getPath('userData'), 'db-sqlcipher-key.v1.json');
+};
+
+const escapeSqlString = (s: string): string => String(s || '').replace(/'/g, "''");
+
+const getOrCreateDbCipherKeySync = (): string => {
+  const explicit = String(process.env.AZRAR_DB_CIPHER_KEY || '').trim();
+  if (explicit) return explicit;
+
+  if (safeStorage?.isEncryptionAvailable?.() !== true) {
+    throw new Error(
+      'تشفير قاعدة البيانات مُفعّل (SQLCipher) لكن safeStorage غير متاح.\n' +
+        'على Linux قد تحتاج تثبيت keyring/libsecret، أو عيّن AZRAR_DB_CIPHER_KEY.'
+    );
+  }
+
+  const keyPath = getDbCipherKeyFilePath();
+  try {
+    if (fsSync.existsSync(keyPath)) {
+      const raw = fsSync.readFileSync(keyPath, 'utf8');
+      const parsed = JSON.parse(String(raw || '').trim()) as { v?: unknown; keyEncB64?: unknown };
+      const b64 = typeof parsed?.keyEncB64 === 'string' ? String(parsed.keyEncB64) : '';
+      if (b64) {
+        const enc = Buffer.from(b64, 'base64');
+        const plain = safeStorage.decryptString(enc);
+        if (plain && plain.trim()) return plain.trim();
+      }
+    }
+  } catch {
+    // ignore and regenerate
+  }
+
+  const generated = crypto.randomBytes(32).toString('base64');
+  try {
+    fsSync.mkdirSync(path.dirname(keyPath), { recursive: true });
+    const enc = safeStorage.encryptString(generated);
+    const payload = { v: 1, keyEncB64: Buffer.from(enc).toString('base64') };
+    fsSync.writeFileSync(keyPath, JSON.stringify(payload, null, 2), 'utf8');
+  } catch {
+    // If we can't persist, still return generated for this run.
+  }
+  return generated;
+};
 
 function ensureWritableDirSync(dir: string) {
   fsSync.mkdirSync(dir, { recursive: true });
@@ -62,6 +133,13 @@ function resolveDbPathSync(): string {
   }
 
   const userDataPath = path.join(app.getPath('userData'), 'khaberni.sqlite');
+
+  // When DB encryption is enabled, always keep the DB under userData.
+  // This avoids Program Files write restrictions and reduces accidental exposure.
+  if (isSqlcipherEnabled()) {
+    resolvedDbPath = userDataPath;
+    return resolvedDbPath;
+  }
 
   // Prefer the legacy behavior (DB next to the executable) when packaged AND writable.
   // Fall back to userData if the install directory is not writable (common for Program Files).
@@ -108,18 +186,24 @@ export function getDb(): SqliteDb {
 
   if (!BetterSqlite3Ctor) {
     try {
-      const mod: unknown = require('better-sqlite3');
+      const mod: unknown = isSqlcipherEnabled()
+        ? require('better-sqlite3-multiple-ciphers')
+        : require('better-sqlite3');
       const modRec = toRecord(mod);
       const candidate: unknown = modRec.default ?? mod;
-      if (typeof candidate !== 'function') throw new Error('better-sqlite3 module did not export a constructor');
+      if (typeof candidate !== 'function')
+        throw new Error('better-sqlite3 module did not export a constructor');
       BetterSqlite3Ctor = candidate as unknown as SqliteCtor;
       if (!BetterSqlite3Ctor) throw new Error('better-sqlite3 module did not export a constructor');
     } catch (e: unknown) {
       const rawMsg = e instanceof Error ? String(e.message) : String(e);
-      const looksAbiMismatch = /NODE_MODULE_VERSION\s+\d+|compiled against a different Node\.js version/i.test(rawMsg);
+      const looksAbiMismatch =
+        /NODE_MODULE_VERSION\s+\d+|compiled against a different Node\.js version/i.test(rawMsg);
       const detail = looksAbiMismatch
         ? 'تم بناء التطبيق أو التبعيات بإصدار Node/Electron مختلف. يلزم إعادة بناء/تثبيت نسخة Desktop بشكل صحيح.'
-        : 'تعذر تحميل مكتبة قاعدة البيانات المحلية (better-sqlite3).';
+        : isSqlcipherEnabled()
+          ? 'تعذر تحميل مكتبة قاعدة البيانات المشفرة (better-sqlite3-multiple-ciphers).'
+          : 'تعذر تحميل مكتبة قاعدة البيانات المحلية (better-sqlite3).';
 
       try {
         dialog.showMessageBoxSync({
@@ -149,7 +233,87 @@ export function getDb(): SqliteDb {
     fsSync.mkdirSync(dir, { recursive: true });
   }
 
-  const database = (db = new BetterSqlite3Ctor(dbPath) as SqliteDb);
+  let database = (db = new BetterSqlite3Ctor(dbPath) as SqliteDb);
+
+  // Optional: SQLCipher (at-rest encryption).
+  // IMPORTANT: this is enabled only when AZRAR_DB_ENCRYPTION=sqlcipher.
+  if (isSqlcipherEnabled()) {
+    const key = getOrCreateDbCipherKeySync();
+    try {
+      // Apply key before any queries. Escaping is defensive.
+      database.pragma(`key = '${escapeSqlString(key)}'`);
+
+      // Validate key by touching sqlite_master.
+      database.prepare('SELECT count(*) AS c FROM sqlite_master').get();
+    } catch (e: unknown) {
+      // If this DB is plaintext and migration is explicitly allowed, attempt rekey.
+      const allowMigrate = String(process.env.AZRAR_DB_ENCRYPTION_MIGRATE || '').trim();
+      const migrateOk = allowMigrate === '1' || allowMigrate.toLowerCase() === 'true';
+
+      if (migrateOk) {
+        try {
+          // Re-open without key to see if DB is plaintext.
+          database.close();
+          db = null;
+          const dbPlain = new BetterSqlite3Ctor(dbPath) as SqliteDb;
+          // If plaintext is readable, rekey it to encrypted.
+          dbPlain.prepare('SELECT count(*) AS c FROM sqlite_master').get();
+          dbPlain.pragma(`rekey = '${escapeSqlString(key)}'`);
+          dbPlain.close();
+          db = null;
+
+          // Re-open encrypted.
+          const dbEnc = new BetterSqlite3Ctor(dbPath) as SqliteDb;
+          dbEnc.pragma(`key = '${escapeSqlString(key)}'`);
+          dbEnc.prepare('SELECT count(*) AS c FROM sqlite_master').get();
+          db = dbEnc;
+          database = dbEnc;
+        } catch (e2: unknown) {
+          const rawMsg = e2 instanceof Error ? String(e2.message) : String(e2);
+          try {
+            dialog.showMessageBoxSync({
+              type: 'error',
+              title: 'خطأ في تشفير قاعدة البيانات',
+              message: 'تعذر تفعيل تشفير قاعدة البيانات (SQLCipher)',
+              detail: `فشل ترحيل/فتح قاعدة البيانات المشفرة.\n\n${rawMsg}`,
+              buttons: ['إغلاق'],
+            });
+          } catch {
+            // ignore
+          }
+          try {
+            app.quit();
+          } catch {
+            // ignore
+          }
+          throw e2;
+        }
+      } else {
+        const rawMsg = e instanceof Error ? String(e.message) : String(e);
+        try {
+          dialog.showMessageBoxSync({
+            type: 'error',
+            title: 'خطأ في تشغيل قاعدة البيانات',
+            message: 'تعذر فتح قاعدة البيانات المشفرة',
+            detail:
+              'تم تفعيل SQLCipher لكن قاعدة البيانات الحالية غير مشفرة أو المفتاح غير صحيح.\n' +
+              'لتشفير قاعدة موجودة: شغّل التطبيق مع AZRAR_DB_ENCRYPTION_MIGRATE=1 مرة واحدة.\n\n' +
+              rawMsg,
+            buttons: ['إغلاق'],
+          });
+        } catch {
+          // ignore
+        }
+        try {
+          app.quit();
+        } catch {
+          // ignore
+        }
+        throw e;
+      }
+    }
+  }
+
   database.pragma(`journal_mode = ${getJournalMode()}`);
   // Foreign keys are OFF by default in SQLite; enable enforcement per connection.
   // This is forward-compatible with planned FK constraints and helps catch bad writes early.
@@ -206,15 +370,21 @@ type ReportRunResult = {
   message?: string;
 };
 
-const DOMAIN_SCHEMA_VERSION = 4;
+const DOMAIN_SCHEMA_VERSION = 5;
 
 function metaGet(dbh: SqliteDb, key: string): string | null {
-  const row = dbh.prepare('SELECT v FROM domain_meta WHERE k = ?').get(key) as { v: string } | undefined;
+  const row = dbh.prepare('SELECT v FROM domain_meta WHERE k = ?').get(key) as
+    | { v: string }
+    | undefined;
   return row?.v ?? null;
 }
 
 function metaSet(dbh: SqliteDb, key: string, value: string): void {
-  dbh.prepare('INSERT INTO domain_meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').run(key, value);
+  dbh
+    .prepare(
+      'INSERT INTO domain_meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v'
+    )
+    .run(key, value);
 }
 
 function ensureDomainSchema(dbh: SqliteDb): void {
@@ -340,6 +510,57 @@ function ensureDomainSchema(dbh: SqliteDb): void {
     CREATE INDEX IF NOT EXISTS idx_maint_createdDate ON maintenance_tickets(createdDate);
   `);
 
+  // Best-effort UNIQUE constraints (avoid duplicates).
+  // IMPORTANT: Domain tables are derived from KV snapshots; duplicates may already exist in legacy datasets.
+  // Creating a UNIQUE index would fail in that case and must not crash the app.
+  try {
+    dbh.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_people_nationalId ON people(nationalId) WHERE TRIM(COALESCE(nationalId,'')) <> ''"
+    );
+  } catch {
+    // ignore
+  }
+  try {
+    dbh.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_people_phone ON people(phone) WHERE TRIM(COALESCE(phone,'')) <> ''"
+    );
+  } catch {
+    // ignore
+  }
+  try {
+    dbh.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_people_name ON people(name) WHERE TRIM(COALESCE(name,'')) <> ''"
+    );
+  } catch {
+    // ignore
+  }
+
+  try {
+    dbh.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_properties_internalCode ON properties(internalCode) WHERE TRIM(COALESCE(internalCode,'')) <> ''"
+    );
+  } catch {
+    // ignore
+  }
+
+  // Composite uniqueness for land identifiers (plot/plate/apartment) stored inside JSON snapshot.
+  // Only enforce when all 3 are present.
+  try {
+    dbh.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_properties_plot_plate_apt
+      ON properties(
+        TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_قطعة"'), '')),
+        TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_لوحة"'), '')),
+        TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_شقة"'), ''))
+      )
+      WHERE TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_قطعة"'), '')) <> ''
+        AND TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_لوحة"'), '')) <> ''
+        AND TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_شقة"'), '')) <> ''
+    `);
+  } catch {
+    // ignore
+  }
+
   // Forward-only migrations for existing installs
   if (current < 2) {
     try {
@@ -370,6 +591,12 @@ function ensureDomainSchema(dbh: SqliteDb): void {
     metaSet(dbh, 'domain_migrated_at', '');
   }
 
+  if (current < 5) {
+    // New unique indexes only; no data rewrite.
+    // If legacy duplicates exist, index creation is best-effort and won't crash.
+    metaSet(dbh, 'domain_migrated_at', '');
+  }
+
   metaSet(dbh, 'domain_schema_version', String(DOMAIN_SCHEMA_VERSION));
 }
 
@@ -394,19 +621,28 @@ function domainEnsureReady(): { ok: boolean; message?: string } {
       return raw.startsWith('[') && raw.endsWith(']') && raw.length > 2;
     };
 
-    const peopleCnt = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM people').get()).cnt);
-    const propsCnt = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM properties').get()).cnt);
-    const contractsCnt = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM contracts').get()).cnt);
-    const instCnt = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM installments').get()).cnt);
+    const peopleCnt = toNumber(
+      toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM people').get()).cnt
+    );
+    const propsCnt = toNumber(
+      toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM properties').get()).cnt
+    );
+    const contractsCnt = toNumber(
+      toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM contracts').get()).cnt
+    );
+    const instCnt = toNumber(
+      toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM installments').get()).cnt
+    );
 
-    const instMissingContractId =
-      toNumber(
-        toRecord(
-          dbh
-            .prepare("SELECT COUNT(1) AS cnt FROM installments WHERE contractId IS NULL OR TRIM(COALESCE(contractId,'')) = ''")
-            .get()
-        ).cnt
-      );
+    const instMissingContractId = toNumber(
+      toRecord(
+        dbh
+          .prepare(
+            "SELECT COUNT(1) AS cnt FROM installments WHERE contractId IS NULL OR TRIM(COALESCE(contractId,'')) = ''"
+          )
+          .get()
+      ).cnt
+    );
 
     const needsRepair =
       (peopleCnt === 0 && kvLooksNonEmpty('db_people')) ||
@@ -438,19 +674,26 @@ export function domainGetEntityById(
   if (!ready.ok) return { ok: false, message: ready.message };
 
   const safeId = String(id || '').trim();
-  if (!safeId) return { ok: false, message: 'معرف غير صالح' };
-
-  const table = entity === 'people' ? 'people' : entity === 'properties' ? 'properties' : 'contracts';
+  if (!safeId) return errorResult('ERR_INVALID_ID', 'معرف غير صالح');
   try {
-    const row = dbh.prepare(`SELECT data FROM ${table} WHERE id = ?`).get(safeId) as { data: string } | undefined;
-    if (!row?.data) return { ok: false, message: 'غير موجود' };
+    // Use fixed SQL per entity to avoid any possibility of identifier injection.
+    const stmt =
+      entity === 'people'
+        ? dbh.prepare('SELECT data FROM people WHERE id = ?')
+        : entity === 'properties'
+          ? dbh.prepare('SELECT data FROM properties WHERE id = ?')
+          : dbh.prepare('SELECT data FROM contracts WHERE id = ?');
+
+    const row = stmt.get(safeId) as { data: string } | undefined;
+    if (!row?.data) return errorResult('ERR_NOT_FOUND', 'غير موجود');
     try {
       return { ok: true, data: JSON.parse(row.data) };
     } catch {
-      return { ok: false, message: 'بيانات غير صالحة' };
+      return errorResult('ERR_INVALID_DATA', 'بيانات غير صالحة');
     }
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة البيانات';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة البيانات';
     return { ok: false, message };
   }
 }
@@ -477,44 +720,64 @@ export function domainPersonDetails(personId: string): {
   if (!ready.ok) return { ok: false, message: ready.message };
 
   const id = String(personId || '').trim();
-  if (!id) return { ok: false, message: 'معرف غير صالح' };
+  if (!id) return errorResult('ERR_INVALID_ID', 'معرف غير صالح');
 
   try {
-    const personRow = dbh.prepare('SELECT data FROM people WHERE id = ?').get(id) as { data: string } | undefined;
-    if (!personRow?.data) return { ok: false, message: 'غير موجود' };
+    const personRow = dbh.prepare('SELECT data FROM people WHERE id = ?').get(id) as
+      | { data: string }
+      | undefined;
+    if (!personRow?.data) return errorResult('ERR_NOT_FOUND', 'غير موجود');
 
     let person: unknown;
     try {
       person = JSON.parse(personRow.data);
     } catch {
-      return { ok: false, message: 'بيانات غير صالحة' };
+      return errorResult('ERR_INVALID_DATA', 'بيانات غير صالحة');
     }
 
-    const roles = (dbh.prepare('SELECT role FROM person_roles WHERE personId = ? ORDER BY role ASC').all(id) as Array<{ role: string }>).map(
-      (r) => String(r.role || '').trim()
-    ).filter(Boolean);
+    const roles = (
+      dbh
+        .prepare('SELECT role FROM person_roles WHERE personId = ? ORDER BY role ASC')
+        .all(id) as Array<{ role: string }>
+    )
+      .map((r) => String(r.role || '').trim())
+      .filter(Boolean);
 
-    const ownedProperties = (dbh.prepare('SELECT data FROM properties WHERE ownerId = ? ORDER BY COALESCE(internalCode,\'\') ASC').all(id) as Array<{ data: string }>).map(
-      (r) => {
+    const ownedProperties = (
+      dbh
+        .prepare(
+          "SELECT data FROM properties WHERE ownerId = ? ORDER BY COALESCE(internalCode,'') ASC"
+        )
+        .all(id) as Array<{ data: string }>
+    )
+      .map((r) => {
         try {
           return JSON.parse(r.data);
         } catch {
           return null;
         }
-      }
-    ).filter(Boolean);
+      })
+      .filter(Boolean);
 
-    const contracts = (dbh.prepare('SELECT data FROM contracts WHERE tenantId = ? AND COALESCE(isArchived,0) = 0 ORDER BY COALESCE(startDate,\'\') DESC, id DESC').all(id) as Array<{ data: string }>).map(
-      (r) => {
+    const contracts = (
+      dbh
+        .prepare(
+          "SELECT data FROM contracts WHERE tenantId = ? AND COALESCE(isArchived,0) = 0 ORDER BY COALESCE(startDate,'') DESC, id DESC"
+        )
+        .all(id) as Array<{ data: string }>
+    )
+      .map((r) => {
         try {
           return JSON.parse(r.data);
         } catch {
           return null;
         }
-      }
-    ).filter(Boolean);
+      })
+      .filter(Boolean);
 
-    const blacklistRow = dbh.prepare('SELECT data FROM blacklist WHERE personId = ? AND COALESCE(isActive,0) = 1').get(id) as { data: string } | undefined;
+    const blacklistRow = dbh
+      .prepare('SELECT data FROM blacklist WHERE personId = ? AND COALESCE(isActive,0) = 1')
+      .get(id) as { data: string } | undefined;
     let blacklistRecord: unknown | undefined = undefined;
     if (blacklistRow?.data) {
       try {
@@ -549,7 +812,9 @@ export function domainPersonDetails(personId: string): {
 
     const totalInstallments = Number(statRow?.total || 0) || 0;
     const lateInstallments = Number(statRow?.late || 0) || 0;
-    const commitmentRatio = totalInstallments ? Math.round(((totalInstallments - lateInstallments) / totalInstallments) * 100) : 100;
+    const commitmentRatio = totalInstallments
+      ? Math.round(((totalInstallments - lateInstallments) / totalInstallments) * 100)
+      : 100;
 
     return {
       ok: true,
@@ -567,14 +832,20 @@ export function domainPersonDetails(personId: string): {
       },
     };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة بيانات الشخص';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة بيانات الشخص';
     return { ok: false, message };
   }
 }
 
 export function domainPersonTenancyContracts(personId: string): {
   ok: boolean;
-  items?: Array<{ contract: unknown; propertyCode?: string; propertyAddress?: string; tenantName?: string }>;
+  items?: Array<{
+    contract: unknown;
+    propertyCode?: string;
+    propertyAddress?: string;
+    tenantName?: string;
+  }>;
   message?: string;
 } {
   const dbh = getDb();
@@ -583,7 +854,7 @@ export function domainPersonTenancyContracts(personId: string): {
   if (!ready.ok) return { ok: false, message: ready.message };
 
   const id = String(personId || '').trim();
-  if (!id) return { ok: false, message: 'معرف غير صالح' };
+  if (!id) return errorResult('ERR_INVALID_ID', 'معرف غير صالح');
 
   try {
     const rows = dbh
@@ -603,7 +874,12 @@ export function domainPersonTenancyContracts(personId: string): {
         LIMIT 2000
       `
       )
-      .all(id, id, id) as Array<{ contractData: string; propertyCode?: string; propertyAddress?: string; tenantName?: string }>;
+      .all(id, id, id) as Array<{
+      contractData: string;
+      propertyCode?: string;
+      propertyAddress?: string;
+      tenantName?: string;
+    }>;
 
     const items = rows
       .map((r) => {
@@ -625,12 +901,16 @@ export function domainPersonTenancyContracts(personId: string): {
 
     return { ok: true, items };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل جلب عقود الشخص';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل جلب عقود الشخص';
     return { ok: false, message };
   }
 }
 
-export function domainPropertyContracts(propertyId: string, limit = 5000): {
+export function domainPropertyContracts(
+  propertyId: string,
+  limit = 5000
+): {
   ok: boolean;
   items?: Array<{ contract: unknown; tenantName?: string; guarantorName?: string }>;
   message?: string;
@@ -641,7 +921,7 @@ export function domainPropertyContracts(propertyId: string, limit = 5000): {
   if (!ready.ok) return { ok: false, message: ready.message };
 
   const pid = String(propertyId || '').trim();
-  if (!pid) return { ok: false, message: 'معرف غير صالح' };
+  if (!pid) return errorResult('ERR_INVALID_ID', 'معرف غير صالح');
 
   const cap = Math.max(1, Math.min(5000, Math.trunc(Number(limit) || 5000)));
 
@@ -684,7 +964,8 @@ export function domainPropertyContracts(propertyId: string, limit = 5000): {
 
     return { ok: true, items };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة عقود العقار';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة عقود العقار';
     return { ok: false, message };
   }
 }
@@ -700,20 +981,20 @@ export function domainContractDetails(contractId: string): {
   if (!ready.ok) return { ok: false, message: ready.message };
 
   const cid = String(contractId || '').trim();
-  if (!cid) return { ok: false, message: 'معرف غير صالح' };
+  if (!cid) return errorResult('ERR_INVALID_ID', 'معرف غير صالح');
 
   try {
     const row = dbh
       .prepare('SELECT data, propertyId, tenantId FROM contracts WHERE id = ? LIMIT 1')
       .get(cid) as { data?: string; propertyId?: string; tenantId?: string } | undefined;
 
-    if (!row?.data) return { ok: false, message: 'العقد غير موجود' };
+    if (!row?.data) return errorResult('ERR_CONTRACT_NOT_FOUND', 'العقد غير موجود');
 
     let contract: unknown;
     try {
       contract = JSON.parse(String(row.data || ''));
     } catch {
-      return { ok: false, message: 'بيانات العقد غير صالحة' };
+      return errorResult('ERR_INVALID_CONTRACT_DATA', 'بيانات العقد غير صالحة');
     }
 
     const pid = String(row.propertyId || '').trim();
@@ -721,7 +1002,9 @@ export function domainContractDetails(contractId: string): {
 
     let property: unknown | undefined;
     if (pid) {
-      const pr = dbh.prepare('SELECT data FROM properties WHERE id = ? LIMIT 1').get(pid) as { data?: string } | undefined;
+      const pr = dbh.prepare('SELECT data FROM properties WHERE id = ? LIMIT 1').get(pid) as
+        | { data?: string }
+        | undefined;
       if (pr?.data) {
         try {
           property = JSON.parse(String(pr.data || ''));
@@ -733,7 +1016,9 @@ export function domainContractDetails(contractId: string): {
 
     let tenant: unknown | undefined;
     if (tid) {
-      const tr = dbh.prepare('SELECT data FROM people WHERE id = ? LIMIT 1').get(tid) as { data?: string } | undefined;
+      const tr = dbh.prepare('SELECT data FROM people WHERE id = ? LIMIT 1').get(tid) as
+        | { data?: string }
+        | undefined;
       if (tr?.data) {
         try {
           tenant = JSON.parse(String(tr.data || ''));
@@ -774,12 +1059,15 @@ export function domainContractDetails(contractId: string): {
       const br = toNumber(bRec['ترتيب_الكمبيالة'] ?? bRec.rank);
       if (ar !== br) return ar - br;
 
-      return String(aRec['تاريخ_استحقاق'] ?? aRec.dueDate ?? '').localeCompare(String(bRec['تاريخ_استحقاق'] ?? bRec.dueDate ?? ''));
+      return String(aRec['تاريخ_استحقاق'] ?? aRec.dueDate ?? '').localeCompare(
+        String(bRec['تاريخ_استحقاق'] ?? bRec.dueDate ?? '')
+      );
     });
 
     return { ok: true, data: { contract, property, tenant, installments } };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل تفاصيل العقد';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل تفاصيل العقد';
     return { ok: false, message };
   }
 }
@@ -796,10 +1084,12 @@ export function domainSearch(
 
   const q = String(query || '').trim();
   const qLower = q.toLowerCase();
+  const qDigits = normalizeDigitsLoose(q);
   const cap = Math.max(1, Math.min(200, Math.trunc(Number(limit) || 50)));
 
   // For empty query, return a stable sample ordered by name/code.
   const like = `%${qLower}%`;
+  const likeDigits = qDigits ? `%${qDigits}%` : '';
 
   try {
     if (entity === 'people') {
@@ -843,18 +1133,29 @@ export function domainSearch(
 
     if (entity === 'properties') {
       const rows = q
-        ? (dbh
-            .prepare(
-              `
+        ? (() => {
+            const sql = qDigits
+              ? `
+              SELECT data
+              FROM properties
+              WHERE lower(COALESCE(internalCode,'')) LIKE ?
+                 OR lower(COALESCE(address,'')) LIKE ?
+                 OR ${sqlNormalizeDigits("COALESCE(internalCode,'')")} LIKE ?
+              ORDER BY COALESCE(internalCode,'') ASC
+              LIMIT ?
+            `
+              : `
               SELECT data
               FROM properties
               WHERE lower(COALESCE(internalCode,'')) LIKE ?
                  OR lower(COALESCE(address,'')) LIKE ?
               ORDER BY COALESCE(internalCode,'') ASC
               LIMIT ?
-            `
-            )
-            .all(like, like, cap) as Array<{ data: string }>)
+            `;
+
+            const args = qDigits ? [like, like, likeDigits, cap] : [like, like, cap];
+            return dbh.prepare(sql).all(...args) as Array<{ data: string }>;
+          })()
         : (dbh
             .prepare(
               `
@@ -940,7 +1241,12 @@ export function domainSearchGlobal(query: string): {
   const contRes = domainSearch('contracts', q, 5);
   if (!contRes.ok) return { ok: false, message: contRes.message };
 
-  return { ok: true, people: peopleRes.items || [], properties: propRes.items || [], contracts: contRes.items || [] };
+  return {
+    ok: true,
+    people: peopleRes.items || [],
+    properties: propRes.items || [],
+    contracts: contRes.items || [],
+  };
 }
 
 export function domainPropertyPickerSearch(payload: {
@@ -977,15 +1283,21 @@ export function domainPropertyPickerSearch(payload: {
   const sort = String(payload?.sort || '').trim();
   const occupancyRaw = String(payload?.occupancy || '').trim();
   const occupancy: 'rented' | 'vacant' | 'all' =
-    occupancyRaw === 'rented' || occupancyRaw === 'vacant' || occupancyRaw === 'all' ? occupancyRaw : 'all';
+    occupancyRaw === 'rented' || occupancyRaw === 'vacant' || occupancyRaw === 'all'
+      ? occupancyRaw
+      : 'all';
   const saleRaw = String(payload?.sale || '').trim();
-  const sale: 'for-sale' | 'not-for-sale' | '' = saleRaw === 'for-sale' || saleRaw === 'not-for-sale' ? saleRaw : '';
+  const sale: 'for-sale' | 'not-for-sale' | '' =
+    saleRaw === 'for-sale' || saleRaw === 'not-for-sale' ? saleRaw : '';
   const rentRaw = String(payload?.rent || '').trim();
-  const rent: 'for-rent' | 'not-for-rent' | '' = rentRaw === 'for-rent' || rentRaw === 'not-for-rent' ? rentRaw : '';
+  const rent: 'for-rent' | 'not-for-rent' | '' =
+    rentRaw === 'for-rent' || rentRaw === 'not-for-rent' ? rentRaw : '';
 
   const contractLinkRaw = String(payload?.contractLink || '').trim();
   const contractLink: '' | 'linked' | 'unlinked' | 'all' =
-    contractLinkRaw === 'linked' || contractLinkRaw === 'unlinked' || contractLinkRaw === 'all' ? contractLinkRaw : 'all';
+    contractLinkRaw === 'linked' || contractLinkRaw === 'unlinked' || contractLinkRaw === 'all'
+      ? contractLinkRaw
+      : 'all';
 
   const normalizeNumericInput = (value: unknown): number | null => {
     if (value === undefined || value === null) return null;
@@ -1010,7 +1322,8 @@ export function domainPropertyPickerSearch(payload: {
   const today = toIsoDateOnly(new Date());
 
   try {
-    const contractStatusExpr = (alias: string) => sqlNormalizeArabicTextLower(`TRIM(COALESCE(${alias}.status, ''))`);
+    const contractStatusExpr = (alias: string) =>
+      sqlNormalizeArabicTextLower(`TRIM(COALESCE(${alias}.status, ''))`);
     const contractIsTerminatedSql = (alias: string) => {
       const s = contractStatusExpr(alias);
       return `(${s} LIKE 'مفسوخ%' OR ${s} LIKE 'ملغ%' OR ${s} LIKE '%الغاء%')`;
@@ -1031,9 +1344,10 @@ export function domainPropertyPickerSearch(payload: {
       args.push(likeText, likeText, likeText);
 
       if (qDigits) {
+        orParts.push(`${sqlNormalizeDigits("COALESCE(pr.internalCode,'')")} LIKE ?`);
         orParts.push(`${sqlNormalizeDigits("COALESCE(owner.phone,'')")} LIKE ?`);
         orParts.push(`${sqlNormalizeDigits("COALESCE(owner.nationalId,'')")} LIKE ?`);
-        args.push(likeDigits, likeDigits);
+        args.push(likeDigits, likeDigits, likeDigits);
       }
 
       whereParts.push(`(${orParts.join(' OR ')})`);
@@ -1052,7 +1366,7 @@ export function domainPropertyPickerSearch(payload: {
       }
     }
     if (type) {
-      whereParts.push('COALESCE(pr.type,\'\') = ?');
+      whereParts.push("COALESCE(pr.type,'') = ?");
       args.push(type);
     }
 
@@ -1089,7 +1403,9 @@ export function domainPropertyPickerSearch(payload: {
       args.push(maxAreaNum);
     }
     if (floorLike) {
-      whereParts.push("lower(COALESCE(CAST(json_extract(pr.data, '$.\"الطابق\"') AS TEXT), '')) LIKE ?");
+      whereParts.push(
+        "lower(COALESCE(CAST(json_extract(pr.data, '$.\"الطابق\"') AS TEXT), '')) LIKE ?"
+      );
       args.push(floorLike);
     }
 
@@ -1210,9 +1526,9 @@ export function domainPropertyPickerSearch(payload: {
         // NOTE: Keep SQL injection-safe by mapping to fixed ORDER BY clauses.
         switch (sort) {
           case 'updated-asc':
-            return 'COALESCE(pr.updatedAt, \'\') ASC, pr.id ASC';
+            return "COALESCE(pr.updatedAt, '') ASC, pr.id ASC";
           case 'updated-desc':
-            return 'COALESCE(pr.updatedAt, \'\') DESC, pr.id DESC';
+            return "COALESCE(pr.updatedAt, '') DESC, pr.id DESC";
           case 'code-desc':
             return "COALESCE(pr.internalCode, '') DESC";
           case 'code-asc':
@@ -1257,11 +1573,12 @@ export function domainPropertyPickerSearch(payload: {
             : null,
         };
       })
-          .filter(isNonNull);
+      .filter(isNonNull);
 
     return { ok: true, items, total };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن العقارات';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن العقارات';
     return { ok: false, message };
   }
 }
@@ -1313,7 +1630,8 @@ export function domainContractPickerSearch(payload: {
 
     // NOTE: Tabs are in UI hash: active|expiring|expired|terminated|archived.
     // Keep best-effort alignment with existing logic.
-    if (tab === 'archived') return { sql: 'COALESCE(CAST(c.isArchived AS INTEGER), 0) = 1', args: [] as unknown[] };
+    if (tab === 'archived')
+      return { sql: 'COALESCE(CAST(c.isArchived AS INTEGER), 0) = 1', args: [] as unknown[] };
 
     // Default: exclude archived
     const base = {
@@ -1374,6 +1692,7 @@ export function domainContractPickerSearch(payload: {
       orParts.push(`${sqlNormalizeArabicTextLower("COALESCE(tenant.name, '')")} LIKE ?`);
 
       if (qDigits) {
+        orParts.push(`${sqlNormalizeDigits("COALESCE(pr.internalCode, '')")} LIKE ?`);
         orParts.push(`${sqlNormalizeDigits("COALESCE(owner.nationalId, '')")} LIKE ?`);
         orParts.push(`${sqlNormalizeDigits("COALESCE(tenant.nationalId, '')")} LIKE ?`);
         orParts.push(`${sqlNormalizeDigits("COALESCE(owner.phone, '')")} LIKE ?`);
@@ -1392,7 +1711,7 @@ export function domainContractPickerSearch(payload: {
     if (searchSql) {
       whereParts.push(searchSql);
       whereArgs.push(likeText, likeText, likeText, likeText);
-      if (qDigits) whereArgs.push(likeDigits, likeDigits, likeDigits, likeDigits);
+      if (qDigits) whereArgs.push(likeDigits, likeDigits, likeDigits, likeDigits, likeDigits);
     }
 
     if (/^\d{4}-\d{2}$/.test(createdMonth)) {
@@ -1422,7 +1741,8 @@ export function domainContractPickerSearch(payload: {
     }
 
     // Advanced value range filters (annual value in contract JSON)
-    const annualValueExpr = "CAST(COALESCE(NULLIF(JSON_EXTRACT(c.data, '$.القيمة_السنوية'), ''), 0) AS REAL)";
+    const annualValueExpr =
+      "CAST(COALESCE(NULLIF(JSON_EXTRACT(c.data, '$.القيمة_السنوية'), ''), 0) AS REAL)";
     if (Number.isFinite(minValueNum) && minValueNum > 0) {
       whereParts.push(`${annualValueExpr} >= ?`);
       whereArgs.push(minValueNum);
@@ -1474,7 +1794,8 @@ export function domainContractPickerSearch(payload: {
         ${whereSql}
         ORDER BY ${(() => {
           // NOTE: Keep SQL injection-safe by mapping to fixed ORDER BY clauses.
-          const createdExpr = "COALESCE(NULLIF(JSON_EXTRACT(c.data, '$.تاريخ_الانشاء'), ''), COALESCE(c.startDate, ''), '')";
+          const createdExpr =
+            "COALESCE(NULLIF(JSON_EXTRACT(c.data, '$.تاريخ_الانشاء'), ''), COALESCE(c.startDate, ''), '')";
           switch (sort) {
             case 'created-asc':
               return `${createdExpr} ASC, c.id ASC`;
@@ -1517,7 +1838,8 @@ export function domainContractPickerSearch(payload: {
 
     return { ok: true, items, total };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن العقود';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن العقود';
     return { ok: false, message };
   }
 }
@@ -1560,7 +1882,8 @@ export function domainPeoplePickerSearch(payload: {
   const today = toIsoDateOnly(new Date());
 
   try {
-    const contractStatusExpr = (alias: string) => sqlNormalizeArabicTextLower(`TRIM(COALESCE(${alias}.status, ''))`);
+    const contractStatusExpr = (alias: string) =>
+      sqlNormalizeArabicTextLower(`TRIM(COALESCE(${alias}.status, ''))`);
     const contractIsTerminatedSql = (alias: string) => {
       const s = contractStatusExpr(alias);
       return `(${s} LIKE 'مفسوخ%' OR ${s} LIKE 'ملغ%' OR ${s} LIKE '%الغاء%')`;
@@ -1581,7 +1904,9 @@ export function domainPeoplePickerSearch(payload: {
       if (qDigits) {
         orParts.push(`${sqlNormalizeDigits("COALESCE(pe.phone,'')")} LIKE ?`);
         orParts.push(`${sqlNormalizeDigits("COALESCE(pe.nationalId,'')")} LIKE ?`);
-        orParts.push(`${sqlNormalizeDigits("COALESCE(JSON_EXTRACT(pe.data, '$.رقم_هاتف_اضافي'), '')")} LIKE ?`);
+        orParts.push(
+          `${sqlNormalizeDigits("COALESCE(JSON_EXTRACT(pe.data, '$.رقم_هاتف_اضافي'), '')")} LIKE ?`
+        );
         args.push(likeDigits, likeDigits, likeDigits);
       }
 
@@ -1589,7 +1914,9 @@ export function domainPeoplePickerSearch(payload: {
     }
 
     if (addressText) {
-      whereParts.push(`${sqlNormalizeArabicTextLower("COALESCE(JSON_EXTRACT(pe.data, '$.العنوان'), '')")} LIKE ?`);
+      whereParts.push(
+        `${sqlNormalizeArabicTextLower("COALESCE(JSON_EXTRACT(pe.data, '$.العنوان'), '')")} LIKE ?`
+      );
       args.push(addressLike);
     }
 
@@ -1610,9 +1937,13 @@ export function domainPeoplePickerSearch(payload: {
 
     if (role && role !== 'all') {
       if (role === 'blacklisted') {
-        whereParts.push('EXISTS (SELECT 1 FROM blacklist bl WHERE bl.personId = pe.id AND COALESCE(bl.isActive, 1) = 1)');
+        whereParts.push(
+          'EXISTS (SELECT 1 FROM blacklist bl WHERE bl.personId = pe.id AND COALESCE(bl.isActive, 1) = 1)'
+        );
       } else {
-        whereParts.push('EXISTS (SELECT 1 FROM person_roles pr WHERE pr.personId = pe.id AND pr.role = ?)');
+        whereParts.push(
+          'EXISTS (SELECT 1 FROM person_roles pr WHERE pr.personId = pe.id AND pr.role = ?)'
+        );
         args.push(role);
       }
     }
@@ -1753,7 +2084,12 @@ export function domainPeoplePickerSearch(payload: {
         }
         if (!person) return null;
         const rolesCsv = String(r.rolesCsv ?? '').trim();
-        const roles = rolesCsv ? rolesCsv.split(' | ').map((x) => x.trim()).filter(Boolean) : [];
+        const roles = rolesCsv
+          ? rolesCsv
+              .split(' | ')
+              .map((x) => x.trim())
+              .filter(Boolean)
+          : [];
         const pickCid = String(r.pickCid ?? '').trim();
         const pickSource = String(r.pickSource ?? '').trim();
         return {
@@ -1772,11 +2108,12 @@ export function domainPeoplePickerSearch(payload: {
             : null,
         };
       })
-          .filter(isNonNull);
+      .filter(isNonNull);
 
     return { ok: true, items, total };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن الأشخاص';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث عن الأشخاص';
     return { ok: false, message };
   }
 }
@@ -1795,13 +2132,20 @@ export function domainInstallmentsContractsSearch(payload: {
 
   const q = String(payload?.query || '').trim();
   const qLower = q.toLowerCase();
-  const filter = String(payload?.filter || 'all').trim() as 'all' | 'debt' | 'paid' | 'due' | string;
+  const qDigits = normalizeDigitsLoose(q);
+  const filter = String(payload?.filter || 'all').trim() as
+    | 'all'
+    | 'debt'
+    | 'paid'
+    | 'due'
+    | string;
   const sort = String(payload?.sort || 'due-asc').trim();
   const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
   const cap = Math.max(1, Math.min(100, Math.trunc(Number(payload?.limit) || 20)));
 
   const today = toIsoDateOnly(new Date());
   const like = `%${qLower}%`;
+  const likeDigits = qDigits ? `%${qDigits}%` : '';
 
   try {
     const whereParts: string[] = [];
@@ -1823,10 +2167,28 @@ export function domainInstallmentsContractsSearch(payload: {
     );
 
     if (q) {
-      whereParts.push(
-        `(lower(COALESCE(t.name,'')) LIKE ? OR lower(COALESCE(p.internalCode,'')) LIKE ? OR COALESCE(c.id,'') LIKE ?)`
-      );
-      args.push(like, like, like);
+      const orParts: string[] = [];
+      orParts.push(`lower(COALESCE(t.name,'')) LIKE ?`);
+      orParts.push(`lower(COALESCE(p.internalCode,'')) LIKE ?`);
+      orParts.push(`COALESCE(c.id,'') LIKE ?`);
+      // Also match common identifiers users search by
+      orParts.push(`COALESCE(t.nationalId,'') LIKE ?`);
+      orParts.push(`COALESCE(t.phone,'') LIKE ?`);
+      // Extra phone isn't extracted as a column in the domain table; read from JSON snapshot.
+      orParts.push(`COALESCE(JSON_EXTRACT(t.data, '$.رقم_هاتف_اضافي'), '') LIKE ?`);
+      args.push(like, like, like, like, like, like);
+
+      if (qDigits) {
+        orParts.push(`${sqlNormalizeDigits("COALESCE(p.internalCode,'')")} LIKE ?`);
+        orParts.push(`${sqlNormalizeDigits("COALESCE(t.nationalId,'')")} LIKE ?`);
+        orParts.push(`${sqlNormalizeDigits("COALESCE(t.phone,'')")} LIKE ?`);
+        orParts.push(
+          `${sqlNormalizeDigits("COALESCE(JSON_EXTRACT(t.data, '$.رقم_هاتف_اضافي'), '')")} LIKE ?`
+        );
+        args.push(likeDigits, likeDigits, likeDigits, likeDigits);
+      }
+
+      whereParts.push(`(${orParts.join(' OR ')})`);
     }
 
     const baseWhereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
@@ -1839,7 +2201,17 @@ export function domainInstallmentsContractsSearch(payload: {
         AND COALESCE(i.status,'') <> 'ملغي'
         AND COALESCE(i.remaining,0) > 0
         AND i.dueDate IS NOT NULL
-        AND i.dueDate <= ?
+        AND date(i.dueDate) IS NOT NULL
+        AND date(i.dueDate) <= date(?)
+    )`;
+
+    const postponedExpr = `EXISTS (
+      SELECT 1 FROM installments i
+      WHERE i.contractId = c.id
+        AND (i.isArchived IS NULL OR i.isArchived = 0)
+        AND COALESCE(i.type,'') <> 'تأمين'
+        AND COALESCE(i.status,'') <> 'ملغي'
+        AND TRIM(COALESCE(JSON_EXTRACT(i.data, '$.تاريخ_التأجيل'), '')) <> ''
     )`;
 
     const dueSoonExpr = `EXISTS (
@@ -1850,8 +2222,9 @@ export function domainInstallmentsContractsSearch(payload: {
         AND COALESCE(i.status,'') <> 'ملغي'
         AND COALESCE(i.remaining,0) > 0
         AND i.dueDate IS NOT NULL
-        AND i.dueDate > ?
-        AND i.dueDate <= date(?, '+7 day')
+        AND date(i.dueDate) IS NOT NULL
+        AND date(i.dueDate) > date(?)
+        AND date(i.dueDate) <= date(?, '+7 day')
     )`;
 
     const anyRelevantExpr = `EXISTS (
@@ -1875,7 +2248,7 @@ export function domainInstallmentsContractsSearch(payload: {
     )`;
 
     const nextDueDateExpr = `(
-      SELECT MIN(i.dueDate)
+      SELECT MIN(date(i.dueDate))
       FROM installments i
       WHERE i.contractId = c.id
         AND (i.isArchived IS NULL OR i.isArchived = 0)
@@ -1883,6 +2256,17 @@ export function domainInstallmentsContractsSearch(payload: {
         AND COALESCE(i.status,'') <> 'ملغي'
         AND COALESCE(i.remaining,0) > 0
         AND i.dueDate IS NOT NULL
+        AND date(i.dueDate) IS NOT NULL
+    )`;
+
+    const lastPostponeDateExpr = `(
+      SELECT MAX(JSON_EXTRACT(i.data, '$.تاريخ_التأجيل'))
+      FROM installments i
+      WHERE i.contractId = c.id
+        AND (i.isArchived IS NULL OR i.isArchived = 0)
+        AND COALESCE(i.type,'') <> 'تأمين'
+        AND COALESCE(i.status,'') <> 'ملغي'
+        AND TRIM(COALESCE(JSON_EXTRACT(i.data, '$.تاريخ_التأجيل'), '')) <> ''
     )`;
 
     const filterWhereParts: string[] = [];
@@ -1893,6 +2277,8 @@ export function domainInstallmentsContractsSearch(payload: {
       filterWhereParts.push('hasDueSoon = 1');
     } else if (filter === 'paid') {
       filterWhereParts.push('isFullyPaid = 1');
+    } else if (filter === 'postponed') {
+      filterWhereParts.push('hasPostponed = 1');
     }
     const filterWhereSql = filterWhereParts.length ? `WHERE ${filterWhereParts.join(' AND ')}` : '';
 
@@ -1905,8 +2291,10 @@ export function domainInstallmentsContractsSearch(payload: {
           p.data AS propertyData,
           ${debtExpr} AS hasDebt,
           ${dueSoonExpr} AS hasDueSoon,
+          ${postponedExpr} AS hasPostponed,
           ${fullyPaidExpr} AS isFullyPaid,
-          ${nextDueDateExpr} AS nextDueDate
+          ${nextDueDateExpr} AS nextDueDate,
+          ${lastPostponeDateExpr} AS lastPostponeDate
         FROM contracts c
         LEFT JOIN people t ON t.id = c.tenantId
         LEFT JOIN properties p ON p.id = c.propertyId
@@ -1922,8 +2310,15 @@ export function domainInstallmentsContractsSearch(payload: {
       ORDER BY ${(() => {
         // NOTE: Keep SQL injection-safe by mapping to fixed ORDER BY clauses.
         const tenantNameExpr = "lower(COALESCE(JSON_EXTRACT(tenantData, '$.الاسم'), ''))";
-        const nullsLast = "CASE WHEN nextDueDate IS NULL OR TRIM(COALESCE(nextDueDate,'')) = '' THEN 1 ELSE 0 END";
+        const nullsLast =
+          "CASE WHEN nextDueDate IS NULL OR TRIM(COALESCE(nextDueDate,'')) = '' THEN 1 ELSE 0 END";
+        const postponeNullsLast =
+          "CASE WHEN lastPostponeDate IS NULL OR TRIM(COALESCE(lastPostponeDate,'')) = '' THEN 1 ELSE 0 END";
         switch (sort) {
+          case 'postpone-asc':
+            return `${postponeNullsLast} ASC, COALESCE(lastPostponeDate,'') ASC, contractId ASC`;
+          case 'postpone-desc':
+            return `${postponeNullsLast} ASC, COALESCE(lastPostponeDate,'') DESC, contractId DESC`;
           case 'due-asc':
             return `${nullsLast} ASC, COALESCE(nextDueDate,'') ASC, contractId ASC`;
           case 'due-desc':
@@ -1941,14 +2336,18 @@ export function domainInstallmentsContractsSearch(payload: {
     // Order of args:
     // baseWhere: [today] + optional search like params
     // then expressions: debt(today), dueSoon(today,today)
-    const total = toNumber(toRecord(dbh.prepare(countSql).get(...args, today, today, today, ...filterArgs)).cnt);
+    const total = toNumber(
+      toRecord(dbh.prepare(countSql).get(...args, today, today, today, ...filterArgs)).cnt
+    );
 
-    const rows = dbh.prepare(listSql).all(...args, today, today, today, ...filterArgs, cap, offset) as unknown[];
+    const rows = dbh
+      .prepare(listSql)
+      .all(...args, today, today, today, ...filterArgs, cap, offset) as unknown[];
     if (!rows.length) return { ok: true, items: [], total };
 
     const contractIds = rows.map((row) => String(toRecord(row).contractId ?? '')).filter(Boolean);
     const placeholders = contractIds.map(() => '?').join(',');
-    const instRows = (dbh
+    const instRows = dbh
       .prepare(
         `
         SELECT contractId, data
@@ -1958,7 +2357,7 @@ export function domainInstallmentsContractsSearch(payload: {
         ORDER BY COALESCE(dueDate, '') ASC, id ASC
       `
       )
-      .all(...contractIds) as Array<{ contractId: string; data: string }>);
+      .all(...contractIds) as Array<{ contractId: string; data: string }>;
 
     const instByContract = new Map<string, unknown[]>();
     for (const r of instRows) {
@@ -2016,15 +2415,13 @@ export function domainInstallmentsContractsSearch(payload: {
 
     return { ok: true, items, total };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل بيانات الأقساط';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل بيانات الأقساط';
     return { ok: false, message };
   }
 }
 
-export function domainDashboardSummary(payload: {
-  todayYMD: string;
-  weekYMD: string;
-}): {
+export function domainDashboardSummary(payload: { todayYMD: string; weekYMD: string }): {
   ok: boolean;
   message?: string;
   data?: {
@@ -2050,14 +2447,22 @@ export function domainDashboardSummary(payload: {
   const todayYMD = String(payload?.todayYMD || '').slice(0, 10);
   const weekYMD = String(payload?.weekYMD || '').slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(todayYMD) || !/^\d{4}-\d{2}-\d{2}$/.test(weekYMD)) {
-    return { ok: false, message: 'تواريخ غير صالحة' };
+    return errorResult('ERR_INVALID_DATES', 'تواريخ غير صالحة');
   }
 
   try {
     const totalPeople = toNumber(toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM people').get()).c);
-    const totalProperties = toNumber(toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM properties').get()).c);
-    const occupiedProperties = toNumber(toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM properties WHERE COALESCE(isRented, 0) = 1').get()).c);
-    const totalContracts = toNumber(toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM contracts').get()).c);
+    const totalProperties = toNumber(
+      toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM properties').get()).c
+    );
+    const occupiedProperties = toNumber(
+      toRecord(
+        dbh.prepare('SELECT COUNT(*) AS c FROM properties WHERE COALESCE(isRented, 0) = 1').get()
+      ).c
+    );
+    const totalContracts = toNumber(
+      toRecord(dbh.prepare('SELECT COUNT(*) AS c FROM contracts').get()).c
+    );
 
     const activeContracts = toNumber(
       toRecord(
@@ -2142,23 +2547,23 @@ export function domainDashboardSummary(payload: {
       ).c
     );
 
-    const propertyTypeCounts = (dbh
+    const propertyTypeCounts = dbh
       .prepare(
         `SELECT COALESCE(type, 'غير محدد') AS name, COUNT(*) AS value
          FROM properties
          GROUP BY COALESCE(type, 'غير محدد')
          ORDER BY value DESC, name ASC`
       )
-      .all() as Array<{ name: string; value: number }>);
+      .all() as Array<{ name: string; value: number }>;
 
-    const contractStatusCounts = (dbh
+    const contractStatusCounts = dbh
       .prepare(
         `SELECT COALESCE(status, 'غير محدد') AS name, COUNT(*) AS value
          FROM contracts
          GROUP BY COALESCE(status, 'غير محدد')
          ORDER BY value DESC, name ASC`
       )
-      .all() as Array<{ name: string; value: number }>);
+      .all() as Array<{ name: string; value: number }>;
 
     return {
       ok: true,
@@ -2178,15 +2583,13 @@ export function domainDashboardSummary(payload: {
       },
     };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل إنشاء ملخص لوحة التحكم';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل إنشاء ملخص لوحة التحكم';
     return { ok: false, message };
   }
 }
 
-export function domainDashboardPerformance(payload: {
-  monthKey: string;
-  prevMonthKey: string;
-}): {
+export function domainDashboardPerformance(payload: { monthKey: string; prevMonthKey: string }): {
   ok: boolean;
   message?: string;
   data?: {
@@ -2204,7 +2607,7 @@ export function domainDashboardPerformance(payload: {
   const monthKey = String(payload?.monthKey || '').slice(0, 7);
   const prevMonthKey = String(payload?.prevMonthKey || '').slice(0, 7);
   if (!/^\d{4}-\d{2}$/.test(monthKey) || !/^\d{4}-\d{2}$/.test(prevMonthKey)) {
-    return { ok: false, message: 'شهر غير صالح' };
+    return errorResult('ERR_INVALID_MONTH', 'شهر غير صالح');
   }
 
   try {
@@ -2264,20 +2667,37 @@ export function domainDashboardPerformance(payload: {
       },
     };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل حساب الأداء المالي';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل حساب الأداء المالي';
     return { ok: false, message };
   }
 }
 
-export function domainDashboardHighlights(payload: {
-  todayYMD: string;
-}): {
+export function domainDashboardHighlights(payload: { todayYMD: string }): {
   ok: boolean;
   message?: string;
   data?: {
-    dueInstallmentsToday: Array<{ contractId: string; tenantName: string; dueDate: string; remaining: number }>;
-    expiringContracts: Array<{ contractId: string; propertyId: string; propertyCode: string; tenantId: string; tenantName: string; endDate: string }>;
-    incompleteProperties: Array<{ propertyId: string; propertyCode: string; missingWater: boolean; missingElectric: boolean; missingArea: boolean }>;
+    dueInstallmentsToday: Array<{
+      contractId: string;
+      tenantName: string;
+      dueDate: string;
+      remaining: number;
+    }>;
+    expiringContracts: Array<{
+      contractId: string;
+      propertyId: string;
+      propertyCode: string;
+      tenantId: string;
+      tenantName: string;
+      endDate: string;
+    }>;
+    incompleteProperties: Array<{
+      propertyId: string;
+      propertyCode: string;
+      missingWater: boolean;
+      missingElectric: boolean;
+      missingArea: boolean;
+    }>;
   };
 } {
   const dbh = getDb();
@@ -2287,11 +2707,11 @@ export function domainDashboardHighlights(payload: {
 
   const todayYMD = String(payload?.todayYMD || '').slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(todayYMD)) {
-    return { ok: false, message: 'تاريخ غير صالح' };
+    return errorResult('ERR_INVALID_DATE', 'تاريخ غير صالح');
   }
 
   try {
-    const dueInstallmentsToday = (dbh
+    const dueInstallmentsToday = dbh
       .prepare(
         `
         SELECT
@@ -2310,10 +2730,15 @@ export function domainDashboardHighlights(payload: {
         LIMIT 30
       `
       )
-      .all(todayYMD) as Array<{ contractId: string; tenantName: string; dueDate: string; remaining: number }>);
+      .all(todayYMD) as Array<{
+      contractId: string;
+      tenantName: string;
+      dueDate: string;
+      remaining: number;
+    }>;
 
     // Tenancy-relevant: status or endDate in future and not ended/canceled.
-    const expiringContracts = (dbh
+    const expiringContracts = dbh
       .prepare(
         `
         SELECT
@@ -2348,10 +2773,10 @@ export function domainDashboardHighlights(payload: {
       tenantId: string;
       tenantName: string;
       endDate: string;
-    }>);
+    }>;
 
     // Incomplete property fields - read from JSON snapshot for compatibility.
-    const incompleteProperties = (dbh
+    const incompleteProperties = dbh
       .prepare(
         `
         SELECT
@@ -2371,7 +2796,13 @@ export function domainDashboardHighlights(payload: {
         LIMIT 30
       `
       )
-      .all() as Array<{ propertyId: string; propertyCode: string; missingWater: number; missingElectric: number; missingArea: number }>);
+      .all() as Array<{
+      propertyId: string;
+      propertyCode: string;
+      missingWater: number;
+      missingElectric: number;
+      missingArea: number;
+    }>;
 
     return {
       ok: true,
@@ -2400,7 +2831,8 @@ export function domainDashboardHighlights(payload: {
       },
     };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل مؤشرات لوحة التحكم';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل مؤشرات لوحة التحكم';
     return { ok: false, message };
   }
 }
@@ -2440,7 +2872,7 @@ export function domainPaymentNotificationTargets(payload: {
   const daysAhead = Math.max(1, Math.min(60, Math.trunc(Number(payload?.daysAhead) || 7)));
   const todayYMD = String(payload?.todayYMD || toIsoDateOnly(new Date())).slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(todayYMD)) {
-    return { ok: false, message: 'تاريخ غير صالح' };
+    return errorResult('ERR_INVALID_DATE', 'تاريخ غير صالح');
   }
 
   try {
@@ -2496,7 +2928,7 @@ export function domainPaymentNotificationTargets(payload: {
       items: PaymentNotificationInstallment[];
     };
 
-    const rows = (dbh
+    const rows = dbh
       .prepare(
         `
         SELECT
@@ -2528,7 +2960,7 @@ export function domainPaymentNotificationTargets(payload: {
         LIMIT 2000
         `
       )
-      .all(todayYMD, todayYMD, todayYMD, daysAhead) as PaymentNotificationRow[]);
+      .all(todayYMD, todayYMD, todayYMD, daysAhead) as PaymentNotificationRow[];
 
     const byContract = new Map<string, PaymentNotificationTarget>();
     for (const r of rows) {
@@ -2557,7 +2989,8 @@ export function domainPaymentNotificationTargets(payload: {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) continue;
       const daysUntilDue = Number(r.daysUntilDue ?? 0) || 0;
 
-      const bucket: 'overdue' | 'today' | 'upcoming' = daysUntilDue < 0 ? 'overdue' : daysUntilDue === 0 ? 'today' : 'upcoming';
+      const bucket: 'overdue' | 'today' | 'upcoming' =
+        daysUntilDue < 0 ? 'overdue' : daysUntilDue === 0 ? 'today' : 'upcoming';
       if (bucket === 'upcoming' && daysUntilDue > daysAhead) continue;
 
       target.items.push({
@@ -2577,12 +3010,21 @@ export function domainPaymentNotificationTargets(payload: {
 
     return { ok: true, items };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل تحميل أهداف إشعارات الدفعات';
+    const message =
+      e instanceof Error
+        ? e.message
+        : typeof e === 'string'
+          ? e
+          : 'فشل تحميل أهداف إشعارات الدفعات';
     return { ok: false, message };
   }
 }
 
-export function domainCounts(): { ok: boolean; counts?: { people: number; properties: number; contracts: number }; message?: string } {
+export function domainCounts(): {
+  ok: boolean;
+  counts?: { people: number; properties: number; contracts: number };
+  message?: string;
+} {
   const dbh = getDb();
   ensureDomainSchema(dbh);
   const ready = domainEnsureReady();
@@ -2590,11 +3032,16 @@ export function domainCounts(): { ok: boolean; counts?: { people: number; proper
 
   try {
     const people = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM people').get()).cnt);
-    const properties = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM properties').get()).cnt);
-    const contracts = toNumber(toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM contracts').get()).cnt);
+    const properties = toNumber(
+      toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM properties').get()).cnt
+    );
+    const contracts = toNumber(
+      toRecord(dbh.prepare('SELECT COUNT(1) AS cnt FROM contracts').get()).cnt
+    );
     return { ok: true, counts: { people, properties, contracts } };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة الأعداد';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل قراءة الأعداد';
     return { ok: false, message };
   }
 }
@@ -2761,7 +3208,11 @@ function sqlNormalizeArabicTextLower(expr: string, mode: SearchNormalizeMode = '
   return `lower(${e})`;
 }
 
-function computeInstallmentAmounts(inst: unknown): { amount: number; paid: number; remaining: number } {
+function computeInstallmentAmounts(inst: unknown): {
+  amount: number;
+  paid: number;
+  remaining: number;
+} {
   const instRec = toRecord(inst);
 
   const amount = toNumber(instRec['القيمة']);
@@ -2832,7 +3283,9 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
   const upsertPeople = dbh.prepare(
     'INSERT INTO people (id, name, nationalId, phone, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, nationalId=excluded.nationalId, phone=excluded.phone, data=excluded.data, updatedAt=excluded.updatedAt'
   );
-  const insertRole = dbh.prepare('INSERT OR IGNORE INTO person_roles (personId, role) VALUES (?, ?)');
+  const insertRole = dbh.prepare(
+    'INSERT OR IGNORE INTO person_roles (personId, role) VALUES (?, ?)'
+  );
   const upsertBlacklist = dbh.prepare(
     'INSERT INTO blacklist (personId, isActive, data, updatedAt) VALUES (?, ?, ?, ?) ON CONFLICT(personId) DO UPDATE SET isActive=excluded.isActive, data=excluded.data, updatedAt=excluded.updatedAt'
   );
@@ -2851,7 +3304,9 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
 
   const tx = dbh.transaction(() => {
     // Replace tables entirely to correctly reflect deletes.
-    dbh.exec('DELETE FROM people; DELETE FROM person_roles; DELETE FROM blacklist; DELETE FROM properties; DELETE FROM contracts; DELETE FROM installments; DELETE FROM maintenance_tickets;');
+    dbh.exec(
+      'DELETE FROM people; DELETE FROM person_roles; DELETE FROM blacklist; DELETE FROM properties; DELETE FROM contracts; DELETE FROM installments; DELETE FROM maintenance_tickets;'
+    );
 
     for (const p of people) {
       const pRec = toRecord(p);
@@ -2861,7 +3316,14 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
       const nationalId = pRec['الرقم_الوطني'] ? String(pRec['الرقم_الوطني']) : null;
       const phone = pRec['رقم_الهاتف'] ? String(pRec['رقم_الهاتف']) : null;
 
-      upsertPeople.run(id, String(pRec['الاسم'] ?? ''), nationalId, phone, JSON.stringify(p), nowIso);
+      upsertPeople.run(
+        id,
+        String(pRec['الاسم'] ?? ''),
+        nationalId,
+        phone,
+        JSON.stringify(p),
+        nowIso
+      );
     }
     counts.people = people.length;
 
@@ -2932,15 +3394,23 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
 
     for (const inst of installments) {
       const instRec = toRecord(inst);
-      const id = String(instRec['رقم_الكمبيالة'] ?? instRec.id ?? instRec.installmentId ?? '').trim();
+      const id = String(
+        instRec['رقم_الكمبيالة'] ?? instRec.id ?? instRec.installmentId ?? ''
+      ).trim();
       if (!id) continue;
       const { amount, paid, remaining } = computeInstallmentAmounts(inst);
 
-      const contractId = String(instRec['رقم_العقد'] ?? instRec.contractId ?? instRec.contract_id ?? '').trim();
-      const dueDate = String(instRec['تاريخ_استحقاق'] ?? instRec.dueDate ?? instRec.due_date ?? '').trim();
+      const contractId = String(
+        instRec['رقم_العقد'] ?? instRec.contractId ?? instRec.contract_id ?? ''
+      ).trim();
+      const dueDate = String(
+        instRec['تاريخ_استحقاق'] ?? instRec.dueDate ?? instRec.due_date ?? ''
+      ).trim();
       const status = String(instRec['حالة_الكمبيالة'] ?? instRec.status ?? '').trim();
       const type = String(instRec['نوع_الكمبيالة'] ?? instRec.type ?? '').trim();
-      const paidAt = String(instRec['تاريخ_الدفع'] ?? instRec.paidAt ?? instRec.paid_at ?? '').trim();
+      const paidAt = String(
+        instRec['تاريخ_الدفع'] ?? instRec.paidAt ?? instRec.paid_at ?? ''
+      ).trim();
 
       upsertInstallment.run(
         id,
@@ -2992,7 +3462,8 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
     metaSet(dbh, `domain_src_updatedAt:${keys.blacklist}`, kvUpdatedAtIso(keys.blacklist));
     return { ok: true, message: 'تمت تهيئة جداول التقارير بنجاح', migrated: true, counts };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل ترحيل البيانات إلى الجداول';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل ترحيل البيانات إلى الجداول';
     return { ok: false, message, migrated: false };
   }
 }
@@ -3038,7 +3509,10 @@ export function runSqlReport(reportId: string): ReportRunResult {
   if (!refreshed.ok) return { ok: false, message: refreshed.message };
 
   const id = String(reportId || '').trim();
-  const generatedAt = new Date().toLocaleString('ar-JO', { dateStyle: 'full', timeStyle: 'short' });
+  const generatedAt = new Date().toLocaleString(LOCALE_AR_LATN_GREGORY, {
+    dateStyle: 'full',
+    timeStyle: 'short',
+  });
   const today = toIsoDateOnly(new Date());
   const cap = 5000;
   const thirtyDaysFromNow = new Date();
@@ -3062,8 +3536,8 @@ export function runSqlReport(reportId: string): ReportRunResult {
         `
         )
         .get(today, today) as
-          | { totalExpected?: number; totalPaid?: number; totalLate?: number; totalUpcoming?: number }
-          | undefined;
+        | { totalExpected?: number; totalPaid?: number; totalLate?: number; totalUpcoming?: number }
+        | undefined;
 
       const totalExpected = toNumber(row?.totalExpected);
       const totalPaid = toNumber(row?.totalPaid);
@@ -3087,7 +3561,10 @@ export function runSqlReport(reportId: string): ReportRunResult {
             { item: 'المتبقي', value: totalExpected - totalPaid },
           ],
           summary: [
-            { label: 'نسبة التحصيل', value: `${totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0}%` },
+            {
+              label: 'نسبة التحصيل',
+              value: `${totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0}%`,
+            },
           ],
         },
       };
@@ -3117,7 +3594,14 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(today, today, cap) as Array<{ tenant: string; property: string; dueDate: string; amount: number; daysLate: number; status: string }>;
+        .all(today, today, cap) as Array<{
+        tenant: string;
+        property: string;
+        dueDate: string;
+        amount: number;
+        daysLate: number;
+        status: string;
+      }>;
 
       const data = rows.map((r) => ({
         tenant: r.tenant,
@@ -3128,8 +3612,11 @@ export function runSqlReport(reportId: string): ReportRunResult {
         status: r.status,
       }));
 
-      const summary: Array<{ label: string; value: string | number }> = [{ label: 'عدد النتائج المعروضة', value: data.length }];
-      if (data.length >= cap) summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
+      const summary: Array<{ label: string; value: string | number }> = [
+        { label: 'عدد النتائج المعروضة', value: data.length },
+      ];
+      if (data.length >= cap)
+        summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
 
       return {
         ok: true,
@@ -3171,7 +3658,15 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(cap) as Array<{ contractNo: string; tenant: string; property: string; startDate: string; endDate: string; monthlyRent: number; status: string }>;
+        .all(cap) as Array<{
+        contractNo: string;
+        tenant: string;
+        property: string;
+        startDate: string;
+        endDate: string;
+        monthlyRent: number;
+        status: string;
+      }>;
 
       const data = rows.map((r) => ({
         contractNo: r.contractNo,
@@ -3186,9 +3681,13 @@ export function runSqlReport(reportId: string): ReportRunResult {
       const totalMonthly = data.reduce((s, r) => s + toNumber(r.monthlyRent), 0);
       const summary = [
         { label: 'عدد العقود النشطة', value: data.length },
-        { label: 'إجمالي الإيرادات الشهرية', value: `${Math.round(totalMonthly).toLocaleString('ar-JO')} د.أ` },
+        {
+          label: 'إجمالي الإيرادات الشهرية',
+          value: `${Math.round(totalMonthly).toLocaleString(LOCALE_AR_LATN_GREGORY)} د.أ`,
+        },
       ];
-      if (data.length >= cap) summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
+      if (data.length >= cap)
+        summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
 
       return {
         ok: true,
@@ -3251,7 +3750,15 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(cap) as Array<{ ticketNo: string; property: string; tenant: string; issue: string; priority: string; status: string; createdDate: string }>;
+        .all(cap) as Array<{
+        ticketNo: string;
+        property: string;
+        tenant: string;
+        issue: string;
+        priority: string;
+        status: string;
+        createdDate: string;
+      }>;
 
       const data = rows.map((r) => ({
         ticketNo: r.ticketNo,
@@ -3268,7 +3775,8 @@ export function runSqlReport(reportId: string): ReportRunResult {
         { label: 'عدد الطلبات المفتوحة', value: data.length },
         { label: 'طلبات عالية الأولوية', value: high },
       ];
-      if (data.length >= cap) summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
+      if (data.length >= cap)
+        summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
 
       return {
         ok: true,
@@ -3312,7 +3820,14 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(today, today, todayPlus30, cap) as Array<{ contractNo: string; tenant: string; property: string; endDate: string; daysRemaining: number; monthlyRent: number }>;
+        .all(today, today, todayPlus30, cap) as Array<{
+        contractNo: string;
+        tenant: string;
+        property: string;
+        endDate: string;
+        daysRemaining: number;
+        monthlyRent: number;
+      }>;
 
       const data = rows.map((r) => ({
         contractNo: r.contractNo,
@@ -3323,8 +3838,11 @@ export function runSqlReport(reportId: string): ReportRunResult {
         monthlyRent: Number(r.monthlyRent ?? 0) || 0,
       }));
 
-      const summary: Array<{ label: string; value: string | number }> = [{ label: 'عدد العقود', value: data.length }];
-      if (data.length >= cap) summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
+      const summary: Array<{ label: string; value: string | number }> = [
+        { label: 'عدد العقود', value: data.length },
+      ];
+      if (data.length >= cap)
+        summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
 
       return {
         ok: true,
@@ -3364,7 +3882,15 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(cap) as Array<{ code: string; type: string; areaNum: number; floor: string; rooms: string; owner: string; location: string }>;
+        .all(cap) as Array<{
+        code: string;
+        type: string;
+        areaNum: number;
+        floor: string;
+        rooms: string;
+        owner: string;
+        location: string;
+      }>;
 
       const data = rows.map((r) => ({
         code: r.code,
@@ -3376,8 +3902,11 @@ export function runSqlReport(reportId: string): ReportRunResult {
         location: String(r.location ?? '-') || '-',
       }));
 
-      const summary: Array<{ label: string; value: string | number }> = [{ label: 'عدد العقارات الشاغرة', value: data.length }];
-      if (data.length >= cap) summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
+      const summary: Array<{ label: string; value: string | number }> = [
+        { label: 'عدد العقارات الشاغرة', value: data.length },
+      ];
+      if (data.length >= cap)
+        summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
 
       return {
         ok: true,
@@ -3420,7 +3949,14 @@ export function runSqlReport(reportId: string): ReportRunResult {
           LIMIT ?
         `
         )
-        .all(cap) as Array<{ code: string; type: string; missElec: number; missWater: number; missArea: number; missAddr: number }>;
+        .all(cap) as Array<{
+        code: string;
+        type: string;
+        missElec: number;
+        missWater: number;
+        missArea: number;
+        missAddr: number;
+      }>;
 
       const data = rows.map((r) => {
         const missing: string[] = [];
@@ -3437,8 +3973,11 @@ export function runSqlReport(reportId: string): ReportRunResult {
         };
       });
 
-      const summary: Array<{ label: string; value: string | number }> = [{ label: 'عقارات تحتاج تحديث', value: data.length }];
-      if (data.length >= cap) summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
+      const summary: Array<{ label: string; value: string | number }> = [
+        { label: 'عقارات تحتاج تحديث', value: data.length },
+      ];
+      if (data.length >= cap)
+        summary.unshift({ label: 'ملاحظة', value: `تم عرض أول ${cap} نتيجة فقط` });
 
       return {
         ok: true,
@@ -3459,7 +3998,8 @@ export function runSqlReport(reportId: string): ReportRunResult {
 
     return { ok: false, message: 'هذا التقرير غير مدعوم عبر SQL حالياً' };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل توليد التقرير';
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل توليد التقرير';
     return { ok: false, message };
   }
 }
@@ -3470,13 +4010,17 @@ export function kvGet(key: string): string | null {
 }
 
 export function kvGetMeta(key: string): { value: string; updatedAt: string } | null {
-  const row = getDb().prepare('SELECT v, updatedAt FROM kv WHERE k = ?').get(key) as { v: string; updatedAt: string } | undefined;
+  const row = getDb().prepare('SELECT v, updatedAt FROM kv WHERE k = ?').get(key) as
+    | { v: string; updatedAt: string }
+    | undefined;
   if (!row) return null;
   return { value: row.v, updatedAt: row.updatedAt };
 }
 
 export function kvGetDeletedAt(key: string): string | null {
-  const row = getDb().prepare('SELECT deletedAt FROM kv_deleted WHERE k = ?').get(key) as { deletedAt: string } | undefined;
+  const row = getDb().prepare('SELECT deletedAt FROM kv_deleted WHERE k = ?').get(key) as
+    | { deletedAt: string }
+    | undefined;
   return row?.deletedAt ?? null;
 }
 
@@ -3498,7 +4042,7 @@ function normalizeKvValueOnWrite(key: string, value: string): string {
     if (!needsDefault) return item;
 
     changed = true;
-    return { ...rec, 'تكرار_الدفع': 12 };
+    return { ...rec, تكرار_الدفع: 12 };
   });
 
   return changed ? JSON.stringify(normalized) : value;
@@ -3509,7 +4053,9 @@ export function kvSet(key: string, value: string): void {
   getDb().prepare('DELETE FROM kv_deleted WHERE k = ?').run(key);
   const normalizedValue = normalizeKvValueOnWrite(key, value);
   getDb()
-    .prepare('INSERT INTO kv (k, v, updatedAt) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v, updatedAt=excluded.updatedAt')
+    .prepare(
+      'INSERT INTO kv (k, v, updatedAt) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v, updatedAt=excluded.updatedAt'
+    )
     .run(key, normalizedValue, new Date().toISOString());
 }
 
@@ -3517,18 +4063,28 @@ export function kvSetWithUpdatedAt(key: string, value: string, updatedAtIso: str
   getDb().prepare('DELETE FROM kv_deleted WHERE k = ?').run(key);
   const normalizedValue = normalizeKvValueOnWrite(key, value);
   getDb()
-    .prepare('INSERT INTO kv (k, v, updatedAt) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v, updatedAt=excluded.updatedAt')
+    .prepare(
+      'INSERT INTO kv (k, v, updatedAt) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v, updatedAt=excluded.updatedAt'
+    )
     .run(key, normalizedValue, updatedAtIso);
 }
 
 export function kvDelete(key: string): void {
   getDb().prepare('DELETE FROM kv WHERE k = ?').run(key);
-  getDb().prepare('INSERT INTO kv_deleted (k, deletedAt) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET deletedAt=excluded.deletedAt').run(key, new Date().toISOString());
+  getDb()
+    .prepare(
+      'INSERT INTO kv_deleted (k, deletedAt) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET deletedAt=excluded.deletedAt'
+    )
+    .run(key, new Date().toISOString());
 }
 
 export function kvApplyRemoteDelete(key: string, deletedAtIso: string): void {
   getDb().prepare('DELETE FROM kv WHERE k = ?').run(key);
-  getDb().prepare('INSERT INTO kv_deleted (k, deletedAt) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET deletedAt=excluded.deletedAt').run(key, deletedAtIso);
+  getDb()
+    .prepare(
+      'INSERT INTO kv_deleted (k, deletedAt) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET deletedAt=excluded.deletedAt'
+    )
+    .run(key, deletedAtIso);
 }
 
 export function kvKeys(): string[] {
@@ -3536,8 +4092,11 @@ export function kvKeys(): string[] {
   return rows.map((r) => r.k);
 }
 
-export function kvListUpdatedSince(sinceIso: string): Array<{ k: string; v: string; updatedAt: string }> {
-  const since = sinceIso && String(sinceIso).trim() ? String(sinceIso).trim() : '1970-01-01T00:00:00.000Z';
+export function kvListUpdatedSince(
+  sinceIso: string
+): Array<{ k: string; v: string; updatedAt: string }> {
+  const since =
+    sinceIso && String(sinceIso).trim() ? String(sinceIso).trim() : '1970-01-01T00:00:00.000Z';
   const rows = getDb()
     .prepare('SELECT k, v, updatedAt FROM kv WHERE updatedAt > ? ORDER BY updatedAt')
     .all(since) as Array<{ k: string; v: string; updatedAt: string }>;
@@ -3545,7 +4104,8 @@ export function kvListUpdatedSince(sinceIso: string): Array<{ k: string; v: stri
 }
 
 export function kvListDeletedSince(sinceIso: string): Array<{ k: string; deletedAt: string }> {
-  const since = sinceIso && String(sinceIso).trim() ? String(sinceIso).trim() : '1970-01-01T00:00:00.000Z';
+  const since =
+    sinceIso && String(sinceIso).trim() ? String(sinceIso).trim() : '1970-01-01T00:00:00.000Z';
   const rows = getDb()
     .prepare('SELECT k, deletedAt FROM kv_deleted WHERE deletedAt > ? ORDER BY deletedAt')
     .all(since) as Array<{ k: string; deletedAt: string }>;
@@ -3560,7 +4120,7 @@ export function kvResetAll(prefix = 'db_'): { deleted: number } {
 
 export async function exportDatabase(destinationPath: string): Promise<void> {
   const sourcePath = getDbPath();
-  
+
   // Close DB connection temporarily for safe copy
   if (db) {
     db.close();
@@ -3597,7 +4157,7 @@ export async function exportDatabaseToMany(destinationPaths: string[]): Promise<
 
 export async function importDatabase(sourcePath: string): Promise<void> {
   const destPath = getDbPath();
-  
+
   // Close DB connection
   if (db) {
     db.close();

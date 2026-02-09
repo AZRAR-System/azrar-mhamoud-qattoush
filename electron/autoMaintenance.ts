@@ -55,7 +55,11 @@ async function dirHasAnyFiles(dir: string): Promise<boolean> {
 }
 
 async function resolveAttachmentsDirForBackup(): Promise<string | null> {
-  const candidates = [preferredAttachmentsDir(), fallbackAttachmentsDir(), lastResortAttachmentsDir()];
+  const candidates = [
+    preferredAttachmentsDir(),
+    fallbackAttachmentsDir(),
+    lastResortAttachmentsDir(),
+  ];
 
   // Prefer the first directory that exists and is non-empty.
   for (const c of candidates) {

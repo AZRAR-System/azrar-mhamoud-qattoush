@@ -16,7 +16,7 @@ class Logger {
   setupLogger() {
     // إعداد مسارات الحفظ
     const logsPath = path.join(app.getPath('userData'), 'logs');
-    
+
     // إنشاء مجلد logs إذا لم يكن موجوداً
     if (!fs.existsSync(logsPath)) {
       fs.mkdirSync(logsPath, { recursive: true });
@@ -68,7 +68,7 @@ class Logger {
       const now = Date.now();
       const maxAge = daysToKeep * 24 * 60 * 60 * 1000;
 
-      files.forEach(file => {
+      files.forEach((file) => {
         const filePath = path.join(logsPath, file);
         const stats = fs.statSync(filePath);
         const age = now - stats.mtime.getTime();
@@ -136,7 +136,7 @@ class Logger {
       message: error.message,
       stack: error.stack,
       context: context,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 

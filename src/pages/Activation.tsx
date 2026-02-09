@@ -1,21 +1,55 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useActivation } from '@/context/ActivationContext';
-import { isCodeActivationAllowed } from '@/services/activation';
 import { KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { LOCALE_AR_LATN_GREGORY } from '@/utils/format';
+import { safeCopyToClipboard } from '@/utils/clipboard';
 
 export const Activation: React.FC = () => {
-  const { isActivated, loading, activatedAt, activationError, activate, activateWithLicenseFileContent, refresh } = useActivation();
-  const [code, setCode] = useState('');
+  const { t } = useTranslation();
+  const {
+    isActivated,
+    loading,
+    activatedAt,
+    activationError,
+    reason,
+    review,
+    activateWithLicenseFileContent,
+    refresh,
+  } = useActivation();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [deviceId, setDeviceId] = useState<string>('');
+  const [licenseKey, setLicenseKey] = useState('');
+  const [serverUrl, setServerUrl] = useState('');
+
+  const isArabicText = (value: unknown): boolean => {
+    if (typeof value !== 'string') return false;
+    return /\p{Script=Arabic}/u.test(value);
+  };
+
+  const tr = (value: unknown): string => {
+    if (typeof value !== 'string') return '';
+    const txt = value.trim();
+    if (!txt) return '';
+    return isArabicText(txt) ? t(txt) : txt;
+  };
 
   const loadDeviceId = async () => {
     try {
+      // Prefer HW fingerprint when available.
+      const fpRes = await window.desktopLicense?.getDeviceFingerprint?.();
+      const fp = fpRes && typeof fpRes === 'object' ? (fpRes as Record<string, unknown>) : {};
+      const fpVal = typeof fp.fingerprint === 'string' ? fp.fingerprint : '';
+      if (fpVal) {
+        setDeviceId(fpVal);
+        return;
+      }
+
       const id = await window.desktopDb?.getDeviceId?.();
       setDeviceId(typeof id === 'string' ? id : '');
     } catch {
@@ -23,50 +57,43 @@ export const Activation: React.FC = () => {
     }
   };
 
+  const loadServerUrl = async () => {
+    try {
+      const res = await window.desktopLicense?.getServerUrl?.();
+      const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
+      const url = typeof rec.url === 'string' ? rec.url : '';
+      setServerUrl(url);
+    } catch {
+      setServerUrl('');
+    }
+  };
+
   useEffect(() => {
     void loadDeviceId();
-  }, []);
-
-  const canUseCodeActivation = useMemo(() => {
-    return isCodeActivationAllowed();
+    void loadServerUrl();
   }, []);
 
   const statusLabel = useMemo(() => {
     if (loading) return '...';
-    return isActivated ? 'مُفعّل' : 'غير مُفعّل';
-  }, [isActivated, loading]);
+    return isActivated ? t('مُفعّل') : t('غير مُفعّل');
+  }, [isActivated, loading, t]);
 
-  const handleActivate = async () => {
-    setError('');
-    setBusy(true);
-    try {
-      await activate(code);
-      // Re-run bootstrap so desktop KV hydration happens after activation.
-      window.location.hash = ROUTE_PATHS.LOGIN;
-      window.location.reload();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg || 'تعذر تفعيل النظام.');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handlePickLicenseFile = async () => {
     setError('');
     setBusy(true);
     try {
       const res = await window.desktopDb?.pickLicenseFile?.();
-      const rec = (res && typeof res === 'object') ? (res as Record<string, unknown>) : {};
+      const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
       if (rec.canceled) return;
       if (rec.ok !== true) {
         const err = typeof rec.error === 'string' ? rec.error : 'تعذر تحميل ملف التفعيل.';
-        setError(err);
+        setError(tr(err) || t('تعذر تحميل ملف التفعيل.'));
         return;
       }
       const content = typeof rec.content === 'string' ? rec.content : '';
       if (!content.trim()) {
-        setError('ملف التفعيل فارغ.');
+        setError(t('ملف التفعيل فارغ.'));
         return;
       }
 
@@ -75,7 +102,43 @@ export const Activation: React.FC = () => {
       window.location.reload();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(msg || 'تعذر تحميل ملف التفعيل.');
+      setError(tr(msg) || t('تعذر تحميل ملف التفعيل.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleActivateOnline = async () => {
+    setError('');
+    setBusy(true);
+    try {
+      if (!window.desktopLicense?.activateOnline) {
+        setError(t('ميزة التفعيل عبر الإنترنت غير متاحة في هذه النسخة.'));
+        return;
+      }
+
+      // Persist URL if user provided it.
+      if (serverUrl.trim() && window.desktopLicense?.setServerUrl) {
+        await window.desktopLicense.setServerUrl(serverUrl.trim());
+      }
+
+      const res = await window.desktopLicense.activateOnline({
+        licenseKey: licenseKey.trim(),
+        serverUrl: serverUrl.trim() ? serverUrl.trim() : undefined,
+      });
+      const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
+      if (rec.ok !== true) {
+        const msg = typeof rec.error === 'string' ? rec.error : t('تعذر تفعيل النظام.');
+        setError(tr(msg) || t('تعذر تفعيل النظام.'));
+        return;
+      }
+
+      // Re-run bootstrap so desktop KV hydration happens after activation.
+      window.location.hash = ROUTE_PATHS.LOGIN;
+      window.location.reload();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(tr(msg) || t('تعذر تفعيل النظام.'));
     } finally {
       setBusy(false);
     }
@@ -85,48 +148,59 @@ export const Activation: React.FC = () => {
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
       <div className="w-full max-w-lg">
         <Card
-          title="تفعيل النظام"
+          title={t('تفعيل النظام')}
           action={
             <Button
               variant="secondary"
               onClick={() => {
                 void refresh();
                 void loadDeviceId();
+                void window.desktopLicense?.refreshOnlineStatus?.();
               }}
               disabled={busy}
               rightIcon={<RefreshCw size={16} className={busy ? 'animate-spin' : ''} />}
             >
-              تحديث الحالة
+              {t('تحديث الحالة')}
             </Button>
           }
         >
           <div className="p-6 space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">الحالة</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">{t('الحالة')}</div>
                 <div className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <ShieldCheck size={18} className={isActivated ? 'text-emerald-600' : 'text-slate-400'} />
+                  <ShieldCheck
+                    size={18}
+                    className={isActivated ? 'text-emerald-600' : 'text-slate-400'}
+                  />
                   {statusLabel}
                 </div>
                 {isActivated && activatedAt && (
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">آخر تفعيل: {new Date(activatedAt).toLocaleString()}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                     {t('آخر تفعيل:')} {new Date(activatedAt).toLocaleString(LOCALE_AR_LATN_GREGORY)}
+                  </div>
                 )}
 
                 <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="truncate">
-                      <span className="font-semibold">بصمة الجهاز:</span>{' '}
-                      {deviceId ? <span className="font-mono">{deviceId}</span> : <span>غير متوفرة</span>}
+                    <div className="flex-1 min-w-0 whitespace-normal break-words">
+                      <span className="font-semibold">{t('بصمة الجهاز:')}</span>{' '}
+                      {deviceId ? (
+                        <span className="font-mono break-all">{deviceId}</span>
+                      ) : (
+                        <span>{t('غير متوفرة')}</span>
+                      )}
                     </div>
                     <Button
                       variant="secondary"
                       onClick={() => {
                         if (!deviceId) return;
-                        void navigator.clipboard?.writeText?.(deviceId);
+                        void safeCopyToClipboard(deviceId);
                       }}
                       disabled={!deviceId}
+                      className="flex-shrink-0"
                     >
-                      نسخ
+                      {t('نسخ')}
                     </Button>
                   </div>
                 </div>
@@ -137,58 +211,100 @@ export const Activation: React.FC = () => {
             {!isActivated && (
               <>
                 <div className="text-sm text-slate-600 dark:text-slate-300">
-                  {canUseCodeActivation ? 'أدخل رمز التفعيل لتفعيل النظام.' : 'التفعيل في نسخة الإنتاج يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز.'}
+                  {t('التفعيل يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز أو عبر الإنترنت بمفتاح ترخيص.')}
                 </div>
 
-                {canUseCodeActivation && (
-                  <Input
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="رمز التفعيل"
-                    icon={<KeyRound size={16} />}
-                    error={error}
-                    autoFocus
-                  />
+                {error && (
+                  <div className="text-xs text-rose-600 dark:text-rose-300 font-semibold">
+                    {tr(error) || error}
+                  </div>
                 )}
 
-                {!canUseCodeActivation && error && (
-                  <div className="text-xs text-rose-600 dark:text-rose-300 font-semibold">{error}</div>
+                {!error && activationError && (
+                  <div className="text-xs text-rose-600 dark:text-rose-300 font-semibold">
+                    {tr(activationError) || String(activationError)}
+                  </div>
                 )}
 
-                {!canUseCodeActivation && !error && activationError && (
-                  <div className="text-xs text-rose-600 dark:text-rose-300 font-semibold">{activationError}</div>
+                {!!review && (reason === 'remote:suspended' || reason === 'remote:revoked' || review.remoteStatusUpdatedAt || review.remoteStatusNote) && (
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3">
+                    <div className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                      {t('معلومات المراجعة')}
+                    </div>
+                    {review.remoteStatusUpdatedAt && (
+                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                        {t('تاريخ الحالة:')}{' '}
+                        {new Date(review.remoteStatusUpdatedAt).toLocaleString(LOCALE_AR_LATN_GREGORY)}
+                      </div>
+                    )}
+                    {review.remoteLastAttemptAt && (
+                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                        {t('آخر محاولة اتصال:')}{' '}
+                        {new Date(review.remoteLastAttemptAt).toLocaleString(LOCALE_AR_LATN_GREGORY)}
+                      </div>
+                    )}
+                    {review.remoteStatusNote && (
+                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+                        {t('ملاحظة:')} {review.remoteStatusNote}
+                      </div>
+                    )}
+                    {review.remoteLastError && (
+                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+                        {t('آخر خطأ اتصال:')} {review.remoteLastError}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 <div className="flex gap-3">
-                  {canUseCodeActivation && (
-                    <Button
-                      className="flex-1"
-                      onClick={() => void handleActivate()}
-                      disabled={busy || loading || code.trim().length < 6}
-                    >
-                      {busy ? 'جاري التفعيل...' : 'تفعيل'}
-                    </Button>
-                  )}
-
                   <Button
                     className="flex-1"
-                    variant={canUseCodeActivation ? 'secondary' : 'primary'}
+                    variant="primary"
                     onClick={() => void handlePickLicenseFile()}
                     disabled={busy || loading || !window.desktopDb?.pickLicenseFile}
                   >
-                    تحميل ملف التفعيل
+                    {t('تحميل ملف التفعيل')}
                   </Button>
                 </div>
 
+                {!!window.desktopLicense?.activateOnline && (
+                  <div className="pt-2 space-y-2">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {t('تفعيل عبر الإنترنت (مفتاح ترخيص):')}
+                    </div>
+                    <Input
+                      value={licenseKey}
+                      onChange={(e) => setLicenseKey(e.target.value)}
+                      placeholder={t('مفتاح الترخيص')}
+                      icon={<KeyRound size={16} />}
+                      error={error}
+                    />
+
+                    <Input
+                      value={serverUrl}
+                      onChange={(e) => setServerUrl(e.target.value)}
+                      placeholder={t('رابط سيرفر التفعيل (اختياري)')}
+                    />
+
+                    <Button
+                      className="w-full"
+                      onClick={() => void handleActivateOnline()}
+                      disabled={busy || loading || licenseKey.trim().length < 6}
+                    >
+                      {busy ? t('جاري التفعيل...') : t('تفعيل عبر الإنترنت')}
+                    </Button>
+                  </div>
+                )}
+
                 <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  ملاحظة: إذا كنت تملك ملف تفعيل/كود من الدعم، استخدمه هنا.
+                  {t('ملاحظة: إذا كنت تملك ملف تفعيل من الدعم، استخدمه هنا.')}
                 </div>
               </>
             )}
 
             {isActivated && (
               <div className="text-sm text-emerald-700 dark:text-emerald-300">
-                النظام مُفعّل. يمكنك المتابعة إلى تسجيل الدخول.
+                {t('النظام مُفعّل. يمكنك المتابعة إلى تسجيل الدخول.')}
               </div>
             )}
           </div>

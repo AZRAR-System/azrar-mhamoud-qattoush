@@ -6,6 +6,12 @@ param(
   [string]$PfxPath,
 
   [Parameter(Mandatory = $false)]
+  [string]$PfxPassword,
+
+  [Parameter(Mandatory = $false)]
+  [string]$PfxPasswordEnvVar = 'CSC_KEY_PASSWORD',
+
+  [Parameter(Mandatory = $false)]
   [string]$CertThumbprint,
 
   [Parameter(Mandatory = $false)]
@@ -102,7 +108,20 @@ if ($CertThumbprint) {
     throw "PFX not found: $PfxPath"
   }
 
-  $securePass = Read-Host 'Enter PFX password' -AsSecureString
+  $securePass = $null
+  if ($PfxPassword -and $PfxPassword.Trim().Length -gt 0) {
+    $securePass = ConvertTo-SecureString -String $PfxPassword -AsPlainText -Force
+  } else {
+    $envPass = $null
+    if ($PfxPasswordEnvVar -and $PfxPasswordEnvVar.Trim().Length -gt 0) {
+      $envPass = [System.Environment]::GetEnvironmentVariable($PfxPasswordEnvVar)
+    }
+    if ($envPass -and $envPass.Trim().Length -gt 0) {
+      $securePass = ConvertTo-SecureString -String $envPass -AsPlainText -Force
+    } else {
+      $securePass = Read-Host 'Enter PFX password' -AsSecureString
+    }
+  }
   $importedCert = Import-PfxCertificate -FilePath $PfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePass
 
   # Pick a code-signing cert from the import result (can be a collection).

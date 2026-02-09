@@ -19,8 +19,15 @@
 
       body {
         margin: 0;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        background: radial-gradient(1000px 500px at 10% 10%, rgba(99, 102, 241, 0.25), transparent),
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Arial,
+          sans-serif;
+        background:
+          radial-gradient(1000px 500px at 10% 10%, rgba(99, 102, 241, 0.25), transparent),
           radial-gradient(1000px 500px at 100% 90%, rgba(168, 85, 247, 0.18), transparent),
           var(--bg);
         color: var(--text);
@@ -257,8 +264,15 @@
             <div class="field mt-12">
               <label>اسم العميل</label>
               <div class="row">
-                <input id="customer" type="text" placeholder="مثال: شركة الهدى" list="customersList" />
-                <button id="btnSaveCustomer" class="ghost" type="button" title="حفظ بيانات العميل">حفظ</button>
+                <input
+                  id="customer"
+                  type="text"
+                  placeholder="مثال: شركة الهدى"
+                  list="customersList"
+                />
+                <button id="btnSaveCustomer" class="ghost" type="button" title="حفظ بيانات العميل">
+                  حفظ
+                </button>
               </div>
               <datalist id="customersList"></datalist>
               <div class="hint">
@@ -268,7 +282,14 @@
 
             <div class="field mt-12">
               <label>عدد الأجهزة (Seats)</label>
-              <input id="seatCount" type="number" min="0" step="1" placeholder="مثال: 3" dir="ltr" />
+              <input
+                id="seatCount"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="مثال: 3"
+                dir="ltr"
+              />
               <div class="hint">للمتابعة: كم جهاز مسموح/تم تفعيله لهذا العميل.</div>
             </div>
 
@@ -293,7 +314,9 @@
               <button id="btnGenKey">توليد مفتاح جديد</button>
               <button id="btnPickKey">تحميل مفتاح التوقيع (Private Key)</button>
               <button id="btnGenerate" class="primary">إنشاء ملف التفعيل</button>
-              <button id="btnForgetKey" class="danger" type="button" title="نسيان المفتاح المحفوظ">نسيان المفتاح</button>
+              <button id="btnForgetKey" class="danger" type="button" title="نسيان المفتاح المحفوظ">
+                نسيان المفتاح
+              </button>
             </div>
 
             <div id="status" data-kind="info">جاهز.</div>
@@ -315,7 +338,10 @@
               </div>
               <div class="kv-row">
                 <div>صيغة الملف:</div>
-                <div class="mono">{ payload: { v:1, product:'AZRAR', deviceId, issuedAt, expiresAt?, customer? }, sig }</div>
+                <div class="mono">
+                  { payload: { v:1, product:'AZRAR', deviceId, issuedAt, expiresAt?, customer? },
+                  sig }
+                </div>
               </div>
             </div>
           </div>

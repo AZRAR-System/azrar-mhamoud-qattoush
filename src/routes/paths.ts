@@ -8,6 +8,8 @@ export const ROUTE_PATHS = {
 
   // Activation / licensing
   ACTIVATION: '/activation',
+  LICENSE_ADMIN: '/license-admin',
+  LICENSE_ADMIN_USERS: '/license-admin/users',
 
   // Main
   DASHBOARD: '/',

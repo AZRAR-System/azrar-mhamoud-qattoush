@@ -73,6 +73,15 @@ playwright-report/
 *.backup
 tmp/
 
+# Microsoft Office temporary files
+~$*.doc
+~$*.docx
+~$*.xls
+~$*.xlsx
+~$*.ppt
+~$*.pptx
+~WRL*.tmp
+
 # Local QA outputs (generated)
 lint-output.txt
 tmp-*.txt
@@ -94,6 +103,12 @@ electron/**/*.js
 electron/**/*.cjs
 !electron/**/*.config.js
 .electron/
+
+# License server runtime data
+server/data/
+
+# Generated integrity manifest
+electron/assets/integrity.manifest.json
 
 # Package Managers
 package-lock.json

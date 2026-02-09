@@ -39,6 +39,10 @@ const Sales = React.lazy(() => import('./pages/Sales').then(module => ({ default
 const Login = React.lazy(() => import('./pages/Login').then(module => ({ default: module.Login })));
 const Logout = React.lazy(() => import('./pages/Logout').then(module => ({ default: module.Logout })));
 const Activation = React.lazy(() => import('./pages/Activation').then(module => ({ default: module.Activation })));
+const LicenseAdmin = React.lazy(() => import('./pages/LicenseAdmin').then(module => ({ default: module.LicenseAdmin })));
+const LicenseAdminUsers = React.lazy(() =>
+  import('./pages/LicenseAdminUsers').then(module => ({ default: module.LicenseAdminUsers }))
+);
 const NotFound = React.lazy(() => import('./pages/NotFound').then(module => ({ default: module.NotFound })));
 const Documentation = React.lazy(() => import('./pages/Documentation').then(module => ({ default: module.Documentation })));
 const Contacts = React.lazy(() => import('./pages/Contacts').then(module => ({ default: module.Contacts })));
@@ -62,7 +66,6 @@ type ViteMeta = {
     DEV?: unknown;
     VITE_AUTORUN_SYSTEM_TESTS?: unknown;
     VITE_ENABLE_INTEGRATION_TEST_DATA?: unknown;
-    VITE_ALLOW_CODE_ACTIVATION?: unknown;
     VITE_AUTORUN_SYSTEM_TESTS_MUTATION?: unknown;
   };
 };
@@ -167,7 +170,6 @@ const AutorunSystemTests: React.FC = () => {
 
 const AutorunDesktopTestBootstrap: React.FC = () => {
   const { isAuthenticated, login } = useAuth();
-  const { isActivated, activate } = useActivation();
   const startedRef = React.useRef(false);
 
   useEffect(() => {
@@ -175,7 +177,6 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
     const autorunRaw = env?.VITE_AUTORUN_SYSTEM_TESTS;
     const autorunEnabled = readViteFlag(autorunRaw) || readQueryFlag('autorun');
     const isDev = !!env?.DEV;
-    const allowCodeActivation = readViteFlag(env?.VITE_ALLOW_CODE_ACTIVATION) || readQueryFlag('allowCodeActivation');
 
     try {
       // Helps diagnose cases where env flags don't reach renderer during desktop dev tests.
@@ -223,22 +224,7 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
 
         // Retry activation/login for up to ~60s (desktop cache hydration can be slow on first load).
         while (!cancelled && Date.now() - startedAt < 60_000) {
-          // 1) Ensure activation (dev-only via code activation).
-            if (!isActivated && allowCodeActivation) {
-            try {
-              await activate('AUTORUN-DEV');
-              try {
-                console.warn('[autorun] activated (dev code)');
-              } catch {
-                // ignore
-              }
-            } catch {
-              await sleep(800);
-              continue;
-            }
-          }
-
-          // 2) Ensure login. Default super admin exists on clean DB (admin / 123456).
+          // 1) Ensure login. Default super admin exists on clean DB (admin / 123456).
           if (!isAuthenticated) {
             try {
               await login('admin', '123456');
@@ -253,7 +239,7 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
             }
           }
 
-          // 3) Navigate to system maintenance to run autorun suite.
+          // 2) Navigate to system maintenance to run autorun suite.
           try {
             window.location.hash = ROUTE_PATHS.SYS_MAINTENANCE;
             console.warn('[autorun] navigate -> SYS_MAINTENANCE');
@@ -270,7 +256,7 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activate, isActivated, isAuthenticated, login]);
+  }, [isAuthenticated, login]);
 
   return null;
 };
@@ -302,10 +288,6 @@ const RequireActivation: React.FC = () => {
     return <Navigate to={ROUTE_PATHS.LOGIN} replace state={{ from: location.pathname }} />;
   }
 
-  if (isActivated && location.pathname === ROUTE_PATHS.ACTIVATION) {
-    return <Navigate to={ROUTE_PATHS.LOGIN} replace />;
-  }
-
   return <Outlet />;
 };
 
@@ -329,6 +311,8 @@ const AppRoutes: React.FC = () => {
       <Routes>
         {/* Public */}
         <Route path={ROUTE_PATHS.ACTIVATION} element={<Activation />} />
+        <Route path={ROUTE_PATHS.LICENSE_ADMIN} element={<LicenseAdmin />} />
+        <Route path={ROUTE_PATHS.LICENSE_ADMIN_USERS} element={<LicenseAdminUsers />} />
 
         {/* Everything else requires activation */}
         <Route element={<RequireActivation />}>

@@ -1,7 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { verifyAsync } from '@noble/ed25519';
+import crypto from 'node:crypto';
+import { hashes, verifyAsync } from '@noble/ed25519';
+
+if (!hashes.sha512) {
+  hashes.sha512 = (message) => crypto.createHash('sha512').update(message).digest();
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

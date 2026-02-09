@@ -2,10 +2,14 @@ import { app, BrowserWindow, dialog, ipcMain, screen } from 'electron';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { getPublicKeyAsync, signAsync } from '@noble/ed25519';
+import { hashes, getPublicKeyAsync, signAsync } from '@noble/ed25519';
 import crypto from 'node:crypto';
 import { toErrorMessage } from './utils/errors';
 import { tryParseJson } from './utils/json';
+
+if (!hashes.sha512) {
+  hashes.sha512 = (message: Uint8Array) => crypto.createHash('sha512').update(message).digest();
+}
 
 type LicensePayloadV1 = {
   v: 1;
@@ -65,7 +69,7 @@ app.on('child-process-gone', (_e, details) => {
 
 process.on('uncaughtException', (e: unknown) => {
   try {
-    const msg = e instanceof Error ? (e.stack || e.message) : String(e);
+    const msg = e instanceof Error ? e.stack || e.message : String(e);
     console.error('[LicenseGen][uncaughtException]', msg);
     void dialog.showErrorBox('AZRAR-LicenseGen', msg);
   } catch {
@@ -75,7 +79,7 @@ process.on('uncaughtException', (e: unknown) => {
 
 process.on('unhandledRejection', (e: unknown) => {
   try {
-    const msg = e instanceof Error ? (e.stack || e.message) : String(e);
+    const msg = e instanceof Error ? e.stack || e.message : String(e);
     console.error('[LicenseGen][unhandledRejection]', msg);
     void dialog.showErrorBox('AZRAR-LicenseGen', msg);
   } catch {
@@ -147,24 +151,43 @@ const readState = async (): Promise<LicenseGenStateV1> => {
     const rec = parsed as Record<string, unknown>;
     const version = rec.version === 1 ? 1 : 1;
     const customers = Array.isArray(rec.customers) ? (rec.customers as unknown[]) : [];
-    const issuedLicenses = Array.isArray(rec.issuedLicenses) ? (rec.issuedLicenses as unknown[]) : [];
+    const issuedLicenses = Array.isArray(rec.issuedLicenses)
+      ? (rec.issuedLicenses as unknown[])
+      : [];
     const safeCustomers: LicenseGenCustomerProfileV1[] = customers
       .map((c) => {
         if (!c || typeof c !== 'object') return null;
         const r = c as Record<string, unknown>;
         const name = String(r.name ?? '').trim();
         if (!name) return null;
-        const seatCount = typeof r.seatCount === 'number' && Number.isFinite(r.seatCount) ? Math.max(0, Math.floor(r.seatCount)) : undefined;
-        const defaultDurationDays = typeof r.defaultDurationDays === 'number' && Number.isFinite(r.defaultDurationDays)
-          ? Math.max(0, Math.floor(r.defaultDurationDays))
-          : undefined;
-        const defaultDurationMonths = typeof r.defaultDurationMonths === 'number' && Number.isFinite(r.defaultDurationMonths)
-          ? Math.max(0, Math.floor(r.defaultDurationMonths))
-          : undefined;
+        const seatCount =
+          typeof r.seatCount === 'number' && Number.isFinite(r.seatCount)
+            ? Math.max(0, Math.floor(r.seatCount))
+            : undefined;
+        const defaultDurationDays =
+          typeof r.defaultDurationDays === 'number' && Number.isFinite(r.defaultDurationDays)
+            ? Math.max(0, Math.floor(r.defaultDurationDays))
+            : undefined;
+        const defaultDurationMonths =
+          typeof r.defaultDurationMonths === 'number' && Number.isFinite(r.defaultDurationMonths)
+            ? Math.max(0, Math.floor(r.defaultDurationMonths))
+            : undefined;
         const notes = typeof r.notes === 'string' ? r.notes : undefined;
-        const createdAt = typeof r.createdAt === 'string' && r.createdAt.trim() ? String(r.createdAt) : new Date().toISOString();
-        const updatedAt = typeof r.updatedAt === 'string' && r.updatedAt.trim() ? String(r.updatedAt) : createdAt;
-        return { name, seatCount, defaultDurationDays, defaultDurationMonths, notes, createdAt, updatedAt };
+        const createdAt =
+          typeof r.createdAt === 'string' && r.createdAt.trim()
+            ? String(r.createdAt)
+            : new Date().toISOString();
+        const updatedAt =
+          typeof r.updatedAt === 'string' && r.updatedAt.trim() ? String(r.updatedAt) : createdAt;
+        return {
+          name,
+          seatCount,
+          defaultDurationDays,
+          defaultDurationMonths,
+          notes,
+          createdAt,
+          updatedAt,
+        };
       })
       .filter(Boolean) as LicenseGenCustomerProfileV1[];
 
@@ -174,22 +197,43 @@ const readState = async (): Promise<LicenseGenStateV1> => {
         const r = x as Record<string, unknown>;
         const deviceId = String(r.deviceId ?? '').trim();
         if (!deviceId) return null;
-        const customer = typeof r.customer === 'string' && r.customer.trim() ? String(r.customer).trim() : undefined;
-        const issuedAt = typeof r.issuedAt === 'string' && r.issuedAt.trim() ? String(r.issuedAt) : new Date().toISOString();
-        const expiresAt = typeof r.expiresAt === 'string' && r.expiresAt.trim() ? String(r.expiresAt) : undefined;
-        const filePath = typeof r.filePath === 'string' && r.filePath.trim() ? String(r.filePath) : undefined;
+        const customer =
+          typeof r.customer === 'string' && r.customer.trim()
+            ? String(r.customer).trim()
+            : undefined;
+        const issuedAt =
+          typeof r.issuedAt === 'string' && r.issuedAt.trim()
+            ? String(r.issuedAt)
+            : new Date().toISOString();
+        const expiresAt =
+          typeof r.expiresAt === 'string' && r.expiresAt.trim() ? String(r.expiresAt) : undefined;
+        const filePath =
+          typeof r.filePath === 'string' && r.filePath.trim() ? String(r.filePath) : undefined;
         return { deviceId, customer, issuedAt, expiresAt, filePath };
       })
       .filter(Boolean) as LicenseGenIssuedLicenseV1[];
 
     const state: LicenseGenStateV1 = {
       version,
-      lastPrivateKeyPath: typeof rec.lastPrivateKeyPath === 'string' ? String(rec.lastPrivateKeyPath) : undefined,
-      lastPrivateKeyFileName: typeof rec.lastPrivateKeyFileName === 'string' ? String(rec.lastPrivateKeyFileName) : undefined,
+      lastPrivateKeyPath:
+        typeof rec.lastPrivateKeyPath === 'string' ? String(rec.lastPrivateKeyPath) : undefined,
+      lastPrivateKeyFileName:
+        typeof rec.lastPrivateKeyFileName === 'string'
+          ? String(rec.lastPrivateKeyFileName)
+          : undefined,
       lastCustomer: typeof rec.lastCustomer === 'string' ? String(rec.lastCustomer) : undefined,
-      lastSeatCount: typeof rec.lastSeatCount === 'number' && Number.isFinite(rec.lastSeatCount) ? Math.max(0, Math.floor(rec.lastSeatCount)) : undefined,
-      lastDurationDays: typeof rec.lastDurationDays === 'number' && Number.isFinite(rec.lastDurationDays) ? Math.max(0, Math.floor(rec.lastDurationDays)) : undefined,
-      lastDurationMonths: typeof rec.lastDurationMonths === 'number' && Number.isFinite(rec.lastDurationMonths) ? Math.max(0, Math.floor(rec.lastDurationMonths)) : undefined,
+      lastSeatCount:
+        typeof rec.lastSeatCount === 'number' && Number.isFinite(rec.lastSeatCount)
+          ? Math.max(0, Math.floor(rec.lastSeatCount))
+          : undefined,
+      lastDurationDays:
+        typeof rec.lastDurationDays === 'number' && Number.isFinite(rec.lastDurationDays)
+          ? Math.max(0, Math.floor(rec.lastDurationDays))
+          : undefined,
+      lastDurationMonths:
+        typeof rec.lastDurationMonths === 'number' && Number.isFinite(rec.lastDurationMonths)
+          ? Math.max(0, Math.floor(rec.lastDurationMonths))
+          : undefined,
       customers: safeCustomers,
       issuedLicenses: safeIssued,
     };
@@ -205,18 +249,26 @@ const writeState = async (state: LicenseGenStateV1): Promise<void> => {
   await fsp.writeFile(p, JSON.stringify(state, null, 2), 'utf8');
 };
 
-const upsertCustomerProfile = (state: LicenseGenStateV1, next: Omit<LicenseGenCustomerProfileV1, 'createdAt' | 'updatedAt'>): LicenseGenStateV1 => {
+const upsertCustomerProfile = (
+  state: LicenseGenStateV1,
+  next: Omit<LicenseGenCustomerProfileV1, 'createdAt' | 'updatedAt'>
+): LicenseGenStateV1 => {
   const name = String(next.name || '').trim();
   if (!name) return state;
   const now = new Date().toISOString();
   const idx = state.customers.findIndex((c) => c.name === name);
-  const seatCount = typeof next.seatCount === 'number' && Number.isFinite(next.seatCount) ? Math.max(0, Math.floor(next.seatCount)) : undefined;
-  const defaultDurationDays = typeof next.defaultDurationDays === 'number' && Number.isFinite(next.defaultDurationDays)
-    ? Math.max(0, Math.floor(next.defaultDurationDays))
-    : undefined;
-  const defaultDurationMonths = typeof next.defaultDurationMonths === 'number' && Number.isFinite(next.defaultDurationMonths)
-    ? Math.max(0, Math.floor(next.defaultDurationMonths))
-    : undefined;
+  const seatCount =
+    typeof next.seatCount === 'number' && Number.isFinite(next.seatCount)
+      ? Math.max(0, Math.floor(next.seatCount))
+      : undefined;
+  const defaultDurationDays =
+    typeof next.defaultDurationDays === 'number' && Number.isFinite(next.defaultDurationDays)
+      ? Math.max(0, Math.floor(next.defaultDurationDays))
+      : undefined;
+  const defaultDurationMonths =
+    typeof next.defaultDurationMonths === 'number' && Number.isFinite(next.defaultDurationMonths)
+      ? Math.max(0, Math.floor(next.defaultDurationMonths))
+      : undefined;
   const notes = typeof next.notes === 'string' && next.notes.trim() ? next.notes : undefined;
 
   if (idx >= 0) {
@@ -255,7 +307,9 @@ const countIssuedForCustomer = (state: LicenseGenStateV1, customerName: string):
 const bytesToBase64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64');
 
 const normalizeB64 = (raw: string): string => {
-  const s = String(raw || '').trim().replace(/\s+/g, '');
+  const s = String(raw || '')
+    .trim()
+    .replace(/\s+/g, '');
   if (!s) return '';
   let out = s.replace(/-/g, '+').replace(/_/g, '/');
   const pad = out.length % 4;
@@ -278,12 +332,20 @@ const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean => {
 };
 
 const loadExpectedPublicKeyB64 = async (): Promise<string> => {
-  const envKey = String(process.env.AZRAR_LICENSE_PUBLIC_KEY_B64 || process.env.VITE_AZRAR_LICENSE_PUBLIC_KEY || '').trim();
+  const envKey = String(
+    process.env.AZRAR_LICENSE_PUBLIC_KEY_B64 || process.env.VITE_AZRAR_LICENSE_PUBLIC_KEY || ''
+  ).trim();
   if (envKey) return envKey;
 
   const candidates = [
     path.join(__dirname, 'assets', 'azrar-license-public.key.json'),
-    path.join(process.resourcesPath, 'app.asar', 'electron', 'assets', 'azrar-license-public.key.json'),
+    path.join(
+      process.resourcesPath,
+      'app.asar',
+      'electron',
+      'assets',
+      'azrar-license-public.key.json'
+    ),
     path.join(process.resourcesPath, 'electron', 'assets', 'azrar-license-public.key.json'),
   ];
 
@@ -291,7 +353,10 @@ const loadExpectedPublicKeyB64 = async (): Promise<string> => {
     try {
       const raw = await fsp.readFile(p, 'utf8');
       const parsed = tryParseJson(String(raw || '').trim());
-      const b64 = parsed && typeof parsed === 'object' && typeof parsed.publicKeyB64 === 'string' ? String(parsed.publicKeyB64).trim() : '';
+      const b64 =
+        parsed && typeof parsed === 'object' && typeof parsed.publicKeyB64 === 'string'
+          ? String(parsed.publicKeyB64).trim()
+          : '';
       if (b64) return b64;
     } catch {
       // try next
@@ -404,7 +469,9 @@ ipcMain.handle('licensegen:pickPrivateKey', async () => {
       ],
     };
 
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    const result = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options);
     if (result.canceled || result.filePaths.length === 0) {
       return { ok: false, canceled: true };
     }
@@ -462,7 +529,10 @@ ipcMain.handle('licensegen:pickPrivateKey', async () => {
 ipcMain.handle('licensegen:generateKeypairAndSave', async () => {
   try {
     if (app.isPackaged) {
-      return { ok: false, error: 'هذه النسخة لا تسمح بتوليد مفاتيح جديدة لتفادي تغيير مفتاح النظام بالخطأ.' };
+      return {
+        ok: false,
+        error: 'هذه النسخة لا تسمح بتوليد مفاتيح جديدة لتفادي تغيير مفتاح النظام بالخطأ.',
+      };
     }
 
     const win = BrowserWindow.getFocusedWindow();
@@ -476,13 +546,13 @@ ipcMain.handle('licensegen:generateKeypairAndSave', async () => {
           ],
         })
       : await dialog.showSaveDialog({
-      title: 'حفظ مفتاح التوقيع (Private Key)',
-      defaultPath: 'azrar-license-private.key.json',
-      filters: [
-        { name: 'Key File', extensions: ['json'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-      });
+          title: 'حفظ مفتاح التوقيع (Private Key)',
+          defaultPath: 'azrar-license-private.key.json',
+          filters: [
+            { name: 'Key File', extensions: ['json'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        });
 
     if (save.canceled || !save.filePath) {
       return { ok: false, canceled: true };
@@ -494,8 +564,14 @@ ipcMain.handle('licensegen:generateKeypairAndSave', async () => {
     privateKeyBytes = priv;
     publicKeyB64 = bytesToBase64(pub);
 
-    const privObj = { privateKeyB64: bytesToBase64(priv), note: 'KEEP THIS SECRET - used ONLY by license generator' };
-    const pubObj = { publicKeyB64: publicKeyB64, note: 'Embed this in the app build (VITE_AZRAR_LICENSE_PUBLIC_KEY)' };
+    const privObj = {
+      privateKeyB64: bytesToBase64(priv),
+      note: 'KEEP THIS SECRET - used ONLY by license generator',
+    };
+    const pubObj = {
+      publicKeyB64: publicKeyB64,
+      note: 'Embed this in the app build (VITE_AZRAR_LICENSE_PUBLIC_KEY)',
+    };
 
     const privatePath = save.filePath;
     const publicPath = path.join(path.dirname(privatePath), 'azrar-license-public.key.json');
@@ -527,10 +603,13 @@ ipcMain.handle('licensegen:generateAndSave', async (_e, payload: unknown) => {
     }
 
     if (publicKeyB64 && expectedPublicKeyB64 && !isPrivateKeyMatchingExpected(publicKeyB64)) {
-      return { ok: false, error: 'المفتاح الحالي لا يطابق مفتاح النظام. لا يمكن إنشاء ملف تفعيل بهذا المفتاح.' };
+      return {
+        ok: false,
+        error: 'المفتاح الحالي لا يطابق مفتاح النظام. لا يمكن إنشاء ملف تفعيل بهذا المفتاح.',
+      };
     }
 
-    const rec = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+    const rec = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
     const deviceId = String(rec.deviceId ?? '').trim();
     const customer = String(rec.customer ?? '').trim();
     const expiresAt = String(rec.expiresAt ?? '').trim();
@@ -539,7 +618,8 @@ ipcMain.handle('licensegen:generateAndSave', async (_e, payload: unknown) => {
 
     if (expiresAt) {
       const d = new Date(expiresAt);
-      if (!Number.isFinite(d.getTime())) return { ok: false, error: 'تاريخ الانتهاء غير صالح. استخدم ISO.' };
+      if (!Number.isFinite(d.getTime()))
+        return { ok: false, error: 'تاريخ الانتهاء غير صالح. استخدم ISO.' };
     }
 
     const licensePayload: LicensePayloadV1 = {
@@ -570,13 +650,13 @@ ipcMain.handle('licensegen:generateAndSave', async (_e, payload: unknown) => {
           ],
         })
       : await dialog.showSaveDialog({
-      title: 'حفظ ملف التفعيل',
-      defaultPath: `AZRAR-License-${deviceId}.json`,
-      filters: [
-        { name: 'Activation / License', extensions: ['json', 'lic'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-      });
+          title: 'حفظ ملف التفعيل',
+          defaultPath: `AZRAR-License-${deviceId}.json`,
+          filters: [
+            { name: 'Activation / License', extensions: ['json', 'lic'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        });
 
     if (save.canceled || !save.filePath) {
       return { ok: false, canceled: true };
@@ -641,20 +721,31 @@ ipcMain.handle('licensegen:getState', async () => {
 
 ipcMain.handle('licensegen:saveCustomer', async (_e, payload: unknown) => {
   try {
-    const rec = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+    const rec = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
     const name = String(rec.name ?? '').trim();
     if (!name) return { ok: false, error: 'اسم العميل مطلوب.' };
-    const seatCount = typeof rec.seatCount === 'number' && Number.isFinite(rec.seatCount) ? Math.max(0, Math.floor(rec.seatCount)) : undefined;
-    const defaultDurationDays = typeof rec.defaultDurationDays === 'number' && Number.isFinite(rec.defaultDurationDays)
-      ? Math.max(0, Math.floor(rec.defaultDurationDays))
-      : undefined;
-    const defaultDurationMonths = typeof rec.defaultDurationMonths === 'number' && Number.isFinite(rec.defaultDurationMonths)
-      ? Math.max(0, Math.floor(rec.defaultDurationMonths))
-      : undefined;
+    const seatCount =
+      typeof rec.seatCount === 'number' && Number.isFinite(rec.seatCount)
+        ? Math.max(0, Math.floor(rec.seatCount))
+        : undefined;
+    const defaultDurationDays =
+      typeof rec.defaultDurationDays === 'number' && Number.isFinite(rec.defaultDurationDays)
+        ? Math.max(0, Math.floor(rec.defaultDurationDays))
+        : undefined;
+    const defaultDurationMonths =
+      typeof rec.defaultDurationMonths === 'number' && Number.isFinite(rec.defaultDurationMonths)
+        ? Math.max(0, Math.floor(rec.defaultDurationMonths))
+        : undefined;
     const notes = typeof rec.notes === 'string' ? rec.notes : undefined;
 
     const st0 = await readState();
-    const st1 = upsertCustomerProfile(st0, { name, seatCount, defaultDurationDays, defaultDurationMonths, notes });
+    const st1 = upsertCustomerProfile(st0, {
+      name,
+      seatCount,
+      defaultDurationDays,
+      defaultDurationMonths,
+      notes,
+    });
     await writeState(st1);
     return { ok: true };
   } catch (e: unknown) {
@@ -664,15 +755,21 @@ ipcMain.handle('licensegen:saveCustomer', async (_e, payload: unknown) => {
 
 ipcMain.handle('licensegen:setLastOptions', async (_e, payload: unknown) => {
   try {
-    const rec = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
-    const lastCustomer = typeof rec.lastCustomer === 'string' ? String(rec.lastCustomer).trim() : undefined;
-    const lastSeatCount = typeof rec.lastSeatCount === 'number' && Number.isFinite(rec.lastSeatCount) ? Math.max(0, Math.floor(rec.lastSeatCount)) : undefined;
-    const lastDurationDays = typeof rec.lastDurationDays === 'number' && Number.isFinite(rec.lastDurationDays)
-      ? Math.max(0, Math.floor(rec.lastDurationDays))
-      : undefined;
-    const lastDurationMonths = typeof rec.lastDurationMonths === 'number' && Number.isFinite(rec.lastDurationMonths)
-      ? Math.max(0, Math.floor(rec.lastDurationMonths))
-      : undefined;
+    const rec = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+    const lastCustomer =
+      typeof rec.lastCustomer === 'string' ? String(rec.lastCustomer).trim() : undefined;
+    const lastSeatCount =
+      typeof rec.lastSeatCount === 'number' && Number.isFinite(rec.lastSeatCount)
+        ? Math.max(0, Math.floor(rec.lastSeatCount))
+        : undefined;
+    const lastDurationDays =
+      typeof rec.lastDurationDays === 'number' && Number.isFinite(rec.lastDurationDays)
+        ? Math.max(0, Math.floor(rec.lastDurationDays))
+        : undefined;
+    const lastDurationMonths =
+      typeof rec.lastDurationMonths === 'number' && Number.isFinite(rec.lastDurationMonths)
+        ? Math.max(0, Math.floor(rec.lastDurationMonths))
+        : undefined;
 
     const st0 = await readState();
     const st1: LicenseGenStateV1 = {
@@ -746,7 +843,9 @@ app.whenReady().then(async () => {
             publicKeyB64 = derived;
             console.warn('[LicenseGen] auto-loaded last private key');
           } else {
-            console.warn('[LicenseGen] last private key does not match expected public key; skipping');
+            console.warn(
+              '[LicenseGen] last private key does not match expected public key; skipping'
+            );
           }
         }
       }

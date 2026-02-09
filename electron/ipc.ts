@@ -1,4 +1,14 @@
-﻿import { ipcMain, dialog, app, BrowserWindow } from 'electron';
+﻿import {
+  activateWithLicenseContent,
+  activateOnline,
+  deactivate as licenseDeactivate,
+  getLicenseServerUrl,
+  getDeviceFingerprint,
+  getLicenseStatus,
+  refreshOnlineStatus,
+  setLicenseServerUrl,
+} from './license/licenseManager';
+import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
 import {
   kvApplyRemoteDelete,
   kvDelete,
@@ -38,6 +48,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import updaterPkg from 'electron-updater';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
@@ -69,10 +80,28 @@ import {
 } from './sqlSync';
 import { validateInstallerCandidate } from './security/updaterInstallValidation.js';
 
+import logger from './logger';
+
 import { ensureInsideRoot } from './utils/pathSafety';
 import { toErrorMessage } from './utils/errors';
 import { isRecord } from './utils/unknown';
 import { safeJsonParseArray } from './utils/json';
+import {
+  decryptFileToBuffer,
+  decryptFileToFile,
+  encryptBufferToFile,
+  encryptFileToFile,
+  isEncryptedFile,
+} from './utils/fileEncryption';
+import * as tar from 'tar';
+import {
+  decryptSecretBestEffort,
+  encryptSecretBestEffort,
+  getBackupEncryptionPasswordState,
+  readBackupEncryptionSettings,
+  writeBackupEncryptionSettings,
+  type BackupEncryptionSettings,
+} from './utils/backupEncryptionSettings';
 
 const getField = (obj: unknown, field: string): unknown => (isRecord(obj) ? obj[field] : undefined);
 
@@ -91,7 +120,8 @@ const getOptionalNumberField = (obj: unknown, field: string): number | undefined
 };
 
 type DomainEntity = 'people' | 'properties' | 'contracts';
-const isDomainEntity = (v: string): v is DomainEntity => v === 'people' || v === 'properties' || v === 'contracts';
+const isDomainEntity = (v: string): v is DomainEntity =>
+  v === 'people' || v === 'properties' || v === 'contracts';
 
 type FspCpOptions = { recursive: boolean; force: boolean };
 type FspCpFn = (src: string, dest: string, options: FspCpOptions) => Promise<void>;
@@ -121,6 +151,8 @@ type PendingRestoreInfo = {
   lastError?: string;
 };
 
+// Backup encryption settings are implemented in utils/backupEncryptionSettings.ts
+
 type UpdaterEventPayload = {
   type: string;
   message?: string;
@@ -128,7 +160,8 @@ type UpdaterEventPayload = {
 };
 
 let lastUpdaterEvent: UpdaterEventPayload | null = null;
-let currentFeedUrl: string | null = process.env.AZRAR_UPDATE_URL || process.env.AZRAR_UPDATES_URL || null;
+let currentFeedUrl: string | null =
+  process.env.AZRAR_UPDATE_URL || process.env.AZRAR_UPDATES_URL || null;
 
 // No default update server URL.
 // Updates are enabled only when configured via env vars, saved settings, or embedded app-update.yml.
@@ -137,6 +170,100 @@ const DEFAULT_PACKAGED_FEED_URL: string | null = null;
 type UpdaterSettings = {
   feedUrl?: string;
 };
+
+const isUpdatesAllowed = (): boolean => {
+  // In development builds, do not block updater APIs.
+  if (!app.isPackaged) return true;
+
+  // Support break-glass override for support/testing.
+  const allowWithout = String(process.env.AZRAR_ALLOW_UPDATES_WITHOUT_LICENSE || '').trim();
+  if (allowWithout === '1' || allowWithout.toLowerCase() === 'true') return true;
+
+  // Licensing gate: this flag is maintained by the Main license manager (incl. remote disable/TTL).
+  const raw = String(kvGet('db_app_activated') ?? '').trim();
+  return raw === '1' || raw.toLowerCase() === 'true';
+};
+
+const hasAnyFeatureFlags = (features?: Record<string, boolean>): boolean => {
+  if (!features || typeof features !== 'object') return false;
+  try {
+    return Object.keys(features).length > 0;
+  } catch {
+    return false;
+  }
+};
+
+const isFeatureEnabled = (features: Record<string, boolean> | undefined, featureName: string): boolean => {
+  // Backwards-compatible default:
+  // - If the license has no explicit features object (or it's empty), treat it as a full license.
+  // - If features are specified, require the specific feature flag to be true.
+  if (!hasAnyFeatureFlags(features)) return true;
+  return features?.[featureName] === true;
+};
+
+const ensureFeatureAllowedAsync = async (
+  featureName: string,
+  opts?: {
+    activationMessage?: string;
+    featureMessage?: string;
+  }
+): Promise<{ ok: true } | { ok: false; message: string }> => {
+  // In development builds, do not block features.
+  if (!app.isPackaged) return { ok: true };
+
+  const st = await getLicenseStatus();
+  if (!st.activated) {
+    return {
+      ok: false,
+      message:
+        opts?.activationMessage ||
+        'هذه الميزة متاحة للنسخ المفعلة فقط. يرجى تفعيل النسخة أولاً.',
+    };
+  }
+
+  const features = st.license?.features;
+  if (!isFeatureEnabled(features, featureName)) {
+    return {
+      ok: false,
+      message: opts?.featureMessage || 'هذه الرخصة لا تتضمن هذه الميزة.',
+    };
+  }
+
+  return { ok: true };
+};
+
+const ensureSqlAllowedAsync = async (): Promise<{ ok: true } | { ok: false; message: string }> => {
+  return ensureFeatureAllowedAsync('sql', {
+    featureMessage: 'هذه الرخصة لا تتضمن ميزة المزامنة مع SQL Server.',
+  });
+};
+
+const ensureUpdatesAllowedAsync = async (): Promise<{ ok: true } | { ok: false; message: string }> => {
+    // In development builds, do not block updater APIs.
+    if (!app.isPackaged) return { ok: true };
+
+    // Support break-glass override for support/testing.
+    const allowWithout = String(process.env.AZRAR_ALLOW_UPDATES_WITHOUT_LICENSE || '').trim();
+    if (allowWithout === '1' || allowWithout.toLowerCase() === 'true') return { ok: true };
+
+    const st = await getLicenseStatus();
+    if (!st.activated) {
+      return {
+        ok: false,
+        message: 'التحديثات متاحة للنسخ المفعلة فقط. يرجى تفعيل النسخة أولاً.',
+      };
+    }
+
+    const features = st.license?.features;
+    if (!isFeatureEnabled(features, 'updates')) {
+      return {
+        ok: false,
+        message: 'هذه الرخصة لا تتضمن ميزة التحديثات.',
+      };
+    }
+
+    return { ok: true };
+  };
 
 type SqlSyncLogEntry = {
   id: string;
@@ -171,7 +298,14 @@ type SqlCoverageItem = {
   localBytes: number;
   remoteUpdatedAt?: string;
   remoteIsDeleted?: boolean;
-  status: 'inSync' | 'localAhead' | 'remoteAhead' | 'missingRemote' | 'missingLocal' | 'different' | 'unknown';
+  status:
+    | 'inSync'
+    | 'localAhead'
+    | 'remoteAhead'
+    | 'missingRemote'
+    | 'missingLocal'
+    | 'different'
+    | 'unknown';
 };
 
 const SQL_SYNC_LOG_LIMIT = 1000;
@@ -232,14 +366,21 @@ const getBetterSqlite3RebuildHint = (e: unknown): string | null => {
   return [
     'يبدو أن مكتبة قاعدة البيانات المحلية (better-sqlite3) غير مبنية لنسخة Electron الحالية أو لمعمارية مختلفة.',
     'الحل (Windows):',
-    '1) npx electron-rebuild -f -w better-sqlite3',
+    '1) npx @electron/rebuild -f -w better-sqlite3',
     '2) npm run desktop:dev',
   ].join('\n');
 };
 
 type AuthenticodeVerification =
   | { ok: true; status: 'Valid'; subject?: string; thumbprint?: string; statusMessage?: string }
-  | { ok: false; status?: string; subject?: string; thumbprint?: string; statusMessage?: string; message: string };
+  | {
+      ok: false;
+      status?: string;
+      subject?: string;
+      thumbprint?: string;
+      statusMessage?: string;
+      message: string;
+    };
 
 function verifyWindowsExeAuthenticodeSync(filePath: string): AuthenticodeVerification {
   // Only meaningful on Windows.
@@ -255,7 +396,7 @@ function verifyWindowsExeAuthenticodeSync(filePath: string): AuthenticodeVerific
     "$ErrorActionPreference = 'Stop';",
     '$sig = Get-AuthenticodeSignature -FilePath $args[0];',
     '$cert = $sig.SignerCertificate;',
-    "[pscustomobject]@{",
+    '[pscustomobject]@{',
     '  Status = $sig.Status.ToString();',
     '  StatusMessage = $sig.StatusMessage;',
     '  Subject = if ($cert) { $cert.Subject } else { "" };',
@@ -270,13 +411,23 @@ function verifyWindowsExeAuthenticodeSync(filePath: string): AuthenticodeVerific
   );
 
   if (res.error) {
-    if (allowUnsigned) return { ok: true, status: 'Valid', statusMessage: 'ALLOW_UNSIGNED_UPDATES=1 (PowerShell failed)' };
+    if (allowUnsigned)
+      return {
+        ok: true,
+        status: 'Valid',
+        statusMessage: 'ALLOW_UNSIGNED_UPDATES=1 (PowerShell failed)',
+      };
     return { ok: false, message: 'تعذر التحقق من توقيع ملف التحديث (PowerShell غير متاح)' };
   }
 
   const stdout = String(res.stdout || '').trim();
   if (!stdout) {
-    if (allowUnsigned) return { ok: true, status: 'Valid', statusMessage: 'ALLOW_UNSIGNED_UPDATES=1 (empty signature output)' };
+    if (allowUnsigned)
+      return {
+        ok: true,
+        status: 'Valid',
+        statusMessage: 'ALLOW_UNSIGNED_UPDATES=1 (empty signature output)',
+      };
     return { ok: false, message: 'تعذر التحقق من توقيع ملف التحديث' };
   }
 
@@ -284,7 +435,12 @@ function verifyWindowsExeAuthenticodeSync(filePath: string): AuthenticodeVerific
   try {
     parsed = JSON.parse(stdout);
   } catch {
-    if (allowUnsigned) return { ok: true, status: 'Valid', statusMessage: 'ALLOW_UNSIGNED_UPDATES=1 (unparseable signature output)' };
+    if (allowUnsigned)
+      return {
+        ok: true,
+        status: 'Valid',
+        statusMessage: 'ALLOW_UNSIGNED_UPDATES=1 (unparseable signature output)',
+      };
     return { ok: false, message: 'تعذر التحقق من توقيع ملف التحديث' };
   }
 
@@ -298,11 +454,25 @@ function verifyWindowsExeAuthenticodeSync(filePath: string): AuthenticodeVerific
   }
 
   if (allowUnsigned) {
-    return { ok: true, status: 'Valid', statusMessage: `ALLOW_UNSIGNED_UPDATES=1 (signature status: ${status || 'Unknown'})`, subject, thumbprint };
+    return {
+      ok: true,
+      status: 'Valid',
+      statusMessage: `ALLOW_UNSIGNED_UPDATES=1 (signature status: ${status || 'Unknown'})`,
+      subject,
+      thumbprint,
+    };
   }
 
-  const human = statusMessage || (status ? `حالة التوقيع: ${status}` : 'ملف التحديث غير موقّع أو غير صالح');
-  return { ok: false, status, statusMessage, subject, thumbprint, message: `ملف التحديث غير آمن: ${human}` };
+  const human =
+    statusMessage || (status ? `حالة التوقيع: ${status}` : 'ملف التحديث غير موقّع أو غير صالح');
+  return {
+    ok: false,
+    status,
+    statusMessage,
+    subject,
+    thumbprint,
+    message: `ملف التحديث غير آمن: ${human}`,
+  };
 }
 
 const trimString = (value: unknown, maxLen: number, fieldLabel: string): string => {
@@ -326,7 +496,9 @@ const toLimitedPassword = (value: unknown, maxLen = 512): string => {
   return value;
 };
 
-function addSqlSyncLogEntry(entry: Omit<SqlSyncLogEntry, 'id' | 'ts'> & { ts?: string }): SqlSyncLogEntry {
+function addSqlSyncLogEntry(
+  entry: Omit<SqlSyncLogEntry, 'id' | 'ts'> & { ts?: string }
+): SqlSyncLogEntry {
   const full: SqlSyncLogEntry = {
     id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
     ts: entry.ts || new Date().toISOString(),
@@ -356,43 +528,83 @@ let dbMaintenanceMode = false;
 let restoreInProgress = false;
 
 async function startSqlPullLoop(): Promise<void> {
-  await startBackgroundPull(async (row) => {
-    const localMeta = kvGetMeta(row.k);
-    const localDeletedAt = kvGetDeletedAt(row.k);
-    const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
+  await startBackgroundPull(
+    async (row) => {
+      const localMeta = kvGetMeta(row.k);
+      const localDeletedAt = kvGetDeletedAt(row.k);
+      const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
 
-    const remoteTs = row.updatedAt;
-    const isRemoteNewer = !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
-    if (!isRemoteNewer) return;
+      const remoteTs = row.updatedAt;
+      const isRemoteNewer =
+        !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
+      if (!isRemoteNewer) return;
 
-    if (row.isDeleted) {
-      kvApplyRemoteDelete(row.k, remoteTs);
-      broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
-      addSqlSyncLogEntry({ direction: 'pull', action: 'delete', key: row.k, status: 'ok', ts: remoteTs });
-    } else {
-      kvSetWithUpdatedAt(row.k, row.v, remoteTs);
-      broadcastDbRemoteUpdate({ key: row.k, value: row.v, isDeleted: false, updatedAt: remoteTs });
-      addSqlSyncLogEntry({ direction: 'pull', action: 'upsert', key: row.k, status: 'ok', ts: remoteTs });
+      if (row.isDeleted) {
+        kvApplyRemoteDelete(row.k, remoteTs);
+        broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+        addSqlSyncLogEntry({
+          direction: 'pull',
+          action: 'delete',
+          key: row.k,
+          status: 'ok',
+          ts: remoteTs,
+        });
+      } else {
+        kvSetWithUpdatedAt(row.k, row.v, remoteTs);
+        broadcastDbRemoteUpdate({
+          key: row.k,
+          value: row.v,
+          isDeleted: false,
+          updatedAt: remoteTs,
+        });
+        addSqlSyncLogEntry({
+          direction: 'pull',
+          action: 'upsert',
+          key: row.k,
+          status: 'ok',
+          ts: remoteTs,
+        });
 
-      // Attachments: ensure the actual files exist locally after syncing metadata.
-      if (row.k === 'db_attachments') {
-        try {
-          const res = await pullAttachmentFilesForAttachmentsJson(row.v);
-          if (res.downloaded > 0) {
-            addSqlSyncLogEntry({ direction: 'system', action: 'attachments:pull', status: 'ok', message: `تم تنزيل ${res.downloaded} مرفق/مرفقات` });
+        // Attachments: ensure the actual files exist locally after syncing metadata.
+        if (row.k === 'db_attachments') {
+          try {
+            const res = await pullAttachmentFilesForAttachmentsJson(row.v);
+            if (res.downloaded > 0) {
+              addSqlSyncLogEntry({
+                direction: 'system',
+                action: 'attachments:pull',
+                status: 'ok',
+                message: `تم تنزيل ${res.downloaded} مرفق/مرفقات`,
+              });
+            }
+            if (res.missingRemote > 0) {
+              addSqlSyncLogEntry({
+                direction: 'system',
+                action: 'attachments:pull',
+                status: 'error',
+                message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}`,
+              });
+            }
+          } catch (e: unknown) {
+            addSqlSyncLogEntry({
+              direction: 'system',
+              action: 'attachments:pull',
+              status: 'error',
+              message: toErrorMessage(e, 'فشل تنزيل المرفقات'),
+            });
           }
-          if (res.missingRemote > 0) {
-            addSqlSyncLogEntry({ direction: 'system', action: 'attachments:pull', status: 'error', message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}` });
-          }
-        } catch (e: unknown) {
-          addSqlSyncLogEntry({ direction: 'system', action: 'attachments:pull', status: 'error', message: toErrorMessage(e, 'فشل تنزيل المرفقات') });
         }
       }
-    }
-  }, { runImmediately: true });
+    },
+    { runImmediately: true }
+  );
 }
 
-async function pushAllLocalToRemote(): Promise<{ upsertsOk: number; deletesOk: number; errors: number }> {
+async function pushAllLocalToRemote(): Promise<{
+  upsertsOk: number;
+  deletesOk: number;
+  errors: number;
+}> {
   const keys = kvKeys();
   const concurrency = 8;
   let idx = 0;
@@ -411,10 +623,22 @@ async function pushAllLocalToRemote(): Promise<{ upsertsOk: number; deletesOk: n
       if (deletedAt) {
         try {
           await pushKvDelete({ key: k, deletedAt });
-          addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'ok', ts: deletedAt });
+          addSqlSyncLogEntry({
+            direction: 'push',
+            action: 'delete',
+            key: k,
+            status: 'ok',
+            ts: deletedAt,
+          });
           deletesOk += 1;
         } catch (e: unknown) {
-          addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'error', message: toErrorMessage(e, 'فشل رفع الحذف') });
+          addSqlSyncLogEntry({
+            direction: 'push',
+            action: 'delete',
+            key: k,
+            status: 'error',
+            message: toErrorMessage(e, 'فشل رفع الحذف'),
+          });
           errors += 1;
         }
         continue;
@@ -426,29 +650,46 @@ async function pushAllLocalToRemote(): Promise<{ upsertsOk: number; deletesOk: n
       const updatedAt = meta?.updatedAt || new Date().toISOString();
       try {
         await pushKvUpsert({ key: k, value: v, updatedAt });
-        addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'ok', ts: updatedAt });
+        addSqlSyncLogEntry({
+          direction: 'push',
+          action: 'upsert',
+          key: k,
+          status: 'ok',
+          ts: updatedAt,
+        });
         upsertsOk += 1;
       } catch (e: unknown) {
-        addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'error', message: toErrorMessage(e, 'فشل رفع التحديث') });
+        addSqlSyncLogEntry({
+          direction: 'push',
+          action: 'upsert',
+          key: k,
+          status: 'error',
+          message: toErrorMessage(e, 'فشل رفع التحديث'),
+        });
         errors += 1;
       }
     }
   };
 
-  const workers = Array.from({ length: Math.min(concurrency, Math.max(1, keys.length)) }, () => worker());
+  const workers = Array.from({ length: Math.min(concurrency, Math.max(1, keys.length)) }, () =>
+    worker()
+  );
   await Promise.all(workers);
 
   return { upsertsOk, deletesOk, errors };
 }
 
-async function pushDeltaToRemoteSince(sinceIso: string): Promise<{ upsertsOk: number; deletesOk: number; errors: number; latestTs: string }> {
+async function pushDeltaToRemoteSince(
+  sinceIso: string
+): Promise<{ upsertsOk: number; deletesOk: number; errors: number; latestTs: string }> {
   const updated = kvListUpdatedSince(sinceIso);
   const deleted = kvListDeletedSince(sinceIso);
 
   let upsertsOk = 0;
   let deletesOk = 0;
   let errors = 0;
-  let latestTs = sinceIso && String(sinceIso).trim() ? String(sinceIso).trim() : '1970-01-01T00:00:00.000Z';
+  let latestTs =
+    sinceIso && String(sinceIso).trim() ? String(sinceIso).trim() : '1970-01-01T00:00:00.000Z';
 
   const tasks: Array<() => Promise<void>> = [];
 
@@ -460,10 +701,22 @@ async function pushDeltaToRemoteSince(sinceIso: string): Promise<{ upsertsOk: nu
     tasks.push(async () => {
       try {
         await pushKvDelete({ key: k, deletedAt });
-        addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'ok', ts: deletedAt });
+        addSqlSyncLogEntry({
+          direction: 'push',
+          action: 'delete',
+          key: k,
+          status: 'ok',
+          ts: deletedAt,
+        });
         deletesOk += 1;
       } catch (e: unknown) {
-        addSqlSyncLogEntry({ direction: 'push', action: 'delete', key: k, status: 'error', message: toErrorMessage(e, 'فشل رفع الحذف') });
+        addSqlSyncLogEntry({
+          direction: 'push',
+          action: 'delete',
+          key: k,
+          status: 'error',
+          message: toErrorMessage(e, 'فشل رفع الحذف'),
+        });
         errors += 1;
       }
     });
@@ -478,10 +731,22 @@ async function pushDeltaToRemoteSince(sinceIso: string): Promise<{ upsertsOk: nu
     tasks.push(async () => {
       try {
         await pushKvUpsert({ key: k, value: v, updatedAt });
-        addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'ok', ts: updatedAt });
+        addSqlSyncLogEntry({
+          direction: 'push',
+          action: 'upsert',
+          key: k,
+          status: 'ok',
+          ts: updatedAt,
+        });
         upsertsOk += 1;
       } catch (e: unknown) {
-        addSqlSyncLogEntry({ direction: 'push', action: 'upsert', key: k, status: 'error', message: toErrorMessage(e, 'فشل رفع التحديث') });
+        addSqlSyncLogEntry({
+          direction: 'push',
+          action: 'upsert',
+          key: k,
+          status: 'error',
+          message: toErrorMessage(e, 'فشل رفع التحديث'),
+        });
         errors += 1;
       }
     });
@@ -525,7 +790,10 @@ function startAutoSyncPushLoop() {
         if (!conn.ok) return;
 
         const res = await pushDeltaToRemoteSince(lastAutoPushIso);
-        if (res.latestTs && new Date(res.latestTs).getTime() > new Date(lastAutoPushIso).getTime()) {
+        if (
+          res.latestTs &&
+          new Date(res.latestTs).getTime() > new Date(lastAutoPushIso).getTime()
+        ) {
           lastAutoPushIso = res.latestTs;
         } else {
           lastAutoPushIso = new Date().toISOString();
@@ -552,7 +820,12 @@ function startAutoSyncPushLoop() {
   }, intervalMs);
 }
 
-function broadcastDbRemoteUpdate(payload: { key: string; value?: string; isDeleted?: boolean; updatedAt?: string }) {
+function broadcastDbRemoteUpdate(payload: {
+  key: string;
+  value?: string;
+  isDeleted?: boolean;
+  updatedAt?: string;
+}) {
   for (const win of BrowserWindow.getAllWindows()) {
     try {
       win.webContents.send('db:remoteUpdate', payload);
@@ -574,11 +847,17 @@ function broadcastUpdaterEvent(payload: UpdaterEventPayload) {
 }
 
 function getUpdateHostAllowlist(): string[] {
-  const raw = String(process.env.AZRAR_UPDATE_HOST_ALLOWLIST || process.env.AZRAR_UPDATER_HOST_ALLOWLIST || '').trim();
+  const raw = String(
+    process.env.AZRAR_UPDATE_HOST_ALLOWLIST || process.env.AZRAR_UPDATER_HOST_ALLOWLIST || ''
+  ).trim();
   if (!raw) return [];
   return raw
     .split(',')
-    .map((s) => String(s || '').trim().toLowerCase())
+    .map((s) =>
+      String(s || '')
+        .trim()
+        .toLowerCase()
+    )
     .filter(Boolean);
 }
 
@@ -641,7 +920,8 @@ function normalizeFeedUrl(urlRaw: string): string {
     throw new Error('يرجى إدخال رابط يبدأ بـ http:// أو https://');
   }
   if (!u.hostname) throw new Error('رابط التحديث غير صالح');
-  if (u.username || u.password) throw new Error('رابط التحديث لا يجب أن يحتوي على اسم مستخدم/كلمة مرور');
+  if (u.username || u.password)
+    throw new Error('رابط التحديث لا يجب أن يحتوي على اسم مستخدم/كلمة مرور');
 
   const allowlist = getUpdateHostAllowlist();
   if (!hostnameMatchesAllowlist(u.hostname, allowlist)) {
@@ -650,7 +930,9 @@ function normalizeFeedUrl(urlRaw: string): string {
 
   // Prefer HTTPS for non-LAN hosts to reduce MITM risk.
   if (u.protocol === 'http:' && !isPrivateHost(u.hostname)) {
-    throw new Error('لروابط التحديث العامة، يرجى استخدام https:// (مسموح http داخل الشبكة المحلية فقط)');
+    throw new Error(
+      'لروابط التحديث العامة، يرجى استخدام https:// (مسموح http داخل الشبكة المحلية فقط)'
+    );
   }
 
   // For generic provider, a trailing slash is safer.
@@ -689,6 +971,15 @@ function readUpdaterSettingsSync(): UpdaterSettings {
   }
 }
 
+function readFeedUrlFromKv(): string | null {
+  try {
+    const raw = String(kvGet('app_update_feed_url') ?? '').trim();
+    return raw ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 async function writeUpdaterSettings(next: UpdaterSettings): Promise<void> {
   const filePath = getUpdaterSettingsFilePath();
   await fsp.mkdir(path.dirname(filePath), { recursive: true });
@@ -698,8 +989,15 @@ async function writeUpdaterSettings(next: UpdaterSettings): Promise<void> {
 function configureUpdaterIfPossible() {
   if (!autoUpdater) return;
   if (!app.isPackaged) return;
+  if (!isUpdatesAllowed()) return;
   // Always disable autoDownload; we control it from UI.
   autoUpdater.autoDownload = false;
+
+  // Prefer feed URL from KV app setting when available (env vars still override via currentFeedUrl).
+  if (!currentFeedUrl) {
+    const kvFeedUrl = readFeedUrlFromKv();
+    if (kvFeedUrl) currentFeedUrl = kvFeedUrl;
+  }
 
   // If no env URL was provided, try loading a persisted feed URL.
   if (!currentFeedUrl) {
@@ -714,7 +1012,10 @@ function configureUpdaterIfPossible() {
 
   if (currentFeedUrl) {
     try {
-      autoUpdater.setFeedURL({ provider: 'generic', url: normalizeFeedUrl(currentFeedUrl) } as UpdaterSetFeedUrlArg);
+      autoUpdater.setFeedURL({
+        provider: 'generic',
+        url: normalizeFeedUrl(currentFeedUrl),
+      } as UpdaterSetFeedUrlArg);
     } catch (e: unknown) {
       broadcastUpdaterEvent({ type: 'error', message: toErrorMessage(e, 'فشل ضبط رابط التحديث') });
     }
@@ -732,6 +1033,475 @@ function getBackupSettingsFilePath(): string {
 type BackupSettings = {
   backupDir?: string;
 };
+
+type LocalBackupAutomationSettings = {
+  v: 1;
+  enabled?: boolean;
+  timeHHmm?: string; // local time, e.g. "02:00"
+  retentionDays?: number;
+  lastRunAt?: string; // ISO
+  updatedAt?: string; // ISO
+};
+
+type LocalBackupLogEntry = {
+  ts: string; // ISO
+  ok: boolean;
+  trigger: 'auto' | 'manual';
+  message?: string;
+  latestPath?: string;
+  archivePath?: string;
+  attachmentsLatestPath?: string;
+  attachmentsArchivePath?: string;
+};
+
+function getLocalBackupLogPath(): string {
+  return path.join(app.getPath('userData'), 'local-backup-log.json');
+}
+
+async function readLocalBackupLogEntries(limit = 200): Promise<LocalBackupLogEntry[]> {
+  try {
+    const raw = await fsp.readFile(getLocalBackupLogPath(), 'utf8');
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) {
+      const items = parsed
+        .filter((x) => x && typeof x === 'object')
+        .map((x) => x as Record<string, unknown>)
+        .map((x) => ({
+          ts: typeof x.ts === 'string' ? x.ts : new Date().toISOString(),
+          ok: x.ok === true,
+          trigger: x.trigger === 'manual' ? 'manual' : 'auto',
+          message: typeof x.message === 'string' ? x.message : undefined,
+          latestPath: typeof x.latestPath === 'string' ? x.latestPath : undefined,
+          archivePath: typeof x.archivePath === 'string' ? x.archivePath : undefined,
+          attachmentsLatestPath: typeof x.attachmentsLatestPath === 'string' ? x.attachmentsLatestPath : undefined,
+          attachmentsArchivePath: typeof x.attachmentsArchivePath === 'string' ? x.attachmentsArchivePath : undefined,
+        })) as LocalBackupLogEntry[];
+      return items.slice(-Math.max(1, Math.min(1000, Math.floor(limit))));
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+async function appendLocalBackupLogEntry(entry: LocalBackupLogEntry): Promise<void> {
+  try {
+    const items = await readLocalBackupLogEntries(400);
+    items.push({
+      ts: entry.ts || new Date().toISOString(),
+      ok: entry.ok === true,
+      trigger: entry.trigger === 'manual' ? 'manual' : 'auto',
+      message: entry.message,
+      latestPath: entry.latestPath,
+      archivePath: entry.archivePath,
+      attachmentsLatestPath: entry.attachmentsLatestPath,
+      attachmentsArchivePath: entry.attachmentsArchivePath,
+    });
+    const trimmed = items.slice(-200);
+    await fsp.mkdir(path.dirname(getLocalBackupLogPath()), { recursive: true });
+    await fsp.writeFile(getLocalBackupLogPath(), JSON.stringify(trimmed, null, 2), 'utf8');
+  } catch {
+    // ignore
+  }
+}
+
+async function clearLocalBackupLog(): Promise<void> {
+  try {
+    await fsp.unlink(getLocalBackupLogPath());
+  } catch {
+    // ignore
+  }
+}
+
+type LocalBackupFileInfo = {
+  name: string;
+  mtimeMs: number;
+  size: number;
+};
+
+async function getLocalBackupStatsBestEffort(dir: string): Promise<{
+  ok: boolean;
+  backupDir?: string;
+  dbArchivesCount: number;
+  attachmentsArchivesCount: number;
+  latestDbExists: boolean;
+  latestAttachmentsExists: boolean;
+  totalBytes: number;
+  newestMtimeMs: number;
+  files: LocalBackupFileInfo[];
+}> {
+  const root = dir && isExistingDirectory(dir) ? path.resolve(dir) : '';
+  if (!root) {
+    return {
+      ok: false,
+      dbArchivesCount: 0,
+      attachmentsArchivesCount: 0,
+      latestDbExists: false,
+      latestAttachmentsExists: false,
+      totalBytes: 0,
+      newestMtimeMs: 0,
+      files: [],
+    };
+  }
+
+  let names: string[] = [];
+  try {
+    names = await fsp.readdir(root);
+  } catch {
+    names = [];
+  }
+
+  const safeJoin = (name: string) => {
+    const abs = path.resolve(path.join(root, name));
+    if (!abs.startsWith(root + path.sep) && abs !== root) return null;
+    return abs;
+  };
+
+  const isLatestDb = (n: string) => n === 'AZRAR-backup-latest.db' || n === 'AZRAR-backup-latest.db.enc';
+  const isLatestAtt = (n: string) => n === 'AZRAR-attachments-latest.tar.gz' || n === 'AZRAR-attachments-latest.tar.gz.enc';
+
+  const isDbArchive = (n: string) =>
+    /^AZRAR-backup-\d{4}-\d{2}-\d{2}(?:-\d+)?\.db(\.enc)?$/i.test(n);
+  const isAttArchive = (n: string) =>
+    /^AZRAR-attachments-\d{4}-\d{2}-\d{2}(?:-\d+)?\.tar\.gz(\.enc)?$/i.test(n);
+
+  let dbArchivesCount = 0;
+  let attachmentsArchivesCount = 0;
+  let latestDbExists = false;
+  let latestAttachmentsExists = false;
+  let totalBytes = 0;
+  let newestMtimeMs = 0;
+  const files: LocalBackupFileInfo[] = [];
+
+  for (const name of names) {
+    if (!name) continue;
+    if (!(isLatestDb(name) || isLatestAtt(name) || isDbArchive(name) || isAttArchive(name))) continue;
+    const abs = safeJoin(name);
+    if (!abs) continue;
+    try {
+      const st = await fsp.stat(abs);
+      if (!st.isFile()) continue;
+      files.push({ name, mtimeMs: st.mtimeMs, size: st.size });
+      totalBytes += st.size;
+      newestMtimeMs = Math.max(newestMtimeMs, st.mtimeMs);
+      if (isLatestDb(name)) latestDbExists = true;
+      if (isLatestAtt(name)) latestAttachmentsExists = true;
+      if (isDbArchive(name)) dbArchivesCount += 1;
+      if (isAttArchive(name)) attachmentsArchivesCount += 1;
+    } catch {
+      // ignore
+    }
+  }
+
+  files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return {
+    ok: true,
+    backupDir: root,
+    dbArchivesCount,
+    attachmentsArchivesCount,
+    latestDbExists,
+    latestAttachmentsExists,
+    totalBytes,
+    newestMtimeMs,
+    files: files.slice(0, 60),
+  };
+}
+
+function getLocalBackupAutomationSettingsPath(): string {
+  return path.join(app.getPath('userData'), 'local-backup-automation.json');
+}
+
+function normalizeTimeHHmm(v: unknown): string {
+  const s = String(v ?? '').trim();
+  if (!/^[0-2]\d:[0-5]\d$/.test(s)) return '02:00';
+  const [hh, mm] = s.split(':').map((x) => Number(x));
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return '02:00';
+  if (hh < 0 || hh > 23) return '02:00';
+  if (mm < 0 || mm > 59) return '02:00';
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+function normalizeRetentionDays(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 30;
+  const i = Math.floor(n);
+  return Math.min(3650, Math.max(1, i));
+}
+
+async function readLocalBackupAutomationSettings(): Promise<LocalBackupAutomationSettings> {
+  try {
+    const raw = await fsp.readFile(getLocalBackupAutomationSettingsPath(), 'utf8');
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object') {
+      const rec = parsed as Record<string, unknown>;
+      return {
+        v: 1,
+        enabled: rec.enabled === undefined ? undefined : !!rec.enabled,
+        timeHHmm: normalizeTimeHHmm(rec.timeHHmm),
+        retentionDays: normalizeRetentionDays(rec.retentionDays),
+        lastRunAt: typeof rec.lastRunAt === 'string' ? String(rec.lastRunAt) : undefined,
+        updatedAt: typeof rec.updatedAt === 'string' ? String(rec.updatedAt) : undefined,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return { v: 1, enabled: false, timeHHmm: '02:00', retentionDays: 30 };
+}
+
+async function writeLocalBackupAutomationSettings(next: LocalBackupAutomationSettings): Promise<void> {
+  const out: LocalBackupAutomationSettings = {
+    v: 1,
+    enabled: next.enabled === true,
+    timeHHmm: normalizeTimeHHmm(next.timeHHmm),
+    retentionDays: normalizeRetentionDays(next.retentionDays),
+    lastRunAt: next.lastRunAt,
+    updatedAt: new Date().toISOString(),
+  };
+  await fsp.mkdir(path.dirname(getLocalBackupAutomationSettingsPath()), { recursive: true });
+  await fsp.writeFile(getLocalBackupAutomationSettingsPath(), JSON.stringify(out, null, 2), 'utf8');
+}
+
+function ymdLocal(d = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function isBackupDueToday(settings: LocalBackupAutomationSettings, now = new Date()): boolean {
+  if (settings.enabled !== true) return false;
+  const time = normalizeTimeHHmm(settings.timeHHmm);
+  const [hh, mm] = time.split(':').map((x) => Number(x));
+  const dueAt = new Date(now);
+  dueAt.setHours(hh, mm, 0, 0);
+
+  const last = settings.lastRunAt ? new Date(settings.lastRunAt) : null;
+  const lastYMD = last && Number.isFinite(last.getTime()) ? ymdLocal(last) : '';
+  const todayYMD = ymdLocal(now);
+  if (lastYMD === todayYMD) return false;
+
+  return now.getTime() >= dueAt.getTime();
+}
+
+async function pruneLocalBackupsBestEffort(dir: string, retentionDays: number): Promise<void> {
+  const root = path.resolve(dir);
+  const cutoff = Date.now() - normalizeRetentionDays(retentionDays) * 24 * 60 * 60 * 1000;
+  const safeJoin = (name: string) => {
+    const abs = path.resolve(path.join(root, name));
+    if (!abs.startsWith(root + path.sep) && abs !== root) return null;
+    return abs;
+  };
+
+  let entries: string[] = [];
+  try {
+    entries = await fsp.readdir(root);
+  } catch {
+    return;
+  }
+
+  const isLatest = (n: string) =>
+    n === 'AZRAR-backup-latest.db' ||
+    n === 'AZRAR-backup-latest.db.enc' ||
+    n === 'AZRAR-attachments-latest.tar.gz' ||
+    n === 'AZRAR-attachments-latest.tar.gz.enc';
+
+  const isManaged = (n: string) =>
+    /^AZRAR-backup-\d{4}-\d{2}-\d{2}\.db(\.enc)?$/i.test(n) ||
+    /^AZRAR-backup-\d{4}-\d{2}-\d{2}-\d+\.db(\.enc)?$/i.test(n) ||
+    /^AZRAR-attachments-\d{4}-\d{2}-\d{2}\.tar\.gz(\.enc)?$/i.test(n) ||
+    /^AZRAR-attachments-\d{4}-\d{2}-\d{2}-\d+\.tar\.gz(\.enc)?$/i.test(n);
+
+  for (const name of entries) {
+    if (!name) continue;
+    if (isLatest(name)) continue;
+    if (!isManaged(name)) continue;
+    const abs = safeJoin(name);
+    if (!abs) continue;
+    try {
+      const st = await fsp.stat(abs);
+      if (!st.isFile()) continue;
+      if (st.mtimeMs < cutoff) {
+        await fsp.unlink(abs);
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
+let localAutoBackupTimer: NodeJS.Timeout | null = null;
+let localAutoBackupInProgress = false;
+
+async function runLocalBackupToDir(dir: string): Promise<{
+  ok: boolean;
+  message?: string;
+  latestPath?: string;
+  archivePath?: string;
+  attachmentsLatestPath?: string;
+  attachmentsArchivePath?: string;
+}> {
+  if (dbMaintenanceMode)
+    return { ok: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
+
+  const backupDir = dir && isExistingDirectory(dir) ? dir : '';
+  if (!backupDir) return { ok: false, message: 'مجلد النسخ الاحتياطي غير مضبوط' };
+
+  const encState = await getBackupEncryptionPasswordState();
+  const encryptionRequested = encState.enabled;
+  const encryptionConfigured = encState.configured;
+  const encryptionPassword = encState.password;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const makeUniqueArchivePath = (basePath: string) => {
+    const ext = path.extname(basePath);
+    const stem = basePath.slice(0, -ext.length);
+    let candidate = basePath;
+    let i = 2;
+    while (fs.existsSync(candidate)) {
+      candidate = `${stem}-${i}${ext}`;
+      i += 1;
+    }
+    return candidate;
+  };
+
+  const latestPath = path.join(
+    backupDir,
+    encryptionRequested ? 'AZRAR-backup-latest.db.enc' : 'AZRAR-backup-latest.db'
+  );
+  const archivePath = makeUniqueArchivePath(
+    path.join(
+      backupDir,
+      encryptionRequested ? `AZRAR-backup-${today}.db.enc` : `AZRAR-backup-${today}.db`
+    )
+  );
+
+  const attachmentsLatestPath = path.join(
+    backupDir,
+    encryptionRequested ? 'AZRAR-attachments-latest.tar.gz.enc' : 'AZRAR-attachments-latest.tar.gz'
+  );
+  const attachmentsArchivePath = makeUniqueArchivePath(
+    path.join(
+      backupDir,
+      encryptionRequested
+        ? `AZRAR-attachments-${today}.tar.gz.enc`
+        : `AZRAR-attachments-${today}.tar.gz`
+    )
+  );
+
+  try {
+    dbMaintenanceMode = true;
+    if (!encryptionRequested) {
+      await exportDatabaseToMany([latestPath, archivePath]);
+    } else {
+      if (!encryptionConfigured || !encryptionPassword) {
+        throw new Error(
+          'تشفير النسخ الاحتياطية مفعل لكن كلمة المرور غير مضبوطة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.'
+        );
+      }
+      const tmpPlain = path.join(app.getPath('temp'), `AZRAR-backup-tmp-${Date.now()}.db`);
+      try {
+        await exportDatabaseToMany([tmpPlain]);
+        await encryptFileToFile({ sourcePath: tmpPlain, destPath: latestPath, password: encryptionPassword });
+        await encryptFileToFile({ sourcePath: tmpPlain, destPath: archivePath, password: encryptionPassword });
+      } finally {
+        try {
+          await fsp.unlink(tmpPlain);
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    let attachmentsCopied = false;
+    try {
+      const res = await exportAttachmentsArchiveToMany({
+        destPaths: [attachmentsLatestPath, attachmentsArchivePath],
+        encryptionRequested,
+        encryptionConfigured,
+        encryptionPassword,
+      });
+      attachmentsCopied = res.copiedAny;
+    } catch {
+      attachmentsCopied = false;
+    }
+
+    return {
+      ok: true,
+      latestPath,
+      archivePath,
+      attachmentsLatestPath: attachmentsCopied ? attachmentsLatestPath : undefined,
+      attachmentsArchivePath: attachmentsCopied ? attachmentsArchivePath : undefined,
+    };
+  } catch (e: unknown) {
+    return { ok: false, message: toErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية') };
+  } finally {
+    dbMaintenanceMode = false;
+  }
+}
+
+function startLocalAutoBackupScheduler(): void {
+  if (localAutoBackupTimer) return;
+
+  const tick = async () => {
+    if (localAutoBackupInProgress) return;
+    localAutoBackupInProgress = true;
+    try {
+      const settings = await readLocalBackupAutomationSettings();
+      if (settings.enabled !== true) return;
+
+      const backupSettings = await readBackupSettings();
+      const dir =
+        backupSettings.backupDir && isExistingDirectory(backupSettings.backupDir)
+          ? backupSettings.backupDir
+          : '';
+      if (!dir) return;
+
+      if (!isBackupDueToday(settings)) return;
+
+      const res = await runLocalBackupToDir(dir);
+      if (res.ok) {
+        await writeLocalBackupAutomationSettings({
+          ...settings,
+          enabled: true,
+          lastRunAt: new Date().toISOString(),
+        });
+        await pruneLocalBackupsBestEffort(dir, settings.retentionDays ?? 30);
+        await appendLocalBackupLogEntry({
+          ts: new Date().toISOString(),
+          ok: true,
+          trigger: 'auto',
+          message: 'تم إنشاء نسخة احتياطية تلقائية',
+          latestPath: res.latestPath,
+          archivePath: res.archivePath,
+          attachmentsLatestPath: res.attachmentsLatestPath,
+          attachmentsArchivePath: res.attachmentsArchivePath,
+        });
+      } else {
+        await appendLocalBackupLogEntry({
+          ts: new Date().toISOString(),
+          ok: false,
+          trigger: 'auto',
+          message: res.message || 'فشل النسخ الاحتياطي التلقائي',
+        });
+      }
+    } catch (e: unknown) {
+      logger.warn('[auto-backup] failed', toErrorMessage(e));
+      await appendLocalBackupLogEntry({
+        ts: new Date().toISOString(),
+        ok: false,
+        trigger: 'auto',
+        message: toErrorMessage(e, 'فشل النسخ الاحتياطي التلقائي'),
+      });
+    } finally {
+      localAutoBackupInProgress = false;
+    }
+  };
+
+  // Run a first check shortly after app startup.
+  setTimeout(() => void tick(), 30_000);
+  // Poll every 5 minutes.
+  localAutoBackupTimer = setInterval(() => void tick(), 5 * 60 * 1000);
+}
 
 async function readBackupSettings(): Promise<BackupSettings> {
   try {
@@ -765,7 +1535,11 @@ async function chooseJsonFileViaDialog(): Promise<string | null> {
   const result = await dialog.showOpenDialog({
     title: 'اختر ملف النسخة الاحتياطية',
     properties: ['openFile'],
-    filters: [{ name: 'JSON', extensions: ['json'] }],
+    filters: [
+      { name: 'Backup File', extensions: ['json', 'enc'] },
+      { name: 'JSON', extensions: ['json'] },
+      { name: 'Encrypted Backup', extensions: ['enc'] },
+    ],
   });
   if (result.canceled || result.filePaths.length === 0) return null;
 
@@ -775,7 +1549,12 @@ async function chooseJsonFileViaDialog(): Promise<string | null> {
   const resolved = await fsp.realpath(selected).catch(() => path.resolve(selected));
   if (isUncPath(resolved)) throw new Error('غير مسموح اختيار ملف نسخة احتياطية من مسار شبكة (UNC)');
 
-  if (path.extname(resolved).toLowerCase() !== '.json') throw new Error('الملف يجب أن يكون JSON');
+  const ext = path.extname(resolved).toLowerCase();
+  const encryptedByMagic = await isEncryptedFile(resolved);
+  const encryptedByExt = ext === '.enc';
+  const isEncrypted = encryptedByMagic || encryptedByExt;
+
+  if (!isEncrypted && ext !== '.json') throw new Error('الملف يجب أن يكون JSON أو ملف مشفر (.enc)');
 
   const st = await fsp.stat(resolved);
   if (!st.isFile()) throw new Error('الملف غير صالح');
@@ -842,17 +1621,329 @@ async function clearPendingRestoreInfo(): Promise<void> {
   }
 }
 
-async function copyDirIfExists(srcDir: string, destDir: string): Promise<boolean> {
+async function dirHasMeaningfulEntries(dir: string): Promise<boolean> {
   try {
-    const st = await fsp.stat(srcDir);
-    if (!st.isDirectory()) return false;
+    const entries = await fsp.readdir(dir);
+    return entries.some((n) => n && n !== '.write-test');
   } catch {
     return false;
   }
-  await fsp.mkdir(path.dirname(destDir), { recursive: true });
-  // Node 16+ supports fs.promises.cp
-  await fspCp(srcDir, destDir, { recursive: true, force: true });
-  return true;
+}
+
+async function ensureWritableDir(dir: string): Promise<void> {
+  await fsp.mkdir(dir, { recursive: true });
+  const probe = path.join(dir, '.write-test');
+  await fsp.writeFile(probe, 'ok');
+  await fsp.unlink(probe);
+}
+
+async function getWritableAttachmentsRootForRestore(): Promise<string> {
+  const stable = path.join(path.dirname(getDbPath()), 'attachments');
+  try {
+    await ensureWritableDir(stable);
+    return stable;
+  } catch {
+    const userData = path.join(app.getPath('userData'), 'attachments');
+    await ensureWritableDir(userData);
+    return userData;
+  }
+}
+
+async function backupAttachmentsBestEffort(destDir: string): Promise<boolean> {
+  const stable = path.join(path.dirname(getDbPath()), 'attachments');
+  const userData = path.join(app.getPath('userData'), 'attachments');
+  const legacyExe = (() => {
+    if (!app.isPackaged) return null;
+    try {
+      return path.join(path.dirname(app.getPath('exe')), 'attachments');
+    } catch {
+      return null;
+    }
+  })();
+
+  const sources = [stable, userData, legacyExe].filter(
+    (p): p is string => typeof p === 'string' && !!p
+  );
+
+  let copiedAny = false;
+  for (const src of sources) {
+    if (!(await dirHasMeaningfulEntries(src))) continue;
+    try {
+      await fsp.mkdir(destDir, { recursive: true });
+      // Merge-copy without overwriting existing files.
+      await fspCp(src, destDir, { recursive: true, force: false });
+      copiedAny = true;
+    } catch {
+      // ignore and continue
+    }
+  }
+
+  // If we created the folder but copied nothing, treat as not copied.
+  if (!copiedAny) {
+    try {
+      const entries = await fsp.readdir(destDir);
+      if (entries.length === 0) return false;
+    } catch {
+      // ignore
+    }
+  }
+
+  return copiedAny;
+}
+
+async function rmDirBestEffort(dir: string): Promise<void> {
+  try {
+    const rm = (fsp as unknown as { rm?: (p: string, o: { recursive: boolean; force: boolean }) => Promise<void> }).rm;
+    if (rm) {
+      await rm(dir, { recursive: true, force: true });
+      return;
+    }
+  } catch {
+    // ignore
+  }
+  // Fallback (older Node): try to remove files shallowly.
+  try {
+    const entries = await fsp.readdir(dir).catch(() => [] as string[]);
+    for (const n of entries) {
+      try {
+        await fsp.unlink(path.join(dir, n));
+      } catch {
+        // ignore
+      }
+    }
+    await fsp.rmdir(dir).catch(() => undefined);
+  } catch {
+    // ignore
+  }
+}
+
+async function exportAttachmentsArchiveToMany(opts: {
+  destPaths: string[];
+  encryptionRequested: boolean;
+  encryptionConfigured: boolean;
+  encryptionPassword: string;
+}): Promise<{ copiedAny: boolean; latestPath?: string; archivePath?: string }> {
+  const destPaths = Array.isArray(opts.destPaths) ? opts.destPaths.filter(Boolean) : [];
+  if (destPaths.length === 0) return { copiedAny: false };
+
+  const tempDir = path.join(app.getPath('temp'), `AZRAR-attachments-export-${Date.now()}`);
+  const tmpTar = path.join(app.getPath('temp'), `AZRAR-attachments-export-${Date.now()}.tar.gz`);
+  const tmpTarEnc = path.join(app.getPath('temp'), `AZRAR-attachments-export-${Date.now()}.tar.gz.enc`);
+
+  let copiedAny = false;
+  try {
+    copiedAny = await backupAttachmentsBestEffort(tempDir);
+    if (!copiedAny) return { copiedAny: false };
+
+    // Build a tar.gz archive from the merged tempDir.
+    await tar.c({ gzip: true, file: tmpTar, cwd: tempDir }, ['.']);
+
+    if (!opts.encryptionRequested) {
+      for (const p of destPaths) {
+        await fsp.mkdir(path.dirname(p), { recursive: true });
+        await fsp.copyFile(tmpTar, p);
+      }
+    } else {
+      if (!opts.encryptionConfigured || !opts.encryptionPassword) {
+        throw new Error('تشفير النسخ الاحتياطية مفعل لكن كلمة المرور غير مضبوطة.');
+      }
+      // Encrypt once to a temp enc file, then copy to destinations.
+      await encryptFileToFile({ sourcePath: tmpTar, destPath: tmpTarEnc, password: opts.encryptionPassword });
+      for (const p of destPaths) {
+        await fsp.mkdir(path.dirname(p), { recursive: true });
+        await fsp.copyFile(tmpTarEnc, p);
+      }
+    }
+
+    return { copiedAny: true };
+  } finally {
+    try {
+      await fsp.unlink(tmpTar);
+    } catch {
+      // ignore
+    }
+    try {
+      await fsp.unlink(tmpTarEnc);
+    } catch {
+      // ignore
+    }
+    await rmDirBestEffort(tempDir);
+  }
+}
+
+async function restoreAttachmentsFromArchiveBestEffort(opts: {
+  archivePath: string;
+  password?: string;
+}): Promise<{ restored: boolean; skippedBecauseNotEmpty?: boolean; message?: string }> {
+  const archivePath = String(opts.archivePath || '');
+  if (!archivePath) return { restored: false, message: 'مسار أرشيف المرفقات غير صالح' };
+
+  const attachmentsRoot = await getWritableAttachmentsRootForRestore();
+  if (await dirHasMeaningfulEntries(attachmentsRoot)) {
+    return { restored: false, skippedBecauseNotEmpty: true, message: 'مجلد المرفقات غير فارغ - تم تخطي الاستعادة لتجنب الكتابة فوق الملفات' };
+  }
+
+  await fsp.mkdir(attachmentsRoot, { recursive: true });
+
+  const tmpTar = path.join(app.getPath('temp'), `AZRAR-attachments-restore-${Date.now()}.tar.gz`);
+  const looksEncryptedByExt = path.extname(archivePath).toLowerCase() === '.enc';
+  const looksEncryptedByMagic = await isEncryptedFile(archivePath);
+  const isEnc = looksEncryptedByExt || looksEncryptedByMagic;
+
+  try {
+    if (isEnc) {
+      const password = String(opts.password || '');
+      if (!password) return { restored: false, message: 'لا توجد كلمة مرور لفك تشفير أرشيف المرفقات' };
+      await decryptFileToFile({ sourcePath: archivePath, destPath: tmpTar, password });
+      await tar.x({ file: tmpTar, cwd: attachmentsRoot, gzip: true });
+    } else {
+      await tar.x({ file: archivePath, cwd: attachmentsRoot, gzip: true });
+    }
+    return { restored: true };
+  } finally {
+    try {
+      await fsp.unlink(tmpTar);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function encryptExistingAttachmentsAtRestBestEffort(password: string): Promise<void> {
+  const stable = path.join(path.dirname(getDbPath()), 'attachments');
+  const userData = path.join(app.getPath('userData'), 'attachments');
+  const legacyExe = (() => {
+    if (!app.isPackaged) return null;
+    try {
+      return path.join(path.dirname(app.getPath('exe')), 'attachments');
+    } catch {
+      return null;
+    }
+  })();
+
+  const roots = [stable, userData, legacyExe].filter((p): p is string => typeof p === 'string' && !!p);
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries: Array<import('node:fs').Dirent> = [];
+    try {
+      entries = await fsp.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const ent of entries) {
+      const name = ent.name;
+      if (!name || name === '.write-test') continue;
+      const abs = path.join(dir, name);
+      if (ent.isDirectory()) {
+        await walk(abs);
+        continue;
+      }
+      if (!ent.isFile()) continue;
+
+      try {
+        const st = await fsp.stat(abs);
+        if (!st.isFile() || st.size <= 0) continue;
+
+        const alreadyEnc = await isEncryptedFile(abs);
+        if (alreadyEnc) continue;
+
+        // Read plaintext then atomically replace with encrypted file.
+        const bytes = await fsp.readFile(abs);
+        const tmp = `${abs}.azrar-tmpenc-${Date.now()}`;
+        await encryptBufferToFile({ bytes, destPath: tmp, password });
+        try {
+          await fsp.unlink(abs);
+        } catch {
+          // ignore
+        }
+        await fsp.rename(tmp, abs);
+      } catch {
+        // ignore per-file errors
+        continue;
+      }
+    }
+  };
+
+  for (const root of roots) {
+    try {
+      if (!fs.existsSync(root)) continue;
+      await walk(root);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function reencryptEncryptedAttachmentsAtRestBestEffort(
+  oldPassword: string,
+  newPassword: string
+): Promise<void> {
+  if (!oldPassword || !newPassword || oldPassword === newPassword) return;
+
+  const stable = path.join(path.dirname(getDbPath()), 'attachments');
+  const userData = path.join(app.getPath('userData'), 'attachments');
+  const legacyExe = (() => {
+    if (!app.isPackaged) return null;
+    try {
+      return path.join(path.dirname(app.getPath('exe')), 'attachments');
+    } catch {
+      return null;
+    }
+  })();
+
+  const roots = [stable, userData, legacyExe].filter((p): p is string => typeof p === 'string' && !!p);
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries: Array<import('node:fs').Dirent> = [];
+    try {
+      entries = await fsp.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const ent of entries) {
+      const name = ent.name;
+      if (!name || name === '.write-test') continue;
+      const abs = path.join(dir, name);
+      if (ent.isDirectory()) {
+        await walk(abs);
+        continue;
+      }
+      if (!ent.isFile()) continue;
+
+      try {
+        const st = await fsp.stat(abs);
+        if (!st.isFile() || st.size <= 0) continue;
+
+        const alreadyEnc = await isEncryptedFile(abs);
+        if (!alreadyEnc) continue;
+
+        // Decrypt with old password to memory, then re-encrypt with new password.
+        const bytes = await decryptFileToBuffer({ sourcePath: abs, password: oldPassword, maxBytes: MAX_ATTACHMENT_BYTES });
+        const tmp = `${abs}.azrar-tmpreenc-${Date.now()}`;
+        await encryptBufferToFile({ bytes, destPath: tmp, password: newPassword });
+        try {
+          await fsp.unlink(abs);
+        } catch {
+          // ignore
+        }
+        await fsp.rename(tmp, abs);
+      } catch {
+        // ignore per-file errors
+        continue;
+      }
+    }
+  };
+
+  for (const root of roots) {
+    try {
+      if (!fs.existsSync(root)) continue;
+      await walk(root);
+    } catch {
+      // ignore
+    }
+  }
 }
 
 async function createMandatoryPreUpdateBackup(reason: 'install' | 'installFromFile') {
@@ -869,11 +1960,13 @@ async function createMandatoryPreUpdateBackup(reason: 'install' | 'installFromFi
   await exportDatabaseToMany([dbBackupPath]);
 
   // Attachments best-effort copy (if any)
-  const attachmentsRoot = path.join(path.dirname(getDbPath()), 'attachments');
-  const attachmentsBackupPath = path.join(backupRoot, `preupdate-${fromVersion}-${safeStamp}-attachments`);
+  const attachmentsBackupPath = path.join(
+    backupRoot,
+    `preupdate-${fromVersion}-${safeStamp}-attachments`
+  );
   let attachmentsCopied = false;
   try {
-    attachmentsCopied = await copyDirIfExists(attachmentsRoot, attachmentsBackupPath);
+    attachmentsCopied = await backupAttachmentsBestEffort(attachmentsBackupPath);
   } catch {
     attachmentsCopied = false;
   }
@@ -892,7 +1985,8 @@ async function createMandatoryPreUpdateBackup(reason: 'install' | 'installFromFi
 }
 
 async function restoreFromPendingBackup(): Promise<{ success: boolean; message?: string }> {
-  if (restoreInProgress) return { success: false, message: 'عملية الاسترجاع قيد التنفيذ. يرجى الانتظار.' };
+  if (restoreInProgress)
+    return { success: false, message: 'عملية الاسترجاع قيد التنفيذ. يرجى الانتظار.' };
 
   const info = await readPendingRestoreInfo();
   if (!info.pending) return { success: false, message: 'لا توجد عملية استرجاع معلّقة.' };
@@ -914,7 +2008,7 @@ async function restoreFromPendingBackup(): Promise<{ success: boolean; message?:
 
     // Restore attachments best-effort
     if (info.attachmentsBackupPath && fs.existsSync(info.attachmentsBackupPath)) {
-      const attachmentsRoot = path.join(path.dirname(getDbPath()), 'attachments');
+      const attachmentsRoot = await getWritableAttachmentsRootForRestore();
       const currentBackup = `${attachmentsRoot}.backup-${Date.now()}`;
       try {
         if (fs.existsSync(attachmentsRoot)) {
@@ -957,10 +2051,18 @@ export function registerIpcHandlers() {
 
   if (autoUpdater) {
     autoUpdater.on('checking-for-update', () => broadcastUpdaterEvent({ type: 'checking' }));
-    autoUpdater.on('update-available', (info: UpdateInfo) => broadcastUpdaterEvent({ type: 'available', data: info }));
-    autoUpdater.on('update-not-available', (info: UpdateInfo) => broadcastUpdaterEvent({ type: 'not-available', data: info }));
-    autoUpdater.on('download-progress', (progress: ProgressInfo) => broadcastUpdaterEvent({ type: 'progress', data: progress }));
-    autoUpdater.on('update-downloaded', (info: UpdateDownloadedEvent) => broadcastUpdaterEvent({ type: 'downloaded', data: info }));
+    autoUpdater.on('update-available', (info: UpdateInfo) =>
+      broadcastUpdaterEvent({ type: 'available', data: info })
+    );
+    autoUpdater.on('update-not-available', (info: UpdateInfo) =>
+      broadcastUpdaterEvent({ type: 'not-available', data: info })
+    );
+    autoUpdater.on('download-progress', (progress: ProgressInfo) =>
+      broadcastUpdaterEvent({ type: 'progress', data: progress })
+    );
+    autoUpdater.on('update-downloaded', (info: UpdateDownloadedEvent) =>
+      broadcastUpdaterEvent({ type: 'downloaded', data: info })
+    );
     autoUpdater.on('error', (err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
       broadcastUpdaterEvent({ type: 'error', message });
@@ -968,13 +2070,23 @@ export function registerIpcHandlers() {
   }
 
   // Automatic update check on startup (packaged app only).
-  if (app.isPackaged && autoUpdater && (currentFeedUrl || hasEmbeddedUpdaterConfig())) {
+  if (
+    app.isPackaged &&
+    autoUpdater &&
+    isUpdatesAllowed() &&
+    (currentFeedUrl || hasEmbeddedUpdaterConfig())
+  ) {
     setTimeout(() => {
       void (async () => {
         try {
+          const allowed = await ensureUpdatesAllowedAsync();
+          if (!allowed.ok) return;
           await autoUpdater.checkForUpdates();
         } catch (e: unknown) {
-          broadcastUpdaterEvent({ type: 'error', message: toErrorMessage(e, 'فشل التحقق من التحديثات تلقائياً') });
+          broadcastUpdaterEvent({
+            type: 'error',
+            message: toErrorMessage(e, 'فشل التحقق من التحديثات تلقائياً'),
+          });
         }
       })();
     }, 3000);
@@ -1006,21 +2118,23 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('app:pickLicenseFile', async () => {
-        const win = BrowserWindow.getFocusedWindow();
-        const options: Electron.OpenDialogOptions = {
-          title: 'اختر ملف التفعيل',
-          properties: ['openFile'],
-          filters: [
-            { name: 'Activation / License', extensions: ['json', 'lic', 'txt'] },
-            { name: 'All Files', extensions: ['*'] },
-          ],
-        };
-    
-        const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
-    
-        if (result.canceled || result.filePaths.length === 0) {
-          return { ok: false, canceled: true };
-        }
+    const win = BrowserWindow.getFocusedWindow();
+    const options: Electron.OpenDialogOptions = {
+      title: 'اختر ملف التفعيل',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Activation / License', extensions: ['json', 'lic', 'txt'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    };
+
+    const result = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false, canceled: true };
+    }
 
     const filePath = result.filePaths[0];
     try {
@@ -1038,22 +2152,40 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('app:getLicensePublicKey', async () => {
     try {
-      const envKey = String(process.env.AZRAR_LICENSE_PUBLIC_KEY_B64 || process.env.VITE_AZRAR_LICENSE_PUBLIC_KEY || '').trim();
+      const envKey = String(
+        process.env.AZRAR_LICENSE_PUBLIC_KEY_B64 || process.env.VITE_AZRAR_LICENSE_PUBLIC_KEY || ''
+      ).trim();
       if (envKey) return { ok: true, publicKeyB64: envKey, source: 'env' };
 
-      // Packaged fallback: ship a PUBLIC key file inside the app.
-      const rel = path.join('electron', 'assets', 'azrar-license-public.key.json');
-      const candidates = [
-        path.join(app.getAppPath(), rel),
-        path.join(process.resourcesPath, 'app.asar', rel),
-        path.join(process.resourcesPath, rel),
-      ];
+      const fileName = 'azrar-license-public.key.json';
+
+      // Dev + packaged fallback: ship a PUBLIC key file inside the app.
+      // In dev, app.getAppPath() may be the project root OR the `electron/` folder,
+      // so we try multiple path shapes.
+      const candidates = Array.from(
+        new Set(
+          [
+            // Dev: workspace root
+            path.join(process.cwd(), 'electron', 'assets', fileName),
+
+            // Dev: app path variants
+            path.join(app.getAppPath(), 'assets', fileName),
+            path.join(app.getAppPath(), 'electron', 'assets', fileName),
+            path.join(path.dirname(app.getAppPath()), 'electron', 'assets', fileName),
+
+            // Packaged: resources
+            path.join(process.resourcesPath, 'app.asar', 'electron', 'assets', fileName),
+            path.join(process.resourcesPath, 'electron', 'assets', fileName),
+          ].filter(Boolean)
+        )
+      );
 
       for (const p of candidates) {
         try {
           const raw = await fsp.readFile(p, 'utf8');
           const parsed = JSON.parse(String(raw || '').trim());
-          const b64 = typeof parsed?.publicKeyB64 === 'string' ? String(parsed.publicKeyB64).trim() : '';
+          const b64 =
+            typeof parsed?.publicKeyB64 === 'string' ? String(parsed.publicKeyB64).trim() : '';
           if (b64) return { ok: true, publicKeyB64: b64, source: p };
         } catch {
           // try next
@@ -1066,6 +2198,527 @@ export function registerIpcHandlers() {
     }
   });
 
+  // License / Activation (Main process)
+  ipcMain.handle('license:getDeviceFingerprint', async () => {
+    try {
+      return getDeviceFingerprint();
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة بصمة الجهاز') };
+    }
+  });
+
+  // License Admin Tool (Main process)
+  // Local auth gate; server admin token can come from env (preferred) or a local KV setting.
+  const ADMIN_TOKEN_KEY = 'lic_admin_server_token_v1';
+  let adminToken = String(
+    process.env.AZRAR_LICENSE_SERVER_ADMIN_TOKEN || process.env.AZRAR_LICENSE_ADMIN_TOKEN || ''
+  ).trim();
+  if (!adminToken) {
+    try {
+      adminToken = String(kvGet(ADMIN_TOKEN_KEY) ?? '').trim();
+    } catch {
+      // ignore
+    }
+  }
+
+  let adminSessionOk = false;
+
+  const ADMIN_AUTH_KEY = 'lic_admin_auth_v1';
+  const DEFAULT_ADMIN_USERNAME = 'admin';
+  // Default requested by user; stored hashed on first run.
+  const DEFAULT_ADMIN_PASSWORD = '7Bibi@_@_0788';
+
+  type StoredAdminAuth = {
+    v: 1;
+    username: string;
+    saltB64: string;
+    iterations: number;
+    hashB64: string;
+    updatedAt: string;
+  };
+
+  const normalizeUser = (u: unknown): string => String(u ?? '').trim().slice(0, 64);
+  const normalizePass = (p: unknown): string => String(p ?? '').trim().slice(0, 128);
+
+  const hashPassword = (password: string, salt: Buffer, iterations: number): Buffer => {
+    return crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+  };
+
+  const createAuth = (username: string, password: string): StoredAdminAuth => {
+    const iterations = 180000;
+    const salt = crypto.randomBytes(16);
+    const hash = hashPassword(password, salt, iterations);
+    return {
+      v: 1,
+      username,
+      saltB64: salt.toString('base64'),
+      iterations,
+      hashB64: hash.toString('base64'),
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
+  const readAuthUnsafe = (): StoredAdminAuth | null => {
+    try {
+      const raw = String(kvGet(ADMIN_AUTH_KEY) ?? '').trim();
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as StoredAdminAuth;
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (parsed.v !== 1) return null;
+      if (!parsed.username || !parsed.saltB64 || !parsed.hashB64) return null;
+      if (!Number.isFinite(Number(parsed.iterations))) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  const ensureAuth = (): StoredAdminAuth => {
+    const existing = readAuthUnsafe();
+    if (existing) return existing;
+
+    // Bootstrap from env if provided; otherwise use default.
+    const envUser = normalizeUser(process.env.AZRAR_LICENSE_ADMIN_UI_USERNAME || process.env.AZRAR_ADMIN_USERNAME);
+    const envPass = normalizePass(process.env.AZRAR_LICENSE_ADMIN_UI_PASSWORD || process.env.AZRAR_ADMIN_PASSWORD);
+    const username = envUser || DEFAULT_ADMIN_USERNAME;
+    const password = envPass || DEFAULT_ADMIN_PASSWORD;
+    const created = createAuth(username, password);
+    try {
+      kvSet(ADMIN_AUTH_KEY, JSON.stringify(created));
+    } catch {
+      // ignore
+    }
+    return created;
+  };
+
+  const verifyLogin = (username: string, password: string): boolean => {
+    try {
+      const auth = ensureAuth();
+      if (normalizeUser(username).toLowerCase() !== String(auth.username).trim().toLowerCase()) return false;
+      const salt = Buffer.from(String(auth.saltB64), 'base64');
+      const iterations = Number(auth.iterations);
+      const expected = Buffer.from(String(auth.hashB64), 'base64');
+      const actual = hashPassword(password, salt, iterations);
+      if (expected.length !== actual.length) return false;
+      return crypto.timingSafeEqual(expected, actual);
+    } catch {
+      return false;
+    }
+  };
+
+  const requireAdminSession = (): { ok: true } | { ok: false; error: string } => {
+    if (!adminSessionOk) return { ok: false, error: 'Unauthorized' };
+    return { ok: true };
+  };
+
+  const normalizeServerUrl = (raw: unknown): string => {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    try {
+      const u = new URL(s);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+      return u.origin;
+    } catch {
+      return '';
+    }
+  };
+
+  const postJson = async (serverUrl: string, pathname: string, body: unknown): Promise<unknown> => {
+    if (!adminToken) throw new Error('Admin token not configured.');
+    const resp = await fetch(`${serverUrl}${pathname}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': adminToken,
+      },
+      body: JSON.stringify(body ?? null),
+    });
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok) {
+      const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
+      const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
+      throw new Error(msg || 'Request failed');
+    }
+    return json;
+  };
+
+  ipcMain.handle('licenseAdmin:login', async (_e, payload: { username?: string; password?: string }) => {
+    try {
+      const user = normalizeUser(payload?.username);
+      const pass = normalizePass(payload?.password);
+      if (!user) return { ok: false, error: 'Username is required.' };
+      if (!pass) return { ok: false, error: 'Password is required.' };
+      if (!verifyLogin(user, pass)) return { ok: false, error: 'Invalid credentials.' };
+      adminSessionOk = true;
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to login') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:logout', async () => {
+    adminSessionOk = false;
+    return { ok: true };
+  });
+
+  ipcMain.handle('licenseAdmin:getAdminTokenStatus', async () => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      return { ok: true, configured: !!String(adminToken || '').trim() };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to get token status') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:setAdminToken', async (_e, payload: { token?: string }) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const token = String(payload?.token ?? '').trim();
+      if (!token) return { ok: false, error: 'token is required.' };
+      adminToken = token;
+      try {
+        kvSet(ADMIN_TOKEN_KEY, token);
+      } catch {
+        // ignore
+      }
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to set token') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:getUser', async () => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const a = ensureAuth();
+      return { ok: true, user: { username: a.username, updatedAt: a.updatedAt } };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to load user') };
+    }
+  });
+
+  ipcMain.handle(
+    'licenseAdmin:updateUser',
+    async (_e, payload: { username?: string; newPassword?: string }) => {
+      try {
+        const auth = requireAdminSession();
+        if (!auth.ok) return { ok: false, error: auth.error };
+
+        const nextUser = normalizeUser(payload?.username);
+        const nextPass = normalizePass(payload?.newPassword);
+        if (!nextUser) return { ok: false, error: 'username is required.' };
+
+        const current = ensureAuth();
+        const updated = createAuth(nextUser, nextPass || DEFAULT_ADMIN_PASSWORD);
+        // If user did not provide a new password, keep old password by reusing it is impossible (hashed).
+        // So we require explicit newPassword to change; otherwise keep current hash.
+        if (!nextPass) {
+          updated.saltB64 = current.saltB64;
+          updated.iterations = current.iterations;
+          updated.hashB64 = current.hashB64;
+        }
+
+        kvSet(ADMIN_AUTH_KEY, JSON.stringify(updated));
+        return { ok: true, user: { username: updated.username, updatedAt: updated.updatedAt } };
+      } catch (e: unknown) {
+        return { ok: false, error: toErrorMessage(e, 'Failed to update user') };
+      }
+    }
+  );
+
+  ipcMain.handle('licenseAdmin:list', async (_e, payload: { serverUrl?: string; q?: string; limit?: number }) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+
+      const serverUrl = normalizeServerUrl(payload?.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const q = typeof payload?.q === 'string' ? payload.q : '';
+      const limit = Number.isFinite(Number(payload?.limit)) ? Number(payload?.limit) : undefined;
+
+      const json = (await postJson(serverUrl, '/api/license/admin/list', { q, limit })) as unknown;
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to list licenses') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:get', async (_e, payload: { serverUrl?: string; licenseKey?: string }) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+
+      const serverUrl = normalizeServerUrl(payload?.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const licenseKey = String(payload?.licenseKey || '').trim();
+      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+
+      const json = (await postJson(serverUrl, '/api/license/admin/get', { licenseKey })) as unknown;
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to fetch license') };
+    }
+  });
+
+  ipcMain.handle(
+    'licenseAdmin:issue',
+    async (
+      _e,
+      payload: {
+        serverUrl?: string;
+        licenseKey?: string;
+        expiresAt?: string;
+        maxActivations?: number;
+        features?: Record<string, unknown>;
+      }
+    ) => {
+      try {
+        const auth = requireAdminSession();
+        if (!auth.ok) return { ok: false, error: auth.error };
+
+        const serverUrl = normalizeServerUrl(payload?.serverUrl);
+        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+
+        const body = {
+          ...(payload?.licenseKey ? { licenseKey: String(payload.licenseKey) } : {}),
+          ...(payload?.expiresAt ? { expiresAt: String(payload.expiresAt) } : {}),
+          ...(Number.isFinite(Number(payload?.maxActivations)) ? { maxActivations: Number(payload?.maxActivations) } : {}),
+          ...(payload?.features && typeof payload.features === 'object' ? { features: payload.features } : {}),
+        };
+
+        const json = (await postJson(serverUrl, '/api/license/admin/issue', body)) as unknown;
+        return { ok: true, result: json };
+      } catch (e: unknown) {
+        return { ok: false, error: toErrorMessage(e, 'Failed to issue license') };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'licenseAdmin:setStatus',
+    async (
+      _e,
+      payload: { serverUrl?: string; licenseKey?: string; status?: string; note?: string }
+    ) => {
+      try {
+        const auth = requireAdminSession();
+        if (!auth.ok) return { ok: false, error: auth.error };
+
+        const serverUrl = normalizeServerUrl(payload?.serverUrl);
+        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+        const licenseKey = String(payload?.licenseKey || '').trim();
+        const status = String(payload?.status || '').trim();
+        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+        if (!status) return { ok: false, error: 'status is required.' };
+
+        const json = (await postJson(serverUrl, '/api/license/admin/setStatus', {
+          licenseKey,
+          status,
+          ...(payload?.note ? { note: String(payload.note) } : {}),
+        })) as unknown;
+
+        return { ok: true, result: json };
+      } catch (e: unknown) {
+        return { ok: false, error: toErrorMessage(e, 'Failed to set status') };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'licenseAdmin:activate',
+    async (_e, payload: { serverUrl?: string; licenseKey?: string; deviceId?: string }) => {
+      try {
+        const auth = requireAdminSession();
+        if (!auth.ok) return { ok: false, error: auth.error };
+
+        const serverUrl = normalizeServerUrl(payload?.serverUrl);
+        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+        const licenseKey = String(payload?.licenseKey || '').trim();
+        const deviceId = String(payload?.deviceId || '').trim();
+        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+        if (!deviceId) return { ok: false, error: 'deviceId is required.' };
+
+        const resp = await fetch(`${serverUrl}/api/license/activate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ licenseKey, deviceId }),
+        });
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok) {
+          const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
+          const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
+          return { ok: false, error: msg || 'Activate failed' };
+        }
+        return { ok: true, result: json };
+      } catch (e: unknown) {
+        return { ok: false, error: toErrorMessage(e, 'Failed to activate') };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'licenseAdmin:checkStatus',
+    async (_e, payload: { serverUrl?: string; licenseKey?: string; deviceId?: string }) => {
+      try {
+        const auth = requireAdminSession();
+        if (!auth.ok) return { ok: false, error: auth.error };
+
+        const serverUrl = normalizeServerUrl(payload?.serverUrl);
+        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+        const licenseKey = String(payload?.licenseKey || '').trim();
+        const deviceId = String(payload?.deviceId || '').trim();
+        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+        if (!deviceId) return { ok: false, error: 'deviceId is required.' };
+
+        const resp = await fetch(`${serverUrl}/api/license/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ licenseKey, deviceId }),
+        });
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok) {
+          const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
+          const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
+          return { ok: false, error: msg || 'Status check failed' };
+        }
+        return { ok: true, result: json };
+      } catch (e: unknown) {
+        return { ok: false, error: toErrorMessage(e, 'Failed to check status') };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'licenseAdmin:saveLicenseFile',
+    async (_e, payload: { defaultFileName?: string; content?: string; confirmPassword?: string }) => {
+      try {
+        const auth = requireAdminSession();
+        if (!auth.ok) return { ok: false, error: auth.error };
+
+        // Extra guard: require password confirmation before exporting/saving.
+        const confirmPassword = String(payload?.confirmPassword || '').trim();
+        if (!confirmPassword) return { ok: false, error: 'confirmPassword is required.' };
+        const a = ensureAuth();
+        if (!verifyLogin(a.username, confirmPassword)) return { ok: false, error: 'Invalid password.' };
+
+        const content = String(payload?.content || '');
+        if (!content.trim()) return { ok: false, error: 'content is required.' };
+
+        const safeName = String(payload?.defaultFileName || 'azrar-license.json')
+          .replace(/[^a-zA-Z0-9._-]/g, '_')
+          .slice(0, 120);
+        const defaultPath = path.join(app.getPath('documents'), safeName || 'azrar-license.json');
+
+        const result = await dialog.showSaveDialog({
+          title: 'حفظ ملف الترخيص',
+          defaultPath,
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+        });
+        if (result.canceled || !result.filePath) return { ok: false, error: 'Canceled' };
+
+        await fsp.writeFile(result.filePath, content, 'utf8');
+        return { ok: true, filePath: result.filePath };
+      } catch (e: unknown) {
+        return { ok: false, error: toErrorMessage(e, 'Failed to save file') };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'licenseAdmin:updateAfterSales',
+    async (
+      _e,
+      payload: { serverUrl?: string; licenseKey?: string; patch?: Record<string, unknown> }
+    ) => {
+      try {
+        const auth = requireAdminSession();
+        if (!auth.ok) return { ok: false, error: auth.error };
+
+        const serverUrl = normalizeServerUrl(payload?.serverUrl);
+        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+        const licenseKey = String(payload?.licenseKey || '').trim();
+        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+        const patch = payload?.patch && typeof payload.patch === 'object' ? payload.patch : {};
+
+        const json = (await postJson(serverUrl, '/api/license/admin/updateAfterSales', {
+          licenseKey,
+          patch,
+        })) as unknown;
+        return { ok: true, result: json };
+      } catch (e: unknown) {
+        return { ok: false, error: toErrorMessage(e, 'Failed to update after-sales') };
+      }
+    }
+  );
+
+  ipcMain.handle('license:getStatus', async () => {
+    try {
+      const st = await getLicenseStatus();
+      return { ok: true, status: st };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة حالة الترخيص') };
+    }
+  });
+
+  ipcMain.handle('license:hasFeature', async (_e, featureName: string) => {
+    try {
+      const name = String(featureName || '').trim();
+      if (!name) return { ok: false, error: 'اسم الميزة غير صالح.' };
+
+      const st = await getLicenseStatus();
+      if (!st.activated) {
+        return { ok: true, enabled: false, reason: st.reason || 'not_activated' };
+      }
+
+      const enabled = isFeatureEnabled(st.license?.features, name);
+      return { ok: true, enabled };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة صلاحيات الترخيص') };
+    }
+  });
+
+  ipcMain.handle('license:activateFromContent', async (_e, raw: string) => {
+    const res = await activateWithLicenseContent(String(raw || ''));
+    if (res.ok) return { ok: true };
+    return { ok: false, error: res.error };
+  });
+
+  ipcMain.handle('license:activateOnline', async (_e, payload: { licenseKey?: string; serverUrl?: string }) => {
+    const res = await activateOnline({
+      licenseKey: String(payload?.licenseKey || ''),
+      serverUrl: payload?.serverUrl ? String(payload.serverUrl) : undefined,
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: res.error };
+  });
+
+  ipcMain.handle('license:getServerUrl', async () => {
+    try {
+      return { ok: true, url: getLicenseServerUrl() };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة رابط السيرفر') };
+    }
+  });
+
+  ipcMain.handle('license:setServerUrl', async (_e, url: string) => {
+    return setLicenseServerUrl(String(url || ''));
+  });
+
+  ipcMain.handle('license:refreshOnlineStatus', async () => {
+    return await refreshOnlineStatus();
+  });
+
+  ipcMain.handle('license:deactivate', async () => {
+    try {
+      return licenseDeactivate();
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'فشل إلغاء التفعيل') };
+    }
+  });
+
   ipcMain.handle('updater:getVersion', () => app.getVersion());
   ipcMain.handle('updater:getStatus', () => ({
     isPackaged: app.isPackaged,
@@ -1075,7 +2728,24 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('updater:setFeedUrl', async (_e, url: string) => {
     try {
-      const normalized = normalizeFeedUrl(url);
+      const raw = String(url || '').trim();
+
+      // Allow clearing the configured feed URL.
+      if (!raw) {
+        currentFeedUrl = null;
+        try {
+          await writeUpdaterSettings({});
+        } catch {
+          // ignore
+        }
+        broadcastUpdaterEvent({ type: 'feed-url', data: { feedUrl: null } });
+        return { success: true, feedUrl: '' };
+      }
+
+      const allowed = await ensureUpdatesAllowedAsync();
+      if (!allowed.ok) return { success: false, message: allowed.message };
+
+      const normalized = normalizeFeedUrl(raw);
       currentFeedUrl = normalized;
 
       try {
@@ -1085,7 +2755,8 @@ export function registerIpcHandlers() {
       }
 
       if (app.isPackaged) {
-        if (!autoUpdater) return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
+        if (!autoUpdater)
+          return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
         autoUpdater.setFeedURL({ provider: 'generic', url: normalized } as UpdaterSetFeedUrlArg);
       }
 
@@ -1098,8 +2769,13 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('updater:check', async () => {
     if (!app.isPackaged) {
-      return { success: false, message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).' };
+      return {
+        success: false,
+        message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
+      };
     }
+    const allowed = await ensureUpdatesAllowedAsync();
+    if (!allowed.ok) return { success: false, message: allowed.message };
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
     }
@@ -1109,7 +2785,11 @@ export function registerIpcHandlers() {
       return { success: true, updateAvailable: available, info: res?.updateInfo };
     } catch (e: unknown) {
       if (!currentFeedUrl && !hasEmbeddedUpdaterConfig()) {
-        return { success: false, message: 'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.' };
+        return {
+          success: false,
+          message:
+            'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.',
+        };
       }
       return { success: false, message: toErrorMessage(e, 'فشل التحقق من التحديث') };
     }
@@ -1117,8 +2797,13 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('updater:download', async () => {
     if (!app.isPackaged) {
-      return { success: false, message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).' };
+      return {
+        success: false,
+        message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
+      };
     }
+    const allowed = await ensureUpdatesAllowedAsync();
+    if (!allowed.ok) return { success: false, message: allowed.message };
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
     }
@@ -1127,7 +2812,11 @@ export function registerIpcHandlers() {
       return { success: true };
     } catch (e: unknown) {
       if (!currentFeedUrl && !hasEmbeddedUpdaterConfig()) {
-        return { success: false, message: 'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.' };
+        return {
+          success: false,
+          message:
+            'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.',
+        };
       }
       return { success: false, message: toErrorMessage(e, 'فشل تنزيل التحديث') };
     }
@@ -1135,8 +2824,13 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('updater:install', async () => {
     if (!app.isPackaged) {
-      return { success: false, message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).' };
+      return {
+        success: false,
+        message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
+      };
     }
+    const allowed = await ensureUpdatesAllowedAsync();
+    if (!allowed.ok) return { success: false, message: allowed.message };
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
     }
@@ -1145,7 +2839,13 @@ export function registerIpcHandlers() {
       try {
         await createMandatoryPreUpdateBackup('install');
       } catch (e: unknown) {
-        return { success: false, message: toErrorMessage(e, 'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.') };
+        return {
+          success: false,
+          message: toErrorMessage(
+            e,
+            'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.'
+          ),
+        };
       }
       // This quits the app and runs the installer for the downloaded update.
       autoUpdater.quitAndInstall(true, true);
@@ -1156,6 +2856,10 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('updater:installFromFile', async () => {
+    if (app.isPackaged) {
+      const allowed = await ensureUpdatesAllowedAsync();
+      if (!allowed.ok) return { success: false, message: allowed.message };
+    }
     const result = await dialog.showOpenDialog({
       title: 'اختر ملف تحديث (مثبت البرنامج)',
       filters: [{ name: 'Installer', extensions: ['exe'] }],
@@ -1198,7 +2902,13 @@ export function registerIpcHandlers() {
       try {
         await createMandatoryPreUpdateBackup('installFromFile');
       } catch (e: unknown) {
-        return { success: false, message: toErrorMessage(e, 'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.') };
+        return {
+          success: false,
+          message: toErrorMessage(
+            e,
+            'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.'
+          ),
+        };
       }
       // Run installer detached, then quit the app.
       spawn(resolved, [], { detached: true, stdio: 'ignore' }).unref();
@@ -1220,10 +2930,14 @@ export function registerIpcHandlers() {
     return readPendingRestoreInfo();
   });
   ipcMain.handle('updater:clearPendingRestore', async () => {
+    // Recovery path: always allow clearing the pending marker to avoid boot loops / repeated prompts,
+    // even if updates are feature-gated.
     await clearPendingRestoreInfo();
     return { success: true };
   });
   ipcMain.handle('updater:restorePending', async () => {
+    // Recovery path: always allow restoring from a previously created pending-backup.
+    // This is data-safety oriented and shouldn't be blocked by license gating.
     return restoreFromPendingBackup();
   });
 
@@ -1288,8 +3002,17 @@ export function registerIpcHandlers() {
       throw new Error(hint ? `${base}\n\n${hint}` : base);
     }
   });
-  ipcMain.handle('db:resetAll', () => {
+  ipcMain.handle('db:resetAll', async () => {
     if (dbMaintenanceMode) return { deleted: 0 };
+
+    const allowed = await ensureFeatureAllowedAsync('backups', {
+      featureMessage: 'هذه الرخصة لا تتضمن ميزة تصفير/إعادة ضبط البيانات.',
+    });
+    if (!allowed.ok) {
+      // IMPORTANT: Throw so callers can fall back to clearing via storage.
+      throw new Error(allowed.message);
+    }
+
     return kvResetAll('db_');
   });
 
@@ -1394,7 +3117,10 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('domain:notifications:paymentTargets', (_e, payload: unknown) => {
     try {
-      const daysAhead = Math.max(1, Math.min(60, Math.trunc(Number(getField(payload, 'daysAhead')) || 7)));
+      const daysAhead = Math.max(
+        1,
+        Math.min(60, Math.trunc(Number(getField(payload, 'daysAhead')) || 7))
+      );
       const todayYmdRaw = getStringField(payload, 'todayYMD');
       const todayYMD = todayYmdRaw ? trimString(todayYmdRaw, 10, 'تاريخ اليوم') : undefined;
       return domainPaymentNotificationTargets({ daysAhead, todayYMD });
@@ -1508,7 +3234,9 @@ export function registerIpcHandlers() {
         listingsById.set(id, l);
       }
 
-      const listingsForOwner = listings.filter((l) => isRecord(l) && String(l['رقم_المالك'] ?? '').trim() === personId);
+      const listingsForOwner = listings.filter(
+        (l) => isRecord(l) && String(l['رقم_المالك'] ?? '').trim() === personId
+      );
 
       const agreementsForPerson = agreements.filter((a) => {
         const rec = isRecord(a) ? a : null;
@@ -1563,9 +3291,13 @@ export function registerIpcHandlers() {
           if (!rec) return null;
           const listingId = String(rec['listingId'] ?? '').trim();
           const listing = listingId ? listingsById.get(listingId) : undefined;
-          const propId = String(rec['رقم_العقار'] ?? (isRecord(listing) ? listing['رقم_العقار'] : '') ?? '').trim();
+          const propId = String(
+            rec['رقم_العقار'] ?? (isRecord(listing) ? listing['رقم_العقار'] : '') ?? ''
+          ).trim();
           if (propId !== propertyId) return null;
-          const sellerId = String(rec['رقم_البائع'] ?? (isRecord(listing) ? listing['رقم_المالك'] : '') ?? '').trim();
+          const sellerId = String(
+            rec['رقم_البائع'] ?? (isRecord(listing) ? listing['رقم_المالك'] : '') ?? ''
+          ).trim();
           return { a, propId, sellerId, listing };
         })
         .filter((x) => x !== null);
@@ -1610,19 +3342,27 @@ export function registerIpcHandlers() {
       if (!personId) return { ok: false, message: 'معرف غير صالح' };
 
       const props = kvGetArray(DB_KEYS.PROPERTIES);
-      const hasOwnedProps = props.some((p) => isRecord(p) && String(p['رقم_المالك'] ?? '').trim() === personId);
+      const hasOwnedProps = props.some(
+        (p) => isRecord(p) && String(p['رقم_المالك'] ?? '').trim() === personId
+      );
       if (hasOwnedProps) return { ok: false, message: 'لا يمكن حذف المالك لوجود عقارات مرتبطة به' };
 
       const contracts = kvGetArray(DB_KEYS.CONTRACTS);
-      const hasContracts = contracts.some((c) => isRecord(c) && String(c['رقم_المستاجر'] ?? '').trim() === personId);
+      const hasContracts = contracts.some(
+        (c) => isRecord(c) && String(c['رقم_المستاجر'] ?? '').trim() === personId
+      );
       if (hasContracts) return { ok: false, message: 'لا يمكن حذف الشخص لوجود عقود مرتبطة به' };
 
       const people = kvGetArray(DB_KEYS.PEOPLE);
-      const nextPeople = people.filter((p) => !(isRecord(p) && String(p['رقم_الشخص'] ?? '').trim() === personId));
+      const nextPeople = people.filter(
+        (p) => !(isRecord(p) && String(p['رقم_الشخص'] ?? '').trim() === personId)
+      );
       kvSetArray(DB_KEYS.PEOPLE, nextPeople);
 
       const roles = kvGetArray(DB_KEYS.ROLES);
-      const nextRoles = roles.filter((r) => !(isRecord(r) && String(r['رقم_الشخص'] ?? '').trim() === personId));
+      const nextRoles = roles.filter(
+        (r) => !(isRecord(r) && String(r['رقم_الشخص'] ?? '').trim() === personId)
+      );
       kvSetArray(DB_KEYS.ROLES, nextRoles);
 
       // Best-effort: deactivate any active blacklist records for the person.
@@ -1690,7 +3430,10 @@ export function registerIpcHandlers() {
       if (!reminderId && type === 'Task' && dueDate && title) {
         const reminders = kvGetArray(DB_KEYS.REMINDERS);
         reminderId = `REM-${Date.now()}`;
-        const nextReminders = [...reminders, { ...task, id: reminderId, title, date: dueDate, isDone: false }];
+        const nextReminders = [
+          ...reminders,
+          { ...task, id: reminderId, title, date: dueDate, isDone: false },
+        ];
         kvSetArray(DB_KEYS.REMINDERS, nextReminders);
       }
 
@@ -1733,7 +3476,9 @@ export function registerIpcHandlers() {
       if (!id) return { ok: false, message: 'معرف غير صالح' };
 
       const agreements = kvGetArray(DB_KEYS.SALES_AGREEMENTS);
-      const nextAgreements = agreements.filter((row) => !(isRecord(row) && String(row['id'] ?? '').trim() === id));
+      const nextAgreements = agreements.filter(
+        (row) => !(isRecord(row) && String(row['id'] ?? '').trim() === id)
+      );
       kvSetArray(DB_KEYS.SALES_AGREEMENTS, nextAgreements);
 
       // Best-effort cleanup: remove associated external commission records if present.
@@ -1743,7 +3488,8 @@ export function registerIpcHandlers() {
         const agreementId = String(row['agreementId'] ?? row['salesAgreementId'] ?? '').trim();
         return agreementId !== id;
       });
-      if (nextCommissions.length !== commissions.length) kvSetArray(DB_KEYS.EXTERNAL_COMMISSIONS, nextCommissions);
+      if (nextCommissions.length !== commissions.length)
+        kvSetArray(DB_KEYS.EXTERNAL_COMMISSIONS, nextCommissions);
 
       return { ok: true };
     } catch (e: unknown) {
@@ -1801,12 +3547,32 @@ export function registerIpcHandlers() {
       const limit = getOptionalNumberField(payload, 'limit');
       const tab = trimString(getStringField(payload, 'tab'), 32, 'التبويب');
       const sort = trimString(getStringField(payload, 'sort'), 32, 'الترتيب');
-      const createdMonthRaw = trimString(getStringField(payload, 'createdMonth'), 16, 'شهر الإنشاء');
+      const createdMonthRaw = trimString(
+        getStringField(payload, 'createdMonth'),
+        16,
+        'شهر الإنشاء'
+      );
       const createdMonth = /^\d{4}-\d{2}$/.test(createdMonthRaw) ? createdMonthRaw : '';
-      const startDateFromRaw = trimString(getStringField(payload, 'startDateFrom'), 16, 'تاريخ البداية (من)');
-      const startDateToRaw = trimString(getStringField(payload, 'startDateTo'), 16, 'تاريخ البداية (إلى)');
-      const endDateFromRaw = trimString(getStringField(payload, 'endDateFrom'), 16, 'تاريخ النهاية (من)');
-      const endDateToRaw = trimString(getStringField(payload, 'endDateTo'), 16, 'تاريخ النهاية (إلى)');
+      const startDateFromRaw = trimString(
+        getStringField(payload, 'startDateFrom'),
+        16,
+        'تاريخ البداية (من)'
+      );
+      const startDateToRaw = trimString(
+        getStringField(payload, 'startDateTo'),
+        16,
+        'تاريخ البداية (إلى)'
+      );
+      const endDateFromRaw = trimString(
+        getStringField(payload, 'endDateFrom'),
+        16,
+        'تاريخ النهاية (من)'
+      );
+      const endDateToRaw = trimString(
+        getStringField(payload, 'endDateTo'),
+        16,
+        'تاريخ النهاية (إلى)'
+      );
       const startDateFrom = /^\d{4}-\d{2}-\d{2}$/.test(startDateFromRaw) ? startDateFromRaw : '';
       const startDateTo = /^\d{4}-\d{2}-\d{2}$/.test(startDateToRaw) ? startDateToRaw : '';
       const endDateFrom = /^\d{4}-\d{2}-\d{2}$/.test(endDateFromRaw) ? endDateFromRaw : '';
@@ -1867,7 +3633,10 @@ export function registerIpcHandlers() {
       const filter = trimString(getStringField(payload, 'filter') || 'all', 16, 'الفلتر') || 'all';
       const sort = trimString(getStringField(payload, 'sort'), 32, 'الترتيب');
       const offset = Math.max(0, Math.trunc(Number(getField(payload, 'offset')) || 0));
-      const limit = Math.max(1, Math.min(100, Math.trunc(Number(getField(payload, 'limit')) || 20)));
+      const limit = Math.max(
+        1,
+        Math.min(100, Math.trunc(Number(getField(payload, 'limit')) || 20))
+      );
       return domainInstallmentsContractsSearch({ query: q, filter, sort, offset, limit });
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل الأقساط') };
@@ -1876,22 +3645,47 @@ export function registerIpcHandlers() {
 
   // SQL Server Sync
   ipcMain.handle('sql:getSettings', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) {
+      return {
+        enabled: false,
+        server: '',
+        port: 1433,
+        database: 'AZRAR',
+        authMode: 'sql',
+        user: '',
+        encrypt: true,
+        trustServerCertificate: true,
+        hasPassword: false,
+      };
+    }
     return loadSqlSettingsRedacted();
   });
 
   ipcMain.handle('sql:saveSettings', async (_e, settings: unknown) => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
+      const saved = await loadSqlSettings();
       const enabled = Boolean(getField(settings, 'enabled'));
       const authMode = getStringField(settings, 'authMode') === 'windows' ? 'windows' : 'sql';
+
+      // If the user leaves the password field empty while a password is already stored,
+      // keep the existing password instead of clearing it.
+      const incomingPassword = toLimitedPassword(getField(settings, 'password'), 512);
+      const passwordToSave =
+        incomingPassword || String((saved as { password?: unknown })?.password || '');
 
       await saveSqlSettings({
         enabled,
         server: trimString(getStringField(settings, 'server'), 256, 'السيرفر'),
         port: safePortOrDefault(getField(settings, 'port'), 1433),
-        database: trimString(getStringField(settings, 'database') || 'AZRAR', 128, 'قاعدة البيانات') || 'AZRAR',
+        database:
+          trimString(getStringField(settings, 'database') || 'AZRAR', 128, 'قاعدة البيانات') ||
+          'AZRAR',
         authMode,
         user: trimString(getStringField(settings, 'user'), 128, 'المستخدم'),
-        password: toLimitedPassword(getField(settings, 'password'), 512),
+        password: passwordToSave,
         encrypt: getField(settings, 'encrypt') !== false,
         trustServerCertificate: getField(settings, 'trustServerCertificate') !== false,
       });
@@ -1908,17 +3702,34 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:test', async (_e, settings: unknown) => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     const saved = await loadSqlSettings();
 
     type TestSqlSettings = Parameters<typeof testSqlConnection>[0];
 
     const merged: TestSqlSettings = {
       ...saved,
-      server: trimString((getField(settings, 'server') ?? saved.server ?? '') as unknown, 256, 'السيرفر'),
+      server: trimString(
+        (getField(settings, 'server') ?? saved.server ?? '') as unknown,
+        256,
+        'السيرفر'
+      ),
       port: safePortOrDefault(getField(settings, 'port') ?? saved.port ?? 1433, 1433),
-      database: trimString((getField(settings, 'database') ?? saved.database ?? 'AZRAR') as unknown, 128, 'قاعدة البيانات') || 'AZRAR',
-      authMode: (getStringField(settings, 'authMode') === 'windows' ? 'windows' : 'sql') as TestSqlSettings['authMode'],
-      user: trimString((getField(settings, 'user') ?? saved.user ?? '') as unknown, 128, 'المستخدم'),
+      database:
+        trimString(
+          (getField(settings, 'database') ?? saved.database ?? 'AZRAR') as unknown,
+          128,
+          'قاعدة البيانات'
+        ) || 'AZRAR',
+      authMode: (getStringField(settings, 'authMode') === 'windows'
+        ? 'windows'
+        : 'sql') as TestSqlSettings['authMode'],
+      user: trimString(
+        (getField(settings, 'user') ?? saved.user ?? '') as unknown,
+        128,
+        'المستخدم'
+      ),
       password:
         typeof getField(settings, 'password') === 'string'
           ? toLimitedPassword(getField(settings, 'password'), 512)
@@ -1932,6 +3743,8 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:connect', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     const settings = await loadSqlSettings();
     if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
 
@@ -1939,25 +3752,46 @@ export function registerIpcHandlers() {
     if (res.ok) {
       // Manual connect: do a full pull once (download everything) then push local data up.
       await resetSqlPullState();
-      await startBackgroundPull(async (row) => {
-        const localMeta = kvGetMeta(row.k);
-        const localDeletedAt = kvGetDeletedAt(row.k);
-        const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
+      await startBackgroundPull(
+        async (row) => {
+          const localMeta = kvGetMeta(row.k);
+          const localDeletedAt = kvGetDeletedAt(row.k);
+          const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
 
-        const remoteTs = row.updatedAt;
-        const isRemoteNewer = !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
-        if (!isRemoteNewer) return;
+          const remoteTs = row.updatedAt;
+          const isRemoteNewer =
+            !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
+          if (!isRemoteNewer) return;
 
-        if (row.isDeleted) {
-          kvApplyRemoteDelete(row.k, remoteTs);
-          broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
-          addSqlSyncLogEntry({ direction: 'pull', action: 'delete', key: row.k, status: 'ok', ts: remoteTs });
-        } else {
-          kvSetWithUpdatedAt(row.k, row.v, remoteTs);
-          broadcastDbRemoteUpdate({ key: row.k, value: row.v, isDeleted: false, updatedAt: remoteTs });
-          addSqlSyncLogEntry({ direction: 'pull', action: 'upsert', key: row.k, status: 'ok', ts: remoteTs });
-        }
-      }, { runImmediately: true, forceFullPull: true });
+          if (row.isDeleted) {
+            kvApplyRemoteDelete(row.k, remoteTs);
+            broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+            addSqlSyncLogEntry({
+              direction: 'pull',
+              action: 'delete',
+              key: row.k,
+              status: 'ok',
+              ts: remoteTs,
+            });
+          } else {
+            kvSetWithUpdatedAt(row.k, row.v, remoteTs);
+            broadcastDbRemoteUpdate({
+              key: row.k,
+              value: row.v,
+              isDeleted: false,
+              updatedAt: remoteTs,
+            });
+            addSqlSyncLogEntry({
+              direction: 'pull',
+              action: 'upsert',
+              key: row.k,
+              status: 'ok',
+              ts: remoteTs,
+            });
+          }
+        },
+        { runImmediately: true, forceFullPull: true }
+      );
 
       await pushAllLocalToRemote();
     }
@@ -1965,24 +3799,41 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:disconnect', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { success: false, message: allowed.message };
     await disconnectSql();
     return { success: true };
   });
 
   ipcMain.handle('sql:status', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) {
+      return {
+        configured: false,
+        enabled: false,
+        connected: false,
+        lastError: allowed.message,
+      };
+    }
     return getSqlStatus();
   });
 
   ipcMain.handle('sql:getSyncLog', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message, items: [] };
     return { ok: true, items: sqlSyncLog };
   });
 
   ipcMain.handle('sql:clearSyncLog', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     sqlSyncLog.splice(0, sqlSyncLog.length);
     return { ok: true };
   });
 
   ipcMain.handle('sql:getCoverage', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const tolMs = 1500;
       const toMs = (iso?: string): number | null => {
@@ -1994,7 +3845,10 @@ export function registerIpcHandlers() {
       };
 
       const localKeys = kvKeys().filter((k) => String(k || '').startsWith('db_'));
-      const localMap = new Map<string, Omit<SqlCoverageItem, 'remoteUpdatedAt' | 'remoteIsDeleted' | 'status'>>();
+      const localMap = new Map<
+        string,
+        Omit<SqlCoverageItem, 'remoteUpdatedAt' | 'remoteIsDeleted' | 'status'>
+      >();
 
       for (const k of localKeys) {
         const key = String(k || '').trim();
@@ -2022,6 +3876,7 @@ export function registerIpcHandlers() {
       for (const r of remoteItems) {
         const key = getStringField(r, 'key').trim();
         if (!key) continue;
+        if (!key.startsWith('db_')) continue;
         remoteMap.set(key, {
           remoteUpdatedAt: getField(r, 'updatedAt') ? getStringField(r, 'updatedAt') : undefined,
           remoteIsDeleted: Boolean(getField(r, 'isDeleted')),
@@ -2101,54 +3956,200 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:exportBackup', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
-      addSqlSyncLogEntry({ direction: 'system', action: 'exportBackup', status: 'ok', message: 'بدء تصدير نسخة احتياطية من المخدم' });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'exportBackup',
+        status: 'ok',
+        message: 'بدء تصدير نسخة احتياطية من المخدم',
+      });
       const settings = await loadSqlSettings();
       if (!settings.server?.trim()) return { ok: false, message: 'اسم السيرفر مطلوب' };
       if (!settings.database?.trim()) return { ok: false, message: 'اسم قاعدة البيانات مطلوب' };
 
       const backupSettings = await readBackupSettings();
-      const backupDir = backupSettings.backupDir && isExistingDirectory(backupSettings.backupDir) ? backupSettings.backupDir : app.getPath('documents');
+      const backupDir =
+        backupSettings.backupDir && isExistingDirectory(backupSettings.backupDir)
+          ? backupSettings.backupDir
+          : app.getPath('documents');
+
+      const enc = await readBackupEncryptionSettings();
+      const encryptionRequested = enc.enabled === true;
+      const encryptionConfigured = encryptionRequested && !!enc.passwordEnc;
+      const encryptionPassword = encryptionConfigured
+        ? decryptSecretBestEffort(String(enc.passwordEnc || ''))
+        : '';
+
+      if (encryptionRequested && (!encryptionConfigured || !encryptionPassword)) {
+        return {
+          ok: false,
+          message:
+            'تشفير النسخ الاحتياطية مفعل لكن كلمة المرور غير مضبوطة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.',
+        };
+      }
 
       const dbNameSafe = String(settings.database || 'AZRAR').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const defaultName = `AZRAR_SERVER_BACKUP_${dbNameSafe}_${formatBackupStamp()}.json`;
+      const defaultName = `AZRAR_SERVER_BACKUP_${dbNameSafe}_${formatBackupStamp()}.json${
+        encryptionRequested ? '.enc' : ''
+      }`;
       const defaultPath = path.join(backupDir, defaultName);
 
       const result = await dialog.showSaveDialog({
         title: 'حفظ نسخة احتياطية من المخدم',
         defaultPath,
-        filters: [{ name: 'JSON', extensions: ['json'] }],
+        filters: [
+          { name: 'Backup File', extensions: ['json', 'enc'] },
+          { name: 'Encrypted Backup', extensions: ['enc'] },
+          { name: 'JSON', extensions: ['json'] },
+        ],
       });
 
       if (result.canceled || !result.filePath) return { ok: false, message: 'تم الإلغاء' };
 
-      const res = await exportServerBackupToFile(result.filePath, { ...settings, enabled: true });
-      addSqlSyncLogEntry({ direction: 'system', action: 'exportBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
-      return res;
+      const chosenPath = result.filePath;
+      const destPath = encryptionRequested
+        ? chosenPath.toLowerCase().endsWith('.enc')
+          ? chosenPath
+          : `${chosenPath}.enc`
+        : chosenPath;
+
+      if (!encryptionRequested) {
+        const res = await exportServerBackupToFile(destPath, { ...settings, enabled: true });
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'exportBackup',
+          status: res?.ok ? 'ok' : 'error',
+          message: res?.message,
+        });
+        return res;
+      }
+
+      const tmpJson = path.join(app.getPath('temp'), `AZRAR_SERVER_BACKUP_TMP_${Date.now()}.json`);
+      try {
+        const resPlain = await exportServerBackupToFile(tmpJson, { ...settings, enabled: true });
+        if (!resPlain?.ok) {
+          addSqlSyncLogEntry({
+            direction: 'system',
+            action: 'exportBackup',
+            status: 'error',
+            message: resPlain?.message,
+          });
+          return resPlain;
+        }
+
+        await encryptFileToFile({ sourcePath: tmpJson, destPath, password: encryptionPassword });
+
+        const res = {
+          ...resPlain,
+          filePath: destPath,
+          message: 'تم إنشاء نسخة احتياطية من المخدم (مشفر)',
+        };
+
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'exportBackup',
+          status: 'ok',
+          message: res?.message,
+        });
+        return res;
+      } finally {
+        try {
+          await fsp.unlink(tmpJson);
+        } catch {
+          // ignore
+        }
+      }
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية من المخدم');
-      addSqlSyncLogEntry({ direction: 'system', action: 'exportBackup', status: 'error', message: msg });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'exportBackup',
+        status: 'error',
+        message: msg,
+      });
       return { ok: false, message: msg };
     }
   });
 
   ipcMain.handle('sql:importBackup', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
-      addSqlSyncLogEntry({ direction: 'system', action: 'importBackup', status: 'ok', message: 'بدء استيراد (دمج) نسخة احتياطية' });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'importBackup',
+        status: 'ok',
+        message: 'بدء استيراد (دمج) نسخة احتياطية',
+      });
       const filePath = await chooseJsonFileViaDialog();
       if (!filePath) return { ok: false, message: 'تم الإلغاء' };
 
-      const res = await importServerBackupFromFile(filePath, 'merge');
-      addSqlSyncLogEntry({ direction: 'system', action: 'importBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
+      const isEnc = (await isEncryptedFile(filePath)) || path.extname(filePath).toLowerCase() === '.enc';
+      if (!isEnc) {
+        const res = await importServerBackupFromFile(filePath, 'merge');
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'importBackup',
+          status: res?.ok ? 'ok' : 'error',
+          message: res?.message,
+        });
+        return res;
+      }
+
+      const enc = await readBackupEncryptionSettings();
+      const encryptionPassword = enc.passwordEnc
+        ? decryptSecretBestEffort(String(enc.passwordEnc || ''))
+        : '';
+      if (!encryptionPassword) {
+        return {
+          ok: false,
+          message:
+            'الملف مشفر (.enc) لكن لا توجد كلمة مرور محفوظة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.',
+        };
+      }
+
+      const tmpJson = path.join(app.getPath('temp'), `AZRAR_SERVER_BACKUP_IMPORT_TMP_${Date.now()}.json`);
+      try {
+        await decryptFileToFile({ sourcePath: filePath, destPath: tmpJson, password: encryptionPassword });
+        const res = await importServerBackupFromFile(tmpJson, 'merge');
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'importBackup',
+          status: res?.ok ? 'ok' : 'error',
+          message: res?.message,
+        });
+        return res;
+      } finally {
+        try {
+          await fsp.unlink(tmpJson);
+        } catch {
+          // ignore
+        }
+      }
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'importBackup',
+        status: res?.ok ? 'ok' : 'error',
+        message: res?.message,
+      });
       return res;
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'فشل استيراد النسخة الاحتياطية');
-      addSqlSyncLogEntry({ direction: 'system', action: 'importBackup', status: 'error', message: msg });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'importBackup',
+        status: 'error',
+        message: msg,
+      });
       return { ok: false, message: msg };
     }
   });
 
   ipcMain.handle('sql:restoreBackup', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const confirm = await dialog.showMessageBox({
         type: 'warning',
@@ -2156,27 +4157,84 @@ export function registerIpcHandlers() {
         defaultId: 0,
         cancelId: 0,
         title: 'تأكيد الاستعادة الكاملة',
-        message: 'هذه العملية ستحذف بيانات المخدم الحالية وتستبدلها بالكامل من ملف النسخة الاحتياطية.',
+        message:
+          'هذه العملية ستحذف بيانات المخدم الحالية وتستبدلها بالكامل من ملف النسخة الاحتياطية.',
         detail: 'استخدمها فقط عند الضرورة. هل تريد المتابعة؟',
       });
       if (confirm.response !== 1) return { ok: false, message: 'تم الإلغاء' };
 
-      addSqlSyncLogEntry({ direction: 'system', action: 'restoreBackup', status: 'ok', message: 'بدء استعادة كاملة من نسخة احتياطية' });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'restoreBackup',
+        status: 'ok',
+        message: 'بدء استعادة كاملة من نسخة احتياطية',
+      });
 
       const filePath = await chooseJsonFileViaDialog();
       if (!filePath) return { ok: false, message: 'تم الإلغاء' };
 
-      const res = await importServerBackupFromFile(filePath, 'replace');
-      addSqlSyncLogEntry({ direction: 'system', action: 'restoreBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
+      const isEnc = (await isEncryptedFile(filePath)) || path.extname(filePath).toLowerCase() === '.enc';
+      if (!isEnc) {
+        const res = await importServerBackupFromFile(filePath, 'replace');
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'restoreBackup',
+          status: res?.ok ? 'ok' : 'error',
+          message: res?.message,
+        });
+        return res;
+      }
+
+      const enc = await readBackupEncryptionSettings();
+      const encryptionPassword = enc.passwordEnc ? decryptSecretBestEffort(String(enc.passwordEnc || '')) : '';
+      if (!encryptionPassword) {
+        return {
+          ok: false,
+          message:
+            'الملف مشفر (.enc) لكن لا توجد كلمة مرور محفوظة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.',
+        };
+      }
+
+      const tmpJson = path.join(app.getPath('temp'), `AZRAR_SERVER_BACKUP_RESTORE_TMP_${Date.now()}.json`);
+      try {
+        await decryptFileToFile({ sourcePath: filePath, destPath: tmpJson, password: encryptionPassword });
+        const res = await importServerBackupFromFile(tmpJson, 'replace');
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'restoreBackup',
+          status: res?.ok ? 'ok' : 'error',
+          message: res?.message,
+        });
+        return res;
+      } finally {
+        try {
+          await fsp.unlink(tmpJson);
+        } catch {
+          // ignore
+        }
+      }
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'restoreBackup',
+        status: res?.ok ? 'ok' : 'error',
+        message: res?.message,
+      });
       return res;
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'فشل الاستعادة الكاملة');
-      addSqlSyncLogEntry({ direction: 'system', action: 'restoreBackup', status: 'error', message: msg });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'restoreBackup',
+        status: 'error',
+        message: msg,
+      });
       return { ok: false, message: msg };
     }
   });
 
   ipcMain.handle('sql:getBackupAutomationSettings', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const settings = await loadSqlBackupAutomationSettings();
       return { ok: true, settings };
@@ -2186,6 +4244,8 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:saveBackupAutomationSettings', async (_e, payload: unknown) => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const enabledRaw = getField(payload, 'enabled');
       const next = await saveSqlBackupAutomationSettings({
@@ -2199,28 +4259,52 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:listServerBackups', async (_e, payload: unknown) => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message, items: [] };
     const limit = getField(payload, 'limit');
     const n = typeof limit === 'number' ? limit : Number(limit || 60) || 60;
     return await listServerBackups(n);
   });
 
   ipcMain.handle('sql:createServerBackup', async (_e, payload: unknown) => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
-      addSqlSyncLogEntry({ direction: 'system', action: 'createServerBackup', status: 'ok', message: 'بدء رفع نسخة احتياطية إلى المخدم' });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'createServerBackup',
+        status: 'ok',
+        message: 'بدء رفع نسخة احتياطية إلى المخدم',
+      });
       const noteRaw = getField(payload, 'note');
       const note = noteRaw ? String(noteRaw).slice(0, 200) : undefined;
       const auto = await loadSqlBackupAutomationSettings();
-      const res = await createServerBackupOnServer({ note: note || 'manual', retentionDays: auto.retentionDays });
-      addSqlSyncLogEntry({ direction: 'system', action: 'createServerBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
+      const res = await createServerBackupOnServer({
+        note: note || 'manual',
+        retentionDays: auto.retentionDays,
+      });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'createServerBackup',
+        status: res?.ok ? 'ok' : 'error',
+        message: res?.message,
+      });
       return res;
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'فشل رفع النسخة الاحتياطية إلى المخدم');
-      addSqlSyncLogEntry({ direction: 'system', action: 'createServerBackup', status: 'error', message: msg });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'createServerBackup',
+        status: 'error',
+        message: msg,
+      });
       return { ok: false, message: msg };
     }
   });
 
   ipcMain.handle('sql:restoreServerBackup', async (_e, payload: unknown) => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const id = getStringField(payload, 'id').trim();
       const mode = getStringField(payload, 'mode') === 'replace' ? 'replace' : 'merge';
@@ -2239,13 +4323,28 @@ export function registerIpcHandlers() {
         if (confirm.response !== 1) return { ok: false, message: 'تم الإلغاء' };
       }
 
-      addSqlSyncLogEntry({ direction: 'system', action: 'restoreServerBackup', status: 'ok', message: `بدء استعادة نسخة من المخدم (${mode})` });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'restoreServerBackup',
+        status: 'ok',
+        message: `بدء استعادة نسخة من المخدم (${mode})`,
+      });
       const res = await restoreServerBackupFromServer(id, mode);
-      addSqlSyncLogEntry({ direction: 'system', action: 'restoreServerBackup', status: res?.ok ? 'ok' : 'error', message: res?.message });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'restoreServerBackup',
+        status: res?.ok ? 'ok' : 'error',
+        message: res?.message,
+      });
       return res;
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'فشل استعادة النسخة من المخدم');
-      addSqlSyncLogEntry({ direction: 'system', action: 'restoreServerBackup', status: 'error', message: msg });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'restoreServerBackup',
+        status: 'error',
+        message: msg,
+      });
       return { ok: false, message: msg };
     }
   });
@@ -2253,14 +4352,32 @@ export function registerIpcHandlers() {
   // Daily server backup automation (best-effort)
   const runDailyBackupTick = async (reason: string) => {
     try {
+      const allowed = await ensureSqlAllowedAsync();
+      if (!allowed.ok) return;
       const res = await ensureDailyServerBackupIfEnabled();
       if (!res?.ok) {
-        addSqlSyncLogEntry({ direction: 'system', action: 'dailyBackup', status: 'error', message: `${reason}: ${res?.message || 'فشل'}` });
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'dailyBackup',
+          status: 'error',
+          message: `${reason}: ${res?.message || 'فشل'}`,
+        });
         return;
       }
-      if (res?.created) addSqlSyncLogEntry({ direction: 'system', action: 'dailyBackup', status: 'ok', message: `${reason}: تم إنشاء نسخة يومية` });
+      if (res?.created)
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'dailyBackup',
+          status: 'ok',
+          message: `${reason}: تم إنشاء نسخة يومية`,
+        });
     } catch (e: unknown) {
-      addSqlSyncLogEntry({ direction: 'system', action: 'dailyBackup', status: 'error', message: `${reason}: ${toErrorMessage(e, 'فشل')}` });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'dailyBackup',
+        status: 'error',
+        message: `${reason}: ${toErrorMessage(e, 'فشل')}`,
+      });
     }
   };
 
@@ -2268,8 +4385,15 @@ export function registerIpcHandlers() {
   setInterval(() => void runDailyBackupTick('hourly'), 60 * 60 * 1000);
 
   ipcMain.handle('sql:syncNow', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
-      addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'ok', message: 'بدء المزامنة الآن' });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'syncNow',
+        status: 'ok',
+        message: 'بدء المزامنة الآن',
+      });
       const settings = await loadSqlSettings();
       if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
 
@@ -2279,34 +4403,86 @@ export function registerIpcHandlers() {
       let pullUpserts = 0;
       let pullDeletes = 0;
 
-      await startBackgroundPull(async (row) => {
-        const localMeta = kvGetMeta(row.k);
-        const localDeletedAt = kvGetDeletedAt(row.k);
-        const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
+      await startBackgroundPull(
+        async (row) => {
+          const localMeta = kvGetMeta(row.k);
+          const localDeletedAt = kvGetDeletedAt(row.k);
+          const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
 
-        const remoteTs = row.updatedAt;
-        const isRemoteNewer = !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
-        if (!isRemoteNewer) return;
+          const remoteTs = row.updatedAt;
+          const isRemoteNewer =
+            !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
+          if (!isRemoteNewer) return;
 
-        if (row.isDeleted) {
-          kvApplyRemoteDelete(row.k, remoteTs);
-          broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
-          addSqlSyncLogEntry({ direction: 'pull', action: 'delete', key: row.k, status: 'ok', ts: remoteTs });
-          pullDeletes += 1;
-        } else {
-          kvSetWithUpdatedAt(row.k, row.v, remoteTs);
-          broadcastDbRemoteUpdate({ key: row.k, value: row.v, isDeleted: false, updatedAt: remoteTs });
-          addSqlSyncLogEntry({ direction: 'pull', action: 'upsert', key: row.k, status: 'ok', ts: remoteTs });
-          pullUpserts += 1;
-        }
-      }, { runImmediately: true });
+          if (row.isDeleted) {
+            kvApplyRemoteDelete(row.k, remoteTs);
+            broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+            addSqlSyncLogEntry({
+              direction: 'pull',
+              action: 'delete',
+              key: row.k,
+              status: 'ok',
+              ts: remoteTs,
+            });
+            pullDeletes += 1;
+          } else {
+            kvSetWithUpdatedAt(row.k, row.v, remoteTs);
+            broadcastDbRemoteUpdate({
+              key: row.k,
+              value: row.v,
+              isDeleted: false,
+              updatedAt: remoteTs,
+            });
+            addSqlSyncLogEntry({
+              direction: 'pull',
+              action: 'upsert',
+              key: row.k,
+              status: 'ok',
+              ts: remoteTs,
+            });
+            pullUpserts += 1;
+
+            // Attachments: ensure the actual files exist locally after syncing metadata.
+            if (row.k === 'db_attachments') {
+              try {
+                const res = await pullAttachmentFilesForAttachmentsJson(row.v);
+                if (res.downloaded > 0) {
+                  addSqlSyncLogEntry({
+                    direction: 'system',
+                    action: 'attachments:pull',
+                    status: 'ok',
+                    message: `تم تنزيل ${res.downloaded} مرفق/مرفقات`,
+                  });
+                }
+                if (res.missingRemote > 0) {
+                  addSqlSyncLogEntry({
+                    direction: 'system',
+                    action: 'attachments:pull',
+                    status: 'error',
+                    message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}`,
+                  });
+                }
+              } catch (e: unknown) {
+                addSqlSyncLogEntry({
+                  direction: 'system',
+                  action: 'attachments:pull',
+                  status: 'error',
+                  message: toErrorMessage(e, 'فشل تنزيل المرفقات'),
+                });
+              }
+            }
+          }
+        },
+        { runImmediately: true }
+      );
 
       // Push local changes
       const pushStats = await pushAllLocalToRemote();
 
       const summaryParts: string[] = [];
       summaryParts.push(`سحب: تعديل ${pullUpserts} / حذف ${pullDeletes}`);
-      if (pushStats) summaryParts.push(`رفع: تعديل ${pushStats.upsertsOk} / حذف ${pushStats.deletesOk}`);
+      if (pushStats)
+        summaryParts.push(`رفع: تعديل ${pushStats.upsertsOk} / حذف ${pushStats.deletesOk}`);
       if (pushStats?.errors) summaryParts.push(`أخطاء رفع: ${pushStats.errors}`);
 
       addSqlSyncLogEntry({
@@ -2328,8 +4504,15 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:pullFullNow', async () => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
-      addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'ok', message: 'بدء سحب كامل من المخدم' });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'syncNow',
+        status: 'ok',
+        message: 'بدء سحب كامل من المخدم',
+      });
       const settings = await loadSqlSettings();
       if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
 
@@ -2339,27 +4522,78 @@ export function registerIpcHandlers() {
       let pullUpserts = 0;
       let pullDeletes = 0;
 
-      await startBackgroundPull(async (row) => {
-        const localMeta = kvGetMeta(row.k);
-        const localDeletedAt = kvGetDeletedAt(row.k);
-        const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
+      await startBackgroundPull(
+        async (row) => {
+          const localMeta = kvGetMeta(row.k);
+          const localDeletedAt = kvGetDeletedAt(row.k);
+          const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
 
-        const remoteTs = row.updatedAt;
-        const isRemoteNewer = !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
-        if (!isRemoteNewer) return;
+          const remoteTs = row.updatedAt;
+          const isRemoteNewer =
+            !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
+          if (!isRemoteNewer) return;
 
-        if (row.isDeleted) {
-          kvApplyRemoteDelete(row.k, remoteTs);
-          broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
-          addSqlSyncLogEntry({ direction: 'pull', action: 'delete', key: row.k, status: 'ok', ts: remoteTs });
-          pullDeletes += 1;
-        } else {
-          kvSetWithUpdatedAt(row.k, row.v, remoteTs);
-          broadcastDbRemoteUpdate({ key: row.k, value: row.v, isDeleted: false, updatedAt: remoteTs });
-          addSqlSyncLogEntry({ direction: 'pull', action: 'upsert', key: row.k, status: 'ok', ts: remoteTs });
-          pullUpserts += 1;
-        }
-      }, { runImmediately: true, forceFullPull: true });
+          if (row.isDeleted) {
+            kvApplyRemoteDelete(row.k, remoteTs);
+            broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+            addSqlSyncLogEntry({
+              direction: 'pull',
+              action: 'delete',
+              key: row.k,
+              status: 'ok',
+              ts: remoteTs,
+            });
+            pullDeletes += 1;
+          } else {
+            kvSetWithUpdatedAt(row.k, row.v, remoteTs);
+            broadcastDbRemoteUpdate({
+              key: row.k,
+              value: row.v,
+              isDeleted: false,
+              updatedAt: remoteTs,
+            });
+            addSqlSyncLogEntry({
+              direction: 'pull',
+              action: 'upsert',
+              key: row.k,
+              status: 'ok',
+              ts: remoteTs,
+            });
+            pullUpserts += 1;
+
+            // Attachments: ensure the actual files exist locally after syncing metadata.
+            if (row.k === 'db_attachments') {
+              try {
+                const res = await pullAttachmentFilesForAttachmentsJson(row.v);
+                if (res.downloaded > 0) {
+                  addSqlSyncLogEntry({
+                    direction: 'system',
+                    action: 'attachments:pull',
+                    status: 'ok',
+                    message: `تم تنزيل ${res.downloaded} مرفق/مرفقات`,
+                  });
+                }
+                if (res.missingRemote > 0) {
+                  addSqlSyncLogEntry({
+                    direction: 'system',
+                    action: 'attachments:pull',
+                    status: 'error',
+                    message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}`,
+                  });
+                }
+              } catch (e: unknown) {
+                addSqlSyncLogEntry({
+                  direction: 'system',
+                  action: 'attachments:pull',
+                  status: 'error',
+                  message: toErrorMessage(e, 'فشل تنزيل المرفقات'),
+                });
+              }
+            }
+          }
+        },
+        { runImmediately: true, forceFullPull: true }
+      );
 
       const msg = `تم السحب من المخدم: تعديل ${pullUpserts} / حذف ${pullDeletes}`;
       addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'ok', message: msg });
@@ -2372,8 +4606,15 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:mergePublishAdmin', async (_e, payload: unknown) => {
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
-      addSqlSyncLogEntry({ direction: 'system', action: 'mergePublish', status: 'ok', message: 'بدء دمج ونشر (SuperAdmin) للمفاتيح المحددة' });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'mergePublish',
+        status: 'ok',
+        message: 'بدء دمج ونشر (SuperAdmin) للمفاتيح المحددة',
+      });
       const settings = await loadSqlSettings();
       if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
 
@@ -2382,9 +4623,17 @@ export function registerIpcHandlers() {
 
       const requestedKeysRaw = getField(payload, 'keys');
       const requestedKeys = Array.isArray(requestedKeysRaw) ? requestedKeysRaw : undefined;
-      const keys = (requestedKeys && requestedKeys.length > 0
-        ? requestedKeys
-        : ['db_users', 'db_user_permissions', 'db_roles', 'db_lookup_categories', 'db_lookups', 'db_legal_templates']
+      const keys = (
+        requestedKeys && requestedKeys.length > 0
+          ? requestedKeys
+          : [
+              'db_users',
+              'db_user_permissions',
+              'db_roles',
+              'db_lookup_categories',
+              'db_lookups',
+              'db_legal_templates',
+            ]
       )
         .map((k: unknown) => String(k || '').trim())
         .filter((k: string) => k.startsWith('db_'));
@@ -2401,6 +4650,54 @@ export function registerIpcHandlers() {
         } catch {
           return [];
         }
+      };
+
+      const normKeySimple = (v: unknown) => String(v ?? '').trim().toLowerCase();
+
+      const stableHash32 = (input: string): string => {
+        let h = 5381;
+        for (let i = 0; i < input.length; i++) {
+          h = (h * 33) ^ input.charCodeAt(i);
+        }
+        return (h >>> 0).toString(36);
+      };
+
+      const lookupKeyFor = (category: unknown, label: unknown): string => {
+        const c = normKeySimple(category);
+        const l = normKeySimple(label);
+        if (!c || !l) return '';
+        return `${c}_${stableHash32(l)}`;
+      };
+
+      const normalizeForPublish = (key: string, arr: unknown[]): unknown[] => {
+        if (!Array.isArray(arr)) return [];
+
+        if (key === 'db_lookup_categories') {
+          return arr.map((it) => {
+            if (!it || typeof it !== 'object' || Array.isArray(it)) return it;
+            const rec = it as Record<string, unknown>;
+            const name = String(rec.name ?? rec.id ?? '').trim();
+            if (!name) return it;
+            const id = String(rec.id ?? name).trim();
+            const label = String(rec.label ?? name).trim();
+            const key2 = String(rec.key ?? name).trim();
+            return { ...rec, id, name, label, key: key2 };
+          });
+        }
+
+        if (key === 'db_lookups') {
+          return arr.map((it) => {
+            if (!it || typeof it !== 'object' || Array.isArray(it)) return it;
+            const rec = it as Record<string, unknown>;
+            const category = String(rec.category ?? '').trim();
+            const label = String(rec.label ?? '').trim();
+            if (!category || !label) return it;
+            const key2 = String(rec.key ?? lookupKeyFor(category, label)).trim();
+            return { ...rec, category, label, key: key2 };
+          });
+        }
+
+        return arr;
       };
 
       const toMaybeMs = (obj: unknown): number | null => {
@@ -2433,19 +4730,27 @@ export function registerIpcHandlers() {
 
         // lookups might be { id, category, label }
         if (k === 'db_lookups') {
+          const stableKey = getStringField(item, 'key').trim();
+          if (stableKey) return `key:${stableKey}`;
           const id = getStringField(item, 'id').trim();
           if (id) return `id:${id}`;
           const category = getStringField(item, 'category').trim();
           const label = getStringField(item, 'label').trim();
-          if (category && label) return `lookup:${category}:${label}`;
+          if (category && label) {
+            const computed = lookupKeyFor(category, label);
+            if (computed) return `key:${computed}`;
+            return `lookup:${category}:${label}`;
+          }
         }
 
         // lookup categories might be { id, name, label }
         if (k === 'db_lookup_categories') {
+          const stableKey = getStringField(item, 'key').trim();
+          if (stableKey) return `key:${stableKey}`;
           const id = getStringField(item, 'id').trim();
           if (id) return `id:${id}`;
           const name = getStringField(item, 'name').trim();
-          if (name) return `name:${name}`;
+          if (name) return `key:${name}`;
         }
 
         // users might be { id, اسم_المستخدم }
@@ -2516,7 +4821,8 @@ export function registerIpcHandlers() {
         return order.map((id) => map.get(id)).filter(Boolean);
       };
 
-      const prefer: 'local' | 'remote' = getStringField(payload, 'prefer') === 'remote' ? 'remote' : 'local';
+      const prefer: 'local' | 'remote' =
+        getStringField(payload, 'prefer') === 'remote' ? 'remote' : 'local';
       const nowIso = new Date().toISOString();
 
       let applied = 0;
@@ -2537,11 +4843,18 @@ export function registerIpcHandlers() {
           const remoteArr = remoteIsDeleted ? [] : safeJsonParseArray(remoteRaw);
 
           const mergedArr = mergeArrayByIdentity(key, remoteArr, localArr, prefer);
-          const mergedJson = JSON.stringify(mergedArr);
+          const normalizedMerged = normalizeForPublish(key, mergedArr);
+          const mergedJson = JSON.stringify(normalizedMerged);
 
           // Push to server with a fresh timestamp so it's always newer than any existing remote row.
           await pushKvUpsert({ key, value: mergedJson, updatedAt: nowIso });
-          addSqlSyncLogEntry({ direction: 'push', action: 'mergeUpsert', key, status: 'ok', ts: nowIso });
+          addSqlSyncLogEntry({
+            direction: 'push',
+            action: 'mergeUpsert',
+            key,
+            status: 'ok',
+            ts: nowIso,
+          });
 
           // Also normalize local state to match what we just published.
           kvSetWithUpdatedAt(key, mergedJson, nowIso);
@@ -2550,22 +4863,48 @@ export function registerIpcHandlers() {
           applied += 1;
         } catch (e: unknown) {
           errors += 1;
-          addSqlSyncLogEntry({ direction: 'system', action: 'mergePublish', key, status: 'error', message: toErrorMessage(e, 'فشل الدمج/النشر') });
+          addSqlSyncLogEntry({
+            direction: 'system',
+            action: 'mergePublish',
+            key,
+            status: 'error',
+            message: toErrorMessage(e, 'فشل الدمج/النشر'),
+          });
         }
       }
 
-      const message = errors > 0 ? `تم الدمج/النشر: ${applied} (مع أخطاء: ${errors})` : `تم الدمج/النشر بنجاح: ${applied}`;
-      addSqlSyncLogEntry({ direction: 'system', action: 'mergePublish', status: errors > 0 ? 'error' : 'ok', message });
+      const message =
+        errors > 0
+          ? `تم الدمج/النشر: ${applied} (مع أخطاء: ${errors})`
+          : `تم الدمج/النشر بنجاح: ${applied}`;
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'mergePublish',
+        status: errors > 0 ? 'error' : 'ok',
+        message,
+      });
       return { ok: errors === 0, message, applied, errors, keys };
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'فشل الدمج/النشر');
-      addSqlSyncLogEntry({ direction: 'system', action: 'mergePublish', status: 'error', message: msg });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'mergePublish',
+        status: 'error',
+        message: msg,
+      });
       return { ok: false, message: msg };
     }
   });
 
   ipcMain.handle('sql:provision', async (_e, payload: unknown) => {
-    addSqlSyncLogEntry({ direction: 'system', action: 'provision', status: 'ok', message: 'بدء تهيئة المخدم' });
+    const allowed = await ensureSqlAllowedAsync();
+    if (!allowed.ok) return { ok: false, message: allowed.message };
+    addSqlSyncLogEntry({
+      direction: 'system',
+      action: 'provision',
+      status: 'ok',
+      message: 'بدء تهيئة المخدم',
+    });
     try {
       type ProvisionRequest = Parameters<typeof provisionSqlServer>[0];
       const databaseRaw = getStringField(payload, 'database').trim();
@@ -2584,37 +4923,66 @@ export function registerIpcHandlers() {
       };
 
       if (!req.server) return { ok: false, message: 'اسم السيرفر مطلوب' };
-      if (!req.adminUser || !req.adminPassword) return { ok: false, message: 'بيانات الأدمن مطلوبة' };
-      if (!req.managerUser || !req.managerPassword) return { ok: false, message: 'بيانات المدير مطلوبة' };
-      if (!req.employeeUser || !req.employeePassword) return { ok: false, message: 'بيانات الموظف مطلوبة' };
+      if (!req.adminUser || !req.adminPassword)
+        return { ok: false, message: 'بيانات الأدمن مطلوبة' };
+      if (!req.managerUser || !req.managerPassword)
+        return { ok: false, message: 'بيانات المدير مطلوبة' };
+      if (!req.employeeUser || !req.employeePassword)
+        return { ok: false, message: 'بيانات الموظف مطلوبة' };
 
       const res = await provisionSqlServer(req);
-      addSqlSyncLogEntry({ direction: 'system', action: 'provision', status: res?.ok ? 'ok' : 'error', message: res?.message });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'provision',
+        status: res?.ok ? 'ok' : 'error',
+        message: res?.message,
+      });
       if (res.ok) {
         // after provisioning, connect using saved app credentials and start pull loop
         const settings = await loadSqlSettings();
         const conn = await connectAndEnsureDatabase(settings);
         if (conn.ok) {
           await resetSqlPullState();
-          await startBackgroundPull(async (row) => {
-            const localMeta = kvGetMeta(row.k);
-            const localDeletedAt = kvGetDeletedAt(row.k);
-            const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
+          await startBackgroundPull(
+            async (row) => {
+              const localMeta = kvGetMeta(row.k);
+              const localDeletedAt = kvGetDeletedAt(row.k);
+              const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
 
-            const remoteTs = row.updatedAt;
-            const isRemoteNewer = !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
-            if (!isRemoteNewer) return;
+              const remoteTs = row.updatedAt;
+              const isRemoteNewer =
+                !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
+              if (!isRemoteNewer) return;
 
-            if (row.isDeleted) {
-              kvApplyRemoteDelete(row.k, remoteTs);
-              broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
-              addSqlSyncLogEntry({ direction: 'pull', action: 'delete', key: row.k, status: 'ok', ts: remoteTs });
-            } else {
-              kvSetWithUpdatedAt(row.k, row.v, remoteTs);
-              broadcastDbRemoteUpdate({ key: row.k, value: row.v, isDeleted: false, updatedAt: remoteTs });
-              addSqlSyncLogEntry({ direction: 'pull', action: 'upsert', key: row.k, status: 'ok', ts: remoteTs });
-            }
-          }, { runImmediately: true, forceFullPull: true });
+              if (row.isDeleted) {
+                kvApplyRemoteDelete(row.k, remoteTs);
+                broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+                addSqlSyncLogEntry({
+                  direction: 'pull',
+                  action: 'delete',
+                  key: row.k,
+                  status: 'ok',
+                  ts: remoteTs,
+                });
+              } else {
+                kvSetWithUpdatedAt(row.k, row.v, remoteTs);
+                broadcastDbRemoteUpdate({
+                  key: row.k,
+                  value: row.v,
+                  isDeleted: false,
+                  updatedAt: remoteTs,
+                });
+                addSqlSyncLogEntry({
+                  direction: 'pull',
+                  action: 'upsert',
+                  key: row.k,
+                  status: 'ok',
+                  ts: remoteTs,
+                });
+              }
+            },
+            { runImmediately: true, forceFullPull: true }
+          );
 
           await pushAllLocalToRemote();
         }
@@ -2622,7 +4990,12 @@ export function registerIpcHandlers() {
       return res;
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'بيانات التهيئة غير صالحة');
-      addSqlSyncLogEntry({ direction: 'system', action: 'provision', status: 'error', message: msg });
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'provision',
+        status: 'error',
+        message: msg,
+      });
       return { ok: false, message: msg };
     }
   });
@@ -2632,9 +5005,16 @@ export function registerIpcHandlers() {
   setTimeout(() => {
     void (async () => {
       try {
+        const allowed = await ensureSqlAllowedAsync();
+        if (!allowed.ok) return;
         const settings = await loadSqlSettings();
         if (!settings.enabled) return;
-        addSqlSyncLogEntry({ direction: 'system', action: 'connect', status: 'ok', message: 'بدء الاتصال التلقائي بالمخدم' });
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'connect',
+          status: 'ok',
+          message: 'بدء الاتصال التلقائي بالمخدم',
+        });
         const res = await connectAndEnsureDatabase(settings);
         if (res.ok) {
           await startSqlPullLoop();
@@ -2656,22 +5036,59 @@ export function registerIpcHandlers() {
 
           startAutoSyncPushLoop();
         } else {
-          addSqlSyncLogEntry({ direction: 'system', action: 'connect', status: 'error', message: res?.message || 'فشل الاتصال التلقائي بالمخدم' });
+          addSqlSyncLogEntry({
+            direction: 'system',
+            action: 'connect',
+            status: 'error',
+            message: res?.message || 'فشل الاتصال التلقائي بالمخدم',
+          });
         }
       } catch (e: unknown) {
-        addSqlSyncLogEntry({ direction: 'system', action: 'connect', status: 'error', message: toErrorMessage(e, 'فشل الاتصال التلقائي بالمخدم') });
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'connect',
+          status: 'error',
+          message: toErrorMessage(e, 'فشل الاتصال التلقائي بالمخدم'),
+        });
       }
     })();
   }, 800);
 
   ipcMain.handle('db:getBackupDir', async () => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return '';
     const settings = await readBackupSettings();
     const dir = settings.backupDir;
     if (dir && isExistingDirectory(dir)) return dir;
     return '';
   });
 
+  ipcMain.handle('db:openBackupDir', async () => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { ok: false, message: allowed.message };
+    try {
+      const settings = await readBackupSettings();
+      const dir = settings.backupDir;
+      if (!dir || !isExistingDirectory(dir)) {
+        return { ok: false, message: 'مجلد النسخ الاحتياطي غير مضبوط' };
+      }
+
+      const resolved = await fsp.realpath(dir).catch(() => path.resolve(dir));
+      if (isUncPath(resolved)) {
+        return { ok: false, message: 'غير مسموح فتح مجلد النسخ من مسار شبكة (UNC)' };
+      }
+
+      const r = await shell.openPath(resolved);
+      if (r) return { ok: false, message: r };
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل فتح المجلد') };
+    }
+  });
+
   ipcMain.handle('db:chooseBackupDir', async () => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { success: false, message: allowed.message };
     const dir = await chooseBackupDirViaDialog();
     if (!dir) return { success: false, message: 'تم الإلغاء' };
     try {
@@ -2682,14 +5099,154 @@ export function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('db:getLocalBackupAutomationSettings', async () => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) {
+      // Return safe defaults to keep UI stable.
+      return { v: 1, enabled: false, timeHHmm: '02:00', retentionDays: 30 };
+    }
+    return await readLocalBackupAutomationSettings();
+  });
+
+  ipcMain.handle('db:saveLocalBackupAutomationSettings', async (_e, payload: Record<string, unknown> | undefined) => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    try {
+      const current = await readLocalBackupAutomationSettings();
+      const next: LocalBackupAutomationSettings = {
+        ...current,
+        v: 1,
+        enabled: payload?.enabled === true,
+        timeHHmm: normalizeTimeHHmm(payload?.timeHHmm ?? current.timeHHmm),
+        retentionDays: normalizeRetentionDays(payload?.retentionDays ?? current.retentionDays),
+        lastRunAt: typeof current.lastRunAt === 'string' ? current.lastRunAt : undefined,
+      };
+      await writeLocalBackupAutomationSettings(next);
+      startLocalAutoBackupScheduler();
+      return { success: true, message: 'تم حفظ إعدادات النسخ الاحتياطي التلقائي', settings: await readLocalBackupAutomationSettings() };
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل حفظ إعدادات النسخ الاحتياطي التلقائي') };
+    }
+  });
+
+  ipcMain.handle('db:getLocalBackupStats', async () => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) {
+      return {
+        ok: false,
+        message: allowed.message,
+        dbArchivesCount: 0,
+        attachmentsArchivesCount: 0,
+        latestDbExists: false,
+        latestAttachmentsExists: false,
+        totalBytes: 0,
+        newestMtimeMs: 0,
+        files: [],
+      };
+    }
+    try {
+      const backupSettings = await readBackupSettings();
+      const dir =
+        backupSettings.backupDir && isExistingDirectory(backupSettings.backupDir)
+          ? backupSettings.backupDir
+          : '';
+      return await getLocalBackupStatsBestEffort(dir);
+    } catch (e: unknown) {
+      return {
+        ok: false,
+        message: toErrorMessage(e, 'فشل قراءة إحصائيات النسخ الاحتياطي'),
+        dbArchivesCount: 0,
+        attachmentsArchivesCount: 0,
+        latestDbExists: false,
+        latestAttachmentsExists: false,
+        totalBytes: 0,
+        newestMtimeMs: 0,
+        files: [],
+      };
+    }
+  });
+
+  ipcMain.handle('db:getLocalBackupLog', async (_e, payload: { limit?: number } | undefined) => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return [];
+    const limit = payload?.limit;
+    return await readLocalBackupLogEntries(typeof limit === 'number' ? limit : 200);
+  });
+
+  ipcMain.handle('db:clearLocalBackupLog', async () => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { ok: false, message: allowed.message };
+    await clearLocalBackupLog();
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:runLocalBackupNow', async () => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    try {
+      const backupSettings = await readBackupSettings();
+      const dir =
+        backupSettings.backupDir && isExistingDirectory(backupSettings.backupDir)
+          ? backupSettings.backupDir
+          : '';
+      if (!dir) return { success: false, message: 'مجلد النسخ الاحتياطي غير مضبوط' };
+
+      const res = await runLocalBackupToDir(dir);
+      if (!res.ok) {
+        await appendLocalBackupLogEntry({
+          ts: new Date().toISOString(),
+          ok: false,
+          trigger: 'manual',
+          message: res.message || 'فشل إنشاء النسخة الاحتياطية',
+        });
+        return { success: false, message: res.message || 'فشل إنشاء النسخة الاحتياطية' };
+      }
+
+      const st = await readLocalBackupAutomationSettings();
+      await writeLocalBackupAutomationSettings({ ...st, enabled: st.enabled === true, lastRunAt: new Date().toISOString() });
+      await pruneLocalBackupsBestEffort(dir, st.retentionDays ?? 30);
+
+      await appendLocalBackupLogEntry({
+        ts: new Date().toISOString(),
+        ok: true,
+        trigger: 'manual',
+        message: 'تم إنشاء نسخة احتياطية يدوياً',
+        latestPath: res.latestPath,
+        archivePath: res.archivePath,
+        attachmentsLatestPath: res.attachmentsLatestPath,
+        attachmentsArchivePath: res.attachmentsArchivePath,
+      });
+      return {
+        success: true,
+        message: 'تم إنشاء نسخة احتياطية كاملة بنجاح',
+        latestPath: res.latestPath,
+        archivePath: res.archivePath,
+        attachmentsLatestPath: res.attachmentsLatestPath,
+        attachmentsArchivePath: res.attachmentsArchivePath,
+      };
+    } catch (e: unknown) {
+      await appendLocalBackupLogEntry({
+        ts: new Date().toISOString(),
+        ok: false,
+        trigger: 'manual',
+        message: toErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية'),
+      });
+      return { success: false, message: toErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية') };
+    }
+  });
+
   // Export database to user-selected folder
   // Creates both a stable "latest" backup and a dated archive backup.
   ipcMain.handle('db:export', async () => {
-    if (dbMaintenanceMode) return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    if (dbMaintenanceMode)
+      return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
 
     // Remember first selected backup folder and reuse it.
     const settings = await readBackupSettings();
-    let dir = settings.backupDir && isExistingDirectory(settings.backupDir) ? settings.backupDir : null;
+    let dir =
+      settings.backupDir && isExistingDirectory(settings.backupDir) ? settings.backupDir : null;
 
     if (!dir) {
       const result = await dialog.showOpenDialog({
@@ -2709,9 +5266,17 @@ export function registerIpcHandlers() {
       }
     }
 
+    const encState = await getBackupEncryptionPasswordState();
+    const encryptionRequested = encState.enabled;
+    const encryptionConfigured = encState.configured;
+    const encryptionPassword = encState.password;
+
     const today = new Date().toISOString().slice(0, 10);
 
-    const latestPath = path.join(dir, 'AZRAR-backup-latest.db');
+    const latestPath = path.join(
+      dir,
+      encryptionRequested ? 'AZRAR-backup-latest.db.enc' : 'AZRAR-backup-latest.db'
+    );
 
     const makeUniqueArchivePath = (basePath: string) => {
       const ext = path.extname(basePath);
@@ -2725,12 +5290,63 @@ export function registerIpcHandlers() {
       return candidate;
     };
 
-    const archiveBase = path.join(dir, `AZRAR-backup-${today}.db`);
+    const archiveBase = path.join(
+      dir,
+      encryptionRequested ? `AZRAR-backup-${today}.db.enc` : `AZRAR-backup-${today}.db`
+    );
     const archivePath = makeUniqueArchivePath(archiveBase);
+
+    const attachmentsLatestPath = path.join(
+      dir,
+      encryptionRequested
+        ? 'AZRAR-attachments-latest.tar.gz.enc'
+        : 'AZRAR-attachments-latest.tar.gz'
+    );
+
+    const attachmentsArchiveBase = path.join(
+      dir,
+      encryptionRequested
+        ? `AZRAR-attachments-${today}.tar.gz.enc`
+        : `AZRAR-attachments-${today}.tar.gz`
+    );
+    const attachmentsArchivePath = makeUniqueArchivePath(attachmentsArchiveBase);
 
     try {
       dbMaintenanceMode = true;
-      await exportDatabaseToMany([latestPath, archivePath]);
+      if (!encryptionRequested) {
+        await exportDatabaseToMany([latestPath, archivePath]);
+      } else {
+        if (!encryptionConfigured || !encryptionPassword) {
+          throw new Error('تشفير النسخ الاحتياطية مفعل لكن كلمة المرور غير مضبوطة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.');
+        }
+
+        const tmpPlain = path.join(app.getPath('temp'), `AZRAR-backup-tmp-${Date.now()}.db`);
+        try {
+          await exportDatabaseToMany([tmpPlain]);
+          await encryptFileToFile({ sourcePath: tmpPlain, destPath: latestPath, password: encryptionPassword });
+          await encryptFileToFile({ sourcePath: tmpPlain, destPath: archivePath, password: encryptionPassword });
+        } finally {
+          try {
+            await fsp.unlink(tmpPlain);
+          } catch {
+            // ignore
+          }
+        }
+      }
+      // Attachments archive (best-effort)
+      let attachmentsCopied = false;
+      try {
+        const res = await exportAttachmentsArchiveToMany({
+          destPaths: [attachmentsLatestPath, attachmentsArchivePath],
+          encryptionRequested,
+          encryptionConfigured,
+          encryptionPassword,
+        });
+        attachmentsCopied = res.copiedAny;
+      } catch {
+        attachmentsCopied = false;
+      }
+
       dbMaintenanceMode = false;
       return {
         success: true,
@@ -2738,6 +5354,8 @@ export function registerIpcHandlers() {
         path: latestPath,
         latestPath,
         archivePath,
+        attachmentsLatestPath: attachmentsCopied ? attachmentsLatestPath : undefined,
+        attachmentsArchivePath: attachmentsCopied ? attachmentsArchivePath : undefined,
       };
     } catch (err: unknown) {
       dbMaintenanceMode = false;
@@ -2747,14 +5365,18 @@ export function registerIpcHandlers() {
 
   // Import database from user-selected file
   ipcMain.handle('db:import', async () => {
-    if (dbMaintenanceMode) return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    if (dbMaintenanceMode)
+      return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
     const result = await dialog.showOpenDialog({
       title: 'استيراد قاعدة البيانات',
       filters: [
         { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] },
-        { name: 'All Files', extensions: ['*'] }
+        { name: 'Encrypted Backup', extensions: ['enc'] },
+        { name: 'All Files', extensions: ['*'] },
       ],
-      properties: ['openFile']
+      properties: ['openFile'],
     });
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -2766,25 +5388,223 @@ export function registerIpcHandlers() {
       if (!selected) return { success: false, message: 'مسار الملف غير صالح' };
 
       const resolved = await fsp.realpath(selected).catch(() => path.resolve(selected));
-      if (isUncPath(resolved)) return { success: false, message: 'غير مسموح استيراد قاعدة البيانات من مسار شبكة (UNC)' };
+      if (isUncPath(resolved))
+        return { success: false, message: 'غير مسموح استيراد قاعدة البيانات من مسار شبكة (UNC)' };
 
       const ext = path.extname(resolved).toLowerCase();
-      if (!['.db', '.sqlite', '.sqlite3'].includes(ext)) {
-        return { success: false, message: 'الملف يجب أن يكون قاعدة بيانات SQLite (.db / .sqlite / .sqlite3)' };
+      const looksEncryptedByExt = ext === '.enc';
+      const looksEncryptedByMagic = await isEncryptedFile(resolved);
+      const isEncrypted = looksEncryptedByExt || looksEncryptedByMagic;
+
+      if (!isEncrypted) {
+        if (!['.db', '.sqlite', '.sqlite3'].includes(ext)) {
+          return {
+            success: false,
+            message: 'الملف يجب أن يكون قاعدة بيانات SQLite (.db / .sqlite / .sqlite3) أو ملف نسخة مشفرة (.enc)',
+          };
+        }
       }
 
       const st = await fsp.stat(resolved);
       if (!st.isFile()) return { success: false, message: 'الملف غير صالح' };
       if (st.size <= 0) return { success: false, message: 'الملف فارغ' };
-      if (st.size > MAX_DB_IMPORT_BYTES) return { success: false, message: 'حجم قاعدة البيانات كبير جداً' };
+      if (st.size > MAX_DB_IMPORT_BYTES)
+        return { success: false, message: 'حجم قاعدة البيانات كبير جداً' };
 
       dbMaintenanceMode = true;
-      await importDatabase(resolved);
+      if (!isEncrypted) {
+        await importDatabase(resolved);
+        // Best-effort: restore attachments if a companion archive exists next to the selected DB.
+        let attachmentsRestored = false;
+        let attachmentsMsg: string | undefined;
+        try {
+          const dir = path.dirname(resolved);
+          const base = path.basename(resolved);
+          const candByName = base
+            .replace(/^AZRAR-backup-/, 'AZRAR-attachments-')
+            .replace(/\.db(\.enc)?$/i, '.tar.gz$1');
+
+          const candidates = [
+            path.join(dir, candByName),
+            path.join(dir, 'AZRAR-attachments-latest.tar.gz.enc'),
+            path.join(dir, 'AZRAR-attachments-latest.tar.gz'),
+          ];
+
+          const archiveCandidate = candidates.find((p) => p && fs.existsSync(p));
+          if (archiveCandidate) {
+            const s = await readBackupEncryptionSettings();
+            const password = s.passwordEnc ? decryptSecretBestEffort(String(s.passwordEnc || '')) : '';
+            const r = await restoreAttachmentsFromArchiveBestEffort({ archivePath: archiveCandidate, password });
+            attachmentsRestored = r.restored;
+            attachmentsMsg = r.message;
+          }
+        } catch (e: unknown) {
+          attachmentsMsg = toErrorMessage(e, 'فشل استعادة المرفقات');
+          attachmentsRestored = false;
+        }
+
+        dbMaintenanceMode = false;
+        const msg = attachmentsRestored
+          ? 'تم الاستيراد بنجاح (قاعدة البيانات + المرفقات) - أعد تشغيل التطبيق'
+          : attachmentsMsg
+            ? `تم الاستيراد بنجاح - أعد تشغيل التطبيق. ملاحظة: ${attachmentsMsg}`
+            : 'تم الاستيراد بنجاح - أعد تشغيل التطبيق';
+        return { success: true, message: msg, path: resolved, attachmentsRestored };
+      }
+
+      const enc = await readBackupEncryptionSettings();
+      const encryptionPassword = enc.passwordEnc ? decryptSecretBestEffort(String(enc.passwordEnc || '')) : '';
+      if (!encryptionPassword) {
+        dbMaintenanceMode = false;
+        return { success: false, message: 'لا توجد كلمة مرور لتشفير النسخ الاحتياطية. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.' };
+      }
+
+      const tmpPlain = path.join(app.getPath('temp'), `AZRAR-restore-tmp-${Date.now()}.db`);
+      try {
+        await decryptFileToFile({ sourcePath: resolved, destPath: tmpPlain, password: encryptionPassword });
+        await importDatabase(tmpPlain);
+      } finally {
+        try {
+          await fsp.unlink(tmpPlain);
+        } catch {
+          // ignore
+        }
+      }
+
+      // Best-effort: restore attachments if a companion archive exists next to the selected DB.
+      let attachmentsRestored = false;
+      let attachmentsMsg: string | undefined;
+      try {
+        const dir = path.dirname(resolved);
+        const base = path.basename(resolved);
+        const candByName = base
+          .replace(/^AZRAR-backup-/, 'AZRAR-attachments-')
+          .replace(/\.db(\.enc)?$/i, '.tar.gz$1');
+
+        const candidates = [
+          path.join(dir, candByName),
+          path.join(dir, 'AZRAR-attachments-latest.tar.gz.enc'),
+          path.join(dir, 'AZRAR-attachments-latest.tar.gz'),
+        ];
+
+        const archiveCandidate = candidates.find((p) => p && fs.existsSync(p));
+        if (archiveCandidate) {
+          const r = await restoreAttachmentsFromArchiveBestEffort({
+            archivePath: archiveCandidate,
+            password: encryptionPassword,
+          });
+          attachmentsRestored = r.restored;
+          attachmentsMsg = r.message;
+        }
+      } catch (e: unknown) {
+        attachmentsMsg = toErrorMessage(e, 'فشل استعادة المرفقات');
+        attachmentsRestored = false;
+      }
+
       dbMaintenanceMode = false;
-      return { success: true, message: 'تم الاستيراد بنجاح - أعد تشغيل التطبيق', path: resolved };
+      const msg = attachmentsRestored
+        ? 'تم الاستيراد بنجاح (قاعدة البيانات + المرفقات) - أعد تشغيل التطبيق'
+        : attachmentsMsg
+          ? `تم الاستيراد بنجاح - أعد تشغيل التطبيق. ملاحظة: ${attachmentsMsg}`
+          : 'تم الاستيراد بنجاح - أعد تشغيل التطبيق';
+      return { success: true, message: msg, path: resolved, attachmentsRestored };
     } catch (err: unknown) {
       dbMaintenanceMode = false;
       return { success: false, message: toErrorMessage(err, 'فشل استيراد قاعدة البيانات') };
+    }
+  });
+
+  ipcMain.handle('db:getBackupEncryptionSettings', async () => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    try {
+      const s = await readBackupEncryptionSettings();
+      const available = safeStorage?.isEncryptionAvailable?.() === true;
+      return {
+        success: true,
+        available,
+        enabled: s.enabled === true,
+        hasPassword: !!s.passwordEnc,
+      };
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل قراءة إعدادات تشفير النسخ الاحتياطية') };
+    }
+  });
+
+  ipcMain.handle('db:saveBackupEncryptionSettings', async (_evt, payload: unknown) => {
+    const allowed = await ensureFeatureAllowedAsync('backups');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    try {
+      const p = (payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}) as Record<
+        string,
+        unknown
+      >;
+
+      const nextEnabled = p.enabled === undefined ? undefined : !!p.enabled;
+      const clearPassword = p.clearPassword === true;
+      const password = typeof p.password === 'string' ? p.password : undefined;
+
+      if (password !== undefined) {
+        if (password.length < 6) return { success: false, message: 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)' };
+        if (password.length > 256) return { success: false, message: 'كلمة المرور طويلة جداً' };
+        if (password.includes('\u0000')) return { success: false, message: 'كلمة المرور غير صالحة' };
+      }
+
+      const current = await readBackupEncryptionSettings();
+      const currentPasswordPlain = current.passwordEnc
+        ? decryptSecretBestEffort(String(current.passwordEnc || ''))
+        : '';
+      const next: BackupEncryptionSettings = {
+        v: 1,
+        enabled: nextEnabled === undefined ? current.enabled : nextEnabled,
+        passwordEnc: current.passwordEnc,
+      };
+
+      if (clearPassword) {
+        next.passwordEnc = undefined;
+      }
+      if (password !== undefined) {
+        next.passwordEnc = password ? encryptSecretBestEffort(password) : undefined;
+      }
+
+      await writeBackupEncryptionSettings(next);
+
+      // Best-effort: when encryption is enabled and we have a password, encrypt existing attachments at rest.
+      try {
+        const nowEnabled = next.enabled === true;
+        const hadPassword = !!current.passwordEnc;
+        const hasPassword = !!next.passwordEnc;
+        const passwordChanged = password !== undefined;
+        if (nowEnabled && hasPassword && (!hadPassword || passwordChanged || current.enabled !== true)) {
+          const plain = decryptSecretBestEffort(String(next.passwordEnc || ''));
+          if (plain) {
+            setTimeout(() => {
+              void encryptExistingAttachmentsAtRestBestEffort(plain).catch(() => undefined);
+            }, 300);
+          }
+        }
+
+        // If password changed, re-encrypt already-encrypted attachments (prevents losing access).
+        if (nowEnabled && password !== undefined && currentPasswordPlain && password && currentPasswordPlain !== password) {
+          setTimeout(() => {
+            void reencryptEncryptedAttachmentsAtRestBestEffort(currentPasswordPlain, password).catch(() => undefined);
+          }, 800);
+        }
+      } catch {
+        // ignore
+      }
+
+      const available = safeStorage?.isEncryptionAvailable?.() === true;
+      return {
+        success: true,
+        message: 'تم حفظ إعدادات تشفير النسخ الاحتياطية',
+        available,
+        enabled: next.enabled === true,
+        hasPassword: !!next.passwordEnc,
+      };
+    } catch (e: unknown) {
+      logger.warn('backup-encryption: failed to save settings', { err: toErrorMessage(e) });
+      return { success: false, message: toErrorMessage(e, 'فشل حفظ إعدادات تشفير النسخ الاحتياطية') };
     }
   });
 
@@ -2827,35 +5647,52 @@ export function registerIpcHandlers() {
   };
 
   const migrateLegacyAttachmentsOnce = async (stableRoot: string) => {
-    const legacy = getLegacyExeAttachmentsRoot();
-    if (!legacy) return;
-    if (!directoryExists(legacy)) return;
+    const stableEntries = await fsp.readdir(stableRoot).catch(() => [] as string[]);
+    const stableHasData =
+      stableEntries.filter(
+        (n) =>
+          n &&
+          n !== '.write-test' &&
+          n !== '.migrated-from-exe' &&
+          n !== '.migrated-from-userData'
+      ).length > 0;
+    if (stableHasData) return;
 
-    const marker = path.join(stableRoot, '.migrated-from-exe');
-    try {
-      await fsp.access(marker);
-      return;
-    } catch {
-      // continue
-    }
+    const tryMigrate = async (srcDir: string | null, markerName: string) => {
+      if (!srcDir) return;
+      if (!directoryExists(srcDir)) return;
+      if (path.resolve(srcDir) === path.resolve(stableRoot)) return;
 
-    try {
-      const stableEntries = await fsp.readdir(stableRoot).catch(() => [] as string[]);
-      const legacyEntries = await fsp.readdir(legacy).catch(() => [] as string[]);
-      const stableHasData = stableEntries.filter(n => n && n !== '.write-test' && n !== '.migrated-from-exe').length > 0;
-      const legacyHasData = legacyEntries.length > 0;
-      if (!stableHasData && legacyHasData) {
-        await fsp.cp(legacy, stableRoot, { recursive: true, force: false });
+      const marker = path.join(stableRoot, markerName);
+      try {
+        await fsp.access(marker);
+        return;
+      } catch {
+        // continue
       }
-    } catch {
-      // ignore
-    }
 
-    try {
-      await fsp.writeFile(marker, new Date().toISOString(), 'utf8');
-    } catch {
-      // ignore
-    }
+      try {
+        const entries = await fsp.readdir(srcDir).catch(() => [] as string[]);
+        const hasData = entries.length > 0;
+        if (hasData) {
+          await fsp.cp(srcDir, stableRoot, { recursive: true, force: false });
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        await fsp.writeFile(marker, new Date().toISOString(), 'utf8');
+      } catch {
+        // ignore
+      }
+    };
+
+    // 1) Legacy packaged behavior: attachments next to the executable.
+    await tryMigrate(getLegacyExeAttachmentsRoot(), '.migrated-from-exe');
+
+    // 2) Older/alternate behavior: attachments under userData.
+    await tryMigrate(getLastResortAttachmentsRoot(), '.migrated-from-userData');
   };
 
   const getAttachmentsRoot = async () => {
@@ -2886,8 +5723,13 @@ export function registerIpcHandlers() {
 
     const stableRoot = await getAttachmentsRoot();
     const legacyRoot = getLegacyExeAttachmentsRoot();
+    const userDataRoot = getLastResortAttachmentsRoot();
 
-    const normalizeRel = (p: string) => String(p || '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
+    const normalizeRel = (p: string) =>
+      String(p || '')
+        .replace(/\\/g, '/')
+        .replace(/^\/+/, '')
+        .trim();
 
     const tryRelative = async (relCandidate: string) => {
       const rel = normalizeRel(relCandidate);
@@ -2909,6 +5751,13 @@ export function registerIpcHandlers() {
         return legacyAbs;
       }
 
+      if (userDataRoot && path.resolve(userDataRoot) !== path.resolve(stableRoot)) {
+        const udAbs = path.join(userDataRoot, rel);
+        ensureInsideRoot(userDataRoot, udAbs);
+        await fsp.access(udAbs);
+        return udAbs;
+      }
+
       return null;
     };
 
@@ -2928,6 +5777,12 @@ export function registerIpcHandlers() {
         return abs;
       }
 
+      if (userDataRoot && path.resolve(userDataRoot) !== path.resolve(stableRoot)) {
+        ensureInsideRoot(userDataRoot, abs);
+        await fsp.access(abs);
+        return abs;
+      }
+
       return null;
     };
 
@@ -2941,7 +5796,8 @@ export function registerIpcHandlers() {
       return null;
     };
 
-    const looksAbsolute = path.isAbsolute(raw) || /^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\');
+    const looksAbsolute =
+      path.isAbsolute(raw) || /^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\');
 
     if (looksAbsolute) {
       const okAbs = await tryAbsoluteWithinRoots(raw);
@@ -2969,6 +5825,79 @@ export function registerIpcHandlers() {
     throw new Error('Attachment file not found');
   };
 
+  const assertSafeIpcString = (value: unknown, label: string, maxLen = 2048): string => {
+    const s = String(value ?? '');
+    if (!s.trim()) throw new Error(`${label}: invalid`);
+    if (s.length > maxLen) throw new Error(`${label}: too long`);
+    // Defensive: reject null bytes
+    if (s.includes('\u0000')) throw new Error(`${label}: invalid`);
+    return s;
+  };
+
+  const getAttachmentRoots = async (): Promise<string[]> => {
+    const stableRoot = await getAttachmentsRoot();
+    const legacyRoot = getLegacyExeAttachmentsRoot();
+    const userDataRoot = getLastResortAttachmentsRoot();
+
+    const roots = [stableRoot];
+    if (legacyRoot) roots.push(legacyRoot);
+    if (userDataRoot && path.resolve(userDataRoot) !== path.resolve(stableRoot)) roots.push(userDataRoot);
+    return roots;
+  };
+
+  const ensureRealpathWithinAttachmentRoots = async (absPath: string): Promise<void> => {
+    const roots = await getAttachmentRoots();
+    let real: string;
+    try {
+      real = await fsp.realpath(absPath);
+    } catch {
+      // If realpath fails (rare on Windows), fall back to absPath checks.
+      real = absPath;
+    }
+
+    for (const r of roots) {
+      try {
+        ensureInsideRoot(r, real);
+        return;
+      } catch {
+        // try next root
+      }
+    }
+    throw new Error('Invalid attachment path');
+  };
+
+  const assertSafeAttachmentFile = async (absPath: string): Promise<void> => {
+    const st = await fsp.lstat(absPath);
+    if (st.isSymbolicLink()) throw new Error('Invalid attachment path');
+    if (!st.isFile()) throw new Error('Invalid attachment path');
+    await ensureRealpathWithinAttachmentRoots(absPath);
+  };
+
+  const isDangerousToOpenByDefault = (absPath: string): boolean => {
+    const ext = path.extname(absPath).toLowerCase();
+    // Block common executable / script / shortcut formats.
+    return [
+      '.exe',
+      '.msi',
+      '.com',
+      '.scr',
+      '.bat',
+      '.cmd',
+      '.ps1',
+      '.psm1',
+      '.vbs',
+      '.js',
+      '.jse',
+      '.jar',
+      '.hta',
+      '.cpl',
+      '.lnk',
+      '.url',
+      '.reg',
+      '.appref-ms',
+    ].includes(ext);
+  };
+
   const sanitizeSegment = (input: string, maxLen = 80): string => {
     const raw = String(input ?? '').trim();
     if (!raw) return 'غير_معروف';
@@ -2994,16 +5923,25 @@ export function registerIpcHandlers() {
   const mimeFromExt = (extRaw: string): string => {
     const ext = (extRaw || '').toLowerCase().replace(/^\./, '');
     switch (ext) {
-      case 'pdf': return 'application/pdf';
+      case 'pdf':
+        return 'application/pdf';
       case 'jpg':
-      case 'jpeg': return 'image/jpeg';
-      case 'png': return 'image/png';
-      case 'gif': return 'image/gif';
-      case 'webp': return 'image/webp';
-      case 'bmp': return 'image/bmp';
-      case 'doc': return 'application/msword';
-      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      default: return 'application/octet-stream';
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'bmp':
+        return 'image/bmp';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      default:
+        return 'application/octet-stream';
     }
   };
 
@@ -3015,12 +5953,18 @@ export function registerIpcHandlers() {
 
   const chooseTypeFolder = (referenceType: string): string => {
     switch (String(referenceType || '').toLowerCase()) {
-      case 'person': return 'Persons';
-      case 'property': return 'Properties';
-      case 'contract': return 'Contracts';
-      case 'maintenance': return 'Maintenance';
-      case 'sales': return 'Sales';
-      default: return sanitizeSegment(referenceType || 'Other');
+      case 'person':
+        return 'Persons';
+      case 'property':
+        return 'Properties';
+      case 'contract':
+        return 'Contracts';
+      case 'maintenance':
+        return 'Maintenance';
+      case 'sales':
+        return 'Sales';
+      default:
+        return sanitizeSegment(referenceType || 'Other');
     }
   };
 
@@ -3028,96 +5972,315 @@ export function registerIpcHandlers() {
     'attachments:save',
     async (
       _e,
-      payload: { referenceType: string; entityFolder: string; originalFileName: string; bytes: ArrayBuffer | ArrayBufferView }
-    ) => {
-    try {
-      const root = await getAttachmentsRoot();
-      const typeFolder = chooseTypeFolder(payload?.referenceType);
-      const entityFolder = sanitizeSegment(payload?.entityFolder || 'غير_معروف');
-
-      const bytes = payload?.bytes;
-      const byteLen: number =
-        bytes instanceof ArrayBuffer ? bytes.byteLength : ArrayBuffer.isView(bytes) ? bytes.byteLength : 0;
-      if (!byteLen) return { success: false, message: 'المرفق غير صالح' };
-      if (byteLen > MAX_ATTACHMENT_BYTES) return { success: false, message: 'حجم المرفق كبير جداً' };
-
-      const dir = path.join(root, typeFolder, entityFolder);
-      ensureInsideRoot(root, dir);
-      await fsp.mkdir(dir, { recursive: true });
-
-      const original = String(payload?.originalFileName || 'file');
-      const originalSafe = sanitizeSegment(original, 140);
-      const stamped = `${makeTimestampPrefix()}__${originalSafe}`;
-
-      const baseName = stamped;
-      const ext = path.extname(originalSafe);
-      const stem = ext ? baseName.slice(0, -ext.length) : baseName;
-
-      let candidate = baseName;
-      let i = 1;
-      while (true) {
-        const abs = path.join(dir, candidate);
-        ensureInsideRoot(root, abs);
-        try {
-          await fsp.access(abs);
-          // exists
-          candidate = `${stem} (${i++})${ext}`;
-        } catch {
-          break;
-        }
+      payload: {
+        referenceType: string;
+        entityFolder: string;
+        originalFileName: string;
+        bytes: ArrayBuffer | ArrayBufferView;
       }
+    ) => {
+      const allowed = await ensureFeatureAllowedAsync('attachments');
+      if (!allowed.ok) return { success: false, message: allowed.message };
+      try {
+        const root = await getAttachmentsRoot();
+        const typeFolder = chooseTypeFolder(payload?.referenceType);
+        const entityFolder = sanitizeSegment(payload?.entityFolder || 'غير_معروف');
 
-      const absPath = path.join(dir, candidate);
-      ensureInsideRoot(root, absPath);
+        const bytes = payload?.bytes;
+        const byteLen: number =
+          bytes instanceof ArrayBuffer
+            ? bytes.byteLength
+            : ArrayBuffer.isView(bytes)
+              ? bytes.byteLength
+              : 0;
+        if (!byteLen) return { success: false, message: 'المرفق غير صالح' };
+        if (byteLen > MAX_ATTACHMENT_BYTES)
+          return { success: false, message: 'حجم المرفق كبير جداً' };
 
-      const buf = (() => {
-        if (bytes instanceof ArrayBuffer) return Buffer.from(new Uint8Array(bytes));
-        if (!ArrayBuffer.isView(bytes)) return Buffer.from([]);
-        const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        return Buffer.from(u8);
-      })();
-      await fsp.writeFile(absPath, buf);
+        const dir = path.join(root, typeFolder, entityFolder);
+        ensureInsideRoot(root, dir);
+        await fsp.mkdir(dir, { recursive: true });
 
-      const relativePath = path.relative(root, absPath).split(path.sep).join('/');
-      return { success: true, relativePath, filePath: absPath, storedFileName: candidate };
-    } catch (err: unknown) {
-      return { success: false, message: toErrorMessage(err, 'Failed to save attachment') };
+        const original = String(payload?.originalFileName || 'file');
+        const originalSafe = sanitizeSegment(original, 140);
+        const stamped = `${makeTimestampPrefix()}__${originalSafe}`;
+
+        const baseName = stamped;
+        const ext = path.extname(originalSafe);
+        const stem = ext ? baseName.slice(0, -ext.length) : baseName;
+
+        let candidate = baseName;
+        let i = 1;
+        while (true) {
+          const abs = path.join(dir, candidate);
+          ensureInsideRoot(root, abs);
+          try {
+            await fsp.access(abs);
+            // exists
+            candidate = `${stem} (${i++})${ext}`;
+          } catch {
+            break;
+          }
+        }
+
+        const absPath = path.join(dir, candidate);
+        ensureInsideRoot(root, absPath);
+
+        const buf = (() => {
+          if (bytes instanceof ArrayBuffer) return Buffer.from(new Uint8Array(bytes));
+          if (!ArrayBuffer.isView(bytes)) return Buffer.from([]);
+          const u8 =
+            bytes instanceof Uint8Array
+              ? bytes
+              : new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+          return Buffer.from(u8);
+        })();
+        // Encrypt attachments at rest when backup encryption is enabled.
+        // NOTE: We only encrypt on-disk; callers still reference the same relativePath.
+        const encState = await getBackupEncryptionPasswordState();
+        if (!encState.enabled) {
+          await fsp.writeFile(absPath, buf);
+        } else {
+          if (!encState.configured || !encState.password) {
+            return {
+              success: false,
+              message: 'تشفير البيانات مفعل لكن كلمة المرور غير مضبوطة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.',
+            };
+          }
+          await encryptBufferToFile({ bytes: buf, destPath: absPath, password: encState.password });
+        }
+
+        const relativePath = path.relative(root, absPath).split(path.sep).join('/');
+        return { success: true, relativePath, filePath: absPath, storedFileName: candidate };
+      } catch (err: unknown) {
+        return { success: false, message: toErrorMessage(err, 'Failed to save attachment') };
+      }
     }
-  }
   );
 
   ipcMain.handle('attachments:read', async (_e, relativePath: string) => {
+    const allowed = await ensureFeatureAllowedAsync('attachments');
+    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
-      const abs = await resolveExistingAttachmentAbsPath(relativePath);
+      const safeRel = assertSafeIpcString(relativePath, 'relativePath');
+      const abs = await resolveExistingAttachmentAbsPath(safeRel);
+      await assertSafeAttachmentFile(abs);
       const st = await fsp.stat(abs);
-      if (st.size > MAX_ATTACHMENT_BYTES) {
+      // Allow a tiny overhead for encrypted-at-rest files.
+      if (st.size > MAX_ATTACHMENT_BYTES + 256) {
         return { success: false, message: 'حجم الملف كبير جداً' };
       }
-      const data = await fsp.readFile(abs);
+      const looksEncrypted = await isEncryptedFile(abs);
+      const data = looksEncrypted
+        ? await (async () => {
+            const s = await readBackupEncryptionSettings();
+            const password = s.passwordEnc ? decryptSecretBestEffort(String(s.passwordEnc || '')) : '';
+            if (!password) throw new Error('لا توجد كلمة مرور لفك تشفير المرفقات. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.');
+            return await decryptFileToBuffer({ sourcePath: abs, password, maxBytes: MAX_ATTACHMENT_BYTES });
+          })()
+        : await fsp.readFile(abs);
       const ext = path.extname(abs);
       const mime = mimeFromExt(ext);
       const dataUri = `data:${mime};base64,${data.toString('base64')}`;
       return { success: true, dataUri };
     } catch (err: unknown) {
+      logger.warn('[IPC][attachments:read] blocked/failed', toErrorMessage(err));
       return { success: false, message: toErrorMessage(err, 'Failed to read attachment') };
     }
   });
 
   ipcMain.handle('attachments:delete', async (_e, relativePath: string) => {
+    const allowed = await ensureFeatureAllowedAsync('attachments');
+    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
-      const abs = await resolveExistingAttachmentAbsPath(relativePath);
+      const safeRel = assertSafeIpcString(relativePath, 'relativePath');
+      const abs = await resolveExistingAttachmentAbsPath(safeRel);
+      await assertSafeAttachmentFile(abs);
       await fsp.unlink(abs);
       return { success: true };
     } catch (err: unknown) {
+      logger.warn('[IPC][attachments:delete] blocked/failed', toErrorMessage(err));
       return { success: false, message: toErrorMessage(err, 'Failed to delete attachment') };
     }
   });
 
-  // Word templates (Contracts)
-  const getContractTemplatesDir = async () => {
+  ipcMain.handle('attachments:open', async (_e, relativePath: string) => {
+    const allowed = await ensureFeatureAllowedAsync('attachments');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    try {
+      const safeRel = assertSafeIpcString(relativePath, 'relativePath');
+      const abs = await resolveExistingAttachmentAbsPath(safeRel);
+      await assertSafeAttachmentFile(abs);
+
+      if (isDangerousToOpenByDefault(abs)) {
+        logger.warn('[IPC][attachments:open] blocked dangerous file type', abs);
+        return { success: false, message: 'تم حظر فتح هذا النوع من الملفات لأسباب أمنية' };
+      }
+
+      const looksEncrypted = await isEncryptedFile(abs);
+      const toOpen = !looksEncrypted
+        ? abs
+        : await (async () => {
+            const s = await readBackupEncryptionSettings();
+            const password = s.passwordEnc ? decryptSecretBestEffort(String(s.passwordEnc || '')) : '';
+            if (!password) {
+              throw new Error('لا توجد كلمة مرور لفك تشفير المرفقات. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.');
+            }
+            const ext = path.extname(abs);
+            const tmp = path.join(app.getPath('temp'), `AZRAR-attachment-open-${Date.now()}${ext || ''}`);
+            await decryptFileToFile({ sourcePath: abs, destPath: tmp, password });
+            // Best-effort cleanup after some time (do not fail open if cleanup fails).
+            setTimeout(() => {
+              void fsp.unlink(tmp).catch(() => undefined);
+            }, 10 * 60 * 1000);
+            return tmp;
+          })();
+
+      const errMsg = await shell.openPath(toOpen);
+      if (errMsg) return { success: false, message: String(errMsg) };
+      return { success: true };
+    } catch (err: unknown) {
+      logger.warn('[IPC][attachments:open] blocked/failed', toErrorMessage(err));
+      return { success: false, message: toErrorMessage(err, 'Failed to open attachment') };
+    }
+  });
+
+  ipcMain.handle('attachments:pullNow', async () => {
+    const allowed = await ensureFeatureAllowedAsync('attachments');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    try {
+      const raw = kvGet('db_attachments');
+      const json = typeof raw === 'string' && raw.trim() ? raw : '[]';
+      const res = await pullAttachmentFilesForAttachmentsJson(json);
+      return { success: true, ...res };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'فشل تنزيل المرفقات') };
+    }
+  });
+
+  // Word templates
+  type WordTemplateType = 'contracts' | 'installments' | 'handover';
+
+  type StoredWordTemplate = {
+    /** Stable ID for the template (part of the KV key). */
+    key: string;
+    templateType: WordTemplateType;
+    fileName: string;
+    bytesBase64: string;
+    size: number;
+    sha256?: string;
+    updatedAt: string;
+  };
+
+  const WORD_TEMPLATE_KV_PREFIX = 'db_word_template_';
+
+  const templateKvKeyPrefixFor = (t: WordTemplateType) => `${WORD_TEMPLATE_KV_PREFIX}${t}_`;
+  const makeTemplateKvKey = (t: WordTemplateType, key: string) => `${WORD_TEMPLATE_KV_PREFIX}${t}_${key}`;
+
+  const safeJsonParseStoredWordTemplate = (raw: string): StoredWordTemplate | null => {
+    const s = String(raw || '').trim();
+    if (!s) return null;
+    try {
+      const parsed = JSON.parse(s) as unknown;
+      if (!isRecord(parsed)) return null;
+
+      const rec = parsed as Record<string, unknown>;
+      const key = String(rec.key ?? '').trim();
+      const templateType = normalizeTemplateType(rec.templateType);
+      const fileName = path.basename(String(rec.fileName ?? '').trim());
+      const bytesBase64 = String(rec.bytesBase64 ?? '').trim();
+      const size = Number(rec.size ?? 0);
+      const sha256 = String(rec.sha256 ?? '').trim() || undefined;
+      const updatedAt = String(rec.updatedAt ?? '').trim() || new Date().toISOString();
+
+      if (!key || !fileName || !fileName.toLowerCase().endsWith('.docx')) return null;
+      if (!bytesBase64) return null;
+      if (!Number.isFinite(size) || size <= 0 || size > MAX_TEMPLATE_BYTES) return null;
+
+      return { key, templateType, fileName, bytesBase64, size, sha256, updatedAt };
+    } catch {
+      return null;
+    }
+  };
+
+  const listStoredTemplatesFor = (t: WordTemplateType): Array<{ kvKey: string; item: StoredWordTemplate }> => {
+    try {
+      const prefix = templateKvKeyPrefixFor(t);
+      const keys = (kvKeys?.() || []).filter((k) => String(k || '').startsWith(prefix));
+      const out: Array<{ kvKey: string; item: StoredWordTemplate }> = [];
+      for (const k of keys) {
+        try {
+          const raw = kvGet(k);
+          const item = safeJsonParseStoredWordTemplate(raw);
+          if (item && item.templateType === t) out.push({ kvKey: k, item });
+        } catch {
+          // ignore
+        }
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  };
+
+  const setKvAndPushUpsert = (k: string, v: string, updatedAt: string) => {
+    kvSetWithUpdatedAt(k, v, updatedAt);
+    void pushKvUpsert({ key: k, value: v, updatedAt }).catch(() => void 0);
+  };
+
+  const deleteKvAndPushDelete = (k: string) => {
+    kvDelete(k);
+    const deletedAt = kvGetDeletedAt(k) || new Date().toISOString();
+    void pushKvDelete({ key: k, deletedAt }).catch(() => void 0);
+  };
+
+  const sha256Hex = (buf: Buffer): string => crypto.createHash('sha256').update(buf).digest('hex');
+
+  const materializeTemplateFileFromStored = async (templatesDir: string, stored: StoredWordTemplate) => {
+    const safeName = path.basename(stored.fileName);
+    if (!safeName.toLowerCase().endsWith('.docx')) throw new Error('القالب يجب أن يكون ملف Word (.docx)');
+    if (!stored.bytesBase64) throw new Error('القالب غير صالح');
+
+    const abs = path.join(templatesDir, safeName);
+    try {
+      const st = await fsp.stat(abs);
+      if (st.isFile() && st.size > 0) return abs;
+    } catch {
+      // ignore
+    }
+
+    const buf = Buffer.from(stored.bytesBase64, 'base64');
+    if (!buf || buf.byteLength <= 0) throw new Error('القالب غير صالح');
+    if (buf.byteLength > MAX_TEMPLATE_BYTES) throw new Error('حجم القالب كبير جداً');
+
+    await fsp.writeFile(abs, buf);
+    return abs;
+  };
+
+  const normalizeTemplateType = (raw: unknown): WordTemplateType => {
+    const v = String(raw || '').trim().toLowerCase();
+    if (v === 'contracts') return 'contracts';
+    if (v === 'installments') return 'installments';
+    if (v === 'handover') return 'handover';
+    return 'contracts';
+  };
+
+  const templateTypeLabelAr = (t: WordTemplateType) => {
+    if (t === 'contracts') return 'العقود';
+    if (t === 'installments') return 'الكمبيالات';
+    return 'محضر التسليم';
+  };
+
+  const templateFallbackFolder = (t: WordTemplateType) => {
+    if (t === 'contracts') return 'العقود الورد';
+    if (t === 'installments') return 'الكمبيالات الورد';
+    return 'محضر التسليم الورد';
+  };
+
+  const getTemplatesDir = async (templateType: WordTemplateType) => {
     // Put templates next to the DB file. In server/LAN setups this can be a shared folder
     // by setting AZRAR_DESKTOP_DB_DIR or AZRAR_DESKTOP_DB_PATH.
-    const dir = path.join(path.dirname(getDbPath()), 'templates', 'contracts');
+    const dir = path.join(path.dirname(getDbPath()), 'templates', templateType);
     await fsp.mkdir(dir, { recursive: true });
     return dir;
   };
@@ -3138,31 +6301,106 @@ export function registerIpcHandlers() {
     }
   };
 
-  ipcMain.handle('templates:list', async () => {
+  ipcMain.handle('templates:list', async (_e, payload?: { templateType?: string }) => {
+    const allowed = await ensureFeatureAllowedAsync('templates');
+    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
-      const dir = await getContractTemplatesDir();
+      const templateType = normalizeTemplateType(payload?.templateType);
+      const dir = await getTemplatesDir(templateType);
+      const nowIso = new Date().toISOString();
+
+      // 1) Load stored templates for this type (synced via KV/SQL)
+      const stored = listStoredTemplatesFor(templateType);
+
+      // 2) Ensure local files exist for stored templates (materialize missing ones)
+      for (const s of stored) {
+        try {
+          await materializeTemplateFileFromStored(dir, s.item);
+        } catch {
+          // ignore
+        }
+      }
+
+      // 3) Read local templates
       const items = await fsp.readdir(dir);
-      const docx = items.filter(x => x.toLowerCase().endsWith('.docx'));
-      return { success: true, items: docx };
+      const localDocx = items.filter((x) => x.toLowerCase().endsWith('.docx'));
+
+      // 4) Migrate any local templates missing from KV into KV (one-time self-heal)
+      const storedByName = new Map<string, { kvKey: string; item: StoredWordTemplate }>();
+      for (const s of stored) storedByName.set(String(s.item.fileName).toLowerCase(), s);
+
+      for (const fileName of localDocx) {
+        const lower = String(fileName).toLowerCase();
+        if (storedByName.has(lower)) continue;
+
+        try {
+          const abs = path.join(dir, fileName);
+          const st = await fsp.stat(abs);
+          if (!st.isFile() || st.size <= 0 || st.size > MAX_TEMPLATE_BYTES) continue;
+          const buf = await fsp.readFile(abs);
+          if (!buf || buf.byteLength <= 0 || buf.byteLength > MAX_TEMPLATE_BYTES) continue;
+
+          const key = crypto.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+          const kvKey = makeTemplateKvKey(templateType, key);
+          const item: StoredWordTemplate = {
+            key,
+            templateType,
+            fileName,
+            bytesBase64: Buffer.from(buf).toString('base64'),
+            size: buf.byteLength,
+            sha256: sha256Hex(buf),
+            updatedAt: nowIso,
+          };
+          setKvAndPushUpsert(kvKey, JSON.stringify(item), nowIso);
+          storedByName.set(lower, { kvKey, item });
+        } catch {
+          // ignore
+        }
+      }
+
+      // 5) Return union of filenames (local + stored)
+      const allNames = new Set<string>();
+      for (const n of localDocx) allNames.add(n);
+      for (const s of storedByName.values()) allNames.add(s.item.fileName);
+      const docx = Array.from(allNames).filter((x) => String(x).toLowerCase().endsWith('.docx'));
+
+      const details = docx
+        .map((fileName) => {
+          const hit = storedByName.get(String(fileName).toLowerCase());
+          return {
+            fileName,
+            kvKey: hit?.kvKey,
+            key: hit?.item?.key,
+            updatedAt: hit?.item?.updatedAt,
+          };
+        })
+        .sort((a, b) => String(a.fileName).localeCompare(String(b.fileName)));
+
+      return { success: true, items: docx, details, dir, templateType };
     } catch (err: unknown) {
       return { success: false, message: toErrorMessage(err, 'Failed to list templates') };
     }
   });
 
-  ipcMain.handle('templates:import', async () => {
+  ipcMain.handle('templates:import', async (_e, payload?: { templateType?: string }) => {
+    const allowed = await ensureFeatureAllowedAsync('templates');
+    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
+      const templateType = normalizeTemplateType(payload?.templateType);
       const result = await dialog.showOpenDialog({
-        title: 'اختر قالب Word للعقود',
+        title: `اختر قالب Word لـ ${templateTypeLabelAr(templateType)}`,
         properties: ['openFile'],
         filters: [{ name: 'Word (.docx)', extensions: ['docx'] }],
       });
-      if (result.canceled || result.filePaths.length === 0) return { success: false, message: 'تم الإلغاء' };
+      if (result.canceled || result.filePaths.length === 0)
+        return { success: false, message: 'تم الإلغاء' };
 
       const selected = result.filePaths[0];
       if (!selected) return { success: false, message: 'مسار الملف غير صالح' };
 
       const resolved = await fsp.realpath(selected).catch(() => path.resolve(selected));
-      if (isUncPath(resolved)) return { success: false, message: 'غير مسموح استيراد القالب من مسار شبكة (UNC)' };
+      if (isUncPath(resolved))
+        return { success: false, message: 'غير مسموح استيراد القالب من مسار شبكة (UNC)' };
 
       const st = await fsp.stat(resolved);
       if (!st.isFile()) return { success: false, message: 'الملف غير صالح' };
@@ -3170,28 +6408,57 @@ export function registerIpcHandlers() {
       if (st.size > MAX_TEMPLATE_BYTES) return { success: false, message: 'حجم القالب كبير جداً' };
 
       const safeName = path.basename(resolved);
-      if (!safeName.toLowerCase().endsWith('.docx')) return { success: false, message: 'الملف يجب أن يكون .docx' };
+      if (!safeName.toLowerCase().endsWith('.docx'))
+        return { success: false, message: 'الملف يجب أن يكون .docx' };
 
-      const dir = await getContractTemplatesDir();
+      const dir = await getTemplatesDir(templateType);
       const uniqueName = await ensureUniqueFileName(dir, safeName);
       const dest = path.join(dir, uniqueName);
       await fsp.copyFile(resolved, dest);
-      return { success: true, fileName: uniqueName };
+
+      // Persist the template bytes in KV so it gets a stable key and syncs to SQL.
+      try {
+        const nowIso = new Date().toISOString();
+        const buf = await fsp.readFile(dest);
+        if (buf && buf.byteLength > 0 && buf.byteLength <= MAX_TEMPLATE_BYTES) {
+          const key = crypto.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+          const kvKey = makeTemplateKvKey(templateType, key);
+          const item: StoredWordTemplate = {
+            key,
+            templateType,
+            fileName: uniqueName,
+            bytesBase64: Buffer.from(buf).toString('base64'),
+            size: buf.byteLength,
+            sha256: sha256Hex(buf),
+            updatedAt: nowIso,
+          };
+          setKvAndPushUpsert(kvKey, JSON.stringify(item), nowIso);
+        }
+      } catch {
+        // ignore (file is still imported locally)
+      }
+
+      return { success: true, fileName: uniqueName, dir, templateType };
     } catch (err: unknown) {
       return { success: false, message: toErrorMessage(err, 'Failed to import template') };
     }
   });
 
-  ipcMain.handle('templates:read', async (_e, payload: { templateName: string }) => {
+  ipcMain.handle('templates:read', async (_e, payload: { templateName: string; templateType?: string }) => {
+    const allowed = await ensureFeatureAllowedAsync('templates');
+    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const rawName = String(payload?.templateName || '').trim();
-      const templatesDir = await getContractTemplatesDir();
+      const templateType = normalizeTemplateType(payload?.templateType);
+      const templatesDir = await getTemplatesDir(templateType);
 
       let safeName = path.basename(rawName);
       if (!safeName) {
         // If not provided, try auto-pick when there is exactly one template
         try {
-          const items = (await fsp.readdir(templatesDir)).filter(x => x.toLowerCase().endsWith('.docx'));
+          const items = (await fsp.readdir(templatesDir)).filter((x) =>
+            x.toLowerCase().endsWith('.docx')
+          );
           if (items.length === 1) safeName = items[0];
         } catch {
           // ignore
@@ -3207,11 +6474,11 @@ export function registerIpcHandlers() {
         // Preferred: user-imported templates
         path.join(templatesDir, safeName),
         // Dev/workspace
-        path.join(process.cwd(), 'العقود الورد', safeName),
+        path.join(process.cwd(), templateFallbackFolder(templateType), safeName),
         // Packaged resources path (best-effort)
-        path.join(app.getAppPath(), 'العقود الورد', safeName),
+        path.join(app.getAppPath(), templateFallbackFolder(templateType), safeName),
         // Beside the installed EXE (portable/installed)
-        path.join(path.dirname(app.getPath('exe')), 'العقود الورد', safeName),
+        path.join(path.dirname(app.getPath('exe')), templateFallbackFolder(templateType), safeName),
       ];
 
       let found: string | null = null;
@@ -3227,18 +6494,32 @@ export function registerIpcHandlers() {
       }
 
       if (!found) {
-        return {
-          success: false,
-          message: `لم يتم العثور على قالب Word: ${safeName}. يمكنك استيراد القالب من داخل البرنامج وسيتم حفظه تلقائياً داخل مجلد النظام: templates/contracts`,
-        };
+        // If the file isn't available locally, try to reconstruct it from KV (synced from SQL).
+        try {
+          const stored = listStoredTemplatesFor(templateType);
+          const hit = stored.find((s) => String(s.item.fileName).toLowerCase() === safeName.toLowerCase());
+          if (hit) {
+            const abs = await materializeTemplateFileFromStored(templatesDir, hit.item);
+            found = abs;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (!found) {
+          return {
+            success: false,
+            message: `لم يتم العثور على قالب Word: ${safeName}. يمكنك استيراد القالب من داخل البرنامج وسيتم حفظه تلقائياً داخل مجلد النظام: templates/${templateType}`,
+          };
+        }
       }
 
       const resolvedFound = await fsp.realpath(found).catch(() => found);
       const allowedRoots = [
         templatesDir,
-        path.join(process.cwd(), 'العقود الورد'),
-        path.join(app.getAppPath(), 'العقود الورد'),
-        path.join(path.dirname(app.getPath('exe')), 'العقود الورد'),
+        path.join(process.cwd(), templateFallbackFolder(templateType)),
+        path.join(app.getAppPath(), templateFallbackFolder(templateType)),
+        path.join(path.dirname(app.getPath('exe')), templateFallbackFolder(templateType)),
       ];
 
       const isInsideAnyRoot = allowedRoots.some((root) => {
@@ -3274,4 +6555,63 @@ export function registerIpcHandlers() {
       return { success: false, message: toErrorMessage(err, 'Failed to read template') };
     }
   });
+
+  ipcMain.handle('templates:delete', async (_e, payload: { templateName: string; templateType?: string }) => {
+    const allowed = await ensureFeatureAllowedAsync('templates');
+    if (!allowed.ok) return { success: false, message: allowed.message };
+    try {
+      const rawName = String(payload?.templateName || '').trim();
+      const templateType = normalizeTemplateType(payload?.templateType);
+      const templatesDir = await getTemplatesDir(templateType);
+
+      const safeName = path.basename(rawName);
+      if (!safeName) return { success: false, message: 'اسم القالب غير صالح' };
+      if (!safeName.toLowerCase().endsWith('.docx')) {
+        return { success: false, message: 'القالب يجب أن يكون ملف Word (.docx)' };
+      }
+
+      const abs = path.join(templatesDir, safeName);
+      const resolvedAbs = await fsp.realpath(abs).catch(() => abs);
+
+      // Ensure deletion only inside the template type directory.
+      const templatesDirResolved = await fsp.realpath(templatesDir).catch(() => templatesDir);
+      const rel = path.relative(templatesDirResolved, resolvedAbs);
+      if (!rel || rel === '.') {
+        return { success: false, message: 'مسار القالب غير صالح' };
+      }
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        return { success: false, message: 'مسار القالب غير صالح' };
+      }
+
+      await fsp.unlink(resolvedAbs);
+
+      // Remove from KV store (synced) if present.
+      try {
+        const stored = listStoredTemplatesFor(templateType);
+        const hit = stored.find((s) => String(s.item.fileName).toLowerCase() === safeName.toLowerCase());
+        if (hit) {
+          deleteKvAndPushDelete(hit.kvKey);
+        }
+      } catch {
+        // ignore
+      }
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = toErrorMessage(err, 'Failed to delete template');
+
+      if (/ENOENT/i.test(msg)) {
+        return { success: false, message: 'القالب غير موجود (ربما تم حذفه مسبقاً)' };
+      }
+      if (/EPERM|EBUSY/i.test(msg)) {
+        return {
+          success: false,
+          message: 'تعذر حذف القالب (قد يكون مفتوحاً في Word). أغلقه ثم أعد المحاولة.',
+        };
+      }
+      return { success: false, message: msg };
+    }
+  });
+
+  // Start local auto-backup scheduler (best-effort).
+  startLocalAutoBackupScheduler();
 }

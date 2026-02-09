@@ -3,6 +3,8 @@ param(
   [switch]$StrictWinUnpacked,
   [switch]$NoBump,
   [switch]$Sign,
+  [ValidateSet('dev','prod')]
+  [string]$SigningProfile,
   [string]$TimeStampServer = 'http://timestamp.digicert.com',
   [string]$Rfc3161TimeStampServer = 'http://timestamp.digicert.com'
 )
@@ -18,6 +20,130 @@ foreach ($k in @('npm_config_arch','npm_config_disturl','npm_config_runtime','np
 
 # Run from repo root
 Set-Location -Path (Join-Path $PSScriptRoot '..')
+
+function Normalize-SigningProfile([string]$p) {
+  $v = ([string]$p).Trim().ToLowerInvariant()
+  if (-not $v) { return $null }
+  if ($v -in @('dev','development','internal','self','selfsigned','self-signed')) { return 'dev' }
+  if ($v -in @('prod','production','trusted','ca','ov','ev')) { return 'prod' }
+  return $null
+}
+
+if (-not $SigningProfile -or -not $SigningProfile.Trim()) {
+  $fromEnv = Normalize-SigningProfile $env:AZRAR_SIGNING_PROFILE
+  if ($fromEnv) {
+    $SigningProfile = $fromEnv
+  } elseif ($Sign) {
+    # Default to dev when building signed artifacts unless explicitly told otherwise.
+    $SigningProfile = 'dev'
+  }
+}
+
+if ($SigningProfile -and $SigningProfile.Trim()) {
+  $env:AZRAR_SIGNING_PROFILE = $SigningProfile
+  Write-Host ("Signing profile: " + $SigningProfile + " (AZRAR_SIGNING_PROFILE)")
+}
+
+if ($Sign) {
+  $hasPfx = ($env:CSC_LINK -and $env:CSC_LINK.Trim())
+  $hasStore = ($env:CSC_NAME -and $env:CSC_NAME.Trim())
+  $hasThumb = ($env:CSC_THUMBPRINT -and $env:CSC_THUMBPRINT.Trim())
+  if (-not $hasPfx -and -not $hasStore -and -not $hasThumb) {
+    throw @(
+      'Signed build requested (-Sign) but no certificate was provided.'
+      'Provide either:'
+      '  - CSC_LINK + CSC_KEY_PASSWORD (PFX file), OR'
+      '  - CSC_THUMBPRINT (certificate thumbprint from Windows Certificate Store), OR'
+      '  - CSC_NAME (certificate name/subject match in Windows Certificate Store).'
+      ''
+      'Examples (PowerShell):'
+      '  $env:CSC_LINK = "C:\\Certificates\\AZRAR\\azrar-cert.pfx"'
+      '  $env:CSC_KEY_PASSWORD = "<pfx-password>"'
+      '  # or'
+      '  $env:CSC_THUMBPRINT = "<THUMBPRINT>"'
+      '  # or'
+      '  $env:CSC_NAME = "AZRAR"'
+      '  $env:AZRAR_SIGNING_PROFILE = "dev"   # self-signed (internal)'
+      '  # or'
+      '  $env:AZRAR_SIGNING_PROFILE = "prod"  # OV/EV CA (official release)'
+    ) -join "`n"
+  }
+  if ($hasPfx) {
+    $pfxPath = $env:CSC_LINK.Trim()
+    if (-not (Test-Path $pfxPath)) {
+      throw "CSC_LINK points to a missing file: $pfxPath"
+    }
+    if (-not ($env:CSC_KEY_PASSWORD -and $env:CSC_KEY_PASSWORD.Trim())) {
+      throw 'CSC_KEY_PASSWORD is required when using CSC_LINK (PFX).'
+    }
+  }
+  if ($hasThumb) {
+    $thumb = ($env:CSC_THUMBPRINT -replace '\s', '').ToUpperInvariant()
+    $cert = $null
+    try { $cert = Get-Item "Cert:\\CurrentUser\\My\\$thumb" -ErrorAction SilentlyContinue } catch {}
+    if (-not $cert) {
+      try { $cert = Get-Item "Cert:\\LocalMachine\\My\\$thumb" -ErrorAction SilentlyContinue } catch {}
+    }
+    if (-not $cert) {
+      throw "CSC_THUMBPRINT was provided but certificate was not found in store: $thumb"
+    }
+  }
+
+  if (-not $hasPfx -and -not $hasThumb -and $hasStore) {
+    $resolved = Find-CodeSigningCertThumbprintByName $env:CSC_NAME
+    if (-not $resolved) {
+      throw "CSC_NAME was provided but no matching code-signing certificate with private key was found in the Windows Certificate Store: $($env:CSC_NAME)"
+    }
+  }
+}
+
+function Find-CodeSigningCertThumbprintByName([string]$name) {
+  $n = ([string]$name).Trim()
+  if (-not $n) { return $null }
+
+  $stores = @('Cert:\\CurrentUser\\My', 'Cert:\\LocalMachine\\My')
+  $candidates = @()
+
+  foreach ($store in $stores) {
+    try {
+      $items = @(Get-ChildItem -Path $store -ErrorAction SilentlyContinue)
+      foreach ($c in $items) {
+        if (-not $c) { continue }
+        $subject = [string]$c.Subject
+        $friendly = ''
+        try { $friendly = [string]$c.FriendlyName } catch {}
+
+        $matches = ($subject -like "*$n*" -or $friendly -like "*$n*")
+        if (-not $matches) { continue }
+
+        $ekuOk = $false
+        try {
+          if ($c.EnhancedKeyUsageList -and ($c.EnhancedKeyUsageList.ObjectId -contains '1.3.6.1.5.5.7.3.3')) {
+            $ekuOk = $true
+          }
+        } catch {}
+        if (-not $ekuOk) { continue }
+
+        if (-not $c.HasPrivateKey) { continue }
+        $candidates += $c
+      }
+    } catch {
+      # ignore
+    }
+  }
+
+  if (-not $candidates -or $candidates.Count -lt 1) { return $null }
+
+  $best = $candidates | Sort-Object NotAfter -Descending | Select-Object -First 1
+  if (-not $best -or -not $best.Thumbprint) { return $null }
+  return (($best.Thumbprint -replace '\s', '').ToUpperInvariant())
+}
+
+# Obfuscate/minify Electron entrypoints for distribution builds by default.
+# To disable (debugging / bisecting build issues): set AZRAR_OBFUSCATE_ELECTRON=0.
+if (-not (Test-Path Env:AZRAR_OBFUSCATE_ELECTRON) -or -not $env:AZRAR_OBFUSCATE_ELECTRON) {
+  $env:AZRAR_OBFUSCATE_ELECTRON = '1'
+}
 
 # Ensure license verification public key is present at build time.
 # This is a PUBLIC key (safe to embed) and is required for production activation via signed license files.
@@ -126,8 +252,22 @@ if (-not $ver -or -not $ver.Trim()) {
   $ver = 'unknown'
 }
 
-$stage = Join-Path (Get-Location) 'release2_build_stage'
+$stageName = ('release2_build_stage_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '_' + ([System.Guid]::NewGuid().ToString('N').Substring(0, 8)))
+$stage = Join-Path (Get-Location) $stageName
 $final = Join-Path (Get-Location) 'release2_build'
+
+function Stop-LockingProcesses {
+  $names = @('AZRAR','electron','electron-builder','app-builder','app-builder-bin')
+  foreach ($n in $names) {
+    try {
+      Get-Process -Name $n -ErrorAction SilentlyContinue | ForEach-Object {
+        try { Stop-Process -Id $_.Id -Force -ErrorAction Stop } catch {}
+      }
+    } catch {
+      # ignore
+    }
+  }
+}
 
 function Remove-DirBestEffort(
   [Parameter(Mandatory=$true)][string]$Path,
@@ -163,6 +303,7 @@ function Remove-DirBestEffort(
 }
 
 if (Test-Path $stage) {
+  Stop-LockingProcesses
   $null = Remove-DirBestEffort -Path $stage
 }
 
@@ -170,15 +311,15 @@ $ebArgs = @(
   '--win',
   '--x64',
   '--config=electron-builder.config.cjs',
-  '--config.directories.output=release2_build_stage'
+  ('--config.directories.output=' + $stageName)
 )
 
 if ($Sign) {
   # Override signing settings only for signed builds.
   # The certificate is provided via environment variables (CSC_LINK/CSC_KEY_PASSWORD) or cert store (CSC_NAME).
-  $ebArgs += ('--config.win.signAndEditExecutable=true')
-  $ebArgs += ('--config.win.timeStampServer=' + $TimeStampServer)
-  $ebArgs += ('--config.win.rfc3161TimeStampServer=' + $Rfc3161TimeStampServer)
+  # NOTE: We do NOT enable electron-builder signing here.
+  # On many Windows setups, electron-builder's winCodeSign download/extract can fail due to symlink privileges.
+  # Instead, we sign the FINAL NSIS installer EXE after build using Windows SDK signtool (scripts/code-sign-installer.ps1).
 }
 
 # electron-builder currently emits some non-actionable warnings in our setup:
@@ -186,6 +327,12 @@ if ($Sign) {
 # - "cannot find path for dependency @napi-rs/canvas-..." (optional/platform deps pulled by pdfjs-dist)
 # We keep output clean by suppressing deprecation warnings and filtering only these known noisy lines.
 $prevNodeOptions = $env:NODE_OPTIONS
+$prevCscLink = $null
+$prevCscKeyPassword = $null
+$prevCscName = $null
+$hadCscLink = $false
+$hadCscKeyPassword = $false
+$hadCscName = $false
 try {
   if (-not $env:NODE_OPTIONS -or -not $env:NODE_OPTIONS.Trim()) {
     $env:NODE_OPTIONS = '--no-deprecation'
@@ -193,11 +340,32 @@ try {
     $env:NODE_OPTIONS = ($env:NODE_OPTIONS.Trim() + ' --no-deprecation')
   }
 
+  # IMPORTANT: electron-builder will attempt code signing automatically if CSC_* env vars are present.
+  # On some Windows setups, its winCodeSign download/extract step fails due to missing symlink privileges.
+  # For our dev self-signed flow, we build WITHOUT electron-builder signing and sign the final installer after build.
+  if ($Sign) {
+    $hadCscLink = (Test-Path Env:CSC_LINK)
+    $hadCscKeyPassword = (Test-Path Env:CSC_KEY_PASSWORD)
+    $hadCscName = (Test-Path Env:CSC_NAME)
+    if ($hadCscLink) { $prevCscLink = $env:CSC_LINK }
+    if ($hadCscKeyPassword) { $prevCscKeyPassword = $env:CSC_KEY_PASSWORD }
+    if ($hadCscName) { $prevCscName = $env:CSC_NAME }
+
+    if ($hadCscLink) { Remove-Item Env:CSC_LINK -ErrorAction SilentlyContinue }
+    if ($hadCscKeyPassword) { Remove-Item Env:CSC_KEY_PASSWORD -ErrorAction SilentlyContinue }
+    if ($hadCscName) { Remove-Item Env:CSC_NAME -ErrorAction SilentlyContinue }
+  }
+
   $noise = '(?i)(\bDEP0190\b|cannot find path for dependency.*@napi-rs/canvas-)'
   npx --no-install electron-builder @ebArgs 2>&1 | ForEach-Object {
     if ($_ -notmatch $noise) { $_ }
   }
 } finally {
+  if ($Sign) {
+    if ($hadCscLink) { $env:CSC_LINK = $prevCscLink }
+    if ($hadCscKeyPassword) { $env:CSC_KEY_PASSWORD = $prevCscKeyPassword }
+    if ($hadCscName) { $env:CSC_NAME = $prevCscName }
+  }
   $env:NODE_OPTIONS = $prevNodeOptions
 }
 if ($LASTEXITCODE -ne 0) {
@@ -205,6 +373,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 New-Item -ItemType Directory -Force -Path $final | Out-Null
+
+# Avoid keeping stale metadata from previous builds (stage-based builds may not emit these files).
+foreach ($stale in @('latest.yml','builder-debug.yml','builder-effective-config.yaml')) {
+  $p = Join-Path $final $stale
+  if (Test-Path $p) {
+    Remove-Item -Force $p -ErrorAction SilentlyContinue
+  }
+}
 
 foreach ($f in @('latest.yml','builder-debug.yml','builder-effective-config.yaml')) {
   $src = Join-Path $stage $f
@@ -246,7 +422,8 @@ $srcExe = Resolve-StageFile -preferredName $expectedExeName -fallbackNames @($ex
 $srcMap = Resolve-StageFile -preferredName $expectedMapName -fallbackNames @($map, ($map -replace ' ', '-'))
 
 if ($srcExe) {
-  Copy-Item -Force $srcExe -Destination (Join-Path $final $expectedExeName)
+  $finalExePath = (Join-Path $final $expectedExeName)
+  Copy-Item -Force $srcExe -Destination $finalExePath
 } else {
   Write-Warning ('Installer EXE not found in stage. Expected: ' + $expectedExeName)
 }
@@ -305,14 +482,25 @@ if (-not $SkipWinUnpacked -and (Test-Path $srcWU)) {
   }
 }
 
-$keepNames = @($expectedExeName,$expectedMapName,'win-unpacked','latest.yml','builder-effective-config.yaml','builder-debug.yml','.icon-ico')
+$keepNames = @($expectedExeName,$expectedMapName,'win-unpacked','.icon-ico')
+foreach ($meta in @('latest.yml','builder-effective-config.yaml','builder-debug.yml')) {
+  if (Test-Path (Join-Path $final $meta)) {
+    $keepNames += $meta
+  }
+}
 Get-ChildItem -Path $final -Force | ForEach-Object {
   if ($keepNames -notcontains $_.Name) {
     Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue
   }
 }
 
-Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
+# Cleanup stage directory after successful build (best effort).
+try {
+  Stop-LockingProcesses
+  $null = Remove-DirBestEffort -Path $stage -Retries 6 -DelayMs 400
+} catch {
+  Write-Warning ('Failed to cleanup build stage folder (non-fatal): ' + $stage)
+}
 
 # Archive artifacts (keep last 5 builds as reference)
 try {
@@ -343,3 +531,38 @@ try {
 }
 
 Write-Host ('Built desktop artifacts in release2_build (version ' + $ver + ').')
+
+if ($Sign -and $finalExePath -and (Test-Path $finalExePath)) {
+  try {
+    Write-Host ''
+    Write-Host 'Signing final installer (post-build)...'
+    $signScript = Join-Path $PSScriptRoot 'code-sign-installer.ps1'
+
+    if ($env:CSC_LINK -and $env:CSC_LINK.Trim()) {
+      & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -PfxPath $env:CSC_LINK -PfxPasswordEnvVar 'CSC_KEY_PASSWORD' -TimestampUrl $Rfc3161TimeStampServer
+    } elseif ($env:CSC_THUMBPRINT -and $env:CSC_THUMBPRINT.Trim()) {
+      $thumb = ($env:CSC_THUMBPRINT -replace '\s', '').ToUpperInvariant()
+      & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -CertThumbprint $thumb -TimestampUrl $Rfc3161TimeStampServer
+    } elseif ($env:CSC_NAME -and $env:CSC_NAME.Trim()) {
+      $thumb = Find-CodeSigningCertThumbprintByName $env:CSC_NAME
+      if ($thumb) {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $signScript -InstallerPath $finalExePath -CertThumbprint $thumb -TimestampUrl $Rfc3161TimeStampServer
+      } else {
+        Write-Warning 'CSC_NAME is set but no matching code-signing certificate with private key was found in the Windows Certificate Store. Use CSC_THUMBPRINT or CSC_LINK/CSC_KEY_PASSWORD.'
+      }
+    } else {
+      Write-Warning 'Signed build requested but no CSC_LINK/CSC_NAME found at signing time (unexpected).'
+    }
+
+    Write-Host ''
+    Write-Host 'Authenticode signature status (final installer):'
+    $sig = Get-AuthenticodeSignature -FilePath $finalExePath
+    $sig | Format-List
+
+    if ($SigningProfile -eq 'prod' -and $sig.Status -ne 'Valid') {
+      Write-Warning 'Production signing profile requested, but installer signature is not Valid. Check certificate and timestamp settings.'
+    }
+  } catch {
+    Write-Warning ('Failed to read Authenticode signature (non-fatal): ' + $_.Exception.Message)
+  }
+}

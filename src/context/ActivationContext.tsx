@@ -1,96 +1,133 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { activateApp, activateWithLicenseFileContent, deactivateApp, getActivationState, isActivationValid, isCodeActivationAllowed } from '@/services/activation';
-import { verifyLicenseFile } from '@/services/license';
+import {
+  activateWithLicenseFileContent,
+  deactivateApp,
+  getActivationState,
+} from '@/services/activation';
 
 type ActivationContextType = {
   isActivated: boolean;
   loading: boolean;
   activatedAt?: string;
   activationError?: string;
+  reason?: string;
+  review?: {
+    serverUrl?: string;
+    remoteStatus?:
+      | 'active'
+      | 'suspended'
+      | 'revoked'
+      | 'expired'
+      | 'mismatch'
+      | 'invalid_license'
+      | 'unknown';
+    remoteCheckedAt?: string;
+    remoteLastAttemptAt?: string;
+    remoteLastError?: string;
+    remoteStatusUpdatedAt?: string;
+    remoteStatusNote?: string;
+  };
   refresh: () => Promise<void>;
-  activate: (code: string) => Promise<void>;
   activateWithLicenseFileContent: (rawLicense: string) => Promise<void>;
   deactivate: () => Promise<void>;
 };
 
 const ActivationContext = createContext<ActivationContextType | undefined>(undefined);
 
+const messageForReason = (r?: string): string | undefined => {
+  if (!r) return undefined;
+  if (r === 'remote:suspended') return 'تم تعليق الترخيص — راجع الشركة.';
+  if (r === 'remote:revoked') return 'تم إلغاء الترخيص — راجع الشركة.';
+  if (r === 'remote:expired') return 'انتهت صلاحية الترخيص.';
+  if (r === 'remote:mismatch') return 'الترخيص غير مطابق لهذا الجهاز.';
+  if (r === 'remote:invalid_license') return 'مفتاح الترخيص غير صالح.';
+  if (r === 'remote:stale') return 'تعذر التحقق من حالة الترخيص عبر الإنترنت حالياً.';
+  return undefined;
+};
+
 export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isActivated, setIsActivated] = useState(false);
   const [activatedAt, setActivatedAt] = useState<string | undefined>(undefined);
   const [activationError, setActivationError] = useState<string | undefined>(undefined);
-
-  const getDesktopDeviceIdIfAvailable = useCallback(async (): Promise<string | undefined> => {
-    try {
-      const id = await window.desktopDb?.getDeviceId?.();
-      return typeof id === 'string' && id.trim() ? id.trim() : undefined;
-    } catch {
-      return undefined;
-    }
-  }, []);
+  const [reason, setReason] = useState<string | undefined>(undefined);
+  const [review, setReview] = useState<ActivationContextType['review'] | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const st = await getActivationState();
-      setActivatedAt(st.activatedAt);
+      // Desktop: rely on Main-process licensing status via IPC.
+      if (window.desktopLicense?.getStatus) {
+        // Best-effort: refresh remote status first (handles remote disable/suspend).
+        if (window.desktopLicense?.refreshOnlineStatus) {
+          try {
+            await window.desktopLicense.refreshOnlineStatus();
+          } catch {
+            // ignore; we'll still display last known status
+          }
+        }
 
-      let valid = false;
-      try {
-        valid = await isActivationValid(st);
-      } catch {
-        valid = false;
-      }
+        const res = await window.desktopLicense.getStatus();
+        const rec = res as {
+          ok?: boolean;
+          status?: {
+            activated?: boolean;
+            activatedAt?: string;
+            reason?: string;
+            review?: ActivationContextType['review'];
+          };
+          error?: string;
+        };
 
-      setIsActivated(valid);
-
-      if (valid || !st.activated) {
-        setActivationError(undefined);
-        return;
-      }
-
-      // Provide a clear reason when activation state exists but is not valid.
-      if (st.license) {
-        const current = await getDesktopDeviceIdIfAvailable();
-        if (!current) {
-          setActivationError('تعذر قراءة بصمة الجهاز لإتمام التفعيل.');
+        if (!rec?.ok) {
+          setIsActivated(false);
+          setActivatedAt(undefined);
+          setActivationError(rec?.error || 'تعذر قراءة حالة التفعيل');
+          setReason(undefined);
+          setReview(undefined);
           return;
         }
-        try {
-          await verifyLicenseFile(st.license, { deviceId: current });
-          setActivationError('ملف التفعيل غير صالح.');
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          setActivationError(msg || 'ملف التفعيل غير صالح.');
+
+        const activated = Boolean(rec.status?.activated);
+        const r = typeof rec.status?.reason === 'string' ? rec.status.reason : undefined;
+        const rv = rec.status?.review;
+
+        setIsActivated(activated);
+        setActivatedAt(rec.status?.activatedAt);
+        setReason(r);
+        setReview(rv);
+
+        if (!activated) {
+          setActivationError(messageForReason(r));
+        } else {
+          setActivationError(undefined);
         }
         return;
       }
 
-      if (!isCodeActivationAllowed()) {
-        setActivationError('في نسخة الإنتاج: التفعيل يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز.');
-        return;
-      }
-
-      setActivationError('التفعيل غير صالح.');
+      // Non-desktop fallback (best-effort): keep legacy UI state only.
+      const st = await getActivationState();
+      setActivatedAt(st.activatedAt);
+      setIsActivated(Boolean(st.activated));
+      setActivationError(undefined);
+      setReason(undefined);
+      setReview(undefined);
     } finally {
       setLoading(false);
     }
-  }, [getDesktopDeviceIdIfAvailable]);
+  }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const activate = useCallback(async (code: string) => {
-    await activateApp(code);
-    await refresh();
-  }, [refresh]);
-
-  const activateWithLicense = useCallback(async (rawLicense: string) => {
-    await activateWithLicenseFileContent(rawLicense);
-    await refresh();
-  }, [refresh]);
+  const activateWithLicense = useCallback(
+    async (rawLicense: string) => {
+      await activateWithLicenseFileContent(rawLicense);
+      await refresh();
+    },
+    [refresh]
+  );
 
   const deactivate = useCallback(async () => {
     await deactivateApp();
@@ -98,8 +135,28 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ isActivated, loading, activatedAt, activationError, refresh, activate, activateWithLicenseFileContent: activateWithLicense, deactivate }),
-    [isActivated, loading, activatedAt, activationError, refresh, activate, activateWithLicense, deactivate]
+    () => ({
+      isActivated,
+      loading,
+      activatedAt,
+      activationError,
+      reason,
+      review,
+      refresh,
+      activateWithLicenseFileContent: activateWithLicense,
+      deactivate,
+    }),
+    [
+      isActivated,
+      loading,
+      activatedAt,
+      activationError,
+      reason,
+      review,
+      refresh,
+      activateWithLicense,
+      deactivate,
+    ]
   );
 
   return <ActivationContext.Provider value={value}>{children}</ActivationContext.Provider>;

@@ -1,4 +1,4 @@
-﻿import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+﻿import { clipboard, contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
 type SqlSettings = Record<string, unknown>;
 type SqlProvisionPayload = Record<string, unknown>;
@@ -21,6 +21,15 @@ export type DbChannel =
   | 'db:getPath'
   | 'db:getBackupDir'
   | 'db:chooseBackupDir'
+  | 'db:openBackupDir'
+  | 'db:getLocalBackupAutomationSettings'
+  | 'db:saveLocalBackupAutomationSettings'
+  | 'db:runLocalBackupNow'
+  | 'db:getLocalBackupStats'
+  | 'db:getLocalBackupLog'
+  | 'db:clearLocalBackupLog'
+  | 'db:getBackupEncryptionSettings'
+  | 'db:saveBackupEncryptionSettings'
   | 'domain:status'
   | 'domain:migrate'
   | 'domain:searchGlobal'
@@ -70,7 +79,6 @@ export type DbChannel =
   | 'sql:createServerBackup'
   | 'sql:restoreServerBackup'
   | 'sql:mergePublishAdmin';
-  
 
 contextBridge.exposeInMainWorld('desktopDb', {
   // App helpers
@@ -78,6 +86,15 @@ contextBridge.exposeInMainWorld('desktopDb', {
   quitApp: () => ipcRenderer.invoke('app:quit'),
   pickLicenseFile: () => ipcRenderer.invoke('app:pickLicenseFile'),
   getLicensePublicKey: () => ipcRenderer.invoke('app:getLicensePublicKey'),
+  writeClipboardText: async (text: string) => {
+    try {
+      clipboard.writeText(String(text ?? ''));
+      return { ok: true };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { ok: false, error: msg || 'clipboard_write_failed' };
+    }
+  },
 
   get: (key: string) => ipcRenderer.invoke('db:get', key),
   set: (key: string, value: string) => ipcRenderer.invoke('db:set', key, value),
@@ -89,6 +106,17 @@ contextBridge.exposeInMainWorld('desktopDb', {
   getPath: () => ipcRenderer.invoke('db:getPath'),
   getBackupDir: () => ipcRenderer.invoke('db:getBackupDir'),
   chooseBackupDir: () => ipcRenderer.invoke('db:chooseBackupDir'),
+  openBackupDir: () => ipcRenderer.invoke('db:openBackupDir'),
+  getLocalBackupAutomationSettings: () => ipcRenderer.invoke('db:getLocalBackupAutomationSettings'),
+  saveLocalBackupAutomationSettings: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('db:saveLocalBackupAutomationSettings', payload),
+  runLocalBackupNow: () => ipcRenderer.invoke('db:runLocalBackupNow'),
+  getLocalBackupStats: () => ipcRenderer.invoke('db:getLocalBackupStats'),
+  getLocalBackupLog: (payload: Record<string, unknown>) => ipcRenderer.invoke('db:getLocalBackupLog', payload),
+  clearLocalBackupLog: () => ipcRenderer.invoke('db:clearLocalBackupLog'),
+  getBackupEncryptionSettings: () => ipcRenderer.invoke('db:getBackupEncryptionSettings'),
+  saveBackupEncryptionSettings: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('db:saveBackupEncryptionSettings', payload),
 
   // Domain schema + SQL reports (Desktop)
   domainStatus: () => ipcRenderer.invoke('domain:status'),
@@ -97,39 +125,60 @@ contextBridge.exposeInMainWorld('desktopDb', {
 
   // Domain queries (Desktop)
   domainSearchGlobal: (query: string) => ipcRenderer.invoke('domain:searchGlobal', { query }),
-  domainSearch: (payload: { entity: 'people' | 'properties' | 'contracts'; query: string; limit?: number }) =>
-    ipcRenderer.invoke('domain:search', payload),
-  domainGet: (payload: { entity: 'people' | 'properties' | 'contracts'; id: string }) => ipcRenderer.invoke('domain:get', payload),
+  domainSearch: (payload: {
+    entity: 'people' | 'properties' | 'contracts';
+    query: string;
+    limit?: number;
+  }) => ipcRenderer.invoke('domain:search', payload),
+  domainGet: (payload: { entity: 'people' | 'properties' | 'contracts'; id: string }) =>
+    ipcRenderer.invoke('domain:get', payload),
 
   domainCounts: () => ipcRenderer.invoke('domain:counts'),
 
-  domainDashboardSummary: (payload: { todayYMD: string; weekYMD: string }) => ipcRenderer.invoke('domain:dashboard:summary', payload),
-  domainDashboardPerformance: (payload: { monthKey: string; prevMonthKey: string }) => ipcRenderer.invoke('domain:dashboard:performance', payload),
-  domainDashboardHighlights: (payload: { todayYMD: string }) => ipcRenderer.invoke('domain:dashboard:highlights', payload),
+  domainDashboardSummary: (payload: { todayYMD: string; weekYMD: string }) =>
+    ipcRenderer.invoke('domain:dashboard:summary', payload),
+  domainDashboardPerformance: (payload: { monthKey: string; prevMonthKey: string }) =>
+    ipcRenderer.invoke('domain:dashboard:performance', payload),
+  domainDashboardHighlights: (payload: { todayYMD: string }) =>
+    ipcRenderer.invoke('domain:dashboard:highlights', payload),
 
   domainPaymentNotificationTargets: (payload: { daysAhead: number; todayYMD?: string }) =>
     ipcRenderer.invoke('domain:notifications:paymentTargets', payload),
 
-  domainPersonDetails: (payload: { personId: string }) => ipcRenderer.invoke('domain:person:details', payload),
-  domainPersonTenancyContracts: (payload: { personId: string }) => ipcRenderer.invoke('domain:person:tenancyContracts', payload),
+  domainPersonDetails: (payload: { personId: string }) =>
+    ipcRenderer.invoke('domain:person:details', payload),
+  domainPersonTenancyContracts: (payload: { personId: string }) =>
+    ipcRenderer.invoke('domain:person:tenancyContracts', payload),
 
-  domainPropertyContracts: (payload: { propertyId: string; limit?: number }) => ipcRenderer.invoke('domain:property:contracts', payload),
+  domainPropertyContracts: (payload: { propertyId: string; limit?: number }) =>
+    ipcRenderer.invoke('domain:property:contracts', payload),
 
-  domainContractDetails: (payload: { contractId: string }) => ipcRenderer.invoke('domain:contract:details', payload),
+  domainContractDetails: (payload: { contractId: string }) =>
+    ipcRenderer.invoke('domain:contract:details', payload),
 
   // Domain helpers for details panels (Desktop fast mode)
-  domainOwnershipHistory: (payload: { propertyId?: string; personId?: string }) => ipcRenderer.invoke('domain:ownership:history', payload),
-  domainPropertyInspections: (payload: { propertyId: string }) => ipcRenderer.invoke('domain:property:inspections', payload),
-  domainSalesForPerson: (payload: { personId: string }) => ipcRenderer.invoke('domain:sales:person', payload),
-  domainSalesForProperty: (payload: { propertyId: string }) => ipcRenderer.invoke('domain:sales:property', payload),
+  domainOwnershipHistory: (payload: { propertyId?: string; personId?: string }) =>
+    ipcRenderer.invoke('domain:ownership:history', payload),
+  domainPropertyInspections: (payload: { propertyId: string }) =>
+    ipcRenderer.invoke('domain:property:inspections', payload),
+  domainSalesForPerson: (payload: { personId: string }) =>
+    ipcRenderer.invoke('domain:sales:person', payload),
+  domainSalesForProperty: (payload: { propertyId: string }) =>
+    ipcRenderer.invoke('domain:sales:property', payload),
 
   // Domain mutations (Desktop fast mode)
-  domainPeopleDelete: (payload: { personId: string }) => ipcRenderer.invoke('domain:people:delete', payload),
-  domainBlacklistRemove: (payload: { id: string }) => ipcRenderer.invoke('domain:blacklist:remove', payload),
-  domainPropertyUpdate: (payload: { propertyId: string; patch: Record<string, unknown> }) => ipcRenderer.invoke('domain:property:update', payload),
-  domainInspectionDelete: (payload: { id: string }) => ipcRenderer.invoke('domain:inspection:delete', payload),
-  domainFollowUpAdd: (payload: { task: Record<string, unknown> }) => ipcRenderer.invoke('domain:followups:add', payload),
-  domainSalesAgreementDelete: (payload: { id: string }) => ipcRenderer.invoke('domain:sales:agreement:delete', payload),
+  domainPeopleDelete: (payload: { personId: string }) =>
+    ipcRenderer.invoke('domain:people:delete', payload),
+  domainBlacklistRemove: (payload: { id: string }) =>
+    ipcRenderer.invoke('domain:blacklist:remove', payload),
+  domainPropertyUpdate: (payload: { propertyId: string; patch: Record<string, unknown> }) =>
+    ipcRenderer.invoke('domain:property:update', payload),
+  domainInspectionDelete: (payload: { id: string }) =>
+    ipcRenderer.invoke('domain:inspection:delete', payload),
+  domainFollowUpAdd: (payload: { task: Record<string, unknown> }) =>
+    ipcRenderer.invoke('domain:followups:add', payload),
+  domainSalesAgreementDelete: (payload: { id: string }) =>
+    ipcRenderer.invoke('domain:sales:agreement:delete', payload),
 
   domainPropertyPickerSearch: (payload: {
     query: string;
@@ -149,8 +198,7 @@ contextBridge.exposeInMainWorld('desktopDb', {
     sort?: string;
     offset?: number;
     limit?: number;
-  }) =>
-    ipcRenderer.invoke('domain:picker:properties', payload),
+  }) => ipcRenderer.invoke('domain:picker:properties', payload),
   domainContractPickerSearch: (payload: {
     query: string;
     tab?: string;
@@ -164,8 +212,7 @@ contextBridge.exposeInMainWorld('desktopDb', {
     sort?: string;
     offset?: number;
     limit?: number;
-  }) =>
-    ipcRenderer.invoke('domain:picker:contracts', payload),
+  }) => ipcRenderer.invoke('domain:picker:contracts', payload),
   domainPeoplePickerSearch: (payload: {
     query: string;
     role?: string;
@@ -177,11 +224,15 @@ contextBridge.exposeInMainWorld('desktopDb', {
     sort?: string;
     offset?: number;
     limit?: number;
-  }) =>
-    ipcRenderer.invoke('domain:picker:people', payload),
+  }) => ipcRenderer.invoke('domain:picker:people', payload),
 
-  domainInstallmentsContractsSearch: (payload: { query?: string; filter?: string; sort?: string; offset?: number; limit?: number }) =>
-    ipcRenderer.invoke('domain:installments:contracts', payload),
+  domainInstallmentsContractsSearch: (payload: {
+    query?: string;
+    filter?: string;
+    sort?: string;
+    offset?: number;
+    limit?: number;
+  }) => ipcRenderer.invoke('domain:installments:contracts', payload),
 
   // SQL Server Sync (Desktop only)
   sqlGetSettings: () => ipcRenderer.invoke('sql:getSettings'),
@@ -199,17 +250,22 @@ contextBridge.exposeInMainWorld('desktopDb', {
   sqlClearSyncLog: () => ipcRenderer.invoke('sql:clearSyncLog'),
   sqlGetCoverage: () => ipcRenderer.invoke('sql:getCoverage'),
   sqlPullFullNow: () => ipcRenderer.invoke('sql:pullFullNow'),
-  sqlMergePublishAdmin: (payload?: { keys?: string[]; prefer?: 'local' | 'remote' }) => ipcRenderer.invoke('sql:mergePublishAdmin', payload),
+  sqlMergePublishAdmin: (payload?: { keys?: string[]; prefer?: 'local' | 'remote' }) =>
+    ipcRenderer.invoke('sql:mergePublishAdmin', payload),
 
   sqlGetBackupAutomationSettings: () => ipcRenderer.invoke('sql:getBackupAutomationSettings'),
   sqlSaveBackupAutomationSettings: (payload: SqlBackupAutomationSettingsPayload) =>
     ipcRenderer.invoke('sql:saveBackupAutomationSettings', payload),
-  sqlListServerBackups: (payload?: { limit?: number }) => ipcRenderer.invoke('sql:listServerBackups', payload),
-  sqlCreateServerBackup: (payload?: { note?: string }) => ipcRenderer.invoke('sql:createServerBackup', payload),
-  sqlRestoreServerBackup: (payload: { id: string; mode: 'merge' | 'replace' }) => ipcRenderer.invoke('sql:restoreServerBackup', payload),
+  sqlListServerBackups: (payload?: { limit?: number }) =>
+    ipcRenderer.invoke('sql:listServerBackups', payload),
+  sqlCreateServerBackup: (payload?: { note?: string }) =>
+    ipcRenderer.invoke('sql:createServerBackup', payload),
+  sqlRestoreServerBackup: (payload: { id: string; mode: 'merge' | 'replace' }) =>
+    ipcRenderer.invoke('sql:restoreServerBackup', payload),
 
   onRemoteUpdate: (handler: (evt: RemoteUpdateEventPayload) => void) => {
-    const listener = (_e: IpcRendererEvent, payload: unknown) => handler(payload as RemoteUpdateEventPayload);
+    const listener = (_e: IpcRendererEvent, payload: unknown) =>
+      handler(payload as RemoteUpdateEventPayload);
     ipcRenderer.on('db:remoteUpdate', listener);
     return () => ipcRenderer.removeListener('db:remoteUpdate', listener);
   },
@@ -221,15 +277,26 @@ contextBridge.exposeInMainWorld('desktopDb', {
   },
 
   // Attachments (filesystem)
-  saveAttachmentFile: (payload: { referenceType: string; entityFolder: string; originalFileName: string; bytes: ArrayBuffer }) =>
-    ipcRenderer.invoke('attachments:save', payload),
-  readAttachmentFile: (relativePath: string) => ipcRenderer.invoke('attachments:read', relativePath),
-  deleteAttachmentFile: (relativePath: string) => ipcRenderer.invoke('attachments:delete', relativePath),
+  saveAttachmentFile: (payload: {
+    referenceType: string;
+    entityFolder: string;
+    originalFileName: string;
+    bytes: ArrayBuffer;
+  }) => ipcRenderer.invoke('attachments:save', payload),
+  readAttachmentFile: (relativePath: string) =>
+    ipcRenderer.invoke('attachments:read', relativePath),
+  deleteAttachmentFile: (relativePath: string) =>
+    ipcRenderer.invoke('attachments:delete', relativePath),
+  openAttachmentFile: (relativePath: string) =>
+    ipcRenderer.invoke('attachments:open', relativePath),
+  pullAttachmentsNow: () => ipcRenderer.invoke('attachments:pullNow'),
 
   // Word templates
-  readTemplateFile: (payload: { templateName: string }) => ipcRenderer.invoke('templates:read', payload),
-  listTemplates: () => ipcRenderer.invoke('templates:list'),
-  importTemplate: () => ipcRenderer.invoke('templates:import'),
+  readTemplateFile: (payload: { templateName: string; templateType?: string }) =>
+    ipcRenderer.invoke('templates:read', payload),
+  listTemplates: (payload?: { templateType?: string }) => ipcRenderer.invoke('templates:list', payload),
+  importTemplate: (payload?: { templateType?: string }) => ipcRenderer.invoke('templates:import', payload),
+  deleteTemplate: (payload: { templateName: string; templateType?: string }) => ipcRenderer.invoke('templates:delete', payload),
 });
 
 contextBridge.exposeInMainWorld('desktopUpdater', {
@@ -248,6 +315,54 @@ contextBridge.exposeInMainWorld('desktopUpdater', {
     ipcRenderer.on('updater:event', listener);
     return () => ipcRenderer.removeListener('updater:event', listener);
   },
+});
+
+contextBridge.exposeInMainWorld('desktopLicense', {
+  getDeviceFingerprint: () => ipcRenderer.invoke('license:getDeviceFingerprint'),
+  getStatus: () => ipcRenderer.invoke('license:getStatus'),
+  hasFeature: (featureName: string) => ipcRenderer.invoke('license:hasFeature', featureName),
+  activateFromContent: (raw: string) => ipcRenderer.invoke('license:activateFromContent', raw),
+  activateOnline: (payload: { licenseKey: string; serverUrl?: string }) =>
+    ipcRenderer.invoke('license:activateOnline', payload),
+  getServerUrl: () => ipcRenderer.invoke('license:getServerUrl'),
+  setServerUrl: (url: string) => ipcRenderer.invoke('license:setServerUrl', url),
+  refreshOnlineStatus: () => ipcRenderer.invoke('license:refreshOnlineStatus'),
+  deactivate: () => ipcRenderer.invoke('license:deactivate'),
+});
+
+contextBridge.exposeInMainWorld('desktopLicenseAdmin', {
+  login: (payload: { username: string; password: string }) =>
+    ipcRenderer.invoke('licenseAdmin:login', payload),
+  logout: () => ipcRenderer.invoke('licenseAdmin:logout'),
+
+  getUser: () => ipcRenderer.invoke('licenseAdmin:getUser'),
+  updateUser: (payload: { username: string; newPassword?: string }) =>
+    ipcRenderer.invoke('licenseAdmin:updateUser', payload),
+
+  getAdminTokenStatus: () => ipcRenderer.invoke('licenseAdmin:getAdminTokenStatus'),
+  setAdminToken: (payload: { token: string }) => ipcRenderer.invoke('licenseAdmin:setAdminToken', payload),
+
+  list: (payload: { serverUrl: string; q?: string; limit?: number }) =>
+    ipcRenderer.invoke('licenseAdmin:list', payload),
+  get: (payload: { serverUrl: string; licenseKey: string }) =>
+    ipcRenderer.invoke('licenseAdmin:get', payload),
+  issue: (payload: {
+    serverUrl: string;
+    licenseKey?: string;
+    expiresAt?: string;
+    maxActivations?: number;
+    features?: Record<string, unknown>;
+  }) => ipcRenderer.invoke('licenseAdmin:issue', payload),
+  setStatus: (payload: { serverUrl: string; licenseKey: string; status: string; note?: string }) =>
+    ipcRenderer.invoke('licenseAdmin:setStatus', payload),
+  activate: (payload: { serverUrl: string; licenseKey: string; deviceId: string }) =>
+    ipcRenderer.invoke('licenseAdmin:activate', payload),
+  checkStatus: (payload: { serverUrl: string; licenseKey: string; deviceId: string }) =>
+    ipcRenderer.invoke('licenseAdmin:checkStatus', payload),
+  updateAfterSales: (payload: { serverUrl: string; licenseKey: string; patch: Record<string, unknown> }) =>
+    ipcRenderer.invoke('licenseAdmin:updateAfterSales', payload),
+  saveLicenseFile: (payload: { defaultFileName?: string; content: string; confirmPassword?: string }) =>
+    ipcRenderer.invoke('licenseAdmin:saveLicenseFile', payload),
 });
 
 export {}; // ensure this is treated as a module

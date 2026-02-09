@@ -54,6 +54,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: ShieldCheck,
     children: [
       { label: 'لوحة التحكم المركزية', path: ROUTE_PATHS.ADMIN_PANEL, icon: Shield },
+      { label: 'تفعيل النظام', path: ROUTE_PATHS.ACTIVATION, icon: ShieldCheck },
       { label: 'إعدادات النظام', path: ROUTE_PATHS.SETTINGS, icon: Settings },
       { label: 'سجل العمليات', path: ROUTE_PATHS.OPERATIONS, icon: Activity },
       { label: 'صيانة النظام', path: ROUTE_PATHS.SYS_MAINTENANCE, icon: ServerCog },
@@ -76,6 +77,8 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
 
   // Non-sidebar / utility routes
   titles[ROUTE_PATHS.ACTIVATION] = 'تفعيل النظام';
+  titles[ROUTE_PATHS.LICENSE_ADMIN] = 'إدارة التفعيل';
+  titles[ROUTE_PATHS.LICENSE_ADMIN_USERS] = 'المستخدمين';
   titles[ROUTE_PATHS.LOGIN] = 'تسجيل الدخول';
   titles[ROUTE_PATHS.LOGOUT] = 'تسجيل الخروج';
   titles[ROUTE_PATHS.SMART_TOOLS] = 'أدوات ذكية';
@@ -93,6 +96,7 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
 // Keep aligned with page headers where available.
 export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.ACTIVATION]: 'إدخال رمز التفعيل لتفعيل النظام',
+  [ROUTE_PATHS.LICENSE_ADMIN_USERS]: 'تعديل اسم المستخدم وكلمة المرور لبرنامج إدارة التفعيل',
   [ROUTE_PATHS.DASHBOARD]: 'نظام مراقبة شامل متعدد الطبقات مع تحديثات فورية',
   [ROUTE_PATHS.SALES]: 'نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية',
   [ROUTE_PATHS.PEOPLE]: 'سجل العملاء، الملاك، والمستأجرين',

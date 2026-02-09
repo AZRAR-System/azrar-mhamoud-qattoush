@@ -47,6 +47,6 @@
 
 **الحل**
 1. أعد بناء الـ native module لـ Electron:
-  - `npx electron-rebuild -f -w better-sqlite3`
+  - `npx @electron/rebuild -f -w better-sqlite3`
 2. ثم أعد تشغيل الديسكتوب:
   - `npm run desktop:dev`

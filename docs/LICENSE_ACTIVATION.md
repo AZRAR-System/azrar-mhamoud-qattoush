@@ -100,3 +100,66 @@
 
 - النظام يحاول كشف **الرجوع الكبير بوقت الجهاز للخلف** لمنع التحايل على تاريخ الانتهاء.
 - إذا واجه العميل رسالة عن الوقت، يتم ضبط التاريخ/الوقت الصحيح ثم إعادة تشغيل البرنامج.
+
+---
+
+# إدارة التفعيل عبر سيرفر التراخيص (Online + تعطيل/تعليق)
+
+هذا المسار مناسب عندما تريد:
+- إصدار **License Key** للعميل.
+- تفعيل أونلاين من داخل التطبيق بمفتاح الترخيص.
+- أو توليد **ملف تفعيل Offline** من السيرفر بعد أخذ بصمة الجهاز.
+- القدرة على **تعليق** أو **إلغاء** الترخيص لاحقاً من طرف الشركة.
+
+> ملاحظة: في بيئة الإنتاج يجب تغيير `AdminToken` وتشغيل السيرفر على HTTPS.
+
+## 1) تشغيل سيرفر التراخيص (محلياً)
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-server-dev.ps1`
+
+## 2) أداة الإدارة (برنامج/CLI) — إصدار / تعليق / إلغاء / توليد ملف
+
+### تشغيلها بوضع القائمة التفاعلية
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-admin.ps1`
+
+### أوامر مباشرة (بدون قائمة)
+
+إصدار كود تفعيل (License Key):
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-admin.ps1 -Cmd issue -MaxActivations 1 -ExpiresAt "2026-12-31T23:59:59Z"`
+
+توليد ملف تفعيل Offline من كود + بصمة الجهاز:
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-admin.ps1 -Cmd activate -LicenseKey "LIC-..." -DeviceId "fp2:..." -OutFile "tmp\\signed-license.json"`
+
+تعليق ترخيص:
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-admin.ps1 -Cmd setStatus -LicenseKey "LIC-..." -Status suspended -Note "سبب التعليق"`
+
+إلغاء ترخيص (سحب نهائي):
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-admin.ps1 -Cmd setStatus -LicenseKey "LIC-..." -Status revoked -Note "سبب الإلغاء"`
+
+إعادة تفعيل:
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-admin.ps1 -Cmd setStatus -LicenseKey "LIC-..." -Status active -Note "تمت المراجعة"`
+
+فحص حالة الترخيص (يتطلب بصمة الجهاز):
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-admin.ps1 -Cmd status -LicenseKey "LIC-..." -DeviceId "fp2:..."`
+
+---
+
+## 3) أداة الإدارة (Desktop GUI) — شاشة احترافية لإدارة الأكواد والأجهزة
+
+هذه الواجهة تعمل داخل نفس تطبيق Electron لكن بوضع خاص `license-admin`.
+
+### المتطلبات
+- شغّل سيرفر التراخيص أولاً (محلياً أو على سيرفر):
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/license-server-dev.ps1`
+
+### التشغيل (PowerShell)
+يمكنك تشغيلها بهذه الطريقة (بدون تخزين أسرار داخل الملفات):
+- `npm run license-admin:dev -- -UiPassword "YOUR_PASSWORD" -AdminToken "YOUR_ADMIN_TOKEN"`
+
+أو عن طريق متغيرات البيئة:
+- `$env:AZRAR_LICENSE_ADMIN_UI_PASSWORD = "YOUR_PASSWORD"`
+- `$env:AZRAR_LICENSE_SERVER_ADMIN_TOKEN = "YOUR_ADMIN_TOKEN"`
+- `npm run license-admin:dev`
+
+### التشغيل (ملف BAT)
+- افتح `start-license-admin.bat` وضع القيم داخل المتغيرات (لا تضع أسرار الإنتاج داخل Git)
+- ثم شغّله.

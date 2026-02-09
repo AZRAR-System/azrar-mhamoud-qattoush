@@ -6,6 +6,15 @@
 const fs = require('fs');
 const path = require('path');
 
+const signingProfileRaw = String(process.env.AZRAR_SIGNING_PROFILE || '').trim().toLowerCase();
+const isProdSigning =
+  signingProfileRaw === 'prod' ||
+  signingProfileRaw === 'production' ||
+  signingProfileRaw === 'trusted' ||
+  signingProfileRaw === 'ca' ||
+  signingProfileRaw === 'ov' ||
+  signingProfileRaw === 'ev';
+
 module.exports = {
   appId: 'com.azrar.desktop',
   productName: 'AZRAR',
@@ -62,25 +71,34 @@ module.exports = {
     ],
     icon: 'build/icon.png',
     
-    // إعدادات التوقيع الرقمي (مفعّلة عند توفر الشهادة)
-    signAndEditExecutable: true,
-    signingHashAlgorithms: ['sha256'],
-    rfc3161TimeStampServer: 'http://timestamp.digicert.com',
+    // إعدادات التوقيع الرقمي
+    signAndEditExecutable: false,
+    signtoolOptions: {
+      signingHashAlgorithms: ['sha256'],
+      rfc3161TimeStampServer: 'http://timestamp.digicert.com',
+    },
     
     // استخدم هذه الإعدادات عندما تكون لديك شهادة
     // certificateFile: process.env.CSC_LINK,
     // certificatePassword: process.env.CSC_KEY_PASSWORD,
     
     publisherName: 'AZRAR',
-    verifyUpdateCodeSignature: false // غيره إلى true عند استخدام شهادة موقعة
+    // In production releases (OV/EV CA), enable update signature verification.
+    // For internal/dev self-signed builds this stays false to avoid verification issues on non-trusted machines.
+    verifyUpdateCodeSignature: isProdSigning
   },
 
   // إعدادات NSIS Installer
   nsis: {
+    // Installer legal screen (NSIS will require explicit acceptance).
+    // Keep the file in build resources so it is always present during packaging.
+    license: 'build/TERMS_AND_PRIVACY.txt',
     oneClick: false,
-    perMachine: false,
+    // Install per-machine into a protected system path (e.g. Program Files).
+    perMachine: true,
     allowElevation: true,
-    allowToChangeInstallationDirectory: true,
+    // Prevent installing to arbitrary (unprotected) locations.
+    allowToChangeInstallationDirectory: false,
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
     shortcutName: 'AZRAR',

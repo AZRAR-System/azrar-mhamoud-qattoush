@@ -37,6 +37,23 @@
 
 ## 🛠️ خطوات التكوين
 
+## 🧭 فصل واضح بين Self-signed و Trusted-signed
+
+نستخدم نفس أمر البناء للتوقيع:
+
+- `npm run desktop:dist:signed`
+
+والفصل بين **التوقيع الداخلي (Self-signed)** و **التوقيع الرسمي (OV/EV من CA)** يتم عبر متغير بيئة واحد:
+
+- `AZRAR_SIGNING_PROFILE=dev`
+  - للتطوير الداخلي/التجارب.
+  - مناسب لشهادة self-signed.
+- `AZRAR_SIGNING_PROFILE=prod`
+  - للنسخة الرسمية للبيع للعملاء (شهادة OV/EV من CA).
+  - يفعّل تلقائيًا `verifyUpdateCodeSignature` في إعدادات البناء.
+
+> في كلا المسارين، التوقيع يعتمد على `CSC_LINK/CSC_KEY_PASSWORD` (ملف PFX) أو `CSC_NAME` (شهادة من Windows Certificate Store).
+
 ### الخطوة 1: حفظ الشهادة
 
 ```powershell
@@ -99,6 +116,11 @@ win: {
 # تأكد من وجود متغيرات البيئة
 Write-Host "CSC_LINK: $env:CSC_LINK"
 Write-Host "CSC_KEY_PASSWORD: $(if($env:CSC_KEY_PASSWORD){'Set'}else{'Not Set'})"
+
+# اختر بروفايل التوقيع
+$env:AZRAR_SIGNING_PROFILE = "dev"  # self-signed (internal)
+# أو للنسخة الرسمية:
+# $env:AZRAR_SIGNING_PROFILE = "prod" # OV/EV CA (official)
 
 # بناء التطبيق
 npm run desktop:dist:signed
@@ -175,6 +197,29 @@ rfc3161TimeStampServer: 'http://timestamp.sectigo.com'
 ---
 
 ## 📦 إنشاء شهادة Self-Signed للتطوير
+
+يمكنك استخدام سكربت جاهز داخل المشروع لإنشاء شهادة Code Signing للتجارب الداخلية وتصديرها كملف `.pfx`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-dev-code-sign-cert.ps1 -TrustCurrentUser
+```
+
+إذا كنت تريد تشغيله بدون إدخال تفاعلي لكلمة مرور الـ PFX (مثلاً لأتمتة محلية أو CI)، لديك خياران:
+
+```powershell
+# خيار 1: تمرير كلمة المرور مباشرة (Dev فقط)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-dev-code-sign-cert.ps1 -TrustCurrentUser -PfxPassword "YourDevPassword"
+
+# خيار 2: عبر متغير بيئة (أكثر نظافة)
+$env:AZRAR_DEV_PFX_PASSWORD = "YourDevPassword"
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-dev-code-sign-cert.ps1 -TrustCurrentUser
+```
+
+سيقوم السكربت بإخراج مسار ملف الـ PFX وملف الـ CER، ثم يمكنك توقيع المُثبّت عبر `scripts/code-sign-installer.ps1` أو عبر `npm run desktop:dist:signed`.
+
+---
+
+بديل يدوي (بدون السكربت):
 
 ```powershell
 # إنشاء شهادة للتطوير فقط

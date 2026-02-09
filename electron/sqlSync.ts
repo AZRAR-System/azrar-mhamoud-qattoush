@@ -9,6 +9,13 @@ import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
 import { getDbPath } from './db';
 
+import {
+  decryptSecretBestEffort,
+  getBackupEncryptionPasswordState,
+  readBackupEncryptionSettings,
+} from './utils/backupEncryptionSettings';
+import { decryptFileToBuffer, encryptBufferToFile, isEncryptedFile } from './utils/fileEncryption';
+
 export type SqlAuthMode = 'sql' | 'windows';
 
 export type SqlSettings = {
@@ -68,6 +75,68 @@ let ignoreNextLocalWrites = 0;
 const ATTACHMENTS_KV_KEY = 'db_attachments';
 const ATTACHMENT_UPLOAD_MAX_BYTES = 50 * 1024 * 1024; // 50MB
 
+const LOOKUPS_KV_KEY = 'db_lookups';
+const LOOKUP_CATEGORIES_KV_KEY = 'db_lookup_categories';
+
+const normKeySimple = (v: unknown) => String(v ?? '').trim().toLowerCase();
+
+const stableHash32 = (input: string): string => {
+  // Simple deterministic 32-bit hash (djb2) for stable keys.
+  let h = 5381;
+  for (let i = 0; i < input.length; i++) {
+    h = (h * 33) ^ input.charCodeAt(i);
+  }
+  return (h >>> 0).toString(36);
+};
+
+const lookupKeyFor = (category: unknown, label: unknown): string => {
+  const c = normKeySimple(category);
+  const l = normKeySimple(label);
+  if (!c || !l) return '';
+  return `${c}_${stableHash32(l)}`;
+};
+
+function tryNormalizeLookupsJson(key: string, raw: string): string {
+  const k = String(key || '').trim();
+  if (k !== LOOKUPS_KV_KEY && k !== LOOKUP_CATEGORIES_KV_KEY) return raw;
+  if (typeof raw !== 'string') return raw;
+
+  const s = raw.trim();
+  if (!s) return raw;
+
+  try {
+    const parsed = JSON.parse(s);
+    if (!Array.isArray(parsed)) return raw;
+
+    if (k === LOOKUP_CATEGORIES_KV_KEY) {
+      const next = parsed.map((it) => {
+        if (!it || typeof it !== 'object' || Array.isArray(it)) return it;
+        const rec = it as Record<string, unknown>;
+        const name = String(rec.name ?? rec.id ?? '').trim();
+        const id = String(rec.id ?? name).trim();
+        const label = String(rec.label ?? name).trim();
+        const key2 = String(rec.key ?? name).trim();
+        return { ...rec, id, name, label, key: key2 };
+      });
+      return JSON.stringify(next);
+    }
+
+    // db_lookups
+    const next = parsed.map((it) => {
+      if (!it || typeof it !== 'object' || Array.isArray(it)) return it;
+      const rec = it as Record<string, unknown>;
+      const category = String(rec.category ?? '').trim();
+      const label = String(rec.label ?? '').trim();
+      if (!category || !label) return it;
+      const key2 = String(rec.key ?? lookupKeyFor(category, label)).trim();
+      return { ...rec, category, label, key: key2 };
+    });
+    return JSON.stringify(next);
+  } catch {
+    return raw;
+  }
+}
+
 export type SqlBackupAutomationSettings = {
   enabled: boolean;
   retentionDays: number;
@@ -95,8 +164,13 @@ function normalizeRelPath(relRaw: string): string {
   }
 
   const root = getStableAttachmentsRoot();
-  const normalize = (p: string) => String(p || '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
-  const looksAbsolute = path.isAbsolute(raw) || /^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\');
+  const normalize = (p: string) =>
+    String(p || '')
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '')
+      .trim();
+  const looksAbsolute =
+    path.isAbsolute(raw) || /^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\');
 
   if (looksAbsolute) {
     const abs = path.normalize(raw);
@@ -136,10 +210,8 @@ async function fileExists(p: string): Promise<boolean> {
 }
 
 async function ensureAttachmentFilesTable(p: sql.ConnectionPool): Promise<void> {
-  await p
-    .request()
-    .query(
-      `IF OBJECT_ID('dbo.AttachmentFiles', 'U') IS NULL
+  await p.request().query(
+    `IF OBJECT_ID('dbo.AttachmentFiles', 'U') IS NULL
        BEGIN
          CREATE TABLE dbo.AttachmentFiles (
            [path] NVARCHAR(700) NOT NULL PRIMARY KEY,
@@ -156,14 +228,12 @@ async function ensureAttachmentFilesTable(p: sql.ConnectionPool): Promise<void> 
        BEGIN
          CREATE INDEX IX_AttachmentFiles_updatedAt ON dbo.AttachmentFiles(updatedAt);
        END`
-    );
+  );
 }
 
 async function ensureServerBackupsTable(p: sql.ConnectionPool): Promise<void> {
-  await p
-    .request()
-    .query(
-      `IF OBJECT_ID('dbo.ServerBackups', 'U') IS NULL
+  await p.request().query(
+    `IF OBJECT_ID('dbo.ServerBackups', 'U') IS NULL
        BEGIN
          CREATE TABLE dbo.ServerBackups (
            [id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_ServerBackups PRIMARY KEY,
@@ -184,14 +254,12 @@ async function ensureServerBackupsTable(p: sql.ConnectionPool): Promise<void> {
        BEGIN
          CREATE INDEX IX_ServerBackups_createdAt ON dbo.ServerBackups(createdAt);
        END`
-    );
+  );
 }
 
 async function ensureKvImportStagingTable(p: sql.ConnectionPool): Promise<void> {
-  await p
-    .request()
-    .query(
-      `IF OBJECT_ID('dbo.KvImportStaging', 'U') IS NULL
+  await p.request().query(
+    `IF OBJECT_ID('dbo.KvImportStaging', 'U') IS NULL
        BEGIN
          CREATE TABLE dbo.KvImportStaging (
            [batchId] UNIQUEIDENTIFIER NOT NULL,
@@ -208,10 +276,11 @@ async function ensureKvImportStagingTable(p: sql.ConnectionPool): Promise<void> 
        BEGIN
          CREATE INDEX IX_KvImportStaging_batchId ON dbo.KvImportStaging(batchId);
        END`
-    );
+  );
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
 
 const asString = (value: unknown): string => {
   if (typeof value === 'string') return value;
@@ -219,10 +288,79 @@ const asString = (value: unknown): string => {
   return '';
 };
 
-const getRecordProp = (obj: unknown, key: string): unknown => (isRecord(obj) ? obj[key] : undefined);
+type SqlResultCode =
+  | 'ERR_SQL_DISABLED'
+  | 'ERR_SQL_CONNECT_FAILED'
+  | 'ERR_SQL_CONNECT_FAILED_SIMPLE'
+  | 'ERR_SQL_BACKUP_LIST_FAILED'
+  | 'ERR_SQL_BACKUP_NOT_FOUND'
+  | 'ERR_SQL_BACKUP_INVALID'
+  | 'ERR_SQL_BACKUP_UPLOAD_FAILED'
+  | 'ERR_SQL_BACKUP_RESTORE_FAILED'
+  | 'ERR_SQL_BACKUP_EXPORT_FAILED'
+  | 'ERR_SQL_BACKUP_IMPORT_FAILED'
+  | 'ERR_SQL_BACKUP_READ_FAILED'
+  | 'ERR_SQL_REMOTE_ROW_FAILED'
+  | 'ERR_SQL_SERVER_REQUIRED'
+  | 'ERR_SQL_DATABASE_REQUIRED'
+  | 'ERR_SQL_INVALID_KEY'
+  | 'ERR_SQL_BACKUP_DAILY_FAILED'
+  | 'ERR_SQL_BACKUP_DAILY_CREATE_FAILED'
+  | 'ERR_SQL_PROVISION_FAILED'
+  | 'ERR_SQL_BACKUP_FILE_INVALID'
+  | 'OK_SQL_BACKUP_DAILY_DISABLED'
+  | 'OK_SQL_BACKUP_DAILY_EXISTS'
+  | 'OK_SQL_BACKUP_DAILY_CREATED'
+  | 'OK_SQL_SYNC_DISABLED'
+  | 'OK_SQL_PROVISIONED'
+  | 'OK_SQL_CONNECTED'
+  | 'OK_SQL_CONNECTED_READY'
+  | 'OK_SQL_BACKUP_UPLOADED'
+  | 'OK_SQL_BACKUP_EXPORTED'
+  | 'OK_SQL_BACKUP_RESTORED'
+  | 'OK_SQL_BACKUP_MERGED'
+  | 'OK_SQL_BACKUP_RESTORED_LOCAL'
+  | 'OK_SQL_BACKUP_MERGED_LOCAL';
+
+const okResult = <T extends Record<string, unknown>>(
+  code: SqlResultCode,
+  message: string,
+  extra?: T
+) => ({ ok: true, code, message, ...(extra || {}) });
+
+const errorResult = <T extends Record<string, unknown>>(
+  code: SqlResultCode,
+  message: string,
+  extra?: T
+) => ({ ok: false, code, message, ...(extra || {}) });
+
+const ensureError = <T extends Record<string, unknown>>(
+  ensured: unknown,
+  fallback: string,
+  extra?: T
+) => {
+  const code =
+    isRecord(ensured) && typeof ensured.code === 'string' && ensured.code
+      ? (ensured.code as SqlResultCode)
+      : 'ERR_SQL_CONNECT_FAILED';
+  const message =
+    isRecord(ensured) && typeof ensured.message === 'string' && ensured.message
+      ? ensured.message
+      : fallback;
+  return { ok: false, code, message, ...(extra || {}) };
+};
+
+const getRecordProp = (obj: unknown, key: string): unknown =>
+  isRecord(obj) ? obj[key] : undefined;
 
 const toDate = (value: unknown): Date =>
-  new Date(value instanceof Date ? value : typeof value === 'string' || typeof value === 'number' ? value : String(value));
+  new Date(
+    value instanceof Date
+      ? value
+      : typeof value === 'string' || typeof value === 'number'
+        ? value
+        : String(value)
+  );
 
 function formatSqlErrorMessage(e: unknown, fallback: string): string {
   const msg1 = getRecordProp(e, 'message');
@@ -252,7 +390,9 @@ type AttachmentLike = {
   fileName?: string;
 };
 
-function extractAttachmentPathsFromJson(jsonRaw: string): Array<{ relPath: string; mime?: string }> {
+function extractAttachmentPathsFromJson(
+  jsonRaw: string
+): Array<{ relPath: string; mime?: string }> {
   try {
     const parsed = JSON.parse(String(jsonRaw || ''));
     const arr: AttachmentLike[] = Array.isArray(parsed) ? parsed : [];
@@ -278,7 +418,11 @@ function extractAttachmentPathsFromJson(jsonRaw: string): Array<{ relPath: strin
   }
 }
 
-async function uploadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw: string, mime: string | undefined): Promise<'uploaded' | 'skipped' | 'missingLocal'> {
+async function uploadAttachmentFileIfNeeded(
+  p: sql.ConnectionPool,
+  relPathRaw: string,
+  mime: string | undefined
+): Promise<'uploaded' | 'skipped' | 'missingLocal'> {
   const relPath = normalizeRelPath(relPathRaw);
   const root = getStableAttachmentsRoot();
   const abs = path.join(root, relPath);
@@ -286,7 +430,15 @@ async function uploadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw: s
 
   if (!(await fileExists(abs))) return 'missingLocal';
 
-  const buf = await fsp.readFile(abs);
+  const buf = await (async () => {
+    const looksEncrypted = await isEncryptedFile(abs);
+    if (!looksEncrypted) return await fsp.readFile(abs);
+
+    const s = await readBackupEncryptionSettings();
+    const password = s.passwordEnc ? decryptSecretBestEffort(String(s.passwordEnc || '')) : '';
+    if (!password) throw new Error('لا توجد كلمة مرور لفك تشفير المرفقات');
+    return await decryptFileToBuffer({ sourcePath: abs, password });
+  })();
   if (buf.byteLength > ATTACHMENT_UPLOAD_MAX_BYTES) {
     throw new Error(`حجم المرفق كبير جداً لرفعه (${Math.round(buf.byteLength / (1024 * 1024))}MB)`);
   }
@@ -298,7 +450,11 @@ async function uploadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw: s
     .input('path', sql.NVarChar(700), relPath)
     .query(`SELECT TOP 1 sha256, size FROM dbo.AttachmentFiles WHERE [path] = @path;`);
   const existing = (check.recordset || [])[0] as { sha256?: string; size?: number } | undefined;
-  if (existing?.sha256 && String(existing.sha256).toLowerCase() === sha256.toLowerCase() && Number(existing.size || 0) === buf.byteLength) {
+  if (
+    existing?.sha256 &&
+    String(existing.sha256).toLowerCase() === sha256.toLowerCase() &&
+    Number(existing.size || 0) === buf.byteLength
+  ) {
     return 'skipped';
   }
 
@@ -328,7 +484,10 @@ async function uploadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw: s
   return 'uploaded';
 }
 
-async function downloadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw: string): Promise<'downloaded' | 'skipped' | 'missingRemote'> {
+async function downloadAttachmentFileIfNeeded(
+  p: sql.ConnectionPool,
+  relPathRaw: string
+): Promise<'downloaded' | 'skipped' | 'missingRemote'> {
   const relPath = normalizeRelPath(relPathRaw);
   const root = getStableAttachmentsRoot();
   const abs = path.join(root, relPath);
@@ -345,11 +504,24 @@ async function downloadAttachmentFileIfNeeded(p: sql.ConnectionPool, relPathRaw:
   if (!bytes || !(bytes instanceof Buffer) || bytes.byteLength === 0) return 'missingRemote';
 
   await fsp.mkdir(path.dirname(abs), { recursive: true });
-  await fsp.writeFile(abs, bytes);
+
+  const encState = await getBackupEncryptionPasswordState();
+  if (!encState.enabled) {
+    await fsp.writeFile(abs, bytes);
+  } else {
+    if (!encState.configured || !encState.password) {
+      // Avoid data loss: if encryption is enabled but not configured, store plaintext.
+      await fsp.writeFile(abs, bytes);
+    } else {
+      await encryptBufferToFile({ bytes, destPath: abs, password: encState.password });
+    }
+  }
   return 'downloaded';
 }
 
-export async function pushAttachmentFilesForAttachmentsJson(attachmentsJson: string): Promise<{ uploaded: number; skipped: number; missingLocal: number }> {
+export async function pushAttachmentFilesForAttachmentsJson(
+  attachmentsJson: string
+): Promise<{ uploaded: number; skipped: number; missingLocal: number }> {
   const settings = await loadSqlSettings();
   if (!settings.enabled) return { uploaded: 0, skipped: 0, missingLocal: 0 };
 
@@ -371,7 +543,9 @@ export async function pushAttachmentFilesForAttachmentsJson(attachmentsJson: str
   return { uploaded, skipped, missingLocal };
 }
 
-export async function pullAttachmentFilesForAttachmentsJson(attachmentsJson: string): Promise<{ downloaded: number; skipped: number; missingRemote: number }> {
+export async function pullAttachmentFilesForAttachmentsJson(
+  attachmentsJson: string
+): Promise<{ downloaded: number; skipped: number; missingRemote: number }> {
   const settings = await loadSqlSettings();
   if (!settings.enabled) return { downloaded: 0, skipped: 0, missingRemote: 0 };
 
@@ -417,21 +591,28 @@ function normalizeRetentionDays(v: unknown): number {
 }
 
 export async function loadSqlBackupAutomationSettings(): Promise<SqlBackupAutomationSettings> {
-  const stored = await readJsonFile<Partial<SqlBackupAutomationSettings>>(getBackupAutomationPath(), {
-    enabled: true,
-    retentionDays: 30,
-  });
+  const stored = await readJsonFile<Partial<SqlBackupAutomationSettings>>(
+    getBackupAutomationPath(),
+    {
+      enabled: true,
+      retentionDays: 30,
+    }
+  );
   return {
     enabled: stored.enabled !== false,
     retentionDays: normalizeRetentionDays(getRecordProp(stored, 'retentionDays') ?? 30),
   };
 }
 
-export async function saveSqlBackupAutomationSettings(next: Partial<SqlBackupAutomationSettings>): Promise<SqlBackupAutomationSettings> {
+export async function saveSqlBackupAutomationSettings(
+  next: Partial<SqlBackupAutomationSettings>
+): Promise<SqlBackupAutomationSettings> {
   const prev = await loadSqlBackupAutomationSettings();
   const merged: SqlBackupAutomationSettings = {
     enabled: typeof next.enabled === 'boolean' ? next.enabled : prev.enabled,
-    retentionDays: normalizeRetentionDays(getRecordProp(next, 'retentionDays') ?? prev.retentionDays),
+    retentionDays: normalizeRetentionDays(
+      getRecordProp(next, 'retentionDays') ?? prev.retentionDays
+    ),
   };
   await writeJsonFile(getBackupAutomationPath(), merged);
   return merged;
@@ -450,13 +631,16 @@ async function pruneServerBackups(p: sql.ConnectionPool, retentionDays: number):
   return Number((res.recordset || [])[0]?.deleted ?? 0) || 0;
 }
 
-export async function listServerBackups(limit = 60): Promise<{ ok: boolean; items: ServerBackupListItem[]; message?: string }> {
+export async function listServerBackups(
+  limit = 60
+): Promise<{ ok: boolean; items: ServerBackupListItem[]; message?: string; code?: SqlResultCode }> {
   try {
     const settings = await loadSqlSettings();
-    if (!settings.enabled) return { ok: false, items: [], message: 'المزامنة غير مفعلة' };
+    if (!settings.enabled)
+      return errorResult('ERR_SQL_DISABLED', 'المزامنة غير مفعلة', { items: [] });
 
     const ensured = await connectAndEnsureDatabase(settings);
-    if (!ensured.ok) return { ok: false, items: [], message: ensured.message || 'فشل الاتصال/التجهيز' };
+    if (!ensured.ok) return ensureError(ensured, 'فشل الاتصال/التجهيز', { items: [] });
 
     const p = await ensureConnected(settings);
     await ensureServerBackupsTable(p);
@@ -490,41 +674,61 @@ export async function listServerBackups(limit = 60): Promise<{ ok: boolean; item
           id,
           createdAt,
           createdBy: createdByRaw ? String(createdByRaw) : undefined,
-          rowCount: typeof rowCountRaw === 'number' ? rowCountRaw : Number((rowCountRaw ?? 0) as unknown) || undefined,
-          payloadBytes: typeof payloadBytesRaw === 'number' ? payloadBytesRaw : Number((payloadBytesRaw ?? 0) as unknown) || undefined,
+          rowCount:
+            typeof rowCountRaw === 'number'
+              ? rowCountRaw
+              : Number((rowCountRaw ?? 0) as unknown) || undefined,
+          payloadBytes:
+            typeof payloadBytesRaw === 'number'
+              ? payloadBytesRaw
+              : Number((payloadBytesRaw ?? 0) as unknown) || undefined,
           note: noteRaw ? String(noteRaw) : undefined,
         } satisfies ServerBackupListItem;
       })
-      .filter(it => !!it.id);
+      .filter((it) => !!it.id);
 
     return { ok: true, items };
   } catch (e: unknown) {
-    return { ok: false, items: [], message: formatSqlErrorMessage(e, 'فشل قراءة النسخ الاحتياطية من المخدم') };
+    return errorResult(
+      'ERR_SQL_BACKUP_LIST_FAILED',
+      formatSqlErrorMessage(e, 'فشل قراءة النسخ الاحتياطية من المخدم'),
+      { items: [] }
+    );
   }
 }
 
 export async function createServerBackupOnServer(opts?: {
   note?: string;
   retentionDays?: number;
-}): Promise<{ ok: boolean; message: string; item?: ServerBackupListItem; deletedOld?: number }> {
+}): Promise<{
+  ok: boolean;
+  message: string;
+  item?: ServerBackupListItem;
+  deletedOld?: number;
+  code?: SqlResultCode;
+}> {
   try {
     const settings = await loadSqlSettings();
-    if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
+    if (!settings.enabled) return errorResult('ERR_SQL_DISABLED', 'المزامنة غير مفعلة');
 
     const ensured = await connectAndEnsureDatabase(settings);
-    if (!ensured.ok) return { ok: false, message: ensured.message || 'فشل الاتصال/التجهيز' };
+    if (!ensured.ok) return ensureError(ensured, 'فشل الاتصال/التجهيز');
 
     const p = await ensureConnected(settings);
     await ensureServerBackupsTable(p);
 
-    const result = await p
-      .request()
-      .query(
-        `SELECT k, v, updatedAt, updatedBy, isDeleted
+    const result = await p.request().query(
+      `SELECT k, v, updatedAt, updatedBy, isDeleted
          FROM dbo.KvStore
          ORDER BY updatedAt ASC;`
-      );
-    const rows = (result.recordset || []) as Array<{ k: string; v: string; updatedAt: Date; updatedBy?: string; isDeleted: boolean }>;
+    );
+    const rows = (result.recordset || []) as Array<{
+      k: string;
+      v: string;
+      updatedAt: Date;
+      updatedBy?: string;
+      isDeleted: boolean;
+    }>;
 
     const payload = {
       kind: 'AZRAR_SQL_BACKUP',
@@ -534,7 +738,7 @@ export async function createServerBackupOnServer(opts?: {
       server: String(settings.server || ''),
       port: Number(settings.port || 1433) || 1433,
       rowCount: rows.length,
-      rows: rows.map(r => ({
+      rows: rows.map((r) => ({
         k: String(r.k),
         v: typeof r.v === 'string' ? r.v : String(r.v ?? ''),
         updatedAt: new Date(r.updatedAt).toISOString(),
@@ -576,12 +780,12 @@ export async function createServerBackupOnServer(opts?: {
       );
 
     const id = String((insert.recordset || [])[0]?.id || '');
-    const retentionDays = normalizeRetentionDays(opts?.retentionDays ?? (await loadSqlBackupAutomationSettings()).retentionDays);
+    const retentionDays = normalizeRetentionDays(
+      opts?.retentionDays ?? (await loadSqlBackupAutomationSettings()).retentionDays
+    );
     const deletedOld = await pruneServerBackups(p, retentionDays);
 
-    return {
-      ok: true,
-      message: 'تم رفع نسخة احتياطية إلى المخدم',
+    return okResult('OK_SQL_BACKUP_UPLOADED', 'تم رفع نسخة احتياطية إلى المخدم', {
       deletedOld,
       item: {
         id,
@@ -591,13 +795,19 @@ export async function createServerBackupOnServer(opts?: {
         payloadBytes: gz.byteLength,
         note: note ? String(note) : undefined,
       },
-    };
+    });
   } catch (e: unknown) {
-    return { ok: false, message: formatSqlErrorMessage(e, 'فشل رفع النسخة الاحتياطية إلى المخدم') };
+    return errorResult(
+      'ERR_SQL_BACKUP_UPLOAD_FAILED',
+      formatSqlErrorMessage(e, 'فشل رفع النسخة الاحتياطية إلى المخدم')
+    );
   }
 }
 
-async function getServerBackupPayloadById(p: sql.ConnectionPool, id: string): Promise<{ encoding: string; payload: Buffer } | null> {
+async function getServerBackupPayloadById(
+  p: sql.ConnectionPool,
+  id: string
+): Promise<{ encoding: string; payload: Buffer } | null> {
   const guid = String(id || '').trim();
   if (!guid) return null;
 
@@ -616,27 +826,37 @@ async function getServerBackupPayloadById(p: sql.ConnectionPool, id: string): Pr
 export async function restoreServerBackupFromServer(
   backupId: string,
   mode: 'merge' | 'replace'
-): Promise<{ ok: boolean; message: string; id?: string; applied?: number; rowCount?: number }> {
+): Promise<{
+  ok: boolean;
+  message: string;
+  id?: string;
+  applied?: number;
+  rowCount?: number;
+  code?: SqlResultCode;
+}> {
   try {
     const settings = await loadSqlSettings();
-    if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
+    if (!settings.enabled) return errorResult('ERR_SQL_DISABLED', 'المزامنة غير مفعلة');
 
     const ensured = await connectAndEnsureDatabase(settings);
-    if (!ensured.ok) return { ok: false, message: ensured.message || 'فشل الاتصال/التجهيز' };
+    if (!ensured.ok) return ensureError(ensured, 'فشل الاتصال/التجهيز');
 
     const p = await ensureConnected(settings);
     await ensureServerBackupsTable(p);
     await ensureKvImportStagingTable(p);
 
     const stored = await getServerBackupPayloadById(p, backupId);
-    if (!stored) return { ok: false, message: 'لم يتم العثور على النسخة الاحتياطية' };
+    if (!stored)
+      return errorResult('ERR_SQL_BACKUP_NOT_FOUND', 'لم يتم العثور على النسخة الاحتياطية');
 
     let jsonBuf: Buffer;
-    if (String(stored.encoding || '').toLowerCase() === 'gzip') jsonBuf = zlib.gunzipSync(stored.payload);
+    if (String(stored.encoding || '').toLowerCase() === 'gzip')
+      jsonBuf = zlib.gunzipSync(stored.payload);
     else jsonBuf = stored.payload;
 
     const parsed = JSON.parse(jsonBuf.toString('utf8'));
-    if (!isBackupFileV1(parsed)) return { ok: false, message: 'النسخة الاحتياطية المخزنة غير صالحة' };
+    if (!isBackupFileV1(parsed))
+      return errorResult('ERR_SQL_BACKUP_INVALID', 'النسخة الاحتياطية المخزنة غير صالحة');
 
     // Apply using the same import logic (without file dialog)
     const rows = (parsed.rows || []).map(normalizeBackupRow);
@@ -656,14 +876,24 @@ export async function restoreServerBackupFromServer(
         table.columns.add('isDeleted', sql.Bit, { nullable: false });
 
         for (const r of rows) {
-          table.rows.add(r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
+          table.rows.add(
+            r.k,
+            r.isDeleted ? '' : r.v,
+            new Date(r.updatedAt),
+            r.updatedBy ?? null,
+            r.isDeleted ? 1 : 0
+          );
         }
 
         const bulkReq = new sql.Request(tx);
         (bulkReq as unknown as { timeout?: number }).timeout = 60000;
         await (bulkReq as unknown as { bulk: (t: sql.Table) => Promise<unknown> }).bulk(table);
         await tx.commit();
-        return { ok: true, message: 'تمت الاستعادة الكاملة من النسخة المختارة', id: String(backupId), rowCount: rows.length, applied: rows.length };
+        return okResult('OK_SQL_BACKUP_RESTORED', 'تمت الاستعادة الكاملة من النسخة المختارة', {
+          id: String(backupId),
+          rowCount: rows.length,
+          applied: rows.length,
+        });
       }
 
       const batchId = crypto.randomUUID();
@@ -695,7 +925,11 @@ export async function restoreServerBackupFromServer(
       const first = Array.isArray(mergeRecordset) ? mergeRecordset[0] : undefined;
       const affected = Number(getRecordProp(first, 'affected') ?? 0) || 0;
       await tx.commit();
-      return { ok: true, message: 'تم دمج النسخة المختارة مع بيانات المخدم', id: String(backupId), rowCount: rows.length, applied: affected };
+      return okResult('OK_SQL_BACKUP_MERGED', 'تم دمج النسخة المختارة مع بيانات المخدم', {
+        id: String(backupId),
+        rowCount: rows.length,
+        applied: affected,
+      });
     } catch (e) {
       try {
         await tx.rollback();
@@ -705,43 +939,70 @@ export async function restoreServerBackupFromServer(
       throw e;
     }
   } catch (e: unknown) {
-    return { ok: false, message: formatSqlErrorMessage(e, 'فشل استعادة النسخة الاحتياطية من المخدم') };
+    return errorResult(
+      'ERR_SQL_BACKUP_RESTORE_FAILED',
+      formatSqlErrorMessage(e, 'فشل استعادة النسخة الاحتياطية من المخدم')
+    );
   }
 }
 
-export async function ensureDailyServerBackupIfEnabled(): Promise<{ ok: boolean; message: string; created?: boolean; skipped?: boolean }> {
+export async function ensureDailyServerBackupIfEnabled(): Promise<{
+  ok: boolean;
+  message: string;
+  created?: boolean;
+  skipped?: boolean;
+  code?: SqlResultCode;
+}> {
   try {
     const auto = await loadSqlBackupAutomationSettings();
-    if (!auto.enabled) return { ok: true, message: 'النسخ الاحتياطي اليومي غير مفعل', skipped: true };
+    if (!auto.enabled)
+      return okResult('OK_SQL_BACKUP_DAILY_DISABLED', 'النسخ الاحتياطي اليومي غير مفعل', {
+        skipped: true,
+      });
 
     const settings = await loadSqlSettings();
-    if (!settings.enabled) return { ok: true, message: 'المزامنة غير مفعلة', skipped: true };
+    if (!settings.enabled)
+      return okResult('OK_SQL_SYNC_DISABLED', 'المزامنة غير مفعلة', { skipped: true });
 
     const ensured = await connectAndEnsureDatabase(settings);
-    if (!ensured.ok) return { ok: false, message: ensured.message || 'فشل الاتصال/التجهيز' };
+    if (!ensured.ok) return ensureError(ensured, 'فشل الاتصال/التجهيز');
 
     const p = await ensureConnected(settings);
     await ensureServerBackupsTable(p);
 
     // One backup per UTC day (safe across multiple devices)
-    const exists = await p
-      .request()
-      .query(
-        `DECLARE @start DATETIME2(3) = DATEADD(day, DATEDIFF(day, 0, SYSUTCDATETIME()), 0);
+    const exists = await p.request().query(
+      `DECLARE @start DATETIME2(3) = DATEADD(day, DATEDIFF(day, 0, SYSUTCDATETIME()), 0);
          DECLARE @end DATETIME2(3) = DATEADD(day, 1, @start);
          SELECT TOP 1 id FROM dbo.ServerBackups WHERE createdAt >= @start AND createdAt < @end ORDER BY createdAt DESC;`
-      );
+    );
 
     if ((exists.recordset || []).length > 0) {
       await pruneServerBackups(p, auto.retentionDays);
-      return { ok: true, message: 'توجد نسخة احتياطية لليوم بالفعل', skipped: true };
+      return okResult('OK_SQL_BACKUP_DAILY_EXISTS', 'توجد نسخة احتياطية لليوم بالفعل', {
+        skipped: true,
+      });
     }
 
-    const res = await createServerBackupOnServer({ note: 'auto-daily', retentionDays: auto.retentionDays });
-    if (!res.ok) return { ok: false, message: res.message || 'فشل إنشاء النسخة اليومية' };
-    return { ok: true, message: res.message || 'تم إنشاء النسخة اليومية', created: true };
+    const res = await createServerBackupOnServer({
+      note: 'auto-daily',
+      retentionDays: auto.retentionDays,
+    });
+    if (!res.ok) {
+      const code =
+        isRecord(res) && typeof res.code === 'string'
+          ? (res.code as SqlResultCode)
+          : 'ERR_SQL_BACKUP_DAILY_CREATE_FAILED';
+      return { ok: false, code, message: res.message || 'فشل إنشاء النسخة اليومية' };
+    }
+    return okResult('OK_SQL_BACKUP_DAILY_CREATED', res.message || 'تم إنشاء النسخة اليومية', {
+      created: true,
+    });
   } catch (e: unknown) {
-    return { ok: false, message: formatSqlErrorMessage(e, 'فشل تشغيل النسخ الاحتياطي اليومي') };
+    return errorResult(
+      'ERR_SQL_BACKUP_DAILY_FAILED',
+      formatSqlErrorMessage(e, 'فشل تشغيل النسخ الاحتياطي اليومي')
+    );
   }
 }
 
@@ -859,7 +1120,8 @@ export async function loadSqlSettings(): Promise<SqlSettings> {
   return {
     enabled: !!stored.enabled,
     server: String(stored.server || ''),
-    port: typeof storedPort === 'number' ? storedPort : Number((storedPort ?? 1433) as unknown) || 1433,
+    port:
+      typeof storedPort === 'number' ? storedPort : Number((storedPort ?? 1433) as unknown) || 1433,
     database: String(stored.database || 'AZRAR'),
     authMode: stored.authMode === 'windows' ? 'windows' : 'sql',
     user: stored.user ? String(stored.user) : '',
@@ -869,7 +1131,9 @@ export async function loadSqlSettings(): Promise<SqlSettings> {
   };
 }
 
-export async function loadSqlSettingsRedacted(): Promise<Omit<SqlSettings, 'password'> & { hasPassword: boolean }> {
+export async function loadSqlSettingsRedacted(): Promise<
+  Omit<SqlSettings, 'password'> & { hasPassword: boolean }
+> {
   const stored = await readJsonFile<StoredSqlSettings>(getSettingsPath(), {
     enabled: false,
     server: '',
@@ -884,7 +1148,8 @@ export async function loadSqlSettingsRedacted(): Promise<Omit<SqlSettings, 'pass
   return {
     enabled: !!stored.enabled,
     server: String(stored.server || ''),
-    port: typeof storedPort === 'number' ? storedPort : Number((storedPort ?? 1433) as unknown) || 1433,
+    port:
+      typeof storedPort === 'number' ? storedPort : Number((storedPort ?? 1433) as unknown) || 1433,
     database: String(stored.database || 'AZRAR'),
     authMode: stored.authMode === 'windows' ? 'windows' : 'sql',
     user: stored.user ? String(stored.user) : '',
@@ -967,7 +1232,11 @@ function looksLikeIpv4(host: string): boolean {
   return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host);
 }
 
-function normalizeSqlServerInput(input: { server: string; port?: number }): { server: string; port: number; instanceName?: string } {
+function normalizeSqlServerInput(input: { server: string; port?: number }): {
+  server: string;
+  port: number;
+  instanceName?: string;
+} {
   let serverRaw = String(input.server || '').trim();
   if (!serverRaw) throw new Error('اسم السيرفر مطلوب');
 
@@ -1012,10 +1281,15 @@ async function resolveServerPreferIpv4(server: string): Promise<string> {
   }
 }
 
-async function toSqlConfigResolved(settings: SqlSettings, dbOverride?: string): Promise<sql.config> {
+async function toSqlConfigResolved(
+  settings: SqlSettings,
+  dbOverride?: string
+): Promise<sql.config> {
   const normalized = normalizeSqlServerInput({ server: settings.server, port: settings.port });
   const resolvedServer = await resolveServerPreferIpv4(normalized.server);
-  const serverForConfig = normalized.instanceName ? `${resolvedServer}\\${normalized.instanceName}` : resolvedServer;
+  const serverForConfig = normalized.instanceName
+    ? `${resolvedServer}\\${normalized.instanceName}`
+    : resolvedServer;
   return toSqlConfig({ ...settings, server: serverForConfig, port: normalized.port }, dbOverride);
 }
 
@@ -1073,7 +1347,9 @@ async function toSqlConfigRawResolved(opts: {
 }): Promise<sql.config> {
   const normalized = normalizeSqlServerInput({ server: opts.server, port: opts.port });
   const resolvedServer = await resolveServerPreferIpv4(normalized.server);
-  const serverForConfig = normalized.instanceName ? `${resolvedServer}\\${normalized.instanceName}` : resolvedServer;
+  const serverForConfig = normalized.instanceName
+    ? `${resolvedServer}\\${normalized.instanceName}`
+    : resolvedServer;
   return toSqlConfigRaw({ ...opts, server: serverForConfig, port: normalized.port });
 }
 
@@ -1091,7 +1367,10 @@ function passwordKeyFragment(password: string | undefined): string {
 
 async function ensureConnected(settings: SqlSettings): Promise<sql.ConnectionPool> {
   const desiredDb = String(settings.database || 'AZRAR').trim() || 'AZRAR';
-  const normalized = normalizeSqlServerInput({ server: String(settings.server || '').trim(), port: settings.port });
+  const normalized = normalizeSqlServerInput({
+    server: String(settings.server || '').trim(),
+    port: settings.port,
+  });
   const resolvedServer = await resolveServerPreferIpv4(normalized.server);
   const desiredKey = [
     resolvedServer,
@@ -1106,8 +1385,14 @@ async function ensureConnected(settings: SqlSettings): Promise<sql.ConnectionPoo
 
   await disconnectSql();
 
-  const serverForConfig = normalized.instanceName ? `${resolvedServer}\\${normalized.instanceName}` : resolvedServer;
-  const cfg = await toSqlConfigResolved({ ...settings, server: serverForConfig, port: normalized.port });
+  const serverForConfig = normalized.instanceName
+    ? `${resolvedServer}\\${normalized.instanceName}`
+    : resolvedServer;
+  const cfg = await toSqlConfigResolved({
+    ...settings,
+    server: serverForConfig,
+    port: normalized.port,
+  });
   const newPool = new sql.ConnectionPool(cfg);
   pool = await newPool.connect();
   poolKey = desiredKey;
@@ -1130,19 +1415,26 @@ export async function disconnectSql(): Promise<void> {
   currentStatus = { ...currentStatus, connected: false };
 }
 
-export async function testSqlConnection(settings: SqlSettings): Promise<{ ok: boolean; message: string }> {
+export async function testSqlConnection(
+  settings: SqlSettings
+): Promise<{ ok: boolean; message: string; code?: SqlResultCode }> {
   try {
     // connect to the requested DB (may not exist yet; that's okay for test if DB exists)
     const cfg = await toSqlConfigResolved(settings);
     const p = await new sql.ConnectionPool(cfg).connect();
     await p.close();
-    return { ok: true, message: 'تم الاتصال بنجاح' };
+    return okResult('OK_SQL_CONNECTED', 'تم الاتصال بنجاح');
   } catch (e: unknown) {
-    return { ok: false, message: formatSqlErrorMessage(e, 'فشل الاتصال') };
+    return errorResult(
+      'ERR_SQL_CONNECT_FAILED_SIMPLE',
+      formatSqlErrorMessage(e, 'فشل الاتصال')
+    );
   }
 }
 
-export async function connectAndEnsureDatabase(settings: SqlSettings): Promise<{ ok: boolean; message: string }> {
+export async function connectAndEnsureDatabase(
+  settings: SqlSettings
+): Promise<{ ok: boolean; message: string; code?: SqlResultCode }> {
   try {
     // First connect to master and create DB if missing
     const dbName = String(settings.database || 'AZRAR').trim() || 'AZRAR';
@@ -1159,7 +1451,7 @@ export async function connectAndEnsureDatabase(settings: SqlSettings): Promise<{
         .query(
           `IF DB_ID(@dbName) IS NULL
            BEGIN
-             DECLARE @sql NVARCHAR(MAX) = N'CREATE DATABASE [' + REPLACE(@dbName, ']', ']]') + N']';
+             DECLARE @sql NVARCHAR(MAX) = N'CREATE DATABASE ' + QUOTENAME(@dbName);
              EXEC(@sql);
            END`
         );
@@ -1172,10 +1464,8 @@ export async function connectAndEnsureDatabase(settings: SqlSettings): Promise<{
     // Now connect to target DB and ensure schema
     const p = await ensureConnected({ ...settings, database: dbName });
 
-    await p
-      .request()
-      .query(
-        `IF OBJECT_ID('dbo.KvStore', 'U') IS NULL
+    await p.request().query(
+      `IF OBJECT_ID('dbo.KvStore', 'U') IS NULL
          BEGIN
            CREATE TABLE dbo.KvStore (
              [k] NVARCHAR(300) NOT NULL PRIMARY KEY,
@@ -1195,20 +1485,28 @@ export async function connectAndEnsureDatabase(settings: SqlSettings): Promise<{
          BEGIN
            CREATE INDEX IX_KvStore_isDeleted_updatedAt ON dbo.KvStore(isDeleted, updatedAt);
          END`
-      );
+    );
 
     await ensureAttachmentFilesTable(p);
 
-    currentStatus = { ...currentStatus, configured: true, enabled: !!settings.enabled, connected: true, lastError: undefined };
-    return { ok: true, message: 'تم الاتصال وتجهيز قاعدة البيانات' };
+    currentStatus = {
+      ...currentStatus,
+      configured: true,
+      enabled: !!settings.enabled,
+      connected: true,
+      lastError: undefined,
+    };
+    return okResult('OK_SQL_CONNECTED_READY', 'تم الاتصال وتجهيز قاعدة البيانات');
   } catch (e: unknown) {
     const msg = formatSqlErrorMessage(e, 'فشل الاتصال/التجهيز');
     currentStatus = { ...currentStatus, connected: false, lastError: msg };
-    return { ok: false, message: msg };
+    return errorResult('ERR_SQL_CONNECT_FAILED', msg);
   }
 }
 
-export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok: boolean; message: string }> {
+export async function provisionSqlServer(
+  req: SqlProvisionRequest
+): Promise<{ ok: boolean; message: string }> {
   try {
     const server = String(req.server || '').trim();
     const port = Number((getRecordProp(req, 'port') ?? 1433) as unknown) || 1433;
@@ -1222,7 +1520,8 @@ export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok
 
     if (!server) throw new Error('اسم السيرفر مطلوب');
     if (!adminUser || !adminPassword) throw new Error('بيانات المدير (SQL) مطلوبة');
-    if (!managerUser || !managerPassword) throw new Error('بيانات حساب المدير (داخل قاعدة البيانات) مطلوبة');
+    if (!managerUser || !managerPassword)
+      throw new Error('بيانات حساب المدير (داخل قاعدة البيانات) مطلوبة');
     if (!employeeUser || !employeePassword) throw new Error('بيانات حساب الموظفين مطلوبة');
 
     // 1) Connect to master with admin credentials
@@ -1245,7 +1544,7 @@ export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok
       .query(
         `IF DB_ID(@dbName) IS NULL
          BEGIN
-           DECLARE @sql NVARCHAR(MAX) = N'CREATE DATABASE [' + REPLACE(@dbName, ']', ']]') + N']';
+           DECLARE @sql NVARCHAR(MAX) = N'CREATE DATABASE ' + QUOTENAME(@dbName);
            EXEC(@sql);
          END`
       );
@@ -1283,10 +1582,8 @@ export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok
     const adminDbPool = await new sql.ConnectionPool(adminDbCfg).connect();
 
     // Ensure schema/table
-    await adminDbPool
-      .request()
-      .query(
-        `IF OBJECT_ID('dbo.KvStore', 'U') IS NULL
+    await adminDbPool.request().query(
+      `IF OBJECT_ID('dbo.KvStore', 'U') IS NULL
          BEGIN
            CREATE TABLE dbo.KvStore (
              [k] NVARCHAR(300) NOT NULL PRIMARY KEY,
@@ -1306,7 +1603,7 @@ export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok
          BEGIN
            CREATE INDEX IX_KvStore_isDeleted_updatedAt ON dbo.KvStore(isDeleted, updatedAt);
          END`
-      );
+    );
 
     await ensureAttachmentFilesTable(adminDbPool);
     await ensureServerBackupsTable(adminDbPool);
@@ -1372,9 +1669,12 @@ export async function provisionSqlServer(req: SqlProvisionRequest): Promise<{ ok
     await appPool.request().query('SELECT TOP 1 k FROM dbo.KvStore;');
     await appPool.close();
 
-    return { ok: true, message: `تم إنشاء قاعدة البيانات والحسابات بنجاح (${database})` };
+    return okResult('OK_SQL_PROVISIONED', 'تمت تهيئة المخدم');
   } catch (e: unknown) {
-    return { ok: false, message: formatSqlErrorMessage(e, 'فشل تهيئة المخدم') };
+    return errorResult(
+      'ERR_SQL_PROVISION_FAILED',
+      formatSqlErrorMessage(e, 'فشل تهيئة المخدم')
+    );
   }
 }
 
@@ -1388,13 +1688,19 @@ export async function getSqlStatus(): Promise<SqlStatus> {
   return currentStatus;
 }
 
-export async function getRemoteKvStoreMeta(): Promise<{ ok: boolean; items: Array<{ key: string; updatedAt: string; isDeleted: boolean }>; message?: string }> {
+export async function getRemoteKvStoreMeta(): Promise<{
+  ok: boolean;
+  items: Array<{ key: string; updatedAt: string; isDeleted: boolean }>;
+  message?: string;
+  code?: SqlResultCode;
+}> {
   try {
     const settings = await loadSqlSettings();
-    if (!settings.enabled) return { ok: false, items: [], message: 'المزامنة غير مفعلة' };
+    if (!settings.enabled)
+      return errorResult('ERR_SQL_DISABLED', 'المزامنة غير مفعلة', { items: [] });
 
     const ensured = await connectAndEnsureDatabase(settings);
-    if (!ensured.ok) return { ok: false, items: [], message: ensured.message || 'فشل الاتصال/التجهيز' };
+    if (!ensured.ok) return ensureError(ensured, 'فشل الاتصال/التجهيز', { items: [] });
 
     const p = await ensureConnected(settings);
     const result = await p
@@ -1403,10 +1709,14 @@ export async function getRemoteKvStoreMeta(): Promise<{ ok: boolean; items: Arra
         "SELECT k, updatedAt, isDeleted FROM dbo.KvStore WHERE k LIKE N'db\\_%' ESCAPE '\\' ORDER BY k ASC;"
       );
 
-    const rows = (result.recordset || []) as Array<{ k: string; updatedAt: Date; isDeleted: boolean }>;
+    const rows = (result.recordset || []) as Array<{
+      k: string;
+      updatedAt: Date;
+      isDeleted: boolean;
+    }>;
     const items = rows
-      .filter(r => !!r?.k)
-      .map(r => ({
+      .filter((r) => !!r?.k)
+      .map((r) => ({
         key: String(r.k),
         updatedAt: new Date(r.updatedAt).toISOString(),
         isDeleted: !!r.isDeleted,
@@ -1414,22 +1724,31 @@ export async function getRemoteKvStoreMeta(): Promise<{ ok: boolean; items: Arra
 
     return { ok: true, items };
   } catch (e: unknown) {
-    return { ok: false, items: [], message: formatSqlErrorMessage(e, 'فشل قراءة بيانات المخدم') };
+    return errorResult(
+      'ERR_SQL_BACKUP_READ_FAILED',
+      formatSqlErrorMessage(e, 'فشل قراءة بيانات المخدم'),
+      { items: [] }
+    );
   }
 }
 
 export async function getRemoteKvStoreRow(
   key: string
-): Promise<{ ok: boolean; row?: { key: string; value: string; updatedAt: string; isDeleted: boolean }; message?: string }> {
+): Promise<{
+  ok: boolean;
+  row?: { key: string; value: string; updatedAt: string; isDeleted: boolean };
+  message?: string;
+  code?: SqlResultCode;
+}> {
   try {
     const k = String(key || '').trim();
-    if (!k) return { ok: false, message: 'المفتاح غير صالح' };
+    if (!k) return errorResult('ERR_SQL_INVALID_KEY', 'المفتاح غير صالح');
 
     const settings = await loadSqlSettings();
-    if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
+    if (!settings.enabled) return errorResult('ERR_SQL_DISABLED', 'المزامنة غير مفعلة');
 
     const ensured = await connectAndEnsureDatabase(settings);
-    if (!ensured.ok) return { ok: false, message: ensured.message || 'فشل الاتصال/التجهيز' };
+    if (!ensured.ok) return ensureError(ensured, 'فشل الاتصال/التجهيز');
 
     const p = await ensureConnected(settings);
     const res = await p
@@ -1453,33 +1772,47 @@ export async function getRemoteKvStoreRow(
       },
     };
   } catch (e: unknown) {
-    return { ok: false, message: formatSqlErrorMessage(e, 'فشل قراءة سجل من المخدم') };
+    return errorResult(
+      'ERR_SQL_REMOTE_ROW_FAILED',
+      formatSqlErrorMessage(e, 'فشل قراءة سجل من المخدم')
+    );
   }
 }
 
 export async function exportServerBackupToFile(
   filePath: string,
   overrideSettings?: SqlSettings
-): Promise<{ ok: boolean; message: string; filePath?: string; rowCount?: number }> {
+): Promise<{
+  ok: boolean;
+  message: string;
+  filePath?: string;
+  rowCount?: number;
+  code?: SqlResultCode;
+}> {
   try {
     const settings = overrideSettings ?? (await loadSqlSettings());
-    if (!settings.server?.trim()) return { ok: false, message: 'اسم السيرفر مطلوب' };
-    if (!settings.database?.trim()) return { ok: false, message: 'اسم قاعدة البيانات مطلوب' };
+    if (!settings.server?.trim()) return errorResult('ERR_SQL_SERVER_REQUIRED', 'اسم السيرفر مطلوب');
+    if (!settings.database?.trim())
+      return errorResult('ERR_SQL_DATABASE_REQUIRED', 'اسم قاعدة البيانات مطلوب');
 
     // Ensure DB & schema exist and connect
     const ensured = await connectAndEnsureDatabase({ ...settings, enabled: true });
-    if (!ensured.ok) return { ok: false, message: ensured.message };
+    if (!ensured.ok) return ensureError(ensured, 'فشل الاتصال/التجهيز');
 
     const p = await ensureConnected({ ...settings, enabled: true });
-    const result = await p
-      .request()
-      .query(
-        `SELECT k, v, updatedAt, updatedBy, isDeleted
+    const result = await p.request().query(
+      `SELECT k, v, updatedAt, updatedBy, isDeleted
          FROM dbo.KvStore
          ORDER BY updatedAt ASC;`
-      );
+    );
 
-    const rows = (result.recordset || []) as Array<{ k: string; v: string; updatedAt: Date; updatedBy?: string; isDeleted: boolean }>;
+    const rows = (result.recordset || []) as Array<{
+      k: string;
+      v: string;
+      updatedAt: Date;
+      updatedBy?: string;
+      isDeleted: boolean;
+    }>;
 
     const payload = {
       kind: 'AZRAR_SQL_BACKUP',
@@ -1489,7 +1822,7 @@ export async function exportServerBackupToFile(
       server: String(settings.server || ''),
       port: Number(settings.port || 1433) || 1433,
       rowCount: rows.length,
-      rows: rows.map(r => ({
+      rows: rows.map((r) => ({
         k: String(r.k),
         v: typeof r.v === 'string' ? r.v : String(r.v ?? ''),
         updatedAt: new Date(r.updatedAt).toISOString(),
@@ -1501,9 +1834,15 @@ export async function exportServerBackupToFile(
     await fsp.mkdir(path.dirname(filePath), { recursive: true });
     await fsp.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
 
-    return { ok: true, message: 'تم إنشاء نسخة احتياطية من المخدم', filePath, rowCount: rows.length };
+    return okResult('OK_SQL_BACKUP_EXPORTED', 'تم إنشاء نسخة احتياطية من المخدم', {
+      filePath,
+      rowCount: rows.length,
+    });
   } catch (e: unknown) {
-    return { ok: false, message: formatSqlErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية من المخدم') };
+    return errorResult(
+      'ERR_SQL_BACKUP_EXPORT_FAILED',
+      formatSqlErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية من المخدم')
+    );
   }
 }
 
@@ -1547,7 +1886,11 @@ function normalizeBackupRow(r: unknown): ServerBackupRow {
   return { k, v, updatedAt, updatedBy, isDeleted };
 }
 
-async function bulkToStagingTable(tx: sql.Transaction, batchId: string, rows: ServerBackupRow[]): Promise<void> {
+async function bulkToStagingTable(
+  tx: sql.Transaction,
+  batchId: string,
+  rows: ServerBackupRow[]
+): Promise<void> {
   const table = new sql.Table('dbo.KvImportStaging');
   table.create = false;
   table.columns.add('batchId', sql.UniqueIdentifier, { nullable: false });
@@ -1558,7 +1901,14 @@ async function bulkToStagingTable(tx: sql.Transaction, batchId: string, rows: Se
   table.columns.add('isDeleted', sql.Bit, { nullable: false });
 
   for (const r of rows) {
-    table.rows.add(batchId, r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
+    table.rows.add(
+      batchId,
+      r.k,
+      r.isDeleted ? '' : r.v,
+      new Date(r.updatedAt),
+      r.updatedBy ?? null,
+      r.isDeleted ? 1 : 0
+    );
   }
 
   const req = new sql.Request(tx);
@@ -1569,21 +1919,30 @@ async function bulkToStagingTable(tx: sql.Transaction, batchId: string, rows: Se
 export async function importServerBackupFromFile(
   filePath: string,
   mode: 'merge' | 'replace'
-): Promise<{ ok: boolean; message: string; filePath?: string; rowCount?: number; applied?: number }> {
+): Promise<{
+  ok: boolean;
+  message: string;
+  filePath?: string;
+  rowCount?: number;
+  applied?: number;
+  code?: SqlResultCode;
+}> {
   try {
     const settings = await loadSqlSettings();
-    if (!settings.server?.trim()) return { ok: false, message: 'اسم السيرفر مطلوب' };
-    if (!settings.database?.trim()) return { ok: false, message: 'اسم قاعدة البيانات مطلوب' };
+    if (!settings.server?.trim()) return errorResult('ERR_SQL_SERVER_REQUIRED', 'اسم السيرفر مطلوب');
+    if (!settings.database?.trim())
+      return errorResult('ERR_SQL_DATABASE_REQUIRED', 'اسم قاعدة البيانات مطلوب');
 
     const raw = await fsp.readFile(filePath, 'utf8');
     const parsed = JSON.parse(raw);
-    if (!isBackupFileV1(parsed)) return { ok: false, message: 'ملف النسخة الاحتياطية غير صالح' };
+    if (!isBackupFileV1(parsed))
+      return errorResult('ERR_SQL_BACKUP_FILE_INVALID', 'ملف النسخة الاحتياطية غير صالح');
 
     const rows = (parsed.rows || []).map(normalizeBackupRow);
 
     // Ensure DB & schema exist and connect
     const ensured = await connectAndEnsureDatabase({ ...settings, enabled: true });
-    if (!ensured.ok) return { ok: false, message: ensured.message };
+    if (!ensured.ok) return ensureError(ensured, 'فشل الاتصال/التجهيز');
 
     const p = await ensureConnected({ ...settings, enabled: true });
     await ensureKvImportStagingTable(p);
@@ -1607,14 +1966,24 @@ export async function importServerBackupFromFile(
         table.columns.add('isDeleted', sql.Bit, { nullable: false });
 
         for (const r of rows) {
-          table.rows.add(r.k, r.isDeleted ? '' : r.v, new Date(r.updatedAt), r.updatedBy ?? null, r.isDeleted ? 1 : 0);
+          table.rows.add(
+            r.k,
+            r.isDeleted ? '' : r.v,
+            new Date(r.updatedAt),
+            r.updatedBy ?? null,
+            r.isDeleted ? 1 : 0
+          );
         }
 
         const bulkReq = new sql.Request(tx);
         (bulkReq as unknown as { timeout?: number }).timeout = 60000;
         await (bulkReq as unknown as { bulk: (t: sql.Table) => Promise<unknown> }).bulk(table);
         await tx.commit();
-        return { ok: true, message: 'تمت الاستعادة الكاملة من النسخة الاحتياطية', filePath, rowCount: rows.length, applied: rows.length };
+        return okResult('OK_SQL_BACKUP_RESTORED_LOCAL', 'تمت الاستعادة الكاملة من النسخة الاحتياطية', {
+          filePath,
+          rowCount: rows.length,
+          applied: rows.length,
+        });
       }
 
       // Merge mode
@@ -1647,7 +2016,11 @@ export async function importServerBackupFromFile(
       const first = Array.isArray(mergeRecordset) ? mergeRecordset[0] : undefined;
       const affected = Number(getRecordProp(first, 'affected') ?? 0) || 0;
       await tx.commit();
-      return { ok: true, message: 'تم دمج النسخة الاحتياطية مع بيانات المخدم', filePath, rowCount: rows.length, applied: affected };
+      return okResult('OK_SQL_BACKUP_MERGED_LOCAL', 'تم دمج النسخة الاحتياطية مع بيانات المخدم', {
+        filePath,
+        rowCount: rows.length,
+        applied: affected,
+      });
     } catch (e) {
       try {
         await tx.rollback();
@@ -1657,7 +2030,10 @@ export async function importServerBackupFromFile(
       throw e;
     }
   } catch (e: unknown) {
-    return { ok: false, message: formatSqlErrorMessage(e, 'فشل استيراد النسخة الاحتياطية إلى المخدم') };
+    return errorResult(
+      'ERR_SQL_BACKUP_IMPORT_FAILED',
+      formatSqlErrorMessage(e, 'فشل استيراد النسخة الاحتياطية إلى المخدم')
+    );
   }
 }
 
@@ -1689,7 +2065,11 @@ function shouldIgnoreLocalWrite(): boolean {
   return false;
 }
 
-export async function pushKvUpsert(payload: { key: string; value: string; updatedAt: string }): Promise<void> {
+export async function pushKvUpsert(payload: {
+  key: string;
+  value: string;
+  updatedAt: string;
+}): Promise<void> {
   if (shouldIgnoreLocalWrite()) return;
 
   const settings = await loadSqlSettings();
@@ -1698,11 +2078,12 @@ export async function pushKvUpsert(payload: { key: string; value: string; update
   const p = await ensureConnected(settings);
   const deviceId = await getOrCreateDeviceId();
   const updatedAt = safeDateFromIso(payload.updatedAt, new Date());
+  const normalizedValue = tryNormalizeLookupsJson(payload.key, payload.value);
 
   await p
     .request()
     .input('k', sql.NVarChar(300), payload.key)
-    .input('v', sql.NVarChar(sql.MAX), payload.value)
+    .input('v', sql.NVarChar(sql.MAX), normalizedValue)
     .input('updatedAt', sql.DateTime2(3), updatedAt)
     .input('updatedBy', sql.NVarChar(80), deviceId)
     .query(
@@ -1752,7 +2133,12 @@ export async function pushKvDelete(payload: { key: string; deletedAt: string }):
 }
 
 export async function startBackgroundPull(
-  applyRemoteChange: (row: { k: string; v: string; updatedAt: string; isDeleted: boolean }) => Promise<void>,
+  applyRemoteChange: (row: {
+    k: string;
+    v: string;
+    updatedAt: string;
+    isDeleted: boolean;
+  }) => Promise<void>,
   opts?: { runImmediately?: boolean; forceFullPull?: boolean }
 ): Promise<void> {
   const settings = await loadSqlSettings();
@@ -1789,7 +2175,12 @@ export async function startBackgroundPull(
 }
 
 async function pullOnce(
-  applyRemoteChange: (row: { k: string; v: string; updatedAt: string; isDeleted: boolean }) => Promise<void>,
+  applyRemoteChange: (row: {
+    k: string;
+    v: string;
+    updatedAt: string;
+    isDeleted: boolean;
+  }) => Promise<void>,
   sinceOverride?: Date
 ): Promise<void> {
   const settings = await loadSqlSettings();
@@ -1810,17 +2201,31 @@ async function pullOnce(
        ORDER BY updatedAt ASC;`
     );
 
-  const rows = (result.recordset || []) as Array<{ k: string; v: string; updatedAt: Date; isDeleted: boolean }>;
+  const rows = (result.recordset || []) as Array<{
+    k: string;
+    v: string;
+    updatedAt: Date;
+    isDeleted: boolean;
+  }>;
   let maxUpdatedAt = since;
 
   for (const r of rows) {
     const updatedAtIso = new Date(r.updatedAt).toISOString();
-    await applyRemoteChange({ k: r.k, v: r.v ?? '', updatedAt: updatedAtIso, isDeleted: !!r.isDeleted });
+    await applyRemoteChange({
+      k: r.k,
+      v: r.v ?? '',
+      updatedAt: updatedAtIso,
+      isDeleted: !!r.isDeleted,
+    });
     if (r.updatedAt > maxUpdatedAt) maxUpdatedAt = r.updatedAt;
   }
 
   if (maxUpdatedAt > since) {
     await saveState({ ...st, lastPullAt: maxUpdatedAt.toISOString() });
-    currentStatus = { ...currentStatus, lastSyncAt: new Date().toISOString(), lastError: undefined };
+    currentStatus = {
+      ...currentStatus,
+      lastSyncAt: new Date().toISOString(),
+      lastError: undefined,
+    };
   }
 }

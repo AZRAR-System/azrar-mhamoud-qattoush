@@ -56,7 +56,7 @@ type GetStateResult =
     }
   | { ok: false; error?: string };
 
-type SimpleOkResult = | { ok: true } | { ok: false; error?: string };
+type SimpleOkResult = { ok: true } | { ok: false; error?: string };
 
 type GenerateResult =
   | { ok: true; filePath: string }
@@ -64,13 +64,21 @@ type GenerateResult =
 
 contextBridge.exposeInMainWorld('licenseGen', {
   pickPrivateKey: (): Promise<PickKeyResult> => ipcRenderer.invoke('licensegen:pickPrivateKey'),
-  generateKeypairAndSave: (): Promise<GenerateKeypairResult> => ipcRenderer.invoke('licensegen:generateKeypairAndSave'),
-  generateAndSave: (payload: GeneratePayload): Promise<GenerateResult> => ipcRenderer.invoke('licensegen:generateAndSave', payload),
+  generateKeypairAndSave: (): Promise<GenerateKeypairResult> =>
+    ipcRenderer.invoke('licensegen:generateKeypairAndSave'),
+  generateAndSave: (payload: GeneratePayload): Promise<GenerateResult> =>
+    ipcRenderer.invoke('licensegen:generateAndSave', payload),
   getState: (): Promise<GetStateResult> => ipcRenderer.invoke('licensegen:getState'),
-  saveCustomer: (payload: CustomerProfilePayload): Promise<SimpleOkResult> => ipcRenderer.invoke('licensegen:saveCustomer', payload),
-  setLastOptions: (payload: { lastCustomer?: string; lastSeatCount?: number; lastDurationDays?: number; lastDurationMonths?: number }): Promise<SimpleOkResult> =>
-    ipcRenderer.invoke('licensegen:setLastOptions', payload),
-  forgetPrivateKey: (): Promise<SimpleOkResult> => ipcRenderer.invoke('licensegen:forgetPrivateKey'),
+  saveCustomer: (payload: CustomerProfilePayload): Promise<SimpleOkResult> =>
+    ipcRenderer.invoke('licensegen:saveCustomer', payload),
+  setLastOptions: (payload: {
+    lastCustomer?: string;
+    lastSeatCount?: number;
+    lastDurationDays?: number;
+    lastDurationMonths?: number;
+  }): Promise<SimpleOkResult> => ipcRenderer.invoke('licensegen:setLastOptions', payload),
+  forgetPrivateKey: (): Promise<SimpleOkResult> =>
+    ipcRenderer.invoke('licensegen:forgetPrivateKey'),
 });
 
 declare global {
@@ -81,7 +89,12 @@ declare global {
       generateAndSave: (payload: GeneratePayload) => Promise<GenerateResult>;
       getState: () => Promise<GetStateResult>;
       saveCustomer: (payload: CustomerProfilePayload) => Promise<SimpleOkResult>;
-      setLastOptions: (payload: { lastCustomer?: string; lastSeatCount?: number; lastDurationDays?: number; lastDurationMonths?: number }) => Promise<SimpleOkResult>;
+      setLastOptions: (payload: {
+        lastCustomer?: string;
+        lastSeatCount?: number;
+        lastDurationDays?: number;
+        lastDurationMonths?: number;
+      }) => Promise<SimpleOkResult>;
       forgetPrivateKey: () => Promise<SimpleOkResult>;
     };
   }
