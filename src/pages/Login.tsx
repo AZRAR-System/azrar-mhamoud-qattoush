@@ -2,7 +2,6 @@
 import { useAuth } from '@/context/AuthContext';
 import { Lock, User, LogIn, AlertCircle, Info, Eye, EyeOff } from 'lucide-react';
 import { storage } from '@/services/storage';
-import { isCodeActivationAllowed } from '@/services/activation';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useActivation } from '@/context/ActivationContext';
@@ -29,8 +28,6 @@ export const Login = () => {
         const [capsLockOn, setCapsLockOn] = useState(false);
         const [rememberUsername, setRememberUsername] = useState(true);
         const [submitAttempted, setSubmitAttempted] = useState(false);
-
-        const [activationCode, setActivationCode] = useState('');
         const [activationError, setActivationError] = useState('');
         const [activationBusy, setActivationBusy] = useState(false);
         const [deviceId, setDeviceId] = useState<string>('');
@@ -39,11 +36,14 @@ export const Login = () => {
         const passwordRef = useRef<HTMLInputElement | null>(null);
   
     const { login } = useAuth();
-    const { isActivated, loading: activationLoading, activatedAt, activationError: activationStatusError, activate, activateWithLicenseFileContent, refresh } = useActivation();
-
-    const canUseCodeActivation = useMemo(() => {
-        return isCodeActivationAllowed();
-    }, []);
+    const {
+        isActivated,
+        loading: activationLoading,
+        activatedAt,
+        activationError: activationStatusError,
+        activateWithLicenseFileContent,
+        refresh,
+    } = useActivation();
       const dialogs = useAppDialogs();
 
     const REMEMBER_KEY = 'azrar_login_remember_username';
@@ -122,35 +122,6 @@ export const Login = () => {
             mounted = false;
         };
     }, []);
-
-    const handleActivateByCode = async () => {
-        if (!canUseCodeActivation) {
-            setActivationError('في نسخة الإنتاج: التفعيل يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز.');
-            return;
-        }
-        setActivationError('');
-        setError('');
-        setNotice('');
-        const code = activationCode.trim();
-        if (code.length < 6) {
-            setActivationError('يرجى إدخال رمز تفعيل صحيح.');
-            return;
-        }
-
-        setActivationBusy(true);
-        try {
-            await activate(code);
-            await refresh();
-
-            // Re-run bootstrap so desktop KV hydration happens after activation.
-            window.location.reload();
-        } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : String(e);
-            setActivationError(msg || 'تعذر تفعيل النظام.');
-        } finally {
-            setActivationBusy(false);
-        }
-    };
 
     const handlePickLicenseFile = async () => {
         setActivationError('');
@@ -397,37 +368,21 @@ export const Login = () => {
 
                             {!isActivated && (
                                 <>
-                                    {canUseCodeActivation && (
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">رمز التفعيل</label>
-                                            <input
-                                                type="text"
-                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 outline-none transition text-slate-800 dark:text-white"
-                                                placeholder="أدخل رمز التفعيل"
-                                                value={activationCode}
-                                                onChange={(e) => {
-                                                    setActivationCode(e.target.value);
-                                                    if (activationError) setActivationError('');
-                                                }}
-                                            />
-                                        </div>
-                                    )}
-
                                     {(activationError || activationStatusError) && (
                                         <div className="text-xs text-rose-600 dark:text-rose-300 font-semibold">{activationError || activationStatusError}</div>
                                     )}
 
                                     <div className="flex gap-3">
-                                        {canUseCodeActivation && (
-                                            <button
-                                                type="button"
-                                                onClick={() => void handleActivateByCode()}
-                                                disabled={activationBusy || activationLoading || activationCode.trim().length < 6}
-                                                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-indigo-600/30 disabled:opacity-70 disabled:cursor-not-allowed"
-                                            >
-                                                {activationBusy ? 'جاري التفعيل...' : 'تفعيل'}
-                                            </button>
-                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                window.location.hash = ROUTE_PATHS.ACTIVATION;
+                                            }}
+                                            disabled={activationBusy || activationLoading}
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-indigo-600/30 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            صفحة التفعيل
+                                        </button>
 
                                         <button
                                             type="button"
@@ -440,9 +395,7 @@ export const Login = () => {
                                     </div>
 
                                     <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        {canUseCodeActivation
-                                            ? 'إن كان لديك ملف/رمز تفعيل من الدعم، استخدمه هنا.'
-                                            : 'في نسخة الإنتاج: التفعيل يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز.'}
+                                        التفعيل يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز أو عبر الإنترنت من صفحة التفعيل.
                                     </div>
                                 </>
                             )}
