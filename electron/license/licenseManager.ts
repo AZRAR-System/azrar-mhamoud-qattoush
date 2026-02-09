@@ -191,18 +191,35 @@ export const setLicenseServerUrl = (url: string): { ok: true; url: string } | { 
 };
 
 const readPublicKeyB64 = (): string => {
+  // Public verification key (Ed25519). Safe to embed.
+  // Fallback to avoid activation failures if the key file can't be resolved at runtime.
+  const EMBEDDED_PUBLIC_KEY_B64 = 'LwHzREBHX+CwlqYyI+RI5k4vLezMduFJ00ngTom3KSk=';
+
   const envKey = String(
     process.env.AZRAR_LICENSE_PUBLIC_KEY_B64 || process.env.VITE_AZRAR_LICENSE_PUBLIC_KEY || ''
   ).trim();
   if (envKey) return envKey;
 
-  // Packaged fallback: ship a PUBLIC key file inside the app.
-  const rel = path.join('electron', 'assets', 'azrar-license-public.key.json');
-  const candidates = [
-    path.join(app.getAppPath(), rel),
-    path.join(process.resourcesPath, 'app.asar', rel),
-    path.join(process.resourcesPath, rel),
-  ];
+  const fileName = 'azrar-license-public.key.json';
+
+  // Dev + packaged fallback: ship a PUBLIC key file inside the app.
+  // In dev, app.getAppPath() may be the project root OR the `electron/` folder,
+  // so we try multiple path shapes.
+  const candidates = Array.from(
+    new Set([
+      // Dev: workspace root
+      path.join(process.cwd(), 'electron', 'assets', fileName),
+
+      // Dev: app path variants
+      path.join(app.getAppPath(), 'assets', fileName),
+      path.join(app.getAppPath(), 'electron', 'assets', fileName),
+      path.join(path.dirname(app.getAppPath()), 'electron', 'assets', fileName),
+
+      // Packaged: resources
+      path.join(process.resourcesPath, 'app.asar', 'electron', 'assets', fileName),
+      path.join(process.resourcesPath, 'electron', 'assets', fileName),
+    ])
+  );
 
   for (const p of candidates) {
     try {
@@ -215,7 +232,7 @@ const readPublicKeyB64 = (): string => {
     }
   }
 
-  return '';
+  return EMBEDDED_PUBLIC_KEY_B64;
 };
 
 const readStoredState = (): StoredState | null => {

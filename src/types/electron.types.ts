@@ -12,7 +12,6 @@
 import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types/types';
 
 export interface DesktopDbBridge {
-  writeClipboardText?: (text: string) => Promise<{ ok: boolean; error?: string } | unknown>;
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<boolean>;
   delete(key: string): Promise<boolean>;
@@ -31,7 +30,6 @@ export interface DesktopDbBridge {
   getPath(): Promise<string>;
   getBackupDir?: () => Promise<string>;
   chooseBackupDir?: () => Promise<{ success: boolean; message?: string; backupDir?: string } | unknown>;
-  openBackupDir?: () => Promise<{ ok: boolean; message?: string } | unknown>;
   getLocalBackupAutomationSettings?: () =>
     Promise<
       | {
@@ -493,188 +491,10 @@ export interface DesktopUpdaterBridge {
   onEvent?(handler: (evt: unknown) => void): () => void;
 }
 
-export interface DesktopLicenseBridge {
-  getDeviceFingerprint(): Promise<{ ok: boolean; fingerprint?: string; warning?: string; error?: string } | unknown>;
-  getStatus(): Promise<
-    | {
-        ok: boolean;
-        status?: {
-          activated: boolean;
-          deviceFingerprint?: string;
-          activatedAt?: string;
-          lastCheckAt?: string;
-          reason?: string;
-          review?: {
-            serverUrl?: string;
-            remoteStatus?:
-              | 'active'
-              | 'suspended'
-              | 'revoked'
-              | 'expired'
-              | 'mismatch'
-              | 'invalid_license'
-              | 'unknown';
-            remoteCheckedAt?: string;
-            remoteLastAttemptAt?: string;
-            remoteLastError?: string;
-            remoteStatusUpdatedAt?: string;
-            remoteStatusNote?: string;
-          };
-          license?: {
-            expiresAt?: string;
-            features?: Record<string, boolean>;
-            deviceId?: string;
-          };
-        };
-        error?: string;
-      }
-    | unknown
-  >;
-  hasFeature(featureName: string): Promise<{ ok: boolean; enabled?: boolean; reason?: string; error?: string } | unknown>;
-  activateFromContent(raw: string): Promise<{ ok: boolean; error?: string } | unknown>;
-  activateOnline(payload: { licenseKey: string; serverUrl?: string }): Promise<{ ok: boolean; error?: string } | unknown>;
-  getServerUrl(): Promise<{ ok: boolean; url?: string; error?: string } | unknown>;
-  setServerUrl(url: string): Promise<{ ok: boolean; url?: string; error?: string } | unknown>;
-  refreshOnlineStatus(): Promise<{ ok: boolean; status?: unknown; error?: string } | unknown>;
-  deactivate(): Promise<{ ok: boolean; error?: string } | unknown>;
-}
-
-export interface DesktopLicenseAdminBridge {
-  login(payload: { username: string; password: string }): Promise<{ ok: boolean; error?: string } | unknown>;
-  logout(): Promise<{ ok: boolean; error?: string } | unknown>;
-
-  getUser(): Promise<
-    | {
-        ok: boolean;
-        user?: {
-          username?: string;
-          updatedAt?: string;
-        };
-        error?: string;
-      }
-    | unknown
-  >;
-
-  updateUser(payload: { username: string; newPassword?: string }): Promise<
-    | {
-        ok: boolean;
-        user?: {
-          username?: string;
-          updatedAt?: string;
-        };
-        error?: string;
-      }
-    | unknown
-  >;
-
-  getAdminTokenStatus(): Promise<
-    | {
-        ok: boolean;
-        configured?: boolean;
-        error?: string;
-      }
-    | unknown
-  >;
-
-  getAdminTokenStatus(payload?: { serverUrl?: string }): Promise<
-    | {
-        ok: boolean;
-        configured?: boolean;
-        error?: string;
-      }
-    | unknown
-  >;
-
-  setAdminToken(payload: { token: string; serverUrl?: string }): Promise<{ ok: boolean; error?: string } | unknown>;
-
-  list(payload: { serverUrl: string; q?: string; limit?: number }): Promise<
-    | {
-        ok: boolean;
-        result?: {
-          ok?: boolean;
-          time?: string;
-          total?: number;
-          items?: Array<{
-            licenseKey: string;
-            status?: string;
-            createdAt?: string;
-            expiresAt?: string;
-            maxActivations?: number;
-            activationsCount?: number;
-            statusUpdatedAt?: string;
-            statusNote?: string;
-          }>;
-        };
-        error?: string;
-      }
-    | unknown
-  >;
-
-  get(payload: { serverUrl: string; licenseKey: string }): Promise<
-    | {
-        ok: boolean;
-        result?: { ok?: boolean; time?: string; record?: unknown };
-        error?: string;
-      }
-    | unknown
-  >;
-
-  issue(payload: {
-    serverUrl: string;
-    licenseKey?: string;
-    expiresAt?: string;
-    maxActivations?: number;
-    features?: Record<string, unknown>;
-  }): Promise<{ ok: boolean; result?: unknown; error?: string } | unknown>;
-
-  setStatus(payload: { serverUrl: string; licenseKey: string; status: string; note?: string }): Promise<
-    | { ok: boolean; result?: unknown; error?: string }
-    | unknown
-  >;
-
-  activate(payload: { serverUrl: string; licenseKey: string; deviceId: string }): Promise<
-    | { ok: boolean; result?: unknown; error?: string }
-    | unknown
-  >;
-
-  checkStatus(payload: { serverUrl: string; licenseKey: string; deviceId: string }): Promise<
-    | {
-        ok: boolean;
-        result?: {
-          ok?: boolean;
-          time?: string;
-          status?: string;
-          statusUpdatedAt?: string;
-          statusNote?: string;
-          error?: string;
-        };
-        error?: string;
-      }
-    | unknown
-  >;
-
-  delete(payload: { serverUrl: string; licenseKey: string }): Promise<
-    | { ok: boolean; result?: unknown; error?: string }
-    | unknown
-  >;
-
-  updateAfterSales(payload: { serverUrl: string; licenseKey: string; patch: Record<string, unknown> }): Promise<
-    | { ok: boolean; result?: unknown; error?: string }
-    | unknown
-  >;
-
-  saveLicenseFile(payload: { defaultFileName?: string; content: string; confirmPassword?: string }): Promise<
-    | { ok: boolean; filePath?: string; error?: string }
-    | unknown
-  >;
-}
-
 declare global {
   interface Window {
     desktopDb?: DesktopDbBridge;
     desktopUpdater?: DesktopUpdaterBridge;
-    desktopLicense?: DesktopLicenseBridge;
-    desktopLicenseAdmin?: DesktopLicenseAdminBridge;
   }
 }
 

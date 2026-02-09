@@ -1,14 +1,4 @@
-﻿import {
-  activateWithLicenseContent,
-  activateOnline,
-  deactivate as licenseDeactivate,
-  getLicenseServerUrl,
-  getDeviceFingerprint,
-  getLicenseStatus,
-  refreshOnlineStatus,
-  setLicenseServerUrl,
-} from './license/licenseManager';
-import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage, clipboard } from 'electron';
+﻿import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
 import {
   kvApplyRemoteDelete,
   kvDelete,
@@ -170,100 +160,6 @@ const DEFAULT_PACKAGED_FEED_URL: string | null = null;
 type UpdaterSettings = {
   feedUrl?: string;
 };
-
-const isUpdatesAllowed = (): boolean => {
-  // In development builds, do not block updater APIs.
-  if (!app.isPackaged) return true;
-
-  // Support break-glass override for support/testing.
-  const allowWithout = String(process.env.AZRAR_ALLOW_UPDATES_WITHOUT_LICENSE || '').trim();
-  if (allowWithout === '1' || allowWithout.toLowerCase() === 'true') return true;
-
-  // Licensing gate: this flag is maintained by the Main license manager (incl. remote disable/TTL).
-  const raw = String(kvGet('db_app_activated') ?? '').trim();
-  return raw === '1' || raw.toLowerCase() === 'true';
-};
-
-const hasAnyFeatureFlags = (features?: Record<string, boolean>): boolean => {
-  if (!features || typeof features !== 'object') return false;
-  try {
-    return Object.keys(features).length > 0;
-  } catch {
-    return false;
-  }
-};
-
-const isFeatureEnabled = (features: Record<string, boolean> | undefined, featureName: string): boolean => {
-  // Backwards-compatible default:
-  // - If the license has no explicit features object (or it's empty), treat it as a full license.
-  // - If features are specified, require the specific feature flag to be true.
-  if (!hasAnyFeatureFlags(features)) return true;
-  return features?.[featureName] === true;
-};
-
-const ensureFeatureAllowedAsync = async (
-  featureName: string,
-  opts?: {
-    activationMessage?: string;
-    featureMessage?: string;
-  }
-): Promise<{ ok: true } | { ok: false; message: string }> => {
-  // In development builds, do not block features.
-  if (!app.isPackaged) return { ok: true };
-
-  const st = await getLicenseStatus();
-  if (!st.activated) {
-    return {
-      ok: false,
-      message:
-        opts?.activationMessage ||
-        'هذه الميزة متاحة للنسخ المفعلة فقط. يرجى تفعيل النسخة أولاً.',
-    };
-  }
-
-  const features = st.license?.features;
-  if (!isFeatureEnabled(features, featureName)) {
-    return {
-      ok: false,
-      message: opts?.featureMessage || 'هذه الرخصة لا تتضمن هذه الميزة.',
-    };
-  }
-
-  return { ok: true };
-};
-
-const ensureSqlAllowedAsync = async (): Promise<{ ok: true } | { ok: false; message: string }> => {
-  return ensureFeatureAllowedAsync('sql', {
-    featureMessage: 'هذه الرخصة لا تتضمن ميزة المزامنة مع SQL Server.',
-  });
-};
-
-const ensureUpdatesAllowedAsync = async (): Promise<{ ok: true } | { ok: false; message: string }> => {
-    // In development builds, do not block updater APIs.
-    if (!app.isPackaged) return { ok: true };
-
-    // Support break-glass override for support/testing.
-    const allowWithout = String(process.env.AZRAR_ALLOW_UPDATES_WITHOUT_LICENSE || '').trim();
-    if (allowWithout === '1' || allowWithout.toLowerCase() === 'true') return { ok: true };
-
-    const st = await getLicenseStatus();
-    if (!st.activated) {
-      return {
-        ok: false,
-        message: 'التحديثات متاحة للنسخ المفعلة فقط. يرجى تفعيل النسخة أولاً.',
-      };
-    }
-
-    const features = st.license?.features;
-    if (!isFeatureEnabled(features, 'updates')) {
-      return {
-        ok: false,
-        message: 'هذه الرخصة لا تتضمن ميزة التحديثات.',
-      };
-    }
-
-    return { ok: true };
-  };
 
 type SqlSyncLogEntry = {
   id: string;
@@ -971,15 +867,6 @@ function readUpdaterSettingsSync(): UpdaterSettings {
   }
 }
 
-function readFeedUrlFromKv(): string | null {
-  try {
-    const raw = String(kvGet('app_update_feed_url') ?? '').trim();
-    return raw ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
 async function writeUpdaterSettings(next: UpdaterSettings): Promise<void> {
   const filePath = getUpdaterSettingsFilePath();
   await fsp.mkdir(path.dirname(filePath), { recursive: true });
@@ -989,15 +876,8 @@ async function writeUpdaterSettings(next: UpdaterSettings): Promise<void> {
 function configureUpdaterIfPossible() {
   if (!autoUpdater) return;
   if (!app.isPackaged) return;
-  if (!isUpdatesAllowed()) return;
   // Always disable autoDownload; we control it from UI.
   autoUpdater.autoDownload = false;
-
-  // Prefer feed URL from KV app setting when available (env vars still override via currentFeedUrl).
-  if (!currentFeedUrl) {
-    const kvFeedUrl = readFeedUrlFromKv();
-    if (kvFeedUrl) currentFeedUrl = kvFeedUrl;
-  }
 
   // If no env URL was provided, try loading a persisted feed URL.
   if (!currentFeedUrl) {
@@ -2070,17 +1950,10 @@ export function registerIpcHandlers() {
   }
 
   // Automatic update check on startup (packaged app only).
-  if (
-    app.isPackaged &&
-    autoUpdater &&
-    isUpdatesAllowed() &&
-    (currentFeedUrl || hasEmbeddedUpdaterConfig())
-  ) {
+  if (app.isPackaged && autoUpdater && (currentFeedUrl || hasEmbeddedUpdaterConfig())) {
     setTimeout(() => {
       void (async () => {
         try {
-          const allowed = await ensureUpdatesAllowedAsync();
-          if (!allowed.ok) return;
           await autoUpdater.checkForUpdates();
         } catch (e: unknown) {
           broadcastUpdaterEvent({
@@ -2150,15 +2023,6 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle('app:writeClipboardText', async (_event, text: string) => {
-    try {
-      clipboard.writeText(String(text ?? ''));
-      return { ok: true };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'clipboard_write_failed') };
-    }
-  });
-
   ipcMain.handle('app:getLicensePublicKey', async () => {
     try {
       const envKey = String(
@@ -2166,28 +2030,13 @@ export function registerIpcHandlers() {
       ).trim();
       if (envKey) return { ok: true, publicKeyB64: envKey, source: 'env' };
 
-      const fileName = 'azrar-license-public.key.json';
-
-      // Dev + packaged fallback: ship a PUBLIC key file inside the app.
-      // In dev, app.getAppPath() may be the project root OR the `electron/` folder,
-      // so we try multiple path shapes.
-      const candidates = Array.from(
-        new Set(
-          [
-            // Dev: workspace root
-            path.join(process.cwd(), 'electron', 'assets', fileName),
-
-            // Dev: app path variants
-            path.join(app.getAppPath(), 'assets', fileName),
-            path.join(app.getAppPath(), 'electron', 'assets', fileName),
-            path.join(path.dirname(app.getAppPath()), 'electron', 'assets', fileName),
-
-            // Packaged: resources
-            path.join(process.resourcesPath, 'app.asar', 'electron', 'assets', fileName),
-            path.join(process.resourcesPath, 'electron', 'assets', fileName),
-          ].filter(Boolean)
-        )
-      );
+      // Packaged fallback: ship a PUBLIC key file inside the app.
+      const rel = path.join('electron', 'assets', 'azrar-license-public.key.json');
+      const candidates = [
+        path.join(app.getAppPath(), rel),
+        path.join(process.resourcesPath, 'app.asar', rel),
+        path.join(process.resourcesPath, rel),
+      ];
 
       for (const p of candidates) {
         try {
@@ -2207,621 +2056,6 @@ export function registerIpcHandlers() {
     }
   });
 
-  // License / Activation (Main process)
-  ipcMain.handle('license:getDeviceFingerprint', async () => {
-    try {
-      return getDeviceFingerprint();
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة بصمة الجهاز') };
-    }
-  });
-
-  // License Admin Tool (Main process)
-  // Local auth gate; server admin token can come from env (preferred) or a local KV setting.
-  const ADMIN_TOKEN_KEY = 'lic_admin_server_token_v1';
-
-  type StoredAdminTokens = {
-    v: 2;
-    defaultToken?: string;
-    byOrigin?: Record<string, string>;
-    updatedAt?: string;
-  };
-
-  const readStoredAdminTokensUnsafe = (): StoredAdminTokens | null => {
-    try {
-      const raw = String(kvGet(ADMIN_TOKEN_KEY) ?? '').trim();
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as StoredAdminTokens;
-      if (!parsed || typeof parsed !== 'object') return null;
-      if (parsed.v !== 2) return null;
-      return parsed;
-    } catch {
-      return null;
-    }
-  };
-
-  const envDefaultToken = String(
-    process.env.AZRAR_LICENSE_SERVER_ADMIN_TOKEN || process.env.AZRAR_LICENSE_ADMIN_TOKEN || ''
-  ).trim();
-
-  // Backwards-compatible migration:
-  // - v1 stored value was a plain string token.
-  // - v2 stores JSON with optional per-origin tokens.
-  let storedAdminTokens: StoredAdminTokens = {
-    v: 2,
-    defaultToken: envDefaultToken || undefined,
-    byOrigin: {},
-    updatedAt: new Date().toISOString(),
-  };
-
-  try {
-    const v2 = readStoredAdminTokensUnsafe();
-    if (v2) {
-      storedAdminTokens = {
-        v: 2,
-        defaultToken: typeof v2.defaultToken === 'string' ? v2.defaultToken : (envDefaultToken || undefined),
-        byOrigin: v2.byOrigin && typeof v2.byOrigin === 'object' ? v2.byOrigin : {},
-        updatedAt: typeof v2.updatedAt === 'string' ? v2.updatedAt : storedAdminTokens.updatedAt,
-      };
-    } else if (!envDefaultToken) {
-      const legacy = String(kvGet(ADMIN_TOKEN_KEY) ?? '').trim();
-      if (legacy) {
-        storedAdminTokens.defaultToken = legacy;
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  const persistStoredAdminTokensBestEffort = () => {
-    try {
-      kvSet(ADMIN_TOKEN_KEY, JSON.stringify(storedAdminTokens));
-    } catch {
-      // ignore
-    }
-  };
-
-  const getAdminTokenForOrigin = (origin: string | ''): string => {
-    const byOrigin = storedAdminTokens.byOrigin || {};
-    if (origin && typeof byOrigin[origin] === 'string' && String(byOrigin[origin] || '').trim()) {
-      return String(byOrigin[origin]).trim();
-    }
-    // Prefer stored default; env token is already merged into storedAdminTokens.defaultToken.
-    return String(storedAdminTokens.defaultToken || '').trim();
-  };
-
-  const setAdminTokenForOrigin = (origin: string | '', token: string) => {
-    const t = String(token || '').trim();
-    if (!t) return;
-    if (origin) {
-      storedAdminTokens.byOrigin = storedAdminTokens.byOrigin || {};
-      storedAdminTokens.byOrigin[origin] = t;
-    } else {
-      storedAdminTokens.defaultToken = t;
-    }
-    storedAdminTokens.updatedAt = new Date().toISOString();
-    persistStoredAdminTokensBestEffort();
-  };
-
-  let adminSessionOk = false;
-
-  const ADMIN_AUTH_KEY = 'lic_admin_auth_v1';
-  const DEFAULT_ADMIN_USERNAME = 'admin';
-  // Default requested by user; stored hashed on first run.
-  const DEFAULT_ADMIN_PASSWORD = '7Bibi@_@_0788';
-
-  type StoredAdminAuth = {
-    v: 1;
-    username: string;
-    saltB64: string;
-    iterations: number;
-    hashB64: string;
-    updatedAt: string;
-  };
-
-  const normalizeUser = (u: unknown): string => String(u ?? '').trim().slice(0, 64);
-  const normalizePass = (p: unknown): string => String(p ?? '').trim().slice(0, 128);
-
-  const hashPassword = (password: string, salt: Buffer, iterations: number): Buffer => {
-    return crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
-  };
-
-  const createAuth = (username: string, password: string): StoredAdminAuth => {
-    const iterations = 180000;
-    const salt = crypto.randomBytes(16);
-    const hash = hashPassword(password, salt, iterations);
-    return {
-      v: 1,
-      username,
-      saltB64: salt.toString('base64'),
-      iterations,
-      hashB64: hash.toString('base64'),
-      updatedAt: new Date().toISOString(),
-    };
-  };
-
-  const readAuthUnsafe = (): StoredAdminAuth | null => {
-    try {
-      const raw = String(kvGet(ADMIN_AUTH_KEY) ?? '').trim();
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as StoredAdminAuth;
-      if (!parsed || typeof parsed !== 'object') return null;
-      if (parsed.v !== 1) return null;
-      if (!parsed.username || !parsed.saltB64 || !parsed.hashB64) return null;
-      if (!Number.isFinite(Number(parsed.iterations))) return null;
-      return parsed;
-    } catch {
-      return null;
-    }
-  };
-
-  const ensureAuth = (): StoredAdminAuth => {
-    const existing = readAuthUnsafe();
-    if (existing) return existing;
-
-    // Bootstrap from env if provided; otherwise use default.
-    const envUser = normalizeUser(process.env.AZRAR_LICENSE_ADMIN_UI_USERNAME || process.env.AZRAR_ADMIN_USERNAME);
-    const envPass = normalizePass(process.env.AZRAR_LICENSE_ADMIN_UI_PASSWORD || process.env.AZRAR_ADMIN_PASSWORD);
-    const username = envUser || DEFAULT_ADMIN_USERNAME;
-    const password = envPass || DEFAULT_ADMIN_PASSWORD;
-    const created = createAuth(username, password);
-    try {
-      kvSet(ADMIN_AUTH_KEY, JSON.stringify(created));
-    } catch {
-      // ignore
-    }
-    return created;
-  };
-
-  const verifyLogin = (username: string, password: string): boolean => {
-    try {
-      const auth = ensureAuth();
-      if (normalizeUser(username).toLowerCase() !== String(auth.username).trim().toLowerCase()) return false;
-      const salt = Buffer.from(String(auth.saltB64), 'base64');
-      const iterations = Number(auth.iterations);
-      const expected = Buffer.from(String(auth.hashB64), 'base64');
-      const actual = hashPassword(password, salt, iterations);
-      if (expected.length !== actual.length) return false;
-      return crypto.timingSafeEqual(expected, actual);
-    } catch {
-      return false;
-    }
-  };
-
-  const requireAdminSession = (): { ok: true } | { ok: false; error: string } => {
-    if (!adminSessionOk) return { ok: false, error: 'Unauthorized' };
-    return { ok: true };
-  };
-
-  const normalizeServerUrl = (raw: unknown): string => {
-    const s = String(raw || '').trim();
-    if (!s) return '';
-    try {
-      const u = new URL(s);
-      if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
-      return u.origin;
-    } catch {
-      return '';
-    }
-  };
-
-  const postJson = async (serverUrl: string, pathname: string, body: unknown): Promise<unknown> => {
-    const adminToken = getAdminTokenForOrigin(serverUrl);
-    if (!adminToken) throw new Error('Admin token not configured.');
-    const resp = await fetch(`${serverUrl}${pathname}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Admin-Token': adminToken,
-      },
-      body: JSON.stringify(body ?? null),
-    });
-    const json = await resp.json().catch(() => null);
-    if (!resp.ok) {
-      const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
-      const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
-      throw new Error(msg || 'Request failed');
-    }
-    return json;
-  };
-
-  ipcMain.handle('licenseAdmin:login', async (_e, payload: { username?: string; password?: string }) => {
-    try {
-      const user = normalizeUser(payload?.username);
-      const pass = normalizePass(payload?.password);
-      if (!user) return { ok: false, error: 'Username is required.' };
-      if (!pass) return { ok: false, error: 'Password is required.' };
-      if (!verifyLogin(user, pass)) return { ok: false, error: 'Invalid credentials.' };
-      adminSessionOk = true;
-      return { ok: true };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'Failed to login') };
-    }
-  });
-
-  ipcMain.handle('licenseAdmin:logout', async () => {
-    adminSessionOk = false;
-    return { ok: true };
-  });
-
-  ipcMain.handle('licenseAdmin:getAdminTokenStatus', async (_e, payload?: { serverUrl?: string }) => {
-    try {
-      const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
-      // Backwards-compatible: missing/invalid serverUrl means "default" token status.
-      const origin = normalizeServerUrl(payload?.serverUrl);
-      const configured = !!getAdminTokenForOrigin(origin);
-      return { ok: true, configured };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'Failed to get token status') };
-    }
-  });
-
-  ipcMain.handle('licenseAdmin:setAdminToken', async (_e, payload: { token?: string; serverUrl?: string }) => {
-    try {
-      const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
-      const token = String(payload?.token ?? '').trim();
-      if (!token) return { ok: false, error: 'token is required.' };
-      const origin = normalizeServerUrl(payload?.serverUrl);
-      // If serverUrl is invalid or missing, store as default token.
-      setAdminTokenForOrigin(origin, token);
-      return { ok: true };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'Failed to set token') };
-    }
-  });
-
-  ipcMain.handle('licenseAdmin:getUser', async () => {
-    try {
-      const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
-      const a = ensureAuth();
-      return { ok: true, user: { username: a.username, updatedAt: a.updatedAt } };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'Failed to load user') };
-    }
-  });
-
-  ipcMain.handle(
-    'licenseAdmin:updateUser',
-    async (_e, payload: { username?: string; newPassword?: string }) => {
-      try {
-        const auth = requireAdminSession();
-        if (!auth.ok) return { ok: false, error: auth.error };
-
-        const nextUser = normalizeUser(payload?.username);
-        const nextPass = normalizePass(payload?.newPassword);
-        if (!nextUser) return { ok: false, error: 'username is required.' };
-
-        const current = ensureAuth();
-        const updated = createAuth(nextUser, nextPass || DEFAULT_ADMIN_PASSWORD);
-        // If user did not provide a new password, keep old password by reusing it is impossible (hashed).
-        // So we require explicit newPassword to change; otherwise keep current hash.
-        if (!nextPass) {
-          updated.saltB64 = current.saltB64;
-          updated.iterations = current.iterations;
-          updated.hashB64 = current.hashB64;
-        }
-
-        kvSet(ADMIN_AUTH_KEY, JSON.stringify(updated));
-        return { ok: true, user: { username: updated.username, updatedAt: updated.updatedAt } };
-      } catch (e: unknown) {
-        return { ok: false, error: toErrorMessage(e, 'Failed to update user') };
-      }
-    }
-  );
-
-  ipcMain.handle('licenseAdmin:list', async (_e, payload: { serverUrl?: string; q?: string; limit?: number }) => {
-    try {
-      const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
-
-      const serverUrl = normalizeServerUrl(payload?.serverUrl);
-      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
-      const q = typeof payload?.q === 'string' ? payload.q : '';
-      const limit = Number.isFinite(Number(payload?.limit)) ? Number(payload?.limit) : undefined;
-
-      const json = (await postJson(serverUrl, '/api/license/admin/list', { q, limit })) as unknown;
-      return { ok: true, result: json };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'Failed to list licenses') };
-    }
-  });
-
-  ipcMain.handle('licenseAdmin:get', async (_e, payload: { serverUrl?: string; licenseKey?: string }) => {
-    try {
-      const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
-
-      const serverUrl = normalizeServerUrl(payload?.serverUrl);
-      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
-      const licenseKey = String(payload?.licenseKey || '').trim();
-      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
-
-      const json = (await postJson(serverUrl, '/api/license/admin/get', { licenseKey })) as unknown;
-      return { ok: true, result: json };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'Failed to fetch license') };
-    }
-  });
-
-  ipcMain.handle(
-    'licenseAdmin:issue',
-    async (
-      _e,
-      payload: {
-        serverUrl?: string;
-        licenseKey?: string;
-        expiresAt?: string;
-        maxActivations?: number;
-        features?: Record<string, unknown>;
-      }
-    ) => {
-      try {
-        const auth = requireAdminSession();
-        if (!auth.ok) return { ok: false, error: auth.error };
-
-        const serverUrl = normalizeServerUrl(payload?.serverUrl);
-        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
-
-        const body = {
-          ...(payload?.licenseKey ? { licenseKey: String(payload.licenseKey) } : {}),
-          ...(payload?.expiresAt ? { expiresAt: String(payload.expiresAt) } : {}),
-          ...(Number.isFinite(Number(payload?.maxActivations)) ? { maxActivations: Number(payload?.maxActivations) } : {}),
-          ...(payload?.features && typeof payload.features === 'object' ? { features: payload.features } : {}),
-        };
-
-        const json = (await postJson(serverUrl, '/api/license/admin/issue', body)) as unknown;
-        return { ok: true, result: json };
-      } catch (e: unknown) {
-        return { ok: false, error: toErrorMessage(e, 'Failed to issue license') };
-      }
-    }
-  );
-
-  ipcMain.handle(
-    'licenseAdmin:setStatus',
-    async (
-      _e,
-      payload: { serverUrl?: string; licenseKey?: string; status?: string; note?: string }
-    ) => {
-      try {
-        const auth = requireAdminSession();
-        if (!auth.ok) return { ok: false, error: auth.error };
-
-        const serverUrl = normalizeServerUrl(payload?.serverUrl);
-        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
-        const licenseKey = String(payload?.licenseKey || '').trim();
-        const status = String(payload?.status || '').trim();
-        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
-        if (!status) return { ok: false, error: 'status is required.' };
-
-        const json = (await postJson(serverUrl, '/api/license/admin/setStatus', {
-          licenseKey,
-          status,
-          ...(payload?.note ? { note: String(payload.note) } : {}),
-        })) as unknown;
-
-        return { ok: true, result: json };
-      } catch (e: unknown) {
-        return { ok: false, error: toErrorMessage(e, 'Failed to set status') };
-      }
-    }
-  );
-
-  ipcMain.handle(
-    'licenseAdmin:activate',
-    async (_e, payload: { serverUrl?: string; licenseKey?: string; deviceId?: string }) => {
-      try {
-        const auth = requireAdminSession();
-        if (!auth.ok) return { ok: false, error: auth.error };
-
-        const serverUrl = normalizeServerUrl(payload?.serverUrl);
-        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
-        const licenseKey = String(payload?.licenseKey || '').trim();
-        const deviceId = String(payload?.deviceId || '').trim();
-        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
-        if (!deviceId) return { ok: false, error: 'deviceId is required.' };
-
-        const resp = await fetch(`${serverUrl}/api/license/activate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ licenseKey, deviceId }),
-        });
-        const json = await resp.json().catch(() => null);
-        if (!resp.ok) {
-          const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
-          const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
-          return { ok: false, error: msg || 'Activate failed' };
-        }
-        return { ok: true, result: json };
-      } catch (e: unknown) {
-        return { ok: false, error: toErrorMessage(e, 'Failed to activate') };
-      }
-    }
-  );
-
-  ipcMain.handle(
-    'licenseAdmin:checkStatus',
-    async (_e, payload: { serverUrl?: string; licenseKey?: string; deviceId?: string }) => {
-      try {
-        const auth = requireAdminSession();
-        if (!auth.ok) return { ok: false, error: auth.error };
-
-        const serverUrl = normalizeServerUrl(payload?.serverUrl);
-        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
-        const licenseKey = String(payload?.licenseKey || '').trim();
-        const deviceId = String(payload?.deviceId || '').trim();
-        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
-        if (!deviceId) return { ok: false, error: 'deviceId is required.' };
-
-        const resp = await fetch(`${serverUrl}/api/license/status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ licenseKey, deviceId }),
-        });
-        const json = await resp.json().catch(() => null);
-        if (!resp.ok) {
-          const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
-          const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
-          return { ok: false, error: msg || 'Status check failed' };
-        }
-        return { ok: true, result: json };
-      } catch (e: unknown) {
-        return { ok: false, error: toErrorMessage(e, 'Failed to check status') };
-      }
-    }
-  );
-
-  ipcMain.handle(
-    'licenseAdmin:saveLicenseFile',
-    async (_e, payload: { defaultFileName?: string; content?: string; confirmPassword?: string }) => {
-      try {
-        const auth = requireAdminSession();
-        if (!auth.ok) return { ok: false, error: auth.error };
-
-        // Extra guard: require password confirmation before exporting/saving.
-        const confirmPassword = String(payload?.confirmPassword || '').trim();
-        if (!confirmPassword) return { ok: false, error: 'confirmPassword is required.' };
-        const a = ensureAuth();
-        if (!verifyLogin(a.username, confirmPassword)) return { ok: false, error: 'Invalid password.' };
-
-        const content = String(payload?.content || '');
-        if (!content.trim()) return { ok: false, error: 'content is required.' };
-
-        const safeName = String(payload?.defaultFileName || 'azrar-license.json')
-          .replace(/[^a-zA-Z0-9._-]/g, '_')
-          .slice(0, 120);
-        const defaultPath = path.join(app.getPath('documents'), safeName || 'azrar-license.json');
-
-        const result = await dialog.showSaveDialog({
-          title: 'حفظ ملف الترخيص',
-          defaultPath,
-          filters: [{ name: 'JSON', extensions: ['json'] }],
-        });
-        if (result.canceled || !result.filePath) return { ok: false, error: 'Canceled' };
-
-        await fsp.writeFile(result.filePath, content, 'utf8');
-        return { ok: true, filePath: result.filePath };
-      } catch (e: unknown) {
-        return { ok: false, error: toErrorMessage(e, 'Failed to save file') };
-      }
-    }
-  );
-
-  ipcMain.handle(
-    'licenseAdmin:updateAfterSales',
-    async (
-      _e,
-      payload: { serverUrl?: string; licenseKey?: string; patch?: Record<string, unknown> }
-    ) => {
-      try {
-        const auth = requireAdminSession();
-        if (!auth.ok) return { ok: false, error: auth.error };
-
-        const serverUrl = normalizeServerUrl(payload?.serverUrl);
-        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
-        const licenseKey = String(payload?.licenseKey || '').trim();
-        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
-        const patch = payload?.patch && typeof payload.patch === 'object' ? payload.patch : {};
-
-        const json = (await postJson(serverUrl, '/api/license/admin/updateAfterSales', {
-          licenseKey,
-          patch,
-        })) as unknown;
-        return { ok: true, result: json };
-      } catch (e: unknown) {
-        return { ok: false, error: toErrorMessage(e, 'Failed to update after-sales') };
-      }
-    }
-  );
-
-  ipcMain.handle(
-    'licenseAdmin:delete',
-    async (_e, payload: { serverUrl?: string; licenseKey?: string }) => {
-      try {
-        const auth = requireAdminSession();
-        if (!auth.ok) return { ok: false, error: auth.error };
-
-        const serverUrl = normalizeServerUrl(payload?.serverUrl);
-        if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
-        const licenseKey = String(payload?.licenseKey || '').trim();
-        if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
-
-        const json = (await postJson(serverUrl, '/api/license/admin/delete', { licenseKey })) as unknown;
-        return { ok: true, result: json };
-      } catch (e: unknown) {
-        return { ok: false, error: toErrorMessage(e, 'Failed to delete license') };
-      }
-    }
-  );
-
-  ipcMain.handle('license:getStatus', async () => {
-    try {
-      const st = await getLicenseStatus();
-      return { ok: true, status: st };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة حالة الترخيص') };
-    }
-  });
-
-  ipcMain.handle('license:hasFeature', async (_e, featureName: string) => {
-    try {
-      const name = String(featureName || '').trim();
-      if (!name) return { ok: false, error: 'اسم الميزة غير صالح.' };
-
-      const st = await getLicenseStatus();
-      if (!st.activated) {
-        return { ok: true, enabled: false, reason: st.reason || 'not_activated' };
-      }
-
-      const enabled = isFeatureEnabled(st.license?.features, name);
-      return { ok: true, enabled };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة صلاحيات الترخيص') };
-    }
-  });
-
-  ipcMain.handle('license:activateFromContent', async (_e, raw: string) => {
-    const res = await activateWithLicenseContent(String(raw || ''));
-    if (res.ok) return { ok: true };
-    return { ok: false, error: res.error };
-  });
-
-  ipcMain.handle('license:activateOnline', async (_e, payload: { licenseKey?: string; serverUrl?: string }) => {
-    const res = await activateOnline({
-      licenseKey: String(payload?.licenseKey || ''),
-      serverUrl: payload?.serverUrl ? String(payload.serverUrl) : undefined,
-    });
-    if (res.ok) return { ok: true };
-    return { ok: false, error: res.error };
-  });
-
-  ipcMain.handle('license:getServerUrl', async () => {
-    try {
-      return { ok: true, url: getLicenseServerUrl() };
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة رابط السيرفر') };
-    }
-  });
-
-  ipcMain.handle('license:setServerUrl', async (_e, url: string) => {
-    return setLicenseServerUrl(String(url || ''));
-  });
-
-  ipcMain.handle('license:refreshOnlineStatus', async () => {
-    return await refreshOnlineStatus();
-  });
-
-  ipcMain.handle('license:deactivate', async () => {
-    try {
-      return licenseDeactivate();
-    } catch (e: unknown) {
-      return { ok: false, error: toErrorMessage(e, 'فشل إلغاء التفعيل') };
-    }
-  });
-
   ipcMain.handle('updater:getVersion', () => app.getVersion());
   ipcMain.handle('updater:getStatus', () => ({
     isPackaged: app.isPackaged,
@@ -2831,24 +2065,7 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('updater:setFeedUrl', async (_e, url: string) => {
     try {
-      const raw = String(url || '').trim();
-
-      // Allow clearing the configured feed URL.
-      if (!raw) {
-        currentFeedUrl = null;
-        try {
-          await writeUpdaterSettings({});
-        } catch {
-          // ignore
-        }
-        broadcastUpdaterEvent({ type: 'feed-url', data: { feedUrl: null } });
-        return { success: true, feedUrl: '' };
-      }
-
-      const allowed = await ensureUpdatesAllowedAsync();
-      if (!allowed.ok) return { success: false, message: allowed.message };
-
-      const normalized = normalizeFeedUrl(raw);
+      const normalized = normalizeFeedUrl(url);
       currentFeedUrl = normalized;
 
       try {
@@ -2877,8 +2094,6 @@ export function registerIpcHandlers() {
         message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
       };
     }
-    const allowed = await ensureUpdatesAllowedAsync();
-    if (!allowed.ok) return { success: false, message: allowed.message };
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
     }
@@ -2905,8 +2120,6 @@ export function registerIpcHandlers() {
         message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
       };
     }
-    const allowed = await ensureUpdatesAllowedAsync();
-    if (!allowed.ok) return { success: false, message: allowed.message };
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
     }
@@ -2932,8 +2145,6 @@ export function registerIpcHandlers() {
         message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
       };
     }
-    const allowed = await ensureUpdatesAllowedAsync();
-    if (!allowed.ok) return { success: false, message: allowed.message };
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
     }
@@ -2959,10 +2170,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('updater:installFromFile', async () => {
-    if (app.isPackaged) {
-      const allowed = await ensureUpdatesAllowedAsync();
-      if (!allowed.ok) return { success: false, message: allowed.message };
-    }
     const result = await dialog.showOpenDialog({
       title: 'اختر ملف تحديث (مثبت البرنامج)',
       filters: [{ name: 'Installer', extensions: ['exe'] }],
@@ -3033,14 +2240,10 @@ export function registerIpcHandlers() {
     return readPendingRestoreInfo();
   });
   ipcMain.handle('updater:clearPendingRestore', async () => {
-    // Recovery path: always allow clearing the pending marker to avoid boot loops / repeated prompts,
-    // even if updates are feature-gated.
     await clearPendingRestoreInfo();
     return { success: true };
   });
   ipcMain.handle('updater:restorePending', async () => {
-    // Recovery path: always allow restoring from a previously created pending-backup.
-    // This is data-safety oriented and shouldn't be blocked by license gating.
     return restoreFromPendingBackup();
   });
 
@@ -3105,17 +2308,8 @@ export function registerIpcHandlers() {
       throw new Error(hint ? `${base}\n\n${hint}` : base);
     }
   });
-  ipcMain.handle('db:resetAll', async () => {
+  ipcMain.handle('db:resetAll', () => {
     if (dbMaintenanceMode) return { deleted: 0 };
-
-    const allowed = await ensureFeatureAllowedAsync('backups', {
-      featureMessage: 'هذه الرخصة لا تتضمن ميزة تصفير/إعادة ضبط البيانات.',
-    });
-    if (!allowed.ok) {
-      // IMPORTANT: Throw so callers can fall back to clearing via storage.
-      throw new Error(allowed.message);
-    }
-
     return kvResetAll('db_');
   });
 
@@ -3748,26 +2942,10 @@ export function registerIpcHandlers() {
 
   // SQL Server Sync
   ipcMain.handle('sql:getSettings', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) {
-      return {
-        enabled: false,
-        server: '',
-        port: 1433,
-        database: 'AZRAR',
-        authMode: 'sql',
-        user: '',
-        encrypt: true,
-        trustServerCertificate: true,
-        hasPassword: false,
-      };
-    }
     return loadSqlSettingsRedacted();
   });
 
   ipcMain.handle('sql:saveSettings', async (_e, settings: unknown) => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const saved = await loadSqlSettings();
       const enabled = Boolean(getField(settings, 'enabled'));
@@ -3805,8 +2983,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:test', async (_e, settings: unknown) => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     const saved = await loadSqlSettings();
 
     type TestSqlSettings = Parameters<typeof testSqlConnection>[0];
@@ -3846,8 +3022,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:connect', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     const settings = await loadSqlSettings();
     if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
 
@@ -3902,41 +3076,24 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:disconnect', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { success: false, message: allowed.message };
     await disconnectSql();
     return { success: true };
   });
 
   ipcMain.handle('sql:status', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) {
-      return {
-        configured: false,
-        enabled: false,
-        connected: false,
-        lastError: allowed.message,
-      };
-    }
     return getSqlStatus();
   });
 
   ipcMain.handle('sql:getSyncLog', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message, items: [] };
     return { ok: true, items: sqlSyncLog };
   });
 
   ipcMain.handle('sql:clearSyncLog', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     sqlSyncLog.splice(0, sqlSyncLog.length);
     return { ok: true };
   });
 
   ipcMain.handle('sql:getCoverage', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const tolMs = 1500;
       const toMs = (iso?: string): number | null => {
@@ -4059,8 +3216,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:exportBackup', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       addSqlSyncLogEntry({
         direction: 'system',
@@ -4177,8 +3332,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:importBackup', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       addSqlSyncLogEntry({
         direction: 'system',
@@ -4251,8 +3404,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:restoreBackup', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const confirm = await dialog.showMessageBox({
         type: 'warning',
@@ -4336,8 +3487,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:getBackupAutomationSettings', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const settings = await loadSqlBackupAutomationSettings();
       return { ok: true, settings };
@@ -4347,8 +3496,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:saveBackupAutomationSettings', async (_e, payload: unknown) => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const enabledRaw = getField(payload, 'enabled');
       const next = await saveSqlBackupAutomationSettings({
@@ -4362,16 +3509,12 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:listServerBackups', async (_e, payload: unknown) => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message, items: [] };
     const limit = getField(payload, 'limit');
     const n = typeof limit === 'number' ? limit : Number(limit || 60) || 60;
     return await listServerBackups(n);
   });
 
   ipcMain.handle('sql:createServerBackup', async (_e, payload: unknown) => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       addSqlSyncLogEntry({
         direction: 'system',
@@ -4406,8 +3549,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:restoreServerBackup', async (_e, payload: unknown) => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       const id = getStringField(payload, 'id').trim();
       const mode = getStringField(payload, 'mode') === 'replace' ? 'replace' : 'merge';
@@ -4455,8 +3596,6 @@ export function registerIpcHandlers() {
   // Daily server backup automation (best-effort)
   const runDailyBackupTick = async (reason: string) => {
     try {
-      const allowed = await ensureSqlAllowedAsync();
-      if (!allowed.ok) return;
       const res = await ensureDailyServerBackupIfEnabled();
       if (!res?.ok) {
         addSqlSyncLogEntry({
@@ -4488,8 +3627,6 @@ export function registerIpcHandlers() {
   setInterval(() => void runDailyBackupTick('hourly'), 60 * 60 * 1000);
 
   ipcMain.handle('sql:syncNow', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       addSqlSyncLogEntry({
         direction: 'system',
@@ -4607,8 +3744,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:pullFullNow', async () => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       addSqlSyncLogEntry({
         direction: 'system',
@@ -4709,8 +3844,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:mergePublishAdmin', async (_e, payload: unknown) => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     try {
       addSqlSyncLogEntry({
         direction: 'system',
@@ -5000,8 +4133,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('sql:provision', async (_e, payload: unknown) => {
-    const allowed = await ensureSqlAllowedAsync();
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     addSqlSyncLogEntry({
       direction: 'system',
       action: 'provision',
@@ -5108,8 +4239,6 @@ export function registerIpcHandlers() {
   setTimeout(() => {
     void (async () => {
       try {
-        const allowed = await ensureSqlAllowedAsync();
-        if (!allowed.ok) return;
         const settings = await loadSqlSettings();
         if (!settings.enabled) return;
         addSqlSyncLogEntry({
@@ -5158,40 +4287,13 @@ export function registerIpcHandlers() {
   }, 800);
 
   ipcMain.handle('db:getBackupDir', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return '';
     const settings = await readBackupSettings();
     const dir = settings.backupDir;
     if (dir && isExistingDirectory(dir)) return dir;
     return '';
   });
 
-  ipcMain.handle('db:openBackupDir', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { ok: false, message: allowed.message };
-    try {
-      const settings = await readBackupSettings();
-      const dir = settings.backupDir;
-      if (!dir || !isExistingDirectory(dir)) {
-        return { ok: false, message: 'مجلد النسخ الاحتياطي غير مضبوط' };
-      }
-
-      const resolved = await fsp.realpath(dir).catch(() => path.resolve(dir));
-      if (isUncPath(resolved)) {
-        return { ok: false, message: 'غير مسموح فتح مجلد النسخ من مسار شبكة (UNC)' };
-      }
-
-      const r = await shell.openPath(resolved);
-      if (r) return { ok: false, message: r };
-      return { ok: true };
-    } catch (e: unknown) {
-      return { ok: false, message: toErrorMessage(e, 'فشل فتح المجلد') };
-    }
-  });
-
   ipcMain.handle('db:chooseBackupDir', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     const dir = await chooseBackupDirViaDialog();
     if (!dir) return { success: false, message: 'تم الإلغاء' };
     try {
@@ -5203,17 +4305,10 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('db:getLocalBackupAutomationSettings', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) {
-      // Return safe defaults to keep UI stable.
-      return { v: 1, enabled: false, timeHHmm: '02:00', retentionDays: 30 };
-    }
     return await readLocalBackupAutomationSettings();
   });
 
   ipcMain.handle('db:saveLocalBackupAutomationSettings', async (_e, payload: Record<string, unknown> | undefined) => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const current = await readLocalBackupAutomationSettings();
       const next: LocalBackupAutomationSettings = {
@@ -5233,20 +4328,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('db:getLocalBackupStats', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) {
-      return {
-        ok: false,
-        message: allowed.message,
-        dbArchivesCount: 0,
-        attachmentsArchivesCount: 0,
-        latestDbExists: false,
-        latestAttachmentsExists: false,
-        totalBytes: 0,
-        newestMtimeMs: 0,
-        files: [],
-      };
-    }
     try {
       const backupSettings = await readBackupSettings();
       const dir =
@@ -5270,22 +4351,16 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('db:getLocalBackupLog', async (_e, payload: { limit?: number } | undefined) => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return [];
     const limit = payload?.limit;
     return await readLocalBackupLogEntries(typeof limit === 'number' ? limit : 200);
   });
 
   ipcMain.handle('db:clearLocalBackupLog', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { ok: false, message: allowed.message };
     await clearLocalBackupLog();
     return { ok: true };
   });
 
   ipcMain.handle('db:runLocalBackupNow', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const backupSettings = await readBackupSettings();
       const dir =
@@ -5341,8 +4416,6 @@ export function registerIpcHandlers() {
   // Export database to user-selected folder
   // Creates both a stable "latest" backup and a dated archive backup.
   ipcMain.handle('db:export', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     if (dbMaintenanceMode)
       return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
 
@@ -5468,8 +4541,6 @@ export function registerIpcHandlers() {
 
   // Import database from user-selected file
   ipcMain.handle('db:import', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     if (dbMaintenanceMode)
       return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
     const result = await dialog.showOpenDialog({
@@ -5618,8 +4689,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('db:getBackupEncryptionSettings', async () => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const s = await readBackupEncryptionSettings();
       const available = safeStorage?.isEncryptionAvailable?.() === true;
@@ -5635,8 +4704,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('db:saveBackupEncryptionSettings', async (_evt, payload: unknown) => {
-    const allowed = await ensureFeatureAllowedAsync('backups');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const p = (payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}) as Record<
         string,
@@ -6082,8 +5149,6 @@ export function registerIpcHandlers() {
         bytes: ArrayBuffer | ArrayBufferView;
       }
     ) => {
-      const allowed = await ensureFeatureAllowedAsync('attachments');
-      if (!allowed.ok) return { success: false, message: allowed.message };
       try {
         const root = await getAttachmentsRoot();
         const typeFolder = chooseTypeFolder(payload?.referenceType);
@@ -6162,8 +5227,6 @@ export function registerIpcHandlers() {
   );
 
   ipcMain.handle('attachments:read', async (_e, relativePath: string) => {
-    const allowed = await ensureFeatureAllowedAsync('attachments');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const safeRel = assertSafeIpcString(relativePath, 'relativePath');
       const abs = await resolveExistingAttachmentAbsPath(safeRel);
@@ -6193,8 +5256,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('attachments:delete', async (_e, relativePath: string) => {
-    const allowed = await ensureFeatureAllowedAsync('attachments');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const safeRel = assertSafeIpcString(relativePath, 'relativePath');
       const abs = await resolveExistingAttachmentAbsPath(safeRel);
@@ -6208,8 +5269,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('attachments:open', async (_e, relativePath: string) => {
-    const allowed = await ensureFeatureAllowedAsync('attachments');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const safeRel = assertSafeIpcString(relativePath, 'relativePath');
       const abs = await resolveExistingAttachmentAbsPath(safeRel);
@@ -6249,8 +5308,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('attachments:pullNow', async () => {
-    const allowed = await ensureFeatureAllowedAsync('attachments');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const raw = kvGet('db_attachments');
       const json = typeof raw === 'string' && raw.trim() ? raw : '[]';
@@ -6405,8 +5462,6 @@ export function registerIpcHandlers() {
   };
 
   ipcMain.handle('templates:list', async (_e, payload?: { templateType?: string }) => {
-    const allowed = await ensureFeatureAllowedAsync('templates');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const templateType = normalizeTemplateType(payload?.templateType);
       const dir = await getTemplatesDir(templateType);
@@ -6486,8 +5541,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('templates:import', async (_e, payload?: { templateType?: string }) => {
-    const allowed = await ensureFeatureAllowedAsync('templates');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const templateType = normalizeTemplateType(payload?.templateType);
       const result = await dialog.showOpenDialog({
@@ -6548,8 +5601,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('templates:read', async (_e, payload: { templateName: string; templateType?: string }) => {
-    const allowed = await ensureFeatureAllowedAsync('templates');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const rawName = String(payload?.templateName || '').trim();
       const templateType = normalizeTemplateType(payload?.templateType);
@@ -6660,8 +5711,6 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('templates:delete', async (_e, payload: { templateName: string; templateType?: string }) => {
-    const allowed = await ensureFeatureAllowedAsync('templates');
-    if (!allowed.ok) return { success: false, message: allowed.message };
     try {
       const rawName = String(payload?.templateName || '').trim();
       const templateType = normalizeTemplateType(payload?.templateType);

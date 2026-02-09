@@ -49,24 +49,61 @@ if ($Sign) {
   $hasStore = ($env:CSC_NAME -and $env:CSC_NAME.Trim())
   $hasThumb = ($env:CSC_THUMBPRINT -and $env:CSC_THUMBPRINT.Trim())
   if (-not $hasPfx -and -not $hasStore -and -not $hasThumb) {
-    throw @(
-      'Signed build requested (-Sign) but no certificate was provided.'
-      'Provide either:'
-      '  - CSC_LINK + CSC_KEY_PASSWORD (PFX file), OR'
-      '  - CSC_THUMBPRINT (certificate thumbprint from Windows Certificate Store), OR'
-      '  - CSC_NAME (certificate name/subject match in Windows Certificate Store).'
-      ''
-      'Examples (PowerShell):'
-      '  $env:CSC_LINK = "C:\\Certificates\\AZRAR\\azrar-cert.pfx"'
-      '  $env:CSC_KEY_PASSWORD = "<pfx-password>"'
-      '  # or'
-      '  $env:CSC_THUMBPRINT = "<THUMBPRINT>"'
-      '  # or'
-      '  $env:CSC_NAME = "AZRAR"'
-      '  $env:AZRAR_SIGNING_PROFILE = "dev"   # self-signed (internal)'
-      '  # or'
-      '  $env:AZRAR_SIGNING_PROFILE = "prod"  # OV/EV CA (official release)'
-    ) -join "`n"
+    if ($SigningProfile -eq 'dev') {
+      Write-Host 'Signed build requested with dev profile, but no certificate was provided.'
+      Write-Host 'Generating a self-signed code-signing certificate (dev/internal) and exporting to a temporary PFX...'
+
+      $subject = 'CN=AZRAR Dev Code Signing'
+      $cert = $null
+      try {
+        $cert = Get-ChildItem -Path 'Cert:\CurrentUser\My' -ErrorAction SilentlyContinue |
+          Where-Object { $_.Subject -eq $subject -and $_.HasPrivateKey } |
+          Sort-Object NotAfter -Descending |
+          Select-Object -First 1
+      } catch {}
+
+      if (-not $cert) {
+        try {
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject $subject -CertStoreLocation 'Cert:\CurrentUser\My' -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm 'SHA256' -KeyExportPolicy Exportable -NotAfter (Get-Date).AddYears(5)
+        } catch {
+          throw "Failed to create self-signed code-signing certificate. Error: $($_.Exception.Message)"
+        }
+      }
+
+      $pfxPath = Join-Path $env:TEMP 'azrar-dev-codesign.pfx'
+      $pwdPlain = [Convert]::ToBase64String((1..24 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
+      $pwd = ConvertTo-SecureString -String $pwdPlain -AsPlainText -Force
+      try {
+        Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $pwd | Out-Null
+      } catch {
+        throw "Failed to export dev code-signing certificate to PFX. Error: $($_.Exception.Message)"
+      }
+
+      $env:CSC_LINK = $pfxPath
+      $env:CSC_KEY_PASSWORD = $pwdPlain
+      $hasPfx = $true
+      Write-Host ("Dev signing certificate exported: " + $pfxPath)
+      Write-Host 'Note: This is self-signed for internal/dev use. Windows may not trust it unless installed to Trusted Publishers/Root.'
+    } else {
+      throw @(
+        'Signed build requested (-Sign) but no certificate was provided.'
+        'Provide either:'
+        '  - CSC_LINK + CSC_KEY_PASSWORD (PFX file), OR'
+        '  - CSC_THUMBPRINT (certificate thumbprint from Windows Certificate Store), OR'
+        '  - CSC_NAME (certificate name/subject match in Windows Certificate Store).'
+        ''
+        'Examples (PowerShell):'
+        '  $env:CSC_LINK = "C:\\Certificates\\AZRAR\\azrar-cert.pfx"'
+        '  $env:CSC_KEY_PASSWORD = "<pfx-password>"'
+        '  # or'
+        '  $env:CSC_THUMBPRINT = "<THUMBPRINT>"'
+        '  # or'
+        '  $env:CSC_NAME = "AZRAR"'
+        '  $env:AZRAR_SIGNING_PROFILE = "dev"   # self-signed (internal)'
+        '  # or'
+        '  $env:AZRAR_SIGNING_PROFILE = "prod"  # OV/EV CA (official release)'
+      ) -join "`n"
+    }
   }
   if ($hasPfx) {
     $pfxPath = $env:CSC_LINK.Trim()

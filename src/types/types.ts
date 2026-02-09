@@ -43,6 +43,16 @@ export interface الأشخاص_tbl {
   تقييم?: number;
   نوع_الملف?: 'فرد' | 'منشأة';
   طبيعة_الشركة?: string;
+  تصنيف_السلوك?: {
+    type: string;
+    points: number;
+    history: Array<{
+      date: string;
+      paymentType: 'full' | 'partial' | 'late';
+      pointsChange: number;
+      points: number;
+    }>;
+  };
   حقول_ديناميكية?: Record<string, unknown>;
 }
 
@@ -102,6 +112,8 @@ export interface العقود_tbl {
   تاريخ_البداية: string;
   تاريخ_النهاية: string;
   مدة_العقد_بالاشهر: number;
+  نص_مدة_العقد?: string;
+  نص_كيفية_أداء_البدل?: string;
   القيمة_السنوية: number;
   تكرار_الدفع: number;
   طريقة_الدفع: PaymentMethodType;
@@ -126,6 +138,9 @@ export interface الكمبيالات_tbl {
   رقم_الكمبيالة: string;
   رقم_العقد: string;
   تاريخ_استحقاق: string;
+  // Deferral metadata (when installment collection is postponed)
+  تاريخ_التأجيل?: string; // YYYY-MM-DD
+  تاريخ_الاستحقاق_السابق?: string; // YYYY-MM-DD
   القيمة: number;
   القيمة_المتبقية?: number; // ✅ المبلغ المتبقي بعد الدفعات الجزئية
   حالة_الكمبيالة: string;
@@ -337,6 +352,8 @@ export interface BlacklistRecord {
 export interface SystemLookup {
   id: string;
   category: string;
+  // Stable machine key for the lookup item (used to dedupe and reference reliably)
+  key?: string;
   label: string;
   isSystem?: boolean;
 }
@@ -344,6 +361,8 @@ export interface SystemLookup {
 export interface LookupCategory {
   id: string;
   name: string;
+  // Stable machine key for the category (defaults to name)
+  key?: string;
   label: string;
   isSystem?: boolean;
 }
@@ -353,6 +372,8 @@ export interface SystemSettings {
   companySlogan?: string;
   companyAddress: string;
   companyPhone: string;
+  // Additional phone numbers (used in message templates/notifications and optional exports)
+  companyPhones?: string[];
   companyEmail: string;
   companyWebsite: string;
   logoUrl: string;
@@ -371,8 +392,28 @@ export interface SystemSettings {
   rentalCommissionTenantPercent?: number;
   clearanceText: string;
 
+  // Session / Security
+  // Auto-logout after inactivity (minutes). Default: 15
+  inactivityTimeoutMinutes?: number;
+
   // Word contract template (Desktop)
   contractWordTemplateName?: string;
+
+  // WhatsApp
+  // If true (default), prompt to open the WhatsApp send screen right after creating a contract.
+  contractWhatsAppPromptAfterCreate?: boolean;
+
+  // WhatsApp sending behavior (used across all message sends)
+  // - 'auto': desktop in Electron, otherwise web
+  // - 'web': always use https://api.whatsapp.com/send
+  // - 'desktop': always use whatsapp:// deep link
+  whatsAppTarget?: 'auto' | 'web' | 'desktop';
+  // Delay between opening multiple chats (ms). Default: 10000
+  whatsAppDelayMs?: number;
+
+  // Messages/Notifications
+  // Human-readable payment methods used in notifications (e.g., "نقداً", "تحويل بنكي").
+  paymentMethods?: string[];
 }
 
 export interface MarqueeMessage {

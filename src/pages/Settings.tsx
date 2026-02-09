@@ -1,13 +1,14 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DbService } from '@/services/mockDb';
 import { useSmartModal } from '@/context/ModalContext';
 import { storage } from '@/services/storage';
 import { useAuth } from '@/context/AuthContext';
 import { SystemLookup, LookupCategory, SystemSettings, PermissionCode, العمليات_tbl } from '@/types';
 import {
-  Database, Building, List, Upload, Globe, Phone,
+  Database, Building, List, Upload, Globe, Phone, Bell,
   Image as ImageIcon, Plus, Trash2, Download, Search, Check, FolderOpen, ArrowRight,
-  RefreshCcw, Edit2, X, BadgeDollarSign, History, FileJson, Shield, FileSpreadsheet, Info, PlayCircle, AlertTriangle, Copy
+  RefreshCcw, Edit2, X, BadgeDollarSign, History, FileJson, Shield, FileSpreadsheet, Info, PlayCircle, AlertTriangle, Copy,
+  MessageCircle, FileText
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { RBACGuard } from '@/components/shared/RBACGuard';
@@ -16,13 +17,21 @@ import { DS } from '@/constants/designSystem';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
-import { Input } from '@/components/ui/Input';
 import { useDbSignal } from '@/hooks/useDbSignal';
-import { safeCopyToClipboard } from '@/utils/clipboard';
+import { sanitizeDocxHtml } from '@/utils/sanitizeHtml';
+import { exportToXlsx } from '@/utils/xlsx';
+import { CONTRACT_WORD_TEMPLATE_VARIABLES } from '@/constants/contractWordTemplateVariables';
 
 type SqlStatus = { configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string };
 type DesktopOkMessage = { ok?: boolean; message?: string };
 type DesktopSuccessMessage = { success?: boolean; message?: string; backupDir?: string; archivePath?: string };
+type BackupEncryptionStatus = {
+  success?: boolean;
+  message?: string;
+  available?: boolean;
+  enabled?: boolean;
+  hasPassword?: boolean;
+};
 type DesktopSqlSettings = Partial<{
   enabled: boolean;
   server: string;
@@ -40,7 +49,6 @@ type SqlCoverageItem = {
   localUpdatedAt?: string;
   localDeletedAt?: string;
   localBestTs?: string;
-  localIsDeleted: boolean;
   localBytes: number;
   remoteUpdatedAt?: string;
   remoteIsDeleted?: boolean;
@@ -96,6 +104,51 @@ type AppErrorLogEntry = {
   userAgent?: string;
 };
 
+type MammothConverter = {
+  convertToHtml: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value?: string }>;
+};
+
+type WordTemplateType = 'contracts' | 'installments' | 'handover';
+
+type LocalBackupAutomationSettings = {
+  v: 1;
+  enabled?: boolean;
+  timeHHmm?: string;
+  retentionDays?: number;
+  lastRunAt?: string;
+  updatedAt?: string;
+};
+
+type LocalBackupStats = {
+  ok: boolean;
+  message?: string;
+  backupDir?: string;
+  dbArchivesCount: number;
+  attachmentsArchivesCount: number;
+  latestDbExists: boolean;
+  latestAttachmentsExists: boolean;
+  totalBytes: number;
+  newestMtimeMs: number;
+  files: Array<{ name: string; mtimeMs: number; size: number }>;
+};
+
+type LocalBackupLogEntry = {
+  ts: string;
+  ok: boolean;
+  trigger: 'auto' | 'manual';
+  message?: string;
+  latestPath?: string;
+  archivePath?: string;
+  attachmentsLatestPath?: string;
+  attachmentsArchivePath?: string;
+};
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+const isMammothConverter = (v: unknown): v is MammothConverter => {
+  return isRecord(v) && typeof (v as MammothConverter).convertToHtml === 'function';
+};
+
 const hasMessage = (value: unknown): value is { message: string } => {
   if (typeof value !== 'object' || value === null) return false;
   return typeof (value as Record<string, unknown>).message === 'string';
@@ -118,6 +171,130 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
 
   const isDesktop = !!window.desktopDb;
   const [backupDir, setBackupDir] = useState<string>('');
+  const [backupEncAvailable, setBackupEncAvailable] = useState<boolean>(false);
+  const [backupEncEnabled, setBackupEncEnabled] = useState<boolean>(false);
+  const [backupEncHasPassword, setBackupEncHasPassword] = useState<boolean>(false);
+  const [backupEncPassword, setBackupEncPassword] = useState<string>('');
+  const [backupEncBusy, setBackupEncBusy] = useState<boolean>(false);
+
+  const [localBackupEnabled, setLocalBackupEnabled] = useState<boolean>(false);
+  const [localBackupTime, setLocalBackupTime] = useState<string>('02:00');
+  const [localBackupRetentionDays, setLocalBackupRetentionDays] = useState<number>(30);
+  const [localBackupLastRunAt, setLocalBackupLastRunAt] = useState<string>('');
+  const [localBackupBusy, setLocalBackupBusy] = useState<boolean>(false);
+  const [localBackupStats, setLocalBackupStats] = useState<LocalBackupStats | null>(null);
+  const [localBackupLog, setLocalBackupLog] = useState<LocalBackupLogEntry[]>([]);
+  const [localBackupLogBusy, setLocalBackupLogBusy] = useState<boolean>(false);
+
+  const formatBytes = (bytes: number) => {
+    const n = Number(bytes);
+    if (!Number.isFinite(n) || n <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let v = n;
+    let i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024;
+      i += 1;
+    }
+    return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+  };
+
+  const computeNextRunAt = (enabled: boolean, timeHHmm: string, lastRunAtISO: string) => {
+    if (!enabled) return '';
+    const t = String(timeHHmm || '02:00');
+    const m = /^([0-2]\d):([0-5]\d)$/.exec(t);
+    if (!m) return '';
+    const hh = Number(m[1]);
+    const mm = Number(m[2]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh > 23 || mm > 59) return '';
+
+    const now = new Date();
+    const due = new Date(now);
+    due.setHours(hh, mm, 0, 0);
+
+    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const last = lastRunAtISO ? new Date(lastRunAtISO) : null;
+    const lastYMD = last && Number.isFinite(last.getTime()) ? ymd(last) : '';
+    const today = ymd(now);
+
+    if (lastYMD === today) {
+      // already ran today => next is tomorrow at due time
+      const next = new Date(due);
+      next.setDate(next.getDate() + 1);
+      return next.toISOString();
+    }
+    if (now.getTime() < due.getTime()) {
+      return due.toISOString();
+    }
+    const next = new Date(due);
+    next.setDate(next.getDate() + 1);
+    return next.toISOString();
+  };
+
+  const [wordTemplates, setWordTemplates] = useState<string[]>([]);
+  const [wordTemplateKvKeysByName, setWordTemplateKvKeysByName] = useState<Record<string, string>>({});
+  const [wordTemplatesBusy, setWordTemplatesBusy] = useState(false);
+  const [wordTemplateImportBusy, setWordTemplateImportBusy] = useState(false);
+  const [activeWordTemplateType, setActiveWordTemplateType] = useState<WordTemplateType>('contracts');
+  const [wordTemplatesDir, setWordTemplatesDir] = useState<string>('');
+
+  const [isWordTemplatePreviewOpen, setIsWordTemplatePreviewOpen] = useState(false);
+  const [wordTemplatePreviewTitle, setWordTemplatePreviewTitle] = useState<string>('');
+  const [wordTemplatePreviewHtml, setWordTemplatePreviewHtml] = useState<string>('');
+  const [wordTemplatePreviewBusy, setWordTemplatePreviewBusy] = useState(false);
+
+  const copyToClipboard = useCallback(
+    async (
+      text: string,
+      opts?: {
+        successMessage?: string;
+        failureMessage?: string;
+      }
+    ) => {
+      const value = String(text ?? '');
+      const successMessage = opts?.successMessage || 'تم النسخ';
+      const failureMessage = opts?.failureMessage || 'تعذر النسخ';
+
+      // Prefer modern Clipboard API.
+      try {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+          toast.success(successMessage);
+          return true;
+        }
+      } catch {
+        // Fallback below
+      }
+
+      // Fallback for Electron / restricted contexts.
+      try {
+        if (typeof document !== 'undefined') {
+          const el = document.createElement('textarea');
+          el.value = value;
+          el.setAttribute('readonly', '');
+          el.style.position = 'fixed';
+          el.style.top = '-1000px';
+          el.style.left = '-1000px';
+          el.style.opacity = '0';
+          document.body.appendChild(el);
+          el.focus();
+          el.select();
+          const ok = document.execCommand('copy');
+          el.remove();
+          if (ok) {
+            toast.success(successMessage);
+            return true;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      toast.error(failureMessage);
+      return false;
+    },
+    [toast]
+  );
 
   const [sqlForm, setSqlForm] = useState({
     enabled: false,
@@ -338,7 +515,205 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
     } else {
       setBackupDir('');
     }
+
+    if (window.desktopDb?.getBackupEncryptionSettings) {
+      try {
+        const st = (await window.desktopDb.getBackupEncryptionSettings()) as unknown as BackupEncryptionStatus | null;
+        setBackupEncAvailable(st?.available === true);
+        setBackupEncEnabled(st?.enabled === true);
+        setBackupEncHasPassword(st?.hasPassword === true);
+      } catch {
+        setBackupEncAvailable(false);
+        setBackupEncEnabled(false);
+        setBackupEncHasPassword(false);
+      }
+    } else {
+      setBackupEncAvailable(false);
+      setBackupEncEnabled(false);
+      setBackupEncHasPassword(false);
+    }
+
+    if (window.desktopDb?.getLocalBackupAutomationSettings) {
+      try {
+        const st = (await window.desktopDb.getLocalBackupAutomationSettings()) as unknown as LocalBackupAutomationSettings | null;
+        setLocalBackupEnabled(st?.enabled === true);
+        setLocalBackupTime(String(st?.timeHHmm || '02:00'));
+        setLocalBackupRetentionDays(Number(st?.retentionDays || 30) || 30);
+        setLocalBackupLastRunAt(String(st?.lastRunAt || ''));
+      } catch {
+        setLocalBackupEnabled(false);
+        setLocalBackupTime('02:00');
+        setLocalBackupRetentionDays(30);
+        setLocalBackupLastRunAt('');
+      }
+    } else {
+      setLocalBackupEnabled(false);
+      setLocalBackupTime('02:00');
+      setLocalBackupRetentionDays(30);
+      setLocalBackupLastRunAt('');
+    }
+
+    if (window.desktopDb?.getLocalBackupStats) {
+      try {
+        const st = (await window.desktopDb.getLocalBackupStats()) as unknown as LocalBackupStats | null;
+        setLocalBackupStats(st || null);
+      } catch {
+        setLocalBackupStats(null);
+      }
+    } else {
+      setLocalBackupStats(null);
+    }
+
+    if (window.desktopDb?.getLocalBackupLog) {
+      try {
+        setLocalBackupLogBusy(true);
+        const items = (await window.desktopDb.getLocalBackupLog({ limit: 200 })) as unknown as LocalBackupLogEntry[] | null;
+        setLocalBackupLog(Array.isArray(items) ? items.slice().reverse() : []);
+      } catch {
+        setLocalBackupLog([]);
+      } finally {
+        setLocalBackupLogBusy(false);
+      }
+    } else {
+      setLocalBackupLog([]);
+    }
   }, []);
+
+  const saveBackupEncryption = async (payload: { enabled?: boolean; password?: string; clearPassword?: boolean }) => {
+    if (!window.desktopDb?.saveBackupEncryptionSettings) {
+      toast.warning('هذه النسخة لا تحتوي على ميزة تشفير النسخ الاحتياطية بعد');
+      return;
+    }
+    try {
+      setBackupEncBusy(true);
+      const res = (await window.desktopDb.saveBackupEncryptionSettings(payload)) as unknown as BackupEncryptionStatus | null;
+      if (res?.success) {
+        setBackupEncAvailable(res?.available === true);
+        setBackupEncEnabled(res?.enabled === true);
+        setBackupEncHasPassword(res?.hasPassword === true);
+        if (payload.clearPassword) setBackupEncPassword('');
+        toast.success(res?.message || 'تم حفظ إعدادات التشفير');
+      } else {
+        toast.error(res?.message || 'فشل حفظ إعدادات التشفير');
+      }
+    } catch (e: unknown) {
+      const msg = typeof e === 'object' && e !== null && 'message' in e ? String((e as Record<string, unknown>).message ?? '') : '';
+      toast.error(msg || 'فشل حفظ إعدادات التشفير');
+    } finally {
+      setBackupEncBusy(false);
+    }
+  };
+
+  const saveLocalBackupAutomation = async (payload: {
+    enabled?: boolean;
+    timeHHmm?: string;
+    retentionDays?: number;
+  }) => {
+    if (!window.desktopDb?.saveLocalBackupAutomationSettings) {
+      toast.warning('هذه النسخة لا تحتوي على ميزة النسخ الاحتياطي التلقائي بعد');
+      return;
+    }
+    try {
+      setLocalBackupBusy(true);
+      const res = (await window.desktopDb.saveLocalBackupAutomationSettings(payload)) as unknown as {
+        success?: boolean;
+        message?: string;
+        settings?: LocalBackupAutomationSettings;
+      } | null;
+      if (res?.success) {
+        const st = res?.settings;
+        if (st) {
+          setLocalBackupEnabled(st.enabled === true);
+          setLocalBackupTime(String(st.timeHHmm || '02:00'));
+          setLocalBackupRetentionDays(Number(st.retentionDays || 30) || 30);
+          setLocalBackupLastRunAt(String(st.lastRunAt || ''));
+        } else {
+          setLocalBackupEnabled(payload.enabled === true);
+        }
+        toast.success(res?.message || 'تم حفظ إعدادات النسخ الاحتياطي التلقائي');
+      } else {
+        toast.error(res?.message || 'فشل حفظ إعدادات النسخ الاحتياطي التلقائي');
+      }
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل حفظ إعدادات النسخ الاحتياطي التلقائي');
+    } finally {
+      setLocalBackupBusy(false);
+    }
+  };
+
+  const runLocalBackupNow = async () => {
+    if (!window.desktopDb?.runLocalBackupNow) {
+      toast.warning('هذه النسخة لا تحتوي على ميزة النسخ الاحتياطي التلقائي بعد');
+      return;
+    }
+    try {
+      setLocalBackupBusy(true);
+      const res = (await window.desktopDb.runLocalBackupNow()) as unknown as {
+        success?: boolean;
+        message?: string;
+      } | null;
+      if (res?.success) {
+        toast.success(res?.message || 'تم إنشاء نسخة احتياطية');
+        setLocalBackupLastRunAt(new Date().toISOString());
+        // refresh stats + log
+        try {
+          const st = await window.desktopDb?.getLocalBackupStats?.();
+          setLocalBackupStats((st as unknown as LocalBackupStats) || null);
+        } catch {
+          // ignore
+        }
+        try {
+          const items = await window.desktopDb?.getLocalBackupLog?.({ limit: 200 });
+          setLocalBackupLog(Array.isArray(items) ? (items as unknown as LocalBackupLogEntry[]).slice().reverse() : []);
+        } catch {
+          // ignore
+        }
+      } else {
+        toast.error(res?.message || 'فشل إنشاء النسخة الاحتياطية');
+      }
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل إنشاء النسخة الاحتياطية');
+    } finally {
+      setLocalBackupBusy(false);
+    }
+  };
+
+  const refreshLocalBackupInsights = async () => {
+    if (!window.desktopDb) return;
+    try {
+      setLocalBackupLogBusy(true);
+      const st = await window.desktopDb?.getLocalBackupStats?.();
+      setLocalBackupStats((st as unknown as LocalBackupStats) || null);
+      const items = await window.desktopDb?.getLocalBackupLog?.({ limit: 200 });
+      setLocalBackupLog(Array.isArray(items) ? (items as unknown as LocalBackupLogEntry[]).slice().reverse() : []);
+    } catch {
+      // ignore
+    } finally {
+      setLocalBackupLogBusy(false);
+    }
+  };
+
+  const clearLocalBackupHistory = async () => {
+    if (!window.desktopDb?.clearLocalBackupLog) return;
+    const ok = await toast.confirm({
+      title: 'تأكيد',
+      message: 'هل تريد مسح سجل النسخ الاحتياطي؟',
+      confirmText: 'مسح',
+      cancelText: 'إلغاء',
+      isDangerous: true,
+    });
+    if (!ok) return;
+    try {
+      setLocalBackupLogBusy(true);
+      await window.desktopDb.clearLocalBackupLog();
+      setLocalBackupLog([]);
+      toast.success('تم مسح سجل النسخ');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل مسح السجل');
+    } finally {
+      setLocalBackupLogBusy(false);
+    }
+  };
 
   const loadDiagnostics = useCallback(() => {
     try {
@@ -420,22 +795,20 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       toast.info('لا يوجد معرّف جلسة متاح');
       return;
     }
-    try {
-      const res = await safeCopyToClipboard(sid);
-      if (!res.ok) throw new Error(res.error || 'copy_failed');
-      toast.success('تم نسخ معرّف الجلسة');
-    } catch {
-      toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
-    }
+    await copyToClipboard(sid, {
+      successMessage: 'تم نسخ معرّف الجلسة',
+      failureMessage: 'تعذر النسخ (قد تكون صلاحيات النسخ غير متاحة)',
+    });
   };
 
   const handleCopyDiagnosticsReport = async () => {
     try {
       const report = buildDiagnosticsReport();
       const text = JSON.stringify(report, null, 2);
-      const res = await safeCopyToClipboard(text);
-      if (!res.ok) throw new Error(res.error || 'copy_failed');
-      toast.success('تم نسخ تقرير التشخيص');
+      await copyToClipboard(text, {
+        successMessage: 'تم نسخ تقرير التشخيص',
+        failureMessage: 'تعذر النسخ (قد تكون صلاحيات النسخ غير متاحة)',
+      });
     } catch {
       toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
     }
@@ -447,13 +820,10 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       toast.info('لا يوجد سجل أخطاء لنسخه');
       return;
     }
-    try {
-      const res = await safeCopyToClipboard(text);
-      if (!res.ok) throw new Error(res.error || 'copy_failed');
-      toast.success('تم نسخ سجل الأخطاء');
-    } catch {
-      toast.error('تعذر النسخ (قد تكون صلاحيات المتصفح غير متاحة)');
-    }
+    await copyToClipboard(text, {
+      successMessage: 'تم نسخ سجل الأخطاء',
+      failureMessage: 'تعذر النسخ (قد تكون صلاحيات النسخ غير متاحة)',
+    });
   };
 
   const buildDiagnosticsReport = () => {
@@ -512,8 +882,12 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
         sqlSyncNow: hasFn('sqlSyncNow'),
         getBackupDir: hasFn('getBackupDir'),
         chooseBackupDir: hasFn('chooseBackupDir'),
+        getLocalBackupAutomationSettings: hasFn('getLocalBackupAutomationSettings'),
+        saveLocalBackupAutomationSettings: hasFn('saveLocalBackupAutomationSettings'),
+        runLocalBackupNow: hasFn('runLocalBackupNow'),
         saveAttachmentFile: hasFn('saveAttachmentFile'),
         readAttachmentFile: hasFn('readAttachmentFile'),
+        openAttachmentFile: hasFn('openAttachmentFile'),
       },
       values: {
         isDesktop: hasVal('isDesktop'),
@@ -583,6 +957,9 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
   const visibleTabs = useMemo(() => {
       const tabs = [
           { id: 'general', label: 'الإعدادات العامة', icon: Building, desc: 'الهوية والاتصال', permission: 'SETTINGS_ADMIN' as PermissionCode },
+          { id: 'templates', label: 'قوالب Word', icon: FileText, desc: 'إدارة القوالب', permission: 'SETTINGS_ADMIN' as PermissionCode },
+          { id: 'contractWord', label: 'متغيرات قالب العقد', icon: FileSpreadsheet, desc: 'تصدير Excel + شرح', permission: 'SETTINGS_ADMIN' as PermissionCode },
+          { id: 'messages', label: 'الرسائل والإشعارات', icon: Bell, desc: 'متغيرات ما بعد البيع', permission: 'SETTINGS_ADMIN' as PermissionCode },
           { id: 'commissions', label: 'قواعد العمولات', icon: BadgeDollarSign, desc: 'نسب الإيجار والبيع', permission: 'SETTINGS_ADMIN' as PermissionCode },
           { id: 'lookups', label: 'الجداول المساعدة', icon: List, desc: 'القوائم المنسدلة', permission: 'SETTINGS_ADMIN' as PermissionCode },
         { id: 'server', label: 'إعدادات المخدم', icon: Globe, desc: 'SQL Server والمزامنة', role: 'SuperAdmin' },
@@ -951,6 +1328,220 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
     return () => clearTimeout(timer);
   }, [settings]);
 
+  const wordTemplatesRefreshInFlightRef = useRef(false);
+
+  const refreshWordTemplates = useCallback(async (templateType?: WordTemplateType) => {
+    const t: WordTemplateType = templateType || activeWordTemplateType;
+    if (!DbService.listWordTemplates) {
+      setWordTemplates([]);
+      setWordTemplatesDir('');
+      setWordTemplateKvKeysByName({});
+      return;
+    }
+
+    if (wordTemplatesRefreshInFlightRef.current) return;
+    wordTemplatesRefreshInFlightRef.current = true;
+
+    setWordTemplatesBusy(true);
+    try {
+      if (DbService.listWordTemplatesDetailed) {
+        const res = await DbService.listWordTemplatesDetailed(t);
+        if (res?.success && res.data) {
+          setWordTemplates(res.data.items || []);
+          setWordTemplatesDir(String(res.data.dir || ''));
+
+          const kvMap: Record<string, string> = {};
+          for (const d of res.data.details || []) {
+            const fileName = String(d?.fileName || '').trim();
+            const kvKey = String(d?.kvKey || '').trim();
+            if (fileName && kvKey) kvMap[fileName] = kvKey;
+          }
+          setWordTemplateKvKeysByName(kvMap);
+        } else {
+          setWordTemplates([]);
+          setWordTemplatesDir('');
+          setWordTemplateKvKeysByName({});
+        }
+      } else {
+        const res = await DbService.listWordTemplates(t);
+        if (res?.success) setWordTemplates(res.data || []);
+        else setWordTemplates([]);
+        setWordTemplatesDir('');
+        setWordTemplateKvKeysByName({});
+      }
+    } catch (e: unknown) {
+      setWordTemplates([]);
+      setWordTemplatesDir('');
+      setWordTemplateKvKeysByName({});
+      toast.error(getErrorMessage(e) || 'تعذر جلب قائمة قوالب Word');
+    } finally {
+      setWordTemplatesBusy(false);
+      wordTemplatesRefreshInFlightRef.current = false;
+    }
+  }, [activeWordTemplateType, toast]);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+    if (activeSection !== 'templates') return;
+    void refreshWordTemplates(activeWordTemplateType);
+  }, [activeSection, activeWordTemplateType, isDesktop, refreshWordTemplates]);
+
+  const getSelectedWordTemplateName = useCallback((s: SystemSettings | null, t: WordTemplateType) => {
+    if (!s) return '';
+    if (t === 'contracts') return String(s.contractWordTemplateName || '');
+    if (t === 'installments') return String((s as SystemSettings).installmentWordTemplateName || '');
+    return String((s as SystemSettings).handoverWordTemplateName || '');
+  }, []);
+
+  const setSelectedWordTemplateName = useCallback((t: WordTemplateType, nextName: string) => {
+    const v = String(nextName || '');
+    setSettings((prev) => {
+      if (!prev) return prev;
+      if (t === 'contracts') return { ...prev, contractWordTemplateName: v };
+      if (t === 'installments') return { ...prev, installmentWordTemplateName: v };
+      return { ...prev, handoverWordTemplateName: v };
+    });
+  }, []);
+
+  const templateTypeLabel = useCallback((t: WordTemplateType) => {
+    if (t === 'contracts') return 'قالب العقد';
+    if (t === 'installments') return 'قالب الكمبيالات';
+    return 'قالب محضر التسليم';
+  }, []);
+
+  const handleImportWordTemplate = useCallback(async () => {
+    if (!DbService.importWordTemplate) {
+      toast.warning('استيراد القالب متاح في نسخة سطح المكتب فقط');
+      return;
+    }
+    setWordTemplateImportBusy(true);
+    try {
+      const res = await DbService.importWordTemplate(activeWordTemplateType);
+      if (!res?.success || !res.data) {
+        toast.error(res?.message || 'تم الإلغاء');
+        return;
+      }
+
+      setSelectedWordTemplateName(activeWordTemplateType, res.data);
+      await refreshWordTemplates(activeWordTemplateType);
+      toast.success(`تم استيراد ${templateTypeLabel(activeWordTemplateType)} وتعيينه كقالب افتراضي`);
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل استيراد قالب Word');
+    } finally {
+      setWordTemplateImportBusy(false);
+    }
+  }, [activeWordTemplateType, refreshWordTemplates, setSelectedWordTemplateName, templateTypeLabel, toast]);
+
+  const handlePreviewSelectedWordTemplate = useCallback(async () => {
+    const tplName = getSelectedWordTemplateName(settings, activeWordTemplateType).trim();
+    if (!tplName) {
+      toast.warning('يرجى اختيار قالب أولاً');
+      return;
+    }
+    if (!DbService.readWordTemplate) {
+      toast.warning('المعاينة متاحة في نسخة سطح المكتب فقط');
+      return;
+    }
+
+    setWordTemplatePreviewBusy(true);
+    try {
+      const tpl = await DbService.readWordTemplate(tplName, activeWordTemplateType);
+      if (!tpl?.success || !tpl.data) {
+        toast.error(tpl?.message || 'تعذر تحميل قالب Word');
+        return;
+      }
+
+      const mammothMod: unknown = await import('mammoth/mammoth.browser');
+      const mammothCandidate: unknown = isRecord(mammothMod) && 'default' in mammothMod ? mammothMod.default : mammothMod;
+      if (!isMammothConverter(mammothCandidate)) throw new Error('تعذر تحميل محول DOCX');
+      const result = await mammothCandidate.convertToHtml({ arrayBuffer: tpl.data });
+
+      setWordTemplatePreviewTitle(tplName);
+      setWordTemplatePreviewHtml(sanitizeDocxHtml(String(result?.value || '')));
+      setIsWordTemplatePreviewOpen(true);
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'تعذر معاينة قالب Word');
+    } finally {
+      setWordTemplatePreviewBusy(false);
+    }
+  }, [activeWordTemplateType, getSelectedWordTemplateName, settings, toast]);
+
+  const handleDownloadSelectedWordTemplate = useCallback(async () => {
+    const tplName = getSelectedWordTemplateName(settings, activeWordTemplateType).trim();
+    if (!tplName) {
+      toast.warning('يرجى اختيار قالب أولاً');
+      return;
+    }
+    if (!DbService.readWordTemplate) {
+      toast.warning('التحميل متاح في نسخة سطح المكتب فقط');
+      return;
+    }
+
+    try {
+      const tpl = await DbService.readWordTemplate(tplName, activeWordTemplateType);
+      if (!tpl?.success || !tpl.data) {
+        toast.error(tpl?.message || 'تعذر تحميل قالب Word');
+        return;
+      }
+      const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      const blob = new Blob([new Uint8Array(tpl.data)], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = tplName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success('تم تنزيل القالب');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'تعذر تنزيل القالب');
+    }
+  }, [activeWordTemplateType, getSelectedWordTemplateName, settings, toast]);
+
+  const [wordTemplateDeleteBusy, setWordTemplateDeleteBusy] = useState(false);
+
+  const handleDeleteSelectedWordTemplate = useCallback(async () => {
+    const tplName = getSelectedWordTemplateName(settings, activeWordTemplateType).trim();
+    if (!tplName) {
+      toast.warning('يرجى اختيار قالب أولاً');
+      return;
+    }
+
+    const ok = await toast.confirm({
+      title: 'حذف قالب Word',
+      message: `هل أنت متأكد من حذف القالب: ${tplName} ؟`,
+      confirmText: 'نعم، احذف',
+      cancelText: 'إلغاء',
+      isDangerous: true,
+    });
+    if (!ok) return;
+
+    if (!DbService.deleteWordTemplate) {
+      toast.warning('الحذف متاح في نسخة سطح المكتب فقط');
+      return;
+    }
+
+    if (wordTemplateDeleteBusy) return;
+    setWordTemplateDeleteBusy(true);
+    try {
+      const res = await DbService.deleteWordTemplate(tplName, activeWordTemplateType);
+      if (!res?.success) {
+        toast.error(res?.message || 'فشل حذف القالب');
+        return;
+      }
+
+      setSelectedWordTemplateName(activeWordTemplateType, '');
+      setWordTemplates((prev) => prev.filter((x) => x !== tplName));
+      await refreshWordTemplates(activeWordTemplateType);
+      toast.success('تم حذف القالب');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل حذف القالب');
+    } finally {
+      setWordTemplateDeleteBusy(false);
+    }
+  }, [activeWordTemplateType, getSelectedWordTemplateName, refreshWordTemplates, setSelectedWordTemplateName, settings, toast, wordTemplateDeleteBusy]);
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const reader = new FileReader();
@@ -1012,15 +1603,34 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
         placeholder: 'القيمة (مثال: شقة أرضية)',
         required: true,
         onConfirm: (val: string) => {
-            // Validator: Uniqueness
-            if (lookupItems.some(item => item.label.toLowerCase() === val.trim().toLowerCase())) {
-                toast.error('هذه القيمة موجودة مسبقاً في القائمة');
-                return;
+            const raw = String(val ?? '');
+            const trimmed = raw.trim();
+            if (!trimmed) {
+              toast.warning('يرجى إدخال قيمة صحيحة');
+              return;
             }
-            
-            DbService.addLookup(activeCategory.name, val);
-            setLookupItems(DbService.getLookupsByCategory(activeCategory.name));
-            toast.success('تم إضافة العنصر');
+
+            const norm = (s: string) => String(s ?? '').trim().toLowerCase();
+            const nextKey = activeCategory?.name ? `${norm(activeCategory.name)}||${norm(trimmed)}` : norm(trimmed);
+            const hasDup = DbService.getLookupsByCategory(activeCategory.name).some((item) => {
+              const k = norm(item?.key || '');
+              const lbl = norm(item?.label || '');
+              const dkey = `${norm(item?.category || '')}||${k || lbl}`;
+              return dkey === nextKey;
+            });
+            if (hasDup) {
+              toast.error('هذه القيمة موجودة مسبقاً في القائمة');
+              return;
+            }
+
+            const before = DbService.getLookupsByCategory(activeCategory.name).length;
+            DbService.addLookup(activeCategory.name, trimmed);
+            const afterItems = DbService.getLookupsByCategory(activeCategory.name);
+            setLookupItems(afterItems);
+            const after = afterItems.length;
+
+            if (after > before) toast.success('تم إضافة العنصر');
+            else toast.warning('لم يتم الإضافة (قد تكون القيمة مكررة)');
         }
     });
   };
@@ -1072,9 +1682,12 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           try {
               const data = JSON.parse(ev.target?.result as string);
               if (Array.isArray(data)) {
-                  DbService.importLookups(activeCategory.name, data);
-                  setLookupItems(DbService.getLookupsByCategory(activeCategory.name));
-                  toast.success(`تم استيراد ${data.length} عنصر بنجاح`);
+            const before = DbService.getLookupsByCategory(activeCategory.name).length;
+            DbService.importLookups(activeCategory.name, data);
+            const afterItems = DbService.getLookupsByCategory(activeCategory.name);
+            setLookupItems(afterItems);
+            const added = Math.max(0, afterItems.length - before);
+            toast.success(`تم استيراد ${added} عنصر بنجاح`);
               } else { toast.error('صيغة الملف غير صحيحة'); }
           } catch { toast.error('فشل قراءة الملف'); }
       };
@@ -1179,6 +1792,52 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
   const inputClass = "w-full border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm";
   const labelClass = "block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-2";
 
+  const exportContractWordVariablesExcel = async () => {
+    type Row = { placeholder: string; key: string; label: string; example: string };
+    const rows: Row[] = CONTRACT_WORD_TEMPLATE_VARIABLES.map((v) => ({
+      placeholder: `{{${v.key}}}`,
+      key: v.key,
+      label: v.label,
+      example: v.example || '',
+    }));
+
+    await exportToXlsx<Row>(
+      'قالب العقد (Word)',
+      [
+        { key: 'placeholder', header: 'المتغير (للنسخ)' },
+        { key: 'key', header: 'المفتاح' },
+        { key: 'label', header: 'الوصف' },
+        { key: 'example', header: 'مثال' },
+      ],
+      rows,
+      'متغيرات-قالب-العقد-Word.xlsx',
+      {
+        extraSheets: [
+          {
+            name: 'شرح',
+            rows: [
+              ['طريقة الاستخدام'],
+              ['انسخ من عمود "المتغير (للنسخ)" والصق داخل ملف Word. مثال:'],
+              ['اسم المؤجر: {{ownerName}}'],
+              ['مدة الإيجار: {{contractDurationText}}'],
+              ['كيفية أداء البدل: {{contractRentPaymentText}}'],
+              ['ملاحظة'],
+              ['القوالب القديمة التي تعتمد على نجوم (****) ما زالت تعمل تلقائياً.'],
+            ],
+          },
+        ],
+      }
+    );
+  };
+
+  const parseMultilineList = (raw: string): string[] => {
+    return String(raw || '')
+      .split(/\r?\n/)
+      .flatMap((line) => line.split(','))
+      .map((v) => v.trim())
+      .filter(Boolean);
+  };
+
   const settingsNoAccessFallback = (
     <div className="flex-1 flex flex-col items-center justify-center text-center p-10 text-slate-500 dark:text-slate-400">
       <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 flex items-center justify-center mb-4">
@@ -1199,7 +1858,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
           </div>
 
           <div className="flex items-center gap-2">
-            {activeSection === 'general' && settings && !settingsLoading && (
+            {(activeSection === 'general' || activeSection === 'messages') && settings && !settingsLoading && (
               <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${saveStatus === 'saving' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}> 
                 {saveStatus === 'saving' ? <RefreshCcw size={12} className="animate-spin"/> : <Check size={12}/>} 
                 {saveStatus === 'saving' ? 'جاري الحفظ...' : 'تم الحفظ'}
@@ -1244,7 +1903,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
             </div>
           )}
 
-          {!settingsLoading && (activeSection === 'general' || activeSection === 'commissions') && !settings && (
+          {!settingsLoading && (activeSection === 'general' || activeSection === 'messages' || activeSection === 'commissions') && !settings && (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
               <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30 flex items-center justify-center mb-4">
                 <AlertTriangle className="text-red-600" size={24} />
@@ -1350,6 +2009,8 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                     </div>
                 </section>
 
+                {/* Word template settings moved to "القوالب (Word)" */}
+
                 {/* Letterhead */}
                 <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
@@ -1430,6 +2091,356 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
             </RBACGuard>
           )}
 
+          {!settingsLoading && activeSection === 'templates' && settings && (
+            <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
+              <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-6 animate-fade-in">
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
+                    <FileText className="text-indigo-500" size={20} /> قوالب Word
+                  </h3>
+                  <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    يمكنك حفظ أكثر من قالب لكل نوع (العقد/الكمبيالات/محضر التسليم)، ثم اختيار القالب الافتراضي لكل نوع.
+                    يدعم النظام ملفات Word بصيغة <span className="font-mono">.docx</span> فقط.
+                  </div>
+                </section>
+
+                <section className="bg-white/60 dark:bg-slate-950/20 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                  {!isDesktop && (
+                    <div className="text-sm text-slate-600 dark:text-slate-300">
+                      إدارة قوالب Word متاحة في نسخة سطح المكتب فقط.
+                    </div>
+                  )}
+
+                  {isDesktop && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className={labelClass} htmlFor="settings-word-template-type">نوع القالب</label>
+                          <select
+                            id="settings-word-template-type"
+                            className={inputClass}
+                            value={activeWordTemplateType}
+                            onChange={(e) => setActiveWordTemplateType(e.target.value as WordTemplateType)}
+                          >
+                            <option value="contracts">العقد</option>
+                            <option value="installments">الكمبيالات</option>
+                            <option value="handover">محضر التسليم</option>
+                          </select>
+
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                            المسار المدعوم للحفظ: <span className="font-mono">{wordTemplatesDir || `templates/${activeWordTemplateType}`}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                            ملاحظة: الاستيراد من مسارات الشبكة (UNC) غير مسموح.
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className={labelClass} htmlFor="settings-word-template-default">القالب الافتراضي</label>
+                          <select
+                            id="settings-word-template-default"
+                            className={inputClass}
+                            value={getSelectedWordTemplateName(settings, activeWordTemplateType)}
+                            onChange={(e) => setSelectedWordTemplateName(activeWordTemplateType, e.target.value || '')}
+                          >
+                            <option value="">— لم يتم التحديد —</option>
+                            {wordTemplates.map((n) => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+
+                          {(() => {
+                            const selected = getSelectedWordTemplateName(settings, activeWordTemplateType).trim();
+                            const kvKey = selected ? String(wordTemplateKvKeysByName[selected] || '').trim() : '';
+                            if (!selected) return null;
+                            return (
+                              <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                مفتاح القالب في قاعدة البيانات:{' '}
+                                <span className="font-mono" dir="ltr">{kvKey || 'غير متاح بعد (جرّب تحديث القائمة)'}</span>
+                                {kvKey ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => void copyToClipboard(kvKey, { successMessage: 'تم نسخ مفتاح القالب' })}
+                                    className="ml-2 inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-bold"
+                                    title="نسخ"
+                                  >
+                                    <Copy size={12} /> نسخ
+                                  </button>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
+
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                            إذا لم تظهر القوالب، اضغط “تحديث القائمة”.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          onClick={() => void refreshWordTemplates(activeWordTemplateType)}
+                          disabled={wordTemplatesBusy}
+                        >
+                          <RefreshCcw size={16} /> تحديث القائمة
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={handleImportWordTemplate}
+                          disabled={wordTemplateImportBusy}
+                        >
+                          <Upload size={16} /> استيراد قالب
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={handleDownloadSelectedWordTemplate}
+                          disabled={!getSelectedWordTemplateName(settings, activeWordTemplateType).trim()}
+                        >
+                          <Download size={16} /> تنزيل القالب
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => void handleDeleteSelectedWordTemplate()}
+                          disabled={wordTemplateDeleteBusy || !getSelectedWordTemplateName(settings, activeWordTemplateType).trim()}
+                        >
+                          <Trash2 size={16} /> حذف القالب
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={handlePreviewSelectedWordTemplate}
+                          disabled={wordTemplatePreviewBusy || !getSelectedWordTemplateName(settings, activeWordTemplateType).trim()}
+                        >
+                          <Search size={16} /> معاينة
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </section>
+              </div>
+            </RBACGuard>
+          )}
+
+          {!settingsLoading && activeSection === 'contractWord' && (
+            <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
+              <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-6 animate-fade-in">
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
+                    <FileText className="text-indigo-500" size={20} /> متغيرات قالب العقد (Word)
+                  </h3>
+
+                  <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    هذه الصفحة مخصصة لمتغيرات قالب العقد داخل ملف Word. استخدم صيغة المتغيرات
+                    مثل <span className="font-mono" dir="ltr">{'{{ownerName}}'}</span> داخل ملف Word، ثم عند
+                    إنشاء/طباعة عقد سيقوم النظام بتعبئة القيم تلقائياً.
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <Button variant="secondary" onClick={() => void exportContractWordVariablesExcel()}>
+                      <Download size={16} /> تنزيل المتغيرات (Excel)
+                    </Button>
+                    <Button variant="secondary" onClick={() => setActiveSection('templates')}>
+                      <ArrowRight size={16} /> الذهاب لإدارة القوالب
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 text-[12px] text-slate-500 dark:text-slate-400">
+                    أمثلة سريعة: <span className="font-mono" dir="ltr">{'اسم المؤجر: {{ownerName}}'}</span> •{' '}
+                    <span className="font-mono" dir="ltr">{'مدة الإيجار: {{contractDurationText}}'}</span> •{' '}
+                    <span className="font-mono" dir="ltr">{'كيفية أداء البدل: {{contractRentPaymentText}}'}</span>
+                  </div>
+                </section>
+
+                <section className="bg-white/60 dark:bg-slate-950/20 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                  <div className="font-bold text-sm text-slate-800 dark:text-slate-100 mb-3">
+                    قائمة المتغيرات (اضغط نسخ)
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {CONTRACT_WORD_TEMPLATE_VARIABLES.map((v) => {
+                      const placeholder = `{{${v.key}}}`;
+                      return (
+                        <div
+                          key={v.key}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-700 dark:text-slate-200" dir="ltr">
+                              {placeholder}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {v.label}{v.example ? ` • مثال: ${v.example}` : ''}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void copyToClipboard(placeholder)}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline"
+                          >
+                            <Copy size={14} /> نسخ
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-4">
+                    ملاحظة: القوالب القديمة التي تعتمد على نجوم (****) ما زالت تعمل تلقائياً.
+                  </div>
+                </section>
+              </div>
+            </RBACGuard>
+          )}
+
+          {!settingsLoading && activeSection === 'messages' && settings && (
+            <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
+              <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-8 animate-fade-in">
+
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
+                    <Bell className="text-indigo-500" size={20} /> إعدادات الرسائل والإشعارات
+                  </h3>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                    عدّل هذه القيم بسهولة بعد البيع (اسم الشركة، طرق الدفع، وأرقام الهواتف) لتنعكس على قوالب الرسائل/الإشعارات.
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-6">
+                    يمكنك استخدام المتغيرات داخل أي رسالة مثل: {'{{اسم_الشركة}}'}، {'{{هاتف_الشركة}}'}، {'{{طرق_الدفع}}'}.
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className={labelClass} htmlFor="settings-msg-company-name">اسم الشركة</label>
+                      <input
+                        id="settings-msg-company-name"
+                        className={inputClass}
+                        value={settings.companyName}
+                        onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={labelClass} htmlFor="settings-msg-company-phone">الهاتف الأساسي</label>
+                      <input
+                        id="settings-msg-company-phone"
+                        className={inputClass}
+                        value={settings.companyPhone}
+                        onChange={(e) => setSettings({ ...settings, companyPhone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                    <MessageCircle className="text-indigo-500" size={20} /> طريقة الإرسال (واتساب)
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className={labelClass} htmlFor="settings-msg-whatsapp-target">طريقة فتح واتساب</label>
+                      <select
+                        id="settings-msg-whatsapp-target"
+                        className={inputClass}
+                        value={settings.whatsAppTarget || 'auto'}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            whatsAppTarget: (e.target.value as 'auto' | 'web' | 'desktop') || 'auto',
+                          })
+                        }
+                      >
+                        <option value="auto">تلقائي (Desktop داخل البرنامج / Web في المتصفح)</option>
+                        <option value="web">واتساب ويب (api.whatsapp.com)</option>
+                        <option value="desktop">واتساب سطح المكتب (whatsapp://)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={labelClass} htmlFor="settings-msg-whatsapp-delay">تأخير فتح المحادثات (مللي ثانية)</label>
+                      <input
+                        id="settings-msg-whatsapp-delay"
+                        type="number"
+                        className={inputClass}
+                        value={Number(settings.whatsAppDelayMs ?? 10_000)}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            whatsAppDelayMs: Math.max(0, Number(e.target.value || 0) || 0),
+                          })
+                        }
+                      />
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                        مثال شائع: 10000 (10 ثواني) عند الإرسال لعدة أرقام.
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                    <FileText className="text-slate-700 dark:text-slate-200" size={20} /> النماذج (القوالب)
+                  </h3>
+
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <Button
+                      variant="secondary"
+                      onClick={() => openPanel('NOTIFICATION_TEMPLATES', 'notification_templates')}
+                    >
+                      تعديل نماذج الرسائل والإشعارات
+                    </Button>
+
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        window.location.hash = ROUTE_PATHS.LEGAL;
+                      }}
+                    >
+                      القوالب القانونية (المركز القانوني)
+                    </Button>
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-4">
+                    ملاحظة: تم حقن اسم الشركة/الهواتف/طرق الدفع تلقائياً في جميع الرسائل التي تدعم {'{{...}}'}.
+                  </div>
+                </section>
+
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                    <Phone className="text-green-500" size={20} /> أرقام هواتف إضافية
+                  </h3>
+                  <div>
+                    <label className={labelClass} htmlFor="settings-msg-company-phones">رقم في كل سطر (أو افصل بفاصلة)</label>
+                    <textarea
+                      id="settings-msg-company-phones"
+                      className={inputClass + ' min-h-[120px]'}
+                      value={(settings.companyPhones ?? []).join('\n')}
+                      onChange={(e) => setSettings({ ...settings, companyPhones: parseMultilineList(e.target.value) })}
+                      placeholder={'مثال:\n0790000000\n0780000000'}
+                    />
+                  </div>
+                </section>
+
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                    <BadgeDollarSign className="text-amber-500" size={20} /> طرق الدفع
+                  </h3>
+                  <div>
+                    <label className={labelClass} htmlFor="settings-msg-payment-methods">طريقة دفع في كل سطر</label>
+                    <textarea
+                      id="settings-msg-payment-methods"
+                      className={inputClass + ' min-h-[120px]'}
+                      value={(settings.paymentMethods ?? []).join('\n')}
+                      onChange={(e) => setSettings({ ...settings, paymentMethods: parseMultilineList(e.target.value) })}
+                      placeholder={'مثال:\nنقداً\nتحويل بنكي\nمحفظة إلكترونية'}
+                    />
+                  </div>
+                </section>
+
+              </div>
+            </RBACGuard>
+          )}
+
           {!settingsLoading && activeSection === 'commissions' && settings && (
             <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
                 <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-8 animate-fade-in">
@@ -1437,7 +2448,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">عمولات البيع</h3>
                     <div>
                       <label className={labelClass} htmlFor="settings-sales-commission-percent">نسبة عمولة البيع (%)</label>
-                      <Input
+                      <input
                         id="settings-sales-commission-percent"
                         type="number"
                         className={inputClass}
@@ -1451,7 +2462,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label className={labelClass} htmlFor="settings-rental-commission-owner-percent">عمولة المالك (%)</label>
-                          <Input
+                          <input
                             id="settings-rental-commission-owner-percent"
                             type="number"
                             className={inputClass}
@@ -1461,7 +2472,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         </div>
                         <div>
                           <label className={labelClass} htmlFor="settings-rental-commission-tenant-percent">عمولة المستأجر (%)</label>
-                          <Input
+                          <input
                             id="settings-rental-commission-tenant-percent"
                             type="number"
                             className={inputClass}
@@ -1573,7 +2584,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         <h3 className="text-xl font-bold mb-2">تصدير نسخة احتياطية</h3>
                         {isDesktop ? (
                           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-                            سيتم إنشاء ملفين تلقائياً داخل المجلد الذي تختاره: <span className="font-mono">AZRAR-backup-latest.db</span> + أرشيف بتاريخ اليوم.
+                            سيتم إنشاء ملفات النسخ تلقائياً داخل المجلد الذي تختاره: <span className="font-mono">AZRAR-backup-latest.db{backupEncEnabled && backupEncHasPassword ? '.enc' : ''}</span> + <span className="font-mono">AZRAR-attachments-latest.tar.gz{backupEncEnabled && backupEncHasPassword ? '.enc' : ''}</span> + أرشيف بتاريخ اليوم لكلٍ منهما.
                           </p>
                         ) : null}
                         <button className="mt-4 px-6 py-2 bg-green-600 text-white rounded-xl font-bold">تحميل النسخة</button>
@@ -1600,6 +2611,16 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         )}
                     </div>
 
+                <div className="md:col-span-2 flex items-center justify-between gap-3 px-2">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 dark:text-white">إعدادات النسخ الاحتياطي</h3>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      المسار + التشفير + النسخ التلقائي
+                    </div>
+                  </div>
+                  <div className="hidden md:block h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                </div>
+
                 {isDesktop && (
                   <div className="app-card p-6 rounded-3xl md:col-span-2">
                     <div className="flex items-start justify-between gap-4">
@@ -1618,6 +2639,352 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                       >
                         <FolderOpen size={16} /> تغيير المجلد
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {isDesktop && window.desktopDb?.getBackupEncryptionSettings && (
+                  <div className="app-card p-6 rounded-3xl md:col-span-2">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div className="flex-1 min-w-[240px]">
+                        <h3 className="text-sm font-black text-slate-800 dark:text-white">تشفير النسخ الاحتياطية</h3>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          عند التفعيل سيتم تشفير النسخ الاحتياطية (<span className="font-mono">.db.enc</span> و <span className="font-mono">.tar.gz.enc</span>) وكذلك تشفير المرفقات المخزنة على الجهاز (تشفير أثناء التخزين) ولن يمكن فتحها بدون كلمة المرور.
+                        </div>
+                        {!backupEncAvailable && (
+                          <div className="mt-3 text-xs rounded-xl bg-amber-50 border border-amber-200 text-amber-900 p-3">
+                            ملاحظة: تشفير/حفظ كلمة المرور يعتمد على حماية النظام (Windows). إذا لم تكن متاحة قد يعمل بشكل محدود.
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => saveBackupEncryption({ enabled: !backupEncEnabled })}
+                        disabled={backupEncBusy}
+                        className={`px-4 py-2 rounded-xl text-sm font-black ${backupEncEnabled ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600'} ${backupEncBusy ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        {backupEncEnabled ? 'مفعل' : 'غير مفعل'}
+                      </button>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClass} htmlFor="settings-backup-enc-password">كلمة مرور التشفير</label>
+                        <input
+                          id="settings-backup-enc-password"
+                          type="password"
+                          className={inputClass}
+                          value={backupEncPassword}
+                          onChange={(e) => setBackupEncPassword(e.target.value)}
+                          placeholder={backupEncHasPassword ? '•••••••• (محفوظة)' : 'أدخل كلمة مرور (6 أحرف على الأقل)'}
+                          autoComplete="new-password"
+                        />
+                        <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                          {backupEncHasPassword ? 'يوجد كلمة مرور محفوظة.' : 'لا توجد كلمة مرور محفوظة بعد.'}
+                        </div>
+                      </div>
+
+                      <div className="flex items-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveBackupEncryption({ password: backupEncPassword })}
+                          disabled={backupEncBusy || !backupEncPassword}
+                          className={`flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl text-sm font-black hover:bg-indigo-700 ${backupEncBusy || !backupEncPassword ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          حفظ كلمة المرور
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => saveBackupEncryption({ clearPassword: true })}
+                          disabled={backupEncBusy || !backupEncHasPassword}
+                          className={`bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 px-4 py-3 rounded-xl text-sm font-black hover:bg-gray-50 dark:hover:bg-slate-600 ${backupEncBusy || !backupEncHasPassword ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          مسح
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isDesktop && window.desktopDb?.getLocalBackupAutomationSettings && (
+                  <div className="app-card p-6 rounded-3xl md:col-span-2">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div className="flex-1 min-w-[240px]">
+                        <h3 className="text-sm font-black text-slate-800 dark:text-white">النسخ الاحتياطي التلقائي</h3>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          سيتم إنشاء نسخة كاملة (قاعدة البيانات + المرفقات) يومياً حسب الوقت الذي تختاره داخل <span className="font-mono">مجلد النسخ الاحتياطي</span>.
+                        </div>
+                        {!backupDir && (
+                          <div className="mt-3 text-xs rounded-xl bg-amber-50 border border-amber-200 text-amber-900 p-3">
+                            اختر مجلد النسخ الاحتياطي أولاً ليعمل النسخ التلقائي.
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          saveLocalBackupAutomation({
+                            enabled: !localBackupEnabled,
+                            timeHHmm: localBackupTime,
+                            retentionDays: localBackupRetentionDays,
+                          })
+                        }
+                        disabled={localBackupBusy}
+                        className={`px-4 py-2 rounded-xl text-sm font-black ${localBackupEnabled ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600'} ${localBackupBusy ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        {localBackupEnabled ? 'مفعل' : 'غير مفعل'}
+                      </button>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">الوقت المحدد</div>
+                        <div className="mt-1 text-sm font-black text-slate-800 dark:text-white font-mono">
+                          {localBackupTime || '—'}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">التنفيذ القادم</div>
+                        <div className="mt-1 text-xs font-black text-slate-800 dark:text-white font-mono break-all">
+                          {(() => {
+                            const iso = computeNextRunAt(localBackupEnabled, localBackupTime, localBackupLastRunAt);
+                            if (!iso) return '—';
+                            try {
+                              return new Date(iso).toLocaleString('ar');
+                            } catch {
+                              return iso;
+                            }
+                          })()}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">عدد أيام الحذف</div>
+                        <div className="mt-1 text-sm font-black text-slate-800 dark:text-white">
+                          {Number.isFinite(localBackupRetentionDays) ? localBackupRetentionDays : 30}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">عدد النسخ الموجودة</div>
+                        <div className="mt-1 text-sm font-black text-slate-800 dark:text-white">
+                          {localBackupStats?.ok
+                            ? (localBackupStats.dbArchivesCount || 0) + (localBackupStats.attachmentsArchivesCount || 0)
+                            : 0}
+                        </div>
+                        {localBackupStats?.ok ? (
+                          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                            DB: {localBackupStats.dbArchivesCount || 0} • Attach: {localBackupStats.attachmentsArchivesCount || 0}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className={labelClass} htmlFor="settings-local-backup-time">وقت النسخ اليومي</label>
+                        <input
+                          id="settings-local-backup-time"
+                          type="time"
+                          className={inputClass}
+                          value={localBackupTime}
+                          onChange={(e) => setLocalBackupTime(e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClass} htmlFor="settings-local-backup-retention">الاحتفاظ (بالأيام)</label>
+                        <input
+                          id="settings-local-backup-retention"
+                          type="number"
+                          min={1}
+                          max={3650}
+                          className={inputClass}
+                          value={Number.isFinite(localBackupRetentionDays) ? localBackupRetentionDays : 30}
+                          onChange={(e) => setLocalBackupRetentionDays(Number(e.target.value || 0) || 30)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClass}>آخر تنفيذ</label>
+                        <div className="mt-1 text-xs font-mono bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700 break-all">
+                          {localBackupLastRunAt || 'لم يتم بعد'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          saveLocalBackupAutomation({
+                            enabled: localBackupEnabled,
+                            timeHHmm: localBackupTime,
+                            retentionDays: localBackupRetentionDays,
+                          })
+                        }
+                        disabled={localBackupBusy}
+                        className={`bg-indigo-600 text-white px-4 py-3 rounded-xl text-sm font-black hover:bg-indigo-700 ${localBackupBusy ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        حفظ الإعدادات
+                      </button>
+                      <button
+                        type="button"
+                        onClick={runLocalBackupNow}
+                        disabled={localBackupBusy}
+                        className={`bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 px-4 py-3 rounded-xl text-sm font-black hover:bg-gray-50 dark:hover:bg-slate-600 ${localBackupBusy ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        تنفيذ الآن
+                      </button>
+                      <button
+                        type="button"
+                        onClick={refreshLocalBackupInsights}
+                        disabled={localBackupLogBusy}
+                        className={`bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 px-4 py-3 rounded-xl text-sm font-black hover:bg-gray-50 dark:hover:bg-slate-600 ${localBackupLogBusy ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        تحديث العدادات والسجل
+                      </button>
+                    </div>
+
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-black text-slate-800 dark:text-white">سجل النسخ</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            آخر 200 عملية (تلقائي/يدوي)
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={clearLocalBackupHistory}
+                          disabled={localBackupLogBusy || !localBackupLog.length}
+                          className={`bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 px-4 py-2 rounded-xl text-xs font-black hover:bg-gray-50 dark:hover:bg-slate-600 ${localBackupLogBusy || !localBackupLog.length ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          مسح السجل
+                        </button>
+                      </div>
+
+                      <div className="mt-3 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <div className="max-h-[280px] overflow-auto custom-scrollbar">
+                          <table className="w-full text-xs">
+                            <thead className="bg-slate-50 dark:bg-slate-900/40">
+                              <tr className="text-slate-600 dark:text-slate-300">
+                                <th className="text-right p-3 font-black">الوقت</th>
+                                <th className="text-right p-3 font-black">النوع</th>
+                                <th className="text-right p-3 font-black">الحالة</th>
+                                <th className="text-right p-3 font-black">ملاحظات</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {localBackupLogBusy ? (
+                                <tr>
+                                  <td className="p-3 text-slate-500" colSpan={4}>جاري التحميل...</td>
+                                </tr>
+                              ) : localBackupLog.length ? (
+                                localBackupLog.map((x, idx) => (
+                                  <tr key={`${x.ts}-${idx}`} className="border-t border-slate-100 dark:border-slate-800">
+                                    <td className="p-3 font-mono text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                                      {(() => {
+                                        try {
+                                          return new Date(x.ts).toLocaleString('ar');
+                                        } catch {
+                                          return x.ts;
+                                        }
+                                      })()}
+                                    </td>
+                                    <td className="p-3 text-slate-700 dark:text-slate-200">
+                                      {x.trigger === 'manual' ? 'يدوي' : 'تلقائي'}
+                                    </td>
+                                    <td className="p-3">
+                                      <span className={`px-2 py-1 rounded-lg text-[11px] font-black ${x.ok ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                                        {x.ok ? 'نجح' : 'فشل'}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-slate-600 dark:text-slate-300 break-all">
+                                      <div className="space-y-2">
+                                        <div>{x.message || ''}</div>
+                                        {(x.latestPath ||
+                                          x.archivePath ||
+                                          x.attachmentsLatestPath ||
+                                          x.attachmentsArchivePath) && (
+                                          <div className="space-y-2">
+                                            {x.latestPath && (
+                                              <div className="flex items-start gap-2">
+                                                <div className="flex-1 font-mono text-[11px] bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-lg p-2 break-all">
+                                                  DB (latest): {x.latestPath}
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => copyToClipboard(x.latestPath || '', { successMessage: 'تم نسخ المسار', failureMessage: 'تعذر النسخ' })}
+                                                  className="px-3 py-2 rounded-lg text-[11px] font-black bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
+                                                >
+                                                  نسخ
+                                                </button>
+                                              </div>
+                                            )}
+                                            {x.archivePath && (
+                                              <div className="flex items-start gap-2">
+                                                <div className="flex-1 font-mono text-[11px] bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-lg p-2 break-all">
+                                                  DB (archive): {x.archivePath}
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => copyToClipboard(x.archivePath || '', { successMessage: 'تم نسخ المسار', failureMessage: 'تعذر النسخ' })}
+                                                  className="px-3 py-2 rounded-lg text-[11px] font-black bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
+                                                >
+                                                  نسخ
+                                                </button>
+                                              </div>
+                                            )}
+                                            {x.attachmentsLatestPath && (
+                                              <div className="flex items-start gap-2">
+                                                <div className="flex-1 font-mono text-[11px] bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-lg p-2 break-all">
+                                                  Attachments (latest): {x.attachmentsLatestPath}
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => copyToClipboard(x.attachmentsLatestPath || '', { successMessage: 'تم نسخ المسار', failureMessage: 'تعذر النسخ' })}
+                                                  className="px-3 py-2 rounded-lg text-[11px] font-black bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
+                                                >
+                                                  نسخ
+                                                </button>
+                                              </div>
+                                            )}
+                                            {x.attachmentsArchivePath && (
+                                              <div className="flex items-start gap-2">
+                                                <div className="flex-1 font-mono text-[11px] bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-lg p-2 break-all">
+                                                  Attachments (archive): {x.attachmentsArchivePath}
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => copyToClipboard(x.attachmentsArchivePath || '', { successMessage: 'تم نسخ المسار', failureMessage: 'تعذر النسخ' })}
+                                                  className="px-3 py-2 rounded-lg text-[11px] font-black bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
+                                                >
+                                                  نسخ
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td className="p-3 text-slate-500" colSpan={4}>لا يوجد سجل بعد</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {localBackupStats?.ok ? (
+                        <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+                          إجمالي حجم ملفات النسخ داخل المجلد: <span className="font-mono">{formatBytes(localBackupStats.totalBytes || 0)}</span>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -1926,7 +3293,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                               <div>
                                 <label className="text-xs font-bold text-slate-600 dark:text-slate-300" htmlFor="settings-sql-backup-retention-days">مدة الاحتفاظ (بالأيام)</label>
-                                <Input
+                                <input
                                   id="settings-sql-backup-retention-days"
                                   className="w-full mt-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl py-2.5 px-3 text-sm"
                                   type="number"
@@ -2519,6 +3886,47 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
               value={tableForm.label}
               onChange={(e) => setTableForm({ ...tableForm, label: e.target.value })}
             />
+          </div>
+        </AppModal>
+      )}
+
+      {isWordTemplatePreviewOpen && (
+        <AppModal
+          open={isWordTemplatePreviewOpen}
+          title={wordTemplatePreviewTitle ? `معاينة: ${wordTemplatePreviewTitle}` : 'معاينة قالب Word'}
+          onClose={() => {
+            setIsWordTemplatePreviewOpen(false);
+            setWordTemplatePreviewHtml('');
+            setWordTemplatePreviewTitle('');
+          }}
+          size="lg"
+          footer={
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsWordTemplatePreviewOpen(false);
+                  setWordTemplatePreviewHtml('');
+                  setWordTemplatePreviewTitle('');
+                }}
+                className="px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition font-bold"
+              >
+                إغلاق
+              </button>
+            </div>
+          }
+        >
+          <div className="text-sm text-slate-700 dark:text-slate-200">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40 p-4 max-h-[70vh] overflow-auto">
+              {wordTemplatePreviewBusy ? (
+                <div className="text-slate-500">جاري التحويل...</div>
+              ) : (
+                <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: wordTemplatePreviewHtml }} />
+              )}
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-3">
+              ملاحظة: المعاينة تقريبية (تحويل DOCX إلى HTML) وقد تختلف عن التنسيق النهائي داخل Word.
+            </div>
           </div>
         </AppModal>
       )}

@@ -13,6 +13,13 @@ import {
   saveLicenseAdminSelectedServer,
   saveLicenseAdminServers,
 } from '@/features/licenseAdmin/settings';
+import {
+  cancelFingerprintRecord,
+  deleteFingerprintRecord,
+  loadFingerprintRegistry,
+  type FingerprintRegistryRecord,
+  upsertFingerprintRecord,
+} from '@/features/licenseAdmin/fingerprintRegistry';
 
 type AdminListItem = {
   licenseKey: string;
@@ -152,6 +159,10 @@ export const LicenseAdmin: React.FC = () => {
   const [activateMeta, setActivateMeta] = useState('');
   const [savePath, setSavePath] = useState('');
 
+  const [fpOwner, setFpOwner] = useState('');
+  const [fpComment, setFpComment] = useState('');
+  const [fpItems, setFpItems] = useState<FingerprintRegistryRecord[]>([]);
+
   const [statusCheckDeviceId, setStatusCheckDeviceId] = useState('');
   const [statusCheckResult, setStatusCheckResult] = useState('');
 
@@ -173,7 +184,18 @@ export const LicenseAdmin: React.FC = () => {
   useEffect(() => {
     const st = loadLicenseAdminServerSettings();
     if (st.selectedServer) setServerUrl(st.selectedServer);
+    setFpItems(loadFingerprintRegistry());
   }, []);
+
+  useEffect(() => {
+    // Best-effort autofill owner/comment when fingerprint matches saved item.
+    const fp = activateDeviceId.trim();
+    if (!fp) return;
+    const match = fpItems.find((x) => x.fingerprint === fp) || null;
+    if (!match) return;
+    if (!fpOwner.trim()) setFpOwner(match.owner || '');
+    if (!fpComment.trim()) setFpComment(match.comment || '');
+  }, [activateDeviceId, fpItems, fpOwner, fpComment]);
 
   const selectedItem = useMemo(
     () => items.find((x) => x.licenseKey === selectedKey) || null,
@@ -554,6 +576,42 @@ export const LicenseAdmin: React.FC = () => {
     }
   };
 
+  const refreshFpItems = () => setFpItems(loadFingerprintRegistry());
+
+  const doSaveFingerprint = () => {
+    const fp = activateDeviceId.trim();
+    if (!fp) {
+      setError('يرجى إدخال بصمة جهاز العميل أولاً');
+      return;
+    }
+    setError('');
+    const next = upsertFingerprintRecord({ fingerprint: fp, owner: fpOwner.trim(), comment: fpComment.trim() });
+    setFpItems(next);
+    setInfo('تم حفظ بيانات البصمة');
+  };
+
+  const doCancelFingerprint = () => {
+    const fp = activateDeviceId.trim();
+    if (!fp) {
+      setError('يرجى إدخال/اختيار بصمة أولاً');
+      return;
+    }
+    setError('');
+    setFpItems(cancelFingerprintRecord(fp));
+    setInfo('تم إلغاء البصمة (لن تُستخدم إلا إذا فعلتها مرة أخرى)');
+  };
+
+  const doDeleteFingerprint = () => {
+    const fp = activateDeviceId.trim();
+    if (!fp) {
+      setError('يرجى إدخال/اختيار بصمة أولاً');
+      return;
+    }
+    setError('');
+    setFpItems(deleteFingerprintRecord(fp));
+    setInfo('تم حذف البصمة من السجل');
+  };
+
   const doSaveLicenseFile = async () => {
     if (!canUseBridge) return;
     if (!activateResultJson.trim()) {
@@ -583,6 +641,43 @@ export const LicenseAdmin: React.FC = () => {
       setExportConfirmPassword('');
     } catch (e: unknown) {
       setError(getErr(e) || 'Save failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doUnbindDeviceFromLicense = async () => {
+    if (!canUseBridge) return;
+    const licenseKey = selectedKey.trim();
+    const deviceId = activateDeviceId.trim();
+    if (!licenseKey) {
+      setError('يرجى اختيار ترخيص أولاً');
+      return;
+    }
+    if (!deviceId) {
+      setError('يرجى إدخال بصمة جهاز العميل (fingerprint)');
+      return;
+    }
+
+    setError('');
+    setInfo('');
+    setBusy(true);
+    try {
+      if (!window.desktopLicenseAdmin) throw new Error('Desktop bridge not available');
+      const res = await window.desktopLicenseAdmin.unbindDevice({
+        serverUrl,
+        licenseKey,
+        deviceId,
+        note: fpComment.trim() || undefined,
+      });
+      const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
+      if (rec.ok !== true) throw new Error(String(rec.error || 'Failed'));
+
+      await refreshList();
+      await loadRecord(licenseKey);
+      setInfo('تم فصل الترخيص عن هذا الجهاز. يمكن للعميل التفعيل على جهاز آخر الآن.');
+    } catch (e: unknown) {
+      setError(getErr(e) || 'Failed to unbind device');
     } finally {
       setBusy(false);
     }
@@ -1115,10 +1210,34 @@ export const LicenseAdmin: React.FC = () => {
                 </div>
 
                 <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
-                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">ربط جهاز (Activate)</div>
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">التفعيل (أونلاين / ملف Offline)</div>
                   <div className="text-xs text-slate-500">
-                    الصق بصمة جهاز العميل (fingerprint). هذا يجعل الترخيص مرتبطاً بهذا الجهاز، وأي جهاز آخر سيظهر له mismatch.
+                    الصق بصمة جهاز العميل (fingerprint) ثم اكتب اسم العميل وتعليق. بعدها اختر:
+                    <br />- إنشاء ملف تفعيل Offline (JSON) للحفظ والإرسال للعميل
+                    <br />- أو حفظ البصمة في السجل لتسهيل العمل لاحقاً
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div className="md:col-span-1">
+                      <div className="text-xs text-slate-500 mb-1">اسم/جهة العميل</div>
+                      <Input
+                        value={fpOwner}
+                        onChange={(e) => setFpOwner(e.target.value)}
+                        placeholder="مثال: أبو أحمد / شركة كذا"
+                        disabled={busy}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <div className="text-xs text-slate-500 mb-1">تعليق</div>
+                      <Input
+                        value={fpComment}
+                        onChange={(e) => setFpComment(e.target.value)}
+                        placeholder="مثال: تم إرسال الملف عبر واتساب"
+                        disabled={busy}
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-2 flex-wrap">
                     <Input
                       value={activateDeviceId}
@@ -1127,9 +1246,86 @@ export const LicenseAdmin: React.FC = () => {
                       disabled={busy}
                     />
                     <Button onClick={() => void doActivate()} disabled={busy}>
-                      إنشاء ملف الترخيص
+                      إنشاء ملف تفعيل Offline
+                    </Button>
+                    <Button variant="secondary" onClick={() => void doUnbindDeviceFromLicense()} disabled={busy}>
+                      فصل الترخيص عن هذا الجهاز
+                    </Button>
+                    <Button variant="secondary" onClick={() => doSaveFingerprint()} disabled={busy}>
+                      حفظ البصمة
+                    </Button>
+                    <Button variant="secondary" onClick={() => doCancelFingerprint()} disabled={busy}>
+                      إلغاء
+                    </Button>
+                    <Button variant="secondary" onClick={() => doDeleteFingerprint()} disabled={busy}>
+                      حذف
                     </Button>
                   </div>
+
+                  {fpItems.length ? (
+                    <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-950/20 p-2">
+                      <div className="text-xs text-slate-500 mb-2">سجل البصمات المحفوظة على هذا الجهاز</div>
+                      <div className="space-y-1">
+                        {fpItems.slice(0, 20).map((it) => (
+                          <div key={it.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                {it.owner || 'بدون اسم'}
+                              </div>
+                              <div className="text-[11px] text-slate-500 break-all">{it.fingerprint}</div>
+                              {it.comment ? <div className="text-xs text-slate-500 truncate">{it.comment}</div> : null}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <StatusBadge
+                                status={it.status === 'cancelled' ? 'ملغي' : 'نشط'}
+                              />
+                              <Button
+                                variant="secondary"
+                                onClick={() => {
+                                  setActivateDeviceId(it.fingerprint);
+                                  setFpOwner(it.owner || '');
+                                  setFpComment(it.comment || '');
+                                }}
+                                disabled={busy}
+                              >
+                                اختيار
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={() => void safeCopyToClipboard(it.fingerprint)}
+                                disabled={busy}
+                              >
+                                نسخ
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={() => {
+                                  setFpItems(cancelFingerprintRecord(it.id));
+                                  refreshFpItems();
+                                }}
+                                disabled={busy}
+                              >
+                                إلغاء
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={() => {
+                                  setFpItems(deleteFingerprintRecord(it.id));
+                                  refreshFpItems();
+                                }}
+                                disabled={busy}
+                              >
+                                حذف
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {fpItems.length > 20 ? (
+                        <div className="mt-2 text-[11px] text-slate-500">عرض 20 فقط (لتسريع الواجهة).</div>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   {activateMeta ? (
                     <div className="text-xs text-slate-500 whitespace-normal break-words">{activateMeta}</div>

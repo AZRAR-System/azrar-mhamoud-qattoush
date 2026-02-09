@@ -532,6 +532,7 @@ const templateManager = new NotificationTemplateManager();
 
 import { buildWhatsAppLink, openWhatsAppForPhones } from '@/utils/whatsapp';
 import { openExternalUrl } from '@/utils/externalLink';
+import { getMessageGlobalContext } from '@/utils/messageGlobalContext';
 
 /**
  * ملء النموذج بالبيانات
@@ -539,9 +540,10 @@ import { openExternalUrl } from '@/utils/externalLink';
  */
 export function fillTemplate(template: NotificationTemplate | string, context: TemplateContext): string {
   const content = typeof template === 'string' ? template : template.body;
-  
+  const mergedContext: Record<string, unknown> = { ...getMessageGlobalContext(), ...(context || {}) };
+
   return content.replace(/\{\{\s*([\w\u0600-\u06FF]+)\s*\}\}/g, (match, key) => {
-    const value = context[key];
+    const value = mergedContext[key];
     
     // معالجة خاصة لبعض أنواع البيانات
     if (value === undefined || value === null) {

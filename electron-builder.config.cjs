@@ -31,6 +31,8 @@ module.exports = {
   files: [
     'dist/**',
     'electron/**',
+    'server/license-server.mjs',
+    'server/marquee-server.js',
     'print/**',
     'node_modules/**',
     'package.json',

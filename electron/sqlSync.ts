@@ -9,13 +9,6 @@ import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
 import { getDbPath } from './db';
 
-import {
-  decryptSecretBestEffort,
-  getBackupEncryptionPasswordState,
-  readBackupEncryptionSettings,
-} from './utils/backupEncryptionSettings';
-import { decryptFileToBuffer, encryptBufferToFile, isEncryptedFile } from './utils/fileEncryption';
-
 export type SqlAuthMode = 'sql' | 'windows';
 
 export type SqlSettings = {
@@ -74,68 +67,6 @@ let ignoreNextLocalWrites = 0;
 
 const ATTACHMENTS_KV_KEY = 'db_attachments';
 const ATTACHMENT_UPLOAD_MAX_BYTES = 50 * 1024 * 1024; // 50MB
-
-const LOOKUPS_KV_KEY = 'db_lookups';
-const LOOKUP_CATEGORIES_KV_KEY = 'db_lookup_categories';
-
-const normKeySimple = (v: unknown) => String(v ?? '').trim().toLowerCase();
-
-const stableHash32 = (input: string): string => {
-  // Simple deterministic 32-bit hash (djb2) for stable keys.
-  let h = 5381;
-  for (let i = 0; i < input.length; i++) {
-    h = (h * 33) ^ input.charCodeAt(i);
-  }
-  return (h >>> 0).toString(36);
-};
-
-const lookupKeyFor = (category: unknown, label: unknown): string => {
-  const c = normKeySimple(category);
-  const l = normKeySimple(label);
-  if (!c || !l) return '';
-  return `${c}_${stableHash32(l)}`;
-};
-
-function tryNormalizeLookupsJson(key: string, raw: string): string {
-  const k = String(key || '').trim();
-  if (k !== LOOKUPS_KV_KEY && k !== LOOKUP_CATEGORIES_KV_KEY) return raw;
-  if (typeof raw !== 'string') return raw;
-
-  const s = raw.trim();
-  if (!s) return raw;
-
-  try {
-    const parsed = JSON.parse(s);
-    if (!Array.isArray(parsed)) return raw;
-
-    if (k === LOOKUP_CATEGORIES_KV_KEY) {
-      const next = parsed.map((it) => {
-        if (!it || typeof it !== 'object' || Array.isArray(it)) return it;
-        const rec = it as Record<string, unknown>;
-        const name = String(rec.name ?? rec.id ?? '').trim();
-        const id = String(rec.id ?? name).trim();
-        const label = String(rec.label ?? name).trim();
-        const key2 = String(rec.key ?? name).trim();
-        return { ...rec, id, name, label, key: key2 };
-      });
-      return JSON.stringify(next);
-    }
-
-    // db_lookups
-    const next = parsed.map((it) => {
-      if (!it || typeof it !== 'object' || Array.isArray(it)) return it;
-      const rec = it as Record<string, unknown>;
-      const category = String(rec.category ?? '').trim();
-      const label = String(rec.label ?? '').trim();
-      if (!category || !label) return it;
-      const key2 = String(rec.key ?? lookupKeyFor(category, label)).trim();
-      return { ...rec, category, label, key: key2 };
-    });
-    return JSON.stringify(next);
-  } catch {
-    return raw;
-  }
-}
 
 export type SqlBackupAutomationSettings = {
   enabled: boolean;
@@ -430,15 +361,7 @@ async function uploadAttachmentFileIfNeeded(
 
   if (!(await fileExists(abs))) return 'missingLocal';
 
-  const buf = await (async () => {
-    const looksEncrypted = await isEncryptedFile(abs);
-    if (!looksEncrypted) return await fsp.readFile(abs);
-
-    const s = await readBackupEncryptionSettings();
-    const password = s.passwordEnc ? decryptSecretBestEffort(String(s.passwordEnc || '')) : '';
-    if (!password) throw new Error('لا توجد كلمة مرور لفك تشفير المرفقات');
-    return await decryptFileToBuffer({ sourcePath: abs, password });
-  })();
+  const buf = await fsp.readFile(abs);
   if (buf.byteLength > ATTACHMENT_UPLOAD_MAX_BYTES) {
     throw new Error(`حجم المرفق كبير جداً لرفعه (${Math.round(buf.byteLength / (1024 * 1024))}MB)`);
   }
@@ -504,18 +427,7 @@ async function downloadAttachmentFileIfNeeded(
   if (!bytes || !(bytes instanceof Buffer) || bytes.byteLength === 0) return 'missingRemote';
 
   await fsp.mkdir(path.dirname(abs), { recursive: true });
-
-  const encState = await getBackupEncryptionPasswordState();
-  if (!encState.enabled) {
-    await fsp.writeFile(abs, bytes);
-  } else {
-    if (!encState.configured || !encState.password) {
-      // Avoid data loss: if encryption is enabled but not configured, store plaintext.
-      await fsp.writeFile(abs, bytes);
-    } else {
-      await encryptBufferToFile({ bytes, destPath: abs, password: encState.password });
-    }
-  }
+  await fsp.writeFile(abs, bytes);
   return 'downloaded';
 }
 
@@ -2078,12 +1990,11 @@ export async function pushKvUpsert(payload: {
   const p = await ensureConnected(settings);
   const deviceId = await getOrCreateDeviceId();
   const updatedAt = safeDateFromIso(payload.updatedAt, new Date());
-  const normalizedValue = tryNormalizeLookupsJson(payload.key, payload.value);
 
   await p
     .request()
     .input('k', sql.NVarChar(300), payload.key)
-    .input('v', sql.NVarChar(sql.MAX), normalizedValue)
+    .input('v', sql.NVarChar(sql.MAX), payload.value)
     .input('updatedAt', sql.DateTime2(3), updatedAt)
     .input('updatedBy', sql.NVarChar(80), deviceId)
     .query(

@@ -21,7 +21,6 @@ export type DbChannel =
   | 'db:getPath'
   | 'db:getBackupDir'
   | 'db:chooseBackupDir'
-  | 'db:openBackupDir'
   | 'db:getLocalBackupAutomationSettings'
   | 'db:saveLocalBackupAutomationSettings'
   | 'db:runLocalBackupNow'
@@ -86,9 +85,6 @@ contextBridge.exposeInMainWorld('desktopDb', {
   quitApp: () => ipcRenderer.invoke('app:quit'),
   pickLicenseFile: () => ipcRenderer.invoke('app:pickLicenseFile'),
   getLicensePublicKey: () => ipcRenderer.invoke('app:getLicensePublicKey'),
-  writeClipboardText: async (text: string) => {
-    return await ipcRenderer.invoke('app:writeClipboardText', text);
-  },
 
   get: (key: string) => ipcRenderer.invoke('db:get', key),
   set: (key: string, value: string) => ipcRenderer.invoke('db:set', key, value),
@@ -100,7 +96,6 @@ contextBridge.exposeInMainWorld('desktopDb', {
   getPath: () => ipcRenderer.invoke('db:getPath'),
   getBackupDir: () => ipcRenderer.invoke('db:getBackupDir'),
   chooseBackupDir: () => ipcRenderer.invoke('db:chooseBackupDir'),
-  openBackupDir: () => ipcRenderer.invoke('db:openBackupDir'),
   getLocalBackupAutomationSettings: () => ipcRenderer.invoke('db:getLocalBackupAutomationSettings'),
   saveLocalBackupAutomationSettings: (payload: Record<string, unknown>) =>
     ipcRenderer.invoke('db:saveLocalBackupAutomationSettings', payload),
@@ -309,58 +304,6 @@ contextBridge.exposeInMainWorld('desktopUpdater', {
     ipcRenderer.on('updater:event', listener);
     return () => ipcRenderer.removeListener('updater:event', listener);
   },
-});
-
-contextBridge.exposeInMainWorld('desktopLicense', {
-  getDeviceFingerprint: () => ipcRenderer.invoke('license:getDeviceFingerprint'),
-  getStatus: () => ipcRenderer.invoke('license:getStatus'),
-  hasFeature: (featureName: string) => ipcRenderer.invoke('license:hasFeature', featureName),
-  activateFromContent: (raw: string) => ipcRenderer.invoke('license:activateFromContent', raw),
-  activateOnline: (payload: { licenseKey: string; serverUrl?: string }) =>
-    ipcRenderer.invoke('license:activateOnline', payload),
-  getServerUrl: () => ipcRenderer.invoke('license:getServerUrl'),
-  setServerUrl: (url: string) => ipcRenderer.invoke('license:setServerUrl', url),
-  refreshOnlineStatus: () => ipcRenderer.invoke('license:refreshOnlineStatus'),
-  deactivate: () => ipcRenderer.invoke('license:deactivate'),
-});
-
-contextBridge.exposeInMainWorld('desktopLicenseAdmin', {
-  login: (payload: { username: string; password: string }) =>
-    ipcRenderer.invoke('licenseAdmin:login', payload),
-  logout: () => ipcRenderer.invoke('licenseAdmin:logout'),
-
-  getUser: () => ipcRenderer.invoke('licenseAdmin:getUser'),
-  updateUser: (payload: { username: string; newPassword?: string }) =>
-    ipcRenderer.invoke('licenseAdmin:updateUser', payload),
-
-  getAdminTokenStatus: (payload?: { serverUrl?: string }) =>
-    ipcRenderer.invoke('licenseAdmin:getAdminTokenStatus', payload),
-  setAdminToken: (payload: { token: string; serverUrl?: string }) =>
-    ipcRenderer.invoke('licenseAdmin:setAdminToken', payload),
-
-  list: (payload: { serverUrl: string; q?: string; limit?: number }) =>
-    ipcRenderer.invoke('licenseAdmin:list', payload),
-  get: (payload: { serverUrl: string; licenseKey: string }) =>
-    ipcRenderer.invoke('licenseAdmin:get', payload),
-  issue: (payload: {
-    serverUrl: string;
-    licenseKey?: string;
-    expiresAt?: string;
-    maxActivations?: number;
-    features?: Record<string, unknown>;
-  }) => ipcRenderer.invoke('licenseAdmin:issue', payload),
-  setStatus: (payload: { serverUrl: string; licenseKey: string; status: string; note?: string }) =>
-    ipcRenderer.invoke('licenseAdmin:setStatus', payload),
-  activate: (payload: { serverUrl: string; licenseKey: string; deviceId: string }) =>
-    ipcRenderer.invoke('licenseAdmin:activate', payload),
-  checkStatus: (payload: { serverUrl: string; licenseKey: string; deviceId: string }) =>
-    ipcRenderer.invoke('licenseAdmin:checkStatus', payload),
-  delete: (payload: { serverUrl: string; licenseKey: string }) =>
-    ipcRenderer.invoke('licenseAdmin:delete', payload),
-  updateAfterSales: (payload: { serverUrl: string; licenseKey: string; patch: Record<string, unknown> }) =>
-    ipcRenderer.invoke('licenseAdmin:updateAfterSales', payload),
-  saveLicenseFile: (payload: { defaultFileName?: string; content: string; confirmPassword?: string }) =>
-    ipcRenderer.invoke('licenseAdmin:saveLicenseFile', payload),
 });
 
 export {}; // ensure this is treated as a module

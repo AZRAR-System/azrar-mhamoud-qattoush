@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>معاينة الطباعة</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #0b1220;
+        --panel: #111a2e;
+        --text: #e6eefc;
+        --muted: #a8b4d1;
+        --btn: #2563eb;
+        --btn2: rgba(255,255,255,0.12);
+        --danger: #ef4444;
+      }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Tahoma, Arial, sans-serif; background: var(--bg); color: var(--text); }
+      .topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 12px 14px;
+        background: linear-gradient(180deg, rgba(17,26,46,0.98), rgba(17,26,46,0.92));
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        position: sticky; top: 0; z-index: 10;
+      }
+      .title { font-weight: 800; letter-spacing: 0.2px; }
+      .sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+      .left { display: flex; flex-direction: column; }
+      .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      select, label.inline {
+        font: inherit;
+        color: var(--text);
+      }
+      select {
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 10px;
+        padding: 9px 10px;
+        min-width: 260px;
+      }
+      label.inline { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); }
+      input[type="checkbox"] { width: 16px; height: 16px; }
+      button {
+        border: 0; cursor: pointer; padding: 10px 12px; border-radius: 10px;
+        font-weight: 800; color: var(--text);
+        background: var(--btn2);
+      }
+      button.primary { background: var(--btn); }
+      button.danger { background: var(--danger); }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+      .wrap { height: calc(100vh - 64px); }
+      .pdf { width: 100%; height: 100%; border: 0; background: #0b1220; }
+      .status { padding: 12px 14px; font-size: 13px; color: var(--muted); }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="left">
+        <div class="title">معاينة الطباعة (مرحلة 7)</div>
+        <div id="meta" class="sub">...</div>
+      </div>
+      <div class="controls">
+        <select id="printerSelect" title="اختيار الطابعة">
+          <option value="">(الطابعة الافتراضية)</option>
+        </select>
+        <button id="btnRefreshPrinters">تحديث الطابعات</button>
+        <label class="inline" title="طباعة صامتة (غير افتراضيًا)">
+          <input id="silentCheck" type="checkbox" />
+          صامت
+        </label>
+      </div>
+      <div class="actions">
+        <button id="btnPrint" class="primary">طباعة (مرحلة 8)</button>
+        <button id="btnExportDocx">تصدير Word</button>
+        <button id="btnExportPdf">تصدير PDF</button>
+        <button id="btnReload" class="danger">إعادة توليد</button>
+      </div>
+    </div>
+
+    <div id="status" class="status">جاري تحميل المعاينة...</div>
+    <div class="wrap">
+      <embed id="pdfEmbed" class="pdf" type="application/pdf" />
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const sid = new URLSearchParams(location.search).get('sid') || '';
+
+      const setBusy = (busy) => {
+        $('btnPrint').disabled = busy;
+        $('btnExportDocx').disabled = busy;
+        $('btnExportPdf').disabled = busy;
+        $('btnReload').disabled = busy;
+        $('btnRefreshPrinters').disabled = busy;
+        $('printerSelect').disabled = busy;
+        $('silentCheck').disabled = busy;
+      };
+
+      const showError = (msg) => {
+        $('status').innerHTML = 'خطأ: ' + String(msg || 'غير معروف');
+      };
+
+      const refreshPrinters = async () => {
+        const sel = $('printerSelect');
+        if (!window.desktopPrintPreview?.listPrinters) {
+          return;
+        }
+
+        try {
+          const res = await window.desktopPrintPreview.listPrinters();
+          const current = sel.value;
+          sel.innerHTML = '';
+
+          const optDefault = document.createElement('option');
+          optDefault.value = '';
+          optDefault.textContent = '(الطابعة الافتراضية)';
+          sel.appendChild(optDefault);
+
+          if (res && res.ok && Array.isArray(res.printers)) {
+            for (const p of res.printers) {
+              const opt = document.createElement('option');
+              opt.value = p.name;
+              const label = (p.displayName && String(p.displayName).trim()) ? String(p.displayName).trim() : p.name;
+              opt.textContent = p.isDefault ? `${label} (افتراضية)` : label;
+              sel.appendChild(opt);
+            }
+          }
+
+          sel.value = current;
+        } catch {
+          // ignore
+        }
+      };
+
+      const refresh = async () => {
+        if (!window.desktopPrintPreview || !window.desktopPrintPreview.getState) {
+          showError('جسر المعاينة غير متاح');
+          return;
+        }
+        setBusy(true);
+        try {
+          const res = await window.desktopPrintPreview.getState(sid);
+          if (res && typeof res === 'object' && res.ok) {
+            $('meta').innerHTML = `الجلسة: <span class="mono">${res.sessionId}</span> — الملف: <span class="mono">${res.fileName}</span>`;
+            $('status').innerHTML = `تم التحميل من: <span class="mono">${res.pdfPath}</span>`;
+            $('pdfEmbed').setAttribute('src', res.pdfUrl);
+          } else {
+            showError(res && res.message ? res.message : 'تعذر تحميل حالة المعاينة');
+          }
+        } catch (e) {
+          showError(e && e.message ? e.message : 'تعذر تحميل حالة المعاينة');
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      $('btnPrint').addEventListener('click', async () => {
+        if (!window.desktopPrintPreview?.print) return;
+        setBusy(true);
+        try {
+          const deviceName = $('printerSelect').value || undefined;
+          const silent = !!$('silentCheck').checked;
+          const res = await window.desktopPrintPreview.print(sid, { deviceName, silent, printBackground: true });
+          if (!res?.ok) showError(res?.message || 'فشل الطباعة');
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      $('btnRefreshPrinters').addEventListener('click', async () => {
+        setBusy(true);
+        try {
+          await refreshPrinters();
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      $('btnExportDocx').addEventListener('click', async () => {
+        if (!window.desktopPrintPreview?.exportDocx) return;
+        setBusy(true);
+        try {
+          const res = await window.desktopPrintPreview.exportDocx(sid);
+          if (!res?.ok) showError(res?.message || 'فشل تصدير Word');
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      $('btnExportPdf').addEventListener('click', async () => {
+        if (!window.desktopPrintPreview?.exportPdf) return;
+        setBusy(true);
+        try {
+          const res = await window.desktopPrintPreview.exportPdf(sid);
+          if (!res?.ok) showError(res?.message || 'فشل تصدير PDF');
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      $('btnReload').addEventListener('click', async () => {
+        if (!window.desktopPrintPreview?.reload) return;
+        setBusy(true);
+        try {
+          const res = await window.desktopPrintPreview.reload(sid);
+          if (res?.ok) await refresh();
+          else showError(res?.message || 'فشل إعادة التوليد');
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      void refreshPrinters();
+      void refresh();
+    </script>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 ﻿import logger from './logger';
 import { app, BrowserWindow, shell, session, type Event } from 'electron';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { registerIpcHandlers } from './ipc';
@@ -13,6 +13,77 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
+
+type ParsedArgv = {
+  withLicenseServer: boolean;
+  licenseServerOnly: boolean;
+};
+
+function parseArgvForLicenseServer(): ParsedArgv {
+  try {
+    const argv = Array.isArray(process.argv) ? process.argv.map((s) => String(s || '').toLowerCase()) : [];
+    const withLicenseServer =
+      argv.includes('--with-license-server') ||
+      argv.includes('--license-server') ||
+      argv.includes('--start-license-server');
+    const licenseServerOnly = argv.includes('--license-server-only');
+    return { withLicenseServer, licenseServerOnly };
+  } catch {
+    return { withLicenseServer: false, licenseServerOnly: false };
+  }
+}
+
+function envTrue(name: string): boolean {
+  try {
+    const v = String(process.env[name] || '').trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+  } catch {
+    return false;
+  }
+}
+
+async function maybeStartEmbeddedLicenseServer(): Promise<boolean> {
+  try {
+    const { withLicenseServer, licenseServerOnly } = parseArgvForLicenseServer();
+    const autoStart = envTrue('AZRAR_START_LICENSE_SERVER') || envTrue('AZRAR_LICENSE_AUTOSTART');
+    const shouldStart = withLicenseServer || licenseServerOnly || autoStart;
+    if (!shouldStart) return false;
+
+    const dataDir = path.join(app.getPath('userData'), 'license-server');
+    const host =
+      String(process.env.AZRAR_LICENSE_HOST || '').trim() ||
+      // Safer default for embedded mode: local only.
+      '127.0.0.1';
+    const portRaw = String(process.env.AZRAR_LICENSE_PORT || process.env.PORT || '').trim();
+    const port = portRaw ? Number(portRaw) : undefined;
+    const adminToken = String(process.env.AZRAR_LICENSE_ADMIN_TOKEN || '').trim();
+
+    const serverModulePath = path.join(app.getAppPath(), 'server', 'license-server.mjs');
+    const serverModuleUrl = pathToFileURL(serverModulePath).href;
+    const { startLicenseServer } = (await import(serverModuleUrl)) as {
+      startLicenseServer: (opts: {
+        host?: string;
+        port?: number;
+        adminToken?: string;
+        dataDir?: string;
+        exitOnError?: boolean;
+      }) => Promise<unknown>;
+    };
+
+    await startLicenseServer({
+      host,
+      ...(typeof port === 'number' && Number.isFinite(port) ? { port } : {}),
+      ...(adminToken ? { adminToken } : {}),
+      dataDir,
+      exitOnError: false,
+    });
+    logger.warn('[LicenseServer] Embedded license server started.');
+    return true;
+  } catch (err) {
+    logger.error('[LicenseServer] Failed to start embedded server:', err);
+    return false;
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -398,6 +469,13 @@ app.whenReady().then(async () => {
   // Integrity check (prod only). If tampering is detected, the app quits.
   await verifyAppIntegrityOrQuit();
 
+  const argvFlags = parseArgvForLicenseServer();
+  if (argvFlags.licenseServerOnly) {
+    await maybeStartEmbeddedLicenseServer();
+    logger.warn('[Electron] Running in license-server-only mode (no UI).');
+    return;
+  }
+
   // Apply the same navigation/open/webview restrictions to ALL web contents.
   // This prevents bypasses via unexpected secondary windows.
   app.on('web-contents-created', (_event, contents) => {
@@ -457,6 +535,8 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
   startOnlineStatusMonitor();
   startAutoMaintenance();
+
+  await maybeStartEmbeddedLicenseServer();
   await createMainWindow();
 
   app.on('activate', async () => {
@@ -478,7 +558,7 @@ app.on('before-quit', (event) => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  const { licenseServerOnly } = parseArgvForLicenseServer();
+  if (licenseServerOnly) return;
+  if (process.platform !== 'darwin') app.quit();
 });

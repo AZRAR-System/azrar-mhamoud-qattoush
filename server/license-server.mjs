@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { hashes, sign } from '@noble/ed25519';
 
@@ -16,13 +16,18 @@ if (!hashes.sha512) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = Number(process.env.AZRAR_LICENSE_PORT || process.env.PORT || 5056);
-const HOST = process.env.AZRAR_LICENSE_HOST || '0.0.0.0';
+let PORT = Number(process.env.AZRAR_LICENSE_PORT || process.env.PORT || 5056);
+let HOST = process.env.AZRAR_LICENSE_HOST || '0.0.0.0';
 
-const ADMIN_TOKEN = String(process.env.AZRAR_LICENSE_ADMIN_TOKEN || '').trim();
+let ADMIN_TOKEN = String(process.env.AZRAR_LICENSE_ADMIN_TOKEN || '').trim();
 
-const dataDir = path.join(__dirname, 'data');
-const dataFile = path.join(dataDir, 'licenses.json');
+// Overrides (useful for embedded/installed mode).
+let PRIVATE_KEY_B64_OVERRIDE = '';
+let PRIVATE_KEY_FILE_OVERRIDE = '';
+let EXIT_ON_ERROR = true;
+
+let dataDir = path.join(__dirname, 'data');
+let dataFile = path.join(dataDir, 'licenses.json');
 
 const nowIso = () => new Date().toISOString();
 
@@ -147,13 +152,59 @@ const canonicalizePayloadV1 = (payload) => {
   return JSON.stringify(canonical);
 };
 
+const applyConfig = (opts = {}) => {
+  try {
+    if (opts && typeof opts === 'object') {
+      if (opts.port !== undefined && opts.port !== null) {
+        const p = Number(opts.port);
+        if (Number.isFinite(p) && p > 0) PORT = p;
+      }
+      if (opts.host !== undefined && opts.host !== null) {
+        const h = String(opts.host || '').trim();
+        if (h) HOST = h;
+      }
+      if (opts.adminToken !== undefined) {
+        ADMIN_TOKEN = String(opts.adminToken || '').trim();
+      }
+
+      if (opts.privateKeyB64 !== undefined) {
+        PRIVATE_KEY_B64_OVERRIDE = String(opts.privateKeyB64 || '').trim();
+      }
+      if (opts.privateKeyFile !== undefined) {
+        PRIVATE_KEY_FILE_OVERRIDE = String(opts.privateKeyFile || '').trim();
+      }
+
+      if (opts.exitOnError !== undefined) {
+        EXIT_ON_ERROR = Boolean(opts.exitOnError);
+      }
+
+      if (opts.dataDir !== undefined && opts.dataDir !== null) {
+        const d = String(opts.dataDir || '').trim();
+        if (d) {
+          dataDir = d;
+          dataFile = path.join(dataDir, 'licenses.json');
+        }
+      }
+      if (opts.dataFile !== undefined && opts.dataFile !== null) {
+        const f = String(opts.dataFile || '').trim();
+        if (f) {
+          dataFile = f;
+          dataDir = path.dirname(dataFile);
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+};
+
 const loadPrivateKey = async () => {
   // Option A: provide base64 directly.
-  const b64 = String(process.env.AZRAR_LICENSE_PRIVATE_KEY_B64 || '').trim();
+  const b64 = String(PRIVATE_KEY_B64_OVERRIDE || process.env.AZRAR_LICENSE_PRIVATE_KEY_B64 || '').trim();
   if (b64) return Buffer.from(b64, 'base64');
 
   // Option B: point to a JSON file like secrets/azrar-license-private.key.json
-  const keyFile = String(process.env.AZRAR_LICENSE_PRIVATE_KEY_FILE || '').trim();
+  const keyFile = String(PRIVATE_KEY_FILE_OVERRIDE || process.env.AZRAR_LICENSE_PRIVATE_KEY_FILE || '').trim();
   const candidates = [
     keyFile,
     path.join(__dirname, '..', 'secrets', 'azrar-license-private.key.json'),
@@ -184,7 +235,10 @@ const issueLicenseKey = () => {
   return 'LIC-' + crypto.randomBytes(16).toString('hex').toUpperCase();
 };
 
-const server = http.createServer(async (req, res) => {
+let server = null;
+
+const createServer = () =>
+  http.createServer(async (req, res) => {
   setCors(res);
 
   if (req.method === 'OPTIONS') {
@@ -211,6 +265,7 @@ const server = http.createServer(async (req, res) => {
           adminGet: { method: 'POST', path: '/api/license/admin/get', header: 'X-Admin-Token' },
           adminDelete: { method: 'POST', path: '/api/license/admin/delete', header: 'X-Admin-Token' },
           adminUpdateAfterSales: { method: 'POST', path: '/api/license/admin/updateAfterSales', header: 'X-Admin-Token' },
+          adminUnbindDevice: { method: 'POST', path: '/api/license/admin/unbindDevice', header: 'X-Admin-Token' },
         },
         note: 'This is an API server; most endpoints require POST with JSON body.',
       });
@@ -453,6 +508,37 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Admin: unbind a device from a license (remove from activations list).
+    // This allows the customer to activate on a different device when maxActivations=1.
+    if (req.method === 'POST' && url.pathname === '/api/license/admin/unbindDevice') {
+      const auth = requireAdmin(req);
+      if (!auth.ok) return sendJson(res, 401, { ok: false, error: auth.error });
+
+      const body = await readBodyJson(req);
+      const licenseKey = normalizeLicenseKey(body?.licenseKey);
+      const deviceId = normalizeDeviceId(body?.deviceId);
+      const note = body?.note ? clampStr(body.note, 500) : '';
+      if (!licenseKey) return sendJson(res, 400, { ok: false, error: 'licenseKey is required' });
+      if (!deviceId) return sendJson(res, 400, { ok: false, error: 'deviceId is required' });
+
+      const store = await readStore();
+      const rec = findLicenseRecord(store, licenseKey);
+      if (!rec) return sendJson(res, 404, { ok: false, error: 'Not found' });
+
+      rec.activations = Array.isArray(rec.activations) ? rec.activations : [];
+      const before = rec.activations.length;
+      rec.activations = rec.activations.filter((a) => String(a?.deviceId || '') !== deviceId);
+      const after = rec.activations.length;
+      if (before === after) {
+        return sendJson(res, 404, { ok: false, error: 'Device not found on this license.' });
+      }
+
+      appendAudit(rec, 'device_unbound', note || '', { deviceId, before, after });
+      await writeStore(store);
+      sendJson(res, 200, { ok: true, time: nowIso(), record: rec, unbound: { licenseKey, deviceId } });
+      return;
+    }
+
     // Client: status check
     if (req.method === 'POST' && url.pathname === '/api/license/status') {
       const body = await readBodyJson(req);
@@ -567,24 +653,78 @@ const server = http.createServer(async (req, res) => {
     console.error(e);
     sendJson(res, 500, { ok: false, error: 'Internal Server Error' });
   }
-});
+  });
 
-server.on('error', (err) => {
+const handleServerError = (err) => {
   const code = String(err?.code || '').trim();
   if (code === 'EADDRINUSE') {
     console.error(
       `[license-server] PORT in use: http://${HOST}:${PORT}\n` +
         `- غيّر المنفذ عبر AZRAR_LICENSE_PORT أو أوقف العملية التي تستخدمه.`
     );
-    process.exit(1);
+  } else {
+    console.error('[license-server] server error:', err);
   }
 
-  console.error('[license-server] server error:', err);
-  process.exit(1);
-});
+  if (EXIT_ON_ERROR) {
+    process.exit(1);
+  }
+};
 
-server.listen(PORT, HOST, () => {
+export const startLicenseServer = async (opts = {}) => {
+  applyConfig(opts);
+
+  if (server && server.listening) {
+    return { ok: true, url: `http://${HOST}:${PORT}`, host: HOST, port: PORT, dataFile };
+  }
+
+  server = createServer();
+  server.on('error', (err) => {
+    handleServerError(err);
+  });
+
+  await new Promise((resolve, reject) => {
+    try {
+      server.listen(PORT, HOST, () => resolve());
+    } catch (e) {
+      reject(e);
+    }
+
+    server.once('error', (e) => {
+      if (EXIT_ON_ERROR) return;
+      reject(e);
+    });
+  });
+
   // Use warn/error only to satisfy repo lint rules.
   console.warn(`[license-server] listening on http://${HOST}:${PORT}`);
   console.warn(`[license-server] data file: ${dataFile}`);
-});
+  return { ok: true, url: `http://${HOST}:${PORT}`, host: HOST, port: PORT, dataFile };
+};
+
+export const stopLicenseServer = async () => {
+  if (!server) return { ok: true };
+
+  const s = server;
+  server = null;
+
+  await new Promise((resolve) => {
+    try {
+      s.close(() => resolve());
+    } catch {
+      resolve();
+    }
+  });
+  return { ok: true };
+};
+
+// Standalone mode (node server/license-server.mjs)
+try {
+  const entry = process.argv?.[1] ? pathToFileURL(process.argv[1]).href : '';
+  if (entry && import.meta.url === entry) {
+    // Do not override config; use env defaults.
+    void startLicenseServer({ exitOnError: true });
+  }
+} catch {
+  // ignore
+}

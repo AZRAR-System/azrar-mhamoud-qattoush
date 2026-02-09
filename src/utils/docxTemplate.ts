@@ -6,6 +6,23 @@ export type DocxMergeResult =
   | { ok: true; bytes: Uint8Array }
   | { ok: false; message: string };
 
+export function docxHasMustachePlaceholders(templateArrayBuffer: ArrayBuffer): boolean {
+  try {
+    const zip = new PizZip(new Uint8Array(templateArrayBuffer));
+    const anyZip = zip as unknown as { files?: Record<string, unknown> };
+    const files = Object.keys(anyZip.files || {});
+    for (const p of files) {
+      if (!p.startsWith('word/')) continue;
+      if (!p.endsWith('.xml')) continue;
+      const txt = zip.file(p)?.asText() || '';
+      if (txt.includes('{{') && txt.includes('}}')) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function fillDocxTemplate(templateArrayBuffer: ArrayBuffer, data: Record<string, unknown>): DocxMergeResult {
   try {
     const zip = new PizZip(new Uint8Array(templateArrayBuffer));
