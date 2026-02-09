@@ -111,6 +111,16 @@ export const Login = () => {
         let mounted = true;
         (async () => {
             try {
+                // Prefer HW fingerprint when available (new activation binding).
+                const fpRes = await window.desktopLicense?.getDeviceFingerprint?.();
+                const fp = fpRes && typeof fpRes === 'object' ? (fpRes as Record<string, unknown>) : {};
+                const fpVal = typeof fp.fingerprint === 'string' ? fp.fingerprint.trim() : '';
+                if (!mounted) return;
+                if (fpVal) {
+                    setDeviceId(fpVal);
+                    return;
+                }
+
                 const id = await window.desktopDb?.getDeviceId?.();
                 if (!mounted) return;
                 if (typeof id === 'string' && id.trim()) setDeviceId(id.trim());

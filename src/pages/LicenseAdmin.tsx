@@ -432,7 +432,7 @@ export const LicenseAdmin: React.FC = () => {
       return;
     }
     if (!deviceId) {
-      setError('يرجى إدخال بصمة جهاز العميل (deviceId)');
+      setError('يرجى إدخال بصمة جهاز العميل (fingerprint)');
       return;
     }
 
@@ -561,7 +561,7 @@ export const LicenseAdmin: React.FC = () => {
       return;
     }
     if (!deviceId) {
-      setError('يرجى إدخال بصمة جهاز العميل (deviceId)');
+      setError('يرجى إدخال بصمة جهاز العميل (fingerprint)');
       return;
     }
 
@@ -957,13 +957,13 @@ export const LicenseAdmin: React.FC = () => {
                 <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
                   <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">ربط جهاز (Activate)</div>
                   <div className="text-xs text-slate-500">
-                    الصق بصمة جهاز العميل (deviceId). هذا يجعل الترخيص مرتبطاً بهذا الجهاز، وأي جهاز آخر سيظهر له mismatch.
+                    الصق بصمة جهاز العميل (fingerprint). هذا يجعل الترخيص مرتبطاً بهذا الجهاز، وأي جهاز آخر سيظهر له mismatch.
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Input
                       value={activateDeviceId}
                       onChange={(e) => setActivateDeviceId(e.target.value)}
-                      placeholder="deviceId (الصقه من جهاز العميل)"
+                      placeholder="fingerprint (الصقه من جهاز العميل)"
                       disabled={busy}
                     />
                     <Button onClick={() => void doActivate()} disabled={busy}>
@@ -1023,7 +1023,7 @@ export const LicenseAdmin: React.FC = () => {
                     <Input
                       value={statusCheckDeviceId}
                       onChange={(e) => setStatusCheckDeviceId(e.target.value)}
-                      placeholder="deviceId (الصقه من جهاز العميل)"
+                      placeholder="fingerprint (الصقه من جهاز العميل)"
                       disabled={busy}
                     />
                     <Button variant="secondary" onClick={() => void doCheckDeviceStatus()} disabled={busy}>
