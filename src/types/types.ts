@@ -28,7 +28,8 @@ export type PermissionCode =
   | 'EDIT_MAINTENANCE' | 'CLOSE_MAINTENANCE' | 'DELETE_MAINTENANCE'
   | 'SETTINGS_VIEWER' | 'SETTINGS_ADMIN' | 'SETTINGS_AUDIT'
   | 'VIEW_REPORTS' | 'MANAGE_USERS'
-  | 'BLACKLIST_VIEW' | 'BLACKLIST_ADD' | 'BLACKLIST_REMOVE';
+  | 'BLACKLIST_VIEW' | 'BLACKLIST_ADD' | 'BLACKLIST_REMOVE'
+  | 'PRINT_PREVIEW' | 'PRINT_EXECUTE' | 'PRINT_EXPORT' | 'PRINT_SETTINGS_EDIT' | 'PRINT_TEMPLATES_EDIT';
 
 export interface الأشخاص_tbl {
   رقم_الشخص: string;
@@ -36,7 +37,9 @@ export interface الأشخاص_tbl {
   الرقم_الوطني?: string;
   رقم_الهاتف: string;
   رقم_هاتف_اضافي?: string;
+  البريد_الإلكتروني?: string;
   العنوان?: string;
+  عنوان_السكن?: string;
   ملاحظات?: string;
   رقم_نوع_الشخص?: string;
   تصنيف?: string;
@@ -85,6 +88,8 @@ export interface العقارات_tbl {
   نوع_التاثيث?: string;
   رقم_اشتراك_الكهرباء?: string;
   رقم_اشتراك_المياه?: string;
+  اسم_اشتراك_الكهرباء?: string;
+  اسم_اشتراك_المياه?: string;
   اسم_الحوض?: string;
   رقم_قطعة?: string;
   رقم_لوحة?: string;
@@ -398,6 +403,8 @@ export interface SystemSettings {
 
   // Word contract template (Desktop)
   contractWordTemplateName?: string;
+  installmentWordTemplateName?: string;
+  handoverWordTemplateName?: string;
 
   // WhatsApp
   // If true (default), prompt to open the WhatsApp send screen right after creating a contract.

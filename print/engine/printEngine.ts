@@ -2,6 +2,8 @@ import { BrowserWindow, dialog, app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
+import type { PrintSettings } from '../../electron/printing/settings/types';
+import { buildCssMargins, buildCssPageSize } from '../../electron/printing/settings/store';
 
 export type PrintMode = 'print' | 'pdf';
 
@@ -23,6 +25,10 @@ export type ReportPrintPayload = {
 export type PrintResult =
   | { ok: true; savedPath?: string }
   | { ok: false; code: 'CANCELED' | 'FAILED' | 'INVALID'; message: string };
+
+type PrintSettingsOverrides = {
+  settings?: PrintSettings | null;
+};
 
 let cached: null | {
   base: string;
@@ -137,7 +143,7 @@ async function waitForStableLayout(win: BrowserWindow): Promise<void> {
   }
 }
 
-export async function runReportPrintJob(mode: PrintMode, payload: ReportPrintPayload): Promise<PrintResult> {
+export async function runReportPrintJob(mode: PrintMode, payload: ReportPrintPayload, opts?: PrintSettingsOverrides): Promise<PrintResult> {
   try {
     if (!payload?.report?.title || !Array.isArray(payload?.report?.columns) || !Array.isArray(payload?.report?.data)) {
       return { ok: false, code: 'INVALID', message: 'بيانات التقرير غير صالحة للطباعة' };
@@ -150,6 +156,12 @@ export async function runReportPrintJob(mode: PrintMode, payload: ReportPrintPay
     }
 
     const assets = await loadAssets();
+
+    const ps = opts?.settings;
+    const rtl = ps?.rtl !== false;
+    const pageSizeCss = ps ? buildCssPageSize(ps.pageSize, ps.orientation) : 'A4 portrait';
+    const marginsCss = ps ? buildCssMargins(ps.marginsMm) : '16mm 16mm 16mm 16mm';
+    const fontFamily = ps?.fontFamily || 'system-ui, -apple-system, Segoe UI, Tahoma, Arial, sans-serif';
 
     const companyName = escapeHtml(payload.company?.companyName || '');
     const companyAddress = escapeHtml(payload.company?.companyAddress || '');
@@ -167,12 +179,17 @@ export async function runReportPrintJob(mode: PrintMode, payload: ReportPrintPay
 
     const bodyHtml = buildReportBody(assets.report, payload);
 
+    const overridesCss = `
+      @page { size: ${pageSizeCss}; margin: ${marginsCss}; }
+      html, body { direction: ${rtl ? 'rtl' : 'ltr'}; font-family: ${fontFamily}; }
+    `;
+
     const html = applyTokens(assets.base, {
       TITLE: escapeHtml(payload.report.title || 'Report'),
-      PRINT_CSS: assets.css,
-      HEADER: headerHtml,
+      PRINT_CSS: assets.css + "\n" + overridesCss,
+      HEADER: ps && ps.headerEnabled === false ? '' : headerHtml,
       BODY: bodyHtml,
-      FOOTER: footerHtml,
+      FOOTER: ps && ps.footerEnabled === false ? '' : footerHtml,
     });
 
     const win = new BrowserWindow({
@@ -234,6 +251,7 @@ export async function runReportPrintJob(mode: PrintMode, payload: ReportPrintPay
     const pdfBytes = await win.webContents.printToPDF({
       printBackground: true,
       preferCSSPageSize: true,
+      landscape: ps?.orientation === 'landscape',
       pageSize: 'A4',
     });
 

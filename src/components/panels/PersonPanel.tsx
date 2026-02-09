@@ -23,6 +23,7 @@ import { useToast } from '@/context/ToastContext';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { DynamicFieldsDisplay } from '@/components/dynamic/DynamicFieldsDisplay';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
+import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { storage } from '@/services/storage';
@@ -335,7 +336,9 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
   const safeString = (val: unknown) => (val ? String(val) : '');
   const safeNum = (val: unknown) => (isNaN(Number(val)) ? 0 : Number(val));
 
-  const handlePrint = () => window.print();
+     const handlePrint = () => {
+       void printCurrentViewUnified({ documentType: 'person', entityId: id });
+     };
 
   const handleEditAgreementFromPerson = (agreementId: string) => {
     try {
@@ -537,12 +540,16 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                   </button>
                 </RBACGuard>
               </div>
-              <button
-                onClick={handlePrint}
-                className="flex items-center justify-center gap-2 w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition text-xs font-bold"
-              >
-                <Printer size={14} /> {t('طباعة / PDF')}
-              </button>
+
+              <RBACGuard requiredPermission="PRINT_EXECUTE">
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center justify-center gap-2 w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition text-xs font-bold"
+                >
+                  <Printer size={14} /> {t('طباعة / PDF')}
+                </button>
+              </RBACGuard>
+
               <button
                 onClick={() =>
                   void openWhatsAppForPhones('', [safeString(p.رقم_الهاتف), extraPhone], {

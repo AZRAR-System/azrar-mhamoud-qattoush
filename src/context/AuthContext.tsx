@@ -33,10 +33,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  useEffect(() => {
+    try {
+      const id = user ? String((user as unknown as Record<string, unknown>)?.id ?? '').trim() : '';
+      void window.desktopAuth?.setSessionUser(id || null);
+    } catch {
+      // ignore
+    }
+  }, [user]);
+
   const logout = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('khaberni_user');
+    try {
+      void window.desktopAuth?.setSessionUser(null);
+    } catch {
+      // ignore
+    }
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
@@ -47,6 +61,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(response.data);
           setIsAuthenticated(true);
           localStorage.setItem('khaberni_user', JSON.stringify(response.data));
+          try {
+            const id = String((response.data as unknown as Record<string, unknown>)?.id ?? '').trim();
+            if (id) void window.desktopAuth?.setSessionUser(id);
+          } catch {
+            // ignore
+          }
           resetTimer(); // Start tracking activity
           return true;
         }

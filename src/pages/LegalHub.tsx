@@ -7,6 +7,7 @@ import { ContractDetailsResult, LegalNoticeRecord, LegalNoticeTemplate, الأش
 import { Scale, FileText, Send, Printer, Copy, Clock, Search, CheckCircle, Plus, Trash2, MessageCircle, ExternalLink, Pencil } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { safeCopyToClipboard } from '@/utils/clipboard';
+import { printTextUnified } from '@/services/printing/unifiedPrint';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatDateYMD, formatNumber } from '@/utils/format';
 import { domainGetSmart, installmentsContractsPagedSmart } from '@/services/domainQueries';
@@ -18,10 +19,10 @@ import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
-import { openSafeBlankWindow } from '@/utils/externalLink';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { toDateOnly, parseDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { PaginationControls } from '@/components/shared/PaginationControls';
+import { RBACGuard } from '@/components/shared/RBACGuard';
 
 export const LegalHub: React.FC = () => {
   const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainGet;
@@ -356,45 +357,13 @@ export const LegalHub: React.FC = () => {
 
   const handlePrint = () => {
     const text = generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
-    const printWindow = openSafeBlankWindow();
-    if (!printWindow) return;
-
-    try {
-      const doc = printWindow.document;
-      doc.open();
-      doc.write('<!doctype html><html><head><meta charset="utf-8" /><title>Print</title></head><body></body></html>');
-      doc.close();
-
-      const body = doc.body;
-      body.dir = 'rtl';
-      body.style.margin = '0';
-      body.style.padding = '0';
-
-      const pre = doc.createElement('pre');
-      pre.style.whiteSpace = 'pre-wrap';
-      pre.style.fontFamily = 'sans-serif';
-      pre.style.direction = 'rtl';
-      pre.style.padding = '20px';
-      pre.textContent = String(text ?? '');
-
-      body.appendChild(pre);
-
-      // Give the browser a tick to layout content before printing.
-      setTimeout(() => {
-        try {
-          printWindow.focus();
-        } catch {
-          // ignore
-        }
-        try {
-          printWindow.print();
-        } catch {
-          // ignore
-        }
-      }, 0);
-    } catch {
-      // ignore
-    }
+    if (!text.trim()) return;
+    void printTextUnified({
+      documentType: 'legalhub_notice',
+      entityId: selectedContractId || undefined,
+      title: 'إخطار قانوني',
+      text,
+    });
   };
 
   const handleWhatsApp = () => {
@@ -700,13 +669,15 @@ export const LegalHub: React.FC = () => {
                >
                  <MessageCircle size={18} /> واتساب
                </button>
-                <button 
-                onClick={handlePreparePrint}
-                  disabled={!generatedText}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition font-bold disabled:opacity-50"
-                >
-                   <Printer size={18} /> طباعة
-                </button>
+                <RBACGuard requiredPermission="PRINT_EXECUTE">
+                  <button 
+                  onClick={handlePreparePrint}
+                    disabled={!generatedText}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition font-bold disabled:opacity-50"
+                  >
+                     <Printer size={18} /> طباعة
+                  </button>
+                </RBACGuard>
                 <button 
                 onClick={handleApproveSend}
                 disabled={!pendingSend}

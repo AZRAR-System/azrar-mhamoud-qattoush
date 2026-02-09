@@ -95,6 +95,86 @@ const getOrCreateDbCipherKeySync = (): string => {
   return generated;
 };
 
+type DbCandidate = { path: string; mtimeMs: number; size: number };
+
+const safeReaddirDirsSync = (dir: string): string[] => {
+  try {
+    const items = fsSync.readdirSync(dir, { withFileTypes: true });
+    return items.filter((d) => d.isDirectory()).map((d) => d.name);
+  } catch {
+    return [];
+  }
+};
+
+const safeStatSync = (filePath: string): fsSync.Stats | null => {
+  try {
+    return fsSync.statSync(filePath);
+  } catch {
+    return null;
+  }
+};
+
+const safeExistsFileSync = (filePath: string): boolean => {
+  try {
+    const st = fsSync.statSync(filePath);
+    return st.isFile();
+  } catch {
+    return false;
+  }
+};
+
+function findLegacyDbCandidateSync(options: {
+  currentTargetPath: string;
+  exeAdjacentPath?: string;
+}): DbCandidate | null {
+  const currentTargetPath = path.resolve(options.currentTargetPath);
+  const exeAdjacentPath = options.exeAdjacentPath ? path.resolve(options.exeAdjacentPath) : null;
+
+  const candidates: DbCandidate[] = [];
+
+  const consider = (p: string) => {
+    try {
+      const resolved = path.resolve(p);
+      if (resolved === currentTargetPath) return;
+      if (exeAdjacentPath && resolved === exeAdjacentPath) return;
+      const st = safeStatSync(resolved);
+      if (!st || !st.isFile()) return;
+      if (st.size <= 0) return;
+      candidates.push({ path: resolved, mtimeMs: st.mtimeMs, size: st.size });
+    } catch {
+      // ignore
+    }
+  };
+
+  // Roots to scan (best-effort). In practice, app updates sometimes change app.getPath('userData')
+  // due to app name / appId changes, leaving the previous DB in a sibling folder.
+  const userDataDir = path.dirname(currentTargetPath);
+  const roamingRoot = path.dirname(userDataDir);
+  const appDataRoot = (() => {
+    try {
+      return app.getPath('appData');
+    } catch {
+      return null;
+    }
+  })();
+
+  const roots = [userDataDir, roamingRoot, appDataRoot].filter(Boolean) as string[];
+
+  for (const root of roots) {
+    // Check direct file in the root (rare but harmless)
+    consider(path.join(root, 'khaberni.sqlite'));
+
+    // Check sibling app folders
+    for (const dirName of safeReaddirDirsSync(root)) {
+      consider(path.join(root, dirName, 'khaberni.sqlite'));
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs || b.size - a.size);
+  return candidates[0] || null;
+}
+
 function ensureWritableDirSync(dir: string) {
   fsSync.mkdirSync(dir, { recursive: true });
   const probe = path.join(dir, '.write-test');
@@ -148,6 +228,18 @@ function resolveDbPathSync(): string {
       const exeDir = path.dirname(app.getPath('exe'));
       const exeAdjacentPath = path.join(exeDir, 'khaberni.sqlite');
 
+      // If the DB does not exist in the new location yet, try to recover it from a legacy userData folder.
+      // This handles upgrades where Electron's userData folder name changed.
+      if (!safeExistsFileSync(exeAdjacentPath) && !safeExistsFileSync(userDataPath)) {
+        const legacy = findLegacyDbCandidateSync({ currentTargetPath: userDataPath, exeAdjacentPath });
+        if (legacy) {
+          // Prefer keeping the "next to exe" legacy behavior when possible.
+          _maybeMigrateLegacyDbSync(legacy.path, exeAdjacentPath);
+          // Also seed userData as a fallback (best-effort).
+          _maybeMigrateLegacyDbSync(legacy.path, userDataPath);
+        }
+      }
+
       // If a legacy DB exists there already, keep using it.
       if (fsSync.existsSync(exeAdjacentPath)) {
         resolvedDbPath = exeAdjacentPath;
@@ -157,6 +249,15 @@ function resolveDbPathSync(): string {
       // If we can write next to the exe, use the legacy path.
       try {
         ensureWritableDirSync(exeDir);
+
+        // If we are switching to exe-adjacent but a legacy DB exists somewhere else, migrate it.
+        if (!safeExistsFileSync(exeAdjacentPath)) {
+          const legacy = findLegacyDbCandidateSync({ currentTargetPath: userDataPath, exeAdjacentPath });
+          if (legacy) {
+            _maybeMigrateLegacyDbSync(legacy.path, exeAdjacentPath);
+          }
+        }
+
         resolvedDbPath = exeAdjacentPath;
         return resolvedDbPath;
       } catch {
@@ -164,6 +265,15 @@ function resolveDbPathSync(): string {
       }
     } catch {
       // Ignore and fall back to userData.
+    }
+  }
+
+  // Not packaged (or not writable next to exe): use userData. If the file doesn't exist yet,
+  // try to recover it from legacy folders so an upgrade doesn't look like a fresh install.
+  if (!safeExistsFileSync(userDataPath)) {
+    const legacy = findLegacyDbCandidateSync({ currentTargetPath: userDataPath });
+    if (legacy) {
+      _maybeMigrateLegacyDbSync(legacy.path, userDataPath);
     }
   }
 

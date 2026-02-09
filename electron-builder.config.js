@@ -46,7 +46,9 @@ module.exports = {
   compression: 'maximum',
 
   // Native deps (e.g. better-sqlite3) must be rebuilt against the Electron headers.
-  npmRebuild: true,
+  // NOTE: Disabled because Node.js v24 can break @electron/rebuild at build time.
+  // The dist script already validates better-sqlite3 loads in the Electron runtime.
+  npmRebuild: false,
 
   // إعدادات التحديثات التلقائية
   publish: (() => {
@@ -71,10 +73,11 @@ module.exports = {
     ],
     icon: 'build/icon.png',
     
-    // إعدادات التوقيع الرقمي
+    // إعدادات التوقيع الرقمي (فعّلها فقط عند توفر الشهادة/صلاحيات symlink)
     signAndEditExecutable: false,
     signtoolOptions: {
       signingHashAlgorithms: ['sha256'],
+      timeStampServer: 'http://timestamp.digicert.com',
       rfc3161TimeStampServer: 'http://timestamp.digicert.com',
     },
     

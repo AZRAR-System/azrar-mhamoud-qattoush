@@ -966,10 +966,10 @@ const buildContractAlertContext = (
 const handleSmartEngine = (category: 'person' | 'property' | 'contract', data: unknown) => {
   const record = asUnknownRecord(data);
   SmartEngine.track(category, record);
-  const anomaliesDetailed = SmartEngine.detectAnomaliesDetailed(category, record);
-  if (anomaliesDetailed.length > 0) {
+  const anomalyMessages = SmartEngine.detectAnomalies(category, record);
+  if (anomalyMessages.length > 0) {
     const todayISO = new Date().toISOString().split('T')[0];
-    const msg = anomaliesDetailed.map((a) => a.message).join(' ');
+    const msg = anomalyMessages.join(' ');
 
     const contractId =
       category === 'contract' ? String(record['رقم_العقد'] ?? '').trim() : '';
@@ -983,13 +983,9 @@ const handleSmartEngine = (category: 'person' | 'property' | 'contract', data: u
       تاريخ_الانشاء: todayISO,
       تم_القراءة: false,
       ...context,
-      details: anomaliesDetailed.map((a, idx) => ({
+      details: anomalyMessages.map((note, idx) => ({
         id: `smart-${todayISO}-${idx}`,
-        field: a.field,
-        kind: a.kind,
-        value: a.value,
-        mean: a.mean,
-        note: a.message,
+        note,
       })),
     };
     upsertAlert(newAlert);
@@ -5406,6 +5402,12 @@ export const DbService = {
     { code: 'BLACKLIST_VIEW', label: 'عرض القائمة السوداء', category: 'Security' },
     { code: 'BLACKLIST_ADD', label: 'إضافة للقائمة السوداء', category: 'Security' },
     { code: 'BLACKLIST_REMOVE', label: 'رفع الحظر (إزالة)', category: 'Security' },
+    // Printing (Enterprise)
+    { code: 'PRINT_PREVIEW', label: 'فتح معاينة الطباعة', category: 'Printing' },
+    { code: 'PRINT_EXECUTE', label: 'تنفيذ الطباعة', category: 'Printing' },
+    { code: 'PRINT_EXPORT', label: 'تصدير ملفات (Word/PDF)', category: 'Printing' },
+    { code: 'PRINT_SETTINGS_EDIT', label: 'تعديل إعدادات الطباعة', category: 'Printing' },
+    { code: 'PRINT_TEMPLATES_EDIT', label: 'إدارة قوالب الطباعة', category: 'Printing' },
   ],
 
   getSettings: (): SystemSettings => {

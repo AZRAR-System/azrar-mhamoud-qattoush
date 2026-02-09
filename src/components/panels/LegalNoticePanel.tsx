@@ -7,6 +7,8 @@ import { useToast } from '@/context/ToastContext';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getOfficialBrandSignature } from '@/utils/brandSignature';
+import { RBACGuard } from '@/components/shared/RBACGuard';
+import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 
 const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
@@ -32,7 +34,7 @@ export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
   };
 
   const handlePrint = () => {
-    window.print();
+    void printCurrentViewUnified({ documentType: 'legal_notice', entityId: id });
     saveHistory('Print');
   };
 
@@ -136,13 +138,15 @@ export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
         >
           <MessageCircle size={20} /> إرسال واتساب
         </button>
-        <button 
-          onClick={handlePrint}
-          disabled={!generatedText}
-          className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl font-bold transition disabled:opacity-50"
-        >
-          <Printer size={20} /> طباعة / PDF
-        </button>
+        <RBACGuard requiredPermission="PRINT_EXECUTE">
+          <button 
+            onClick={handlePrint}
+            disabled={!generatedText}
+            className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl font-bold transition disabled:opacity-50"
+          >
+            <Printer size={20} /> طباعة / PDF
+          </button>
+        </RBACGuard>
       </div>
     </div>
   );

@@ -491,10 +491,265 @@ export interface DesktopUpdaterBridge {
   onEvent?(handler: (evt: unknown) => void): () => void;
 }
 
+export type DesktopPrintEngineJob =
+  | {
+      type: 'currentView';
+      mode: 'print';
+    }
+  | {
+      type: 'text';
+      mode: 'print';
+      payload: {
+        title?: string;
+        text: string;
+      };
+    }
+  | {
+      type: 'docx';
+      mode: 'docx';
+      payload: {
+        templateName?: string;
+        data: Record<string, unknown>;
+        defaultFileName?: string;
+        headerFooter?: {
+          headerEnabled?: boolean;
+          footerEnabled?: boolean;
+          headerTemplate?: string;
+          footerTemplate?: string;
+          companyName?: string;
+          companySlogan?: string;
+          companyIdentityText?: string;
+          userName?: string;
+          dateIso?: string;
+        };
+      };
+    }
+  | {
+      type: 'generate';
+      mode: 'generate';
+      payload: {
+        templateName?: string;
+        data: Record<string, unknown>;
+        outputType: 'docx' | 'pdf';
+        defaultFileName?: string;
+        headerFooter?: {
+          headerEnabled?: boolean;
+          footerEnabled?: boolean;
+          headerTemplate?: string;
+          footerTemplate?: string;
+          companyName?: string;
+          companySlogan?: string;
+          companyIdentityText?: string;
+          userName?: string;
+          dateIso?: string;
+        };
+      };
+    }
+  | {
+      type: 'report';
+      mode: 'print' | 'pdf';
+      payload: unknown;
+    };
+
+export type DesktopPrintEngineResult =
+  | { ok: true; savedPath?: string; outputType?: 'docx' | 'pdf'; tempPath?: string; fileName?: string }
+  | { ok: false; code: 'CANCELED' | 'FAILED' | 'INVALID' | string; message: string };
+
+export interface DesktopPrintEngineBridge {
+  run(job: DesktopPrintEngineJob): Promise<DesktopPrintEngineResult>;
+}
+
+export type DesktopPrintDispatchRequest =
+  | {
+      action: 'printCurrentView';
+      documentType: string;
+      entityId?: string;
+      data?: Record<string, unknown>;
+    }
+  | {
+      action: 'printText';
+      documentType: string;
+      entityId?: string;
+      title?: string;
+      text: string;
+      data?: Record<string, unknown>;
+    }
+  | {
+      action: 'generate';
+      documentType: string;
+      entityId?: string;
+      templateName?: string;
+      outputType: 'docx' | 'pdf';
+      defaultFileName?: string;
+      headerFooter?: {
+        headerEnabled?: boolean;
+        footerEnabled?: boolean;
+        headerTemplate?: string;
+        footerTemplate?: string;
+        companyName?: string;
+        companySlogan?: string;
+        companyIdentityText?: string;
+        userName?: string;
+        dateIso?: string;
+      };
+      data: Record<string, unknown>;
+    }
+  | {
+      action: 'exportDocx';
+      documentType: string;
+      entityId?: string;
+      templateName?: string;
+      defaultFileName?: string;
+      headerFooter?: {
+        headerEnabled?: boolean;
+        footerEnabled?: boolean;
+        headerTemplate?: string;
+        footerTemplate?: string;
+        companyName?: string;
+        companySlogan?: string;
+        companyIdentityText?: string;
+        userName?: string;
+        dateIso?: string;
+      };
+      data: Record<string, unknown>;
+    };
+
+export type DesktopPrintDispatchResult =
+  | { ok: true; savedPath?: string; outputType?: 'docx' | 'pdf'; tempPath?: string; fileName?: string }
+  | { ok: false; code: 'CANCELED' | 'FAILED' | 'INVALID' | 'FORBIDDEN' | string; message: string };
+
+export interface DesktopPrintDispatchBridge {
+  run(request: DesktopPrintDispatchRequest): Promise<DesktopPrintDispatchResult>;
+}
+
+export type DesktopPrintSettings = {
+  pageSize: 'A4' | 'A5' | 'Letter' | 'Legal' | { widthMm: number; heightMm: number };
+  orientation: 'portrait' | 'landscape';
+  marginsMm: { top: number; right: number; bottom: number; left: number };
+  fontFamily: string;
+  rtl: boolean;
+  headerEnabled: boolean;
+  footerEnabled: boolean;
+  pdfExport?: {
+    sofficePath?: string;
+  };
+};
+
+export type DesktopPrintSettingsGetResult =
+  | { ok: true; settings: DesktopPrintSettings; filePath: string }
+  | { ok: false; code: 'FAILED'; message: string };
+
+export type DesktopPrintSettingsSaveResult =
+  | { ok: true; filePath: string }
+  | { ok: false; code: 'INVALID' | 'FAILED'; message: string };
+
+export interface DesktopPrintSettingsBridge {
+  get(): Promise<DesktopPrintSettingsGetResult>;
+  save(settings: DesktopPrintSettings): Promise<DesktopPrintSettingsSaveResult>;
+  getPath(): Promise<{ ok: true; filePath: string } | { ok: false; code: 'FAILED'; message: string }>;
+}
+
+export type DesktopPrintPreviewOpenPayload = {
+  templateName?: string;
+  data: Record<string, unknown>;
+  defaultFileName?: string;
+  headerFooter?: {
+    headerEnabled?: boolean;
+    footerEnabled?: boolean;
+    headerTemplate?: string;
+    footerTemplate?: string;
+    companyName?: string;
+    companySlogan?: string;
+    companyIdentityText?: string;
+    userName?: string;
+    dateIso?: string;
+  };
+};
+
+export type DesktopPrintPreviewOpenResult =
+  | { ok: true; sessionId: string }
+  | { ok: false; code: 'CANCELED' | 'FAILED' | 'INVALID' | 'FORBIDDEN' | string; message: string };
+
+export type DesktopPrintPreviewStateResult =
+  | { ok: true; sessionId: string; pdfPath: string; pdfUrl: string; fileName: string; createdAtIso: string }
+  | { ok: false; code: 'FAILED' | 'INVALID' | 'FORBIDDEN' | string; message: string };
+
+export type DesktopPrintPreviewActionResult =
+  | { ok: true; savedPath?: string }
+  | { ok: false; code: 'CANCELED' | 'FAILED' | 'INVALID' | 'FORBIDDEN' | string; message: string };
+
+export type DesktopPreviewPrinterInfo = {
+  name: string;
+  displayName?: string;
+  isDefault?: boolean;
+};
+
+export type DesktopPrintPreviewPrintersResult =
+  | { ok: true; printers: DesktopPreviewPrinterInfo[] }
+  | { ok: false; code: 'FAILED' | 'FORBIDDEN' | string; message: string };
+
+export type DesktopPrintPreviewPrintOptions = {
+  deviceName?: string;
+  silent?: boolean;
+  printBackground?: boolean;
+};
+
+export interface DesktopPrintPreviewBridge {
+  open(payload: DesktopPrintPreviewOpenPayload): Promise<DesktopPrintPreviewOpenResult>;
+  getState(sessionId: string): Promise<DesktopPrintPreviewStateResult>;
+  listPrinters(): Promise<DesktopPrintPreviewPrintersResult>;
+  print(sessionId: string, options?: DesktopPrintPreviewPrintOptions): Promise<DesktopPrintPreviewActionResult>;
+  exportPdf(sessionId: string): Promise<DesktopPrintPreviewActionResult>;
+  exportDocx(sessionId: string): Promise<DesktopPrintPreviewActionResult>;
+  reload(sessionId: string): Promise<DesktopPrintPreviewActionResult>;
+}
+
+export interface DesktopAuthBridge {
+  setSessionUser(userId: string | null): Promise<{ ok: true } | { ok: false; message?: string } | unknown>;
+}
+
+export interface DesktopLicenseBridge {
+  getDeviceFingerprint: () => Promise<unknown>;
+  getStatus: () => Promise<unknown>;
+  hasFeature: (featureName: string) => Promise<unknown>;
+  activateFromContent: (raw: string) => Promise<unknown>;
+  activateOnline: (payload: { licenseKey: string; serverUrl?: string }) => Promise<unknown>;
+  getServerUrl: () => Promise<unknown>;
+  setServerUrl: (url: string) => Promise<unknown>;
+  refreshOnlineStatus: () => Promise<unknown>;
+  deactivate: () => Promise<unknown>;
+}
+
+export interface DesktopLicenseAdminBridge {
+  login: (payload: { username: string; password: string }) => Promise<unknown>;
+  logout: () => Promise<unknown>;
+  getUser: () => Promise<unknown>;
+  updateUser: (payload: { username: string; newPassword?: string }) => Promise<unknown>;
+  getAdminTokenStatus: (payload: { serverUrl?: string }) => Promise<unknown>;
+  setAdminToken: (payload: { token: string; serverUrl?: string }) => Promise<unknown>;
+  list: (payload: { serverUrl: string; q?: string; limit?: number }) => Promise<unknown>;
+  get: (payload: { serverUrl: string; licenseKey: string }) => Promise<unknown>;
+  issue: (payload: Record<string, unknown>) => Promise<unknown>;
+  setStatus: (payload: Record<string, unknown>) => Promise<unknown>;
+  activate: (payload: { serverUrl: string; licenseKey: string; deviceId: string }) => Promise<unknown>;
+  checkStatus: (payload: { serverUrl: string; licenseKey: string; deviceId: string }) => Promise<unknown>;
+  delete: (payload: { serverUrl: string; licenseKey: string }) => Promise<unknown>;
+  updateAfterSales: (payload: Record<string, unknown>) => Promise<unknown>;
+  saveLicenseFile: (payload: { confirmPassword: string; content: string; defaultFileName?: string }) => Promise<unknown>;
+  unbindDevice?: (payload: Record<string, unknown>) => Promise<unknown>;
+}
+
 declare global {
   interface Window {
     desktopDb?: DesktopDbBridge;
     desktopUpdater?: DesktopUpdaterBridge;
+    desktopPrintEngine?: DesktopPrintEngineBridge;
+    desktopPrintDispatch?: DesktopPrintDispatchBridge;
+    desktopPrintSettings?: DesktopPrintSettingsBridge;
+    desktopPrintPreview?: DesktopPrintPreviewBridge;
+    desktopAuth?: DesktopAuthBridge;
+    desktopLicense?: DesktopLicenseBridge;
+    desktopLicenseAdmin?: DesktopLicenseAdminBridge;
   }
 }
 

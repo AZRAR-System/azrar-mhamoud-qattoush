@@ -27,6 +27,8 @@ import { SqlSyncLogPanel } from '@/components/panels/SqlSyncLogPanel';
 import { InspectionFormPanel } from '@/components/panels/InspectionFormPanel';
 import { BulkWhatsAppPanel } from '@/components/panels/BulkWhatsAppPanel';
 import { MarqueeAdsPanel } from '@/components/panels/MarqueeAdsPanel';
+import { NotificationTemplatesPanel } from '@/components/panels/NotificationTemplatesPanel';
+import { ContractWhatsAppSendPanel } from '@/components/panels/ContractWhatsAppSendPanel';
 
 type PanelComponentProps = { id?: string; onClose: () => void } & Record<string, unknown>;
 type PanelComponent = React.ComponentType<PanelComponentProps>;
@@ -38,6 +40,7 @@ const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   REPORT_VIEWER: ReportPanel as unknown as PanelComponent,
   LEGAL_NOTICE_GENERATOR: LegalNoticePanel as unknown as PanelComponent,
   BULK_WHATSAPP: BulkWhatsAppPanel as unknown as PanelComponent,
+  CONTRACT_WHATSAPP_SEND: ContractWhatsAppSendPanel as unknown as PanelComponent,
   SALES_LISTING_DETAILS: SalesPanel as unknown as PanelComponent,
   CLEARANCE_REPORT: ClearanceReportPanel as unknown as PanelComponent,
   CLEARANCE_WIZARD: ClearanceWizardPanel as unknown as PanelComponent,
@@ -49,6 +52,7 @@ const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   SMART_PROMPT: SmartPromptPanel as unknown as PanelComponent,
   CALENDAR_EVENTS: CalendarEventsPanel as unknown as PanelComponent,
   PAYMENT_NOTIFICATIONS: PaymentNotificationsPanel as unknown as PanelComponent,
+  NOTIFICATION_TEMPLATES: NotificationTemplatesPanel as unknown as PanelComponent,
   GENERIC_ALERT: GenericAlertPanel as unknown as PanelComponent,
   SECTION_VIEW: SectionViewPanel as unknown as PanelComponent,
   SERVER_DRAWER: ServerDrawerPanel as unknown as PanelComponent,
@@ -66,6 +70,8 @@ const PANEL_TITLES: Partial<Record<PanelType, string>> = {
   REPORT_VIEWER: 'عرض التقرير',
   LEGAL_NOTICE_GENERATOR: 'إنشاء إشعار قانوني',
   BULK_WHATSAPP: 'إرسال واتساب جماعي',
+  CONTRACT_WHATSAPP_SEND: 'إرسال واتساب',
+  NOTIFICATION_TEMPLATES: 'قوالب الرسائل والإشعارات',
   SALES_LISTING_DETAILS: 'تفاصيل البيع',
   CLEARANCE_REPORT: 'تقرير براءة الذمة',
   CLEARANCE_WIZARD: 'إنهاء / براءة ذمة',

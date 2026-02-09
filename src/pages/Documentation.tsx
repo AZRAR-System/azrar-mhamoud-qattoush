@@ -3,11 +3,13 @@ import React from 'react';
 import { Printer, BookOpen, Code, Layers, Database, Server } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
+import { RBACGuard } from '@/components/shared/RBACGuard';
+import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 
 export const Documentation: React.FC = () => {
   
   const handlePrint = () => {
-    window.print();
+    void printCurrentViewUnified({ documentType: 'documentation' });
   };
 
   return (
@@ -21,9 +23,11 @@ export const Documentation: React.FC = () => {
           </h2>
           <p className={DS.components.pageSubtitle}>مرجع المطورين، الهيكلية، ودليل التشغيل</p>
         </div>
-        <Button onClick={handlePrint} rightIcon={<Printer size={18} />}>
-          حفظ كـ PDF
-        </Button>
+        <RBACGuard requiredPermission="PRINT_EXECUTE">
+          <Button onClick={handlePrint} rightIcon={<Printer size={18} />}>
+            حفظ كـ PDF
+          </Button>
+        </RBACGuard>
       </div>
 
       {/* Document Content (Printable) */}

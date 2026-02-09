@@ -26,6 +26,7 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { RBACGuard } from '@/components/shared/RBACGuard';
+import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { ActivityTimeline } from '@/components/ActivityTimeline';
 import { NotesSection } from '@/components/shared/NotesSection';
@@ -733,7 +734,9 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     }
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    void printCurrentViewUnified({ documentType: 'contract', entityId: id });
+  };
 
   const handleOpenContractWordForEdit = async () => {
     try {
@@ -1118,7 +1121,6 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
       const mammothCandidate: unknown = isRecord(mammothMod) && 'default' in mammothMod ? mammothMod.default : mammothMod;
       if (!isMammothConverter(mammothCandidate)) throw new Error('تعذر تحميل محول DOCX');
       const result = await mammothCandidate.convertToHtml({ arrayBuffer: built.bytes });
-
       setContractWordPreviewTitle(built.outName);
       setContractWordPreviewHtml(sanitizeDocxHtml(String(result?.value || '')));
       setIsContractWordPreviewOpen(true);

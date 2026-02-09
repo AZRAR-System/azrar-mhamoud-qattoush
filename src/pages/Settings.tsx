@@ -21,6 +21,8 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { sanitizeDocxHtml } from '@/utils/sanitizeHtml';
 import { exportToXlsx } from '@/utils/xlsx';
 import { CONTRACT_WORD_TEMPLATE_VARIABLES } from '@/constants/contractWordTemplateVariables';
+import { getPrintingQaSampleData } from '@/services/printing/qaSamples';
+import { exportDocxUnified, generateTemplateUnified } from '@/services/printing/unifiedPrint';
 
 type SqlStatus = { configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string };
 type DesktopOkMessage = { ok?: boolean; message?: string };
@@ -295,6 +297,266 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
     },
     [toast]
   );
+
+  // Phase 2 (Printing): DOCX templates (managed via IPC; renderer has no print logic)
+  const [docxTemplates, setDocxTemplates] = useState<string[]>([]);
+  const [docxTemplatesBusy, setDocxTemplatesBusy] = useState(false);
+  const [selectedDocxTemplate, setSelectedDocxTemplate] = useState<string>('');
+
+  const [lastGeneratedTempPath, setLastGeneratedTempPath] = useState<string>('');
+
+  // Phase 4 (Printing): Print settings (JSON file in userData; managed via IPC)
+  const [printSettingsBusy, setPrintSettingsBusy] = useState(false);
+  const [printSettingsPath, setPrintSettingsPath] = useState<string>('');
+  const [printSettingsForm, setPrintSettingsForm] = useState({
+    pageSize: 'A4' as 'A4' | 'A5' | 'Letter' | 'Legal' | { widthMm: number; heightMm: number },
+    orientation: 'portrait' as 'portrait' | 'landscape',
+    marginsMm: { top: 16, right: 16, bottom: 16, left: 16 },
+    fontFamily: 'system-ui, -apple-system, Segoe UI, Tahoma, Arial, sans-serif',
+    rtl: true,
+    headerEnabled: true,
+    footerEnabled: true,
+    pdfExport: { sofficePath: '' },
+  });
+
+  const loadPrintSettings = async () => {
+    if (!window.desktopPrintSettings?.get) return;
+    setPrintSettingsBusy(true);
+    try {
+      const res = await window.desktopPrintSettings.get();
+      if (res && typeof res === 'object' && 'ok' in res && (res as { ok: boolean }).ok) {
+        const okRes = res as { ok: true; settings: Partial<typeof printSettingsForm>; filePath: string };
+        setPrintSettingsForm((prev) => ({
+          ...prev,
+          ...okRes.settings,
+          pdfExport: {
+            sofficePath: String((okRes.settings as unknown as { pdfExport?: { sofficePath?: unknown } })?.pdfExport?.sofficePath ?? prev.pdfExport.sofficePath ?? '').trim(),
+          },
+        }));
+        setPrintSettingsPath(okRes.filePath || '');
+      } else {
+        const msg = (res && typeof res === 'object' && 'message' in res) ? String((res as { message?: unknown }).message || '') : '';
+        toast.error(msg || 'تعذر تحميل إعدادات الطباعة');
+      }
+    } catch {
+      toast.error('تعذر تحميل إعدادات الطباعة');
+    } finally {
+      setPrintSettingsBusy(false);
+    }
+  };
+
+  const savePrintSettings = async () => {
+    if (!window.desktopPrintSettings?.save) return;
+    setPrintSettingsBusy(true);
+    try {
+      const cleaned = {
+        ...printSettingsForm,
+        pdfExport: {
+          sofficePath: String(printSettingsForm.pdfExport?.sofficePath ?? '').trim(),
+        },
+      };
+
+      const res = await window.desktopPrintSettings.save(cleaned);
+      if (res && typeof res === 'object' && 'ok' in res && (res as { ok: boolean }).ok) {
+        const okRes = res as { ok: true; filePath: string };
+        toast.success('تم حفظ إعدادات الطباعة');
+        if (okRes.filePath) setPrintSettingsPath(okRes.filePath);
+      } else {
+        const msg = (res && typeof res === 'object' && 'message' in res) ? String((res as { message?: unknown }).message || '') : '';
+        toast.error(msg || 'تعذر حفظ إعدادات الطباعة');
+      }
+    } catch {
+      toast.error('تعذر حفظ إعدادات الطباعة');
+    } finally {
+      setPrintSettingsBusy(false);
+    }
+  };
+
+  const refreshDocxTemplates = async () => {
+    if (!window.desktopDb?.listTemplates) return;
+    setDocxTemplatesBusy(true);
+    try {
+      const res = await window.desktopDb.listTemplates();
+      if (res && typeof res === 'object' && 'success' in res && (res as { success: boolean }).success) {
+        const items = (res as { items?: string[] }).items || [];
+        setDocxTemplates(items);
+        if (!selectedDocxTemplate && items.length > 0) {
+          const first = items[0];
+          if (first) setSelectedDocxTemplate(first);
+        }
+      } else {
+        const msg = (res as { message?: string } | undefined)?.message || 'تعذر تحميل قائمة القوالب';
+        toast.error(msg);
+      }
+    } catch {
+      toast.error('تعذر تحميل قائمة القوالب');
+    } finally {
+      setDocxTemplatesBusy(false);
+    }
+  };
+
+  const importDocxTemplate = async () => {
+    if (!window.desktopDb?.importTemplate) return;
+    try {
+      const res = await window.desktopDb.importTemplate();
+      if (res?.success) {
+        toast.success('تم استيراد القالب بنجاح');
+        await refreshDocxTemplates();
+      } else {
+        toast.error(res?.message || 'تم الإلغاء أو فشل الاستيراد');
+      }
+    } catch {
+      toast.error('فشل استيراد القالب');
+    }
+  };
+
+  const generateSampleLeaseTempPdf = async () => {
+    if (!window.desktopPrintDispatch?.run && !window.desktopPrintEngine?.run) {
+      toast.error('ميزة التوليد متاحة في نسخة سطح المكتب فقط');
+      return;
+    }
+    try {
+      setLastGeneratedTempPath('');
+      const qaData = getPrintingQaSampleData();
+      const res = await generateTemplateUnified({
+        documentType: 'settings_sample_lease',
+        templateName: selectedDocxTemplate || undefined,
+        data: qaData,
+        outputType: 'pdf',
+        defaultFileName: 'عقد_إيجار_تجريبي',
+      });
+
+      if (res && typeof res === 'object' && 'ok' in res && (res as { ok: boolean }).ok) {
+        const okRes = res as { ok: true; tempPath?: string; savedPath?: string };
+        const p = okRes.tempPath || okRes.savedPath || '';
+        setLastGeneratedTempPath(p);
+        toast.success('تم توليد PDF مؤقت بنجاح');
+      } else {
+        const msg = (res && typeof res === 'object' && 'message' in res) ? String((res as { message?: unknown }).message || '') : '';
+        toast.error(msg || 'فشل توليد PDF مؤقت');
+      }
+    } catch {
+      toast.error('فشل توليد PDF مؤقت');
+    }
+  };
+
+  const openPrintPreviewWindow = async () => {
+    if (!window.desktopPrintPreview?.open) return;
+    try {
+      const qaData = getPrintingQaSampleData();
+      const res = await window.desktopPrintPreview.open({
+        templateName: selectedDocxTemplate || undefined,
+        data: qaData,
+        defaultFileName: 'عقد_إيجار_تجريبي',
+      });
+
+      if (res && typeof res === 'object' && 'ok' in res && (res as { ok: boolean }).ok) {
+        toast.success('تم فتح نافذة المعاينة');
+      } else {
+        const msg = (res && typeof res === 'object' && 'message' in res) ? String((res as { message?: unknown }).message || '') : '';
+        toast.error(msg || 'تعذر فتح نافذة المعاينة');
+      }
+    } catch {
+      toast.error('تعذر فتح نافذة المعاينة');
+    }
+  };
+
+  const generateSampleLeaseDocx = async () => {
+    if (!window.desktopPrintDispatch?.run && !window.desktopPrintEngine?.run) {
+      toast.error('ميزة التوليد متاحة في نسخة سطح المكتب فقط');
+      return;
+    }
+
+    const userName =
+      (typeof user === 'object' && user ? ((user as unknown as Record<string, unknown>).name ?? (user as unknown as Record<string, unknown>).username) : undefined) as
+        | string
+        | undefined;
+
+    const headerEnabled = (settings as unknown as Record<string, unknown> | null | undefined)?.letterheadEnabled !== false;
+    const companyName = String((settings as unknown as Record<string, unknown> | null | undefined)?.companyName || '');
+    const companySlogan = String((settings as unknown as Record<string, unknown> | null | undefined)?.companySlogan || '');
+    const companyIdentityText = String((settings as unknown as Record<string, unknown> | null | undefined)?.companyIdentityText || '');
+
+    const qaData = getPrintingQaSampleData();
+    const result = await exportDocxUnified({
+      documentType: 'settings_sample_lease',
+      templateName: selectedDocxTemplate || undefined,
+      defaultFileName: 'عقد إيجار (تجريبي)',
+      headerFooter: {
+        headerEnabled,
+        footerEnabled: true,
+        companyName,
+        companySlogan,
+        companyIdentityText,
+        userName: userName ? String(userName) : undefined,
+        dateIso: new Date().toISOString().slice(0, 10),
+      },
+      data: qaData,
+    });
+
+    if (!result) {
+      toast.error('فشل توليد ملف Word');
+      return;
+    }
+
+    if (result.ok) toast.success('تم توليد ملف Word بنجاح');
+    else toast.error(('message' in result ? result.message : '') || 'فشل توليد ملف Word');
+  };
+
+  const generateSampleLeaseTempDocx = async () => {
+    if (!window.desktopPrintDispatch?.run && !window.desktopPrintEngine?.run) {
+      toast.error('ميزة التوليد متاحة في نسخة سطح المكتب فقط');
+      return;
+    }
+
+    const userName =
+      (typeof user === 'object' && user ? ((user as unknown as Record<string, unknown>).name ?? (user as unknown as Record<string, unknown>).username) : undefined) as
+        | string
+        | undefined;
+
+    const headerEnabled = (settings as unknown as Record<string, unknown> | null | undefined)?.letterheadEnabled !== false;
+    const companyName = String((settings as unknown as Record<string, unknown> | null | undefined)?.companyName || '');
+    const companySlogan = String((settings as unknown as Record<string, unknown> | null | undefined)?.companySlogan || '');
+    const companyIdentityText = String((settings as unknown as Record<string, unknown> | null | undefined)?.companyIdentityText || '');
+
+    const qaData = getPrintingQaSampleData();
+    const result = await generateTemplateUnified({
+      documentType: 'settings_sample_lease',
+      outputType: 'docx',
+      templateName: selectedDocxTemplate || undefined,
+      defaultFileName: 'عقد إيجار (مؤقت)',
+      headerFooter: {
+        headerEnabled,
+        footerEnabled: true,
+        companyName,
+        companySlogan,
+        companyIdentityText,
+        userName: userName ? String(userName) : undefined,
+        dateIso: new Date().toISOString().slice(0, 10),
+      },
+      data: qaData,
+    });
+
+    if (!result) {
+      toast.error('فشل التوليد المؤقت');
+      return;
+    }
+
+    if (result.ok) {
+      setLastGeneratedTempPath(result.tempPath || '');
+      toast.success('تم توليد ملف مؤقت بنجاح');
+    } else {
+      toast.error(('message' in result ? result.message : '') || 'فشل التوليد المؤقت');
+    }
+  };
+
+  useEffect(() => {
+    if (!isDesktop) return;
+    if (activeSection !== 'general') return;
+    void refreshDocxTemplates();
+    void loadPrintSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDesktop, activeSection]);
 
   const [sqlForm, setSqlForm] = useState({
     enabled: false,
@@ -2068,6 +2330,278 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         ملاحظة: يمكن كتابة أكثر من سطر وسيظهر كما هو في الطباعة.
                       </div>
                     </div>
+                </section>
+
+                {/* DOCX Templates (Phase 2) */}
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                    <Building className="text-indigo-500" size={20}/> قوالب Word (DOCX)
+                  </h3>
+
+                  {!isDesktop && (
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                      هذه الميزة متاحة في نسخة سطح المكتب فقط.
+                    </div>
+                  )}
+
+                  {isDesktop && (
+                    <>
+                      <div className="flex flex-col md:flex-row gap-3 md:items-end mb-4">
+                        <div className="flex-1">
+                          <label className={labelClass}>اختيار قالب</label>
+                          <select
+                            className={inputClass}
+                            value={selectedDocxTemplate}
+                            onChange={(e) => setSelectedDocxTemplate(e.target.value)}
+                            disabled={docxTemplatesBusy}
+                          >
+                            <option value="">(اختيار تلقائي إذا كان هناك قالب واحد)</option>
+                            {docxTemplates.map((t) => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                            يمكنك وضع قالبك داخل مجلد المستخدم: <span className="font-mono">templates/contracts</span> أو استيراده من هنا.
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button variant="secondary" onClick={refreshDocxTemplates} disabled={docxTemplatesBusy}>
+                            تحديث
+                          </Button>
+                          <RBACGuard requiredPermissionsAny={['PRINT_TEMPLATES_EDIT', 'SETTINGS_ADMIN']}>
+                            <Button variant="secondary" onClick={importDocxTemplate} disabled={docxTemplatesBusy}>
+                              استيراد قالب
+                            </Button>
+                          </RBACGuard>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row gap-3 md:items-center justify-between">
+                        <div className="text-sm text-slate-600 dark:text-slate-300">
+                          المتغيرات داخل القالب تكون بصيغة <span className="font-mono">{'{{tenant_name}}'}</span> وغيرها.
+                        </div>
+                        <div className="flex gap-2">
+                          <RBACGuard requiredPermissionsAny={['PRINT_EXPORT', 'SETTINGS_ADMIN']}>
+                            <Button variant="secondary" onClick={generateSampleLeaseTempDocx} disabled={docxTemplatesBusy}>
+                              توليد مؤقت (مرحلة 5)
+                            </Button>
+                          </RBACGuard>
+                          <RBACGuard requiredPermissionsAny={['PRINT_EXPORT', 'SETTINGS_ADMIN']}>
+                            <Button variant="secondary" onClick={generateSampleLeaseTempPdf} disabled={docxTemplatesBusy}>
+                              توليد PDF مؤقت (مرحلة 6)
+                            </Button>
+                          </RBACGuard>
+                          <RBACGuard requiredPermissionsAny={['PRINT_PREVIEW', 'SETTINGS_ADMIN']}>
+                            <Button variant="secondary" onClick={openPrintPreviewWindow} disabled={docxTemplatesBusy}>
+                              معاينة (مرحلة 7)
+                            </Button>
+                          </RBACGuard>
+                          <RBACGuard requiredPermissionsAny={['PRINT_EXPORT', 'SETTINGS_ADMIN']}>
+                            <Button onClick={generateSampleLeaseDocx} disabled={docxTemplatesBusy}>
+                              توليد عقد تجريبي (Word)
+                            </Button>
+                          </RBACGuard>
+                        </div>
+                      </div>
+
+                      {lastGeneratedTempPath && (
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-3">
+                          آخر ملف مؤقت: <span className="font-mono">{lastGeneratedTempPath}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </section>
+
+                {/* Print Settings (Phase 4) */}
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                    <FileJson className="text-indigo-500" size={20}/> إعدادات الطباعة (print.settings.json)
+                  </h3>
+
+                  {!isDesktop && (
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                      هذه الميزة متاحة في نسخة سطح المكتب فقط.
+                    </div>
+                  )}
+
+                  {isDesktop && (
+                    <>
+                      {printSettingsPath && (
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-4">
+                          المسار: <span className="font-mono">{printSettingsPath}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className={labelClass}>حجم الصفحة</label>
+                          <select
+                            className={inputClass}
+                            value={typeof printSettingsForm.pageSize === 'string' ? printSettingsForm.pageSize : 'custom'}
+                            disabled={printSettingsBusy}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === 'A4' || v === 'A5' || v === 'Letter' || v === 'Legal') {
+                                setPrintSettingsForm({ ...printSettingsForm, pageSize: v });
+                              }
+                            }}
+                          >
+                            <option value="A4">A4</option>
+                            <option value="A5">A5</option>
+                            <option value="Letter">Letter</option>
+                            <option value="Legal">Legal</option>
+                            <option value="custom">(مخصص)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>الاتجاه</label>
+                          <select
+                            className={inputClass}
+                            value={printSettingsForm.orientation}
+                            disabled={printSettingsBusy}
+                            onChange={(e) => {
+                              const v = e.target.value === 'landscape' ? 'landscape' : 'portrait';
+                              setPrintSettingsForm({ ...printSettingsForm, orientation: v });
+                            }}
+                          >
+                            <option value="portrait">طولي</option>
+                            <option value="landscape">عرضي</option>
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className={labelClass}>الخط</label>
+                          <input
+                            className={inputClass}
+                            value={printSettingsForm.fontFamily}
+                            disabled={printSettingsBusy}
+                            onChange={(e) => setPrintSettingsForm({ ...printSettingsForm, fontFamily: e.target.value })}
+                          />
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                            مثال: <span className="font-mono">Tahoma, Arial</span>
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className={labelClass}>الهوامش (مم)</label>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <input
+                              type="number"
+                              className={inputClass}
+                              value={printSettingsForm.marginsMm.top}
+                              disabled={printSettingsBusy}
+                              onChange={(e) => setPrintSettingsForm({
+                                ...printSettingsForm,
+                                marginsMm: { ...printSettingsForm.marginsMm, top: Number(e.target.value) },
+                              })}
+                              placeholder="أعلى"
+                            />
+                            <input
+                              type="number"
+                              className={inputClass}
+                              value={printSettingsForm.marginsMm.right}
+                              disabled={printSettingsBusy}
+                              onChange={(e) => setPrintSettingsForm({
+                                ...printSettingsForm,
+                                marginsMm: { ...printSettingsForm.marginsMm, right: Number(e.target.value) },
+                              })}
+                              placeholder="يمين"
+                            />
+                            <input
+                              type="number"
+                              className={inputClass}
+                              value={printSettingsForm.marginsMm.bottom}
+                              disabled={printSettingsBusy}
+                              onChange={(e) => setPrintSettingsForm({
+                                ...printSettingsForm,
+                                marginsMm: { ...printSettingsForm.marginsMm, bottom: Number(e.target.value) },
+                              })}
+                              placeholder="أسفل"
+                            />
+                            <input
+                              type="number"
+                              className={inputClass}
+                              value={printSettingsForm.marginsMm.left}
+                              disabled={printSettingsBusy}
+                              onChange={(e) => setPrintSettingsForm({
+                                ...printSettingsForm,
+                                marginsMm: { ...printSettingsForm.marginsMm, left: Number(e.target.value) },
+                              })}
+                              placeholder="يسار"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className={labelClass}>مسار LibreOffice (soffice.exe) لتصدير PDF (مرحلة 6)</label>
+                          <input
+                            className={inputClass}
+                            value={printSettingsForm.pdfExport?.sofficePath || ''}
+                            disabled={printSettingsBusy}
+                            onChange={(e) => setPrintSettingsForm({
+                              ...printSettingsForm,
+                              pdfExport: { sofficePath: e.target.value },
+                            })}
+                            placeholder="مثال: C:\\Program Files\\LibreOffice\\program\\soffice.exe"
+                          />
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                            إذا كان LibreOffice موجودًا في PATH يمكنك تركه فارغًا.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between mt-6">
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          <label className="inline-flex items-center gap-2 font-bold">
+                            <input
+                              type="checkbox"
+                              checked={printSettingsForm.rtl}
+                              disabled={printSettingsBusy}
+                              onChange={(e) => setPrintSettingsForm({ ...printSettingsForm, rtl: e.target.checked })}
+                              className="w-4 h-4"
+                            />
+                            RTL
+                          </label>
+
+                          <label className="inline-flex items-center gap-2 font-bold">
+                            <input
+                              type="checkbox"
+                              checked={printSettingsForm.headerEnabled}
+                              disabled={printSettingsBusy}
+                              onChange={(e) => setPrintSettingsForm({ ...printSettingsForm, headerEnabled: e.target.checked })}
+                              className="w-4 h-4"
+                            />
+                            ترويسة
+                          </label>
+
+                          <label className="inline-flex items-center gap-2 font-bold">
+                            <input
+                              type="checkbox"
+                              checked={printSettingsForm.footerEnabled}
+                              disabled={printSettingsBusy}
+                              onChange={(e) => setPrintSettingsForm({ ...printSettingsForm, footerEnabled: e.target.checked })}
+                              className="w-4 h-4"
+                            />
+                            ذيل
+                          </label>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button variant="secondary" onClick={loadPrintSettings} disabled={printSettingsBusy}>
+                            إعادة تحميل
+                          </Button>
+                          <RBACGuard requiredPermissionsAny={['PRINT_SETTINGS_EDIT', 'SETTINGS_ADMIN']}>
+                            <Button onClick={savePrintSettings} disabled={printSettingsBusy}>
+                              حفظ
+                            </Button>
+                          </RBACGuard>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </section>
                 
                 {/* Advanced Reset Section */}

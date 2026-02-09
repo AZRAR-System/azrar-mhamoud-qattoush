@@ -79,6 +79,20 @@ export type DbChannel =
   | 'sql:restoreServerBackup'
   | 'sql:mergePublishAdmin';
 
+export type PrintSettingsChannel = 'print:settings:get' | 'print:settings:save' | 'print:settings:getPath';
+
+export type PrintPreviewChannel =
+  | 'print:preview:open'
+  | 'print:preview:getState'
+  | 'print:preview:listPrinters'
+  | 'print:preview:print'
+  | 'print:preview:exportPdf'
+  | 'print:preview:exportDocx'
+  | 'print:preview:reload';
+
+export type AuthChannel = 'auth:session:set';
+export type PrintDispatchChannel = 'print:dispatch';
+
 contextBridge.exposeInMainWorld('desktopDb', {
   // App helpers
   getDeviceId: () => ipcRenderer.invoke('app:getDeviceId'),
@@ -288,6 +302,34 @@ contextBridge.exposeInMainWorld('desktopDb', {
   deleteTemplate: (payload: { templateName: string; templateType?: string }) => ipcRenderer.invoke('templates:delete', payload),
 });
 
+contextBridge.exposeInMainWorld('desktopPrintEngine', {
+  run: (job: unknown) => ipcRenderer.invoke('print:engine:run', job),
+});
+
+contextBridge.exposeInMainWorld('desktopPrintDispatch', {
+  run: (request: Record<string, unknown>) => ipcRenderer.invoke('print:dispatch' as PrintDispatchChannel, request),
+});
+
+contextBridge.exposeInMainWorld('desktopPrintSettings', {
+  get: () => ipcRenderer.invoke('print:settings:get' as PrintSettingsChannel),
+  save: (settings: Record<string, unknown>) => ipcRenderer.invoke('print:settings:save' as PrintSettingsChannel, settings),
+  getPath: () => ipcRenderer.invoke('print:settings:getPath' as PrintSettingsChannel),
+});
+
+contextBridge.exposeInMainWorld('desktopPrintPreview', {
+  open: (payload: Record<string, unknown>) => ipcRenderer.invoke('print:preview:open' as PrintPreviewChannel, payload),
+  getState: (sessionId: string) => ipcRenderer.invoke('print:preview:getState' as PrintPreviewChannel, sessionId),
+  listPrinters: () => ipcRenderer.invoke('print:preview:listPrinters' as PrintPreviewChannel),
+  print: (sessionId: string, options?: Record<string, unknown>) => ipcRenderer.invoke('print:preview:print' as PrintPreviewChannel, sessionId, options),
+  exportPdf: (sessionId: string) => ipcRenderer.invoke('print:preview:exportPdf' as PrintPreviewChannel, sessionId),
+  exportDocx: (sessionId: string) => ipcRenderer.invoke('print:preview:exportDocx' as PrintPreviewChannel, sessionId),
+  reload: (sessionId: string) => ipcRenderer.invoke('print:preview:reload' as PrintPreviewChannel, sessionId),
+});
+
+contextBridge.exposeInMainWorld('desktopAuth', {
+  setSessionUser: (userId: string | null) => ipcRenderer.invoke('auth:session:set' as AuthChannel, { userId }),
+});
+
 contextBridge.exposeInMainWorld('desktopUpdater', {
   getVersion: () => ipcRenderer.invoke('updater:getVersion'),
   getStatus: () => ipcRenderer.invoke('updater:getStatus'),
@@ -304,6 +346,38 @@ contextBridge.exposeInMainWorld('desktopUpdater', {
     ipcRenderer.on('updater:event', listener);
     return () => ipcRenderer.removeListener('updater:event', listener);
   },
+});
+
+contextBridge.exposeInMainWorld('desktopLicense', {
+  getDeviceFingerprint: () => ipcRenderer.invoke('license:getDeviceFingerprint'),
+  getStatus: () => ipcRenderer.invoke('license:getStatus'),
+  hasFeature: (featureName: string) => ipcRenderer.invoke('license:hasFeature', featureName),
+  activateFromContent: (raw: string) => ipcRenderer.invoke('license:activateFromContent', raw),
+  activateOnline: (payload: { licenseKey: string; serverUrl?: string }) =>
+    ipcRenderer.invoke('license:activateOnline', payload),
+  getServerUrl: () => ipcRenderer.invoke('license:getServerUrl'),
+  setServerUrl: (url: string) => ipcRenderer.invoke('license:setServerUrl', url),
+  refreshOnlineStatus: () => ipcRenderer.invoke('license:refreshOnlineStatus'),
+  deactivate: () => ipcRenderer.invoke('license:deactivate'),
+});
+
+contextBridge.exposeInMainWorld('desktopLicenseAdmin', {
+  login: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:login', payload),
+  logout: () => ipcRenderer.invoke('licenseAdmin:logout'),
+  getUser: () => ipcRenderer.invoke('licenseAdmin:getUser'),
+  updateUser: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:updateUser', payload),
+  getAdminTokenStatus: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:getAdminTokenStatus', payload),
+  setAdminToken: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:setAdminToken', payload),
+  list: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:list', payload),
+  get: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:get', payload),
+  issue: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:issue', payload),
+  setStatus: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:setStatus', payload),
+  activate: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:activate', payload),
+  checkStatus: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:checkStatus', payload),
+  delete: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:delete', payload),
+  updateAfterSales: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:updateAfterSales', payload),
+  saveLicenseFile: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:saveLicenseFile', payload),
+  unbindDevice: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:unbindDevice', payload),
 });
 
 export {}; // ensure this is treated as a module

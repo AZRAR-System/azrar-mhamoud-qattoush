@@ -69,6 +69,9 @@ import {
   testSqlConnection,
 } from './sqlSync';
 import { validateInstallerCandidate } from './security/updaterInstallValidation.js';
+import { printEngine, type PrintEngineJob } from './printing';
+import { getPrintSettingsFilePath, loadPrintSettings, savePrintSettings } from './printing/settings/store';
+import { desktopUserHasPermission, getDesktopUserById } from './printing/permissions';
 
 import logger from './logger';
 
@@ -76,6 +79,17 @@ import { ensureInsideRoot } from './utils/pathSafety';
 import { toErrorMessage } from './utils/errors';
 import { isRecord } from './utils/unknown';
 import { safeJsonParseArray } from './utils/json';
+
+import {
+  activateOnline as licenseActivateOnline,
+  activateWithLicenseContent as licenseActivateWithLicenseContent,
+  deactivate as licenseDeactivate,
+  getDeviceFingerprint as licenseGetDeviceFingerprint,
+  getLicenseServerUrl,
+  getLicenseStatus,
+  refreshOnlineStatus as licenseRefreshOnlineStatus,
+  setLicenseServerUrl,
+} from './license/licenseManager';
 import {
   decryptFileToBuffer,
   decryptFileToFile,
@@ -112,6 +126,30 @@ const getOptionalNumberField = (obj: unknown, field: string): number | undefined
 type DomainEntity = 'people' | 'properties' | 'contracts';
 const isDomainEntity = (v: string): v is DomainEntity =>
   v === 'people' || v === 'properties' || v === 'contracts';
+
+const sessionUserByWebContentsId = new Map<number, string>();
+
+const getSessionUserId = (sender: Electron.WebContents | undefined | null): string | undefined => {
+  const id = sender?.id;
+  if (!id || !Number.isFinite(id)) return undefined;
+  const userId = sessionUserByWebContentsId.get(id);
+  return userId ? String(userId) : undefined;
+};
+
+const requiredPrintPermissionForJob = (job: PrintEngineJob): string => {
+  switch (job.type) {
+    case 'currentView':
+    case 'text':
+      return 'PRINT_EXECUTE';
+    case 'docx':
+    case 'generate':
+      return 'PRINT_EXPORT';
+    case 'report':
+      return job.mode === 'print' ? 'PRINT_EXECUTE' : 'PRINT_EXPORT';
+    default:
+      return 'PRINT_EXECUTE';
+  }
+};
 
 type FspCpOptions = { recursive: boolean; force: boolean };
 type FspCpFn = (src: string, dest: string, options: FspCpOptions) => Promise<void>;
@@ -2056,12 +2094,606 @@ export function registerIpcHandlers() {
     }
   });
 
+  // =====================
+  // Licensing (Desktop)
+  // =====================
+
+  ipcMain.handle('license:getDeviceFingerprint', async () => {
+    try {
+      return licenseGetDeviceFingerprint();
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة بصمة الجهاز') };
+    }
+  });
+
+  ipcMain.handle('license:getStatus', async () => {
+    try {
+      const st = await getLicenseStatus();
+      return { ok: true, status: st };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة حالة الترخيص') };
+    }
+  });
+
+  const isFeatureEnabled = (features: unknown, name: string): boolean => {
+    const n = String(name || '').trim();
+    if (!n) return false;
+
+    if (Array.isArray(features)) {
+      return features.map((x) => String(x || '').trim()).includes(n);
+    }
+
+    if (features && typeof features === 'object') {
+      const rec = features as Record<string, unknown>;
+      const v = rec[n];
+      if (v === true) return true;
+      if (typeof v === 'string') return String(v).trim().toLowerCase() === 'true';
+      if (typeof v === 'number') return v > 0;
+    }
+
+    return false;
+  };
+
+  ipcMain.handle('license:hasFeature', async (_e, featureName: unknown) => {
+    try {
+      const name = String(featureName || '').trim();
+      if (!name) return { ok: false, error: 'اسم الميزة غير صالح.' };
+
+      const st = await getLicenseStatus();
+      if (!st.activated) {
+        return { ok: true, enabled: false, reason: (st as { reason?: string }).reason || 'not_activated' };
+      }
+
+      const enabled = isFeatureEnabled((st as { license?: { features?: unknown } }).license?.features, name);
+      return { ok: true, enabled };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة صلاحيات الترخيص') };
+    }
+  });
+
+  ipcMain.handle('license:activateFromContent', async (_e, raw: unknown) => {
+    const res = await licenseActivateWithLicenseContent(String(raw || ''));
+    if ((res as { ok?: boolean }).ok) return { ok: true };
+    return { ok: false, error: (res as { error?: string }).error || 'فشل التفعيل' };
+  });
+
+  ipcMain.handle('license:activateOnline', async (_e, payload: unknown) => {
+    const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+    const res = await licenseActivateOnline({
+      licenseKey: String(p.licenseKey || ''),
+      ...(p.serverUrl ? { serverUrl: String(p.serverUrl) } : {}),
+    });
+    if ((res as { ok?: boolean }).ok) return { ok: true };
+    return { ok: false, error: (res as { error?: string }).error || 'فشل التفعيل عبر الإنترنت' };
+  });
+
+  ipcMain.handle('license:getServerUrl', async () => {
+    try {
+      return { ok: true, url: getLicenseServerUrl() };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'تعذر قراءة رابط السيرفر') };
+    }
+  });
+
+  ipcMain.handle('license:setServerUrl', async (_e, url: unknown) => {
+    return setLicenseServerUrl(String(url || ''));
+  });
+
+  ipcMain.handle('license:refreshOnlineStatus', async () => {
+    return await licenseRefreshOnlineStatus();
+  });
+
+  ipcMain.handle('license:deactivate', async () => {
+    try {
+      return licenseDeactivate();
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'فشل إلغاء التفعيل') };
+    }
+  });
+
+  // =====================
+  // License Admin (Desktop)
+  // =====================
+
+  const ADMIN_TOKEN_KEY = 'lic_admin_server_token_v1';
+  type StoredAdminTokensV2 = {
+    v: 2;
+    defaultToken?: string;
+    byOrigin: Record<string, string>;
+    updatedAt: string;
+  };
+
+  const readStoredAdminTokensUnsafe = (): StoredAdminTokensV2 | null => {
+    try {
+      const raw = String(kvGet(ADMIN_TOKEN_KEY) ?? '').trim();
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as StoredAdminTokensV2;
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (parsed.v !== 2) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  const envDefaultToken = String(
+    process.env.AZRAR_LICENSE_SERVER_ADMIN_TOKEN || process.env.AZRAR_LICENSE_ADMIN_TOKEN || ''
+  ).trim();
+
+  let storedAdminTokens: StoredAdminTokensV2 = {
+    v: 2,
+    defaultToken: envDefaultToken || undefined,
+    byOrigin: {},
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    const v2 = readStoredAdminTokensUnsafe();
+    if (v2) {
+      storedAdminTokens = {
+        v: 2,
+        defaultToken: typeof v2.defaultToken === 'string' ? v2.defaultToken : envDefaultToken || undefined,
+        byOrigin: v2.byOrigin && typeof v2.byOrigin === 'object' ? v2.byOrigin : {},
+        updatedAt: typeof v2.updatedAt === 'string' ? v2.updatedAt : storedAdminTokens.updatedAt,
+      };
+    } else if (!envDefaultToken) {
+      const legacy = String(kvGet(ADMIN_TOKEN_KEY) ?? '').trim();
+      if (legacy) storedAdminTokens.defaultToken = legacy;
+    }
+  } catch {
+    // ignore
+  }
+
+  const persistStoredAdminTokensBestEffort = (): void => {
+    try {
+      kvSet(ADMIN_TOKEN_KEY, JSON.stringify(storedAdminTokens));
+    } catch {
+      // ignore
+    }
+  };
+
+  const getAdminTokenForOrigin = (origin: string): string => {
+    const byOrigin = storedAdminTokens.byOrigin || {};
+    if (origin && typeof byOrigin[origin] === 'string' && String(byOrigin[origin] || '').trim()) {
+      return String(byOrigin[origin]).trim();
+    }
+    return String(storedAdminTokens.defaultToken || '').trim();
+  };
+
+  const setAdminTokenForOrigin = (origin: string, token: string): void => {
+    const t = String(token || '').trim();
+    if (!t) return;
+    if (origin) {
+      storedAdminTokens.byOrigin = storedAdminTokens.byOrigin || {};
+      storedAdminTokens.byOrigin[origin] = t;
+    } else {
+      storedAdminTokens.defaultToken = t;
+    }
+    storedAdminTokens.updatedAt = new Date().toISOString();
+    persistStoredAdminTokensBestEffort();
+  };
+
+  let adminSessionOk = false;
+
+  const ADMIN_AUTH_KEY = 'lic_admin_auth_v1';
+  const DEFAULT_ADMIN_USERNAME = 'admin';
+  const DEFAULT_ADMIN_PASSWORD = '7Bibi@_@_0788';
+  const normalizeUser = (u: unknown) => String(u ?? '').trim().slice(0, 64);
+  const normalizePass = (p: unknown) => String(p ?? '').trim().slice(0, 128);
+
+  const hashPassword = (password: string, salt: Buffer, iterations: number): Buffer => {
+    return crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+  };
+
+  const createAuth = (username: string, password: string) => {
+    const iterations = 180_000;
+    const salt = crypto.randomBytes(16);
+    const hash = hashPassword(password, salt, iterations);
+    return {
+      v: 1,
+      username,
+      saltB64: salt.toString('base64'),
+      iterations,
+      hashB64: hash.toString('base64'),
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
+  const readAuthUnsafe = (): null | {
+    v: 1;
+    username: string;
+    saltB64: string;
+    iterations: number;
+    hashB64: string;
+    updatedAt?: string;
+  } => {
+    try {
+      const raw = String(kvGet(ADMIN_AUTH_KEY) ?? '').trim();
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (parsed.v !== 1) return null;
+      if (!parsed.username || !parsed.saltB64 || !parsed.hashB64) return null;
+      if (!Number.isFinite(Number(parsed.iterations))) return null;
+      return parsed as never;
+    } catch {
+      return null;
+    }
+  };
+
+  const ensureAuth = () => {
+    const existing = readAuthUnsafe();
+    if (existing) return existing;
+
+    const envUser = normalizeUser(process.env.AZRAR_LICENSE_ADMIN_UI_USERNAME || process.env.AZRAR_ADMIN_USERNAME);
+    const envPass = normalizePass(process.env.AZRAR_LICENSE_ADMIN_UI_PASSWORD || process.env.AZRAR_ADMIN_PASSWORD);
+    const username = envUser || DEFAULT_ADMIN_USERNAME;
+    const password = envPass || DEFAULT_ADMIN_PASSWORD;
+    const created = createAuth(username, password);
+    try {
+      kvSet(ADMIN_AUTH_KEY, JSON.stringify(created));
+    } catch {
+      // ignore
+    }
+    return created;
+  };
+
+  const verifyLogin = (username: string, password: string): boolean => {
+    try {
+      const auth = ensureAuth();
+      if (normalizeUser(username).toLowerCase() !== String(auth.username).trim().toLowerCase()) return false;
+      const salt = Buffer.from(String(auth.saltB64), 'base64');
+      const iterations = Number(auth.iterations);
+      const expected = Buffer.from(String(auth.hashB64), 'base64');
+      const actual = hashPassword(password, salt, iterations);
+      if (expected.length !== actual.length) return false;
+      return crypto.timingSafeEqual(expected, actual);
+    } catch {
+      return false;
+    }
+  };
+
+  const requireAdminSession = (): { ok: true } | { ok: false; error: string } => {
+    if (!adminSessionOk) return { ok: false, error: 'Unauthorized' };
+    return { ok: true };
+  };
+
+  const normalizeServerUrl = (raw: unknown): string => {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    try {
+      const u = new URL(s);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+      return u.origin;
+    } catch {
+      return '';
+    }
+  };
+
+  const postJson = async (serverUrl: string, pathname: string, body: unknown): Promise<unknown> => {
+    const adminToken = getAdminTokenForOrigin(serverUrl);
+    if (!adminToken) throw new Error('Admin token not configured.');
+
+    const resp = await fetch(`${serverUrl}${pathname}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': adminToken,
+      },
+      body: JSON.stringify(body ?? null),
+    });
+
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok) {
+      const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
+      const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
+      throw new Error(msg || 'Request failed');
+    }
+    return json;
+  };
+
+  ipcMain.handle('licenseAdmin:login', async (_e, payload: unknown) => {
+    try {
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const user = normalizeUser(p.username);
+      const pass = normalizePass(p.password);
+      if (!user) return { ok: false, error: 'Username is required.' };
+      if (!pass) return { ok: false, error: 'Password is required.' };
+      if (!verifyLogin(user, pass)) return { ok: false, error: 'Invalid credentials.' };
+      adminSessionOk = true;
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to login') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:logout', async () => {
+    adminSessionOk = false;
+    return { ok: true };
+  });
+
+  ipcMain.handle('licenseAdmin:getAdminTokenStatus', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const origin = normalizeServerUrl(p.serverUrl);
+      const configured = !!getAdminTokenForOrigin(origin);
+      return { ok: true, configured };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to get token status') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:setAdminToken', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const token = String(p.token ?? '').trim();
+      if (!token) return { ok: false, error: 'token is required.' };
+      const origin = normalizeServerUrl(p.serverUrl);
+      setAdminTokenForOrigin(origin, token);
+      return { ok: true };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to set token') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:getUser', async () => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const a = ensureAuth();
+      return { ok: true, user: { username: a.username, updatedAt: a.updatedAt } };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to load user') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:updateUser', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const nextUser = normalizeUser(p.username);
+      const nextPass = normalizePass(p.newPassword);
+      if (!nextUser) return { ok: false, error: 'username is required.' };
+      const current = ensureAuth();
+      const updated = createAuth(nextUser, nextPass || DEFAULT_ADMIN_PASSWORD);
+      if (!nextPass) {
+        (updated as Record<string, unknown>).saltB64 = (current as Record<string, unknown>).saltB64;
+        (updated as Record<string, unknown>).iterations = (current as Record<string, unknown>).iterations;
+        (updated as Record<string, unknown>).hashB64 = (current as Record<string, unknown>).hashB64;
+      }
+      kvSet(ADMIN_AUTH_KEY, JSON.stringify(updated));
+      return { ok: true, user: { username: updated.username, updatedAt: updated.updatedAt } };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to update user') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:list', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const q = typeof p.q === 'string' ? p.q : '';
+      const limit = Number.isFinite(Number(p.limit)) ? Number(p.limit) : undefined;
+      const json = await postJson(serverUrl, '/api/license/admin/list', { q, limit });
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to list licenses') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:get', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const licenseKey = String(p.licenseKey || '').trim();
+      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+      const json = await postJson(serverUrl, '/api/license/admin/get', { licenseKey });
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to fetch license') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:issue', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const body: Record<string, unknown> = {
+        ...(p.licenseKey ? { licenseKey: String(p.licenseKey) } : {}),
+        ...(p.expiresAt ? { expiresAt: String(p.expiresAt) } : {}),
+        ...(Number.isFinite(Number(p.maxActivations)) ? { maxActivations: Number(p.maxActivations) } : {}),
+        ...(p.features && typeof p.features === 'object' ? { features: p.features } : {}),
+      };
+      const json = await postJson(serverUrl, '/api/license/admin/issue', body);
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to issue license') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:setStatus', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const licenseKey = String(p.licenseKey || '').trim();
+      const status = String(p.status || '').trim();
+      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+      if (!status) return { ok: false, error: 'status is required.' };
+      const json = await postJson(serverUrl, '/api/license/admin/setStatus', {
+        licenseKey,
+        status,
+        ...(p.note ? { note: String(p.note) } : {}),
+      });
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to set status') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:activate', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const licenseKey = String(p.licenseKey || '').trim();
+      const deviceId = String(p.deviceId || '').trim();
+      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+      if (!deviceId) return { ok: false, error: 'deviceId is required.' };
+
+      const resp = await fetch(`${serverUrl}/api/license/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenseKey, deviceId }),
+      });
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
+        const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
+        return { ok: false, error: msg || 'Activate failed' };
+      }
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to activate') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:checkStatus', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const licenseKey = String(p.licenseKey || '').trim();
+      const deviceId = String(p.deviceId || '').trim();
+      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+      if (!deviceId) return { ok: false, error: 'deviceId is required.' };
+
+      const resp = await fetch(`${serverUrl}/api/license/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenseKey, deviceId }),
+      });
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
+        const msg = String(rec?.error || `HTTP ${resp.status}`).trim();
+        return { ok: false, error: msg || 'Status check failed' };
+      }
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to check status') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:saveLicenseFile', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const confirmPassword = String(p.confirmPassword || '').trim();
+      if (!confirmPassword) return { ok: false, error: 'confirmPassword is required.' };
+      const a = ensureAuth();
+      if (!verifyLogin(a.username, confirmPassword)) return { ok: false, error: 'Invalid password.' };
+      const content = String(p.content || '');
+      if (!content.trim()) return { ok: false, error: 'content is required.' };
+      const safeName = String(p.defaultFileName || 'azrar-license.json')
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .slice(0, 120);
+      const defaultPath = path.join(app.getPath('documents'), safeName || 'azrar-license.json');
+      const result = await dialog.showSaveDialog({
+        title: 'حفظ ملف الترخيص',
+        defaultPath,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePath) return { ok: false, error: 'Canceled' };
+      await fsp.writeFile(result.filePath, content, 'utf8');
+      return { ok: true, filePath: result.filePath };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to save file') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:updateAfterSales', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const licenseKey = String(p.licenseKey || '').trim();
+      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+      const patch = p.patch && typeof p.patch === 'object' ? p.patch : {};
+      const json = await postJson(serverUrl, '/api/license/admin/updateAfterSales', { licenseKey, patch });
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to update after-sales') };
+    }
+  });
+
+  ipcMain.handle('licenseAdmin:delete', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const licenseKey = String(p.licenseKey || '').trim();
+      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+      const json = await postJson(serverUrl, '/api/license/admin/delete', { licenseKey });
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to delete license') };
+    }
+  });
+
   ipcMain.handle('updater:getVersion', () => app.getVersion());
   ipcMain.handle('updater:getStatus', () => ({
     isPackaged: app.isPackaged,
     feedUrl: currentFeedUrl,
     lastEvent: lastUpdaterEvent,
   }));
+
+  ipcMain.handle('auth:session:set', async (e, payload: unknown) => {
+    const senderId = e.sender?.id;
+    if (!senderId || !Number.isFinite(senderId)) return { ok: false, message: 'Invalid sender' };
+
+    const rawUserId = isRecord(payload) ? payload.userId : undefined;
+    const userId = String(rawUserId ?? '').trim();
+
+    if (!userId) {
+      sessionUserByWebContentsId.delete(senderId);
+      return { ok: true };
+    }
+
+    const user = getDesktopUserById(userId);
+    if (!user) {
+      sessionUserByWebContentsId.delete(senderId);
+      return { ok: false, message: 'User not recognized' };
+    }
+
+    sessionUserByWebContentsId.set(senderId, userId);
+    return { ok: true };
+  });
 
   ipcMain.handle('updater:setFeedUrl', async (_e, url: string) => {
     try {
@@ -5540,9 +6172,16 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle('templates:import', async (_e, payload?: { templateType?: string }) => {
+  ipcMain.handle('templates:import', async (e, payload?: { templateType?: string }) => {
     try {
       const templateType = normalizeTemplateType(payload?.templateType);
+
+      const userId = getSessionUserId(e.sender);
+      const allowed =
+        desktopUserHasPermission(userId, 'PRINT_TEMPLATES_EDIT') ||
+        desktopUserHasPermission(userId, 'SETTINGS_ADMIN');
+      if (!allowed) return { success: false, message: 'ليس لديك صلاحية إدارة قوالب الطباعة' };
+
       const result = await dialog.showOpenDialog({
         title: `اختر قالب Word لـ ${templateTypeLabelAr(templateType)}`,
         properties: ['openFile'],
@@ -5766,4 +6405,186 @@ export function registerIpcHandlers() {
 
   // Start local auto-backup scheduler (best-effort).
   startLocalAutoBackupScheduler();
+
+  ipcMain.handle('print:engine:run', async (e, job: PrintEngineJob) => {
+    const userId = getSessionUserId(e.sender);
+    const required = requiredPrintPermissionForJob(job);
+    if (!desktopUserHasPermission(userId, required)) {
+      return { ok: false, code: 'FORBIDDEN', message: 'غير مصرح لك باستخدام الطباعة/التصدير' };
+    }
+
+    return printEngine.run(job, { webContents: e.sender });
+  });
+
+  ipcMain.handle('print:dispatch', async (e, request: unknown) => {
+    try {
+      if (!request || typeof request !== 'object') {
+        return { ok: false, code: 'INVALID', message: 'طلب الطباعة غير صالح' };
+      }
+
+      const r = request as Record<string, unknown>;
+      const action = String(r.action ?? '').trim();
+      const documentType = String(r.documentType ?? '').trim();
+      const entityId = typeof r.entityId === 'string' ? String(r.entityId).trim() : '';
+
+      if (!action || !documentType) {
+        return { ok: false, code: 'INVALID', message: 'بيانات الطلب غير مكتملة' };
+      }
+
+      const userId = getSessionUserId(e.sender);
+
+      // Phase 10: unified dispatch (no print logic in renderer; only metadata + routing).
+      if (action === 'printCurrentView') {
+        const allowed = desktopUserHasPermission(userId, 'PRINT_EXECUTE');
+        if (!allowed) return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
+
+        // We intentionally ignore documentType/entityId/data here (for now) but we require them
+        // so every UI entry-point sends consistent metadata.
+        void documentType;
+        void entityId;
+        void r.data;
+
+        return await printEngine.run({ type: 'currentView', mode: 'print' }, { webContents: e.sender });
+      }
+
+      if (action === 'printText') {
+        const allowed = desktopUserHasPermission(userId, 'PRINT_EXECUTE');
+        if (!allowed) return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
+
+        const text = typeof r.text === 'string' ? String(r.text) : '';
+        const title = typeof r.title === 'string' ? String(r.title) : undefined;
+        if (!text.trim()) return { ok: false, code: 'INVALID', message: 'النص فارغ' };
+
+        void documentType;
+        void entityId;
+        void r.data;
+
+        return await printEngine.run({ type: 'text', mode: 'print', payload: { title, text } }, { webContents: e.sender });
+      }
+
+      if (action === 'generate') {
+        const templateName = typeof r.templateName === 'string' ? String(r.templateName) : undefined;
+        const outputType = r.outputType === 'pdf' || r.outputType === 'docx' ? (r.outputType as 'pdf' | 'docx') : undefined;
+        const defaultFileName = typeof r.defaultFileName === 'string' ? String(r.defaultFileName) : undefined;
+        const data = (r.data && typeof r.data === 'object') ? (r.data as Record<string, unknown>) : undefined;
+        const headerFooter = (r.headerFooter && typeof r.headerFooter === 'object') ? (r.headerFooter as Record<string, unknown>) : undefined;
+
+        if (!outputType) return { ok: false, code: 'INVALID', message: 'نوع الإخراج غير صالح' };
+        if (!data) return { ok: false, code: 'INVALID', message: 'بيانات القالب غير صالحة' };
+
+        const job: PrintEngineJob = {
+          type: 'generate',
+          mode: 'generate',
+          payload: {
+            templateName,
+            data,
+            outputType,
+            defaultFileName,
+            headerFooter: headerFooter as never,
+          },
+        };
+
+        const required = requiredPrintPermissionForJob(job);
+        if (!desktopUserHasPermission(userId, required)) {
+          return { ok: false, code: 'FORBIDDEN', message: 'غير مصرح لك باستخدام الطباعة/التصدير' };
+        }
+
+        void documentType;
+        void entityId;
+        return await printEngine.run(job, { webContents: e.sender });
+      }
+
+      if (action === 'exportDocx') {
+        const templateName = typeof r.templateName === 'string' ? String(r.templateName) : undefined;
+        const defaultFileName = typeof r.defaultFileName === 'string' ? String(r.defaultFileName) : undefined;
+        const data = (r.data && typeof r.data === 'object') ? (r.data as Record<string, unknown>) : undefined;
+        const headerFooter = (r.headerFooter && typeof r.headerFooter === 'object') ? (r.headerFooter as Record<string, unknown>) : undefined;
+        if (!data) return { ok: false, code: 'INVALID', message: 'بيانات القالب غير صالحة' };
+
+        const job: PrintEngineJob = {
+          type: 'docx',
+          mode: 'docx',
+          payload: {
+            templateName,
+            data,
+            defaultFileName,
+            headerFooter: headerFooter as never,
+          },
+        };
+
+        const required = requiredPrintPermissionForJob(job);
+        if (!desktopUserHasPermission(userId, required)) {
+          return { ok: false, code: 'FORBIDDEN', message: 'غير مصرح لك باستخدام الطباعة/التصدير' };
+        }
+
+        void documentType;
+        void entityId;
+        return await printEngine.run(job, { webContents: e.sender });
+      }
+
+      return { ok: false, code: 'INVALID', message: 'إجراء الطباعة غير معروف' };
+    } catch (err: unknown) {
+      return { ok: false, code: 'FAILED', message: toErrorMessage(err, 'فشل تنفيذ طلب الطباعة') };
+    }
+  });
+
+  ipcMain.handle('print:preview:open', async (e, payload: unknown) => {
+    const { openPrintPreview } = await import('./printing/preview/previewManager');
+    const userId = getSessionUserId(e.sender);
+    return openPrintPreview(payload as never, { userId });
+  });
+
+  ipcMain.handle('print:preview:getState', async (_e, sessionId: unknown) => {
+    const { getPrintPreviewState } = await import('./printing/preview/previewManager');
+    return getPrintPreviewState(String(sessionId ?? ''));
+  });
+
+  ipcMain.handle('print:preview:listPrinters', async (e) => {
+    const { listPreviewPrinters } = await import('./printing/preview/previewManager');
+    return listPreviewPrinters(e.sender);
+  });
+
+  ipcMain.handle('print:preview:print', async (_e, sessionId: unknown, options?: unknown) => {
+    const { printFromPreview } = await import('./printing/preview/previewManager');
+    return printFromPreview(String(sessionId ?? ''), (options as never) || undefined);
+  });
+
+  ipcMain.handle('print:preview:exportPdf', async (_e, sessionId: unknown) => {
+    const { exportPdfFromPreview } = await import('./printing/preview/previewManager');
+    return exportPdfFromPreview(String(sessionId ?? ''));
+  });
+
+  ipcMain.handle('print:preview:exportDocx', async (_e, sessionId: unknown) => {
+    const { exportDocxFromPreview } = await import('./printing/preview/previewManager');
+    return exportDocxFromPreview(String(sessionId ?? ''));
+  });
+
+  ipcMain.handle('print:preview:reload', async (_e, sessionId: unknown) => {
+    const { reloadPreview } = await import('./printing/preview/previewManager');
+    return reloadPreview(String(sessionId ?? ''));
+  });
+
+  ipcMain.handle('print:settings:get', async () => {
+    return loadPrintSettings();
+  });
+
+  ipcMain.handle('print:settings:save', async (e, settings: unknown) => {
+    const userId = getSessionUserId(e.sender);
+    const allowed =
+      desktopUserHasPermission(userId, 'PRINT_SETTINGS_EDIT') ||
+      desktopUserHasPermission(userId, 'SETTINGS_ADMIN');
+    if (!allowed) {
+      return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تعديل إعدادات الطباعة' };
+    }
+    return savePrintSettings(settings);
+  });
+
+  ipcMain.handle('print:settings:getPath', async () => {
+    try {
+      const filePath = await getPrintSettingsFilePath();
+      return { ok: true, filePath };
+    } catch (err: unknown) {
+      return { ok: false, code: 'FAILED', message: toErrorMessage(err, 'فشل تحديد مسار إعدادات الطباعة') };
+    }
+  });
 }

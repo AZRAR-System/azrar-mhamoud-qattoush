@@ -9,8 +9,10 @@ import { ActivityTimeline } from '@/components/ActivityTimeline';
 import { NotesSection } from '@/components/shared/NotesSection';
 import { DynamicSelect } from '@/components/ui/DynamicSelect';
 import { useToast } from '@/context/ToastContext';
+import { RBACGuard } from '@/components/shared/RBACGuard';
 import { DynamicFieldsDisplay } from '@/components/dynamic/DynamicFieldsDisplay';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
+import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import type { FollowUpTask, PropertyDetailsResult, PropertyInspection, سجل_الملكية_tbl, اتفاقيات_البيع_tbl, عروض_البيع_tbl, الأشخاص_tbl, العقود_tbl } from '@/types';
@@ -400,7 +402,9 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         reload();
     };
 
-    const handlePrint = () => window.print();
+    const handlePrint = () => {
+        void printCurrentViewUnified({ documentType: 'property', entityId: id });
+    };
 
     const handleEditAgreementFromProperty = (agreementId: string) => {
         try {
@@ -531,14 +535,15 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                   </div>
 
                                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => void handleQuickReminderForProperty()}
-                                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
-                                            >
-                                                <ListTodo size={14} /> تذكير
-                                            </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleQuickReminderForProperty()}
+                                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
+                                        >
+                                            <ListTodo size={14} /> تذكير
+                                        </button>
 
+                                        <RBACGuard requiredPermission="PRINT_EXECUTE">
                                             <button
                                                 type="button"
                                                 onClick={handlePrint}
@@ -546,6 +551,7 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                                             >
                                                 <Printer size={14} /> طباعة / PDF
                                             </button>
+                                        </RBACGuard>
                                     </div>
            </div>
         </div>

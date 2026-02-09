@@ -5,6 +5,8 @@ import { ClearanceRecord, ContractDetailsResult } from '@/types';
 import { Printer, CheckCircle, XCircle } from 'lucide-react';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import { RBACGuard } from '@/components/shared/RBACGuard';
+import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 
 export const ClearanceReportPanel: React.FC<{ id: string }> = ({ id }) => {
   // ID passed here is the CONTRACT ID, we find the clearance record from it
@@ -19,16 +21,20 @@ export const ClearanceReportPanel: React.FC<{ id: string }> = ({ id }) => {
 
   if (!record) return <div className="p-10 text-center text-red-500">لم يتم العثور على سجل مخالصة لهذا العقد.</div>;
 
-  const handlePrint = () => window.print();
+    const handlePrint = () => {
+        void printCurrentViewUnified({ documentType: 'clearance_report', entityId: id });
+    };
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-slate-900">
       
       {/* Toolbar */}
       <div className="p-4 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 flex justify-end gap-2 print:hidden">
-            <button onClick={handlePrint} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-indigo-700">
-             <Printer size={18}/> طباعة التقرير
-         </button>
+                        <RBACGuard requiredPermission="PRINT_EXECUTE">
+                                <button onClick={handlePrint} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-indigo-700">
+                                    <Printer size={18}/> طباعة التقرير
+                                </button>
+                        </RBACGuard>
       </div>
 
     {/* Report Content */}

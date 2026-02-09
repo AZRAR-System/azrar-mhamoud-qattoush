@@ -9,6 +9,8 @@ import { exportToXlsx } from '@/utils/xlsx';
 import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { runReportSmart } from '@/services/reporting';
+import { RBACGuard } from '@/components/shared/RBACGuard';
+import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
@@ -48,7 +50,7 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
   }, [id]);
 
   const handlePrint = () => {
-    window.print();
+    void printCurrentViewUnified({ documentType: 'report', entityId: id });
     toast.success('✅ جاري الطباعة...');
   };
 
@@ -56,7 +58,7 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
     // استخدام وظيفة الطباعة المدمجة في المتصفح لحفظ PDF
     toast.info('💡 اختر "حفظ كـ PDF" من نافذة الطباعة');
     setTimeout(() => {
-      window.print();
+      void printCurrentViewUnified({ documentType: 'report', entityId: id });
     }, 500);
   };
 
@@ -186,20 +188,24 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
                 >
                     <FileSpreadsheet size={16} /> Excel
                 </button>
-                <button
-                  onClick={handlePrintToPDF}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition text-sm font-bold border border-red-200 dark:border-red-800 shadow-sm"
-                  title="حفظ كملف PDF"
-                >
-                    <Download size={16} /> PDF
-                </button>
-                <button
-                  onClick={handlePrint}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition text-sm font-bold border border-indigo-200 dark:border-indigo-800 shadow-sm"
-                  title="طباعة مباشرة"
-                >
-                    <Printer size={16} /> طباعة
-                </button>
+                <RBACGuard requiredPermission="PRINT_EXECUTE">
+                  <button
+                    onClick={handlePrintToPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition text-sm font-bold border border-red-200 dark:border-red-800 shadow-sm"
+                    title="حفظ كملف PDF"
+                  >
+                      <Download size={16} /> PDF
+                  </button>
+                </RBACGuard>
+                <RBACGuard requiredPermission="PRINT_EXECUTE">
+                  <button
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition text-sm font-bold border border-indigo-200 dark:border-indigo-800 shadow-sm"
+                    title="طباعة مباشرة"
+                  >
+                      <Printer size={16} /> طباعة
+                  </button>
+                </RBACGuard>
             </div>
          </div>
 

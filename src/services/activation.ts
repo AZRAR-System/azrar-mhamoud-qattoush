@@ -109,6 +109,35 @@ export async function activateWithLicenseFileContent(rawLicenseContent: string):
   await storage.setItem(ACTIVATION_STORAGE_KEY, JSON.stringify(state));
 }
 
+export function isCodeActivationAllowed(): boolean {
+  try {
+    const w = globalThis as unknown as { window?: Window };
+    return !!w.window?.desktopLicense?.activateOnline;
+  } catch {
+    return false;
+  }
+}
+
+export async function activateWithLicenseKey(licenseKey: string, opts?: { serverUrl?: string }): Promise<void> {
+  const w = globalThis as unknown as { window?: Window };
+  const bridge = w.window?.desktopLicense;
+  if (!bridge?.activateOnline) {
+    throw new Error('ميزة التفعيل بالكود متاحة على نسخة سطح المكتب فقط.');
+  }
+
+  const res = await bridge.activateOnline({
+    licenseKey: String(licenseKey || ''),
+    ...(opts?.serverUrl ? { serverUrl: String(opts.serverUrl) } : {}),
+  });
+
+  const rec = res as { ok?: boolean; error?: string };
+  if (!rec?.ok) throw new Error(rec?.error || 'فشل التفعيل');
+
+  // Keep minimal UI state only; authoritative activation is in Main.
+  const state: ActivationState = { activated: true, activatedAt: new Date().toISOString() };
+  await storage.setItem(ACTIVATION_STORAGE_KEY, JSON.stringify(state));
+}
+
 export async function deactivateApp(): Promise<void> {
   await storage.removeItem(ACTIVATION_STORAGE_KEY);
 

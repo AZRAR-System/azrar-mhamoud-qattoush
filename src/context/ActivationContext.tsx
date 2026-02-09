@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  activateWithLicenseKey,
   activateWithLicenseFileContent,
   deactivateApp,
   getActivationState,
@@ -28,6 +29,7 @@ type ActivationContextType = {
     remoteStatusNote?: string;
   };
   refresh: () => Promise<void>;
+  activate: (licenseKey: string, opts?: { serverUrl?: string }) => Promise<void>;
   activateWithLicenseFileContent: (rawLicense: string) => Promise<void>;
   deactivate: () => Promise<void>;
 };
@@ -172,6 +174,14 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     [refresh]
   );
 
+  const activate = useCallback(
+    async (licenseKey: string, opts?: { serverUrl?: string }) => {
+      await activateWithLicenseKey(licenseKey, opts);
+      await refresh();
+    },
+    [refresh]
+  );
+
   const deactivate = useCallback(async () => {
     await deactivateApp();
     await refresh();
@@ -186,6 +196,7 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       reason,
       review,
       refresh,
+      activate,
       activateWithLicenseFileContent: activateWithLicense,
       deactivate,
     }),
@@ -197,6 +208,7 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       reason,
       review,
       refresh,
+      activate,
       activateWithLicense,
       deactivate,
     ]
