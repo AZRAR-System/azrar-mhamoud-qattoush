@@ -77,7 +77,9 @@ export async function isActivationValid(state: ActivationState): Promise<boolean
     }
   }
 
-  return true;
+  // If we cannot reach the desktop licensing bridge, do NOT accept a bare
+  // `activated: true` flag without a verifiable signed license.
+  return false;
 }
 
 export async function getActivationState(): Promise<ActivationState> {
