@@ -70,7 +70,6 @@ import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { normalizeDigitsLoose, normalizeSearchTextStrict } from '@/utils/searchNormalize';
 import { formatCurrencyJOD } from '@/utils/format';
 import { useDbSignal } from '@/hooks/useDbSignal';
-import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import {
   contractPickerSearchPagedSmart,
@@ -114,16 +113,6 @@ const ContractCard = React.memo(
     const contractNumber = formatContractNumberShort(contract.رقم_العقد);
     const opportunityNumberText = String(contract.رقم_الفرصة ?? '').trim();
     const status = contract.حالة_العقد;
-    const statusStripeClass =
-      status === 'نشط' || status === 'قريب الانتهاء'
-        ? 'bg-emerald-500/25 dark:bg-emerald-400/20'
-        : status === 'منتهي'
-          ? 'bg-slate-400/25 dark:bg-slate-400/20'
-          : status === 'مفسوخ' || status === 'ملغي'
-            ? 'bg-red-500/25 dark:bg-red-400/20'
-            : status === 'مجدد'
-              ? 'bg-indigo-500/25 dark:bg-indigo-400/20'
-              : 'bg-slate-400/20 dark:bg-slate-400/15';
     const accentRing =
       status === 'نشط' || status === 'قريب الانتهاء'
         ? 'ring-2 ring-emerald-500/10 border-emerald-500/20'

@@ -839,7 +839,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
     const settings = DbService.getSettings?.();
     let templateName = String(settings?.contractWordTemplateName || '').trim();
-    const templateType: 'contracts' = 'contracts';
+    const templateType = 'contracts' as const;
 
     if (!templateName) {
       const listRes = await DbService.listWordTemplates?.(templateType);

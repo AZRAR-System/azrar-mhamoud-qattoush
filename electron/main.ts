@@ -360,7 +360,6 @@ async function createMainWindow() {
     },
   });
 
-  const appMode = String(process.env.AZRAR_APP_MODE || '').trim().toLowerCase();
   const isLicenseAdminMode = inferIsLicenseAdminMode();
   if (isLicenseAdminMode) {
     try {

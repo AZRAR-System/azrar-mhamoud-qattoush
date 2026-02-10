@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 
 import type { autoUpdater as ElectronAutoUpdater } from 'electron-updater';
 
-type HandleTrusted = (channel: string, listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown) => void;
+type HandleTrusted = (channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown) => void;
 
 type AutoUpdaterType = typeof ElectronAutoUpdater;
 type UpdaterSetFeedUrlArg = Parameters<NonNullable<AutoUpdaterType>['setFeedURL']>[0];

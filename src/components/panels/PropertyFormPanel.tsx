@@ -60,7 +60,6 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
   const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
   const toast = useToast();
   const isDesktop = storage.isDesktop();
-  const isNewProperty = !id || id === 'new';
 
   const ownerName = useMemo(() => {
     const ownerId = String(formData.رقم_المالك || '').trim();

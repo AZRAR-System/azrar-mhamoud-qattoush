@@ -53,7 +53,7 @@ export const Input: React.FC<InputProps> = ({
     if (!shouldCoerceType) return props.pattern;
     if (requestedType === 'number') return props.pattern || '[0-9.,]*';
     if (requestedType === 'time') return props.pattern || '[0-9:]*';
-    if (requestedType === 'datetime-local') return props.pattern || '[0-9\-T:]*';
+    if (requestedType === 'datetime-local') return props.pattern || '[-0-9T:]*';
     return props.pattern;
   })();
 
