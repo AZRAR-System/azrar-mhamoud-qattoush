@@ -4,6 +4,9 @@
 
 مرحباً بك في فريق تطوير AZRAR! هذا الدليل يحتوي على كل ما تحتاجه للبدء في التطوير.
 
+> للخطوات العملية اليومية (تشغيل/تشخيص/إصلاح Native/تنظيف آمن) استخدم المرجع الموحد:
+> - [docs/DEV_RUNBOOK.md](./docs/DEV_RUNBOOK.md)
+
 ---
 
 ## 📋 جدول المحتويات
@@ -27,7 +30,7 @@
 
 | الأداة | الإصدار المطلوب | رابط التحميل |
 |--------|------------------|---------------|
-| Node.js | ≥ 18.0.0 | [nodejs.org](https://nodejs.org/) |
+| Node.js | يُفضّل 22.x (LTS) (و 24.x مقبول) | [nodejs.org](https://nodejs.org/) |
 | npm | ≥ 9.0.0 | يأتي مع Node.js |
 | Git | Latest | [git-scm.com](https://git-scm.com/) |
 | Visual Studio Code | Latest | [code.visualstudio.com](https://code.visualstudio.com/) |

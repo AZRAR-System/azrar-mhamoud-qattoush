@@ -7,6 +7,10 @@
 
 > هذه الوثيقة هي “خارطة طريق” تنفيذية. للمبادئ والقيود الأساسية راجع: [SESSION_MASTER_REFERENCE.md](SESSION_MASTER_REFERENCE.md)
 
+**مخرجات تنفيذية (Runbooks/Checklists):**
+- تشغيل المطور (موحّد): [DEV_RUNBOOK.md](DEV_RUNBOOK.md)
+- قائمة فحوصات الإصدار: [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
+
 ---
 
 ## 1) الأهداف العامة (Outcomes)
@@ -105,16 +109,16 @@
 ### NOW (أسبوع 1–2) — “ثبات الأساس”
 - **تنظيف وثائق التطوير/الأمان:**
   - استبدال روابط `your-username`/روابط غير صحيحة في المستندات المهمة. ✅
-  - توحيد مسارات التشغيل الموثوقة (desktop:dev / verify / desktop:e2e) في وثيقة واحدة.
+  - توحيد مسارات التشغيل الموثوقة (desktop:dev / verify / desktop:e2e) في وثيقة واحدة. ✅ (انظر: DEV_RUNBOOK)
 - **أمان عمليات التنظيف المحلي:**
-  - اعتماد طريقة حذف آمنة تعتمد على git (مثل `git clean -fdX`) بدل حذف يدوي واسع.
-  - إضافة تحذير واضح في التوثيق: لا يتم حذف ملفات tracked عبر تنظيفات محلية.
+  - اعتماد طريقة حذف آمنة تعتمد على git (مثل `git clean -fdX`) بدل حذف يدوي واسع. ✅
+  - إضافة تحذير واضح في التوثيق: لا يتم حذف ملفات tracked عبر تنظيفات محلية. ✅
 - **قفل جودة قبل أي إصدار:**
-  - شرط نجاح: `npm run verify` + `npm test` + `npm run lint`.
+  - شرط نجاح: `npm run verify` + `npm test` + `npm run lint`. ✅
 
 Deliverables:
-- وثيقة “تشغيل + بناء + إصلاح native module” محدثة.
-- قائمة فحوصات Release صغيرة.
+- وثيقة “تشغيل + بناء + إصلاح native module” محدثة. ✅ ([DEV_RUNBOOK.md](DEV_RUNBOOK.md))
+- قائمة فحوصات Release صغيرة. ✅ ([RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md))
 
 ### NEXT (أسبوع 3–6) — “تحسينات ذات عائد عالي”
 - **تحسين مسار الطباعة:** تقارير عن أكثر 3 أسباب فشل + إصلاحات.

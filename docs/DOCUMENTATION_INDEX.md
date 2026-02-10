@@ -15,6 +15,20 @@
 
 ---
 
+## 🧰 RUNBOOKS & CHECKLISTS
+
+### 🧰 DEV_RUNBOOK.md ⭐ **NEW!**
+**Purpose:** Canonical daily dev runbook (run/diagnose/fix native/ports/cleanup).
+**Best For:** Developers who want one reliable entrypoint.
+
+---
+
+### ✅ RELEASE_CHECKLIST.md ⭐ **NEW!**
+**Purpose:** Short checklist before building and shipping releases.
+**Best For:** Maintainers doing desktop builds and QA.
+
+---
+
 ## 🧹 LOCAL MAINTENANCE
 
 ### 🧼 LOCAL_CLEANUP_SAFE.md ⭐ **NEW!**
