@@ -7,6 +7,7 @@ import { useActivation } from '@/context/ActivationContext';
 import { isCodeActivationAllowed } from '@/services/activation';
 import { KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { safeCopyToClipboard } from '@/utils/clipboard';
 
 export const Activation: React.FC = () => {
   const { t } = useTranslation();
@@ -153,7 +154,7 @@ export const Activation: React.FC = () => {
                       variant="secondary"
                       onClick={() => {
                         if (!deviceId) return;
-                        void navigator.clipboard?.writeText?.(deviceId);
+                        void safeCopyToClipboard(deviceId);
                       }}
                       disabled={!deviceId}
                       className="flex-shrink-0"

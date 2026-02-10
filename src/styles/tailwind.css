@@ -199,10 +199,59 @@ body,
   z-index: var(--z-toast);
 }
 
+@keyframes app-surface-pulse-opacity {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.1;
+  }
+}
+
 @layer components {
   /* Unified app surfaces (cards/tables) */
   .app-card {
     @apply bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5 overflow-hidden relative;
+  }
+
+  /* Background pulse (hover/focus-within) for important surfaces (Panels / key cards) */
+  .app-surface-pulse-primary,
+  .app-surface-pulse-accent {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .app-surface-pulse-primary::before,
+  .app-surface-pulse-accent::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 0;
+  }
+
+  .app-surface-pulse-primary::before {
+    background-color: theme('colors.primary');
+  }
+
+  .app-surface-pulse-accent::before {
+    background-color: theme('colors.accent');
+  }
+
+  .app-surface-pulse-primary:hover::before,
+  .app-surface-pulse-primary:focus-within::before,
+  .app-surface-pulse-accent:hover::before,
+  .app-surface-pulse-accent:focus-within::before {
+    animation: app-surface-pulse-opacity 1.6s ease-in-out infinite;
+  }
+
+  .app-surface-pulse-primary > *,
+  .app-surface-pulse-accent > * {
+    position: relative;
+    z-index: 1;
   }
 
   /* Unified modal overlay (layout + backdrop only; z-index stays on `.modal-overlay`) */
@@ -242,6 +291,15 @@ body,
 
   .app-table-row {
     @apply border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-surface-pulse-primary:hover::before,
+  .app-surface-pulse-primary:focus-within::before,
+  .app-surface-pulse-accent:hover::before,
+  .app-surface-pulse-accent:focus-within::before {
+    animation: none;
   }
 }
 

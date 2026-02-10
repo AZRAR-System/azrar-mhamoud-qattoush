@@ -23,6 +23,9 @@ import { exportToXlsx } from '@/utils/xlsx';
 import { CONTRACT_WORD_TEMPLATE_VARIABLES } from '@/constants/contractWordTemplateVariables';
 import { getPrintingQaSampleData } from '@/services/printing/qaSamples';
 import { exportDocxUnified, generateTemplateUnified } from '@/services/printing/unifiedPrint';
+import { Select } from '@/components/ui/Select';
+import { GEO_COUNTRIES, GEO_CURRENCIES } from '@/constants/geo';
+import { getCurrencySuffix } from '@/services/moneySettings';
 
 type SqlStatus = { configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string };
 type DesktopOkMessage = { ok?: boolean; message?: string };
@@ -257,36 +260,12 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
       const successMessage = opts?.successMessage || 'تم النسخ';
       const failureMessage = opts?.failureMessage || 'تعذر النسخ';
 
-      // Prefer modern Clipboard API.
       try {
-        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(value);
+        const { safeCopyToClipboard } = await import('@/utils/clipboard');
+        const res = await safeCopyToClipboard(value);
+        if (res.ok) {
           toast.success(successMessage);
           return true;
-        }
-      } catch {
-        // Fallback below
-      }
-
-      // Fallback for Electron / restricted contexts.
-      try {
-        if (typeof document !== 'undefined') {
-          const el = document.createElement('textarea');
-          el.value = value;
-          el.setAttribute('readonly', '');
-          el.style.position = 'fixed';
-          el.style.top = '-1000px';
-          el.style.left = '-1000px';
-          el.style.opacity = '0';
-          document.body.appendChild(el);
-          el.focus();
-          el.select();
-          const ok = document.execCommand('copy');
-          el.remove();
-          if (ok) {
-            toast.success(successMessage);
-            return true;
-          }
         }
       } catch {
         // ignore
@@ -2269,6 +2248,55 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
                         onChange={e => setSettings({...settings, companyAddress: e.target.value})}
                       />
                     </div>
+                </section>
+
+                <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                    <Globe className="text-sky-500" size={20}/> البلد والعملة
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className={labelClass}>البلد (مع العلم)</label>
+                      <Select
+                        className="w-full"
+                        value={String(settings.countryIso2 || 'JO').toUpperCase()}
+                        onChange={(e) => {
+                          const iso2 = String(e.target.value || '').toUpperCase();
+                          const c = GEO_COUNTRIES.find((x) => x.iso2 === iso2);
+                          setSettings({
+                            ...settings,
+                            countryIso2: iso2 || undefined,
+                            countryDialCode: c?.dialCode || undefined,
+                          });
+                        }}
+                        options={GEO_COUNTRIES.map((c) => ({
+                          value: c.iso2,
+                          label: `${c.flag} ${c.nameAr}${c.dialCode ? ` (+${c.dialCode})` : ''}`,
+                        }))}
+                      />
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                        يُستخدم كود البلد تلقائياً لتطبيع أرقام WhatsApp المكتوبة بصيغة محلية.
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>العملة (تصنيف/اختيار)</label>
+                      <Select
+                        className="w-full"
+                        value={String(settings.currency || 'JOD').toUpperCase()}
+                        onChange={(e) => setSettings({ ...settings, currency: String(e.target.value || '').toUpperCase() })}
+                        options={GEO_CURRENCIES.map((cur) => {
+                          const code = cur.code.toUpperCase();
+                          const suffix = getCurrencySuffix(code);
+                          return {
+                            value: code,
+                            label: `${code} — ${cur.nameAr}${suffix ? ` (${suffix})` : ''}`,
+                          };
+                        })}
+                      />
+                    </div>
+                  </div>
                 </section>
 
                 {/* Word template settings moved to "القوالب (Word)" */}

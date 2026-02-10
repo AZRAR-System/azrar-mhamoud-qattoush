@@ -211,7 +211,7 @@ export const SmartModalEngine: React.FC = () => {
               onClick={doClose}
             >
               <div
-                className="modal-content app-modal-content dark:bg-slate-900 w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] transform transition-transform duration-300 ease-out animate-scale-up"
+                className="modal-content app-modal-content app-surface-pulse-primary dark:bg-slate-900 w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] transform transition-transform duration-300 ease-out animate-scale-up"
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
@@ -265,7 +265,7 @@ export const SmartModalEngine: React.FC = () => {
               title={panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
               size="6xl"
               className="items-center p-4 bg-black/20 backdrop-blur-[1px]"
-              contentClassName="dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"
+              contentClassName="app-surface-pulse-primary dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"
               bodyClassName="p-0"
             >
               <Component {...panel.props} onClose={handleClose} />
@@ -337,7 +337,7 @@ export const SmartModalEngine: React.FC = () => {
             return (
               <div key={panel.id} className="modal-overlay app-modal-overlay animate-fade-in" onClick={handleClose}>
                 <div
-                  className="modal-content app-modal-content w-full max-w-md animate-scale-up overflow-hidden"
+                  className="modal-content app-modal-content app-surface-pulse-primary w-full max-w-md animate-scale-up overflow-hidden"
                   onClick={(e) => e.stopPropagation()}
                   role="dialog"
                   aria-modal="true"
@@ -368,7 +368,7 @@ export const SmartModalEngine: React.FC = () => {
             title={panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
             size={size}
             className="items-center p-4"
-            contentClassName="dark:bg-slate-900 dark:border-slate-800 h-[85vh]"
+            contentClassName="app-surface-pulse-primary dark:bg-slate-900 dark:border-slate-800 h-[85vh]"
             bodyClassName="p-0"
           >
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">

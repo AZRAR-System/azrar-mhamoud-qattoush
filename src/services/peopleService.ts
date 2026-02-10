@@ -208,10 +208,11 @@ export const removeFromBlacklist = (id: string) => {
 };
 
 import { buildWhatsAppLink } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 
 export const generateWhatsAppLink = (phone: string, msg: string): string => {
-  // Smart behavior: if local-format, prepend 962; if international, keep as-is.
-  return buildWhatsAppLink(msg, phone, { defaultCountryCode: '962' });
+  // Smart behavior: if local-format, prepend selected country code; if international, keep as-is.
+  return buildWhatsAppLink(msg, phone, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync() });
 };
 
 

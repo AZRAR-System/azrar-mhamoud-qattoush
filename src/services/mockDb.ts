@@ -5421,6 +5421,8 @@ export const DbService = {
       companyWebsite: '',
       logoUrl: '',
       currency: 'JOD',
+      countryIso2: 'JO',
+      countryDialCode: '962',
       taxNumber: '',
       commercialRegister: '',
       letterheadEnabled: true,

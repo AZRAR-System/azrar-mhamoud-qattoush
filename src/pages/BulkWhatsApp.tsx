@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/context/ToastContext';
 import { buildWhatsAppLink, collectWhatsAppPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { openExternalUrl } from '@/utils/externalLink';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
@@ -216,7 +217,7 @@ export const BulkWhatsApp: React.FC = () => {
     for (const c of chosen) {
       const p1 = normalizePhoneLoose(c.phone);
       const p2 = normalizePhoneLoose(c.extraPhone);
-      const normalized = collectWhatsAppPhones([p1, p2], { defaultCountryCode: '962' });
+      const normalized = collectWhatsAppPhones([p1, p2], { defaultCountryCode: getDefaultWhatsAppCountryCodeSync() });
       const ph = normalized[0] || '';
       if (!ph) continue;
       if (seen.has(ph)) continue;

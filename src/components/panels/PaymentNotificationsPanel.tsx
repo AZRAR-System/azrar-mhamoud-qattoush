@@ -4,6 +4,7 @@ import { DbService, PaymentNotificationTarget } from '@/services/mockDb';
 import { formatDateOnly, parseDateOnly, toDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { notificationService } from '@/services/notificationService';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { NotificationTemplates } from '@/services/notificationTemplates';
 import { paymentNotificationTargetsSmart } from '@/services/domainQueries';
 
@@ -199,7 +200,7 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
       message,
     });
 
-    await openWhatsAppForPhones(message, phones, { defaultCountryCode: '962', delayMs: 10_000 });
+    await openWhatsAppForPhones(message, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
   };
 
   const handleSendSelected = async () => {

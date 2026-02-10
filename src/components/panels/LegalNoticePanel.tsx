@@ -6,6 +6,7 @@ import { Printer, MessageCircle, ChevronDown, PenTool } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { getOfficialBrandSignature } from '@/utils/brandSignature';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
@@ -43,7 +44,7 @@ export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
     const contract = DbService.getContractDetails(id);
     const phones = [contract?.tenant?.رقم_الهاتف, contract?.tenant?.رقم_هاتف_اضافي].filter(isNonEmptyString);
     if (phones.length) {
-        void openWhatsAppForPhones(generatedText, phones, { defaultCountryCode: '962', delayMs: 10_000 });
+        void openWhatsAppForPhones(generatedText, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
         saveHistory('WhatsApp');
     } else {
       toast.warning('رقم هاتف المستأجر غير متوفر');

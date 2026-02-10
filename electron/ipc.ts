@@ -1403,7 +1403,7 @@ function startLocalAutoBackupScheduler(): void {
         });
       }
     } catch (e: unknown) {
-      logger.warn('[auto-backup] failed', toErrorMessage(e));
+      logger.warn('[auto-backup] failed', toErrorMessage(e, 'فشل النسخ الاحتياطي التلقائي'));
       await appendLocalBackupLogEntry({
         ts: new Date().toISOString(),
         ok: false,
@@ -4016,13 +4016,6 @@ export function registerIpcHandlers() {
           // ignore
         }
       }
-      addSqlSyncLogEntry({
-        direction: 'system',
-        action: 'importBackup',
-        status: res?.ok ? 'ok' : 'error',
-        message: res?.message,
-      });
-      return res;
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'فشل استيراد النسخة الاحتياطية');
       addSqlSyncLogEntry({
@@ -4099,13 +4092,6 @@ export function registerIpcHandlers() {
           // ignore
         }
       }
-      addSqlSyncLogEntry({
-        direction: 'system',
-        action: 'restoreBackup',
-        status: res?.ok ? 'ok' : 'error',
-        message: res?.message,
-      });
-      return res;
     } catch (e: unknown) {
       const msg = toErrorMessage(e, 'فشل الاستعادة الكاملة');
       addSqlSyncLogEntry({
@@ -5405,7 +5391,7 @@ export function registerIpcHandlers() {
         hasPassword: !!next.passwordEnc,
       };
     } catch (e: unknown) {
-      logger.warn('backup-encryption: failed to save settings', { err: toErrorMessage(e) });
+      logger.warn('backup-encryption: failed to save settings', { err: toErrorMessage(e, 'فشل حفظ إعدادات تشفير النسخ الاحتياطية') });
       return { success: false, message: toErrorMessage(e, 'فشل حفظ إعدادات تشفير النسخ الاحتياطية') };
     }
   });
@@ -5882,7 +5868,7 @@ export function registerIpcHandlers() {
       const dataUri = `data:${mime};base64,${data.toString('base64')}`;
       return { success: true, dataUri };
     } catch (err: unknown) {
-      logger.warn('[IPC][attachments:read] blocked/failed', toErrorMessage(err));
+      logger.warn('[IPC][attachments:read] blocked/failed', toErrorMessage(err, 'فشل قراءة المرفق'));
       return { success: false, message: toErrorMessage(err, 'Failed to read attachment') };
     }
   });
@@ -5895,7 +5881,7 @@ export function registerIpcHandlers() {
       await fsp.unlink(abs);
       return { success: true };
     } catch (err: unknown) {
-      logger.warn('[IPC][attachments:delete] blocked/failed', toErrorMessage(err));
+      logger.warn('[IPC][attachments:delete] blocked/failed', toErrorMessage(err, 'Failed to delete attachment'));
       return { success: false, message: toErrorMessage(err, 'Failed to delete attachment') };
     }
   });
@@ -5934,7 +5920,7 @@ export function registerIpcHandlers() {
       if (errMsg) return { success: false, message: String(errMsg) };
       return { success: true };
     } catch (err: unknown) {
-      logger.warn('[IPC][attachments:open] blocked/failed', toErrorMessage(err));
+      logger.warn('[IPC][attachments:open] blocked/failed', toErrorMessage(err, 'Failed to open attachment'));
       return { success: false, message: toErrorMessage(err, 'Failed to open attachment') };
     }
   });
@@ -6003,7 +5989,7 @@ export function registerIpcHandlers() {
       for (const k of keys) {
         try {
           const raw = kvGet(k);
-          const item = safeJsonParseStoredWordTemplate(raw);
+          const item = safeJsonParseStoredWordTemplate(typeof raw === 'string' ? raw : '');
           if (item && item.templateType === t) out.push({ kvKey: k, item });
         } catch {
           // ignore

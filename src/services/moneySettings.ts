@@ -25,6 +25,18 @@ export const getMoneySettingsSync = (): MoneySettings => {
     // ignore
   }
 
+  // Prefer SystemSettings currency (db_settings) if available.
+  try {
+    const parsed = tryParseJson(localStorage.getItem('db_settings'));
+    if (parsed && typeof parsed === 'object') {
+      const rec = parsed as Record<string, unknown>;
+      const currencyCode = typeof rec.currency === 'string' ? rec.currency : undefined;
+      if (currencyCode) return { currencyCode };
+    }
+  } catch {
+    // ignore
+  }
+
   // Backward-compatible defaults
   return { currencyCode: 'JOD' };
 };

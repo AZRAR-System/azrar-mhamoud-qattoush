@@ -8,6 +8,7 @@ import { Download, MessageCircle, Phone, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/context/ToastContext';
@@ -300,7 +301,7 @@ export const Contacts: React.FC = () => {
     const p1 = normalizePhone(phone);
     const p2 = normalizePhone(extraPhone);
     if (!p1 && !p2) return;
-    void openWhatsAppForPhones('', [p1, p2], { defaultCountryCode: '962', delayMs: 10_000 });
+    void openWhatsAppForPhones('', [p1, p2], { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
   };
 
   const handleExport = async () => {

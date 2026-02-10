@@ -383,6 +383,10 @@ export interface SystemSettings {
   companyWebsite: string;
   logoUrl: string;
   currency: string;
+  // Country context (used for WhatsApp phone normalization and display)
+  countryIso2?: string;
+  // International dialing code without '+' (e.g. "962")
+  countryDialCode?: string;
   taxNumber?: string;
   commercialRegister?: string;
   letterheadEnabled?: boolean;

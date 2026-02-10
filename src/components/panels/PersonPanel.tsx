@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import {
   User,
   Activity,
@@ -553,7 +554,7 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
               <button
                 onClick={() =>
                   void openWhatsAppForPhones('', [safeString(p.رقم_الهاتف), extraPhone], {
-                    defaultCountryCode: '962',
+                    defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
                     delayMs: 10_000,
                   })
                 }

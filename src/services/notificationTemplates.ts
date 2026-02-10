@@ -533,6 +533,7 @@ const templateManager = new NotificationTemplateManager();
 import { buildWhatsAppLink, openWhatsAppForPhones } from '@/utils/whatsapp';
 import { openExternalUrl } from '@/utils/externalLink';
 import { getMessageGlobalContext } from '@/utils/messageGlobalContext';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 
 /**
  * ملء النموذج بالبيانات
@@ -563,7 +564,7 @@ export function fillTemplate(template: NotificationTemplate | string, context: T
  * الحصول على رابط واتساب مع الرسالة المملوءة
  */
 export function getWhatsAppLink(message: string, phoneNumber: string): string {
-  return buildWhatsAppLink(message, phoneNumber, { defaultCountryCode: '962' });
+  return buildWhatsAppLink(message, phoneNumber, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync() });
 }
 
 /**
@@ -578,7 +579,7 @@ export function openWhatsApp(message: string, phoneNumber: string): void {
  * فتح واتساب لأكثر من رقم (مع تأخير بين الأرقام)
  */
 export async function openWhatsAppMulti(message: string, phoneNumbers: string[], delayMs: number = 10_000): Promise<void> {
-  await openWhatsAppForPhones(message, phoneNumbers, { defaultCountryCode: '962', delayMs });
+  await openWhatsAppForPhones(message, phoneNumbers, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs });
 }
 
 /**

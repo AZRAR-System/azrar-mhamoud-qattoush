@@ -5,6 +5,7 @@ import { Bell, CheckCircle, Clock, AlertTriangle, CheckCheck, ExternalLink, User
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { DS } from '@/constants/designSystem';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
@@ -280,7 +281,7 @@ export const Alerts = () => {
       const phones = target === 'tenant' ? resolveAlertPhones(selectedAlert) : resolveOwnerPhonesForContract(contractId);
       if (phones.length === 0) return;
 
-      void openWhatsAppForPhones(message, phones, { defaultCountryCode: '962', delayMs: 10_000 });
+    void openWhatsAppForPhones(message, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
   };
 
   const sendWhatsApp = () => {
@@ -314,7 +315,7 @@ export const Alerts = () => {
           message = `مرحباً ${selectedAlert.tenantName}،\nإشعار بخصوص العقار (${selectedAlert.propertyCode}):\n${selectedAlert.الوصف}`;
       }
 
-      void openWhatsAppForPhones(message, phones, { defaultCountryCode: '962', delayMs: 10_000 });
+    void openWhatsAppForPhones(message, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
   };
 
   const openLegalNotice = () => {
@@ -427,7 +428,7 @@ export const Alerts = () => {
               اسم_المالك: g.ownerName,
               قائمة_العقارات: g.lines.join('\n'),
           });
-          await openWhatsAppForPhones(message, g.phones, { defaultCountryCode: '962', delayMs: 10_000 });
+          await openWhatsAppForPhones(message, g.phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
           await new Promise(r => setTimeout(r, 250));
       }
 

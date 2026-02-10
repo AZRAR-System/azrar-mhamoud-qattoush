@@ -18,6 +18,9 @@ import './styles/animations.css';
 import './styles/mobile-improvements.css';
 import { storage } from '@/services/storage';
 import { isAppActivated } from '@/services/activation';
+import { installEnglishNumeralsPolyfill } from '@/utils/englishNumerals';
+
+installEnglishNumeralsPolyfill();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

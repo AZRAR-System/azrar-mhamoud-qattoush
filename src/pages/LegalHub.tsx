@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { ContractDetailsResult, LegalNoticeRecord, LegalNoticeTemplate, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types';
 import { Scale, FileText, Send, Printer, Copy, Clock, Search, CheckCircle, Plus, Trash2, MessageCircle, ExternalLink, Pencil } from 'lucide-react';
@@ -378,7 +379,7 @@ export const LegalHub: React.FC = () => {
           toast.warning('رقم هاتف المستأجر غير متوفر');
           return;
         }
-        void openWhatsAppForPhones(text, phones, { defaultCountryCode: '962', delayMs: 10_000 });
+        void openWhatsAppForPhones(text, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
 
         const tmpl = templates.find(t => t.id === selectedTemplateId);
         setPendingSend({
@@ -399,7 +400,7 @@ export const LegalHub: React.FC = () => {
       toast.warning('رقم هاتف المستأجر غير متوفر');
       return;
     }
-    void openWhatsAppForPhones(text, phones, { defaultCountryCode: '962', delayMs: 10_000 });
+    void openWhatsAppForPhones(text, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
 
     const tmpl = templates.find(t => t.id === selectedTemplateId);
     setPendingSend({

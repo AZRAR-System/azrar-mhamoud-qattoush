@@ -26,6 +26,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { الأشخاص_tbl, SystemLookup, العقارات_tbl, العقود_tbl, DynamicFormField } from '@/types';
 import type { PeoplePickerItem } from '@/types/domain.types';
 import {
@@ -1102,7 +1103,7 @@ export const People: React.FC = () => {
                 aria-label={t('واتساب / اتصال')}
                 onClick={() =>
                   void openWhatsAppForPhones('', [person.رقم_الهاتف, person.رقم_هاتف_اضافي], {
-                    defaultCountryCode: '962',
+                    defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
                     delayMs: 10_000,
                   })
                 }
@@ -1378,7 +1379,7 @@ export const People: React.FC = () => {
                 aria-label={t('واتساب / اتصال')}
                 onClick={() =>
                   void openWhatsAppForPhones('', [person.رقم_الهاتف, person.رقم_هاتف_اضافي], {
-                    defaultCountryCode: '962',
+                    defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
                     delayMs: 10_000,
                   })
                 }
