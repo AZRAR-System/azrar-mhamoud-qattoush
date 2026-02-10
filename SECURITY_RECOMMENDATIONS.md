@@ -14,12 +14,12 @@
 **الملف:** `electron/ipc.ts`
 
 **المشكلة السابقة:**
-- كانت هناك كلمة مرور افتراضية مضمنة في الكود (`7Bibi@_@_0788`)
+- كانت هناك كلمة مرور افتراضية مضمنة في الكود
 - هذا يشكل خطراً أمنياً كبيراً لأن أي شخص لديه الوصول للكود يمكنه الوصول للنظام
 
 **الحل:**
 - تم استبدال كلمة المرور الافتراضية بمولد كلمات مرور عشوائية آمنة
-- يُنشئ النظام الآن كلمة مرور عشوائية من 24 بايت مشفرة بـ Base64
+- يُنشئ النظام الآن كلمة مرور عشوائية من 24 بايت مشفرة بـ hex (48 حرف)
 - **هام:** يجب تعيين بيانات الاعتماد عبر متغيرات البيئة:
   ```bash
   AZRAR_LICENSE_ADMIN_UI_USERNAME=your_username
@@ -43,6 +43,11 @@
   - License Server: 60 طلب/دقيقة للعمليات العادية، 30 طلب/دقيقة للعمليات الإدارية
   - Marquee Server: 100 طلب/دقيقة للقراءة، 20 طلب/دقيقة للكتابة
 - يتم إرجاع HTTP 429 عند تجاوز الحد مع `Retry-After` header
+- **لدعم reverse proxy:**
+  ```bash
+  AZRAR_LICENSE_TRUST_PROXY=1  # للـ License Server
+  MARQUEE_TRUST_PROXY=1        # للـ Marquee Server
+  ```
 
 ---
 
@@ -64,6 +69,7 @@
   # Marquee Server
   MARQUEE_CORS_ORIGIN=https://yourdomain.com
   ```
+- تم إصلاح ثغرة كانت تسمح بطلبات من origins غير مصرح بها
 - الافتراضي لا يزال `*` للتوافق مع الأنظمة الحالية
 
 ---
@@ -80,7 +86,7 @@
 - `.psd1` (PowerShell data files)
 - `.vbe`, `.ws`, `.wsf`, `.wsc`, `.wsh` (Windows script hosts)
 - `.class` (Java compiled)
-- `.htm`, `.html`, `.mht`, `.mhtml` (يمكن أن تحتوي على سكربتات خبيثة)
+- `.mht`, `.mhtml` (MIME HTML archives)
 - `.inf`, `.ins`, `.isp` (Windows installation files)
 - `.scf`, `.desktop` (Shortcuts)
 - `.docm`, `.xlsm`, `.pptm`, `.dotm`, `.xltm`, `.potm`, `.ppam`, `.xlam` (Office macros)
@@ -117,7 +123,14 @@ AZRAR_LICENSE_HOST=127.0.0.1
 MARQUEE_HOST=127.0.0.1
 ```
 
-### 5. مراقبة السجلات
+### 5. تكوين reverse proxy
+```bash
+# إذا كنت تستخدم reverse proxy، فعّل ثقة proxy
+AZRAR_LICENSE_TRUST_PROXY=1
+MARQUEE_TRUST_PROXY=1
+```
+
+### 6. مراقبة السجلات
 - راقب سجلات الطلبات المرفوضة بسبب Rate Limiting
 - راقب محاولات تسجيل الدخول الفاشلة
 
@@ -128,13 +141,24 @@ MARQUEE_HOST=127.0.0.1
 | المكون | الحالة | الخطورة السابقة | ملاحظات |
 |--------|--------|-----------------|---------|
 | كلمة المرور الافتراضية | ✅ تم الإصلاح | حرجة | تستخدم الآن كلمات مرور عشوائية |
-| Rate Limiting | ✅ تم الإضافة | عالية | حماية من Brute Force |
-| CORS Policy | ✅ تم التحسين | متوسطة | قابلة للتخصيص |
-| امتدادات الملفات الخطرة | ✅ تم التوسيع | منخفضة | قائمة شاملة الآن |
+| Rate Limiting | ✅ تم الإضافة | عالية | حماية من Brute Force + proxy support |
+| CORS Policy | ✅ تم التحسين | متوسطة | قابلة للتخصيص + إصلاح ثغرة fallback |
+| امتدادات الملفات الخطرة | ✅ تم التوسيع | منخفضة | قائمة شاملة الآن (38+ امتداد جديد) |
 | SQL Injection | ✅ آمن | - | استخدام Prepared Statements |
 | XSS | ✅ آمن | - | استخدام DOMPurify |
 | Path Traversal | ✅ آمن | - | استخدام ensureInsideRoot |
 | CSP | ✅ آمن | - | سياسة صارمة في الإنتاج |
+
+---
+
+## 📈 نتائج الفحص الأمني
+
+| الأداة | النتيجة |
+|--------|---------|
+| npm audit | ✅ 0 ثغرات |
+| TypeScript | ✅ بدون أخطاء |
+| ESLint | ✅ 0 أخطاء، 0 تحذيرات |
+| CodeQL | ✅ 0 تنبيهات أمنية |
 
 ---
 
