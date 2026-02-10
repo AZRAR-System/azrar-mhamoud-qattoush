@@ -3,7 +3,7 @@
  * Read-only SQLite audit runner.
  *
  * Usage:
- *   node scripts/db-audit-readonly-node.mjs "C:\\path\\to\\khaberni.sqlite" > audit.json
+ *   node scripts/db-audit-readonly-node.mjs "C:\\path\\to\\khaberni.sqlite" > docs/audit/audit.json
  *
  * Notes:
  * - Opens DB with readonly + fileMustExist.

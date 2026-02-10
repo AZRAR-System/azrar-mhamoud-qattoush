@@ -8,7 +8,7 @@
  * - This script uses sql.js (WASM) to read the DB file and run the same checks.
  *
  * Usage:
- *   node scripts/db-audit-readonly-sqljs.mjs "C:\\path\\to\\khaberni.sqlite" > audit.json
+ *   node scripts/db-audit-readonly-sqljs.mjs "C:\\path\\to\\khaberni.sqlite" > docs/audit/audit.json
  *
  * Notes:
  * - Loads the entire DB file into memory.
