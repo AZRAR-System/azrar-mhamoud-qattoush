@@ -26,7 +26,7 @@
 | `.editorconfig` | ✅ جديد | إعدادات المحرر الموحدة |
 | `jest.config.cjs` | ✅ جديد | تكوين الاختبارات |
 | `vite.config.ts` | ✅ محسّن | إعدادات Vite محسّنة |
-| `electron-builder.config.js` | ✅ محسّن | إعدادات البناء |
+| `electron-builder.config.cjs` | ✅ محسّن | إعدادات البناء |
 
 ### 2️⃣ ملفات التوثيق
 

@@ -20,7 +20,7 @@
 
 ### 2. ✅ إصلاح نظام التحديثات
 **الملفات المنشأة:**
-- `electron-builder.config.js` - تكوين متقدم مع:
+- `electron-builder.config.cjs` - تكوين متقدم مع:
   - تحديث رابط التحديثات من `example.invalid` إلى GitHub
   - إعدادات التوقيع الرقمي
   - تحسينات الأمان والأداء
@@ -84,7 +84,7 @@
   - مستويات تسجيل متعددة
 
 ### 10. ✅ تحسين إعدادات البناء
-- تم إنشاء `electron-builder.config.js` في الخطوة 2 ✓
+- تم إنشاء `electron-builder.config.cjs` في الخطوة 2 ✓
 
 ### 11. ✅ إنشاء سجل التغييرات
 **الملفات المنشأة:**
@@ -111,7 +111,7 @@
 
 | # | اسم الملف | الموقع | الحجم | الغرض |
 |---|-----------|---------|-------|-------|
-| 1 | `electron-builder.config.js` | الجذر | ~3KB | تكوين البناء |
+| 1 | `electron-builder.config.cjs` | الجذر | ~3KB | تكوين البناء |
 | 2 | `CODE_SIGNING.md` | docs/ | ~10KB | دليل التوقيع |
 | 3 | `.gitignore.new` | الجذر | ~2KB | استثناءات Git |
 | 4 | `README-NEW.md` | الجذر | ~15KB | التوثيق الرئيسي |
@@ -139,7 +139,7 @@
 - ✅ حماية الملفات الحساسة في .gitignore
 
 ### ⚡ الأداء
-- ✅ تحسينات في electron-builder.config.js
+- ✅ تحسينات في electron-builder.config.cjs
 - ✅ ضغط أقصى للملفات
 - ✅ تنظيم أفضل للـ build
 
@@ -200,7 +200,7 @@ DISCORD_WEBHOOK=<discord-webhook-url>
 
 #### 3. تحديث روابط GitHub
 استبدل `your-username` في:
-- `electron-builder.config.js`
+- `electron-builder.config.cjs`
 - `README-NEW.md`
 - `.github/workflows/build.yml`
 - `CHANGELOG.md`

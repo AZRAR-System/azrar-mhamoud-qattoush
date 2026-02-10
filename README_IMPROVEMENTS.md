@@ -9,7 +9,7 @@
 ## 📁 الملفات المنشأة (16 ملف)
 
 ### 🔧 ملفات التكوين
-1. ✅ `electron-builder.config.js` - تكوين البناء المحسّن
+1. ✅ `electron-builder.config.cjs` - تكوين البناء المحسّن
 2. ✅ `jest.config.js` - تكوين الاختبارات
 3. ✅ `.gitignore.new` - استثناءات Git محسّنة
 

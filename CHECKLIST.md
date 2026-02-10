@@ -35,7 +35,7 @@
   ```
 
 ### الملفات الجديدة (تأكد من وجودها)
-- [ ] `electron-builder.config.js` في الجذر
+- [ ] `electron-builder.config.cjs` في الجذر
 - [ ] `SECURITY.md` في الجذر
 - [ ] `CHANGELOG.md` في الجذر
 - [ ] `DEVELOPMENT.md` في الجذر
@@ -50,7 +50,7 @@
 ### التحقق
 ```powershell
 # تحقق من وجود الملفات
-Test-Path electron-builder.config.js
+Test-Path electron-builder.config.cjs
 Test-Path SECURITY.md
 Test-Path jest.config.js
 Test-Path electron\logger.ts
@@ -108,7 +108,7 @@ npm list @testing-library/react
 #### تحديث build config
 - [ ] استبدال قسم `"build"` بـ:
   ```json
-  "build": "electron-builder.config.js"
+  "build": "electron-builder.config.cjs"
   ```
 
 ### الحفظ والاختبار
@@ -200,7 +200,7 @@ npm list @testing-library/react
 - [ ] استبدال `https://azrar.example.com` بالموقع الفعلي
 
 #### الملفات المتأثرة:
-- [ ] `electron-builder.config.js`
+- [ ] `electron-builder.config.cjs`
 - [ ] `README.md`
 - [ ] `SECURITY.md`
 - [ ] `CHANGELOG.md`
@@ -211,7 +211,7 @@ npm list @testing-library/react
 ```powershell
 # استبدال في جميع الملفات
 $files = @(
-  "electron-builder.config.js",
+  "electron-builder.config.cjs",
   "README.md",
   "SECURITY.md",
   "CHANGELOG.md",
@@ -307,7 +307,7 @@ npm run desktop:dist:skipWU
 ### عند الانتهاء، يجب أن يكون لديك:
 
 #### ✅ ملفات جديدة (14)
-- electron-builder.config.js
+- electron-builder.config.cjs
 - SECURITY.md
 - CHANGELOG.md
 - DEVELOPMENT.md
@@ -343,7 +343,7 @@ npm run desktop:dist:skipWU
 **الحل:** مؤقتاً، عطّل الاختبارات الفاشلة وأصلحها لاحقاً
 
 ### المشكلة: البناء يفشل
-**الحل:** تحقق من السجلات وراجع `electron-builder.config.js`
+**الحل:** تحقق من السجلات وراجع `electron-builder.config.cjs`
 
 ### المشكلة: GitHub Actions تفشل
 **الحل:** تحقق من الـ Secrets وراجع `.github/workflows/build.yml`

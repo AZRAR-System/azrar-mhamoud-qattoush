@@ -92,10 +92,10 @@ $env:CSC_KEY_PASSWORD = "your-certificate-password"
 # CSC_KEY_PASSWORD: [كلمة مرور الشهادة]
 ```
 
-### الخطوة 3: تحديث electron-builder.config.js
+### الخطوة 3: تحديث electron-builder.config.cjs
 
 ```javascript
-// إلغاء التعليق على هذه الأسطر في electron-builder.config.js
+// إلغاء التعليق على هذه الأسطر في electron-builder.config.cjs
 win: {
   signAndEditExecutable: true,
   signingHashAlgorithms: ['sha256'],

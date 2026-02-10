@@ -143,7 +143,7 @@ azrar-desktop/
 │   └── AZRAR Setup.exe       # المثبت النهائي
 │
 ├── 📄 package.json            # تبعيات المشروع
-├── 📄 electron-builder.config.js  # إعدادات البناء
+├── 📄 electron-builder.config.cjs  # إعدادات البناء
 ├── 📄 tsconfig.json           # إعدادات TypeScript
 ├── 📄 vite.config.ts          # إعدادات Vite
 └── 📄 README.md               # هذا الملف
