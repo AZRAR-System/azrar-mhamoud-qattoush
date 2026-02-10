@@ -13,6 +13,11 @@ dist-ssr/
 build/
 out/
 release*/
+release2_build/
+release2_build_archive/
+release_licenseadmin_build/
+release_licensegen_build/
+release-artifacts/
 win-unpacked/
 *.exe
 *.blockmap
