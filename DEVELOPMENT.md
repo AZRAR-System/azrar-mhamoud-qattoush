@@ -36,18 +36,26 @@
 
 ```bash
 # 1. استنساخ المشروع
-git clone https://github.com/your-username/azrar-desktop.git
-cd azrar-desktop
+git clone https://github.com/qatash/azrar-mhamoud-qattoush.git
+cd azrar-mhamoud-qattoush
 
 # 2. تثبيت التبعيات
 npm install
 
-# 3. نسخ ملف البيئة
-copy .env.example .env.local
-
-# 4. تشغيل في وضع التطوير
+# 3. تشغيل في وضع التطوير
 npm run desktop:dev
 ```
+
+> ملاحظة: وضع سطح المكتب يستخدم `vite --mode desktop` ويقرأ إعداداته من `.env.desktop`.
+
+---
+
+## 🧹 تنظيف ملفات التطوير (آمن)
+
+بدلاً من حذف مجلدات مثل `node_modules/` يدويًا، استخدم التنظيف المعتمد على git:
+
+- دليل: [docs/LOCAL_CLEANUP_SAFE.md](./docs/LOCAL_CLEANUP_SAFE.md)
+- سكربت: `scripts/clean-local.ps1`
 
 ### إعدادات Visual Studio Code
 

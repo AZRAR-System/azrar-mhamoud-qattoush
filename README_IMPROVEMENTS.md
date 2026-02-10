@@ -178,7 +178,7 @@ cat DEVELOPMENT.md
 - 🔐 SECURITY.md - للأمان
 
 ### الدعم
-- 📧 البريد: support@azrar.example.com
+- 📧 البريد: (قناة داخلية)
 - 🐛 GitHub Issues
 - 💬 Discord Server
 

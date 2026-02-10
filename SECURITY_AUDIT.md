@@ -272,7 +272,7 @@ const csp = [
 
 ### طرق الإبلاغ
 
-- 📧 **Email:** security@azrar.example.com
+- 📧 **Email:** (قناة داخلية / GitHub Security Advisory)
 - 🔒 **PGP Key:** [link to key]
 - 📝 **GitHub Security Advisory:** [link]
 

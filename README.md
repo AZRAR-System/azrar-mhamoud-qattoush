@@ -2,7 +2,7 @@
 
 <div dir="rtl">
 
-[![Version](https://img.shields.io/badge/version-2.0.109-blue.svg)](https://github.com/your-username/azrar-desktop)
+[![Version](https://img.shields.io/badge/version-3.2.33-blue.svg)](https://github.com/qatash/azrar-mhamoud-qattoush)
 [![Electron](https://img.shields.io/badge/Electron-33.2.1-47848F.svg)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-19.2.1-61DAFB.svg)](https://reactjs.org/)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](./LICENSE)
@@ -44,7 +44,7 @@
 
 1. **تحميل أحدث إصدار:**
    ```
-   https://github.com/your-username/azrar-desktop/releases/latest
+   https://github.com/qatash/azrar-mhamoud-qattoush/releases/latest
    ```
 
 2. **تشغيل المثبت:**
@@ -65,10 +65,10 @@
 
 ```bash
 # استنساخ المستودع
-git clone https://github.com/your-username/azrar-desktop.git
+git clone https://github.com/qatash/azrar-mhamoud-qattoush.git
 
 # الدخول إلى المجلد
-cd azrar-desktop
+cd azrar-mhamoud-qattoush
 
 # تثبيت التبعيات
 npm install
@@ -252,8 +252,8 @@ azrar-desktop/
 إذا واجهت مشكلة:
 
 1. ابدأ من [ابدأ من هنا](./docs/START_HERE_UPDATED.md)
-2. ابحث في [Issues الموجودة](https://github.com/your-username/azrar-desktop/issues)
-3. افتح [Issue جديدة](https://github.com/your-username/azrar-desktop/issues/new) مع:
+2. ابحث في [Issues الموجودة](https://github.com/qatash/azrar-mhamoud-qattoush/issues)
+3. افتح [Issue جديدة](https://github.com/qatash/azrar-mhamoud-qattoush/issues/new) مع:
    - وصف المشكلة
    - خطوات إعادة الإنتاج
    - معلومات النظام
@@ -298,10 +298,7 @@ azrar-desktop/
 
 ## 📞 التواصل
 
-- **الموقع:** [https://azrar.example.com](https://azrar.example.com)
-- **البريد الإلكتروني:** support@azrar.example.com
-- **الدعم الفني:** support@azrar.example.com
-- **GitHub:** [github.com/your-username/azrar-desktop](https://github.com/your-username/azrar-desktop)
+- **GitHub:** [github.com/qatash/azrar-mhamoud-qattoush](https://github.com/qatash/azrar-mhamoud-qattoush)
 
 ---
 
@@ -320,10 +317,8 @@ azrar-desktop/
 
 ## 🌟 ادعمنا
 
-إذا أعجبك المشروع:
-- ⭐ قم بوضع نجمة على GitHub
-- 🐦 شاركه مع الآخرين
-- 📝 اكتب مراجعة
+إذا أعجبك المشروع (للاستخدام الداخلي):
+- شارك ملاحظاتك عبر Issues أو Pull Requests
 
 ---
 
@@ -331,6 +326,6 @@ azrar-desktop/
 
 **صُنع بـ ❤️ في السعودية**
 
-[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/your-username/azrar-desktop)
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/qatash/azrar-mhamoud-qattoush)
 
 </div>

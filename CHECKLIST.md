@@ -194,10 +194,8 @@ npm list @testing-library/react
 ### البحث والاستبدال
 
 #### في جميع الملفات الجديدة:
-- [ ] استبدال `your-username` باسم المستخدم الفعلي
-- [ ] استبدال `azrar-desktop` باسم المستودع الفعلي
-- [ ] استبدال `support@azrar.example.com` بالبريد الفعلي
-- [ ] استبدال `https://azrar.example.com` بالموقع الفعلي
+- [x] استبدال روابط `your-username` و`azrar-desktop` بالرابط الفعلي للمستودع
+- [x] إزالة/تعديل عناوين البريد والمواقع الوهمية (المشروع خاص)
 
 #### الملفات المتأثرة:
 - [ ] `electron-builder.config.cjs`
@@ -222,8 +220,8 @@ $files = @(
 foreach ($file in $files) {
   if (Test-Path $file) {
     (Get-Content $file) `
-      -replace 'your-username', 'YourActualUsername' `
-      -replace 'support@azrar.example.com', 'actual@email.com' |
+      -replace 'your-username', 'qatash' `
+      -replace 'azrar-desktop', 'azrar-mhamoud-qattoush' |
     Set-Content $file
   }
 }
