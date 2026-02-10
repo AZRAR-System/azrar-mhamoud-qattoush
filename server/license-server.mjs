@@ -38,12 +38,19 @@ const RATE_LIMIT_MAX_REQUESTS = 60; // max requests per window
 const RATE_LIMIT_ADMIN_MAX = 30; // stricter for admin endpoints
 const rateLimitStore = new Map();
 
+// SECURITY WARNING: X-Forwarded-For can be spoofed. Only trust this header
+// if the server is behind a trusted reverse proxy. For production deployments
+// behind a proxy, set AZRAR_LICENSE_TRUST_PROXY=1 to use X-Forwarded-For.
+// Otherwise, the direct socket IP will be used.
 const getRateLimitKey = (req) => {
-  // Use IP address as the rate limit key
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = forwarded ? String(forwarded).split(',')[0].trim() : 
-             req.socket?.remoteAddress || 'unknown';
-  return ip;
+  const trustProxy = String(process.env.AZRAR_LICENSE_TRUST_PROXY || '').trim() === '1';
+  if (trustProxy) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      return String(forwarded).split(',')[0].trim();
+    }
+  }
+  return req.socket?.remoteAddress || 'unknown';
 };
 
 const checkRateLimit = (req, isAdmin = false) => {
@@ -128,11 +135,15 @@ const setCors = (res, req) => {
     const allowedOrigins = allowedOrigin.split(',').map(o => o.trim());
     if (allowedOrigins.includes(requestOrigin)) {
       res.setHeader('Access-Control-Allow-Origin', requestOrigin);
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+      res.setHeader('Vary', 'Origin');
     }
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    // SECURITY: Don't set CORS header if origin is not in allowed list
+    // This prevents unauthorized cross-origin requests
+  } else if (allowedOrigin === '*') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (!requestOrigin) {
+    // No origin header means same-origin request, allow it
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin.split(',')[0]?.trim() || '*');
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');

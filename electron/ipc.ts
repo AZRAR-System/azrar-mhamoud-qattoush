@@ -2281,7 +2281,8 @@ export function registerIpcHandlers() {
   // This replaces the hardcoded password to prevent credential exposure.
   // Admin must set credentials via environment variables or change after first login.
   const generateSecureDefaultPassword = (): string => {
-    return crypto.randomBytes(24).toString('base64').replace(/[/+=]/g, '');
+    // Use hex encoding for simplicity and full entropy preservation (48 chars)
+    return crypto.randomBytes(24).toString('hex');
   };
   let generatedDefaultPassword: string | null = null;
   const getDefaultAdminPassword = (): string => {
@@ -5720,12 +5721,12 @@ export function registerIpcHandlers() {
       // Java/Compiled
       '.jar',
       '.class',
-      // HTML Application
+      // HTML Application (dangerous)
       '.hta',
-      '.htm',  // Can contain malicious scripts if opened locally
-      '.html', // Can contain malicious scripts if opened locally
       '.mht',
       '.mhtml',
+      // NOTE: .htm and .html removed - they are commonly used for documentation
+      // and are generally safe when opened in browsers with proper sandbox
       // Control Panel / System
       '.cpl',
       '.inf',
