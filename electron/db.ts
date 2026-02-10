@@ -6,6 +6,8 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import crypto from 'node:crypto';
 
+import { normalizeKvValueOnWrite } from './utils/kvInvariants';
+
 type SqliteDb = InstanceType<typeof BetterSqlite3>;
 
 const require = createRequire(import.meta.url);
@@ -4132,30 +4134,6 @@ export function kvGetDeletedAt(key: string): string | null {
     | { deletedAt: string }
     | undefined;
   return row?.deletedAt ?? null;
-}
-
-function normalizeKvValueOnWrite(key: string, value: string): string {
-  // Only enforce invariants on the specific KV dataset requested.
-  if (key !== 'db_contracts') return value;
-
-  const parsed = safeJsonParseArray(value);
-  if (!Array.isArray(parsed) || parsed.length === 0) return value;
-
-  let changed = false;
-  const normalized = parsed.map((item) => {
-    const rec = toRecord(item);
-    if (!Object.keys(rec).length) return item;
-
-    const raw = rec['تكرار_الدفع'];
-    const n = Number(raw);
-    const needsDefault = !Number.isFinite(n) || n <= 0;
-    if (!needsDefault) return item;
-
-    changed = true;
-    return { ...rec, تكرار_الدفع: 12 };
-  });
-
-  return changed ? JSON.stringify(normalized) : value;
 }
 
 export function kvSet(key: string, value: string): void {

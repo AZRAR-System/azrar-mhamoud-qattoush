@@ -2650,6 +2650,24 @@ export function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('licenseAdmin:unbindDevice', async (_e, payload: unknown) => {
+    try {
+      const auth = requireAdminSession();
+      if (!auth.ok) return { ok: false, error: auth.error };
+      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const serverUrl = normalizeServerUrl(p.serverUrl);
+      if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
+      const licenseKey = String(p.licenseKey || '').trim();
+      const deviceId = String(p.deviceId || '').trim();
+      if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
+      if (!deviceId) return { ok: false, error: 'deviceId is required.' };
+      const json = await postJson(serverUrl, '/api/license/admin/unbindDevice', { licenseKey, deviceId });
+      return { ok: true, result: json };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'Failed to unbind device') };
+    }
+  });
+
   ipcMain.handle('licenseAdmin:delete', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
