@@ -71,7 +71,7 @@
 - تحسينات في الاستقرار العام
 
 ### 🐛 الإصلاحات
-- إصلاح Path Traversal (CVE-2025-0001)
+- إصلاح Path Traversal
 - إصلاح مشكلة الطباعة على Windows 11
 - إصلاح أخطاء التزامن مع SQL Server
 
@@ -101,7 +101,7 @@
 - إصلاح أخطاء في حسابات الضريبة
 
 ### 🔒 الأمان
-- إصلاح ثغرة XSS (CVE-2024-9999)
+- إصلاح ثغرة XSS
 - تحسين إدارة الجلسات
 - تحديث جميع التبعيات
 
@@ -158,7 +158,7 @@
 - **MINOR (الفرعي):** إضافة مميزات متوافقة مع السابق
 - **PATCH (التصحيح):** إصلاحات متوافقة
 
-مثال: `2.0.109`
+مثال: `3.2.33`
 - `2` = الإصدار الرئيسي
 - `0` = الإصدار الفرعي
 - `109` = رقم التصحيح
@@ -167,9 +167,9 @@
 
 ## روابط مفيدة
 
-- [الإصدارات على GitHub](https://github.com/your-username/azrar-desktop/releases)
-- [الثغرات الأمنية](https://github.com/your-username/azrar-desktop/security/advisories)
-- [خارطة الطريق](https://github.com/your-username/azrar-desktop/projects)
+- [الإصدارات على GitHub](https://github.com/qatash/azrar-mhamoud-qattoush/releases)
+- [الثغرات الأمنية](https://github.com/qatash/azrar-mhamoud-qattoush/security/advisories)
+- [خارطة الطريق](./docs/ROADMAP_2026.md)
 
 ---
 

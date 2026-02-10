@@ -6,6 +6,23 @@
 
 ---
 
+## 🧭 PLANNING & ROADMAP
+
+### 📌 ROADMAP_2026.md ⭐ **NEW!**
+**Purpose:** Comprehensive improvement & development plan (Now/Next/Later) across stability, security, printing, licensing, data, and DX.
+**Best For:** Owners/maintainers and anyone planning the next releases.
+**Key Sections:** goals, constraints, workstreams, timeline, risks.
+
+---
+
+## 🧹 LOCAL MAINTENANCE
+
+### 🧼 LOCAL_CLEANUP_SAFE.md ⭐ **NEW!**
+**Purpose:** Safe local cleanup guide (uses git clean) to remove generated artifacts without deleting tracked files.
+**Best For:** Developers who want to free disk space safely.
+
+---
+
 ## 📄 DOCUMENTATION FILES
 
 ---

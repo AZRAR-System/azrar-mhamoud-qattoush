@@ -216,7 +216,7 @@ npm run test:coverage
 
 ```bash
 # Fork المشروع
-git clone https://github.com/YOUR-USERNAME/azrar-desktop.git
+git clone https://github.com/qatash/azrar-mhamoud-qattoush.git
 
 # أنشئ branch جديد
 git checkout -b feature/your-feature
@@ -286,7 +286,7 @@ git push origin feature/your-feature
 
 لأي استفسارات أو مشاكل:
 
-- 📧 **Email:** support@azrar.example.com
+- 📧 **Email:** (قناة داخلية)
 - 💬 **Discord:** [رابط Discord]
 - 📝 **GitHub Issues:** [رابط Issues]
 - 📚 **التوثيق:** `docs/` directory

@@ -6,6 +6,8 @@
 
 **Canonical repository:** https://github.com/qatash/azrar-mhamoud-qattoush (default branch: `main`, private)
 
+**Roadmap (plan):** [ROADMAP_2026.md](ROADMAP_2026.md)
+
 ---
 
 ## 1) Non‑Negotiable Architecture & Security Constraints
@@ -44,6 +46,11 @@
 - **Rebuild Electron bundles only:** `npm run electron:build`
 - **Typecheck:** `npm run typecheck`
 - **Pre‑PR verification:** `npm run verify` (tsc + routes check + Vite build + electron bundles)
+
+### 3.5 Safe local cleanup (disk space)
+Use the safe cleanup guide/script instead of manual deletion:
+- Guide: [LOCAL_CLEANUP_SAFE.md](LOCAL_CLEANUP_SAFE.md)
+- Script: `scripts/clean-local.ps1`
 
 ### 3.2 Critical environment gotchas
 - **Vite must stay on port 3000** for desktop dev.
@@ -162,6 +169,8 @@ This affects:
 - Replace remaining `xlsx` usage with `exceljs`.
 - Address Jest ESM/CJS friction noted in final implementation notes.
 - Consider adding foreign keys (FK) to domain tables if enforcing relational integrity becomes a requirement.
+
+For a prioritized plan (Now/Next/Later) across stability, security, printing, licensing, and DX, see: [ROADMAP_2026.md](ROADMAP_2026.md)
 
 ---
 

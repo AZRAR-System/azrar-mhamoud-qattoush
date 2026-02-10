@@ -53,13 +53,13 @@
 
 2. **استنسخ Fork الخاص بك**
    ```bash
-   git clone https://github.com/YOUR-USERNAME/azrar-desktop.git
-   cd azrar-desktop
+  git clone https://github.com/qatash/azrar-mhamoud-qattoush.git
+  cd azrar-mhamoud-qattoush
    ```
 
 3. **أضف upstream**
    ```bash
-   git remote add upstream https://github.com/original/azrar-desktop.git
+  git remote add upstream https://github.com/qatash/azrar-mhamoud-qattoush.git
    ```
 
 4. **أنشئ branch**
@@ -332,7 +332,7 @@ chore: update dependencies
 ### المجتمع
 - **Discord**: [رابط Discord]
 - **GitHub Discussions**: [رابط]
-- **Email**: contribute@azrar.example.com
+- **Email**: (قناة داخلية)
 
 ---
 
@@ -349,7 +349,7 @@ chore: update dependencies
 لديك سؤال؟ اسأل في:
 - GitHub Discussions
 - Discord Server
-- Email: contribute@azrar.example.com
+- Email: (قناة داخلية)
 
 ---
 

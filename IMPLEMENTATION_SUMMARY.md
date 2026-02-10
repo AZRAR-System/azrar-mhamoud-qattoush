@@ -199,7 +199,7 @@ DISCORD_WEBHOOK=<discord-webhook-url>
 ```
 
 #### 3. تحديث روابط GitHub
-استبدل `your-username` في:
+تمت إزالة/تحديث روابط `your-username` إلى المستودع الفعلي في:
 - `electron-builder.config.cjs`
 - `README-NEW.md`
 - `.github/workflows/build.yml`
@@ -239,7 +239,7 @@ DISCORD_WEBHOOK=<discord-webhook-url>
 5. `CHANGELOG.md` - لمتابعة التغييرات
 
 ### الدعم
-- 📧 البريد: support@azrar.example.com
+- 📧 البريد: (قناة داخلية)
 - 💬 Discord: [الرابط]
 - 🐛 Issues: GitHub Issues
 
