@@ -10,6 +10,58 @@ const HOST = process.env.MARQUEE_HOST || '0.0.0.0';
 const dataDir = path.join(__dirname, 'data');
 const dataFile = path.join(dataDir, 'marquee.json');
 
+// ================== Rate Limiting ==================
+// SECURITY: Protect against brute-force and DoS attacks
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 100; // max requests per window for read operations
+const RATE_LIMIT_WRITE_MAX = 20; // stricter for write operations (POST/DELETE)
+const rateLimitStore = new Map();
+
+// SECURITY WARNING: X-Forwarded-For can be spoofed. Only trust this header
+// if the server is behind a trusted reverse proxy. For production deployments
+// behind a proxy, set MARQUEE_TRUST_PROXY=1 to use X-Forwarded-For.
+// Otherwise, the direct socket IP will be used.
+function getRateLimitKey(req) {
+  const trustProxy = String(process.env.MARQUEE_TRUST_PROXY || '').trim() === '1';
+  if (trustProxy) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      return String(forwarded).split(',')[0].trim();
+    }
+  }
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function checkRateLimit(req, isWrite = false) {
+  const key = getRateLimitKey(req);
+  const now = Date.now();
+  const maxRequests = isWrite ? RATE_LIMIT_WRITE_MAX : RATE_LIMIT_MAX_REQUESTS;
+  
+  let record = rateLimitStore.get(key);
+  if (!record || now - record.windowStart > RATE_LIMIT_WINDOW_MS) {
+    record = { windowStart: now, count: 0 };
+  }
+  
+  record.count++;
+  rateLimitStore.set(key, record);
+  
+  // Cleanup old entries
+  if (rateLimitStore.size > 1000) {
+    const threshold = now - RATE_LIMIT_WINDOW_MS * 2;
+    for (const [k, v] of rateLimitStore) {
+      if (v.windowStart < threshold) rateLimitStore.delete(k);
+    }
+  }
+  
+  if (record.count > maxRequests) {
+    const retryAfter = Math.ceil((record.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  return { allowed: true, remaining: maxRequests - record.count };
+}
+// ================== End Rate Limiting ==================
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -24,11 +76,31 @@ function sendJson(res, statusCode, body, headers = {}) {
   res.end(payload);
 }
 
-function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// SECURITY NOTE: CORS is set to '*' for backwards compatibility.
+// For production, consider setting MARQUEE_CORS_ORIGIN to restrict allowed origins.
+function setCors(res, req) {
+  const allowedOrigin = String(process.env.MARQUEE_CORS_ORIGIN || '').trim() || '*';
+  const requestOrigin = req?.headers?.origin;
+  
+  if (allowedOrigin !== '*' && requestOrigin) {
+    const allowedOrigins = allowedOrigin.split(',').map(o => o.trim());
+    if (allowedOrigins.includes(requestOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
+    }
+    // SECURITY: Don't set CORS header if origin is not in allowed list
+    // This prevents unauthorized cross-origin requests
+  } else if (allowedOrigin === '*') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (!requestOrigin) {
+    // No origin header means same-origin request, allow it
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin.split(',')[0]?.trim() || '*');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, If-Match');
   res.setHeader('Access-Control-Expose-Headers', 'ETag');
+  res.setHeader('Access-Control-Max-Age', '86400');
 }
 
 async function ensureStore() {
@@ -89,7 +161,7 @@ async function readBodyJson(req) {
 }
 
 const server = http.createServer(async (req, res) => {
-  setCors(res);
+  setCors(res, req);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -98,6 +170,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+  // SECURITY: Apply rate limiting
+  const isWriteOperation = req.method === 'POST' || req.method === 'DELETE';
+  const rateLimitResult = checkRateLimit(req, isWriteOperation);
+  if (!rateLimitResult.allowed) {
+    res.setHeader('Retry-After', String(rateLimitResult.retryAfter || 60));
+    return sendJson(res, 429, { 
+      ok: false, 
+      message: 'Too Many Requests. Please try again later.',
+      retryAfter: rateLimitResult.retryAfter
+    });
+  }
 
   try {
     if (req.method === 'GET' && url.pathname === '/health') {

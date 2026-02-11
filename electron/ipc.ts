@@ -2277,7 +2277,20 @@ export function registerIpcHandlers() {
 
   const ADMIN_AUTH_KEY = 'lic_admin_auth_v1';
   const DEFAULT_ADMIN_USERNAME = 'admin';
-  const DEFAULT_ADMIN_PASSWORD = '7Bibi@_@_0788';
+  // SECURITY: Generate a cryptographically random password for first-time setup.
+  // This replaces the hardcoded password to prevent credential exposure.
+  // Admin must set credentials via environment variables or change after first login.
+  const generateSecureDefaultPassword = (): string => {
+    // Use hex encoding for simplicity and full entropy preservation (48 chars)
+    return crypto.randomBytes(24).toString('hex');
+  };
+  let generatedDefaultPassword: string | null = null;
+  const getDefaultAdminPassword = (): string => {
+    if (!generatedDefaultPassword) {
+      generatedDefaultPassword = generateSecureDefaultPassword();
+    }
+    return generatedDefaultPassword;
+  };
   const normalizeUser = (u: unknown) => String(u ?? '').trim().slice(0, 64);
   const normalizePass = (p: unknown) => String(p ?? '').trim().slice(0, 128);
 
@@ -2328,7 +2341,7 @@ export function registerIpcHandlers() {
     const envUser = normalizeUser(process.env.AZRAR_LICENSE_ADMIN_UI_USERNAME || process.env.AZRAR_ADMIN_USERNAME);
     const envPass = normalizePass(process.env.AZRAR_LICENSE_ADMIN_UI_PASSWORD || process.env.AZRAR_ADMIN_PASSWORD);
     const username = envUser || DEFAULT_ADMIN_USERNAME;
-    const password = envPass || DEFAULT_ADMIN_PASSWORD;
+    const password = envPass || getDefaultAdminPassword();
     const created = createAuth(username, password);
     try {
       kvSet(ADMIN_AUTH_KEY, JSON.stringify(created));
@@ -2460,7 +2473,7 @@ export function registerIpcHandlers() {
       const nextPass = normalizePass(p.newPassword);
       if (!nextUser) return { ok: false, error: 'username is required.' };
       const current = ensureAuth();
-      const updated = createAuth(nextUser, nextPass || DEFAULT_ADMIN_PASSWORD);
+      const updated = createAuth(nextUser, nextPass || getDefaultAdminPassword());
       if (!nextPass) {
         (updated as Record<string, unknown>).saltB64 = (current as Record<string, unknown>).saltB64;
         (updated as Record<string, unknown>).iterations = (current as Record<string, unknown>).iterations;
@@ -5681,26 +5694,70 @@ export function registerIpcHandlers() {
 
   const isDangerousToOpenByDefault = (absPath: string): boolean => {
     const ext = path.extname(absPath).toLowerCase();
-    // Block common executable / script / shortcut formats.
+    // SECURITY: Block common executable, script, shortcut, and dangerous formats.
+    // This list is maintained to prevent execution of potentially harmful files.
     return [
+      // Windows executables
       '.exe',
       '.msi',
       '.com',
       '.scr',
+      '.pif',
+      '.gadget',
+      // Script files
       '.bat',
       '.cmd',
       '.ps1',
       '.psm1',
+      '.psd1',
       '.vbs',
+      '.vbe',
       '.js',
       '.jse',
+      '.ws',
+      '.wsf',
+      '.wsc',
+      '.wsh',
+      // Java/Compiled
       '.jar',
+      '.class',
+      // HTML Application (dangerous)
       '.hta',
+      '.mht',
+      '.mhtml',
+      // NOTE: .htm and .html removed - they are commonly used for documentation
+      // and are generally safe when opened in browsers with proper sandbox
+      // Control Panel / System
       '.cpl',
+      '.inf',
+      '.ins',
+      '.isp',
+      // Shortcuts and links
       '.lnk',
       '.url',
+      '.scf',
+      '.desktop',
+      // Registry
       '.reg',
+      // Microsoft Office macros (can contain malicious code)
+      '.docm',
+      '.xlsm',
+      '.pptm',
+      '.dotm',
+      '.xltm',
+      '.potm',
+      '.ppam',
+      '.xlam',
+      // Other dangerous formats
       '.appref-ms',
+      '.application',
+      '.chm',
+      '.hlp',
+      '.lib',
+      '.dll',
+      '.sys',
+      '.drv',
+      '.ocx',
     ].includes(ext);
   };
 

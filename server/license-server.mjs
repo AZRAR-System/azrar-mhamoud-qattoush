@@ -31,6 +31,58 @@ let dataFile = path.join(dataDir, 'licenses.json');
 
 const nowIso = () => new Date().toISOString();
 
+// ================== Rate Limiting ==================
+// SECURITY: Protect against brute-force and DoS attacks
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 60; // max requests per window
+const RATE_LIMIT_ADMIN_MAX = 30; // stricter for admin endpoints
+const rateLimitStore = new Map();
+
+// SECURITY WARNING: X-Forwarded-For can be spoofed. Only trust this header
+// if the server is behind a trusted reverse proxy. For production deployments
+// behind a proxy, set AZRAR_LICENSE_TRUST_PROXY=1 to use X-Forwarded-For.
+// Otherwise, the direct socket IP will be used.
+const getRateLimitKey = (req) => {
+  const trustProxy = String(process.env.AZRAR_LICENSE_TRUST_PROXY || '').trim() === '1';
+  if (trustProxy) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      return String(forwarded).split(',')[0].trim();
+    }
+  }
+  return req.socket?.remoteAddress || 'unknown';
+};
+
+const checkRateLimit = (req, isAdmin = false) => {
+  const key = getRateLimitKey(req);
+  const now = Date.now();
+  const maxRequests = isAdmin ? RATE_LIMIT_ADMIN_MAX : RATE_LIMIT_MAX_REQUESTS;
+  
+  let record = rateLimitStore.get(key);
+  if (!record || now - record.windowStart > RATE_LIMIT_WINDOW_MS) {
+    record = { windowStart: now, count: 0 };
+  }
+  
+  record.count++;
+  rateLimitStore.set(key, record);
+  
+  // Cleanup old entries every 100 requests
+  if (rateLimitStore.size > 1000) {
+    const threshold = now - RATE_LIMIT_WINDOW_MS * 2;
+    for (const [k, v] of rateLimitStore) {
+      if (v.windowStart < threshold) rateLimitStore.delete(k);
+    }
+  }
+  
+  if (record.count > maxRequests) {
+    const retryAfter = Math.ceil((record.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  return { allowed: true, remaining: maxRequests - record.count };
+};
+// ================== End Rate Limiting ==================
+
 const clampStr = (v, maxLen) => {
   const s = String(v ?? '').trim();
   if (!s) return '';
@@ -71,10 +123,32 @@ const sendJson = (res, statusCode, body, headers = {}) => {
   res.end(payload);
 };
 
-const setCors = (res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// SECURITY NOTE: CORS is set to '*' for backwards compatibility with existing deployments.
+// For production environments, consider setting AZRAR_LICENSE_CORS_ORIGIN to restrict allowed origins.
+// Example: AZRAR_LICENSE_CORS_ORIGIN=https://yourdomain.com
+const setCors = (res, req) => {
+  const allowedOrigin = String(process.env.AZRAR_LICENSE_CORS_ORIGIN || '').trim() || '*';
+  const requestOrigin = req?.headers?.origin;
+  
+  // If specific origin is configured, validate it
+  if (allowedOrigin !== '*' && requestOrigin) {
+    const allowedOrigins = allowedOrigin.split(',').map(o => o.trim());
+    if (allowedOrigins.includes(requestOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
+    }
+    // SECURITY: Don't set CORS header if origin is not in allowed list
+    // This prevents unauthorized cross-origin requests
+  } else if (allowedOrigin === '*') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (!requestOrigin) {
+    // No origin header means same-origin request, allow it
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin.split(',')[0]?.trim() || '*');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Token');
+  res.setHeader('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
 };
 
 const ensureStore = async () => {
@@ -239,7 +313,7 @@ let server = null;
 
 const createServer = () =>
   http.createServer(async (req, res) => {
-  setCors(res);
+  setCors(res, req);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -248,6 +322,19 @@ const createServer = () =>
   }
 
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+  // SECURITY: Apply rate limiting for all endpoints
+  const isAdminEndpoint = url.pathname.includes('/admin/');
+  const rateLimitResult = checkRateLimit(req, isAdminEndpoint);
+  if (!rateLimitResult.allowed) {
+    res.setHeader('Retry-After', String(rateLimitResult.retryAfter || 60));
+    return sendJson(res, 429, { 
+      ok: false, 
+      error: 'Too Many Requests',
+      message: 'تجاوزت الحد الأقصى للطلبات. حاول مرة أخرى لاحقاً.',
+      retryAfter: rateLimitResult.retryAfter
+    });
+  }
 
   try {
     if (req.method === 'GET' && url.pathname === '/') {
