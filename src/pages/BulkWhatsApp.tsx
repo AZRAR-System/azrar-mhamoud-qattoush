@@ -377,7 +377,7 @@ export const BulkWhatsApp: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       <div className={DS.components.pageHeader}>
         <div>
           <h2 className={DS.components.pageTitle}>إرسال واتساب جماعي</h2>
@@ -428,7 +428,7 @@ export const BulkWhatsApp: React.FC = () => {
             </div>
 
             <textarea
-              className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none h-28"
+              className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none h-28 text-right"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="مثال: تهنئة ..."
