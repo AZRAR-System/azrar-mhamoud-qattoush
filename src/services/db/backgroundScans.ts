@@ -1,0 +1,546 @@
+/**
+ * Startup / periodic alert maintenance: dedupe, reminders, auto-renew, data-quality, expiry, risk.
+ */
+
+import type { DbResult, SystemSettings } from '@/types';
+import {
+  tbl_Alerts,
+  العقود_tbl,
+  الأشخاص_tbl,
+  العقارات_tbl,
+  العمولات_tbl,
+  الكمبيالات_tbl,
+  BlacklistRecord,
+} from '@/types';
+import { formatCurrencyJOD } from '@/utils/format';
+import { isTenancyRelevant } from '@/utils/tenancy';
+import { get, save } from './kv';
+import { KEYS } from './keys';
+import { INSTALLMENT_STATUS } from './installmentConstants';
+import { getInstallmentPaidAndRemaining } from './installments';
+import { buildContractAlertContext, markAlertsReadByPrefix, upsertAlert } from './alertsCore';
+import { getSettings } from './settings';
+
+export type CreateContractFn = (
+  data: Partial<العقود_tbl>,
+  commOwner: number,
+  commTenant: number,
+  commissionPaidMonth?: string
+) => DbResult<العقود_tbl>;
+
+export type BackgroundScansDeps = {
+  asUnknownRecord: (value: unknown) => Record<string, unknown>;
+  toDateOnly: (d: Date) => Date;
+  formatDateOnly: (d: Date) => string;
+  parseDateOnly: (iso: string) => Date | null;
+  daysBetweenDateOnly: (from: Date, to: Date) => number;
+  addDaysIso: (isoDate: string, days: number) => string | null;
+  addMonthsDateOnly: (isoDate: string, months: number) => Date | null;
+  createContract: CreateContractFn;
+  logOperationInternal: (
+    user: string,
+    action: string,
+    table: string,
+    recordId: string,
+    details: string
+  ) => void;
+};
+
+export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
+  const {
+    asUnknownRecord,
+    toDateOnly,
+    formatDateOnly,
+    parseDateOnly,
+    daysBetweenDateOnly,
+    addDaysIso,
+    addMonthsDateOnly,
+    createContract,
+    logOperationInternal,
+  } = d;
+
+  const dedupeAndCleanupAlertsInternal = () => {
+    const alerts = get<tbl_Alerts>(KEYS.ALERTS) || [];
+    if (alerts.length === 0) return;
+
+    const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS) || [];
+    const byInstallmentId = new Map<string, الكمبيالات_tbl>();
+    for (const inst of installments) byInstallmentId.set(inst.رقم_الكمبيالة, inst);
+
+    const today = toDateOnly(new Date());
+    const seen = new Map<string, tbl_Alerts>();
+    const deduped: tbl_Alerts[] = [];
+    let changed = false;
+
+    const inferAndPatchAlertContext = (a: tbl_Alerts): boolean => {
+      if (a?.مرجع_الجدول && a?.مرجع_المعرف) return false;
+      if (a?.نوع_التنبيه !== 'تأجيل تحصيل') return false;
+
+      const msg = String(a?.الوصف || '');
+      const m = msg.match(/عقد\s*#?\s*([A-Za-z0-9_\-]+)/);
+      const contractId = String(m?.[1] || '').trim();
+      if (!contractId) return false;
+
+      const ctx = buildContractAlertContext(contractId);
+      const before = JSON.stringify({
+        tenantName: a.tenantName,
+        phone: a.phone,
+        propertyCode: a.propertyCode,
+        مرجع_الجدول: a.مرجع_الجدول,
+        مرجع_المعرف: a.مرجع_المعرف,
+      });
+      Object.assign(a, ctx);
+      const after = JSON.stringify({
+        tenantName: a.tenantName,
+        phone: a.phone,
+        propertyCode: a.propertyCode,
+        مرجع_الجدول: a.مرجع_الجدول,
+        مرجع_المعرف: a.مرجع_المعرف,
+      });
+      return before !== after;
+    };
+
+    for (const a of alerts) {
+      if (!a?.id) continue;
+
+      const existing = seen.get(a.id);
+      if (existing) {
+        if (!!a.تم_القراءة && !existing.تم_القراءة) existing.تم_القراءة = true;
+        changed = true;
+        continue;
+      }
+
+      if (!a.تم_القراءة) {
+        const payPrefix = 'ALR-FIN-PAY-';
+        const remPrefix = 'ALR-FIN-REM7-';
+        const legalPrefix = 'ALR-FIN-LEGAL-';
+
+        if (
+          a.نوع_التنبيه === 'إخطار بالدفع' ||
+          a.نوع_التنبيه === 'إخطار قانوني بالدفع' ||
+          a.id.startsWith(payPrefix) ||
+          a.id.startsWith(legalPrefix)
+        ) {
+          a.تم_القراءة = true;
+          changed = true;
+        }
+
+        if (a.id.startsWith(payPrefix)) {
+          // handled above
+        } else if (a.id.startsWith(remPrefix)) {
+          const instId = a.id.slice(remPrefix.length);
+          const inst = byInstallmentId.get(instId);
+          if (inst) {
+            const status = String(inst.حالة_الكمبيالة ?? '').trim();
+            const { remaining } = getInstallmentPaidAndRemaining(inst);
+            if (status === INSTALLMENT_STATUS.PAID || remaining <= 0) {
+              a.تم_القراءة = true;
+              changed = true;
+            } else {
+              const due = parseDateOnly(inst.تاريخ_استحقاق);
+              if (due) {
+                const daysUntilDue = daysBetweenDateOnly(today, due);
+                if (daysUntilDue <= 0) {
+                  a.تم_القراءة = true;
+                  changed = true;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (inferAndPatchAlertContext(a)) {
+        changed = true;
+      }
+
+      seen.set(a.id, a);
+      deduped.push(a);
+    }
+
+    if (changed || deduped.length !== alerts.length) {
+      save(KEYS.ALERTS, deduped);
+    }
+  };
+
+  const runInstallmentReminderScanInternal = () => {
+    const today = toDateOnly(new Date());
+
+    const contracts = get<العقود_tbl>(KEYS.CONTRACTS).filter((c) => isTenancyRelevant(c));
+    if (contracts.length === 0) return;
+
+    const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
+    const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
+    const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
+    const norm = (v: unknown) => String(v ?? '').trim();
+
+    for (const contract of contracts) {
+      const tenant = people.find((p) => p.رقم_الشخص === contract.رقم_المستاجر);
+      const property = properties.find((p) => p.رقم_العقار === contract.رقم_العقار);
+      const contractInstallmentsAll = installments
+        .filter((i) => i.رقم_العقد === contract.رقم_العقد)
+        .filter((i) => i.نوع_الكمبيالة !== 'تأمين')
+        .filter((i) => asUnknownRecord(i)['isArchived'] !== true)
+        .filter((i) => norm(i.حالة_الكمبيالة) !== INSTALLMENT_STATUS.CANCELLED);
+
+      const contractInstallments = contractInstallmentsAll.filter(
+        (i) => norm(i.حالة_الكمبيالة) !== INSTALLMENT_STATUS.PAID
+      );
+
+      const unpaid = contractInstallments
+        .map((i) => ({ inst: i, ...getInstallmentPaidAndRemaining(i) }))
+        .filter((x) => x.remaining > 0);
+
+      const nowPaid = contractInstallmentsAll
+        .map((i) => ({
+          inst: i,
+          status: norm(i.حالة_الكمبيالة),
+          ...getInstallmentPaidAndRemaining(i),
+        }))
+        .filter((x) => x.status === INSTALLMENT_STATUS.PAID || x.remaining <= 0);
+      for (const p of nowPaid) {
+        markAlertsReadByPrefix(`ALR-FIN-REM7-${p.inst.رقم_الكمبيالة}`);
+        markAlertsReadByPrefix(`ALR-FIN-PAY-${p.inst.رقم_الكمبيالة}`);
+      }
+
+      markAlertsReadByPrefix(`ALR-FIN-LEGAL-${contract.رقم_العقد}`);
+
+      for (const u of unpaid) {
+        const due = parseDateOnly(u.inst.تاريخ_استحقاق);
+        if (!due) continue;
+        const daysUntilDue = daysBetweenDateOnly(today, due);
+        if (daysUntilDue > 7) continue;
+        if (daysUntilDue <= 0) continue;
+
+        const alertId = `ALR-FIN-REM7-${u.inst.رقم_الكمبيالة}`;
+        upsertAlert({
+          id: alertId,
+          تاريخ_الانشاء: today.toISOString().split('T')[0],
+          نوع_التنبيه: 'تذكير قبل الاستحقاق (7 أيام)',
+          الوصف: `دفعة ستستحق خلال ${daysUntilDue} أيام. المبلغ: ${formatCurrencyJOD(u.remaining)} — تاريخ الاستحقاق: ${u.inst.تاريخ_استحقاق}`,
+          category: 'Financial',
+          تم_القراءة: false,
+          tenantName: tenant?.الاسم,
+          phone: tenant?.رقم_الهاتف,
+          propertyCode: property?.الكود_الداخلي,
+          مرجع_الجدول: 'الكمبيالات_tbl',
+          مرجع_المعرف: u.inst.رقم_الكمبيالة,
+        });
+      }
+    }
+  };
+
+  const runAutoRenewContractsInternal = () => {
+    const todayIso = formatDateOnly(toDateOnly(new Date()));
+    const today = parseDateOnly(todayIso);
+    if (!today) return;
+
+    const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
+    const expirable = contracts.filter((c) => !c.isArchived && c.autoRenew === true);
+    if (expirable.length === 0) return;
+
+    for (const c of expirable) {
+      if (c.linkedContractId) continue;
+      const end = parseDateOnly(c.تاريخ_النهاية);
+      if (!end) continue;
+      if (toDateOnly(end).getTime() >= toDateOnly(today).getTime()) continue;
+
+      try {
+        const newStart = addDaysIso(c.تاريخ_النهاية, 1);
+        if (!newStart) continue;
+        const endCandidate = addMonthsDateOnly(newStart, c.مدة_العقد_بالاشهر);
+        if (!endCandidate) continue;
+        endCandidate.setDate(endCandidate.getDate() - 1);
+        const newEnd = formatDateOnly(endCandidate);
+
+        const prevCommission = get<العمولات_tbl>(KEYS.COMMISSIONS).find(
+          (x) => x.رقم_العقد === c.رقم_العقد
+        );
+        const commOwner = prevCommission?.عمولة_المالك ?? 0;
+        const commTenant = prevCommission?.عمولة_المستأجر ?? 0;
+        const commissionPaidMonth = /^\d{4}-\d{2}-\d{2}$/.test(String(newStart))
+          ? String(newStart).slice(0, 7)
+          : undefined;
+
+        const { رقم_العقد: _omitId, ...base } = c;
+        const result = createContract(
+          {
+            ...base,
+            تاريخ_البداية: newStart,
+            تاريخ_النهاية: newEnd,
+            حالة_العقد: 'نشط',
+            isArchived: false,
+            عقد_مرتبط: c.رقم_العقد,
+            linkedContractId: undefined,
+          },
+          commOwner,
+          commTenant,
+          commissionPaidMonth
+        );
+
+        if (result.success && result.data) {
+          const newId = result.data.رقم_العقد;
+          const all = get<العقود_tbl>(KEYS.CONTRACTS);
+          const idx = all.findIndex((x) => x.رقم_العقد === c.رقم_العقد);
+          if (idx > -1) {
+            all[idx].linkedContractId = newId;
+            all[idx].حالة_العقد = 'مجدد';
+            save(KEYS.CONTRACTS, all);
+          }
+          logOperationInternal(
+            'System',
+            'تجديد تلقائي',
+            'Contracts',
+            c.رقم_العقد,
+            `تم التجديد التلقائي وإنشاء عقد جديد: ${newId}`
+          );
+        }
+      } catch (e) {
+        console.warn('Auto renew failed', e);
+      }
+    }
+  };
+
+  const markAlertsReadIfNotInSet = (prefix: string, alive: Set<string>) => {
+    const all = get<tbl_Alerts>(KEYS.ALERTS);
+    let changed = false;
+    for (const a of all) {
+      const id = String(asUnknownRecord(a)['id'] ?? '');
+      if (!id.startsWith(prefix)) continue;
+      if (alive.has(id)) continue;
+      if (!a.تم_القراءة) {
+        a.تم_القراءة = true;
+        changed = true;
+      }
+    }
+    if (changed) save(KEYS.ALERTS, all);
+  };
+
+  const runDataQualityScanInternal = () => {
+    const norm = (v: unknown) => String(v ?? '').trim();
+
+    const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
+    if (properties.length === 0) {
+      markAlertsReadByPrefix('ALR-DQ-PROP-');
+    } else {
+      const issues = properties
+        .map((p) => {
+          const missing: string[] = [];
+          if (!norm(asUnknownRecord(p)['رقم_اشتراك_الكهرباء'])) missing.push('رقم_اشتراك_الكهرباء');
+          if (!norm(asUnknownRecord(p)['رقم_اشتراك_المياه'])) missing.push('رقم_اشتراك_المياه');
+          return {
+            id: p.رقم_العقار,
+            name: `${p.الكود_الداخلي || p.رقم_العقار} — ${p.العنوان || ''}`.trim(),
+            missingFields: missing,
+          };
+        })
+        .filter((x) => x.missingFields.length > 0);
+
+      const alertId = 'ALR-DQ-PROP-UTILS';
+      if (issues.length === 0) {
+        markAlertsReadByPrefix('ALR-DQ-PROP-');
+      } else {
+        upsertAlert({
+          id: alertId,
+          تاريخ_الانشاء: new Date().toISOString().split('T')[0],
+          نوع_التنبيه: 'نقص بيانات العقارات',
+          الوصف: `يوجد ${issues.length} عقارات ينقصها بيانات مهمة (كهرباء/مياه).`,
+          category: 'DataQuality',
+          تم_القراءة: false,
+          count: issues.length,
+          details: issues,
+          مرجع_الجدول: 'العقارات_tbl',
+          مرجع_المعرف: 'batch',
+        });
+      }
+    }
+
+    const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
+    if (people.length === 0) {
+      markAlertsReadByPrefix('ALR-DQ-PEOPLE-');
+      return;
+    }
+
+    const peopleIssues = people
+      .map((p) => {
+        const missing: string[] = [];
+        if (!norm(p.رقم_الهاتف)) missing.push('رقم_الهاتف');
+        if (!norm(p.الرقم_الوطني)) missing.push('الرقم_الوطني');
+        return {
+          id: p.رقم_الشخص,
+          name: `${p.الاسم || p.رقم_الشخص}`.trim(),
+          missingFields: missing,
+        };
+      })
+      .filter((x) => x.missingFields.length > 0);
+
+    const peopleAlertId = 'ALR-DQ-PEOPLE-IDPHONE';
+    if (peopleIssues.length === 0) {
+      markAlertsReadByPrefix('ALR-DQ-PEOPLE-');
+      return;
+    }
+
+    upsertAlert({
+      id: peopleAlertId,
+      تاريخ_الانشاء: new Date().toISOString().split('T')[0],
+      نوع_التنبيه: 'نقص بيانات الأشخاص',
+      الوصف: `يوجد ${peopleIssues.length} أشخاص ينقصهم رقم الهاتف أو الرقم الوطني.`,
+      category: 'DataQuality',
+      تم_القراءة: false,
+      count: peopleIssues.length,
+      details: peopleIssues,
+      مرجع_الجدول: 'الأشخاص_tbl',
+      مرجع_المعرف: 'batch',
+    });
+  };
+
+  const runExpiryScanInternal = () => {
+    const today = toDateOnly(new Date());
+    const todayIso = formatDateOnly(today);
+
+    const settings: SystemSettings = getSettings();
+    const threshold = Math.max(1, Number(settings?.alertThresholdDays ?? 30));
+
+    const contracts = get<العقود_tbl>(KEYS.CONTRACTS)
+      .filter((c) => isTenancyRelevant(c))
+      .filter((c) => !c.isArchived);
+
+    const alive = new Set<string>();
+
+    for (const c of contracts) {
+      const end = parseDateOnly(String(asUnknownRecord(c)['تاريخ_النهاية'] || ''));
+      if (!end) continue;
+      const daysLeft = daysBetweenDateOnly(today, end);
+      if (daysLeft < 0) continue;
+      if (daysLeft > threshold) continue;
+
+      const id = `ALR-EXP-${c.رقم_العقد}`;
+      alive.add(id);
+      const ctx = buildContractAlertContext(c.رقم_العقد);
+      upsertAlert({
+        id,
+        تاريخ_الانشاء: todayIso,
+        نوع_التنبيه: 'قرب انتهاء العقد',
+        الوصف: `عقد الإيجار سينتهي خلال ${daysLeft} يوم — تاريخ الانتهاء: ${String(asUnknownRecord(c)['تاريخ_النهاية'] ?? '')}`,
+        category: 'Expiry',
+        تم_القراءة: false,
+        ...ctx,
+        مرجع_الجدول: 'العقود_tbl',
+        مرجع_المعرف: c.رقم_العقد,
+      });
+    }
+
+    markAlertsReadIfNotInSet('ALR-EXP-', alive);
+  };
+
+  const runRiskScanInternal = () => {
+    const today = toDateOnly(new Date());
+    const todayIso = formatDateOnly(today);
+
+    const contracts = get<العقود_tbl>(KEYS.CONTRACTS)
+      .filter((c) => isTenancyRelevant(c))
+      .filter((c) => !c.isArchived);
+    if (contracts.length === 0) {
+      markAlertsReadByPrefix('ALR-RISK-');
+      return;
+    }
+
+    const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
+    const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
+    const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
+    const blacklist = get<BlacklistRecord>(KEYS.BLACKLIST).filter((b) => b.isActive);
+    const blacklistByPerson = new Map<string, BlacklistRecord>();
+    for (const b of blacklist) blacklistByPerson.set(String(b.personId), b);
+
+    const norm = (v: unknown) => String(v ?? '').trim();
+    const alive = new Set<string>();
+
+    for (const c of contracts) {
+      const tenantId = String(asUnknownRecord(c)['رقم_المستاجر'] ?? '').trim();
+      const tenant = tenantId ? people.find((p) => String(p.رقم_الشخص) === tenantId) : undefined;
+      const propertyId = String(asUnknownRecord(c)['رقم_العقار'] ?? '').trim();
+      const property = properties.find((p) => String(p.رقم_العقار) === propertyId);
+      const ctx = {
+        tenantName: tenant?.الاسم,
+        phone: tenant?.رقم_الهاتف,
+        propertyCode: property?.الكود_الداخلي,
+        مرجع_الجدول: 'العقود_tbl',
+        مرجع_المعرف: c.رقم_العقد,
+      } as Partial<tbl_Alerts>;
+
+      const bl = tenantId ? blacklistByPerson.get(tenantId) : undefined;
+      if (bl) {
+        const id = `ALR-RISK-BL-${c.رقم_العقد}`;
+        alive.add(id);
+        upsertAlert({
+          id,
+          تاريخ_الانشاء: todayIso,
+          نوع_التنبيه: 'مستأجر ضمن القائمة السوداء',
+          الوصف: `المستأجر مدرج بالقائمة السوداء (${bl.severity}). السبب: ${bl.reason}`,
+          category: 'Risk',
+          تم_القراءة: false,
+          details: tenant ? [{ id: tenantId, name: tenant.الاسم, note: bl.reason }] : undefined,
+          ...ctx,
+        });
+      }
+
+      const overdueThresholdDays = 14;
+      const contractInstallments = installments
+        .filter((i) => String(i.رقم_العقد) === String(c.رقم_العقد))
+        .filter((i) => i.نوع_الكمبيالة !== 'تأمين')
+        .filter((i) => asUnknownRecord(i)['isArchived'] !== true)
+        .filter((i) => norm(i.حالة_الكمبيالة) !== INSTALLMENT_STATUS.CANCELLED);
+
+      const overdue = contractInstallments
+        .map((i) => {
+          const due = parseDateOnly(String(i.تاريخ_استحقاق || ''));
+          const { remaining } = getInstallmentPaidAndRemaining(i);
+          if (!due) return null;
+          if (remaining <= 0) return null;
+          const daysLate = daysBetweenDateOnly(due, today);
+          if (daysLate < overdueThresholdDays) return null;
+          return { inst: i, due: formatDateOnly(due), remaining, daysLate };
+        })
+        .filter(Boolean) as Array<{
+        inst: الكمبيالات_tbl;
+        due: string;
+        remaining: number;
+        daysLate: number;
+      }>;
+
+      if (overdue.length > 0) {
+        const id = `ALR-RISK-OD-${c.رقم_العقد}`;
+        alive.add(id);
+
+        const total = overdue.reduce((sum, x) => sum + (Number(x.remaining) || 0), 0);
+        upsertAlert({
+          id,
+          تاريخ_الانشاء: todayIso,
+          نوع_التنبيه: 'مخاطر تحصيل (دفعات متأخرة)',
+          الوصف: `يوجد ${overdue.length} دفعات متأخرة (${overdueThresholdDays}+ يوم). إجمالي المتبقي: ${formatCurrencyJOD(total)}`,
+          category: 'Risk',
+          تم_القراءة: false,
+          count: overdue.length,
+          details: overdue.slice(0, 20).map((x) => ({
+            id: x.inst.رقم_الكمبيالة,
+            name: `كمبيالة ${x.inst.رقم_الكمبيالة}`,
+            note: `متأخر ${x.daysLate} يوم — تاريخ الاستحقاق: ${x.due} — المتبقي: ${formatCurrencyJOD(Number(x.remaining || 0))}`,
+          })),
+          ...ctx,
+        });
+      }
+    }
+
+    markAlertsReadIfNotInSet('ALR-RISK-', alive);
+  };
+
+  return {
+    dedupeAndCleanupAlertsInternal,
+    runInstallmentReminderScanInternal,
+    runAutoRenewContractsInternal,
+    markAlertsReadIfNotInSet,
+    runDataQualityScanInternal,
+    runExpiryScanInternal,
+    runRiskScanInternal,
+  };
+}

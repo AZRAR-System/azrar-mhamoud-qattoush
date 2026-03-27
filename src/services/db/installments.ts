@@ -40,6 +40,29 @@ const calcDayDiffValue = (startIso: string, annualValue: number) => {
   return Math.round((monthRent * remainingDays) / dim);
 };
 
+/** Used by alerts/scans and mockDb payment logic — single source of truth. */
+export const getInstallmentPaidAndRemaining = (inst: الكمبيالات_tbl) => {
+  const norm = (v: unknown) => String(v ?? '').trim();
+
+  if (norm(inst.حالة_الكمبيالة) === INSTALLMENT_STATUS.PAID) {
+    return { paid: Math.max(0, inst.القيمة), remaining: 0 };
+  }
+
+  const rawRemaining = asUnknownRecord(inst)['القيمة_المتبقية'];
+  if (typeof rawRemaining === 'number' && Number.isFinite(rawRemaining)) {
+    const total = Math.max(0, inst.القيمة);
+    const remaining = Math.max(0, Math.min(total, rawRemaining));
+    const paid = Math.max(0, Math.min(total, total - remaining));
+    return { paid, remaining };
+  }
+
+  const paidFromHistory =
+    inst.سجل_الدفعات?.reduce((sum, p) => sum + (p.المبلغ > 0 ? p.المبلغ : 0), 0) || 0;
+  const paid = Math.max(0, Math.min(inst.القيمة, paidFromHistory));
+  const remaining = Math.max(0, inst.القيمة - paid);
+  return { paid, remaining };
+};
+
 export const generateContractInstallmentsInternal = (
   contract: العقود_tbl,
   contractId: string

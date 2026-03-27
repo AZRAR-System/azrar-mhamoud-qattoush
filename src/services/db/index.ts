@@ -5,6 +5,8 @@
 
 export { KEYS, type DbStorageKey } from './keys';
 export { get, save } from './kv';
+export { purgeRefs, isDesktop, getDesktopBridge, deleteAttachmentFilesBestEffort } from './refs';
+export { makeCascadeDeletes } from './cascade';
 export * from './people';
 export * from './properties';
 export * from './contracts';
