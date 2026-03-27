@@ -26,6 +26,7 @@ import { useToast } from '@/context/ToastContext';
 import { useSmartModal } from '@/context/ModalContext';
 import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { getErrorMessage } from '@/utils/errors';
 
 // --- Types ---
 type BackupFile = {
@@ -141,8 +142,8 @@ export const BackupManager: React.FC = () => {
       const encData = e as EncryptionSettings;
       if (encData) setEncryption(encData);
 
-    } catch (err) {
-      console.error('Failed to fetch backup data', err);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err) || 'تعذر تحميل بيانات النسخ الاحتياطي');
     } finally {
       setLoading(false);
     }

@@ -1,8 +1,8 @@
-﻿
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { ReportDefinition, ReportCategory } from '@/types';
-import { BarChart3, Wallet, FileText, Building2, Users, Wrench, ArrowRight, Search, type LucideIcon } from 'lucide-react';
+import { BarChart3, Wallet, FileText, Building2, Users, Wrench, ArrowRight, Search, AlertCircle, type LucideIcon } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatCurrencyJOD, formatDateYMD, formatNumber } from '@/utils/format';
 import { DS } from '@/constants/designSystem';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { runReportSmart } from '@/services/reporting';
 import { PaginationControls } from '@/components/shared/PaginationControls';
+import { getErrorMessage } from '@/utils/errors';
 
 const CATEGORIES: { id: ReportCategory; label: string; icon: LucideIcon; color: string }[] = [
     { id: 'Financial', label: 'التقارير المالية', icon: Wallet, color: 'bg-emerald-500' },
@@ -105,6 +106,7 @@ export const Reports: React.FC = () => {
         openTickets: number;
         generatedAt?: string;
     } | null>(null);
+  const [kpisError, setKpisError] = useState<string | null>(null);
   const { openPanel } = useSmartModal();
 
     const dbSignal = useDbSignal();
@@ -139,6 +141,7 @@ export const Reports: React.FC = () => {
             const remaining = Number(lookup.get('المتبقي') ?? (totalExpected - totalPaid)) || 0;
 
                         if (cancelled) return;
+                        setKpisError(null);
                         setKpis({
                 totalExpected,
                 totalPaid,
@@ -150,10 +153,11 @@ export const Reports: React.FC = () => {
                 openTickets: Array.isArray(openTickets?.data) ? openTickets.data.length : 0,
                 generatedAt: financial?.generatedAt
             });
-                    } catch (e) {
-            console.error('Failed to compute report KPIs', e);
+                    } catch (e: unknown) {
+                        console.error('Failed to compute report KPIs', e);
                         if (cancelled) return;
                         setKpis(null);
+                        setKpisError(getErrorMessage(e) || 'تعذر تحميل ملخص التقارير السريع');
                     }
                 })();
                 return () => {
@@ -202,6 +206,15 @@ export const Reports: React.FC = () => {
                   />
               </div>
           </div>
+
+          {kpisError ? (
+              <div className="px-4 pb-2">
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+                      <AlertCircle className="mt-0.5 shrink-0" size={18} aria-hidden />
+                      <span>{kpisError}</span>
+                  </div>
+              </div>
+          ) : null}
 
           <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
               <div className="rounded-xl border border-gray-100 dark:border-slate-700 p-3">

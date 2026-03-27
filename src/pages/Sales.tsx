@@ -1,4 +1,4 @@
-﻿
+
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 
@@ -20,6 +20,7 @@ import { PaginationControls } from '@/components/shared/PaginationControls';
 import { DS } from '@/constants/designSystem';
 import { computeEmployeeCommission } from '@/utils/employeeCommission';
 import { formatCurrencyJOD } from '@/utils/format';
+import { getErrorMessage } from '@/utils/errors';
 
 // --- SUB-COMPONENT: SALES DASHBOARD ---
 const SalesDashboard = () => {
@@ -178,10 +179,6 @@ export const Sales: React.FC = () => {
     });
 
   useEffect(() => {
-    loadData();
-    }, [dbSignal]);
-
-  useEffect(() => {
       const compute = () => {
           if (typeof window === 'undefined') return;
           const w = window.innerWidth;
@@ -245,10 +242,20 @@ export const Sales: React.FC = () => {
       }, 0);
   }, []);
 
-  const loadData = () => {
-    setListings(DbService.getSalesListings());
-    setAgreements(DbService.getSalesAgreements());
-  };
+  const loadData = useCallback(() => {
+    try {
+      setListings(DbService.getSalesListings());
+      setAgreements(DbService.getSalesAgreements());
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل تحميل بيانات المبيعات');
+      setListings([]);
+      setAgreements([]);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [dbSignal, loadData]);
 
     const safeAgreementsPageSize = Math.max(1, Math.floor(pageSize));
     const agreementsPageCount = Math.max(1, Math.ceil(agreements.length / safeAgreementsPageSize));

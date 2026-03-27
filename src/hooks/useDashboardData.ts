@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { useToast } from '@/context/ToastContext';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import type { PaymentNotificationTarget } from '@/services/mockDb';
@@ -116,6 +117,7 @@ export interface DashboardData {
 }
 
 export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboardDataResult => {
+  const toast = useToast();
   const [data, setData] = useState<DashboardData>({
     meta: {
       updatedAt: Date.now(),
@@ -391,11 +393,16 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
       });
       } catch (error: unknown) {
         console.error('Error refreshing dashboard data:', error);
+        const detail =
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : 'تعذر تحميل بيانات لوحة التحكم. قد تكون الأرقام المعروضة غير محدثة.';
+        toast.error(detail, 'فشل تحميل لوحة التحكم');
       } finally {
         setIsRefreshing(false);
       }
     })();
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     refreshData();

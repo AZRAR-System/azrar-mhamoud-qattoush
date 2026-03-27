@@ -125,7 +125,7 @@ export const Settings: React.FC<{ initialSection?: string; serverOnly?: boolean;
         setBackupDir(res.path);
       }
     } catch (e: unknown) {
-      console.error('Failed to choose backup directory', e);
+      toast.error(getErrorMessage(e) || 'فشل اختيار مجلد النسخ الاحتياطي');
     }
   };
 

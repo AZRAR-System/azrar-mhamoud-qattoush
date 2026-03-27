@@ -400,16 +400,21 @@ export const People: React.FC = () => {
     });
     if (note === null) return;
 
-    DbService.addFollowUp({
-      task: title,
-      clientName: String(person?.الاسم || '').trim() || undefined,
-      phone: String(person?.رقم_الهاتف || '').trim() || undefined,
-      type: 'Task',
-      dueDate,
-      priority: 'Medium',
-      personId,
-      note: String(note || '').trim() || undefined,
-    });
+    try {
+      DbService.addFollowUp({
+        task: title,
+        clientName: String(person?.الاسم || '').trim() || undefined,
+        phone: String(person?.رقم_الهاتف || '').trim() || undefined,
+        type: 'Task',
+        dueDate,
+        priority: 'Medium',
+        personId,
+        note: String(note || '').trim() || undefined,
+      });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || t('فشل حفظ التذكير'));
+      return;
+    }
 
     dialogs.toast.success(t('تم حفظ التذكير'));
     openPanel('CALENDAR_EVENTS', dueDate, { title: t('مهام اليوم') });
