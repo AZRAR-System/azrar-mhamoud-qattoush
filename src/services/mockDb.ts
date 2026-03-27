@@ -199,17 +199,16 @@ const lookupKeyFor = (category: unknown, label: unknown): string => {
 };
 
 // Phase 3A: Import domain-specific services
-import * as PeopleService from './peopleService';
 import * as PropertiesService from './propertiesService';
-
-// Phase 3A Part 2: Re-export domain functions (aggregator mode)
-export const {
+import {
+  addPersonWithAutoLinkInternal,
+  updatePersonWithAutoLinkInternal,
+  upsertContactBookInternal,
+  getContactsDirectoryInternal,
+  getContactsBook,
   getPeople,
   getPersonRoles,
   updatePersonRoles,
-  addPerson,
-  updatePerson,
-  deletePerson: deletePersonLegacy,
   getPersonDetails,
   getPersonBlacklistStatus,
   getBlacklist,
@@ -218,10 +217,24 @@ export const {
   updateBlacklistRecord,
   removeFromBlacklist,
   generateWhatsAppLink,
-} = PeopleService;
+} from './db/people';
 
-const addPersonBase = addPerson;
-const updatePersonBase = updatePerson;
+export {
+  getPeople,
+  getPersonRoles,
+  updatePersonRoles,
+  addPerson,
+  updatePerson,
+  deletePerson,
+  getPersonDetails,
+  getPersonBlacklistStatus,
+  getBlacklist,
+  getBlacklistRecord,
+  addToBlacklist,
+  updateBlacklistRecord,
+  removeFromBlacklist,
+  generateWhatsAppLink,
+} from './db/people';
 
 export const {
   getProperties,
@@ -1011,259 +1024,6 @@ const ok = <T>(data?: T, message = 'تمت العملية بنجاح'): DbResult
   message,
   data,
 });
-
-type ContactBookEntry = {
-  id: string;
-  name: string;
-  phone: string;
-  extraPhone?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type ContactsDirectoryRow = {
-  id: string;
-  name: string;
-  phone?: string;
-  extraPhone?: string;
-  source?: 'person' | 'local';
-  roles?: string[];
-};
-
-const normalizePhoneLoose = (raw?: string): string => {
-  const value = String(raw || '').trim();
-  if (!value) return '';
-  // Keep digits and leading + only
-  return value
-    .replace(/\s+/g, '')
-    .replace(/(?!^)\+/g, '')
-    .replace(/[^\d+]/g, '');
-};
-
-const getContactsBookInternal = (): ContactBookEntry[] => get<ContactBookEntry>(KEYS.CONTACTS);
-
-const findContactBookMatchesByPhonesInternal = (phones: string[]) => {
-  const normalized = phones.map((p) => normalizePhoneLoose(p)).filter(Boolean);
-  if (normalized.length === 0) return [] as ContactBookEntry[];
-  const all = getContactsBookInternal();
-  return all.filter((c) => {
-    const p1 = normalizePhoneLoose(c?.phone);
-    const p2 = normalizePhoneLoose(c?.extraPhone);
-    return normalized.some((ph) => (p1 && p1 === ph) || (p2 && p2 === ph));
-  });
-};
-
-const removeContactsBookMatchesByPhonesInternal = (phones: string[]) => {
-  const normalized = phones.map((p) => normalizePhoneLoose(p)).filter(Boolean);
-  if (normalized.length === 0) return;
-  const all = getContactsBookInternal();
-  const filtered = all.filter((c) => {
-    const p1 = normalizePhoneLoose(c?.phone);
-    const p2 = normalizePhoneLoose(c?.extraPhone);
-    const isMatch = normalized.some((ph) => (p1 && p1 === ph) || (p2 && p2 === ph));
-    return !isMatch;
-  });
-  if (filtered.length !== all.length) save(KEYS.CONTACTS, filtered);
-};
-
-const addPersonWithAutoLinkInternal = (
-  data: Omit<الأشخاص_tbl, 'رقم_الشخص'>,
-  roles: string[]
-): DbResult<الأشخاص_tbl> => {
-  const primaryPhone = normalizePhoneLoose(data?.رقم_الهاتف);
-  const extraPhone = normalizePhoneLoose(data?.رقم_هاتف_اضافي);
-  const matches = findContactBookMatchesByPhonesInternal([primaryPhone, extraPhone]);
-  const match = matches[0];
-
-  // If a matching local contact has an extra phone, carry it over to the person (if missing).
-  const patch: Omit<الأشخاص_tbl, 'رقم_الشخص'> = { ...data };
-  const contactExtra = normalizePhoneLoose(match?.extraPhone);
-  if (primaryPhone && !extraPhone && contactExtra && contactExtra !== primaryPhone) {
-    patch.رقم_هاتف_اضافي = contactExtra;
-  }
-
-  const res = addPersonBase(patch, roles);
-  if (!res?.success) return res;
-
-  if (match && primaryPhone) {
-    removeContactsBookMatchesByPhonesInternal([primaryPhone, extraPhone]);
-    const contactName = String(match?.name || '').trim();
-    const msgName = contactName ? ` باسم (${contactName})` : '';
-    return {
-      ...res,
-      message: `${res.message}. تنبيه: رقم الهاتف موجود مسبقاً في الاتصالات${msgName} وتم ربطه تلقائياً لتجنب التكرار.`,
-    };
-  }
-
-  return res;
-};
-
-const updatePersonWithAutoLinkInternal = (
-  id: string,
-  patchRaw: Partial<الأشخاص_tbl>
-): DbResult<الأشخاص_tbl> => {
-  const personId = String(id || '').trim();
-  if (!personId) return fail('الشخص غير موجود');
-
-  const prev = (() => {
-    try {
-      return (getPeople?.() || []).find((p) => String(p?.رقم_الشخص) === personId);
-    } catch {
-      return undefined;
-    }
-  })();
-
-  const patch: Partial<الأشخاص_tbl> = { ...(patchRaw || {}) };
-  const nextPrimary = normalizePhoneLoose(patch?.رقم_الهاتف ?? prev?.رقم_الهاتف);
-  const nextExtra = normalizePhoneLoose(patch?.رقم_هاتف_اضافي ?? prev?.رقم_هاتف_اضافي);
-
-  const matches = findContactBookMatchesByPhonesInternal([nextPrimary, nextExtra]);
-  const match = matches[0];
-
-  // Carry extra phone from contact to person if person would otherwise miss it.
-  const contactExtra = normalizePhoneLoose(match?.extraPhone);
-  if (nextPrimary && !nextExtra && contactExtra && contactExtra !== nextPrimary) {
-    patch.رقم_هاتف_اضافي = contactExtra;
-  }
-
-  const res = updatePersonBase(personId, patch);
-  if (!res?.success) return res;
-
-  if (match && nextPrimary) {
-    removeContactsBookMatchesByPhonesInternal([nextPrimary, nextExtra]);
-    const contactName = String(match?.name || '').trim();
-    const msgName = contactName ? ` باسم (${contactName})` : '';
-    return {
-      ...res,
-      message: `${res.message}. تنبيه: رقم الهاتف موجود مسبقاً في الاتصالات${msgName} وتم ربطه تلقائياً لتجنب التكرار.`,
-    };
-  }
-
-  return res;
-};
-
-const upsertContactBookInternal = (payload: {
-  name: string;
-  phone: string;
-  extraPhone?: string;
-}): DbResult<{ contact: ContactBookEntry; created: boolean }> => {
-  const name = String(payload?.name || '').trim();
-  const phone = normalizePhoneLoose(payload?.phone);
-  const extraPhone = normalizePhoneLoose(payload?.extraPhone) || undefined;
-  if (!name) return fail('الاسم مطلوب');
-  if (!phone) return fail('رقم الهاتف مطلوب');
-
-  const all = getContactsBookInternal();
-
-  const matchIndex = all.findIndex((c) => {
-    const p1 = normalizePhoneLoose(c?.phone);
-    const p2 = normalizePhoneLoose(c?.extraPhone);
-    return (
-      (p1 && p1 === phone) ||
-      (p2 && p2 === phone) ||
-      (!!extraPhone && ((p1 && p1 === extraPhone) || (p2 && p2 === extraPhone)))
-    );
-  });
-
-  const now = new Date().toISOString();
-  if (matchIndex !== -1) {
-    const prev = all[matchIndex];
-    const next: ContactBookEntry = {
-      ...prev,
-      name,
-      phone,
-      extraPhone: extraPhone || prev.extraPhone,
-      updatedAt: now,
-    };
-    all[matchIndex] = next;
-    save(KEYS.CONTACTS, all);
-    return ok({ contact: next, created: false });
-  }
-
-  const created: ContactBookEntry = {
-    id: `CNT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    name,
-    phone,
-    extraPhone,
-    createdAt: now,
-    updatedAt: now,
-  };
-  save(KEYS.CONTACTS, [created, ...all]);
-  return ok({ contact: created, created: true });
-};
-
-const getContactsDirectoryInternal = (): ContactsDirectoryRow[] => {
-  const out: ContactsDirectoryRow[] = [];
-  const byKey = new Map<string, ContactsDirectoryRow>();
-
-  const add = (row: ContactsDirectoryRow, prefer = false) => {
-    const phoneKey = normalizePhoneLoose(row.phone);
-    const key = phoneKey ? `p:${phoneKey}` : `id:${row.id}`;
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, row);
-      return;
-    }
-
-    if (prefer) {
-      // Preserve roles if the existing row is a system person.
-      const merged: ContactsDirectoryRow = {
-        ...existing,
-        ...row,
-        roles: existing.roles?.length ? existing.roles : row.roles,
-        source: existing.source === 'person' ? 'person' : row.source,
-      };
-      byKey.set(key, merged);
-    }
-  };
-
-  // Start from People (system entities)
-  try {
-    const people = getPeople?.() || [];
-    for (const p of people) {
-      const name = String(p?.الاسم || '').trim() || 'غير محدد';
-      const phone = String(p?.رقم_الهاتف || '').trim() || undefined;
-      const extraPhone = String(p?.رقم_هاتف_اضافي || '').trim() || undefined;
-      const id = String(p?.رقم_الشخص ?? name);
-      const roles = (() => {
-        try {
-          const r = getPersonRoles?.(id) || [];
-          return Array.isArray(r) ? (r as string[]) : [];
-        } catch {
-          return [];
-        }
-      })();
-      // Prefer system People rows when merging by phone.
-      add({ id, name, phone, extraPhone, source: 'person', roles }, true);
-    }
-  } catch {
-    // ignore
-  }
-
-  // Overlay Contacts book (explicit contacts not necessarily in People)
-  try {
-    const contacts = getContactsBookInternal();
-    for (const c of contacts) {
-      // Only use local contacts when no system Person exists for the same phone.
-      add(
-        {
-          id: String(c?.id || c?.phone || c?.name),
-          name: String(c?.name || '').trim() || 'غير محدد',
-          phone: c?.phone,
-          extraPhone: c?.extraPhone,
-          source: 'local',
-          roles: [],
-        },
-        false
-      );
-    }
-  } catch {
-    // ignore
-  }
-
-  for (const v of byKey.values()) out.push(v);
-  return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-};
 
 // --- DATE HELPERS (installments reminders) ---
 const formatDateOnly = (d: Date) => {
@@ -2940,7 +2700,7 @@ export const DbService = {
     logOperationInternal(user, action, table, 'N/A', details);
   },
 
-  // Phase 3A Part 2: People domain functions (re-exported from peopleService.ts)
+  // People domain: ./db/people (+ cascade delete stays here)
   getPeople,
   getPersonRoles,
   updatePersonRoles,
@@ -2959,7 +2719,7 @@ export const DbService = {
   generateWhatsAppLink,
 
   // Contacts book (local-only phonebook entries that do NOT have to exist in People)
-  getContacts: () => get<ContactBookEntry>(KEYS.CONTACTS),
+  getContacts: () => getContactsBook(),
   upsertContact: (payload: { name: string; phone: string; extraPhone?: string }) =>
     upsertContactBookInternal(payload),
   getContactsDirectory: () => getContactsDirectoryInternal(),
