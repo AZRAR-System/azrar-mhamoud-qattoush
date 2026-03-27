@@ -4,7 +4,7 @@
 **Purpose:** Single, non-redundant reference of final decisions, approved improvements, and operational practices.  
 **Note:** This document consolidates what is actionable and stable. It intentionally avoids repeating long existing docs.
 
-**Canonical repository:** https://github.com/qatash/azrar-mhamoud-qattoush (default branch: `main`, private)
+**Canonical repository:** https://github.com/AZRAR-System/azrar-mhamoud-qattoush (default branch: `main`, private)
 
 **Roadmap (plan):** [ROADMAP_2026.md](ROADMAP_2026.md)
 

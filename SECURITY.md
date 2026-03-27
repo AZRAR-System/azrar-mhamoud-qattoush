@@ -1,4 +1,4 @@
-﻿# 🔐 سياسة الأمان - AZRAR Desktop
+# 🔐 سياسة الأمان - AZRAR Desktop
 
 <div dir="rtl">
 
@@ -121,7 +121,7 @@ const hashedPassword = await bcrypt.hash(password, 10);
 // في main.js
 autoUpdater.setFeedURL({
   provider: 'github',
-   owner: 'qatash',
+   owner: 'AZRAR-System',
    repo: 'azrar-mhamoud-qattoush'
 });
 

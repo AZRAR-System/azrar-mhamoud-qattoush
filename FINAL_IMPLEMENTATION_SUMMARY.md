@@ -216,7 +216,7 @@ npm run test:coverage
 
 ```bash
 # Fork المشروع
-git clone https://github.com/qatash/azrar-mhamoud-qattoush.git
+git clone https://github.com/AZRAR-System/azrar-mhamoud-qattoush.git
 
 # أنشئ branch جديد
 git checkout -b feature/your-feature

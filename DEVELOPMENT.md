@@ -1,4 +1,4 @@
-﻿# 👨‍💻 دليل المطورين - AZRAR Desktop
+# 👨‍💻 دليل المطورين - AZRAR Desktop
 
 <div dir="rtl">
 
@@ -39,7 +39,7 @@
 
 ```bash
 # 1. استنساخ المشروع
-git clone https://github.com/qatash/azrar-mhamoud-qattoush.git
+git clone https://github.com/AZRAR-System/azrar-mhamoud-qattoush.git
 cd azrar-mhamoud-qattoush
 
 # 2. تثبيت التبعيات

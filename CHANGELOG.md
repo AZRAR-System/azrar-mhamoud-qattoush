@@ -1,4 +1,4 @@
-﻿# 📝 سجل التغييرات - AZRAR Desktop
+# 📝 سجل التغييرات - AZRAR Desktop
 
 جميع التغييرات المهمة في هذا المشروع سيتم توثيقها في هذا الملف.
 
@@ -167,8 +167,8 @@
 
 ## روابط مفيدة
 
-- [الإصدارات على GitHub](https://github.com/qatash/azrar-mhamoud-qattoush/releases)
-- [الثغرات الأمنية](https://github.com/qatash/azrar-mhamoud-qattoush/security/advisories)
+- [الإصدارات على GitHub](https://github.com/AZRAR-System/azrar-mhamoud-qattoush/releases)
+- [الثغرات الأمنية](https://github.com/AZRAR-System/azrar-mhamoud-qattoush/security/advisories)
 - [خارطة الطريق](./docs/ROADMAP_2026.md)
 
 ---

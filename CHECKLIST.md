@@ -1,4 +1,4 @@
-﻿# ✅ قائمة التحقق - تطبيق التحسينات
+# ✅ قائمة التحقق - تطبيق التحسينات
 
 ## 📋 نظرة عامة
 
@@ -220,7 +220,7 @@ $files = @(
 foreach ($file in $files) {
   if (Test-Path $file) {
     (Get-Content $file) `
-      -replace 'your-username', 'qatash' `
+      -replace 'your-username', 'AZRAR-System' `
       -replace 'azrar-desktop', 'azrar-mhamoud-qattoush' |
     Set-Content $file
   }

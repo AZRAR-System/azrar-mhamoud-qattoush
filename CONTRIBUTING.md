@@ -53,13 +53,13 @@
 
 2. **استنسخ Fork الخاص بك**
    ```bash
-  git clone https://github.com/qatash/azrar-mhamoud-qattoush.git
+  git clone https://github.com/AZRAR-System/azrar-mhamoud-qattoush.git
   cd azrar-mhamoud-qattoush
    ```
 
 3. **أضف upstream**
    ```bash
-  git remote add upstream https://github.com/qatash/azrar-mhamoud-qattoush.git
+  git remote add upstream https://github.com/AZRAR-System/azrar-mhamoud-qattoush.git
    ```
 
 4. **أنشئ branch**
