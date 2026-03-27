@@ -76,6 +76,18 @@ function resolveEdgePath() {
   return null;
 }
 
+/** CI/Linux: set PLAYWRIGHT_CHROMIUM_EXECUTABLE after `npx playwright install chromium`. Windows: Edge if present. */
+function resolveChromiumLaunchOptions() {
+  const headless = true;
+  const envPath = String(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || '').trim();
+  if (envPath) return { headless, executablePath: envPath };
+  const edge = resolveEdgePath();
+  if (edge) return { headless, executablePath: edge };
+  throw new Error(
+    'Smoke UI needs Chromium: install Microsoft Edge (Windows), or set PLAYWRIGHT_CHROMIUM_EXECUTABLE to chrome/chrome-linux/chrome, or run: npx playwright install chromium'
+  );
+}
+
 function printSection(title) {
   console.warn(`\n=== ${title} ===`);
 }
@@ -94,23 +106,16 @@ async function runUiFlow({ mode }) {
 
   const deviceId = 'smoke-dev-device';
 
-  const edge = resolveEdgePath();
-  if (!edge) {
-    throw new Error('Smoke UI requires a Chromium browser. Edge was not found at the usual install paths.');
-  }
-
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath: edge,
-  });
+  const launchOpts = resolveChromiumLaunchOptions();
+  const browser = await chromium.launch(launchOpts);
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
   });
 
-  // Prevent long hangs on slow selectors.
-  context.setDefaultTimeout(8_000);
-  context.setDefaultNavigationTimeout(20_000);
+  // Prevent long hangs on slow selectors / cold Vite loads (CI).
+  context.setDefaultTimeout(12_000);
+  context.setDefaultNavigationTimeout(60_000);
 
   await context.addInitScript(({ mode }) => {
     const admin = { id: '1', اسم_المستخدم: 'admin', كلمة_المرور: 'admin123', الدور: 'SuperAdmin', isActive: true };
@@ -331,11 +336,18 @@ async function runUiFlow({ mode }) {
 
   await gotoHash('/login');
 
+  // Submit button only — regex /تسجيل الدخول/ also matches "مساعدة تسجيل الدخول" (strict mode violation).
+  const loginSubmitButton = page
+    .getByRole('button', { name: 'تسجيل الدخول', exact: true })
+    .or(page.getByRole('button', { name: /^دخول$/i }))
+    .or(page.getByRole('button', { name: /^Login$/i }))
+    .or(page.locator('form button[type="submit"]'))
+    .first();
+
   // If activation is not satisfied, the login button is disabled and smoke would waste time.
   // Provide a direct actionable error.
   try {
-    const loginBtn = page.getByRole('button', { name: /تسجيل الدخول|دخول|Login/i }).first();
-    if (await loginBtn.isDisabled({ timeout: 1500 }).catch(() => false)) {
+    if (await loginSubmitButton.isDisabled({ timeout: 1500 }).catch(() => false)) {
       errors.push(
         '[smoke] Login is disabled. Ensure the dev server is started with VITE_ALLOW_CODE_ACTIVATION=1 (this script sets it when spawning Vite).'
       );
@@ -346,7 +358,7 @@ async function runUiFlow({ mode }) {
 
   await page.getByPlaceholder('أدخل اسم المستخدم').fill('admin');
   await page.getByPlaceholder('••••••••').fill('admin123');
-  await page.getByRole('button', { name: /تسجيل الدخول|دخول|Login/i }).click();
+  await loginSubmitButton.click();
   await page
     .waitForFunction(() => String(window.location.hash || '') !== '#/login', null, { timeout: 15_000 })
     .catch(() => {});
@@ -378,7 +390,7 @@ async function runUiFlow({ mode }) {
   }
 
   await gotoHash('/this-route-does-not-exist');
-  await page.waitForSelector('text=404', { timeout: 10_000 });
+  await page.getByRole('heading', { level: 1, name: '404' }).waitFor({ state: 'visible', timeout: 30_000 });
 
   let desktopCounters = null;
   if (mode === 'desktop') {
