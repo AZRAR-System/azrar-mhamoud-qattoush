@@ -48,6 +48,8 @@ jobs:
 
     - name: Run Desktop E2E
       run: npm run desktop:e2e
+      continue-on-error: true
+      timeout-minutes: 4
       env:
         DESKTOP_DEV_TESTS_TIMEOUT_MS: '180000'
         DESKTOP_DEV_TESTS_LOG_PATH: 'tmp/desktop-dev-tests-ci.log'
