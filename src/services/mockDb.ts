@@ -63,8 +63,16 @@ import { INSTALLMENT_STATUS } from './db/installmentConstants';
 import { buildCache, DbCache } from './dbCache';
 import { KEYS } from './db/keys';
 import { get, save } from './db/kv';
-import { getContracts, getContractDetails } from './db/contracts';
-import { generateContractInstallmentsInternal, getInstallmentPaymentSummary } from './db/installments';
+import {
+  createContractWrites,
+  getContracts,
+  getContractDetails,
+} from './db/contracts';
+import {
+  createInstallmentPaymentHandlers,
+  generateContractInstallmentsInternal,
+  getInstallmentPaymentSummary,
+} from './db/installments';
 import { getSettings, saveSettings } from './db/settings';
 import {
   getSalesListings,
@@ -661,6 +669,14 @@ const addDaysIso = (isoDate: string, days: number) => {
   return formatDateOnly(d);
 };
 
+const contractWrites = createContractWrites({
+  logOperation: logOperationInternal,
+  handleSmartEngine,
+  formatDateOnly,
+  addDaysIso,
+  addMonthsDateOnly,
+});
+
 const getInstallmentPaidAndRemaining = (inst: الكمبيالات_tbl) => {
   const norm = (v: unknown) => String(v ?? '').trim();
 
@@ -874,6 +890,59 @@ const markAlertsReadByPrefix = (prefix: string) => {
   }
   if (changed) save(KEYS.ALERTS, all);
 };
+
+const updateTenantRatingImpl = (tenantId: string, paymentType: 'full' | 'partial' | 'late') => {
+  const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
+  const idx = people.findIndex((p) => p.رقم_الشخص === tenantId);
+  if (idx === -1) return;
+
+  const person = people[idx];
+  const oldPoints = person.تصنيف_السلوك?.points ?? 100;
+  const oldType = person.تصنيف_السلوك?.type ?? 'جديد';
+
+  if (!person.تصنيف_السلوك) {
+    person.تصنيف_السلوك = { type: 'جيد', points: 100, history: [] };
+  }
+
+  let pointsChange = 0;
+  if (paymentType === 'full') {
+    pointsChange = 5;
+    person.تصنيف_السلوك.points = Math.min(100, person.تصنيف_السلوك.points + 5);
+  } else if (paymentType === 'partial') {
+    pointsChange = -10;
+    person.تصنيف_السلوك.points = Math.max(0, person.تصنيف_السلوك.points - 10);
+  } else if (paymentType === 'late') {
+    pointsChange = -20;
+    person.تصنيف_السلوك.points = Math.max(0, person.تصنيف_السلوك.points - 20);
+  }
+
+  const pts = person.تصنيف_السلوك.points;
+  if (pts >= 90) person.تصنيف_السلوك.type = 'ممتاز';
+  else if (pts >= 70) person.تصنيف_السلوك.type = 'جيد';
+  else if (pts >= 50) person.تصنيف_السلوك.type = 'متوسط';
+  else if (pts >= 30) person.تصنيف_السلوك.type = 'ضعيف';
+  else person.تصنيف_السلوك.type = 'سيء';
+
+  if (!Array.isArray(person.تصنيف_السلوك.history)) person.تصنيف_السلوك.history = [];
+  person.تصنيف_السلوك.history.push({
+    date: formatDateOnly(toDateOnly(new Date())),
+    paymentType,
+    pointsChange,
+    points: person.تصنيف_السلوك.points,
+  });
+
+  people[idx] = person;
+  save(KEYS.PEOPLE, people);
+
+  const ratingDesc = `تحديث تصنيف السلوك - من ${oldType} (${oldPoints}) إلى ${person.تصنيف_السلوك.type} (${person.تصنيف_السلوك.points}) - التغيير: ${pointsChange > 0 ? '+' : ''}${pointsChange} نقاط (${paymentType === 'full' ? 'سداد كامل' : paymentType === 'partial' ? 'سداد جزئي' : 'سداد متأخر'})`;
+  logOperationInternal('System', 'تحديث التصنيف', 'People', tenantId, ratingDesc);
+};
+
+const installmentPayments = createInstallmentPaymentHandlers({
+  logOperation: logOperationInternal,
+  markAlertsReadByPrefix,
+  updateTenantRating: updateTenantRatingImpl,
+});
 
 // One-time/always-safe migration: remove duplicate alert records and suppress stale financial alerts.
 // This runs on startup so users don't have to wait for the daily reminder scan to clean old data.
@@ -2672,228 +2741,8 @@ export const DbService = {
     logOperationInternal('Admin', 'استيراد', 'Lookups', category, `استيراد ${items.length} عنصر`);
   },
 
-  createContract: (
-    data: Partial<العقود_tbl>,
-    commOwner: number,
-    commTenant: number,
-    commissionPaidMonth?: string
-  ): DbResult<العقود_tbl> => {
-    const makeNextCotContractId = () => {
-      const existing = get<العقود_tbl>(KEYS.CONTRACTS);
-      let maxSeq = 0;
-      for (const c of existing) {
-        const raw = String(c.رقم_العقد || '').trim();
-        const m = /^cot_(\d+)$/i.exec(raw);
-        if (!m) continue;
-        const n = parseInt(m[1], 10);
-        if (!Number.isFinite(n)) continue;
-        if (n > maxSeq) maxSeq = n;
-      }
-      const nextSeq = maxSeq + 1;
-      return `cot_${String(nextSeq).padStart(3, '0')}`;
-    };
-
-    const id = makeNextCotContractId();
-    const createdRaw = String(data?.تاريخ_الانشاء ?? '').trim();
-    const createdDate = /^\d{4}-\d{2}-\d{2}$/.test(createdRaw)
-      ? createdRaw
-      : formatDateOnly(new Date());
-    const oppRaw = String(data?.رقم_الفرصة ?? '').trim();
-    const contract: العقود_tbl = {
-      ...data,
-      رقم_العقد: id,
-      حالة_العقد: 'نشط',
-      isArchived: false,
-      تاريخ_الانشاء: createdDate,
-      رقم_الفرصة: oppRaw || undefined,
-    } as العقود_tbl;
-
-    // Auto-archive old ended/terminated contracts for the same property when a new tenant contract is created.
-    // Requirement: if the old contract is ended and a new contract is created with a different tenant => archive old.
-    const allC = get<العقود_tbl>(KEYS.CONTRACTS);
-    const updatedContracts = allC.map((c) => {
-      if (c.isArchived) return c;
-      if (c.رقم_العقد === id) return c;
-      if (c.رقم_العقار !== contract.رقم_العقار) return c;
-      if (c.رقم_المستاجر === contract.رقم_المستاجر) return c;
-      if (c.حالة_العقد === 'منتهي' || c.حالة_العقد === 'مفسوخ' || c.حالة_العقد === 'ملغي') {
-        return { ...c, isArchived: true };
-      }
-      return c;
-    });
-    save(KEYS.CONTRACTS, [...updatedContracts, contract]);
-
-    const allComm = get<العمولات_tbl>(KEYS.COMMISSIONS);
-    const nowYMD = formatDateOnly(new Date());
-    const startRaw = String(data?.تاريخ_البداية ?? '').trim();
-    const commissionDate = /^\d{4}-\d{2}-\d{2}$/.test(startRaw) ? startRaw : nowYMD;
-    const paidMonth =
-      commissionPaidMonth && /^\d{4}-\d{2}$/.test(String(commissionPaidMonth))
-        ? String(commissionPaidMonth)
-        : commissionDate.slice(0, 7);
-    save(KEYS.COMMISSIONS, [
-      ...allComm,
-      {
-        رقم_العمولة: `COM-${id}`,
-        رقم_العقد: id,
-        // ✅ حسب المواصفة: اعتماد الحساب على تاريخ/شهر العمولة وليس تاريخ بداية العقد.
-        تاريخ_العقد: commissionDate,
-        شهر_دفع_العمولة: paidMonth,
-        رقم_الفرصة: oppRaw || undefined,
-        عمولة_المالك: commOwner,
-        عمولة_المستأجر: commTenant,
-        المجموع: commOwner + commTenant,
-      },
-    ]);
-
-    const installmentsRes = generateContractInstallmentsInternal(contract, id);
-    if (!installmentsRes.success || !installmentsRes.data)
-      return fail(installmentsRes.message || 'تعذر توليد الدفعات');
-
-    save(KEYS.INSTALLMENTS, [...get<الكمبيالات_tbl>(KEYS.INSTALLMENTS), ...installmentsRes.data]);
-
-    const props = get<العقارات_tbl>(KEYS.PROPERTIES);
-    const pIdx = props.findIndex((p) => p.رقم_العقار === contract.رقم_العقار);
-    if (pIdx > -1) {
-      props[pIdx].IsRented = true;
-      props[pIdx].حالة_العقار = 'مؤجر';
-      save(KEYS.PROPERTIES, props);
-    }
-
-    handleSmartEngine('contract', contract);
-
-    logOperationInternal(
-      'Admin',
-      'إضافة',
-      'Contracts',
-      id,
-      `إنشاء عقد جديد للعقار ${contract.رقم_العقار}`
-    );
-    return ok(contract);
-  },
-
-  updateContract: (
-    id: string,
-    data: Partial<العقود_tbl>,
-    commOwner: number,
-    commTenant: number,
-    commissionPaidMonth?: string,
-    options?: { regenerateInstallments?: boolean }
-  ): DbResult<العقود_tbl> => {
-    const all = get<العقود_tbl>(KEYS.CONTRACTS);
-    const idx = all.findIndex((c) => c.رقم_العقد === id);
-    if (idx === -1) return fail('العقد غير موجود');
-
-    const existing = all[idx];
-
-    // Prevent dangerous cross-links changes from the edit wizard.
-    if (data.رقم_العقار && data.رقم_العقار !== existing.رقم_العقار) {
-      return fail('لا يمكن تغيير العقار المرتبط من خلال تعديل العقد.');
-    }
-    if (data.رقم_المستاجر && data.رقم_المستاجر !== existing.رقم_المستاجر) {
-      return fail('لا يمكن تغيير المستأجر المرتبط من خلال تعديل العقد.');
-    }
-
-    const updated: العقود_tbl = {
-      ...existing,
-      ...data,
-      رقم_العقد: id,
-    } as العقود_tbl;
-
-    // Preserve creation date (and backfill from start date if missing)
-    const existingCreated = String(existing.تاريخ_الانشاء ?? '').trim();
-    const backfillCreated = /^\d{4}-\d{2}-\d{2}$/.test(String(existing?.تاريخ_البداية || '').trim())
-      ? String(existing.تاريخ_البداية).trim()
-      : undefined;
-    updated.تاريخ_الانشاء = /^\d{4}-\d{2}-\d{2}$/.test(existingCreated)
-      ? existingCreated
-      : backfillCreated;
-
-    // Normalize opportunity number
-    const oppRaw = String(data.رقم_الفرصة ?? existing.رقم_الفرصة ?? '').trim();
-    updated.رقم_الفرصة = oppRaw || undefined;
-
-    // Pre-generate installments if requested (so we can fail without losing existing schedule)
-    let regeneratedInstallments: الكمبيالات_tbl[] | null = null;
-    const wantsRegen = options?.regenerateInstallments === true;
-    if (wantsRegen) {
-      const currentInst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).filter((i) => i.رقم_العقد === id);
-      const hasPaid = currentInst.some((i) => String(i.حالة_الكمبيالة || '').trim() === 'مدفوع');
-      if (hasPaid) {
-        return fail('لا يمكن إعادة توليد الدفعات لأن هناك دفعات مدفوعة على هذا العقد.');
-      }
-      const instRes = generateContractInstallmentsInternal(updated, id);
-      if (!instRes.success || !instRes.data) return fail(instRes.message || 'تعذر توليد الدفعات');
-      regeneratedInstallments = instRes.data;
-    }
-
-    // Save contract
-    const nextContracts = [...all];
-    nextContracts[idx] = updated;
-    save(KEYS.CONTRACTS, nextContracts);
-
-    // Save commissions
-    const allComm = get<العمولات_tbl>(KEYS.COMMISSIONS);
-    const cIdx = allComm.findIndex((x) => x.رقم_العقد === id || x.رقم_العمولة === `COM-${id}`);
-    const now = new Date();
-    const nowYMD = now.toISOString().slice(0, 10);
-    const nowYM = now.toISOString().slice(0, 7);
-    const existingComm = cIdx > -1 ? allComm[cIdx] : undefined;
-    const existingPaidMonth = String(existingComm?.شهر_دفع_العمولة || '').trim();
-    const nextPaidMonth =
-      commissionPaidMonth && /^\d{4}-\d{2}$/.test(String(commissionPaidMonth))
-        ? String(commissionPaidMonth)
-        : /^\d{4}-\d{2}$/.test(existingPaidMonth)
-          ? existingPaidMonth
-          : nowYM;
-    const existingDate = String(existingComm?.تاريخ_العقد || '').trim();
-    const nextCommissionDate = /^\d{4}-\d{2}-\d{2}$/.test(existingDate) ? existingDate : nowYMD;
-    if (cIdx > -1) {
-      allComm[cIdx] = {
-        ...allComm[cIdx],
-        رقم_العمولة: allComm[cIdx].رقم_العمولة || `COM-${id}`,
-        رقم_العقد: id,
-        تاريخ_العقد: nextCommissionDate,
-        شهر_دفع_العمولة: nextPaidMonth,
-        رقم_الفرصة: oppRaw || undefined,
-        عمولة_المالك: commOwner,
-        عمولة_المستأجر: commTenant,
-        المجموع: commOwner + commTenant,
-      };
-      save(KEYS.COMMISSIONS, allComm);
-    } else {
-      save(KEYS.COMMISSIONS, [
-        ...allComm,
-        {
-          رقم_العمولة: `COM-${id}`,
-          رقم_العقد: id,
-          تاريخ_العقد: nowYMD,
-          شهر_دفع_العمولة: nextPaidMonth,
-          رقم_الفرصة: oppRaw || undefined,
-          عمولة_المالك: commOwner,
-          عمولة_المستأجر: commTenant,
-          المجموع: commOwner + commTenant,
-        },
-      ]);
-    }
-
-    // Replace installments if requested
-    if (wantsRegen && regeneratedInstallments) {
-      const allInst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-      const kept = allInst.filter((i) => i.رقم_العقد !== id);
-      save(KEYS.INSTALLMENTS, [...kept, ...regeneratedInstallments]);
-    }
-
-    handleSmartEngine('contract', updated);
-    logOperationInternal(
-      'Admin',
-      'تعديل',
-      'Contracts',
-      id,
-      `تعديل عقد (${wantsRegen ? 'مع إعادة توليد الدفعات' : 'بدون تغيير الدفعات'})`
-    );
-    return ok(updated, 'تم تعديل العقد');
-  },
+  createContract: contractWrites.createContract,
+  updateContract: contractWrites.updateContract,
 
   previewContractInstallments: (
     data: Partial<العقود_tbl>
@@ -2909,74 +2758,8 @@ export const DbService = {
     return ok({ installments: res.data });
   },
   getContractDetails,
-  archiveContract: (id: string) => {
-    const all = get<العقود_tbl>(KEYS.CONTRACTS);
-    const idx = all.findIndex((c) => c.رقم_العقد === id);
-    if (idx > -1) {
-      all[idx].isArchived = true;
-      save(KEYS.CONTRACTS, all);
-      logOperationInternal('Admin', 'أرشفة', 'Contracts', id, 'أرشفة عقد');
-    }
-  },
-  terminateContract: (
-    id: string,
-    reason: string,
-    date: string,
-    clearanceRecord?: ClearanceRecord
-  ): DbResult<null> => {
-    const all = get<العقود_tbl>(KEYS.CONTRACTS);
-    const idx = all.findIndex((c) => c.رقم_العقد === id);
-    if (idx > -1) {
-      const propertyId = all[idx].رقم_العقار;
-      all[idx].حالة_العقد = 'مفسوخ';
-      all[idx].terminationDate = date;
-      all[idx].terminationReason = reason;
-      save(KEYS.CONTRACTS, all);
-
-      // Archive all installments for this contract (keep history), and cancel any unpaid ones.
-      // Also record the termination reason on each installment for traceability.
-      const instAll = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-      let changed = false;
-      for (let i = 0; i < instAll.length; i++) {
-        const inst = instAll[i];
-        if (inst.رقم_العقد !== id) continue;
-
-        const note = `${inst.ملاحظات ? inst.ملاحظات + '\n' : ''}سبب الفسخ: ${reason}`;
-
-        if (inst.حالة_الكمبيالة === INSTALLMENT_STATUS.PAID) {
-          instAll[i] = { ...inst, isArchived: true, ملاحظات: note };
-          changed = true;
-          continue;
-        }
-
-        instAll[i] = {
-          ...inst,
-          حالة_الكمبيالة: INSTALLMENT_STATUS.CANCELLED,
-          isArchived: true,
-          ملاحظات: note,
-        };
-        changed = true;
-      }
-      if (changed) save(KEYS.INSTALLMENTS, instAll);
-
-      const props = get<العقارات_tbl>(KEYS.PROPERTIES);
-      const pIdx = props.findIndex((p) => p.رقم_العقار === propertyId);
-      if (pIdx > -1) {
-        props[pIdx].IsRented = false;
-        props[pIdx].حالة_العقار = 'شاغر';
-        save(KEYS.PROPERTIES, props);
-      }
-
-      if (clearanceRecord) {
-        const crs = get<ClearanceRecord>(KEYS.CLEARANCE_RECORDS);
-        save(KEYS.CLEARANCE_RECORDS, [...crs, { ...clearanceRecord, id: `CLR-${id}` }]);
-      }
-
-      logOperationInternal('Admin', 'فسخ', 'Contracts', id, `فسخ العقد: ${reason}`);
-      return ok();
-    }
-    return fail('العقد غير موجود');
-  },
+  archiveContract: contractWrites.archiveContract,
+  terminateContract: contractWrites.terminateContract,
 
   setContractAutoRenew: (id: string, enabled: boolean): DbResult<null> => {
     const all = get<العقود_tbl>(KEYS.CONTRACTS);
@@ -2994,331 +2777,16 @@ export const DbService = {
     return ok();
   },
 
-  renewContract: (id: string): DbResult<العقود_tbl> => {
-    const all = get<العقود_tbl>(KEYS.CONTRACTS);
-    const idx = all.findIndex((c) => c.رقم_العقد === id);
-    if (idx === -1) return fail('العقد غير موجود');
-    const old = all[idx];
-    if (old.linkedContractId) return fail('هذا العقد لديه تجديد بالفعل');
-
-    const newStart = addDaysIso(old.تاريخ_النهاية, 1);
-    if (!newStart) return fail('تاريخ نهاية العقد غير صالح');
-    const endCandidate = addMonthsDateOnly(newStart, old.مدة_العقد_بالاشهر);
-    if (!endCandidate) return fail('تعذر حساب تاريخ النهاية');
-    endCandidate.setDate(endCandidate.getDate() - 1);
-    const newEnd = formatDateOnly(endCandidate);
-
-    const prevCommission = get<العمولات_tbl>(KEYS.COMMISSIONS).find((x) => x.رقم_العقد === id);
-    const commOwner = prevCommission?.عمولة_المالك ?? 0;
-    const commTenant = prevCommission?.عمولة_المستأجر ?? 0;
-    const commissionPaidMonth = /^\d{4}-\d{2}-\d{2}$/.test(String(newStart))
-      ? String(newStart).slice(0, 7)
-      : undefined;
-
-    const { رقم_العقد: _ignoreId, ...oldWithoutId } = old;
-    const res = DbService.createContract(
-      {
-        ...oldWithoutId,
-        تاريخ_البداية: newStart,
-        تاريخ_النهاية: newEnd,
-        حالة_العقد: 'نشط',
-        isArchived: false,
-        عقد_مرتبط: old.رقم_العقد,
-        linkedContractId: undefined,
-      },
-      commOwner,
-      commTenant,
-      commissionPaidMonth
-    );
-    if (!res.success || !res.data) return fail(res.message || 'فشل إنشاء عقد التجديد');
-
-    // Link contracts
-    const newId = res.data.رقم_العقد;
-    const all2 = get<العقود_tbl>(KEYS.CONTRACTS);
-    const idx2 = all2.findIndex((c) => c.رقم_العقد === id);
-    if (idx2 > -1) {
-      all2[idx2].linkedContractId = newId;
-      all2[idx2].حالة_العقد = 'مجدد';
-      save(KEYS.CONTRACTS, all2);
-    }
-
-    // Ensure the new contract points back to old
-    const all3 = get<العقود_tbl>(KEYS.CONTRACTS);
-    const nIdx = all3.findIndex((c) => c.رقم_العقد === newId);
-    if (nIdx > -1) {
-      all3[nIdx].عقد_مرتبط = id;
-      save(KEYS.CONTRACTS, all3);
-    }
-
-    logOperationInternal('Admin', 'تجديد', 'Contracts', id, `تم إنشاء عقد تجديد: ${newId}`);
-    return ok(res.data, 'تم التجديد بنجاح');
-  },
+  renewContract: contractWrites.renewContract,
 
   deleteContract: deleteContractCascadeInternal,
   getClearanceRecord: (contractId: string) => {
     return get<ClearanceRecord>(KEYS.CLEARANCE_RECORDS).find((r) => r.contractId === contractId);
   },
 
-  markInstallmentPaid: (
-    id: string,
-    userId: string,
-    role: RoleType,
-    paymentDetails?: {
-      paidAmount?: number;
-      paymentDate?: string;
-      notes?: string;
-      isPartial?: boolean;
-    }
-  ) => {
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 1: فرض الصلاحيات (لا تعتمد على الواجهة)
-    // ═════════════════════════════════════════════════════════════════
-    const ALLOWED_ROLES: RoleType[] = ['SuperAdmin', 'Admin'];
-    if (!ALLOWED_ROLES.includes(role)) {
-      return fail(`الصلاحية غير كافية (${role}): يُسمح فقط بـ ${ALLOWED_ROLES.join(', ')}`);
-    }
-
-    const all = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-    const idx = all.findIndex((i) => i.رقم_الكمبيالة === id);
-    if (idx === -1) {
-      return fail('الكمبيالة غير موجودة');
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 2: نسخة جديدة (immutability)
-    // ═════════════════════════════════════════════════════════════════
-    const inst = JSON.parse(JSON.stringify(all[idx])) as الكمبيالات_tbl;
-    if (!inst.سجل_الدفعات) inst.سجل_الدفعات = [];
-
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 3: لا دفع لمدفوع بالفعل
-    // ═════════════════════════════════════════════════════════════════
-    if (inst.حالة_الكمبيالة === INSTALLMENT_STATUS.PAID) {
-      return fail('لا يمكن سداد كمبيالة مدفوعة بالفعل');
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 4: تحقق من صحة البيانات (لا تثق بـ UI)
-    // ═════════════════════════════════════════════════════════════════
-    if (!paymentDetails?.paidAmount || paymentDetails.paidAmount <= 0) {
-      return fail('يجب تحديد مبلغ أكبر من صفر');
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // الحساب الصحيح: حساب مجموع المدفوع من السجل (لا تثق بـ UI)
-    // ═════════════════════════════════════════════════════════════════
-    // Only count real paid amounts (ignore reversal/negative audit records)
-    const totalPaid = inst.سجل_الدفعات!.reduce((sum, p) => sum + (p.المبلغ > 0 ? p.المبلغ : 0), 0);
-    const currentRemaining = inst.القيمة - totalPaid;
-
-    if (paymentDetails.paidAmount > currentRemaining) {
-      return fail(
-        `المبلغ المدفوع (${paymentDetails.paidAmount}) يتجاوز المتبقي (${currentRemaining})`
-      );
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // توحيد التاريخ (YYYY-MM-DD بدون أي معالجة timezone)
-    // ═════════════════════════════════════════════════════════════════
-    const paymentDate = paymentDetails?.paymentDate
-      ? paymentDetails.paymentDate.split('T')[0]
-      : formatDateOnly(toDateOnly(new Date()));
-
-    // ═════════════════════════════════════════════════════════════════
-    // حساب الحالة بناءً على مجموع المدفوع الجديد
-    // ═════════════════════════════════════════════════════════════════
-    const newTotal = totalPaid + paymentDetails.paidAmount;
-    let newStatus: string;
-
-    if (newTotal >= inst.القيمة) {
-      newStatus = INSTALLMENT_STATUS.PAID;
-    } else if (newTotal > 0) {
-      newStatus = INSTALLMENT_STATUS.PARTIAL;
-    } else {
-      newStatus = INSTALLMENT_STATUS.UNPAID;
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // حفظ سجل العملية (audit log)
-    // ═════════════════════════════════════════════════════════════════
-    const operationId = `OP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    inst.سجل_الدفعات!.push({
-      رقم_العملية: operationId,
-      المبلغ: paymentDetails.paidAmount,
-      التاريخ: paymentDate,
-      الملاحظات: paymentDetails.notes,
-      المستخدم: userId,
-      الدور: role,
-      النوع: newTotal >= inst.القيمة ? 'FULL' : 'PARTIAL',
-    });
-
-    // ═════════════════════════════════════════════════════════════════
-    // تحديث البيانات المرئية
-    // ═════════════════════════════════════════════════════════════════
-    inst.حالة_الكمبيالة = newStatus;
-    inst.تاريخ_الدفع = paymentDate;
-    inst.القيمة_المتبقية = Math.max(0, inst.القيمة - newTotal); // ✅ تحديث المبلغ المتبقي
-    inst.ملاحظات = (inst.ملاحظات || '').trim();
-    if (paymentDetails?.notes) {
-      inst.ملاحظات += (inst.ملاحظات ? '\n' : '') + `[${paymentDate}] ${paymentDetails.notes}`;
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // حفظ النسخة الجديدة (immutability)
-    // ═════════════════════════════════════════════════════════════════
-    all[idx] = inst;
-    save(KEYS.INSTALLMENTS, all);
-
-    // ═════════════════════════════════════════════════════════════════
-    // تسجيل العملية - مع userId و role
-    // ═════════════════════════════════════════════════════════════════
-    let operationDesc = `[${role}] ${userId} - `;
-    const isPartialPayment = paymentDetails?.isPartial ?? false;
-    if (isPartialPayment) {
-      operationDesc += `سداد جزئي - المبلغ المدفوع: ${formatCurrencyJOD(paymentDetails.paidAmount)}، الباقي: ${formatCurrencyJOD(inst.القيمة_المتبقية)} من إجمالي ${formatCurrencyJOD(inst.القيمة)}`;
-    } else {
-      operationDesc += `سداد كامل - المبلغ: ${formatCurrencyJOD(inst.القيمة)} في ${inst.تاريخ_الدفع}`;
-    }
-
-    if (paymentDetails?.notes) {
-      operationDesc += ` | الملاحظات: ${paymentDetails.notes}`;
-    }
-
-    logOperationInternal(userId, 'سداد كمبيالة', 'الكمبيالات', id, operationDesc);
-
-    // Keep alerts clean: once an installment is fully paid, suppress related financial alerts immediately.
-    try {
-      if (newStatus === INSTALLMENT_STATUS.PAID) {
-        markAlertsReadByPrefix(`ALR-FIN-REM7-${id}`);
-        markAlertsReadByPrefix(`ALR-FIN-PAY-${id}`);
-      }
-    } catch {
-      // ignore alert cleanup failures
-    }
-
-    // Update tenant rating based on payment behavior
-    try {
-      const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
-      const contract = contracts.find((c) => c.رقم_العقد === inst.رقم_العقد);
-      const tenantId = contract?.رقم_المستاجر;
-      if (tenantId) {
-        const due = parseDateOnly(inst.تاريخ_استحقاق);
-        const paid = parseDateOnly(paymentDate);
-        const isLate = !!(due && paid && toDateOnly(paid).getTime() > toDateOnly(due).getTime());
-        const isPartial = paymentDetails?.isPartial ?? newStatus === INSTALLMENT_STATUS.PARTIAL;
-        const paymentType: 'full' | 'partial' | 'late' = isLate
-          ? 'late'
-          : isPartial
-            ? 'partial'
-            : 'full';
-        DbService.updateTenantRating(tenantId, paymentType);
-      }
-    } catch {
-      // ignore rating failures
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // تحديث تصنيف المستأجر بناءً على سلوك السداد
-    // ═════════════════════════════════════════════════════════════════
-    // Note: updateTenantRating is defined below as a separate method
-    // It will be called when needed to update tenant rating based on payment behavior
-
-    return ok();
-  },
-
-  // تصنيف المستأجر بناءً على السلوك المالي
-  updateTenantRating: (tenantId: string, paymentType: 'full' | 'partial' | 'late') => {
-    const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
-    const idx = people.findIndex((p) => p.رقم_الشخص === tenantId);
-    if (idx === -1) return;
-
-    const person = people[idx];
-    const oldPoints = person.تصنيف_السلوك?.points ?? 100;
-    const oldType = person.تصنيف_السلوك?.type ?? 'جديد';
-
-    if (!person.تصنيف_السلوك) {
-      person.تصنيف_السلوك = { type: 'جيد', points: 100, history: [] };
-    }
-
-    let pointsChange = 0;
-    if (paymentType === 'full') {
-      pointsChange = 5;
-      person.تصنيف_السلوك.points = Math.min(100, person.تصنيف_السلوك.points + 5);
-    } else if (paymentType === 'partial') {
-      pointsChange = -10;
-      person.تصنيف_السلوك.points = Math.max(0, person.تصنيف_السلوك.points - 10);
-    } else if (paymentType === 'late') {
-      pointsChange = -20;
-      person.تصنيف_السلوك.points = Math.max(0, person.تصنيف_السلوك.points - 20);
-    }
-
-    // Derive type from points to keep it consistent
-    const pts = person.تصنيف_السلوك.points;
-    if (pts >= 90) person.تصنيف_السلوك.type = 'ممتاز';
-    else if (pts >= 70) person.تصنيف_السلوك.type = 'جيد';
-    else if (pts >= 50) person.تصنيف_السلوك.type = 'متوسط';
-    else if (pts >= 30) person.تصنيف_السلوك.type = 'ضعيف';
-    else person.تصنيف_السلوك.type = 'سيء';
-
-    if (!Array.isArray(person.تصنيف_السلوك.history)) person.تصنيف_السلوك.history = [];
-    person.تصنيف_السلوك.history.push({
-      date: formatDateOnly(toDateOnly(new Date())),
-      paymentType,
-      pointsChange,
-      points: person.تصنيف_السلوك.points,
-    });
-
-    people[idx] = person;
-    save(KEYS.PEOPLE, people);
-
-    const ratingDesc = `تحديث تصنيف السلوك - من ${oldType} (${oldPoints}) إلى ${person.تصنيف_السلوك.type} (${person.تصنيف_السلوك.points}) - التغيير: ${pointsChange > 0 ? '+' : ''}${pointsChange} نقاط (${paymentType === 'full' ? 'سداد كامل' : paymentType === 'partial' ? 'سداد جزئي' : 'سداد متأخر'})`;
-    logOperationInternal('System', 'تحديث التصنيف', 'People', tenantId, ratingDesc);
-  },
-
-  setInstallmentLateFee: (
-    installmentId: string,
-    userId: string,
-    role: RoleType,
-    payload: { amount: number; classification?: string; note?: string; date?: string }
-  ): DbResult<null> => {
-    const ALLOWED_ROLES: RoleType[] = ['SuperAdmin', 'Admin'];
-    if (!ALLOWED_ROLES.includes(role)) {
-      return fail(`الصلاحية غير كافية (${role}): يُسمح فقط بـ ${ALLOWED_ROLES.join(', ')}`);
-    }
-
-    const amount = Number(payload.amount || 0);
-    if (!Number.isFinite(amount) || amount < 0) return fail('قيمة الغرامة غير صالحة');
-
-    const all = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-    const idx = all.findIndex((i) => i.رقم_الكمبيالة === installmentId);
-    if (idx === -1) return fail('الكمبيالة غير موجودة');
-
-    const inst = JSON.parse(JSON.stringify(all[idx])) as الكمبيالات_tbl;
-    const date = payload.date
-      ? String(payload.date).split('T')[0]
-      : formatDateOnly(toDateOnly(new Date()));
-
-    asUnknownRecord(inst)['غرامة_تأخير'] = amount;
-    asUnknownRecord(inst)['تصنيف_غرامة_تأخير'] = (payload.classification || '').trim() || undefined;
-    asUnknownRecord(inst)['تاريخ_احتساب_غرامة_تأخير'] = date;
-
-    inst.ملاحظات = (inst.ملاحظات || '').trim();
-    const extraNote = (payload.note || '').trim();
-    const noteLine = `غرامة تأخير: ${formatCurrencyJOD(amount)}${payload.classification ? ` | التصنيف: ${payload.classification}` : ''}${extraNote ? ` | ملاحظة: ${extraNote}` : ''}`;
-    inst.ملاحظات += (inst.ملاحظات ? '\n' : '') + `[${date}] ${noteLine}`;
-
-    all[idx] = inst;
-    save(KEYS.INSTALLMENTS, all);
-
-    logOperationInternal(
-      userId,
-      'تسجيل غرامة تأخير',
-      'الكمبيالات',
-      installmentId,
-      `[${role}] ${userId} - ${noteLine}`
-    );
-    return ok();
-  },
+  markInstallmentPaid: installmentPayments.markInstallmentPaid,
+  updateTenantRating: updateTenantRatingImpl,
+  setInstallmentLateFee: installmentPayments.setInstallmentLateFee,
 
   updateInstallmentDynamicFields: (
     installmentId: string,
@@ -3354,159 +2822,7 @@ export const DbService = {
     return ok();
   },
 
-  // عكس السداد (استرجاع الدفعة) - للأدمن فقط مع سبب إلزامي
-  reversePayment: (id: string, userId: string, role: RoleType, reason: string) => {
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 1: فرض الصلاحيات - SuperAdmin فقط
-    // هذا ليس guard عادي - هذا صد Hard Block
-    // ═════════════════════════════════════════════════════════════════
-    if (role !== 'SuperAdmin') {
-      const errorMsg = `🚫 Unauthorized Reverse Payment: Role=${role}, UserId=${userId}`;
-      logOperationInternal(
-        userId,
-        'عكس سداد - فشل',
-        'الكمبيالات',
-        id,
-        `${errorMsg}. السبب: ${reason}`
-      );
-      return fail('فقط السوبر أدمن يمكنه عكس السداد. العملية مسجلة.');
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 2: السبب إلزامي (للتدقيق القانوني)
-    // ═════════════════════════════════════════════════════════════════
-    if (!reason || reason.trim().length === 0) {
-      logOperationInternal(userId, 'عكس سداد - فشل', 'الكمبيالات', id, '❌ بدون سبب');
-      return fail('سبب عكس السداد إلزامي للتدقيق');
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 3: البيانات موجودة
-    // ═════════════════════════════════════════════════════════════════
-    const all = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-    const idx = all.findIndex((i) => i.رقم_الكمبيالة === id);
-    if (idx === -1) {
-      logOperationInternal(userId, 'عكس سداد - فشل', 'الكمبيالات', id, '❌ الكمبيالة غير موجودة');
-      return fail('الكمبيالة غير موجودة');
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // نسخة جديدة (immutability - حماية من التعديلات العرضية)
-    // ═════════════════════════════════════════════════════════════════
-    const inst = JSON.parse(JSON.stringify(all[idx])) as الكمبيالات_tbl;
-
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 4: منع عكس دفعة غير مدفوعة
-    // ═════════════════════════════════════════════════════════════════
-    if (
-      inst.حالة_الكمبيالة === INSTALLMENT_STATUS.UNPAID ||
-      inst.حالة_الكمبيالة === INSTALLMENT_STATUS.CANCELLED
-    ) {
-      const msg = `لا يمكن عكس سداد كمبيالة ${inst.حالة_الكمبيالة}`;
-      logOperationInternal(userId, 'عكس سداد - فشل', 'الكمبيالات', id, msg);
-      return fail(msg);
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // Guard 5: يجب أن يكون هناك سجل دفعات
-    // ═════════════════════════════════════════════════════════════════
-    if (!inst.سجل_الدفعات || inst.سجل_الدفعات.length === 0) {
-      logOperationInternal(userId, 'عكس سداد - فشل', 'الكمبيالات', id, '❌ لا يوجد سجل دفعات');
-      return fail('لا توجد عمليات دفع لعكسها');
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // منع العكس المتكرر (Safety Guard)
-    // ═════════════════════════════════════════════════════════════════
-    const lastPayment = inst.سجل_الدفعات[inst.سجل_الدفعات.length - 1];
-    if (lastPayment.رقم_العملية.startsWith('REVERSAL_')) {
-      const msg = 'آخر عملية هي عكس - لا يمكن عكس العكس (Reverse of Reverse)';
-      logOperationInternal(userId, 'عكس سداد - فشل', 'الكمبيالات', id, msg);
-      return fail(msg);
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // الحساب: عكس آخر عملية دفع فقط (LIFO - Last In First Out)
-    // ═════════════════════════════════════════════════════════════════
-    const reversedAmount = lastPayment.المبلغ;
-    const previousOperation = { ...lastPayment };
-
-    // حذف آخر عملية (بعد الاحتفاظ بنسخة)
-    inst.سجل_الدفعات = inst.سجل_الدفعات.slice(0, -1);
-
-    // ═════════════════════════════════════════════════════════════════
-    // إعادة حساب الحالة من السجل (الحقيقة الوحيدة)
-    // ═════════════════════════════════════════════════════════════════
-    const newTotal = inst.سجل_الدفعات.reduce((sum, p) => sum + (p.المبلغ > 0 ? p.المبلغ : 0), 0);
-    let newStatus: string;
-
-    if (newTotal >= inst.القيمة) {
-      newStatus = INSTALLMENT_STATUS.PAID;
-    } else if (newTotal > 0) {
-      newStatus = INSTALLMENT_STATUS.PARTIAL;
-    } else {
-      newStatus = INSTALLMENT_STATUS.UNPAID;
-    }
-
-    // ═════════════════════════════════════════════════════════════════
-    // سجل العكس (Audit Record) - High Risk Log
-    // ═════════════════════════════════════════════════════════════════
-    const reversalDate = new Date().toISOString().split('T')[0];
-    const reversalRecord = {
-      رقم_العملية: `REVERSAL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      المبلغ: -reversedAmount, // بقيمة سالبة للحسابات المستقبلية
-      التاريخ: reversalDate,
-      الملاحظات: `🔄 عكس: ${reason} | كانت: ${formatCurrencyJOD(Number(previousOperation.المبلغ || 0))} بتاريخ ${previousOperation.التاريخ}`,
-      المستخدم: userId,
-      الدور: role,
-      النوع: 'PARTIAL' as const,
-    };
-    inst.سجل_الدفعات.push(reversalRecord);
-
-    // ═════════════════════════════════════════════════════════════════
-    // تحديث البيانات المرئية
-    // ═════════════════════════════════════════════════════════════════
-    inst.حالة_الكمبيالة = newStatus;
-    inst.القيمة_المتبقية = Math.max(0, inst.القيمة - newTotal); // ✅ تحديث المبلغ المتبقي بعد العكس
-
-    // حدّث التاريخ (خذ آخر دفع حقيقي لا عكس)
-    if (newStatus === INSTALLMENT_STATUS.UNPAID) {
-      inst.تاريخ_الدفع = undefined;
-    } else if (inst.سجل_الدفعات.length > 0) {
-      const lastNonReversal = inst.سجل_الدفعات
-        .slice()
-        .reverse()
-        .find((p) => p.المبلغ > 0);
-      inst.تاريخ_الدفع = lastNonReversal?.التاريخ;
-    }
-
-    // تحديث الملاحظات
-    inst.ملاحظات = (inst.ملاحظات || '').trim();
-    inst.ملاحظات += (inst.ملاحظات ? '\n' : '') + `[${reversalDate}] 🔄 عكس: ${reason}`;
-
-    // ═════════════════════════════════════════════════════════════════
-    // Save (Immutability)
-    // ═════════════════════════════════════════════════════════════════
-    all[idx] = inst;
-    save(KEYS.INSTALLMENTS, all);
-
-    // ═════════════════════════════════════════════════════════════════
-    // High-Risk Audit Log (تدقيق مفصل للعمليات الخطرة)
-    // ═════════════════════════════════════════════════════════════════
-    const auditDesc =
-      `[HIGH-RISK] ${role}/${userId} عكس السداد\n` +
-      `├─ الكمبيالة: ${id}\n` +
-      `├─ المبلغ المعكوس: ${formatCurrencyJOD(reversedAmount)}\n` +
-      `├─ آخر عملية أصلية: ${previousOperation.رقم_العملية}\n` +
-      `├─ الحالة السابقة: ${inst.حالة_الكمبيالة}\n` +
-      `├─ الحالة الجديدة: ${newStatus}\n` +
-      `├─ المجموع الجديد: ${formatCurrencyJOD(newTotal)}\n` +
-      `├─ السبب: ${reason}\n` +
-      `└─ التاريخ: ${reversalDate}`;
-    logOperationInternal(userId, 'عكس سداد - نجح', 'الكمبيالات', id, auditDesc);
-
-    return ok(inst, `✅ تم عكس السداد بنجاح: ${formatCurrencyJOD(reversedAmount)} (السبب: ${reason})`);
-  },
+  reversePayment: installmentPayments.reversePayment,
 
   getInstallmentPaymentSummary,
 
