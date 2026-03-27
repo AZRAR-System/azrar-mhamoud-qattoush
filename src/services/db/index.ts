@@ -10,3 +10,5 @@ export * from './properties';
 export * from './contracts';
 export * from './installmentConstants';
 export * from './installments';
+export * from './settings';
+export * from './sales';
