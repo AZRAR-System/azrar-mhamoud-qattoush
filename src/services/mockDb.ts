@@ -70,6 +70,7 @@ export const INSTALLMENT_STATUS = {
 
 export type InstallmentStatusType = (typeof INSTALLMENT_STATUS)[keyof typeof INSTALLMENT_STATUS];
 import { buildCache, DbCache } from './dbCache';
+import { KEYS } from './db/keys';
 import { SmartEngine } from './smartEngine';
 import { validateAllData } from '@/services/dataValidation';
 import type { DesktopDbBridge } from '@/types/electron.types';
@@ -388,48 +389,6 @@ const MOCK_LEGAL_TEMPLATES: LegalNoticeTemplate[] = [
     content: `{{نص_الرسالة_اليدوية}}`,
   },
 ];
-
-const KEYS = {
-  PEOPLE: 'db_people',
-  COMPANIES: 'db_companies',
-  CONTACTS: 'db_contacts',
-  PROPERTIES: 'db_properties',
-  CONTRACTS: 'db_contracts',
-  INSTALLMENTS: 'db_installments',
-  ROLES: 'db_roles',
-  COMMISSIONS: 'db_commissions',
-  USERS: 'db_users',
-  USER_PERMISSIONS: 'db_user_permissions',
-  ALERTS: 'db_alerts',
-  SALES_LISTINGS: 'db_sales_listings',
-  SALES_OFFERS: 'db_sales_offers',
-  SALES_AGREEMENTS: 'db_sales_agreements',
-  OWNERSHIP_HISTORY: 'db_ownership_history',
-  MAINTENANCE: 'db_maintenance_tickets',
-  LOOKUPS: 'db_lookups',
-  LOOKUP_CATEGORIES: 'db_lookup_categories',
-  SETTINGS: 'db_settings',
-  LOGS: 'db_operations',
-  BLACKLIST: 'db_blacklist',
-  DYNAMIC_TABLES: 'db_dynamic_tables',
-  DYNAMIC_RECORDS: 'db_dynamic_records',
-  DYNAMIC_FORM_FIELDS: 'db_dynamic_form_fields',
-  ATTACHMENTS: 'db_attachments',
-  ACTIVITIES: 'db_activities',
-  NOTES: 'db_notes',
-  LEGAL_TEMPLATES: 'db_legal_templates',
-  LEGAL_HISTORY: 'db_legal_history',
-  EXTERNAL_COMMISSIONS: 'db_external_commissions',
-  MARQUEE: 'db_marquee',
-  DASHBOARD_CONFIG: 'db_dashboard_config',
-  CLEARANCE_RECORDS: 'db_clearance_records',
-  DASHBOARD_NOTES: 'db_dashboard_notes',
-  REMINDERS: 'db_reminders',
-  CLIENT_INTERACTIONS: 'db_client_interactions',
-  FOLLOW_UPS: 'db_followups',
-  NOTIFICATION_SEND_LOGS: 'db_notification_send_logs',
-  INSPECTIONS: 'db_property_inspections',
-};
 
 type MarqueeAdRecord = {
   id: string;
