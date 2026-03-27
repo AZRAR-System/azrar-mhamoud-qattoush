@@ -1,0 +1,7 @@
+AZRAR — Terms and Privacy (Installer)
+
+This installer displays this text as the license / agreement step required by NSIS.
+
+Please replace this file with your organization’s final terms of use and privacy policy before production releases.
+
+— AZRAR Real Estate Management System

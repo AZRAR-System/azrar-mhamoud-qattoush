@@ -10,7 +10,10 @@ bower_components/
 # Build Output
 dist/
 dist-ssr/
-build/
+# Ignore build artifacts but keep installer resources tracked (see electron-builder.config.cjs)
+build/*
+!build/installer.nsh
+!build/TERMS_AND_PRIVACY.txt
 out/
 release*/
 release2_build/
