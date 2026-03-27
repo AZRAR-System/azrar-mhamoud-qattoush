@@ -16,7 +16,7 @@ if (typeof globalThis.window === 'undefined') {
 if (typeof globalThis.window.matchMedia === 'undefined') {
   Object.defineProperty(globalThis.window, 'matchMedia', {
     writable: true,
-    value: jest.fn().mockImplementation(query => ({
+    value: jest.fn().mockImplementation((query) => ({
       matches: false,
       media: query,
       onchange: null,
@@ -83,10 +83,7 @@ if (typeof globalThis.window.electron === 'undefined') {
 const originalError = console.error;
 beforeAll(() => {
   console.error = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render')
-    ) {
+    if (typeof args[0] === 'string' && args[0].includes('Warning: ReactDOM.render')) {
       return;
     }
     originalError.call(console, ...args);

@@ -112,7 +112,10 @@ const flushLocalStorageKeyToDesktopKv = async (key: string): Promise<void> => {
   }
 };
 
-export const listAttachmentsSmart = async (referenceType: ReferenceType, referenceId: string): Promise<Attachment[]> => {
+export const listAttachmentsSmart = async (
+  referenceType: ReferenceType,
+  referenceId: string
+): Promise<Attachment[]> => {
   const db = getDesktopDb();
   if (!db) {
     return DbService.getAttachments(referenceType, referenceId);
@@ -150,7 +153,10 @@ export const deleteAttachmentSmart = async (attachmentId: string): Promise<DbRes
   return res;
 };
 
-export const listNotesSmart = async (referenceType: ReferenceType, referenceId: string): Promise<NoteRecord[]> => {
+export const listNotesSmart = async (
+  referenceType: ReferenceType,
+  referenceId: string
+): Promise<NoteRecord[]> => {
   const db = getDesktopDb();
   if (!db) {
     return DbService.getNotes(referenceId, referenceType);
@@ -167,7 +173,11 @@ export const listNotesSmart = async (referenceType: ReferenceType, referenceId: 
   return out;
 };
 
-export const addNoteSmart = async (payload: { referenceType: ReferenceType; referenceId: string; content: string }): Promise<DbResult<null>> => {
+export const addNoteSmart = async (payload: {
+  referenceType: ReferenceType;
+  referenceId: string;
+  content: string;
+}): Promise<DbResult<null>> => {
   const content = String(payload.content || '').trim();
   if (!content) return fail('يرجى كتابة ملاحظة');
 
@@ -184,7 +194,10 @@ export const addNoteSmart = async (payload: { referenceType: ReferenceType; refe
   return res.success ? ok(null, res.message) : fail(res.message);
 };
 
-export const listActivitiesSmart = async (referenceType: ReferenceType, referenceId: string): Promise<ActivityRecord[]> => {
+export const listActivitiesSmart = async (
+  referenceType: ReferenceType,
+  referenceId: string
+): Promise<ActivityRecord[]> => {
   const db = getDesktopDb();
   if (!db) {
     return DbService.getActivities(referenceId, referenceType);

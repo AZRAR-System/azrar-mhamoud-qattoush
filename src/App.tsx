@@ -18,44 +18,106 @@ import { DbService } from './services/mockDb';
 import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
 
 // Lazy Load Pages
-const Dashboard = React.lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
-const People = React.lazy(() => import('./pages/People').then(module => ({ default: module.People })));
-const Properties = React.lazy(() => import('./pages/Properties').then(module => ({ default: module.Properties })));
-const Contracts = React.lazy(() => import('./pages/Contracts').then(module => ({ default: module.Contracts })));
-const Installments = React.lazy(() => import('./pages/Installments').then(module => ({ default: module.Installments })));
-const DynamicBuilder = React.lazy(() => import('./pages/DynamicBuilder').then(module => ({ default: module.DynamicBuilder })));
-const Alerts = React.lazy(() => import('./pages/Alerts').then(module => ({ default: module.Alerts })));
-const Operations = React.lazy(() => import('./pages/Operations').then(module => ({ default: module.Operations })));
-const Settings = React.lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
-const BackupManager = React.lazy(() => import('./pages/BackupManager').then(module => ({ default: module.BackupManager })));
-const Maintenance = React.lazy(() => import('./pages/Maintenance').then(module => ({ default: module.Maintenance })));
-const Commissions = React.lazy(() => import('./pages/Commissions').then(module => ({ default: module.Commissions })));
-const Reports = React.lazy(() => import('./pages/Reports').then(module => ({ default: module.Reports })));
-const LegalHub = React.lazy(() => import('./pages/LegalHub').then(module => ({ default: module.LegalHub })));
-const SmartTools = React.lazy(() => import('./pages/SmartTools').then(module => ({ default: module.SmartTools })));
-const SystemMaintenance = React.lazy(() => import('./pages/SystemMaintenance').then(module => ({ default: module.SystemMaintenance })));
-const AdminControlPanel = React.lazy(() => import('./pages/AdminControlPanel').then(module => ({ default: module.AdminControlPanel })));
-const DatabaseManager = React.lazy(() => import('./pages/DatabaseManager').then(module => ({ default: module.DatabaseManager })));
-const Sales = React.lazy(() => import('./pages/Sales').then(module => ({ default: module.Sales })));
-const Login = React.lazy(() => import('./pages/Login').then(module => ({ default: module.Login })));
-const Logout = React.lazy(() => import('./pages/Logout').then(module => ({ default: module.Logout })));
-const Activation = React.lazy(() => import('./pages/Activation').then(module => ({ default: module.Activation })));
-const LicenseAdminDashboard = React.lazy(() =>
-  import('./pages/LicenseAdminDashboard').then(module => ({ default: module.LicenseAdminDashboard }))
+const Dashboard = React.lazy(() =>
+  import('./pages/Dashboard').then((module) => ({ default: module.Dashboard }))
 );
-const LicenseAdmin = React.lazy(() => import('./pages/LicenseAdmin').then(module => ({ default: module.LicenseAdmin })));
+const People = React.lazy(() =>
+  import('./pages/People').then((module) => ({ default: module.People }))
+);
+const Properties = React.lazy(() =>
+  import('./pages/Properties').then((module) => ({ default: module.Properties }))
+);
+const Contracts = React.lazy(() =>
+  import('./pages/Contracts').then((module) => ({ default: module.Contracts }))
+);
+const Installments = React.lazy(() =>
+  import('./pages/Installments').then((module) => ({ default: module.Installments }))
+);
+const DynamicBuilder = React.lazy(() =>
+  import('./pages/DynamicBuilder').then((module) => ({ default: module.DynamicBuilder }))
+);
+const Alerts = React.lazy(() =>
+  import('./pages/Alerts').then((module) => ({ default: module.Alerts }))
+);
+const Operations = React.lazy(() =>
+  import('./pages/Operations').then((module) => ({ default: module.Operations }))
+);
+const Settings = React.lazy(() =>
+  import('./pages/Settings').then((module) => ({ default: module.Settings }))
+);
+const BackupManager = React.lazy(() =>
+  import('./pages/BackupManager').then((module) => ({ default: module.BackupManager }))
+);
+const Maintenance = React.lazy(() =>
+  import('./pages/Maintenance').then((module) => ({ default: module.Maintenance }))
+);
+const Commissions = React.lazy(() =>
+  import('./pages/Commissions').then((module) => ({ default: module.Commissions }))
+);
+const Reports = React.lazy(() =>
+  import('./pages/Reports').then((module) => ({ default: module.Reports }))
+);
+const LegalHub = React.lazy(() =>
+  import('./pages/LegalHub').then((module) => ({ default: module.LegalHub }))
+);
+const SmartTools = React.lazy(() =>
+  import('./pages/SmartTools').then((module) => ({ default: module.SmartTools }))
+);
+const SystemMaintenance = React.lazy(() =>
+  import('./pages/SystemMaintenance').then((module) => ({ default: module.SystemMaintenance }))
+);
+const AdminControlPanel = React.lazy(() =>
+  import('./pages/AdminControlPanel').then((module) => ({ default: module.AdminControlPanel }))
+);
+const DatabaseManager = React.lazy(() =>
+  import('./pages/DatabaseManager').then((module) => ({ default: module.DatabaseManager }))
+);
+const Sales = React.lazy(() =>
+  import('./pages/Sales').then((module) => ({ default: module.Sales }))
+);
+const Login = React.lazy(() =>
+  import('./pages/Login').then((module) => ({ default: module.Login }))
+);
+const Logout = React.lazy(() =>
+  import('./pages/Logout').then((module) => ({ default: module.Logout }))
+);
+const Activation = React.lazy(() =>
+  import('./pages/Activation').then((module) => ({ default: module.Activation }))
+);
+const LicenseAdminDashboard = React.lazy(() =>
+  import('./pages/LicenseAdminDashboard').then((module) => ({
+    default: module.LicenseAdminDashboard,
+  }))
+);
+const LicenseAdmin = React.lazy(() =>
+  import('./pages/LicenseAdmin').then((module) => ({ default: module.LicenseAdmin }))
+);
 const LicenseAdminUsers = React.lazy(() =>
-  import('./pages/LicenseAdminUsers').then(module => ({ default: module.LicenseAdminUsers }))
+  import('./pages/LicenseAdminUsers').then((module) => ({ default: module.LicenseAdminUsers }))
 );
 const LicenseAdminCustomers = React.lazy(() =>
-  import('./pages/LicenseAdminCustomers').then(module => ({ default: module.LicenseAdminCustomers }))
+  import('./pages/LicenseAdminCustomers').then((module) => ({
+    default: module.LicenseAdminCustomers,
+  }))
 );
-const NotFound = React.lazy(() => import('./pages/NotFound').then(module => ({ default: module.NotFound })));
-const Documentation = React.lazy(() => import('./pages/Documentation').then(module => ({ default: module.Documentation })));
-const Contacts = React.lazy(() => import('./pages/Contacts').then(module => ({ default: module.Contacts })));
-const BulkWhatsApp = React.lazy(() => import('./pages/BulkWhatsApp').then(module => ({ default: module.BulkWhatsApp })));
-const Documents = React.lazy(() => import('./pages/Documents').then(module => ({ default: module.Documents })));
-const ComprehensiveTests = React.lazy(() => import('./pages/ComprehensiveTests').then(module => ({ default: module.ComprehensiveTests })));
+const NotFound = React.lazy(() =>
+  import('./pages/NotFound').then((module) => ({ default: module.NotFound }))
+);
+const Documentation = React.lazy(() =>
+  import('./pages/Documentation').then((module) => ({ default: module.Documentation }))
+);
+const Contacts = React.lazy(() =>
+  import('./pages/Contacts').then((module) => ({ default: module.Contacts }))
+);
+const BulkWhatsApp = React.lazy(() =>
+  import('./pages/BulkWhatsApp').then((module) => ({ default: module.BulkWhatsApp }))
+);
+const Documents = React.lazy(() =>
+  import('./pages/Documents').then((module) => ({ default: module.Documents }))
+);
+const ComprehensiveTests = React.lazy(() =>
+  import('./pages/ComprehensiveTests').then((module) => ({ default: module.ComprehensiveTests }))
+);
 const DatabaseReset = React.lazy(() => import('./pages/DatabaseReset'));
 
 // Loading Fallback
@@ -148,8 +210,11 @@ const DiagnosticsStartupNotice: React.FC = () => {
       }
 
       sessionStorage.setItem('diag_notice_shown', '1');
-      const suffix = typeof count === 'number' && Number.isFinite(count) ? ` (عدد السجلات: ${count})` : '';
-      toast.warning(`تم رصد أخطاء سابقة في الواجهة. افتح الإعدادات ← التشخيص لتصدير التقرير أو مسحه.${suffix}`);
+      const suffix =
+        typeof count === 'number' && Number.isFinite(count) ? ` (عدد السجلات: ${count})` : '';
+      toast.warning(
+        `تم رصد أخطاء سابقة في الواجهة. افتح الإعدادات ← التشخيص لتصدير التقرير أو مسحه.${suffix}`
+      );
     } catch {
       // ignore
     }
@@ -190,8 +255,10 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
       const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
       if (isDev && isDesktop) {
         const hasEnv = typeof env === 'object' && env !== null;
-        const hasAutorunKey = hasEnv && Object.prototype.hasOwnProperty.call(env, 'VITE_AUTORUN_SYSTEM_TESTS');
-        const hasIntegrationKey = hasEnv && Object.prototype.hasOwnProperty.call(env, 'VITE_ENABLE_INTEGRATION_TEST_DATA');
+        const hasAutorunKey =
+          hasEnv && Object.prototype.hasOwnProperty.call(env, 'VITE_AUTORUN_SYSTEM_TESTS');
+        const hasIntegrationKey =
+          hasEnv && Object.prototype.hasOwnProperty.call(env, 'VITE_ENABLE_INTEGRATION_TEST_DATA');
         console.warn(
           `[autorun] env check hasEnv=${hasEnv ? '1' : '0'} hasAutorunKey=${hasAutorunKey ? '1' : '0'} hasIntegrationKey=${hasIntegrationKey ? '1' : '0'} autorunRaw=${String(autorunRaw)}`
         );
@@ -291,7 +358,11 @@ const RequireActivation: React.FC = () => {
     return <PageLoader />;
   }
 
-  if (!isActivated && location.pathname !== ROUTE_PATHS.ACTIVATION && location.pathname !== ROUTE_PATHS.LOGIN) {
+  if (
+    !isActivated &&
+    location.pathname !== ROUTE_PATHS.ACTIVATION &&
+    location.pathname !== ROUTE_PATHS.LOGIN
+  ) {
     return <Navigate to={ROUTE_PATHS.LOGIN} replace state={{ from: location.pathname }} />;
   }
 

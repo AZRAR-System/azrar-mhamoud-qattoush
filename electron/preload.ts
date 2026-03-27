@@ -82,7 +82,10 @@ export type DbChannel =
   | 'sql:restoreServerBackup'
   | 'sql:mergePublishAdmin';
 
-export type PrintSettingsChannel = 'print:settings:get' | 'print:settings:save' | 'print:settings:getPath';
+export type PrintSettingsChannel =
+  | 'print:settings:get'
+  | 'print:settings:save'
+  | 'print:settings:getPath';
 
 export type PrintPreviewChannel =
   | 'print:preview:open'
@@ -119,9 +122,12 @@ contextBridge.exposeInMainWorld('desktopDb', {
     ipcRenderer.invoke('db:saveLocalBackupAutomationSettings', payload),
   runLocalBackupNow: () => ipcRenderer.invoke('db:runLocalBackupNow'),
   getLocalBackupStats: () => ipcRenderer.invoke('db:getLocalBackupStats'),
-  deleteLocalBackupFile: (filePath: string) => ipcRenderer.invoke('db:deleteLocalBackupFile', filePath),
-  restoreLocalBackupFile: (filePath: string) => ipcRenderer.invoke('db:restoreLocalBackupFile', filePath),
-  getLocalBackupLog: (payload: Record<string, unknown>) => ipcRenderer.invoke('db:getLocalBackupLog', payload),
+  deleteLocalBackupFile: (filePath: string) =>
+    ipcRenderer.invoke('db:deleteLocalBackupFile', filePath),
+  restoreLocalBackupFile: (filePath: string) =>
+    ipcRenderer.invoke('db:restoreLocalBackupFile', filePath),
+  getLocalBackupLog: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('db:getLocalBackupLog', payload),
   clearLocalBackupLog: () => ipcRenderer.invoke('db:clearLocalBackupLog'),
   getBackupEncryptionSettings: () => ipcRenderer.invoke('db:getBackupEncryptionSettings'),
   saveBackupEncryptionSettings: (payload: Record<string, unknown>) =>
@@ -303,9 +309,12 @@ contextBridge.exposeInMainWorld('desktopDb', {
   // Word templates
   readTemplateFile: (payload: { templateName: string; templateType?: string }) =>
     ipcRenderer.invoke('templates:read', payload),
-  listTemplates: (payload?: { templateType?: string }) => ipcRenderer.invoke('templates:list', payload),
-  importTemplate: (payload?: { templateType?: string }) => ipcRenderer.invoke('templates:import', payload),
-  deleteTemplate: (payload: { templateName: string; templateType?: string }) => ipcRenderer.invoke('templates:delete', payload),
+  listTemplates: (payload?: { templateType?: string }) =>
+    ipcRenderer.invoke('templates:list', payload),
+  importTemplate: (payload?: { templateType?: string }) =>
+    ipcRenderer.invoke('templates:import', payload),
+  deleteTemplate: (payload: { templateName: string; templateType?: string }) =>
+    ipcRenderer.invoke('templates:delete', payload),
 });
 
 contextBridge.exposeInMainWorld('desktopPrintEngine', {
@@ -313,27 +322,36 @@ contextBridge.exposeInMainWorld('desktopPrintEngine', {
 });
 
 contextBridge.exposeInMainWorld('desktopPrintDispatch', {
-  run: (request: Record<string, unknown>) => ipcRenderer.invoke('print:dispatch' as PrintDispatchChannel, request),
+  run: (request: Record<string, unknown>) =>
+    ipcRenderer.invoke('print:dispatch' as PrintDispatchChannel, request),
 });
 
 contextBridge.exposeInMainWorld('desktopPrintSettings', {
   get: () => ipcRenderer.invoke('print:settings:get' as PrintSettingsChannel),
-  save: (settings: Record<string, unknown>) => ipcRenderer.invoke('print:settings:save' as PrintSettingsChannel, settings),
+  save: (settings: Record<string, unknown>) =>
+    ipcRenderer.invoke('print:settings:save' as PrintSettingsChannel, settings),
   getPath: () => ipcRenderer.invoke('print:settings:getPath' as PrintSettingsChannel),
 });
 
 contextBridge.exposeInMainWorld('desktopPrintPreview', {
-  open: (payload: Record<string, unknown>) => ipcRenderer.invoke('print:preview:open' as PrintPreviewChannel, payload),
-  getState: (sessionId: string) => ipcRenderer.invoke('print:preview:getState' as PrintPreviewChannel, sessionId),
+  open: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('print:preview:open' as PrintPreviewChannel, payload),
+  getState: (sessionId: string) =>
+    ipcRenderer.invoke('print:preview:getState' as PrintPreviewChannel, sessionId),
   listPrinters: () => ipcRenderer.invoke('print:preview:listPrinters' as PrintPreviewChannel),
-  print: (sessionId: string, options?: Record<string, unknown>) => ipcRenderer.invoke('print:preview:print' as PrintPreviewChannel, sessionId, options),
-  exportPdf: (sessionId: string) => ipcRenderer.invoke('print:preview:exportPdf' as PrintPreviewChannel, sessionId),
-  exportDocx: (sessionId: string) => ipcRenderer.invoke('print:preview:exportDocx' as PrintPreviewChannel, sessionId),
-  reload: (sessionId: string) => ipcRenderer.invoke('print:preview:reload' as PrintPreviewChannel, sessionId),
+  print: (sessionId: string, options?: Record<string, unknown>) =>
+    ipcRenderer.invoke('print:preview:print' as PrintPreviewChannel, sessionId, options),
+  exportPdf: (sessionId: string) =>
+    ipcRenderer.invoke('print:preview:exportPdf' as PrintPreviewChannel, sessionId),
+  exportDocx: (sessionId: string) =>
+    ipcRenderer.invoke('print:preview:exportDocx' as PrintPreviewChannel, sessionId),
+  reload: (sessionId: string) =>
+    ipcRenderer.invoke('print:preview:reload' as PrintPreviewChannel, sessionId),
 });
 
 contextBridge.exposeInMainWorld('desktopAuth', {
-  setSessionUser: (userId: string | null) => ipcRenderer.invoke('auth:session:set' as AuthChannel, { userId }),
+  setSessionUser: (userId: string | null) =>
+    ipcRenderer.invoke('auth:session:set' as AuthChannel, { userId }),
 });
 
 contextBridge.exposeInMainWorld('desktopUpdater', {
@@ -371,19 +389,28 @@ contextBridge.exposeInMainWorld('desktopLicenseAdmin', {
   login: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:login', payload),
   logout: () => ipcRenderer.invoke('licenseAdmin:logout'),
   getUser: () => ipcRenderer.invoke('licenseAdmin:getUser'),
-  updateUser: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:updateUser', payload),
-  getAdminTokenStatus: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:getAdminTokenStatus', payload),
-  setAdminToken: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:setAdminToken', payload),
+  updateUser: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:updateUser', payload),
+  getAdminTokenStatus: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:getAdminTokenStatus', payload),
+  setAdminToken: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:setAdminToken', payload),
   list: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:list', payload),
   get: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:get', payload),
   issue: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:issue', payload),
-  setStatus: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:setStatus', payload),
-  activate: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:activate', payload),
-  checkStatus: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:checkStatus', payload),
+  setStatus: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:setStatus', payload),
+  activate: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:activate', payload),
+  checkStatus: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:checkStatus', payload),
   delete: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:delete', payload),
-  updateAfterSales: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:updateAfterSales', payload),
-  saveLicenseFile: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:saveLicenseFile', payload),
-  unbindDevice: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:unbindDevice', payload),
+  updateAfterSales: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:updateAfterSales', payload),
+  saveLicenseFile: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:saveLicenseFile', payload),
+  unbindDevice: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('licenseAdmin:unbindDevice', payload),
 });
 
 export {}; // ensure this is treated as a module

@@ -8,7 +8,10 @@ if (!hashes.sha512) {
   hashes.sha512 = (message: Uint8Array) => crypto.createHash('sha512').update(message).digest();
 }
 
-const normalizeB64 = (s: string): string => String(s || '').trim().replace(/\s+/g, '');
+const normalizeB64 = (s: string): string =>
+  String(s || '')
+    .trim()
+    .replace(/\s+/g, '');
 
 const parseIsoOrNull = (s: unknown): number | null => {
   if (typeof s !== 'string') return null;
@@ -22,7 +25,9 @@ export const canonicalizeLicensePayloadV1 = (payload: LicensePayloadV1): string 
     deviceId: String(payload.deviceId || '').trim(),
     issuedAt: String(payload.issuedAt || '').trim(),
     ...(payload.expiresAt ? { expiresAt: String(payload.expiresAt).trim() } : {}),
-    ...(payload.features && typeof payload.features === 'object' ? { features: payload.features } : {}),
+    ...(payload.features && typeof payload.features === 'object'
+      ? { features: payload.features }
+      : {}),
   };
   return JSON.stringify(canonical);
 };
@@ -30,7 +35,8 @@ export const canonicalizeLicensePayloadV1 = (payload: LicensePayloadV1): string 
 export const parseSignedLicenseFileV1 = (raw: string): SignedLicenseFileV1 => {
   const parsed = JSON.parse(String(raw || '').trim()) as SignedLicenseFileV1;
   if (!parsed || typeof parsed !== 'object') throw new Error('Invalid license file');
-  if (!parsed.payload || typeof parsed.payload !== 'object') throw new Error('Invalid license payload');
+  if (!parsed.payload || typeof parsed.payload !== 'object')
+    throw new Error('Invalid license payload');
   if (!parsed.sig || typeof parsed.sig !== 'string') throw new Error('Invalid license signature');
   return parsed;
 };
@@ -58,7 +64,10 @@ export const verifySignedLicenseFileV1 = async (
     const ok = await verify(sigBytes, Buffer.from(msg, 'utf8'), pubBytes);
     if (!ok) return { ok: false, error: 'Invalid license signature.' };
 
-    if (opts.expectedDeviceId && String(payload.deviceId || '').trim() !== String(opts.expectedDeviceId).trim()) {
+    if (
+      opts.expectedDeviceId &&
+      String(payload.deviceId || '').trim() !== String(opts.expectedDeviceId).trim()
+    ) {
       return { ok: false, error: 'License is not bound to this device.' };
     }
 
@@ -74,4 +83,5 @@ export const verifySignedLicenseFileV1 = async (
   }
 };
 
-export const sha256Hex = (text: string): string => crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+export const sha256Hex = (text: string): string =>
+  crypto.createHash('sha256').update(text, 'utf8').digest('hex');

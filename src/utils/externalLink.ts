@@ -75,7 +75,9 @@ export function openExternalUrl(url: string, options?: OpenExternalUrlOptions): 
 /**
  * Opens a blank window safely (used for printing or controlled rendering).
  */
-export function openSafeBlankWindow(options?: Omit<OpenExternalUrlOptions, 'allowRelative'>): Window | null {
+export function openSafeBlankWindow(
+  options?: Omit<OpenExternalUrlOptions, 'allowRelative'>
+): Window | null {
   const target = String(options?.target || '_blank');
   const features = normalizeFeatures(options?.features);
   const win = window.open('about:blank', target, features);

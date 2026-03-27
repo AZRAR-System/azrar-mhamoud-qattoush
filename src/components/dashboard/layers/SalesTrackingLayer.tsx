@@ -4,8 +4,26 @@
  */
 
 import React, { useMemo } from 'react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, ShoppingCart, ClipboardList, CheckCircle, Clock, DollarSign } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import {
+  TrendingUp,
+  ShoppingCart,
+  ClipboardList,
+  CheckCircle,
+  Clock,
+  DollarSign,
+} from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 
 type UnknownRecord = Record<string, unknown>;
@@ -41,8 +59,14 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
           const aCreatedAtRaw = getProp(a, 'createdAt');
           const bCreatedAtRaw = getProp(b, 'createdAt');
 
-          const aCreatedAt = typeof aCreatedAtRaw === 'string' || typeof aCreatedAtRaw === 'number' ? aCreatedAtRaw : 0;
-          const bCreatedAt = typeof bCreatedAtRaw === 'string' || typeof bCreatedAtRaw === 'number' ? bCreatedAtRaw : 0;
+          const aCreatedAt =
+            typeof aCreatedAtRaw === 'string' || typeof aCreatedAtRaw === 'number'
+              ? aCreatedAtRaw
+              : 0;
+          const bCreatedAt =
+            typeof bCreatedAtRaw === 'string' || typeof bCreatedAtRaw === 'number'
+              ? bCreatedAtRaw
+              : 0;
 
           const da = new Date(a.transferDate || aCreatedAt || 0).getTime();
           const db = new Date(b.transferDate || bCreatedAt || 0).getTime();
@@ -52,7 +76,9 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
 
       return completed.map((a) => {
         const listing = listings.find((l) => l.id === a.listingId);
-        const property = listing ? properties.find((p) => p.رقم_العقار === listing.رقم_العقار) : null;
+        const property = listing
+          ? properties.find((p) => p.رقم_العقار === listing.رقم_العقار)
+          : null;
         const buyer = a.رقم_المشتري ? people.find((p) => p.رقم_الشخص === a.رقم_المشتري) : null;
 
         const salePriceRaw = getProp(a, 'salePrice');
@@ -65,7 +91,7 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
           propertyLabel: property?.الكود_الداخلي || property?.العنوان || listing?.id || 'عقار',
           buyerName: buyer?.الاسم || '—',
           date: dateStr || '—',
-          amount
+          amount,
         };
       });
     } catch {
@@ -79,10 +105,10 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
     const salesListings = data.salesListings || [];
 
     const stages = {
-      'Active': { stage: 'عروض جديدة', count: 0, value: 0, color: '#3b82f6' },
-      'Pending': { stage: 'تحت التفاوض', count: 0, value: 0, color: '#f59e0b' },
+      Active: { stage: 'عروض جديدة', count: 0, value: 0, color: '#3b82f6' },
+      Pending: { stage: 'تحت التفاوض', count: 0, value: 0, color: '#f59e0b' },
       'On Hold': { stage: 'في الانتظار', count: 0, value: 0, color: '#8b5cf6' },
-      'Sold': { stage: 'مكتملة', count: 0, value: 0, color: '#10b981' },
+      Sold: { stage: 'مكتملة', count: 0, value: 0, color: '#10b981' },
     };
 
     type StageKey = keyof typeof stages;
@@ -124,14 +150,16 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       }
     });
 
-    return Object.entries(agentSales).map(([agentId, stats]) => {
-      const agent = people.find((p) => String(p.رقم_الشخص) === String(agentId));
-      return {
-        agent: agent?.الاسم || `وكيل ${agentId}`,
-        sales: stats.sales,
-        value: stats.value
-      };
-    }).slice(0, 5); // Top 5 agents
+    return Object.entries(agentSales)
+      .map(([agentId, stats]) => {
+        const agent = people.find((p) => String(p.رقم_الشخص) === String(agentId));
+        return {
+          agent: agent?.الاسم || `وكيل ${agentId}`,
+          sales: stats.sales,
+          value: stats.value,
+        };
+      })
+      .slice(0, 5); // Top 5 agents
   }, [data.contracts, data.people, data.meta.updatedAt]);
 
   // ✅ Daily sales trend from real contracts
@@ -142,7 +170,7 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
     const dailyData: { [key: string]: { sales: number; value: number } } = {};
 
     // Initialize all days
-    days.forEach(day => {
+    days.forEach((day) => {
       dailyData[day] = { sales: 0, value: 0 };
     });
 
@@ -164,10 +192,10 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       });
     }
 
-    return days.map(day => ({
+    return days.map((day) => ({
       day,
       sales: dailyData[day].sales,
-      value: dailyData[day].value
+      value: dailyData[day].value,
     }));
   }, [data.contracts, data.meta.updatedAt]);
 
@@ -182,7 +210,8 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       if (!a.isCompleted) return false;
 
       const createdAtRaw = getProp(a, 'createdAt');
-      const createdAt = typeof createdAtRaw === 'string' || typeof createdAtRaw === 'number' ? createdAtRaw : 0;
+      const createdAt =
+        typeof createdAtRaw === 'string' || typeof createdAtRaw === 'number' ? createdAtRaw : 0;
       const d = new Date(a.transferDate || createdAt || 0);
       if (Number.isNaN(d.getTime())) return false;
       return d >= firstDayOfMonth && d <= today;
@@ -221,21 +250,21 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
       label: 'إجمالي المبيعات الشهر الحالي',
       value: totalSalesThisMonth,
       trend: `${totalSalesThisMonth > 0 ? '+' : ''}${totalSalesThisMonth}`,
-      color: 'from-green-500 to-green-600'
+      color: 'from-green-500 to-green-600',
     },
     {
       icon: DollarSign,
       label: 'قيمة المبيعات',
       value: `${(data.sales.totalValue || 0).toLocaleString('ar-SA')}`,
       trend: `${data.sales.completed} مبيعة`,
-      color: 'from-indigo-500 to-indigo-600'
+      color: 'from-indigo-500 to-indigo-600',
     },
     {
       icon: Clock,
       label: 'متوسط وقت الإغلاق',
       value: avgClosingTime > 0 ? `${avgClosingTime} يوم` : 'لا يوجد',
       trend: avgClosingTime > 0 ? 'متوسط' : '-',
-      color: 'from-orange-500 to-orange-600'
+      color: 'from-orange-500 to-orange-600',
     },
   ];
 
@@ -319,30 +348,35 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
             <LineChart data={dailyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
               <defs>
                 <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
               <XAxis dataKey="day" stroke="#64748b" />
               <YAxis stroke="#64748b" />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: '#e2e8f0' }}
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: '8px',
+                  color: '#e2e8f0',
+                }}
                 formatter={(value) => value.toLocaleString('ar-SA')}
               />
               <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="sales" 
-                stroke="#10b981" 
+              <Line
+                type="monotone"
+                dataKey="sales"
+                stroke="#10b981"
                 strokeWidth={2}
                 dot={{ fill: '#10b981', r: 5 }}
                 name="عدد المبيعات"
               />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke="#3b82f6" 
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 dot={{ fill: '#3b82f6', r: 5 }}
                 name="القيمة (ر.س)"
@@ -363,8 +397,13 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
               <XAxis dataKey="agent" stroke="#64748b" />
               <YAxis stroke="#64748b" />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: '#e2e8f0' }}
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: '8px',
+                  color: '#e2e8f0',
+                }}
                 formatter={(value) => value.toLocaleString('ar-SA')}
               />
               <Legend />
@@ -395,10 +434,14 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
               >
                 <div className="flex-1">
                   <p className="font-bold text-slate-900 dark:text-white">{sale.propertyLabel}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{sale.buyerName} • {sale.date}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {sale.buyerName} • {sale.date}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-green-600 dark:text-green-400">{sale.amount.toLocaleString('ar-SA')} ر.س</p>
+                  <p className="font-bold text-green-600 dark:text-green-400">
+                    {sale.amount.toLocaleString('ar-SA')} ر.س
+                  </p>
                 </div>
               </div>
             ))}

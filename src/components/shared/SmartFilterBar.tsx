@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Search, Plus, RefreshCcw } from 'lucide-react';
 import { RBACGuard } from './RBACGuard';
@@ -33,15 +32,15 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
   subtitle,
   searchValue = '',
   onSearchChange,
-  searchPlaceholder = "بحث...",
+  searchPlaceholder = 'بحث...',
   showSearch = true,
   filters = [],
   activeFilters = {},
   onFilterChange,
   onAddClick,
-  addLabel = "جديد",
+  addLabel = 'جديد',
   onRefresh,
-  extraActions
+  extraActions,
 }) => {
   const shouldShowSearch = showSearch && typeof onSearchChange === 'function';
   const shouldShowBar = shouldShowSearch || (Array.isArray(filters) && filters.length > 0);
@@ -66,23 +65,14 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
             {extraActions}
 
             {onRefresh && (
-              <Button
-                variant="secondary"
-                onClick={onRefresh}
-                title="تحديث البيانات"
-                size="md"
-              >
+              <Button variant="secondary" onClick={onRefresh} title="تحديث البيانات" size="md">
                 <RefreshCcw size={18} />
               </Button>
             )}
 
             {onAddClick && (
               <RBACGuard requiredRole={['Admin', 'SuperAdmin', 'Employee']}>
-                <Button
-                  variant="primary"
-                  onClick={onAddClick}
-                  rightIcon={<Plus size={18} />}
-                >
+                <Button variant="primary" onClick={onAddClick} rightIcon={<Plus size={18} />}>
                   {addLabel}
                 </Button>
               </RBACGuard>

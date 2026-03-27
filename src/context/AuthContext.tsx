@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useRef,
+  useCallback,
+} from 'react';
 import { المستخدمين_tbl } from '@/types';
 import { DbService } from '@/services';
 import { notificationService } from '@/services/notificationService';
@@ -56,22 +64,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string) => {
     try {
-        const response = await DbService.authenticateUser(username, password);
-        if (response && response.success && response.data) {
-          setUser(response.data);
-          setIsAuthenticated(true);
-          localStorage.setItem('khaberni_user', JSON.stringify(response.data));
-          try {
-            const id = String((response.data as unknown as Record<string, unknown>)?.id ?? '').trim();
-            if (id) void window.desktopAuth?.setSessionUser(id);
-          } catch {
-            // ignore
-          }
-          resetTimer(); // Start tracking activity
-          return true;
+      const response = await DbService.authenticateUser(username, password);
+      if (response && response.success && response.data) {
+        setUser(response.data);
+        setIsAuthenticated(true);
+        localStorage.setItem('khaberni_user', JSON.stringify(response.data));
+        try {
+          const id = String((response.data as unknown as Record<string, unknown>)?.id ?? '').trim();
+          if (id) void window.desktopAuth?.setSessionUser(id);
+        } catch {
+          // ignore
         }
+        resetTimer(); // Start tracking activity
+        return true;
+      }
     } catch (e) {
-        console.error("Login exception:", e);
+      console.error('Login exception:', e);
     }
     return false;
   };
@@ -79,11 +87,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (isAuthenticated) {
-        timerRef.current = setTimeout(() => {
-            console.warn("Auto-logging out due to inactivity");
-            logout();
-            notificationService.warning('تم تسجيل الخروج تلقائياً لعدم النشاط لمدة 30 دقيقة.', 'تسجيل خروج تلقائي');
-        }, INACTIVITY_LIMIT);
+      timerRef.current = setTimeout(() => {
+        console.warn('Auto-logging out due to inactivity');
+        logout();
+        notificationService.warning(
+          'تم تسجيل الخروج تلقائياً لعدم النشاط لمدة 30 دقيقة.',
+          'تسجيل خروج تلقائي'
+        );
+      }, INACTIVITY_LIMIT);
     }
   }, [INACTIVITY_LIMIT, isAuthenticated, logout]);
 
@@ -98,7 +109,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     window.addEventListener('keydown', handleActivity);
     window.addEventListener('scroll', handleActivity);
     window.addEventListener('click', handleActivity);
-    
+
     // Initial start
     resetTimer();
 

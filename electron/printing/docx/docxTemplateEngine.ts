@@ -32,12 +32,18 @@ const toErrorMessage = (err: unknown, fallback: string): string => {
   return s || fallback;
 };
 
-const safeFileStem = (v: string): string => String(v || 'document').replace(/[\\/:*?"<>|]/g, '_').trim() || 'document';
+const safeFileStem = (v: string): string =>
+  String(v || 'document')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .trim() || 'document';
 
-export const renderDocxToBuffer = async (payload: GenerateDocxPayload): Promise<RenderDocxBufferResult> => {
+export const renderDocxToBuffer = async (
+  payload: GenerateDocxPayload
+): Promise<RenderDocxBufferResult> => {
   try {
     const data = payload?.data;
-    if (!data || typeof data !== 'object') return { ok: false, code: 'INVALID', message: 'بيانات القالب غير صالحة' };
+    if (!data || typeof data !== 'object')
+      return { ok: false, code: 'INVALID', message: 'بيانات القالب غير صالحة' };
 
     const { templatePath, fileName } = await resolveContractTemplatePath(payload?.templateName);
     const buf = await fsp.readFile(templatePath);
@@ -71,14 +77,18 @@ export const renderDocxToBuffer = async (payload: GenerateDocxPayload): Promise<
 
     const outBuf: Buffer = doc.getZip().generate({ type: 'nodebuffer' });
 
-    const stem = payload?.defaultFileName ? safeFileStem(payload.defaultFileName) : safeFileStem(path.basename(fileName, '.docx'));
+    const stem = payload?.defaultFileName
+      ? safeFileStem(payload.defaultFileName)
+      : safeFileStem(path.basename(fileName, '.docx'));
     return { ok: true, bytes: outBuf, fileStem: stem };
   } catch (err: unknown) {
     return { ok: false, code: 'FAILED', message: toErrorMessage(err, 'فشل توليد ملف Word') };
   }
 };
 
-export const generateDocxFromTemplate = async (payload: GenerateDocxPayload): Promise<GenerateDocxResult> => {
+export const generateDocxFromTemplate = async (
+  payload: GenerateDocxPayload
+): Promise<GenerateDocxResult> => {
   try {
     const rendered = await renderDocxToBuffer(payload);
     if (!rendered.ok) return { ok: false, code: rendered.code, message: rendered.message };
@@ -91,7 +101,8 @@ export const generateDocxFromTemplate = async (payload: GenerateDocxPayload): Pr
       filters: [{ name: 'Word (.docx)', extensions: ['docx'] }],
     });
 
-    if (save.canceled || !save.filePath) return { ok: false, code: 'CANCELED', message: 'تم إلغاء الحفظ' };
+    if (save.canceled || !save.filePath)
+      return { ok: false, code: 'CANCELED', message: 'تم إلغاء الحفظ' };
 
     await fsp.writeFile(save.filePath, rendered.bytes);
     return { ok: true, savedPath: save.filePath };

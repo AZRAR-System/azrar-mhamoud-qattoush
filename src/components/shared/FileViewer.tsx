@@ -1,6 +1,14 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { X, Download, ZoomIn, ZoomOut, AlertCircle, Loader2, FileQuestion, FileText } from 'lucide-react';
+import {
+  X,
+  Download,
+  ZoomIn,
+  ZoomOut,
+  AlertCircle,
+  Loader2,
+  FileQuestion,
+  FileText,
+} from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { sanitizeDocxHtml } from '@/utils/sanitizeHtml';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
@@ -12,7 +20,10 @@ type PdfRenderTask = { promise: Promise<unknown> };
 
 type PDFPageProxy = {
   getViewport: (options: { scale: number }) => PdfViewport;
-  render: (options: { canvasContext: CanvasRenderingContext2D; viewport: PdfViewport }) => PdfRenderTask;
+  render: (options: {
+    canvasContext: CanvasRenderingContext2D;
+    viewport: PdfViewport;
+  }) => PdfRenderTask;
 };
 
 type PDFDocumentProxy = {
@@ -152,7 +163,12 @@ interface FileViewerProps {
   onClose: () => void;
 }
 
-export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileExtension, onClose }) => {
+export const FileViewer: React.FC<FileViewerProps> = ({
+  fileId,
+  fileName,
+  fileExtension,
+  onClose,
+}) => {
   const [contentUrl, setContentUrl] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [docxHtml, setDocxHtml] = useState<string | null>(null);
@@ -179,17 +195,26 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
   const [kind, setKind] = useState<PreviewKind>('other');
 
   const cleanExt = useMemo(() => {
-    const extFromProp = String(fileExtension || '').toLowerCase().replace(/\./g, '').trim();
+    const extFromProp = String(fileExtension || '')
+      .toLowerCase()
+      .replace(/\./g, '')
+      .trim();
     if (extFromProp) return extFromProp;
     const parts = String(fileName || '').split('.');
-    return parts.length > 1 ? String(parts[parts.length - 1] || '').toLowerCase().trim() : '';
+    return parts.length > 1
+      ? String(parts[parts.length - 1] || '')
+          .toLowerCase()
+          .trim()
+      : '';
   }, [fileExtension, fileName]);
 
   const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(cleanExt);
   const isPdf = cleanExt === 'pdf';
   const isDocx = cleanExt === 'docx';
 
-  const isText = ['txt', 'csv', 'log', 'md', 'json', 'xml', 'yml', 'yaml', 'ini'].includes(cleanExt);
+  const isText = ['txt', 'csv', 'log', 'md', 'json', 'xml', 'yml', 'yaml', 'ini'].includes(
+    cleanExt
+  );
   const isAudio = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'webm'].includes(cleanExt);
   const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].includes(cleanExt);
 
@@ -222,7 +247,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
 
         // 1) Get Data URI from storage/desktop
         const dataUri = await DbService.downloadAttachment(fileId);
-        
+
         if (!active) return;
 
         if (!dataUri) {
@@ -295,7 +320,8 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
         if (isDocx) {
           // Lazy-load to keep bundle small
           const mammothMod: unknown = await import('mammoth/mammoth.browser');
-          const mammothCandidate: unknown = isRecord(mammothMod) && 'default' in mammothMod ? mammothMod.default : mammothMod;
+          const mammothCandidate: unknown =
+            isRecord(mammothMod) && 'default' in mammothMod ? mammothMod.default : mammothMod;
           if (!isMammothConverter(mammothCandidate)) throw new Error('تعذر تحميل محول DOCX');
 
           const result = await mammothCandidate.convertToHtml({ arrayBuffer: buf });
@@ -308,9 +334,8 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
 
         // Other types: keep fallback UI with download
         setKind('other');
-
       } catch (err: unknown) {
-        console.error("FileViewer Error:", err);
+        console.error('FileViewer Error:', err);
         setError('تعذر عرض الملف. قد يكون تالفاً أو كبيراً جداً.');
       } finally {
         if (active) setLoading(false);
@@ -346,7 +371,10 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
         if (!pdfjs) throw new Error('تعذر تحميل محرك PDF');
 
         if (!pdfWorkerReadyRef.current) {
-          const workerMod = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')) as unknown as { default: string };
+          const workerMod =
+            (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')) as unknown as {
+              default: string;
+            };
           pdfjs.GlobalWorkerOptions.workerSrc = String(workerMod?.default || '');
           pdfWorkerReadyRef.current = true;
         }
@@ -469,27 +497,31 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
   }, [kind, pdfPage, pdfScale]);
 
   const handleDownload = async () => {
-      try {
-        const href = downloadUrl || contentUrl || (await DbService.downloadAttachment(fileId));
-        if (!href) return;
-        const link = document.createElement("a");
-        link.href = href;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch {
-        // ignore
-      }
+    try {
+      const href = downloadUrl || contentUrl || (await DbService.downloadAttachment(fileId));
+      if (!href) return;
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch {
+      // ignore
+    }
   };
 
   return (
     <div className="modal-overlay app-modal-overlay bg-black/95 animate-fade-in">
-      
       {/* Header / Toolbar */}
       <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">
-        <h3 className="text-white font-bold text-lg px-2 flex-1 min-w-0 whitespace-normal break-words leading-snug" dir="auto">{fileName}</h3>
-        
+        <h3
+          className="text-white font-bold text-lg px-2 flex-1 min-w-0 whitespace-normal break-words leading-snug"
+          dir="auto"
+        >
+          {fileName}
+        </h3>
+
         <div className="flex items-center gap-3">
           {(kind === 'image' || kind === 'docx' || kind === 'text') && (
             <div className="flex bg-white/10 rounded-full backdrop-blur-md">
@@ -515,12 +547,20 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
               </button>
             </div>
           )}
-          
-          <button onClick={handleDownload} className="p-2 bg-white/10 text-white hover:bg-white/20 rounded-full backdrop-blur-md transition" title="تحميل">
+
+          <button
+            onClick={handleDownload}
+            className="p-2 bg-white/10 text-white hover:bg-white/20 rounded-full backdrop-blur-md transition"
+            title="تحميل"
+          >
             <Download size={20} />
           </button>
-          
-          <button onClick={onClose} className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition shadow-lg" title="إغلاق">
+
+          <button
+            onClick={onClose}
+            className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition shadow-lg"
+            title="إغلاق"
+          >
             <X size={20} />
           </button>
         </div>
@@ -528,7 +568,6 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
 
       {/* Main View Area */}
       <div className="w-full h-full pt-16 pb-4 flex items-center justify-center overflow-hidden">
-        
         {loading && (
           <div className="text-white flex flex-col items-center gap-3">
             <Loader2 size={48} className="animate-spin text-indigo-500" />
@@ -545,9 +584,9 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
         )}
 
         {!loading && !error && contentUrl && kind === 'image' && (
-          <img 
-            src={contentUrl} 
-            alt={fileName} 
+          <img
+            src={contentUrl}
+            alt={fileName}
             className="max-w-full max-h-full object-contain transition-transform duration-200"
             style={{ transform: `scale(${zoom})` }}
           />
@@ -556,13 +595,15 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
         {!loading && !error && kind === 'pdf' && (
           <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden">
             <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between gap-2">
-              <div className="text-xs font-bold text-slate-700 truncate" dir="auto">{fileName}</div>
+              <div className="text-xs font-bold text-slate-700 truncate" dir="auto">
+                {fileName}
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   className="px-2 py-1 text-xs font-bold rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   disabled={pdfPage <= 1}
-                  onClick={() => setPdfPage(p => Math.max(1, p - 1))}
+                  onClick={() => setPdfPage((p) => Math.max(1, p - 1))}
                 >
                   السابق
                 </button>
@@ -573,7 +614,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
                   type="button"
                   className="px-2 py-1 text-xs font-bold rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   disabled={pdfPages ? pdfPage >= pdfPages : true}
-                  onClick={() => setPdfPage(p => (pdfPages ? Math.min(pdfPages, p + 1) : p + 1))}
+                  onClick={() => setPdfPage((p) => (pdfPages ? Math.min(pdfPages, p + 1) : p + 1))}
                 >
                   التالي
                 </button>
@@ -618,7 +659,10 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
                   ملء الصفحة
                 </button>
 
-                <div className="text-xs text-slate-500 tabular-nums whitespace-nowrap" title="نسبة التكبير">
+                <div
+                  className="text-xs text-slate-500 tabular-nums whitespace-nowrap"
+                  title="نسبة التكبير"
+                >
                   {Math.round(pdfScale * 100)}%
                 </div>
               </div>
@@ -642,12 +686,18 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
         )}
 
         {!loading && !error && docxHtml && kind === 'docx' && (
-          <div className="w-full h-full bg-white text-slate-900 rounded-lg shadow-2xl overflow-auto p-4" dir="auto">
+          <div
+            className="w-full h-full bg-white text-slate-900 rounded-lg shadow-2xl overflow-auto p-4"
+            dir="auto"
+          >
             <div
               className="w-full flex justify-center"
-              style={({ zoom: contentScale } as unknown) as React.CSSProperties}
+              style={{ zoom: contentScale } as unknown as React.CSSProperties}
             >
-              <div className="prose prose-slate max-w-4xl" dangerouslySetInnerHTML={{ __html: docxHtml }} />
+              <div
+                className="prose prose-slate max-w-4xl"
+                dangerouslySetInnerHTML={{ __html: docxHtml }}
+              />
             </div>
           </div>
         )}
@@ -664,16 +714,23 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
 
         {!loading && !error && contentUrl && kind === 'video' && (
           <div className="w-full h-full flex items-center justify-center">
-            <video controls className="max-w-full max-h-full bg-black rounded-lg shadow-2xl" src={contentUrl} />
+            <video
+              controls
+              className="max-w-full max-h-full bg-black rounded-lg shadow-2xl"
+              src={contentUrl}
+            />
           </div>
         )}
 
         {!loading && !error && kind === 'text' && (
-          <div className="w-full h-full max-w-5xl bg-white text-slate-900 rounded-lg shadow-2xl overflow-auto p-4" dir="auto">
+          <div
+            className="w-full h-full max-w-5xl bg-white text-slate-900 rounded-lg shadow-2xl overflow-auto p-4"
+            dir="auto"
+          >
             <pre
               className="text-sm text-slate-900 whitespace-pre-wrap break-words"
               dir="auto"
-              style={({ zoom: contentScale } as unknown) as React.CSSProperties}
+              style={{ zoom: contentScale } as unknown as React.CSSProperties}
             >
               {textContent ?? ''}
             </pre>
@@ -684,7 +741,9 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
           <div className="w-full max-w-2xl bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
             <FileQuestion size={48} className="text-indigo-300 mx-auto mb-4" />
             <p className="text-white font-bold text-lg mb-2">لا تتوفر معاينة لهذا النوع</p>
-            <p className="text-slate-200 text-sm mb-6">يمكنك تحميل الملف وفتحه بالبرنامج المناسب على جهازك.</p>
+            <p className="text-slate-200 text-sm mb-6">
+              يمكنك تحميل الملف وفتحه بالبرنامج المناسب على جهازك.
+            </p>
             <button
               onClick={handleDownload}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition"
@@ -694,7 +753,6 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, fileName, fileEx
             </button>
           </div>
         )}
-
       </div>
     </div>
   );

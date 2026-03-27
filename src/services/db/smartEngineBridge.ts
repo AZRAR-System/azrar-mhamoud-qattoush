@@ -17,8 +17,7 @@ export function createHandleSmartEngine(asUnknownRecord: AsUnknown) {
       const todayISO = new Date().toISOString().split('T')[0];
       const msg = anomalyMessages.join(' ');
 
-      const contractId =
-        category === 'contract' ? String(record['رقم_العقد'] ?? '').trim() : '';
+      const contractId = category === 'contract' ? String(record['رقم_العقد'] ?? '').trim() : '';
       const context = contractId ? buildContractAlertContext(contractId) : {};
 
       const newAlert: tbl_Alerts = {

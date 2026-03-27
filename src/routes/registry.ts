@@ -63,7 +63,12 @@ export const NAV_ITEMS: NavItem[] = [
       { label: 'قواعد البيانات', path: ROUTE_PATHS.DATABASE, icon: Database },
       { label: 'منشئ النظام', path: ROUTE_PATHS.BUILDER, icon: Database },
       { label: 'التوثيق التقني', path: ROUTE_PATHS.DOCS, icon: BookOpen },
-      { label: 'إعادة ضبط المصنع', path: ROUTE_PATHS.RESET_DATABASE, icon: Lock, role: 'SuperAdmin' },
+      {
+        label: 'إعادة ضبط المصنع',
+        path: ROUTE_PATHS.RESET_DATABASE,
+        icon: Lock,
+        role: 'SuperAdmin',
+      },
     ],
   },
 ];
@@ -101,7 +106,8 @@ export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.ACTIVATION]: 'إدخال رمز التفعيل لتفعيل النظام',
   [ROUTE_PATHS.BACKUP]: 'إدارة النسخ الاحتياطية واستعادة البيانات',
   [ROUTE_PATHS.LICENSE_ADMIN]: 'إعداد السيرفر/الدخول ثم إدارة التراخيص والمتابعة',
-  [ROUTE_PATHS.LICENSE_ADMIN_LICENSES]: 'إصدار وإدارة مفاتيح الترخيص وربط الأجهزة وتصدير ملفات الترخيص',
+  [ROUTE_PATHS.LICENSE_ADMIN_LICENSES]:
+    'إصدار وإدارة مفاتيح الترخيص وربط الأجهزة وتصدير ملفات الترخيص',
   [ROUTE_PATHS.LICENSE_ADMIN_USERS]: 'تعديل اسم المستخدم وكلمة المرور لبرنامج إدارة التفعيل',
   [ROUTE_PATHS.LICENSE_ADMIN_CUSTOMERS]: 'عرض العملاء المرتبطين بمفاتيح الترخيص وحالاتها',
   [ROUTE_PATHS.DASHBOARD]: 'نظام مراقبة شامل متعدد الطبقات مع تحديثات فورية',

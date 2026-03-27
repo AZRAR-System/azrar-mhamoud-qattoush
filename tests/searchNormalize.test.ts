@@ -1,4 +1,8 @@
-import { normalizeSearchTextStrict, normalizeSearchTextLenient, normalizeDigitsLoose } from '@/utils/searchNormalize';
+import {
+  normalizeSearchTextStrict,
+  normalizeSearchTextLenient,
+  normalizeDigitsLoose,
+} from '@/utils/searchNormalize';
 
 describe('searchNormalize (strict/lenient)', () => {
   test('strict normalizes alef variants and alif wasla + yaa maksura', () => {

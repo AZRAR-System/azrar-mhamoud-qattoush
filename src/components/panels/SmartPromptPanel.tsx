@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Check, AlertCircle } from 'lucide-react';
 
@@ -27,14 +26,14 @@ export const SmartPromptPanel: React.FC<SmartPromptProps> = ({
   validationRegex,
   validationError,
   onConfirm,
-  onClose
+  onClose,
 }) => {
   const [value, setValue] = useState(defaultValue);
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation Logic
     if (required && !value.trim()) {
       setError('هذا الحقل مطلوب');
@@ -57,7 +56,11 @@ export const SmartPromptPanel: React.FC<SmartPromptProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 flex-1 flex flex-col justify-center">
-        {message && <p className="text-slate-600 dark:text-slate-300 mb-4 text-sm leading-relaxed">{message}</p>}
+        {message && (
+          <p className="text-slate-600 dark:text-slate-300 mb-4 text-sm leading-relaxed">
+            {message}
+          </p>
+        )}
 
         <div className="space-y-2">
           {inputType === 'textarea' ? (
@@ -66,19 +69,27 @@ export const SmartPromptPanel: React.FC<SmartPromptProps> = ({
               className="w-full border-2 border-gray-200 dark:border-slate-600 rounded-xl p-4 text-sm focus:border-indigo-500 focus:ring-0 outline-none bg-white dark:bg-slate-900 dark:text-white transition-colors h-32 resize-none"
               placeholder={placeholder}
               value={value}
-              onChange={(e) => { setError(''); setValue(e.target.value); }}
+              onChange={(e) => {
+                setError('');
+                setValue(e.target.value);
+              }}
             />
           ) : inputType === 'select' ? (
             <select
               autoFocus
               className="w-full border-2 border-gray-200 dark:border-slate-600 rounded-xl p-4 text-sm focus:border-indigo-500 focus:ring-0 outline-none bg-white dark:bg-slate-900 dark:text-white transition-colors appearance-none"
               value={value}
-              onChange={(e) => { setError(''); setValue(e.target.value); }}
+              onChange={(e) => {
+                setError('');
+                setValue(e.target.value);
+              }}
             >
-               <option value="">{placeholder || 'اختر...'}</option>
-               {options.map(opt => (
-                 <option key={opt.value} value={opt.value}>{opt.label}</option>
-               ))}
+              <option value="">{placeholder || 'اختر...'}</option>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           ) : (
             <input
@@ -87,7 +98,10 @@ export const SmartPromptPanel: React.FC<SmartPromptProps> = ({
               className="w-full border-2 border-gray-200 dark:border-slate-600 rounded-xl p-4 text-sm focus:border-indigo-500 focus:ring-0 outline-none bg-white dark:bg-slate-900 dark:text-white transition-colors"
               placeholder={placeholder}
               value={value}
-              onChange={(e) => { setError(''); setValue(e.target.value); }}
+              onChange={(e) => {
+                setError('');
+                setValue(e.target.value);
+              }}
             />
           )}
 

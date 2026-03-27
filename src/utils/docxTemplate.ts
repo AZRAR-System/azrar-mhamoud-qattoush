@@ -2,9 +2,7 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { arabicNumberToWords } from '@/utils/arabicNumber';
 
-export type DocxMergeResult =
-  | { ok: true; bytes: Uint8Array }
-  | { ok: false; message: string };
+export type DocxMergeResult = { ok: true; bytes: Uint8Array } | { ok: false; message: string };
 
 export function docxHasMustachePlaceholders(templateArrayBuffer: ArrayBuffer): boolean {
   try {
@@ -23,7 +21,10 @@ export function docxHasMustachePlaceholders(templateArrayBuffer: ArrayBuffer): b
   }
 }
 
-export function fillDocxTemplate(templateArrayBuffer: ArrayBuffer, data: Record<string, unknown>): DocxMergeResult {
+export function fillDocxTemplate(
+  templateArrayBuffer: ArrayBuffer,
+  data: Record<string, unknown>
+): DocxMergeResult {
   try {
     const zip = new PizZip(new Uint8Array(templateArrayBuffer));
 
@@ -45,15 +46,26 @@ export function fillDocxTemplate(templateArrayBuffer: ArrayBuffer, data: Record<
   } catch (e: unknown) {
     if (e && typeof e === 'object') {
       const rec = e as Record<string, unknown>;
-      const props = (rec.properties && typeof rec.properties === 'object') ? (rec.properties as Record<string, unknown>) : null;
+      const props =
+        rec.properties && typeof rec.properties === 'object'
+          ? (rec.properties as Record<string, unknown>)
+          : null;
       const errors = props && Array.isArray(props.errors) ? props.errors : null;
-      const firstErr = errors && errors[0] && typeof errors[0] === 'object' ? (errors[0] as Record<string, unknown>) : null;
-      const firstErrProps = firstErr && firstErr.properties && typeof firstErr.properties === 'object' ? (firstErr.properties as Record<string, unknown>) : null;
+      const firstErr =
+        errors && errors[0] && typeof errors[0] === 'object'
+          ? (errors[0] as Record<string, unknown>)
+          : null;
+      const firstErrProps =
+        firstErr && firstErr.properties && typeof firstErr.properties === 'object'
+          ? (firstErr.properties as Record<string, unknown>)
+          : null;
 
       const msg =
         (typeof rec.message === 'string' ? rec.message : undefined) ||
         (props && typeof props.explanation === 'string' ? props.explanation : undefined) ||
-        (firstErrProps && typeof firstErrProps.explanation === 'string' ? firstErrProps.explanation : undefined) ||
+        (firstErrProps && typeof firstErrProps.explanation === 'string'
+          ? firstErrProps.explanation
+          : undefined) ||
         'فشل إنشاء ملف Word من القالب';
 
       return { ok: false, message: String(msg) };
@@ -92,7 +104,10 @@ type ContractDocxData = {
   signatureDate?: string;
 };
 
-const replaceStarRunsSequential = (input: string, replacements: Array<string | number | undefined | null>) => {
+const replaceStarRunsSequential = (
+  input: string,
+  replacements: Array<string | number | undefined | null>
+) => {
   const norm = (v: unknown) => {
     if (v === undefined || v === null) return '';
     const s = String(v);
@@ -106,7 +121,10 @@ const replaceStarRunsSequential = (input: string, replacements: Array<string | n
   });
 };
 
-const replaceParenStarRunsSequential = (input: string, replacements: Array<string | number | undefined | null>) => {
+const replaceParenStarRunsSequential = (
+  input: string,
+  replacements: Array<string | number | undefined | null>
+) => {
   const norm = (v: string | number | undefined | null) => {
     if (v === undefined || v === null) return '';
     return String(v);
@@ -123,7 +141,10 @@ const replaceParenStarRunsSequential = (input: string, replacements: Array<strin
   return out;
 };
 
-export function fillContractMaskedDocxTemplate(templateArrayBuffer: ArrayBuffer, data: ContractDocxData): DocxMergeResult {
+export function fillContractMaskedDocxTemplate(
+  templateArrayBuffer: ArrayBuffer,
+  data: ContractDocxData
+): DocxMergeResult {
   try {
     const zip = new PizZip(new Uint8Array(templateArrayBuffer));
     const xmlPath = 'word/document.xml';
@@ -137,7 +158,7 @@ export function fillContractMaskedDocxTemplate(templateArrayBuffer: ArrayBuffer,
     for (const p of paragraphs) {
       const textNodes = Array.from(p.getElementsByTagName('w:t')) as Element[];
       if (textNodes.length === 0) continue;
-      const original = textNodes.map(n => n.textContent || '').join('');
+      const original = textNodes.map((n) => n.textContent || '').join('');
       if (!original.includes('*')) continue;
 
       let updated = original;
@@ -159,7 +180,13 @@ export function fillContractMaskedDocxTemplate(templateArrayBuffer: ArrayBuffer,
 
       // (4) Property location line
       else if (original.includes('موقع المأجور')) {
-        updated = replaceStarRunsSequential(updated, [data.region, data.plotNo, data.plateNo, data.apartmentNo, data.basinName]);
+        updated = replaceStarRunsSequential(updated, [
+          data.region,
+          data.plotNo,
+          data.plateNo,
+          data.apartmentNo,
+          data.basinName,
+        ]);
       }
 
       // (5) Boundaries
@@ -175,7 +202,12 @@ export function fillContractMaskedDocxTemplate(templateArrayBuffer: ArrayBuffer,
       // (7) Rent value + words
       else if (original.includes('بـــــدل') || original.includes('بدل الإيج')) {
         const rentNumber = data.rentValueNumber ?? '';
-        const rentWords = (data.rentValueWords || (typeof data.rentValueNumber === 'number' ? arabicNumberToWords(data.rentValueNumber) : '')) || '';
+        const rentWords =
+          data.rentValueWords ||
+          (typeof data.rentValueNumber === 'number'
+            ? arabicNumberToWords(data.rentValueNumber)
+            : '') ||
+          '';
         updated = replaceStarRunsSequential(updated, [rentNumber, rentWords]);
       }
 

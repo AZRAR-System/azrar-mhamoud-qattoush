@@ -1,7 +1,7 @@
 /**
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
- * 
+ *
  * Data Guards & Navigation Safety
  * يوفر حماية للتنقل بين الصفحات والتحقق من وجود البيانات المطلوبة
  */
@@ -27,7 +27,7 @@ export const guardPersonExists = (personId: string): DataGuardResult => {
     return {
       isValid: false,
       message: 'معرف الشخص مطلوب',
-      missingData: ['personId']
+      missingData: ['personId'],
     };
   }
 
@@ -37,13 +37,13 @@ export const guardPersonExists = (personId: string): DataGuardResult => {
   }
 
   const people = DbService.getPeople();
-  const person = people.find(p => p.رقم_الشخص === personId);
+  const person = people.find((p) => p.رقم_الشخص === personId);
 
   if (!person) {
     return {
       isValid: false,
       message: `الشخص غير موجود (${personId})`,
-      missingData: ['person']
+      missingData: ['person'],
     };
   }
 
@@ -58,7 +58,7 @@ export const guardPropertyExists = (propertyId: string): DataGuardResult => {
     return {
       isValid: false,
       message: 'معرف العقار مطلوب',
-      missingData: ['propertyId']
+      missingData: ['propertyId'],
     };
   }
 
@@ -68,13 +68,13 @@ export const guardPropertyExists = (propertyId: string): DataGuardResult => {
   }
 
   const properties = DbService.getProperties();
-  const property = properties.find(p => p.رقم_العقار === propertyId);
+  const property = properties.find((p) => p.رقم_العقار === propertyId);
 
   if (!property) {
     return {
       isValid: false,
       message: `العقار غير موجود (${propertyId})`,
-      missingData: ['property']
+      missingData: ['property'],
     };
   }
 
@@ -89,7 +89,7 @@ export const guardContractExists = (contractId: string): DataGuardResult => {
     return {
       isValid: false,
       message: 'معرف العقد مطلوب',
-      missingData: ['contractId']
+      missingData: ['contractId'],
     };
   }
 
@@ -99,13 +99,13 @@ export const guardContractExists = (contractId: string): DataGuardResult => {
   }
 
   const contracts = DbService.getContracts();
-  const contract = contracts.find(c => c.رقم_العقد === contractId);
+  const contract = contracts.find((c) => c.رقم_العقد === contractId);
 
   if (!contract) {
     return {
       isValid: false,
       message: `العقد غير موجود (${contractId})`,
-      missingData: ['contract']
+      missingData: ['contract'],
     };
   }
 
@@ -136,7 +136,7 @@ export const guardHasData = (): DataGuardResult => {
     return {
       isValid: false,
       message: 'لا توجد بيانات كافية في النظام',
-      missingData
+      missingData,
     };
   }
 
@@ -157,7 +157,7 @@ export const guardHasPeople = (): DataGuardResult => {
     return {
       isValid: false,
       message: 'لا يوجد أشخاص في النظام. يرجى إضافة أشخاص أولاً.',
-      missingData: ['people']
+      missingData: ['people'],
     };
   }
 
@@ -178,7 +178,7 @@ export const guardHasProperties = (): DataGuardResult => {
     return {
       isValid: false,
       message: 'لا توجد عقارات في النظام. يرجى إضافة عقارات أولاً.',
-      missingData: ['properties']
+      missingData: ['properties'],
     };
   }
 
@@ -199,10 +199,9 @@ export const guardHasContracts = (): DataGuardResult => {
     return {
       isValid: false,
       message: 'لا توجد عقود في النظام. يرجى إضافة عقود أولاً.',
-      missingData: ['contracts']
+      missingData: ['contracts'],
     };
   }
 
   return { isValid: true };
 };
-

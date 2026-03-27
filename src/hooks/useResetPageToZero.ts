@@ -11,4 +11,3 @@ export function useResetPageToZero(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, setPage, ...deps]);
 }
-

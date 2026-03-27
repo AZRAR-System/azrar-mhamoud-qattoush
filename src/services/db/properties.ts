@@ -2,13 +2,7 @@
  * Properties domain: CRUD and property details aggregate.
  */
 
-import {
-  العقارات_tbl,
-  الأشخاص_tbl,
-  العقود_tbl,
-  PropertyDetailsResult,
-  DbResult,
-} from '@/types';
+import { العقارات_tbl, الأشخاص_tbl, العقود_tbl, PropertyDetailsResult, DbResult } from '@/types';
 import { pickBestTenancyContract } from '@/utils/tenancy';
 import { validateNewProperty } from '@/services/dataValidation';
 import { dbFail, dbOk } from '@/services/localDbStorage';

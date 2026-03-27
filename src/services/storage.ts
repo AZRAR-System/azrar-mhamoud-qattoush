@@ -3,7 +3,8 @@ import { DbCache, buildCache } from './dbCache';
 
 const isElectron = (): boolean => typeof window !== 'undefined' && !!window.desktopDb;
 
-const desktopDb = (): DesktopDbBridge | undefined => (typeof window !== 'undefined' ? window.desktopDb : undefined);
+const desktopDb = (): DesktopDbBridge | undefined =>
+  typeof window !== 'undefined' ? window.desktopDb : undefined;
 
 let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
 const scheduleRebuildCache = () => {
@@ -116,7 +117,7 @@ export const storage = {
     if (!bridge) return;
 
     const keys = await bridge.keys();
-    const targetKeys = keys.filter(k => k.startsWith(prefix));
+    const targetKeys = keys.filter((k) => k.startsWith(prefix));
 
     for (const k of targetKeys) {
       const v = await bridge.get(k);

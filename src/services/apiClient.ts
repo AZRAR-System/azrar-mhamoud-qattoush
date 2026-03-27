@@ -1,4 +1,3 @@
-
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * Production Grade API Client
@@ -23,12 +22,12 @@ class ApiClient {
   public subscribeToActivity(listener: ActivityListener) {
     this.listeners.push(listener);
     return () => {
-      this.listeners = this.listeners.filter(l => l !== listener);
+      this.listeners = this.listeners.filter((l) => l !== listener);
     };
   }
 
   private notifyActivity(isSyncing: boolean) {
-    this.listeners.forEach(l => l(isSyncing));
+    this.listeners.forEach((l) => l(isSyncing));
   }
 
   // Simple Health Check
@@ -38,11 +37,11 @@ class ApiClient {
       // Short timeout for health check
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(`${this.baseUrl}/health`, { 
+
+      const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
         headers: this.headers,
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(id);
       return response.ok;
@@ -97,7 +96,7 @@ class ApiClient {
           // ignore
         }
       }
-      
+
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
 

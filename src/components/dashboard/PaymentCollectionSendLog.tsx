@@ -11,11 +11,7 @@ interface Props {
   className?: string;
 }
 
-export const PaymentCollectionSendLog: React.FC<Props> = ({
-  maxItems = 5,
-  title,
-  className,
-}) => {
+export const PaymentCollectionSendLog: React.FC<Props> = ({ maxItems = 5, title, className }) => {
   const { openPanel } = useSmartModal();
   const dialogs = useAppDialogs();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -82,16 +78,17 @@ export const PaymentCollectionSendLog: React.FC<Props> = ({
   const openEditLog = (logId: string, field: 'note' | 'reply', currentValue?: string) => {
     openPanel('SMART_PROMPT', `edit_${field}_${logId}`, {
       title: field === 'note' ? 'إضافة ملاحظة على الإشعار' : 'تسجيل رد المستأجر',
-      message: field === 'note'
-        ? 'هذه الملاحظة داخلية (لا تُرسل للمستأجر).'
-        : 'سجّل هنا رد المستأجر أو نتيجة التواصل.',
+      message:
+        field === 'note'
+          ? 'هذه الملاحظة داخلية (لا تُرسل للمستأجر).'
+          : 'سجّل هنا رد المستأجر أو نتيجة التواصل.',
       inputType: 'textarea',
       defaultValue: currentValue || '',
       required: false,
       onConfirm: (val: string) => {
         DbService.updateNotificationSendLog(logId, { [field]: val });
-        setRefreshKey(k => k + 1);
-      }
+        setRefreshKey((k) => k + 1);
+      },
     });
   };
 
@@ -123,21 +120,29 @@ export const PaymentCollectionSendLog: React.FC<Props> = ({
       </div>
 
       {lastSent.length === 0 ? (
-        <div className="px-4 pb-4 text-sm text-slate-500 dark:text-slate-400">لا يوجد سجل إرسال بعد.</div>
+        <div className="px-4 pb-4 text-sm text-slate-500 dark:text-slate-400">
+          لا يوجد سجل إرسال بعد.
+        </div>
       ) : (
         <div className="px-4 pb-4 space-y-2">
           {lastSent.map((l) => (
-            <div key={l.id} className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 flex items-start justify-between gap-3">
+            <div
+              key={l.id}
+              className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 flex items-start justify-between gap-3"
+            >
               <div>
                 <div className="font-bold text-slate-800 dark:text-white text-sm">
-                  {l.tenantName}{l.propertyCode ? ` • ${l.propertyCode}` : ''}
+                  {l.tenantName}
+                  {l.propertyCode ? ` • ${l.propertyCode}` : ''}
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400" dir="ltr">
                   {new Date(l.sentAt).toLocaleString('en-GB')}
                 </div>
                 {(l.note || l.reply) && (
                   <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    {l.note ? `ملاحظة: ${String(l.note).slice(0, 60)}` : ''}{l.note && l.reply ? ' • ' : ''}{l.reply ? `رد: ${String(l.reply).slice(0, 60)}` : ''}
+                    {l.note ? `ملاحظة: ${String(l.note).slice(0, 60)}` : ''}
+                    {l.note && l.reply ? ' • ' : ''}
+                    {l.reply ? `رد: ${String(l.reply).slice(0, 60)}` : ''}
                   </div>
                 )}
               </div>

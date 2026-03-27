@@ -1,7 +1,14 @@
 import { parseNumberOrUndefined } from '@/utils/numberInput';
 import { normalizeSearchTextStrict } from '@/utils/searchNormalize';
 
-export type FilterOperator = 'contains' | 'equals' | 'gte' | 'lte' | 'between' | 'dateBetween' | 'in';
+export type FilterOperator =
+  | 'contains'
+  | 'equals'
+  | 'gte'
+  | 'lte'
+  | 'between'
+  | 'dateBetween'
+  | 'in';
 
 export interface FilterRule {
   field: string;
@@ -20,8 +27,8 @@ export const SearchEngine = {
   applyFilters: <T>(data: T[], rules: FilterRule[]): T[] => {
     if (!rules || rules.length === 0) return data;
 
-    return data.filter(item => {
-      return rules.every(rule => {
+    return data.filter((item) => {
+      return rules.every((rule) => {
         const val = (item as unknown as Record<string, unknown>)[rule.field];
         if (val === undefined || val === null) return false;
 
@@ -30,20 +37,18 @@ export const SearchEngine = {
             return normalizeSearchTextStrict(val).includes(normalizeSearchTextStrict(rule.value));
           case 'equals':
             return normalizeSearchTextStrict(val) === normalizeSearchTextStrict(rule.value);
-          case 'gte':
-            {
-              const a = toFiniteNumber(val);
-              const b = toFiniteNumber(rule.value);
-              if (a === undefined || b === undefined) return false;
-              return a >= b;
-            }
-          case 'lte':
-            {
-              const a = toFiniteNumber(val);
-              const b = toFiniteNumber(rule.value);
-              if (a === undefined || b === undefined) return false;
-              return a <= b;
-            }
+          case 'gte': {
+            const a = toFiniteNumber(val);
+            const b = toFiniteNumber(rule.value);
+            if (a === undefined || b === undefined) return false;
+            return a >= b;
+          }
+          case 'lte': {
+            const a = toFiniteNumber(val);
+            const b = toFiniteNumber(rule.value);
+            if (a === undefined || b === undefined) return false;
+            return a <= b;
+          }
           case 'between': {
             const range = rule.value as unknown as [unknown, unknown];
             const n = toFiniteNumber(val);
@@ -70,5 +75,5 @@ export const SearchEngine = {
         }
       });
     });
-  }
+  },
 };

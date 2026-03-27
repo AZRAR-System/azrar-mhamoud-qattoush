@@ -12,47 +12,120 @@
         --text: #e6eefc;
         --muted: #a8b4d1;
         --btn: #2563eb;
-        --btn2: rgba(255,255,255,0.12);
+        --btn2: rgba(255, 255, 255, 0.12);
         --danger: #ef4444;
       }
-      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Tahoma, Arial, sans-serif; background: var(--bg); color: var(--text); }
-      .topbar {
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 12px; padding: 12px 14px;
-        background: linear-gradient(180deg, rgba(17,26,46,0.98), rgba(17,26,46,0.92));
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        position: sticky; top: 0; z-index: 10;
+      body {
+        margin: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Tahoma,
+          Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
       }
-      .title { font-weight: 800; letter-spacing: 0.2px; }
-      .sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-      .left { display: flex; flex-direction: column; }
-      .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-      .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-      select, label.inline {
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        background: linear-gradient(180deg, rgba(17, 26, 46, 0.98), rgba(17, 26, 46, 0.92));
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .title {
+        font-weight: 800;
+        letter-spacing: 0.2px;
+      }
+      .sub {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .left {
+        display: flex;
+        flex-direction: column;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      select,
+      label.inline {
         font: inherit;
         color: var(--text);
       }
       select {
-        background: rgba(255,255,255,0.08);
-        border: 1px solid rgba(255,255,255,0.14);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.14);
         border-radius: 10px;
         padding: 9px 10px;
         min-width: 260px;
       }
-      label.inline { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); }
-      input[type="checkbox"] { width: 16px; height: 16px; }
+      label.inline {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+      input[type='checkbox'] {
+        width: 16px;
+        height: 16px;
+      }
       button {
-        border: 0; cursor: pointer; padding: 10px 12px; border-radius: 10px;
-        font-weight: 800; color: var(--text);
+        border: 0;
+        cursor: pointer;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-weight: 800;
+        color: var(--text);
         background: var(--btn2);
       }
-      button.primary { background: var(--btn); }
-      button.danger { background: var(--danger); }
-      button:disabled { opacity: 0.55; cursor: not-allowed; }
-      .wrap { height: calc(100vh - 64px); }
-      .pdf { width: 100%; height: 100%; border: 0; background: #0b1220; }
-      .status { padding: 12px 14px; font-size: 13px; color: var(--muted); }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      button.primary {
+        background: var(--btn);
+      }
+      button.danger {
+        background: var(--danger);
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+      .wrap {
+        height: calc(100vh - 64px);
+      }
+      .pdf {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: #0b1220;
+      }
+      .status {
+        padding: 12px 14px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .mono {
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+          monospace;
+      }
     </style>
   </head>
   <body>
@@ -122,7 +195,10 @@
             for (const p of res.printers) {
               const opt = document.createElement('option');
               opt.value = p.name;
-              const label = (p.displayName && String(p.displayName).trim()) ? String(p.displayName).trim() : p.name;
+              const label =
+                p.displayName && String(p.displayName).trim()
+                  ? String(p.displayName).trim()
+                  : p.name;
               opt.textContent = p.isDefault ? `${label} (افتراضية)` : label;
               sel.appendChild(opt);
             }
@@ -143,7 +219,8 @@
         try {
           const res = await window.desktopPrintPreview.getState(sid);
           if (res && typeof res === 'object' && res.ok) {
-            $('meta').innerHTML = `الجلسة: <span class="mono">${res.sessionId}</span> — الملف: <span class="mono">${res.fileName}</span>`;
+            $('meta').innerHTML =
+              `الجلسة: <span class="mono">${res.sessionId}</span> — الملف: <span class="mono">${res.fileName}</span>`;
             $('status').innerHTML = `تم التحميل من: <span class="mono">${res.pdfPath}</span>`;
             $('pdfEmbed').setAttribute('src', res.pdfUrl);
           } else {
@@ -162,7 +239,11 @@
         try {
           const deviceName = $('printerSelect').value || undefined;
           const silent = !!$('silentCheck').checked;
-          const res = await window.desktopPrintPreview.print(sid, { deviceName, silent, printBackground: true });
+          const res = await window.desktopPrintPreview.print(sid, {
+            deviceName,
+            silent,
+            printBackground: true,
+          });
           if (!res?.ok) showError(res?.message || 'فشل الطباعة');
         } finally {
           setBusy(false);

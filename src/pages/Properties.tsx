@@ -1326,9 +1326,7 @@ export const Properties: React.FC = () => {
                     variant="secondary"
                     disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
                     onClick={() =>
-                      setDesktopPage((p) =>
-                        Math.min(Math.max(0, desktopPageCount - 1), p + 1)
-                      )
+                      setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))
                     }
                   >
                     {t('التالي')}
@@ -1356,9 +1354,7 @@ export const Properties: React.FC = () => {
                     size="sm"
                     variant="secondary"
                     disabled={uiPage + 1 >= uiPageCount}
-                    onClick={() =>
-                      setUiPage((p) => Math.min(Math.max(0, uiPageCount - 1), p + 1))
-                    }
+                    onClick={() => setUiPage((p) => Math.min(Math.max(0, uiPageCount - 1), p + 1))}
                   >
                     {t('التالي')}
                   </Button>
@@ -1372,9 +1368,7 @@ export const Properties: React.FC = () => {
                   const desktopItem = isDesktopFast
                     ? (rowOrProperty as DesktopPropertyPickerItem)
                     : null;
-                  const p = isDesktopFast
-                    ? desktopItem?.property
-                    : (rowOrProperty as العقارات_tbl);
+                  const p = isDesktopFast ? desktopItem?.property : (rowOrProperty as العقارات_tbl);
                   if (!p) return null;
 
                   const activeDesktop = isDesktopFast ? desktopItem?.active : null;

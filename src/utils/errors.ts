@@ -11,4 +11,3 @@ export function getErrorMessage(error: unknown): string | undefined {
   if (hasMessage(error)) return error.message;
   return undefined;
 }
-

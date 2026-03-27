@@ -35,11 +35,10 @@ describe('db/sales', () => {
   });
 
   it('createSalesAgreement persists agreement and sets listing Pending', () => {
-    const res = createSalesAgreement(
-      { listingId: listing.id, رقم_المشتري: 'P-BUY' },
-      listing,
-      { buyer: 100, seller: 100 }
-    );
+    const res = createSalesAgreement({ listingId: listing.id, رقم_المشتري: 'P-BUY' }, listing, {
+      buyer: 100,
+      seller: 100,
+    });
     expect(res.success).toBe(true);
     expect(res.data?.id).toMatch(/^AGR-/);
     const listings = getSalesListings();

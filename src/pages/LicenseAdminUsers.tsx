@@ -34,7 +34,8 @@ export const LicenseAdminUsers: React.FC = () => {
       const res = await window.desktopLicenseAdmin?.getUser();
       const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
       if (rec.ok !== true) throw new Error(String(rec.error || 'Unauthorized'));
-      const user = rec.user && typeof rec.user === 'object' ? (rec.user as Record<string, unknown>) : {};
+      const user =
+        rec.user && typeof rec.user === 'object' ? (rec.user as Record<string, unknown>) : {};
       setUsername(String(user.username || ''));
       setInfo('تم تحميل بيانات المستخدم');
     } catch (e: unknown) {
@@ -75,7 +76,10 @@ export const LicenseAdminUsers: React.FC = () => {
 
     setBusy(true);
     try {
-      const res = await window.desktopLicenseAdmin?.updateUser({ username: u, newPassword: p || undefined });
+      const res = await window.desktopLicenseAdmin?.updateUser({
+        username: u,
+        newPassword: p || undefined,
+      });
       const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
       if (rec.ok !== true) throw new Error(String(rec.error || 'Failed'));
       setInfo('تم حفظ بيانات المستخدم');
@@ -91,57 +95,84 @@ export const LicenseAdminUsers: React.FC = () => {
   return (
     <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950" dir="rtl">
       <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">المستخدمين</h1>
-          <div className="text-xs text-slate-500 dark:text-slate-400">تعديل اسم المستخدم وكلمة المرور لبرنامج إدارة التفعيل</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link to={ROUTE_PATHS.LICENSE_ADMIN}>
-            <Button variant="secondary">لوحة التحكم</Button>
-          </Link>
-          <Link to={ROUTE_PATHS.LICENSE_ADMIN_LICENSES}>
-            <Button variant="secondary">التراخيص</Button>
-          </Link>
-        </div>
-      </div>
-
-      <Card className="p-4 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">اسم المستخدم</div>
-            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" />
-          </div>
-          <div className="md:col-span-2">
+            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">المستخدمين</h1>
             <div className="text-xs text-slate-500 dark:text-slate-400">
-              لتغيير كلمة المرور: أدخل كلمة المرور الجديدة ثم التأكيد. إذا تركتها فارغة سيتم فقط تعديل اسم المستخدم.
+              تعديل اسم المستخدم وكلمة المرور لبرنامج إدارة التفعيل
             </div>
           </div>
-          <div>
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">كلمة المرور الجديدة</div>
-            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="••••••••" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">تأكيد كلمة المرور</div>
-            <Input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" placeholder="••••••••" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button onClick={() => void save()} disabled={busy || !canUseBridge}>
-            حفظ
-          </Button>
-          <Button variant="secondary" onClick={() => void load()} disabled={busy || !canUseBridge}>
-            إعادة تحميل
-          </Button>
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            {canUseBridge ? 'تعمل داخل Electron' : 'هذه الصفحة تعمل داخل Electron فقط'}
+          <div className="flex items-center gap-2">
+            <Link to={ROUTE_PATHS.LICENSE_ADMIN}>
+              <Button variant="secondary">لوحة التحكم</Button>
+            </Link>
+            <Link to={ROUTE_PATHS.LICENSE_ADMIN_LICENSES}>
+              <Button variant="secondary">التراخيص</Button>
+            </Link>
           </div>
         </div>
 
-        {error ? <div className="text-sm text-red-600">{error}</div> : null}
-        {info ? <div className="text-sm text-slate-600 dark:text-slate-300">{info}</div> : null}
-      </Card>
+        <Card className="p-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                اسم المستخدم
+              </div>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                لتغيير كلمة المرور: أدخل كلمة المرور الجديدة ثم التأكيد. إذا تركتها فارغة سيتم فقط
+                تعديل اسم المستخدم.
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                كلمة المرور الجديدة
+              </div>
+              <Input
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                type="password"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                تأكيد كلمة المرور
+              </div>
+              <Input
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                type="password"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button onClick={() => void save()} disabled={busy || !canUseBridge}>
+              حفظ
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void load()}
+              disabled={busy || !canUseBridge}
+            >
+              إعادة تحميل
+            </Button>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {canUseBridge ? 'تعمل داخل Electron' : 'هذه الصفحة تعمل داخل Electron فقط'}
+            </div>
+          </div>
+
+          {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          {info ? <div className="text-sm text-slate-600 dark:text-slate-300">{info}</div> : null}
+        </Card>
       </div>
     </div>
   );

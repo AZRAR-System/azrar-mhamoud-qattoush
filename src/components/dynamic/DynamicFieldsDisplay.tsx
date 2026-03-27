@@ -62,7 +62,9 @@ export const DynamicFieldsDisplay: React.FC<{
             key={it.key}
             className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-3"
           >
-            <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">{it.label}</div>
+            <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+              {it.label}
+            </div>
             <div className="text-sm font-bold text-slate-800 dark:text-white break-words whitespace-pre-wrap">
               {formatDynamicValue(it.type, it.value)}
             </div>

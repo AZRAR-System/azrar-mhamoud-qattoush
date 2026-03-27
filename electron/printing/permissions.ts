@@ -14,7 +14,9 @@ const parseJsonArray = (raw: string | null): unknown[] => {
 };
 
 const normalizeRole = (role: unknown): string => {
-  const s = String(role ?? '').trim().toLowerCase();
+  const s = String(role ?? '')
+    .trim()
+    .toLowerCase();
   return s.replace(/\s+/g, '');
 };
 
@@ -35,7 +37,10 @@ export const getDesktopUserById = (userId: string | undefined): Record<string, u
   return isRecord(found) ? found : null;
 };
 
-export const desktopUserHasPermission = (userId: string | undefined, permissionCode: string): boolean => {
+export const desktopUserHasPermission = (
+  userId: string | undefined,
+  permissionCode: string
+): boolean => {
   const id = String(userId ?? '').trim();
   const code = String(permissionCode ?? '').trim();
   if (!id || !code) return false;

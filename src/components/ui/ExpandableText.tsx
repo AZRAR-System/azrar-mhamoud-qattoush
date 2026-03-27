@@ -15,7 +15,8 @@ export const ExpandableText: React.FC<ExpandableTextProps> = ({
   previewChars = 60,
   className = '',
 }) => {
-  const full = typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value);
+  const full =
+    typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value);
   const normalized = full.trim();
 
   const [expanded, setExpanded] = React.useState(false);

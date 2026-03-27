@@ -23,8 +23,8 @@
   --z-header: 40;
   --z-sidebar: 50;
   --z-dropdown: 100;
-    --z-panel-overlay: 1500;
-    --z-panel-content: 1600;
+  --z-panel-overlay: 1500;
+  --z-panel-content: 1600;
   --z-toast: 4000;
   --z-modal-overlay: 2000;
   --z-modal-content: 2100;
@@ -131,7 +131,8 @@ body,
 
 /* Default comfortable padding for form controls inside modals (automatic, even if controls use p-2) */
 @layer utilities {
-  .app-modal-content :where(
+  .app-modal-content
+    :where(
       input:not([type]),
       input[type='text'],
       input[type='number'],
@@ -206,7 +207,7 @@ body,
   .glass {
     @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/40 dark:border-slate-800/50 shadow-2xl shadow-slate-200/20 dark:shadow-black/40;
   }
-  
+
   .glass-card {
     @apply bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/30 dark:border-slate-800/40 shadow-xl rounded-3xl transition-all duration-300;
   }
@@ -215,7 +216,7 @@ body,
   .btn-modern {
     @apply relative overflow-hidden transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
   }
-  
+
   .btn-primary-modern {
     @apply btn-modern bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg shadow-indigo-600/20 px-6 py-3 rounded-2xl font-black flex items-center justify-center gap-2 tracking-wide;
   }
@@ -254,20 +255,33 @@ body,
 
 /* Animations */
 @keyframes slide-up-premium {
-  0% { transform: translateY(20px); opacity: 0; filter: blur(10px); }
-  100% { transform: translateY(0); opacity: 1; filter: blur(0); }
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+    filter: blur(10px);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 .animate-float {
   animation: float 4s ease-in-out infinite;
 }
-
 
 @keyframes app-surface-pulse-opacity {
   0%,

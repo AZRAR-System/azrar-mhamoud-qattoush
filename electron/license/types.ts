@@ -19,7 +19,14 @@ export type LicenseStatus = {
   reason?: string;
   review?: {
     serverUrl?: string;
-    remoteStatus?: 'active' | 'suspended' | 'revoked' | 'expired' | 'mismatch' | 'invalid_license' | 'unknown';
+    remoteStatus?:
+      | 'active'
+      | 'suspended'
+      | 'revoked'
+      | 'expired'
+      | 'mismatch'
+      | 'invalid_license'
+      | 'unknown';
     remoteCheckedAt?: string;
     remoteLastAttemptAt?: string;
     remoteLastError?: string;

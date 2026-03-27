@@ -4,7 +4,16 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, FileText, Image as ImageIcon, ScrollText, Users, Wrench, HandCoins, Eye } from 'lucide-react';
+import {
+  Building2,
+  FileText,
+  Image as ImageIcon,
+  ScrollText,
+  Users,
+  Wrench,
+  HandCoins,
+  Eye,
+} from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import type { Attachment, ReferenceType, الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types';
 import { FileViewer } from '@/components/shared/FileViewer';
@@ -19,12 +28,19 @@ const DocumentsKindSection: React.FC<{
   kind: 'PDF' | 'صور' | 'مستندات';
   items: Attachment[];
   onView: (a: Attachment) => void;
-  describeReference: (a: Attachment) => { title: string; subtitle?: string | null; roles?: string[] };
+  describeReference: (a: Attachment) => {
+    title: string;
+    subtitle?: string | null;
+    roles?: string[];
+  };
   formatSize: (n: number) => string;
 }> = ({ kind, items, onView, describeReference, formatSize }) => {
   const pageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 14, '2xl': 18 });
   const [page, setPage] = useState(1);
-  const pageCount = useMemo(() => Math.max(1, Math.ceil((items.length || 0) / pageSize)), [items.length, pageSize]);
+  const pageCount = useMemo(
+    () => Math.max(1, Math.ceil((items.length || 0) / pageSize)),
+    [items.length, pageSize]
+  );
 
   useEffect(() => {
     setPage(1);
@@ -43,7 +59,11 @@ const DocumentsKindSection: React.FC<{
     <div className="rounded-xl border border-gray-100 dark:border-slate-700 overflow-hidden">
       <div className="px-4 py-2 bg-white dark:bg-slate-800 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200">
-          {kind === 'صور' ? <ImageIcon size={16} className="text-purple-500" /> : <FileText size={16} className="text-indigo-500" />}
+          {kind === 'صور' ? (
+            <ImageIcon size={16} className="text-purple-500" />
+          ) : (
+            <FileText size={16} className="text-indigo-500" />
+          )}
           {kind}
           <span className="text-xs text-slate-500 dark:text-slate-400">({items.length})</span>
         </div>
@@ -61,12 +81,19 @@ const DocumentsKindSection: React.FC<{
               className="w-full text-right p-4 hover:bg-gray-50 dark:hover:bg-slate-700/40 transition flex items-start justify-between gap-3"
             >
               <div className="min-w-0">
-                <div className="font-bold text-slate-800 dark:text-white truncate" title={a.fileName}>
+                <div
+                  className="font-bold text-slate-800 dark:text-white truncate"
+                  title={a.fileName}
+                >
                   {a.fileName}
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">{ref.title}</span>
-                  {ref.subtitle ? <span className="ml-2 font-mono dir-ltr">• {ref.subtitle}</span> : null}
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
+                    {ref.title}
+                  </span>
+                  {ref.subtitle ? (
+                    <span className="ml-2 font-mono dir-ltr">• {ref.subtitle}</span>
+                  ) : null}
                 </div>
                 {Array.isArray(ref.roles) && ref.roles.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -118,8 +145,12 @@ export const Documents: React.FC = () => {
   }, [dbSignal]);
 
   const [fastPeopleById, setFastPeopleById] = useState<Map<string, الأشخاص_tbl>>(() => new Map());
-  const [fastPropertiesById, setFastPropertiesById] = useState<Map<string, العقارات_tbl>>(() => new Map());
-  const [fastContractsById, setFastContractsById] = useState<Map<string, العقود_tbl>>(() => new Map());
+  const [fastPropertiesById, setFastPropertiesById] = useState<Map<string, العقارات_tbl>>(
+    () => new Map()
+  );
+  const [fastContractsById, setFastContractsById] = useState<Map<string, العقود_tbl>>(
+    () => new Map()
+  );
 
   const peopleById = useMemo(() => {
     void dbSignal;
@@ -180,7 +211,9 @@ export const Documents: React.FC = () => {
     };
 
     const resolvePeople = async () => {
-      const ids = collectIds('Person').filter((id) => !fastPeopleById.has(id)).slice(0, MAX_RESOLVE_PER_TYPE);
+      const ids = collectIds('Person')
+        .filter((id) => !fastPeopleById.has(id))
+        .slice(0, MAX_RESOLVE_PER_TYPE);
       if (ids.length === 0) return;
       const pairs = await Promise.all(
         ids.map(async (id) => {
@@ -197,7 +230,9 @@ export const Documents: React.FC = () => {
     };
 
     const resolveProperties = async () => {
-      const ids = collectIds('Property').filter((id) => !fastPropertiesById.has(id)).slice(0, MAX_RESOLVE_PER_TYPE);
+      const ids = collectIds('Property')
+        .filter((id) => !fastPropertiesById.has(id))
+        .slice(0, MAX_RESOLVE_PER_TYPE);
       if (ids.length === 0) return;
       const pairs = await Promise.all(
         ids.map(async (id) => {
@@ -214,7 +249,9 @@ export const Documents: React.FC = () => {
     };
 
     const resolveContracts = async () => {
-      const ids = collectIds('Contract').filter((id) => !fastContractsById.has(id)).slice(0, MAX_RESOLVE_PER_TYPE);
+      const ids = collectIds('Contract')
+        .filter((id) => !fastContractsById.has(id))
+        .slice(0, MAX_RESOLVE_PER_TYPE);
       if (ids.length === 0) return;
       const pairs = await Promise.all(
         ids.map(async (id) => {
@@ -272,7 +309,9 @@ export const Documents: React.FC = () => {
     return FileText;
   };
 
-  const describeReference = (a: Attachment): { title: string; subtitle?: string; roles?: string[] } => {
+  const describeReference = (
+    a: Attachment
+  ): { title: string; subtitle?: string; roles?: string[] } => {
     const id = String(a.referenceId || '');
 
     if (a.referenceType === 'Person') {
@@ -327,7 +366,9 @@ export const Documents: React.FC = () => {
     }
     for (const t of Object.keys(out)) {
       for (const k of Object.keys(out[t])) {
-        out[t][k].sort((a, b) => String(b.uploadDate || '').localeCompare(String(a.uploadDate || '')));
+        out[t][k].sort((a, b) =>
+          String(b.uploadDate || '').localeCompare(String(a.uploadDate || ''))
+        );
       }
     }
     return out;
@@ -352,7 +393,8 @@ export const Documents: React.FC = () => {
 
       {desktopUnsupported ? (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-4 text-sm text-yellow-800 dark:text-yellow-200">
-          عرض تفاصيل المرفقات على الديسكتوب يحتاج endpoint `domainGet` (وضع السرعة/SQL). يرجى تحديث نسخة الديسكتوب أو تفعيل وضع السرعة.
+          عرض تفاصيل المرفقات على الديسكتوب يحتاج endpoint `domainGet` (وضع السرعة/SQL). يرجى تحديث
+          نسخة الديسكتوب أو تفعيل وضع السرعة.
         </div>
       ) : null}
 
@@ -379,7 +421,9 @@ export const Documents: React.FC = () => {
                         {count}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">مجمعة حسب الصفة (نوع الملف)</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      مجمعة حسب الصفة (نوع الملف)
+                    </div>
                   </div>
 
                   <div className="p-3 space-y-3">

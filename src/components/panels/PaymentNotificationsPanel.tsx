@@ -13,7 +13,8 @@ interface PaymentNotificationsPanelProps {
   daysAhead?: number;
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
 
 const getOptionalStringProp = (value: unknown, key: string): string | undefined => {
   if (!isRecord(value)) return undefined;
@@ -32,7 +33,8 @@ const getOptionalNumberProp = (value: unknown, key: string): number | undefined 
   return undefined;
 };
 
-const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
 
 const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
   const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
@@ -42,7 +44,7 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
   let paymentPlanRaw = String(getOptionalStringProp(tUnknown, 'paymentPlanRaw') || '').trim();
   let freq = Number(getOptionalNumberProp(tUnknown, 'paymentFrequency') ?? 0) || 0;
   if (!isDesktop && (!paymentPlanRaw || !freq)) {
-    const contract = DbService.getContracts().find(c => c.رقم_العقد === t.contractId);
+    const contract = DbService.getContracts().find((c) => c.رقم_العقد === t.contractId);
     paymentPlanRaw = paymentPlanRaw || String(contract?.طريقة_الدفع || '').trim();
     freq = freq || Number(contract?.تكرار_الدفع || 0);
   }
@@ -54,15 +56,22 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
         ? 'دفع لاحق'
         : paymentPlanRaw === 'DownPayment_Monthly'
           ? 'دفعة أولى + شهري'
-          : (paymentPlanRaw || '—');
+          : paymentPlanRaw || '—';
 
   const freqLabel =
-    freq === 12 ? 'شهري' :
-      freq === 6 ? 'كل شهرين' :
-        freq === 4 ? 'ربع سنوي' :
-          freq === 2 ? 'نصف سنوي' :
-            freq === 1 ? 'سنوي' :
-              (freq > 0 ? `${freq} دفعة/سنة` : '—');
+    freq === 12
+      ? 'شهري'
+      : freq === 6
+        ? 'كل شهرين'
+        : freq === 4
+          ? 'ربع سنوي'
+          : freq === 2
+            ? 'نصف سنوي'
+            : freq === 1
+              ? 'سنوي'
+              : freq > 0
+                ? `${freq} دفعة/سنة`
+                : '—';
 
   const paymentInstructions = `طرق الدفع:
 عبر خدمة CliQ (كليك)
@@ -83,7 +92,7 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
   const lines = t.items
     .slice()
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-    .map(x => {
+    .map((x) => {
       const badge = `خلال ${x.daysUntilDue} يوم`;
       // Use English digits in WhatsApp messages (do not auto-localize to Arabic-Indic)
       return `• ${Number(x.amountRemaining || 0).toLocaleString('en-US')} د.أ — ${x.dueDate} (${badge})`;
@@ -111,7 +120,10 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
   return base.includes('طريقة الدفع') ? base : `${base}${extra}`;
 };
 
-export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps> = ({ onClose, daysAhead = 7 }) => {
+export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps> = ({
+  onClose,
+  daysAhead = 7,
+}) => {
   const [targets, setTargets] = useState<PaymentNotificationTarget[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [isSending, setIsSending] = useState(false);
@@ -164,10 +176,10 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
   })();
 
   const totals = useMemo(() => {
-    const allItems = targets.flatMap(t => t.items);
-    const overdue = allItems.filter(x => x.bucket === 'overdue').length;
-    const today = allItems.filter(x => x.bucket === 'today').length;
-    const upcoming = allItems.filter(x => x.bucket === 'upcoming').length;
+    const allItems = targets.flatMap((t) => t.items);
+    const overdue = allItems.filter((x) => x.bucket === 'overdue').length;
+    const today = allItems.filter((x) => x.bucket === 'today').length;
+    const upcoming = allItems.filter((x) => x.bucket === 'upcoming').length;
     const amount = allItems.reduce((sum, x) => sum + (x.amountRemaining || 0), 0);
     return { overdue, today, upcoming, amount, targets: targets.length };
   }, [targets]);
@@ -195,16 +207,19 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
       contractId: t.contractId,
       propertyId: t.propertyId,
       propertyCode: t.propertyCode,
-      installmentIds: t.items.map(x => x.installmentId),
+      installmentIds: t.items.map((x) => x.installmentId),
       sentAt: new Date().toISOString(),
       message,
     });
 
-    await openWhatsAppForPhones(message, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
+    await openWhatsAppForPhones(message, phones, {
+      defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+      delayMs: 10_000,
+    });
   };
 
   const handleSendSelected = async () => {
-    const list = targets.filter(t => selected[t.key]);
+    const list = targets.filter((t) => selected[t.key]);
     if (list.length === 0) return;
     setIsSending(true);
     try {
@@ -212,7 +227,7 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
         // slight delay helps avoid popup blockers in some environments
         // (still may be blocked depending on browser settings)
         await sendForTarget(t);
-        await new Promise(r => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, 250));
       }
       notificationService.success(`تم تجهيز إشعارات لـ ${list.length} مستأجر/عقد`);
     } finally {
@@ -221,8 +236,10 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
   };
 
   const getBadge = (bucket: string) => {
-    if (bucket === 'overdue') return { icon: <AlertTriangle size={14} className="text-red-500" />, text: 'متأخرة' };
-    if (bucket === 'today') return { icon: <Clock size={14} className="text-amber-500" />, text: 'اليوم' };
+    if (bucket === 'overdue')
+      return { icon: <AlertTriangle size={14} className="text-red-500" />, text: 'متأخرة' };
+    if (bucket === 'today')
+      return { icon: <Clock size={14} className="text-amber-500" />, text: 'اليوم' };
     return { icon: <Clock size={14} className="text-indigo-500" />, text: 'قريبة' };
   };
 
@@ -234,10 +251,14 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
             <Users size={18} className="text-indigo-600" /> إرسال إشعارات الدفعات
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            متأخرة: {totals.overdue} • اليوم: {totals.today} • خلال {daysAhead} أيام: {totals.upcoming} • الإجمالي: {totals.amount.toLocaleString()} د.أ
+            متأخرة: {totals.overdue} • اليوم: {totals.today} • خلال {daysAhead} أيام:{' '}
+            {totals.upcoming} • الإجمالي: {totals.amount.toLocaleString()} د.أ
           </p>
         </div>
-        <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-slate-500"
+        >
           <X size={18} />
         </button>
       </div>
@@ -272,20 +293,24 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
           </div>
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-slate-800">
-            {targets.map(t => {
+            {targets.map((t) => {
               const isSentToday = sentTodayByContract.has(t.contractId);
               const totalAmount = t.items.reduce((sum, x) => sum + (x.amountRemaining || 0), 0);
               const earliestDue = t.items[0]?.dueDate;
               const today = toDateOnly(new Date());
               const earliestDueDate = earliestDue ? parseDateOnly(earliestDue) : null;
-              const daysUntilEarliest = earliestDueDate ? daysBetweenDateOnly(today, earliestDueDate) : null;
+              const daysUntilEarliest = earliestDueDate
+                ? daysBetweenDateOnly(today, earliestDueDate)
+                : null;
               return (
                 <div key={t.key} className="p-4">
                   <div className="flex items-start gap-3">
                     <input
                       type="checkbox"
                       checked={!!selected[t.key]}
-                      onChange={(e) => setSelected(prev => ({ ...prev, [t.key]: e.target.checked }))}
+                      onChange={(e) =>
+                        setSelected((prev) => ({ ...prev, [t.key]: e.target.checked }))
+                      }
                       className="mt-1"
                     />
                     <div className="flex-1">
@@ -294,19 +319,28 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
                           <div className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
                             {t.tenantName}
                             {t.phone && (
-                              <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1" dir="ltr">
+                              <span
+                                className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1"
+                                dir="ltr"
+                              >
                                 <Phone size={12} /> {t.phone}
                               </span>
                             )}
                           </div>
                           <div className="text-xs text-slate-500 dark:text-slate-400">
                             عقد: {t.contractId} {t.propertyCode ? `• عقار: ${t.propertyCode}` : ''}
-                            {daysUntilEarliest !== null ? ` • أقرب استحقاق: ${earliestDue} (${daysUntilEarliest < 0 ? `متأخر ${Math.abs(daysUntilEarliest)} يوم` : daysUntilEarliest === 0 ? 'اليوم' : `بعد ${daysUntilEarliest} يوم`})` : ''}
+                            {daysUntilEarliest !== null
+                              ? ` • أقرب استحقاق: ${earliestDue} (${daysUntilEarliest < 0 ? `متأخر ${Math.abs(daysUntilEarliest)} يوم` : daysUntilEarliest === 0 ? 'اليوم' : `بعد ${daysUntilEarliest} يوم`})`
+                              : ''}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-bold text-slate-800 dark:text-white">{totalAmount.toLocaleString()} د.أ</div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400">{t.items.length} دفعات</div>
+                          <div className="text-sm font-bold text-slate-800 dark:text-white">
+                            {totalAmount.toLocaleString()} د.أ
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {t.items.length} دفعات
+                          </div>
                         </div>
                       </div>
 
@@ -314,18 +348,29 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
                         {t.items.slice(0, 5).map((it) => {
                           const badge = getBadge(it.bucket);
                           return (
-                            <div key={it.installmentId} className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800 rounded-lg px-3 py-2 border border-gray-100 dark:border-slate-700">
+                            <div
+                              key={it.installmentId}
+                              className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800 rounded-lg px-3 py-2 border border-gray-100 dark:border-slate-700"
+                            >
                               <div className="flex items-center gap-2">
                                 {badge.icon}
-                                <span className="text-slate-700 dark:text-slate-200">{it.dueDate}</span>
-                                <span className="text-slate-500 dark:text-slate-400">({badge.text})</span>
+                                <span className="text-slate-700 dark:text-slate-200">
+                                  {it.dueDate}
+                                </span>
+                                <span className="text-slate-500 dark:text-slate-400">
+                                  ({badge.text})
+                                </span>
                               </div>
-                              <div className="font-bold text-slate-800 dark:text-white">{it.amountRemaining.toLocaleString()} د.أ</div>
+                              <div className="font-bold text-slate-800 dark:text-white">
+                                {it.amountRemaining.toLocaleString()} د.أ
+                              </div>
                             </div>
                           );
                         })}
                         {t.items.length > 5 && (
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400">+ {t.items.length - 5} أخرى…</div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            + {t.items.length - 5} أخرى…
+                          </div>
                         )}
                       </div>
 

@@ -5,7 +5,9 @@ export type XlsxExtraSheet = {
   rows: unknown[][];
 };
 
-export function buildCompanyLetterheadSheet(settings?: Partial<SystemSettings> | null): XlsxExtraSheet | null {
+export function buildCompanyLetterheadSheet(
+  settings?: Partial<SystemSettings> | null
+): XlsxExtraSheet | null {
   const s = settings || {};
   if (s.letterheadEnabled === false) return null;
 

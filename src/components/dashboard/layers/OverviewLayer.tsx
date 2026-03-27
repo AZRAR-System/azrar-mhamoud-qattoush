@@ -4,17 +4,35 @@
  */
 
 import React, { useMemo } from 'react';
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { TrendingUp, Building2, Users, DollarSign } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import type { العمليات_tbl } from '@/types';
 import { formatCurrencyJOD } from '@/utils/format';
 
-const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+const toRecord = (v: unknown): Record<string, unknown> =>
+  typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 
 const isOperationLog = (v: unknown): v is العمليات_tbl => {
   const rec = toRecord(v);
-  return typeof rec.id === 'string' && typeof rec['تاريخ_العملية'] === 'string' && typeof rec['نوع_العملية'] === 'string';
+  return (
+    typeof rec.id === 'string' &&
+    typeof rec['تاريخ_العملية'] === 'string' &&
+    typeof rec['نوع_العملية'] === 'string'
+  );
 };
 
 const getCommissionMonthKey = (comm: unknown): string | null => {
@@ -58,7 +76,20 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
     });
 
     // Get last 12 months
-    const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+    const months = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
     const result = [];
     const today = new Date();
 
@@ -67,7 +98,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       result.push({
         month: months[date.getMonth()],
-        revenue: monthlyRevenue[monthKey] || 0
+        revenue: monthlyRevenue[monthKey] || 0,
       });
     }
 
@@ -94,7 +125,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
     return typeCounts.map((row, index) => ({
       name: row.name,
       value: row.value,
-      color: colors[index % colors.length]
+      color: colors[index % colors.length],
     }));
   }, [properties, desktopAggregations]);
 
@@ -116,17 +147,17 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
     }
 
     const statusColors: { [key: string]: string } = {
-      'نشط': '#10b981',
-      'مجدد': '#3b82f6',
-      'منتهي': '#ef4444',
-      'ملغي': '#6b7280',
-      'معلق': '#f59e0b'
+      نشط: '#10b981',
+      مجدد: '#3b82f6',
+      منتهي: '#ef4444',
+      ملغي: '#6b7280',
+      معلق: '#f59e0b',
     };
 
     return Object.entries(statusCounts).map(([name, value]) => ({
       name,
       value,
-      color: statusColors[name] || '#8b5cf6'
+      color: statusColors[name] || '#8b5cf6',
     }));
   }, [contracts, desktopAggregations]);
 
@@ -136,21 +167,21 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
       label: 'إجمالي العقارات',
       value: data.kpis.totalProperties || 0,
       trend: null,
-      color: 'from-indigo-500 to-indigo-600'
+      color: 'from-indigo-500 to-indigo-600',
     },
     {
       icon: Users,
       label: 'العملاء النشطين',
       value: data.kpis.totalPeople || 0,
       trend: null,
-      color: 'from-purple-500 to-purple-600'
+      color: 'from-purple-500 to-purple-600',
     },
     {
       icon: DollarSign,
       label: 'إيرادات الشهر الحالي',
       value: formatCurrencyJOD(data.kpis.totalRevenue || 0),
       trend: null,
-      color: 'from-green-500 to-green-600'
+      color: 'from-green-500 to-green-600',
     },
   ];
 
@@ -167,7 +198,7 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
           id: l.id,
           title: l.نوع_العملية,
           details: l.details || `${l.اسم_الجدول} • ${l.رقم_السجل}`,
-          time: l.تاريخ_العملية?.split('T')[0] || '—'
+          time: l.تاريخ_العملية?.split('T')[0] || '—',
         }));
     } catch {
       return [] as Array<{ id: string; title: string; details: string; time: string }>;
@@ -200,29 +231,49 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
       {/* Revenue Comparisons */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="app-card p-5">
-          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">مقارنة الإيرادات (شهر)</h3>
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
+            مقارنة الإيرادات (شهر)
+          </h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
-              <div className="text-xs text-slate-600 dark:text-slate-400 font-bold mb-1">الشهر الحالي</div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(data.kpis.totalRevenue || 0)}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 font-bold mb-1">
+                الشهر الحالي
+              </div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                {formatCurrencyJOD(data.kpis.totalRevenue || 0)}
+              </div>
             </div>
             <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-900/20">
-              <div className="text-xs text-slate-600 dark:text-slate-400 font-bold mb-1">الشهر السابق</div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(data.kpis.previousMonthRevenue || 0)}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 font-bold mb-1">
+                الشهر السابق
+              </div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                {formatCurrencyJOD(data.kpis.previousMonthRevenue || 0)}
+              </div>
             </div>
           </div>
         </div>
 
         <div className="app-card p-5">
-          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">مقارنة الإيرادات (سنة)</h3>
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
+            مقارنة الإيرادات (سنة)
+          </h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20">
-              <div className="text-xs text-slate-600 dark:text-slate-400 font-bold mb-1">السنة الحالية</div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(data.kpis.currentYearRevenue || 0)}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 font-bold mb-1">
+                السنة الحالية
+              </div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                {formatCurrencyJOD(data.kpis.currentYearRevenue || 0)}
+              </div>
             </div>
             <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-900/20">
-              <div className="text-xs text-slate-600 dark:text-slate-400 font-bold mb-1">السنة السابقة</div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(data.kpis.previousYearRevenue || 0)}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 font-bold mb-1">
+                السنة السابقة
+              </div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                {formatCurrencyJOD(data.kpis.previousYearRevenue || 0)}
+              </div>
             </div>
           </div>
         </div>
@@ -240,24 +291,29 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
             <AreaChart data={revenueTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
               <XAxis dataKey="month" stroke="#64748b" />
               <YAxis stroke="#64748b" />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: '#e2e8f0' }}
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: '8px',
+                  color: '#e2e8f0',
+                }}
                 formatter={(value) => formatCurrencyJOD(value)}
               />
-              <Area 
-                type="monotone" 
-                dataKey="revenue" 
-                stroke="#3b82f6" 
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="#3b82f6"
                 strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorRevenue)" 
+                fillOpacity={1}
+                fill="url(#colorRevenue)"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -292,16 +348,19 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
 
         {/* Contract Status */}
         <div className="app-card p-6 overflow-visible">
-          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">
-            حالة العقود
-          </h3>
+          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">حالة العقود</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={contractStatus} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
               <XAxis dataKey="name" stroke="#64748b" />
               <YAxis stroke="#64748b" />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: '#e2e8f0' }}
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: '8px',
+                  color: '#e2e8f0',
+                }}
               />
               <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]}>
                 {contractStatus.map((entry, index) => (
@@ -314,18 +373,22 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
 
         {/* System Health */}
         <div className="app-card p-6 overflow-visible">
-          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">
-            صحة النظام
-          </h3>
+          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">صحة النظام</h3>
 
           {!systemHealth ? (
-            <div className="text-center py-8 text-slate-600 dark:text-slate-400">لا تتوفر بيانات صحة النظام حالياً</div>
+            <div className="text-center py-8 text-slate-600 dark:text-slate-400">
+              لا تتوفر بيانات صحة النظام حالياً
+            </div>
           ) : (
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">مؤشر الصحة</span>
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{systemHealth.score}%</span>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    مؤشر الصحة
+                  </span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    {systemHealth.score}%
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div
@@ -335,13 +398,15 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
                 </div>
               </div>
 
-              <div className={`mt-4 p-3 rounded-lg border ${
-                systemHealth.status === 'Excellent' || systemHealth.status === 'Good'
-                  ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
-                  : systemHealth.status === 'Warning'
-                  ? 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800'
-                  : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
-              }`}>
+              <div
+                className={`mt-4 p-3 rounded-lg border ${
+                  systemHealth.status === 'Excellent' || systemHealth.status === 'Good'
+                    ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
+                    : systemHealth.status === 'Warning'
+                      ? 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800'
+                      : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
+                }`}
+              >
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {systemHealth.status}
                 </p>
@@ -353,12 +418,12 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
 
       {/* Recent Activity */}
       <div className="app-card p-6">
-        <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">
-          آخر الأنشطة
-        </h3>
+        <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4">آخر الأنشطة</h3>
 
         {recentActivities.length === 0 ? (
-          <div className="text-center py-8 text-slate-600 dark:text-slate-400">لا توجد أنشطة لعرضها</div>
+          <div className="text-center py-8 text-slate-600 dark:text-slate-400">
+            لا توجد أنشطة لعرضها
+          </div>
         ) : (
           <div className="space-y-3">
             {recentActivities.map((a) => (
@@ -368,7 +433,9 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
               >
                 <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2"></div>
                 <div>
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{a.title}</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {a.title}
+                  </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{a.details}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">{a.time}</p>
                 </div>

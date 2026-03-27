@@ -75,10 +75,7 @@ const contactRoleLabelKey = (roleRaw: unknown): string => {
   if (map[key]) return map[key];
 
   // Humanize common code-ish formats.
-  const humanized = raw
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const humanized = raw.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 
   return humanized || raw;
 };
@@ -116,10 +113,7 @@ const ContactsGroupCard: React.FC<{
   return (
     <div className="app-card">
       <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 dark:border-slate-700">
-        <div
-          className="font-black text-slate-800 dark:text-white"
-          title={titleRaw || title}
-        >
+        <div className="font-black text-slate-800 dark:text-white" title={titleRaw || title}>
           {title}
         </div>
         <div className="flex items-center gap-3">
@@ -132,7 +126,9 @@ const ContactsGroupCard: React.FC<{
       </div>
 
       {list.length === 0 ? (
-        <div className="p-6 text-center text-slate-600 dark:text-slate-400">{t('لا توجد بيانات')}</div>
+        <div className="p-6 text-center text-slate-600 dark:text-slate-400">
+          {t('لا توجد بيانات')}
+        </div>
       ) : (
         <div className="divide-y divide-gray-100 dark:divide-slate-700">
           {visible.map((r) => {
@@ -141,7 +137,12 @@ const ContactsGroupCard: React.FC<{
               <div key={r.id} className="flex items-center justify-between gap-3 p-4">
                 <div className="min-w-0">
                   <div className="font-bold text-slate-800 dark:text-white">
-                    <ExpandableText value={r.name} title={t('الاسم')} dir="auto" previewChars={38} />
+                    <ExpandableText
+                      value={r.name}
+                      title={t('الاسم')}
+                      dir="auto"
+                      previewChars={38}
+                    />
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-mono dir-ltr">
                     <ExpandableText
@@ -301,7 +302,10 @@ export const Contacts: React.FC = () => {
     const p1 = normalizePhone(phone);
     const p2 = normalizePhone(extraPhone);
     if (!p1 && !p2) return;
-    void openWhatsAppForPhones('', [p1, p2], { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
+    void openWhatsAppForPhones('', [p1, p2], {
+      defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+      delayMs: 10_000,
+    });
   };
 
   const handleExport = async () => {
@@ -334,7 +338,9 @@ export const Contacts: React.FC = () => {
 
   const handleDownloadTemplate = async () => {
     const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
-    const isEn = String(i18n.language || '').toLowerCase().startsWith('en');
+    const isEn = String(i18n.language || '')
+      .toLowerCase()
+      .startsWith('en');
     await exportToXlsx(
       'Contacts',
       [

@@ -59,7 +59,9 @@ export const DynamicFieldsSection: React.FC<{
                   checked={Boolean(v)}
                   onChange={(e) => setValue(f.name, e.target.checked)}
                 />
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{f.label}</span>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  {f.label}
+                </span>
               </label>
             );
           }
@@ -68,7 +70,9 @@ export const DynamicFieldsSection: React.FC<{
             const opts = Array.isArray(f.options) ? f.options : [];
             return (
               <div key={f.id}>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{f.label}</label>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {f.label}
+                </label>
                 <select
                   className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm outline-none"
                   value={String(v ?? '')}
@@ -89,7 +93,9 @@ export const DynamicFieldsSection: React.FC<{
 
           return (
             <div key={f.id}>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{f.label}</label>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+                {f.label}
+              </label>
               <input
                 type={inputType}
                 className={inputClass}

@@ -185,7 +185,12 @@ export async function runInitData(deps: InitDataDeps): Promise<void> {
       { id: 'prop_region', name: 'prop_region', label: 'المناطق', isSystem: true },
       { id: 'prop_floor', name: 'prop_floor', label: 'الطوابق', isSystem: true },
       { id: 'prop_furnishing', name: 'prop_furnishing', label: 'صفة العقار', isSystem: true },
-      { id: 'contract_duration_text', name: 'contract_duration_text', label: 'مدة الإيجار (كتابة)', isSystem: true },
+      {
+        id: 'contract_duration_text',
+        name: 'contract_duration_text',
+        label: 'مدة الإيجار (كتابة)',
+        isSystem: true,
+      },
       {
         id: 'contract_rent_payment_text',
         name: 'contract_rent_payment_text',
@@ -287,7 +292,8 @@ export async function runInitData(deps: InitDataDeps): Promise<void> {
       const exists = mergedLookups.some(
         (x) =>
           x.category === l.category &&
-          (normKey(x.label) === normKey(l.label) || (requiredKey && normKey(x.key) === normKey(requiredKey)))
+          (normKey(x.label) === normKey(l.label) ||
+            (requiredKey && normKey(x.key) === normKey(requiredKey)))
       );
       if (!exists) {
         mergedLookups.push({
@@ -317,7 +323,8 @@ export async function runInitData(deps: InitDataDeps): Promise<void> {
 
     const remappedLookupsFinal = dedupeLookups(remappedLookups);
     if (remappedLookupsFinal.length !== mergedLookupsFinal.length) lookupsChanged = true;
-    if (remappedLookupsFinal.some((x, i) => x.category !== mergedLookupsFinal[i]?.category)) lookupsChanged = true;
+    if (remappedLookupsFinal.some((x, i) => x.category !== mergedLookupsFinal[i]?.category))
+      lookupsChanged = true;
 
     if (lookupsChanged || !localStorage.getItem(KEYS.LOOKUPS)) {
       save(KEYS.LOOKUPS, remappedLookupsFinal);
@@ -393,11 +400,13 @@ export async function runInitData(deps: InitDataDeps): Promise<void> {
               الاسم: nextPeople[idx].الاسم || name,
               رقم_الهاتف: nextPeople[idx].رقم_الهاتف || phone,
               الرقم_الوطني: nextPeople[idx].الرقم_الوطني || reg || undefined,
-              العنوان: nextPeople[idx].العنوان || (String(cRec['العنوان'] || '').trim() || undefined),
-              ملاحظات: nextPeople[idx].ملاحظات || (String(cRec['ملاحظات'] || '').trim() || undefined),
+              العنوان: nextPeople[idx].العنوان || String(cRec['العنوان'] || '').trim() || undefined,
+              ملاحظات: nextPeople[idx].ملاحظات || String(cRec['ملاحظات'] || '').trim() || undefined,
               نوع_الملف: 'منشأة',
               طبيعة_الشركة:
-                String(asUnknownRecord(nextPeople[idx])['طبيعة_الشركة'] || '').trim() || nature || undefined,
+                String(asUnknownRecord(nextPeople[idx])['طبيعة_الشركة'] || '').trim() ||
+                nature ||
+                undefined,
             };
             nextPeople[idx] = updated;
 

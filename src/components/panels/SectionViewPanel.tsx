@@ -12,14 +12,24 @@ type SectionPath =
   | typeof ROUTE_PATHS.OPERATIONS
   | typeof ROUTE_PATHS.SETTINGS;
 
-const People = React.lazy(() => import('@/pages/People').then(m => ({ default: m.People })));
-const Properties = React.lazy(() => import('@/pages/Properties').then(m => ({ default: m.Properties })));
-const Contracts = React.lazy(() => import('@/pages/Contracts').then(m => ({ default: m.Contracts })));
-const Installments = React.lazy(() => import('@/pages/Installments').then(m => ({ default: m.Installments })));
-const Reports = React.lazy(() => import('@/pages/Reports').then(m => ({ default: m.Reports })));
-const Alerts = React.lazy(() => import('@/pages/Alerts').then(m => ({ default: m.Alerts })));
-const Operations = React.lazy(() => import('@/pages/Operations').then(m => ({ default: m.Operations })));
-const Settings = React.lazy(() => import('@/pages/Settings').then(m => ({ default: m.Settings })));
+const People = React.lazy(() => import('@/pages/People').then((m) => ({ default: m.People })));
+const Properties = React.lazy(() =>
+  import('@/pages/Properties').then((m) => ({ default: m.Properties }))
+);
+const Contracts = React.lazy(() =>
+  import('@/pages/Contracts').then((m) => ({ default: m.Contracts }))
+);
+const Installments = React.lazy(() =>
+  import('@/pages/Installments').then((m) => ({ default: m.Installments }))
+);
+const Reports = React.lazy(() => import('@/pages/Reports').then((m) => ({ default: m.Reports })));
+const Alerts = React.lazy(() => import('@/pages/Alerts').then((m) => ({ default: m.Alerts })));
+const Operations = React.lazy(() =>
+  import('@/pages/Operations').then((m) => ({ default: m.Operations }))
+);
+const Settings = React.lazy(() =>
+  import('@/pages/Settings').then((m) => ({ default: m.Settings }))
+);
 
 const PageLoader: React.FC = () => (
   <div className="flex h-full w-full items-center justify-center min-h-[240px]">

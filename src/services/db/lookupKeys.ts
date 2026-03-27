@@ -1,6 +1,9 @@
 /** Stable keys for system lookups (used by initData / Settings). */
 
-export const normKeySimple = (v: unknown) => String(v ?? '').trim().toLowerCase();
+export const normKeySimple = (v: unknown) =>
+  String(v ?? '')
+    .trim()
+    .toLowerCase();
 
 export const stableHash32 = (input: string): string => {
   let h = 5381;

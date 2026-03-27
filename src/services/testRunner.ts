@@ -1,7 +1,7 @@
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System
- * 
+ *
  * سكريبت سريع لتشغيل الاختبارات التسلسلية
  * Quick Test Runner
  */
@@ -15,12 +15,12 @@ export async function runTests() {
   try {
     const suite = new IntegrationTestSuite();
     const results = await suite.runAllTests();
-    
+
     // تصدير النتائج
     const report = suite.exportResults();
     console.warn('\n📋 تقرير الاختبارات المفصل:');
     console.warn(report);
-    
+
     return results;
   } catch (error) {
     console.error('❌ خطأ في تشغيل الاختبارات:', error);

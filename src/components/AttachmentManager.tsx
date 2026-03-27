@@ -3,14 +3,21 @@ import { Attachment, ReferenceType } from '@/types';
 import { FileText, Trash2, Upload, HardDrive, Image as ImageIcon, Eye } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { FileViewer } from '@/components/shared/FileViewer';
-import { deleteAttachmentSmart, listAttachmentsSmart, uploadAttachmentSmart } from '@/services/refsDataSmart';
+import {
+  deleteAttachmentSmart,
+  listAttachmentsSmart,
+  uploadAttachmentSmart,
+} from '@/services/refsDataSmart';
 
 interface AttachmentManagerProps {
   referenceType: ReferenceType;
   referenceId: string;
 }
 
-export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceType, referenceId }) => {
+export const AttachmentManager: React.FC<AttachmentManagerProps> = ({
+  referenceType,
+  referenceId,
+}) => {
   const [files, setFiles] = useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [viewingFile, setViewingFile] = useState<Attachment | null>(null);
@@ -41,7 +48,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
     if (e.target.files && e.target.files.length > 0) {
       setIsUploading(true);
       const selectedFiles = Array.from(e.target.files) as File[];
-      
+
       let successCount = 0;
       let failCount = 0;
 
@@ -57,14 +64,14 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
           failCount++;
         }
       }
-      
+
       setIsUploading(false);
-      
+
       if (successCount > 0) {
         toast.success(`تم رفع ${successCount} ملف/ملفات بنجاح`);
         loadFiles();
       }
-      
+
       if (failCount > 0) {
         toast.error(`فشل رفع ${failCount} ملف/ملفات (تحقق من الصيغة أو الحجم)`);
       }
@@ -92,7 +99,8 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
   };
 
   const getIcon = (ext: string) => {
-    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return <ImageIcon size={20} className="text-purple-500" />;
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext))
+      return <ImageIcon size={20} className="text-purple-500" />;
     if (['pdf'].includes(ext)) return <FileText size={20} className="text-red-500" />;
     return <FileText size={20} className="text-indigo-500" />;
   };
@@ -112,19 +120,23 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
         <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
           <HardDrive size={18} className="text-indigo-600" />
           المرفقات والملفات
-          <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full">{files.length}</span>
+          <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full">
+            {files.length}
+          </span>
         </h4>
-        
-        <label className={`
+
+        <label
+          className={`
           flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold cursor-pointer hover:bg-indigo-700 transition shadow-sm
           ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-        `}>
-          {isUploading ? <Upload size={16} className="animate-spin"/> : <Upload size={16} />}
+        `}
+        >
+          {isUploading ? <Upload size={16} className="animate-spin" /> : <Upload size={16} />}
           <span>رفع ملفات</span>
-          <input 
-            type="file" 
-            className="hidden" 
-            onChange={handleUpload} 
+          <input
+            type="file"
+            className="hidden"
+            onChange={handleUpload}
             disabled={isUploading}
             multiple
           />
@@ -139,9 +151,12 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
           </div>
         ) : (
           <div className="space-y-1 max-h-[300px] overflow-y-auto custom-scrollbar">
-            {files.map(file => (
-              <div key={file.id} className="group flex items-center justify-between p-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-700/50 transition border border-transparent hover:border-indigo-100 dark:hover:border-slate-600">
-                <div 
+            {files.map((file) => (
+              <div
+                key={file.id}
+                className="group flex items-center justify-between p-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-700/50 transition border border-transparent hover:border-indigo-100 dark:hover:border-slate-600"
+              >
+                <div
                   className="flex items-center gap-3 overflow-hidden cursor-pointer flex-1"
                   onClick={() => setViewingFile(file)}
                 >
@@ -149,7 +164,12 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
                     {getIcon(file.fileExtension)}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 whitespace-normal break-words group-hover:text-indigo-600 transition" title={file.fileName}>{file.fileName}</p>
+                    <p
+                      className="text-sm font-bold text-slate-800 dark:text-slate-200 whitespace-normal break-words group-hover:text-indigo-600 transition"
+                      title={file.fileName}
+                    >
+                      {file.fileName}
+                    </p>
                     <p className="text-xs text-slate-400 flex items-center gap-2">
                       <span className="font-mono">{formatSize(file.fileSize)}</span>
                       <span>•</span>
@@ -159,16 +179,16 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
                 </div>
 
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => setViewingFile(file)}
-                    className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition" 
+                    className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition"
                     title="معاينة"
                   >
                     <Eye size={16} />
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleDelete(file.id)}
-                    className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition" 
+                    className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition"
                     title="حذف"
                   >
                     <Trash2 size={16} />
@@ -181,7 +201,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ referenceT
       </div>
 
       {viewingFile && (
-        <FileViewer 
+        <FileViewer
           fileId={viewingFile.id}
           fileName={viewingFile.fileName}
           fileExtension={viewingFile.fileExtension}

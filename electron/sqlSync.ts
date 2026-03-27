@@ -1349,10 +1349,7 @@ export async function testSqlConnection(
     await p.close();
     return okResult('OK_SQL_CONNECTED', 'تم الاتصال بنجاح');
   } catch (e: unknown) {
-    return errorResult(
-      'ERR_SQL_CONNECT_FAILED_SIMPLE',
-      formatSqlErrorMessage(e, 'فشل الاتصال')
-    );
+    return errorResult('ERR_SQL_CONNECT_FAILED_SIMPLE', formatSqlErrorMessage(e, 'فشل الاتصال'));
   }
 }
 
@@ -1595,10 +1592,7 @@ export async function provisionSqlServer(
 
     return okResult('OK_SQL_PROVISIONED', 'تمت تهيئة المخدم');
   } catch (e: unknown) {
-    return errorResult(
-      'ERR_SQL_PROVISION_FAILED',
-      formatSqlErrorMessage(e, 'فشل تهيئة المخدم')
-    );
+    return errorResult('ERR_SQL_PROVISION_FAILED', formatSqlErrorMessage(e, 'فشل تهيئة المخدم'));
   }
 }
 
@@ -1656,9 +1650,7 @@ export async function getRemoteKvStoreMeta(): Promise<{
   }
 }
 
-export async function getRemoteKvStoreRow(
-  key: string
-): Promise<{
+export async function getRemoteKvStoreRow(key: string): Promise<{
   ok: boolean;
   row?: { key: string; value: string; updatedAt: string; isDeleted: boolean };
   message?: string;
@@ -1715,7 +1707,8 @@ export async function exportServerBackupToFile(
 }> {
   try {
     const settings = overrideSettings ?? (await loadSqlSettings());
-    if (!settings.server?.trim()) return errorResult('ERR_SQL_SERVER_REQUIRED', 'اسم السيرفر مطلوب');
+    if (!settings.server?.trim())
+      return errorResult('ERR_SQL_SERVER_REQUIRED', 'اسم السيرفر مطلوب');
     if (!settings.database?.trim())
       return errorResult('ERR_SQL_DATABASE_REQUIRED', 'اسم قاعدة البيانات مطلوب');
 
@@ -1853,7 +1846,8 @@ export async function importServerBackupFromFile(
 }> {
   try {
     const settings = await loadSqlSettings();
-    if (!settings.server?.trim()) return errorResult('ERR_SQL_SERVER_REQUIRED', 'اسم السيرفر مطلوب');
+    if (!settings.server?.trim())
+      return errorResult('ERR_SQL_SERVER_REQUIRED', 'اسم السيرفر مطلوب');
     if (!settings.database?.trim())
       return errorResult('ERR_SQL_DATABASE_REQUIRED', 'اسم قاعدة البيانات مطلوب');
 
@@ -1903,11 +1897,15 @@ export async function importServerBackupFromFile(
         (bulkReq as unknown as { timeout?: number }).timeout = 60000;
         await (bulkReq as unknown as { bulk: (t: sql.Table) => Promise<unknown> }).bulk(table);
         await tx.commit();
-        return okResult('OK_SQL_BACKUP_RESTORED_LOCAL', 'تمت الاستعادة الكاملة من النسخة الاحتياطية', {
-          filePath,
-          rowCount: rows.length,
-          applied: rows.length,
-        });
+        return okResult(
+          'OK_SQL_BACKUP_RESTORED_LOCAL',
+          'تمت الاستعادة الكاملة من النسخة الاحتياطية',
+          {
+            filePath,
+            rowCount: rows.length,
+            applied: rows.length,
+          }
+        );
       }
 
       // Merge mode

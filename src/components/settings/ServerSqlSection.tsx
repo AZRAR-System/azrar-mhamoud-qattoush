@@ -1,26 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { 
-  ArrowRight, 
-  Check, 
-  History, 
-  RefreshCcw, 
-  X, 
-  Database, 
-  Globe, 
-  Server, 
-  User, 
-  Lock, 
-  ShieldCheck, 
-  Save, 
-  FileArchive, 
-  Plus, 
-  Download, 
+import {
+  ArrowRight,
+  Check,
+  History,
+  RefreshCcw,
+  X,
+  Database,
+  Globe,
+  Server,
+  User,
+  Lock,
+  ShieldCheck,
+  Save,
+  FileArchive,
+  Plus,
+  Download,
   Upload,
-  Layers, 
-  Clock, 
-  Info, 
-  ShieldAlert, 
-  Loader2 
+  Layers,
+  Clock,
+  Info,
+  ShieldAlert,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
@@ -178,49 +178,52 @@ export const ServerSqlSection: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const keyLabels = useMemo<Record<string, string>>(() => ({
-    db_people: 'الأشخاص',
-    db_companies: 'الشركات',
-    db_contacts: 'جهات الاتصال',
-    db_properties: 'العقارات',
-    db_contracts: 'العقود',
-    db_installments: 'الأقساط',
-    db_payments: 'الدفعات',
-    db_commissions: 'العمولات',
-    db_alerts: 'التنبيهات',
-    db_attachments: 'المرفقات',
-    db_users: 'المستخدمون',
-    db_user_permissions: 'صلاحيات المستخدمين',
-    db_roles: 'الأدوار',
-    db_settings: 'إعدادات النظام',
-    db_lookup_categories: 'تصنيفات الجداول',
-    db_lookups: 'الجداول المساعدة',
-    db_legal_templates: 'قوالب العقود/النماذج',
-    db_legal_history: 'سجل القانوني',
-    db_followups: 'المتابعات',
-    db_notes: 'الملاحظات',
-    db_reminders: 'التذكيرات',
-    db_maintenance_tickets: 'بلاغات الصيانة',
-    db_notification_send_logs: 'سجل الإشعارات',
-    db_operations: 'العمليات',
-    db_marquee: 'الشريط الإعلاني',
-    db_smart_behavior: 'سلوك الأدوات الذكية',
-    db_sales_listings: 'عروض البيع',
-    db_sales_offers: 'طلبات الشراء',
-    db_sales_agreements: 'اتفاقيات البيع',
-    db_ownership_history: 'سجل الملكية',
-    db_blacklist: 'القائمة السوداء',
-    db_dynamic_tables: 'الجداول الديناميكية',
-    db_dynamic_records: 'السجلات الديناميكية',
-    db_dynamic_form_fields: 'حقول النماذج',
-    db_activities: 'الأنشطة',
-    db_external_commissions: 'العمولات الخارجية',
-    db_dashboard_config: 'إعدادات لوحة التحكم',
-    db_clearance_records: 'سجلات براءة الذمة',
-    db_dashboard_notes: 'ملاحظات لوحة التحكم',
-    db_client_interactions: 'تفاعلات العملاء',
-    db_property_inspections: 'معاينات العقارات',
-  }), []);
+  const keyLabels = useMemo<Record<string, string>>(
+    () => ({
+      db_people: 'الأشخاص',
+      db_companies: 'الشركات',
+      db_contacts: 'جهات الاتصال',
+      db_properties: 'العقارات',
+      db_contracts: 'العقود',
+      db_installments: 'الأقساط',
+      db_payments: 'الدفعات',
+      db_commissions: 'العمولات',
+      db_alerts: 'التنبيهات',
+      db_attachments: 'المرفقات',
+      db_users: 'المستخدمون',
+      db_user_permissions: 'صلاحيات المستخدمين',
+      db_roles: 'الأدوار',
+      db_settings: 'إعدادات النظام',
+      db_lookup_categories: 'تصنيفات الجداول',
+      db_lookups: 'الجداول المساعدة',
+      db_legal_templates: 'قوالب العقود/النماذج',
+      db_legal_history: 'سجل القانوني',
+      db_followups: 'المتابعات',
+      db_notes: 'الملاحظات',
+      db_reminders: 'التذكيرات',
+      db_maintenance_tickets: 'بلاغات الصيانة',
+      db_notification_send_logs: 'سجل الإشعارات',
+      db_operations: 'العمليات',
+      db_marquee: 'الشريط الإعلاني',
+      db_smart_behavior: 'سلوك الأدوات الذكية',
+      db_sales_listings: 'عروض البيع',
+      db_sales_offers: 'طلبات الشراء',
+      db_sales_agreements: 'اتفاقيات البيع',
+      db_ownership_history: 'سجل الملكية',
+      db_blacklist: 'القائمة السوداء',
+      db_dynamic_tables: 'الجداول الديناميكية',
+      db_dynamic_records: 'السجلات الديناميكية',
+      db_dynamic_form_fields: 'حقول النماذج',
+      db_activities: 'الأنشطة',
+      db_external_commissions: 'العمولات الخارجية',
+      db_dashboard_config: 'إعدادات لوحة التحكم',
+      db_clearance_records: 'سجلات براءة الذمة',
+      db_dashboard_notes: 'ملاحظات لوحة التحكم',
+      db_client_interactions: 'تفاعلات العملاء',
+      db_property_inspections: 'معاينات العقارات',
+    }),
+    []
+  );
 
   const refreshSqlStatus = useCallback(async () => {
     await runGuarded('sql:status', async () => {
@@ -385,7 +388,7 @@ export const ServerSqlSection: React.FC = () => {
 
   const refreshSqlServerBackups = useCallback(async () => {
     if (!window.desktopDb?.sqlListServerBackups) return;
-    
+
     if (!sqlStatus || !sqlStatus.enabled) {
       setSqlServerBackups([]);
       return;
@@ -400,7 +403,7 @@ export const ServerSqlSection: React.FC = () => {
           message?: string;
           code?: string;
         } | null;
-        
+
         if (res?.ok) {
           setSqlServerBackups(Array.isArray(res.items) ? res.items : []);
         } else {
@@ -505,7 +508,8 @@ export const ServerSqlSection: React.FC = () => {
     await runGuarded('sql:coverageRefresh', async () => {
       setSqlCoverageBusy(true);
       try {
-        const res = (await window.desktopDb.sqlGetCoverage()) as unknown as SqlCoverageResponse | null;
+        const res =
+          (await window.desktopDb.sqlGetCoverage()) as unknown as SqlCoverageResponse | null;
         setSqlCoverage(res);
         if (res && res.ok && res.remoteOk === false && res.remoteMessage) {
           toastWarning(getDesktopMessage({ message: res.remoteMessage }, res.remoteMessage));
@@ -607,9 +611,11 @@ export const ServerSqlSection: React.FC = () => {
   }, [isDesktop, refreshSqlBackupAutomation, refreshSqlServerBackups, refreshSqlCoverage]);
 
   return (
-    <div className="p-4 md:p-8 h-full page-transition bg-slate-50/50 dark:bg-slate-950/20" dir="rtl">
+    <div
+      className="p-4 md:p-8 h-full page-transition bg-slate-50/50 dark:bg-slate-950/20"
+      dir="rtl"
+    >
       <div className="max-w-6xl mx-auto space-y-10">
-        
         {/* Main Settings Card */}
         <div className="app-card overflow-hidden">
           <div className="app-card-header flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -632,7 +638,7 @@ export const ServerSqlSection: React.FC = () => {
                 className="btn-secondary-modern"
                 disabled={sqlBusy}
               >
-                <History size={18} className="text-indigo-500" /> 
+                <History size={18} className="text-indigo-500" />
                 <span>{t('سجل المزامنة')}</span>
               </button>
               <button
@@ -640,7 +646,10 @@ export const ServerSqlSection: React.FC = () => {
                 className="btn-secondary-modern"
                 disabled={sqlBusy}
               >
-                <RefreshCcw size={18} className={sqlBusy ? 'animate-spin text-indigo-500' : 'text-indigo-500'} /> 
+                <RefreshCcw
+                  size={18}
+                  className={sqlBusy ? 'animate-spin text-indigo-500' : 'text-indigo-500'}
+                />
                 <span>{t('تحديث')}</span>
               </button>
             </div>
@@ -652,28 +661,40 @@ export const ServerSqlSection: React.FC = () => {
                 <div className="p-3 bg-amber-100 dark:bg-amber-900/40 rounded-xl">
                   <ShieldAlert size={28} />
                 </div>
-                <p className="text-sm font-black">{t('إعدادات المخدم والاتصال بـ SQL Server متاحة فقط في نسخة سطح المكتب.')}</p>
+                <p className="text-sm font-black">
+                  {t('إعدادات المخدم والاتصال بـ SQL Server متاحة فقط في نسخة سطح المكتب.')}
+                </p>
               </div>
             ) : !window.desktopDb?.sqlGetSettings ? (
               <div className="p-8 rounded-[2rem] bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 text-indigo-800 dark:text-indigo-400 flex items-center gap-5">
                 <div className="p-3 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl">
                   <Info size={28} />
                 </div>
-                <p className="text-sm font-black">{t('هذه النسخة لا تحتوي بعد على ميزات الاتصال بالمخدم.')}</p>
+                <p className="text-sm font-black">
+                  {t('هذه النسخة لا تحتوي بعد على ميزات الاتصال بالمخدم.')}
+                </p>
               </div>
             ) : (
               <div className="space-y-10">
                 {/* Connection Status Toggle */}
-                <div className={`p-8 rounded-[2.5rem] border-2 transition-all duration-700 ${sqlForm.enabled ? 'bg-emerald-50/40 border-emerald-500/20 dark:bg-emerald-900/10 dark:border-emerald-500/10 shadow-xl shadow-emerald-500/5' : 'bg-slate-50/50 border-slate-200 dark:bg-slate-800/30 dark:border-slate-800'}`}>
+                <div
+                  className={`p-8 rounded-[2.5rem] border-2 transition-all duration-700 ${sqlForm.enabled ? 'bg-emerald-50/40 border-emerald-500/20 dark:bg-emerald-900/10 dark:border-emerald-500/10 shadow-xl shadow-emerald-500/5' : 'bg-slate-50/50 border-slate-200 dark:bg-slate-800/30 dark:border-slate-800'}`}
+                >
                   <div className="flex items-center justify-between gap-6">
                     <div className="flex items-center gap-5">
-                      <div className={`p-4 rounded-2xl shadow-inner transition-colors duration-500 ${sqlForm.enabled ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                      <div
+                        className={`p-4 rounded-2xl shadow-inner transition-colors duration-500 ${sqlForm.enabled ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}
+                      >
                         <Globe size={28} />
                       </div>
                       <div>
-                        <div className="text-xl font-black text-slate-800 dark:text-white">{t('حالة المزامنة')}</div>
+                        <div className="text-xl font-black text-slate-800 dark:text-white">
+                          {t('حالة المزامنة')}
+                        </div>
                         <div className="text-sm text-slate-500 dark:text-slate-400 font-bold mt-1">
-                          {sqlForm.enabled ? t('النظام يقوم بمزامنة البيانات محلياً ومع المخدم بشكل آمن.') : t('المزامنة مع المخدم معطلة حالياً.')}
+                          {sqlForm.enabled
+                            ? t('النظام يقوم بمزامنة البيانات محلياً ومع المخدم بشكل آمن.')
+                            : t('المزامنة مع المخدم معطلة حالياً.')}
                         </div>
                       </div>
                     </div>
@@ -682,7 +703,9 @@ export const ServerSqlSection: React.FC = () => {
                       className={`relative inline-flex h-10 w-18 items-center rounded-full transition-all duration-500 focus:outline-none ${sqlForm.enabled ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-300 dark:bg-slate-700'}`}
                       disabled={sqlBusy}
                     >
-                      <span className={`inline-block h-8 w-8 transform rounded-full bg-white shadow-md transition-transform duration-500 ${sqlForm.enabled ? '-translate-x-1.5' : '-translate-x-8.5'}`} />
+                      <span
+                        className={`inline-block h-8 w-8 transform rounded-full bg-white shadow-md transition-transform duration-500 ${sqlForm.enabled ? '-translate-x-1.5' : '-translate-x-8.5'}`}
+                      />
                     </button>
                   </div>
                 </div>
@@ -690,11 +713,17 @@ export const ServerSqlSection: React.FC = () => {
                 {/* Connection Form */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-server">
+                    <label
+                      className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2"
+                      htmlFor="settings-sql-server"
+                    >
                       {t('عنوان الخادم')}
                     </label>
                     <div className="relative group">
-                      <Server size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <Server
+                        size={18}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
+                      />
                       <input
                         id="settings-sql-server"
                         className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
@@ -707,7 +736,10 @@ export const ServerSqlSection: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-port">
+                    <label
+                      className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2"
+                      htmlFor="settings-sql-port"
+                    >
                       {t('المنفذ')}
                     </label>
                     <input
@@ -715,17 +747,25 @@ export const ServerSqlSection: React.FC = () => {
                       className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 px-5 text-sm font-mono font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                       placeholder="1433"
                       value={String(sqlForm.port ?? 1433)}
-                      onChange={(e) => setSqlForm((p) => ({ ...p, port: Number(e.target.value || 1433) || 1433 }))}
+                      onChange={(e) =>
+                        setSqlForm((p) => ({ ...p, port: Number(e.target.value || 1433) || 1433 }))
+                      }
                       disabled={sqlBusy}
                     />
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-database">
+                    <label
+                      className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2"
+                      htmlFor="settings-sql-database"
+                    >
                       {t('اسم قاعدة البيانات')}
                     </label>
                     <div className="relative group">
-                      <Database size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <Database
+                        size={18}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
+                      />
                       <input
                         id="settings-sql-database"
                         className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
@@ -738,7 +778,10 @@ export const ServerSqlSection: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-auth-mode">
+                    <label
+                      className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2"
+                      htmlFor="settings-sql-auth-mode"
+                    >
                       {t('نوع المصادقة')}
                     </label>
                     <div className="relative">
@@ -746,7 +789,12 @@ export const ServerSqlSection: React.FC = () => {
                         id="settings-sql-auth-mode"
                         className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
                         value={sqlForm.authMode}
-                        onChange={(e) => setSqlForm((p) => ({ ...p, authMode: e.target.value === 'windows' ? 'windows' : 'sql' }))}
+                        onChange={(e) =>
+                          setSqlForm((p) => ({
+                            ...p,
+                            authMode: e.target.value === 'windows' ? 'windows' : 'sql',
+                          }))
+                        }
                         disabled={sqlBusy}
                       >
                         <option value="sql">{t('SQL Authentication')}</option>
@@ -756,11 +804,17 @@ export const ServerSqlSection: React.FC = () => {
                   </div>
 
                   <div className="lg:col-span-1">
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-username">
+                    <label
+                      className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2"
+                      htmlFor="settings-sql-username"
+                    >
                       {t('اسم المستخدم')}
                     </label>
                     <div className="relative group">
-                      <User size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <User
+                        size={18}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
+                      />
                       <input
                         id="settings-sql-username"
                         className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
@@ -773,16 +827,24 @@ export const ServerSqlSection: React.FC = () => {
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-password">
+                    <label
+                      className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2"
+                      htmlFor="settings-sql-password"
+                    >
                       {t('كلمة المرور')}
                     </label>
                     <div className="relative group">
-                      <Lock size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <Lock
+                        size={18}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
+                      />
                       <input
                         id="settings-sql-password"
                         type="password"
                         className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
-                        placeholder={sqlForm.hasPassword ? t('•••••••• (محفوظة)') : t('أدخل كلمة المرور')}
+                        placeholder={
+                          sqlForm.hasPassword ? t('•••••••• (محفوظة)') : t('أدخل كلمة المرور')
+                        }
                         value={sqlForm.password}
                         onChange={(e) => setSqlForm((p) => ({ ...p, password: e.target.value }))}
                         disabled={sqlBusy || sqlForm.authMode === 'windows'}
@@ -792,19 +854,43 @@ export const ServerSqlSection: React.FC = () => {
 
                   <div className="md:col-span-2 lg:col-span-3 flex flex-wrap gap-8 items-center p-6 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-700">
                     <label className="flex items-center gap-4 cursor-pointer group">
-                      <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${sqlForm.encrypt ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-600/20' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'}`}>
+                      <div
+                        className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${sqlForm.encrypt ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-600/20' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'}`}
+                      >
                         {sqlForm.encrypt && <Check size={16} className="text-white" />}
                       </div>
-                      <input type="checkbox" className="hidden" checked={sqlForm.encrypt} onChange={(e) => setSqlForm((p) => ({ ...p, encrypt: e.target.checked }))} disabled={sqlBusy} />
-                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">{t('تشفير الاتصال (SSL)')}</span>
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={sqlForm.encrypt}
+                        onChange={(e) => setSqlForm((p) => ({ ...p, encrypt: e.target.checked }))}
+                        disabled={sqlBusy}
+                      />
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                        {t('تشفير الاتصال (SSL)')}
+                      </span>
                     </label>
-                    
+
                     <label className="flex items-center gap-4 cursor-pointer group">
-                      <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${sqlForm.trustServerCertificate ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-600/20' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'}`}>
-                        {sqlForm.trustServerCertificate && <Check size={16} className="text-white" />}
+                      <div
+                        className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${sqlForm.trustServerCertificate ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-600/20' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'}`}
+                      >
+                        {sqlForm.trustServerCertificate && (
+                          <Check size={16} className="text-white" />
+                        )}
                       </div>
-                      <input type="checkbox" className="hidden" checked={sqlForm.trustServerCertificate} onChange={(e) => setSqlForm((p) => ({ ...p, trustServerCertificate: e.target.checked }))} disabled={sqlBusy} />
-                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">{t('الثقة في شهادة الخادم')}</span>
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={sqlForm.trustServerCertificate}
+                        onChange={(e) =>
+                          setSqlForm((p) => ({ ...p, trustServerCertificate: e.target.checked }))
+                        }
+                        disabled={sqlBusy}
+                      />
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                        {t('الثقة في شهادة الخادم')}
+                      </span>
                     </label>
                   </div>
 
@@ -814,7 +900,11 @@ export const ServerSqlSection: React.FC = () => {
                       className="btn-secondary-modern !px-8"
                       disabled={sqlBusy}
                     >
-                      {sqlBusy ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} className="text-emerald-500" />}
+                      {sqlBusy ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <ShieldCheck size={18} className="text-emerald-500" />
+                      )}
                       <span>{t('اختبار الاتصال')}</span>
                     </button>
                     <button
@@ -822,7 +912,11 @@ export const ServerSqlSection: React.FC = () => {
                       className="btn-primary-modern !px-10"
                       disabled={sqlBusy}
                     >
-                      {sqlBusy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                      {sqlBusy ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Save size={18} />
+                      )}
                       <span>{t('حفظ البيانات والاتصال')}</span>
                     </button>
                     <button
@@ -842,7 +936,6 @@ export const ServerSqlSection: React.FC = () => {
 
         {/* Action Sections Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          
           {/* Server Backups Table Section */}
           <div className="app-card overflow-hidden flex flex-col">
             <div className="app-card-header flex items-center justify-between !p-6">
@@ -851,11 +944,15 @@ export const ServerSqlSection: React.FC = () => {
                   <FileArchive size={24} />
                 </div>
                 <div>
-                  <h4 className="text-xl font-black text-slate-800 dark:text-white">{t('أرشيف المخدم')}</h4>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{t('إدارة النسخ الاحتياطية المرفوعة')}</p>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-white">
+                    {t('أرشيف المخدم')}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">
+                    {t('إدارة النسخ الاحتياطية المرفوعة')}
+                  </p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={handleSqlExportServerBackup}
                 className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
                 title={t('إنشاء نسخة احتياطية جديدة على المخدم')}
@@ -864,7 +961,7 @@ export const ServerSqlSection: React.FC = () => {
                 <Plus size={24} />
               </button>
             </div>
-            
+
             <div className="p-6 flex-1">
               <div className="app-table-wrapper !rounded-3xl border-none shadow-none bg-slate-50/40 dark:bg-slate-800/20">
                 <div className="max-h-[450px] overflow-auto no-scrollbar">
@@ -880,15 +977,25 @@ export const ServerSqlSection: React.FC = () => {
                       {sqlServerBackupsBusy ? (
                         <tr>
                           <td colSpan={3} className="app-table-empty">
-                            <Loader2 className="animate-spin text-indigo-500 mx-auto mb-4" size={40} />
-                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{t('جاري جلب القائمة...')}</div>
+                            <Loader2
+                              className="animate-spin text-indigo-500 mx-auto mb-4"
+                              size={40}
+                            />
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                              {t('جاري جلب القائمة...')}
+                            </div>
                           </td>
                         </tr>
                       ) : sqlServerBackups.length === 0 ? (
                         <tr>
                           <td colSpan={3} className="app-table-empty">
-                            <Database className="text-slate-200 dark:text-slate-800/30 mx-auto mb-4" size={56} />
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('لا توجد نسخ على المخدم')}</div>
+                            <Database
+                              className="text-slate-200 dark:text-slate-800/30 mx-auto mb-4"
+                              size={56}
+                            />
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                              {t('لا توجد نسخ على المخدم')}
+                            </div>
                           </td>
                         </tr>
                       ) : (
@@ -897,10 +1004,17 @@ export const ServerSqlSection: React.FC = () => {
                             <td className="app-table-td">
                               <div className="flex flex-col gap-1.5">
                                 <span className="text-sm font-black text-slate-700 dark:text-slate-200">
-                                  {new Date(b.createdAt).toLocaleDateString('ar-JO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                  {new Date(b.createdAt).toLocaleDateString('ar-JO', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric',
+                                  })}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-mono font-bold tracking-tight">
-                                  {new Date(b.createdAt).toLocaleTimeString('ar-JO', { hour: '2-digit', minute: '2-digit' })}
+                                  {new Date(b.createdAt).toLocaleTimeString('ar-JO', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
                                 </span>
                               </div>
                             </td>
@@ -946,8 +1060,12 @@ export const ServerSqlSection: React.FC = () => {
                   <ShieldCheck size={24} />
                 </div>
                 <div>
-                  <h4 className="text-xl font-black text-slate-800 dark:text-white">{t('أدوات التغطية والمزامنة')}</h4>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{t('تحكم كامل في تدفق البيانات')}</p>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-white">
+                    {t('أدوات التغطية والمزامنة')}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">
+                    {t('تحكم كامل في تدفق البيانات')}
+                  </p>
                 </div>
               </div>
 
@@ -962,8 +1080,12 @@ export const ServerSqlSection: React.FC = () => {
                       <RefreshCcw size={24} />
                     </div>
                     <div className="text-right">
-                      <div className="text-base font-black text-slate-800 dark:text-white">{t('مزامنة فورية')}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">{t('إرسال واستقبال التعديلات المعلقة الآن.')}</div>
+                      <div className="text-base font-black text-slate-800 dark:text-white">
+                        {t('مزامنة فورية')}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">
+                        {t('إرسال واستقبال التعديلات المعلقة الآن.')}
+                      </div>
                     </div>
                   </div>
                   <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-400 group-hover:translate-x-[-8px] transition-all">
@@ -981,8 +1103,12 @@ export const ServerSqlSection: React.FC = () => {
                       <Download size={24} />
                     </div>
                     <div className="text-right">
-                      <div className="text-base font-black text-slate-800 dark:text-white">{t('سحب كامل من المخدم')}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">{t('تحميل كافة البيانات من المخدم للجهاز الحالي.')}</div>
+                      <div className="text-base font-black text-slate-800 dark:text-white">
+                        {t('سحب كامل من المخدم')}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">
+                        {t('تحميل كافة البيانات من المخدم للجهاز الحالي.')}
+                      </div>
                     </div>
                   </div>
                   <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:translate-x-[-8px] transition-all">
@@ -1001,8 +1127,12 @@ export const ServerSqlSection: React.FC = () => {
                         <Upload size={24} />
                       </div>
                       <div className="text-right">
-                        <div className="text-base font-black text-white">{t('نشر موحد (سوبر أدمن)')}</div>
-                        <div className="text-[11px] text-indigo-100/70 font-bold mt-1">{t('نشر إعدادات الإدارة لجميع الأجهزة.')}</div>
+                        <div className="text-base font-black text-white">
+                          {t('نشر موحد (سوبر أدمن)')}
+                        </div>
+                        <div className="text-[11px] text-indigo-100/70 font-bold mt-1">
+                          {t('نشر إعدادات الإدارة لجميع الأجهزة.')}
+                        </div>
                       </div>
                     </div>
                     <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white group-hover:translate-x-[-8px] transition-all">
@@ -1026,12 +1156,18 @@ export const ServerSqlSection: React.FC = () => {
                   <h5 className="text-2xl font-black">{t('النسخ التلقائي')}</h5>
                 </div>
                 <p className="text-base text-indigo-50/90 font-medium leading-relaxed max-w-[85%]">
-                  {sqlBackupAuto?.enabled 
-                    ? t('النظام مبرمج ليقوم بعمل نسخة احتياطية يومية من المخدم لضمان أقصى درجات الأمان لبياناتك.')
-                    : t('النسخ التلقائي للمخدم غير مفعل حالياً. نوصي بشدة بتفعيله لتجنب أي فقدان محتمل للبيانات.')}
+                  {sqlBackupAuto?.enabled
+                    ? t(
+                        'النظام مبرمج ليقوم بعمل نسخة احتياطية يومية من المخدم لضمان أقصى درجات الأمان لبياناتك.'
+                      )
+                    : t(
+                        'النسخ التلقائي للمخدم غير مفعل حالياً. نوصي بشدة بتفعيله لتجنب أي فقدان محتمل للبيانات.'
+                      )}
                 </p>
                 <div className="mt-8">
-                  <span className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${sqlBackupAuto?.enabled ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300' : 'bg-rose-500/20 border border-rose-500/40 text-rose-300'}`}>
+                  <span
+                    className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${sqlBackupAuto?.enabled ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300' : 'bg-rose-500/20 border border-rose-500/40 text-rose-300'}`}
+                  >
                     {sqlBackupAuto?.enabled ? t('الحالة: مفعل') : t('الحالة: معطل')}
                   </span>
                 </div>
@@ -1049,8 +1185,12 @@ export const ServerSqlSection: React.FC = () => {
                   <Layers size={28} />
                 </div>
                 <div>
-                  <h4 className="text-2xl font-black text-slate-800 dark:text-white">{t('تغطية المزامنة التفصيلية')}</h4>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-2">{t('مقارنة حالة البيانات المحلية مع المخدم لكل جدول.')}</p>
+                  <h4 className="text-2xl font-black text-slate-800 dark:text-white">
+                    {t('تغطية المزامنة التفصيلية')}
+                  </h4>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-2">
+                    {t('مقارنة حالة البيانات المحلية مع المخدم لكل جدول.')}
+                  </p>
                 </div>
               </div>
               <button
@@ -1058,10 +1198,13 @@ export const ServerSqlSection: React.FC = () => {
                 className="btn-secondary-modern"
                 disabled={sqlCoverageBusy}
               >
-                <RefreshCcw size={20} className={sqlCoverageBusy ? 'animate-spin text-indigo-500' : 'text-indigo-500'} />
+                <RefreshCcw
+                  size={20}
+                  className={sqlCoverageBusy ? 'animate-spin text-indigo-500' : 'text-indigo-500'}
+                />
               </button>
             </div>
-            
+
             <div className="app-card-body">
               <div className="app-table-wrapper !rounded-3xl border-none shadow-none bg-slate-50/30 dark:bg-slate-800/20">
                 <table className="app-table">
@@ -1079,37 +1222,64 @@ export const ServerSqlSection: React.FC = () => {
                       <tr key={item.key} className="app-table-row group">
                         <td className="app-table-td">
                           <div className="flex flex-col gap-1">
-                            <span className="text-base font-black text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{keyLabels[item.key] || item.key}</span>
-                            <span className="text-[10px] text-slate-400 font-mono font-bold tracking-tighter uppercase">{item.key}</span>
+                            <span className="text-base font-black text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                              {keyLabels[item.key] || item.key}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono font-bold tracking-tighter uppercase">
+                              {item.key}
+                            </span>
                           </div>
                         </td>
                         <td className="app-table-td">
-                          <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm border ${
-                            item.status === 'inSync' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
-                            item.status === 'localAhead' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
-                            item.status === 'remoteAhead' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
-                            'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                          }`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${
-                              item.status === 'inSync' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' :
-                              item.status === 'localAhead' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]' :
-                              item.status === 'remoteAhead' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' :
-                              'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'
-                            }`} />
-                            {item.status === 'inSync' ? t('متزامن') : 
-                             item.status === 'localAhead' ? t('محلي أحدث') :
-                             item.status === 'remoteAhead' ? t('مخدم أحدث') : t('غير متطابق')}
+                          <span
+                            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm border ${
+                              item.status === 'inSync'
+                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                : item.status === 'localAhead'
+                                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                                  : item.status === 'remoteAhead'
+                                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                            }`}
+                          >
+                            <div
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                item.status === 'inSync'
+                                  ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
+                                  : item.status === 'localAhead'
+                                    ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]'
+                                    : item.status === 'remoteAhead'
+                                      ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]'
+                                      : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'
+                              }`}
+                            />
+                            {item.status === 'inSync'
+                              ? t('متزامن')
+                              : item.status === 'localAhead'
+                                ? t('محلي أحدث')
+                                : item.status === 'remoteAhead'
+                                  ? t('مخدم أحدث')
+                                  : t('غير متطابق')}
                           </span>
                         </td>
                         <td className="app-table-td">
-                          <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">{formatSize(item.localBytes)}</span>
+                          <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
+                            {formatSize(item.localBytes)}
+                          </span>
                         </td>
                         <td className="app-table-td">
-                          <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">{formatSize(item.remoteBytes || 0)}</span>
+                          <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
+                            {formatSize(item.remoteBytes || 0)}
+                          </span>
                         </td>
                         <td className="app-table-td text-center">
                           <div className="font-mono text-[10px] text-slate-500 font-bold bg-slate-50 dark:bg-slate-900/50 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                            {item.localUpdatedAt ? new Date(item.localUpdatedAt).toLocaleString('ar-JO', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                            {item.localUpdatedAt
+                              ? new Date(item.localUpdatedAt).toLocaleString('ar-JO', {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })
+                              : '-'}
                           </div>
                         </td>
                       </tr>

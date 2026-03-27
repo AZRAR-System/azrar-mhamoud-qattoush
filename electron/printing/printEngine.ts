@@ -7,8 +7,14 @@ import { buildCssMargins, buildCssPageSize, loadPrintSettings } from './settings
 import { generateDocument } from './generation/generationEngine';
 
 export class PrintEngine {
-  private buildTextHtml(title: string, text: string, settings: { pageSizeCss: string; marginsCss: string; fontFamily: string; rtl: boolean }): string {
-    const safeTitle = String(title || 'Print').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  private buildTextHtml(
+    title: string,
+    text: string,
+    settings: { pageSizeCss: string; marginsCss: string; fontFamily: string; rtl: boolean }
+  ): string {
+    const safeTitle = String(title || 'Print')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
     const safeText = String(text || '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -43,9 +49,12 @@ export class PrintEngine {
 
     const loaded = await loadPrintSettings();
     const settings = loaded.ok ? loaded.settings : null;
-    const pageSizeCss = settings ? buildCssPageSize(settings.pageSize, settings.orientation) : 'A4 portrait';
+    const pageSizeCss = settings
+      ? buildCssPageSize(settings.pageSize, settings.orientation)
+      : 'A4 portrait';
     const marginsCss = settings ? buildCssMargins(settings.marginsMm) : '16mm 16mm 16mm 16mm';
-    const fontFamily = settings?.fontFamily || 'system-ui, -apple-system, Segoe UI, Tahoma, Arial, sans-serif';
+    const fontFamily =
+      settings?.fontFamily || 'system-ui, -apple-system, Segoe UI, Tahoma, Arial, sans-serif';
     const rtl = settings?.rtl !== false;
 
     if (job.type === 'currentView') {

@@ -42,7 +42,7 @@ const isPathInside = (parentDir: string, targetPath: string): boolean => {
     const parentResolved = path.resolve(parentDir);
     const targetResolved = path.resolve(targetPath);
     const rel = path.relative(parentResolved, targetResolved);
-    return !!rel && rel !== '.' ? (!rel.startsWith('..') && !path.isAbsolute(rel)) : true;
+    return !!rel && rel !== '.' ? !rel.startsWith('..') && !path.isAbsolute(rel) : true;
   } catch {
     return false;
   }
@@ -55,12 +55,14 @@ const ensurePdfTempSafe = (pdfPath: string): { ok: true } | { ok: false; message
   if (!pdfPath.toLowerCase().endsWith('.pdf')) return { ok: false, message: 'الملف ليس PDF' };
 
   const root = getPrintingUserDataRoot();
-  if (!isPathInside(root, pdfPath)) return { ok: false, message: 'مسار PDF خارج نطاق مجلد الطباعة' };
+  if (!isPathInside(root, pdfPath))
+    return { ok: false, message: 'مسار PDF خارج نطاق مجلد الطباعة' };
 
   return { ok: true };
 };
 
-const getPreviewHtmlPath = (): string => path.join(app.getAppPath(), 'electron', 'printing', 'preview', 'preview.html');
+const getPreviewHtmlPath = (): string =>
+  path.join(app.getAppPath(), 'electron', 'printing', 'preview', 'preview.html');
 
 const openPreviewWindow = async (sessionId: string): Promise<BrowserWindow> => {
   const win = new BrowserWindow({
@@ -90,7 +92,10 @@ const openPreviewWindow = async (sessionId: string): Promise<BrowserWindow> => {
   return win;
 };
 
-const printPdfFile = async (pdfPath: string, options?: PrintPreviewPrintOptions): Promise<PrintPreviewActionResult> => {
+const printPdfFile = async (
+  pdfPath: string,
+  options?: PrintPreviewPrintOptions
+): Promise<PrintPreviewActionResult> => {
   const safe = ensurePdfTempSafe(pdfPath);
   if (!safe.ok) return { ok: false, code: 'INVALID', message: safe.message };
 
@@ -127,9 +132,9 @@ const printPdfFile = async (pdfPath: string, options?: PrintPreviewPrintOptions)
           ...(deviceName ? { deviceName } : {}),
         },
         (ok, reason) => {
-        if (!ok) reject(new Error(reason || 'فشل الطباعة'));
-        else resolve();
-        },
+          if (!ok) reject(new Error(reason || 'فشل الطباعة'));
+          else resolve();
+        }
       );
     });
 
@@ -155,7 +160,10 @@ const getSessionByWebContentsId = (webContentsId: number): PreviewSession | null
 
 export const listPreviewPrinters = async (
   webContents: Electron.WebContents
-): Promise<{ ok: true; printers: PreviewPrinterInfo[] } | { ok: false; code: 'FAILED' | 'FORBIDDEN' | string; message: string }> => {
+): Promise<
+  | { ok: true; printers: PreviewPrinterInfo[] }
+  | { ok: false; code: 'FAILED' | 'FORBIDDEN' | string; message: string }
+> => {
   try {
     const session = getSessionByWebContentsId(webContents.id);
     if (!session) return { ok: false, code: 'FORBIDDEN', message: 'جلسة المعاينة غير موجودة' };
@@ -164,11 +172,13 @@ export const listPreviewPrinters = async (
     }
 
     const printers = await webContents.getPrintersAsync();
-    const mapped: PreviewPrinterInfo[] = (printers || []).map((p) => ({
-      name: String((p as unknown as { name?: unknown }).name ?? ''),
-      displayName: String((p as unknown as { displayName?: unknown }).displayName ?? ''),
-      isDefault: Boolean((p as unknown as { isDefault?: unknown }).isDefault),
-    })).filter((p) => !!p.name);
+    const mapped: PreviewPrinterInfo[] = (printers || [])
+      .map((p) => ({
+        name: String((p as unknown as { name?: unknown }).name ?? ''),
+        displayName: String((p as unknown as { displayName?: unknown }).displayName ?? ''),
+        isDefault: Boolean((p as unknown as { isDefault?: unknown }).isDefault),
+      }))
+      .filter((p) => !!p.name);
 
     mapped.sort((a, b) => {
       const ad = a.isDefault ? 0 : 1;
@@ -183,7 +193,10 @@ export const listPreviewPrinters = async (
   }
 };
 
-const saveTempPdfAs = async (pdfPath: string, suggestedFileName: string): Promise<PrintPreviewActionResult> => {
+const saveTempPdfAs = async (
+  pdfPath: string,
+  suggestedFileName: string
+): Promise<PrintPreviewActionResult> => {
   const safe = ensurePdfTempSafe(pdfPath);
   if (!safe.ok) return { ok: false, code: 'INVALID', message: safe.message };
 
@@ -195,7 +208,8 @@ const saveTempPdfAs = async (pdfPath: string, suggestedFileName: string): Promis
       properties: ['createDirectory', 'showOverwriteConfirmation'],
     });
 
-    if (res.canceled || !res.filePath) return { ok: false, code: 'CANCELED', message: 'تم الإلغاء' };
+    if (res.canceled || !res.filePath)
+      return { ok: false, code: 'CANCELED', message: 'تم الإلغاء' };
 
     const dest = res.filePath.toLowerCase().endsWith('.pdf') ? res.filePath : `${res.filePath}.pdf`;
     await fsp.copyFile(pdfPath, dest);
@@ -205,7 +219,10 @@ const saveTempPdfAs = async (pdfPath: string, suggestedFileName: string): Promis
   }
 };
 
-const regeneratePdfTemp = async (payload: PrintPreviewOpenPayload, settings: PrintSettings | null): Promise<{ ok: true; tempPath: string; fileName: string } | { ok: false; message: string }> => {
+const regeneratePdfTemp = async (
+  payload: PrintPreviewOpenPayload,
+  settings: PrintSettings | null
+): Promise<{ ok: true; tempPath: string; fileName: string } | { ok: false; message: string }> => {
   const res = await generateDocument(
     {
       templateName: payload.templateName,
@@ -214,7 +231,7 @@ const regeneratePdfTemp = async (payload: PrintPreviewOpenPayload, settings: Pri
       defaultFileName: payload.defaultFileName,
       headerFooter: payload.headerFooter,
     },
-    { settings },
+    { settings }
   );
 
   if (!res.ok) return { ok: false, message: res.message };
@@ -231,8 +248,10 @@ export const openPrintPreview = async (
       return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية فتح نافذة معاينة الطباعة' };
     }
 
-    if (!payload || typeof payload !== 'object') return { ok: false, code: 'INVALID', message: 'طلب المعاينة غير صالح' };
-    if (!payload.data || typeof payload.data !== 'object') return { ok: false, code: 'INVALID', message: 'بيانات القالب غير صالحة' };
+    if (!payload || typeof payload !== 'object')
+      return { ok: false, code: 'INVALID', message: 'طلب المعاينة غير صالح' };
+    if (!payload.data || typeof payload.data !== 'object')
+      return { ok: false, code: 'INVALID', message: 'بيانات القالب غير صالحة' };
 
     const loaded = await loadPrintSettings();
     const settings = loaded.ok ? loaded.settings : null;
@@ -289,7 +308,10 @@ export const getPrintPreviewState = async (sessionId: string): Promise<PrintPrev
   }
 };
 
-export const printFromPreview = async (sessionId: string, options?: PrintPreviewPrintOptions): Promise<PrintPreviewActionResult> => {
+export const printFromPreview = async (
+  sessionId: string,
+  options?: PrintPreviewPrintOptions
+): Promise<PrintPreviewActionResult> => {
   const sid = String(sessionId || '').trim();
   if (!sid) return { ok: false, code: 'INVALID', message: 'معرّف الجلسة غير صالح' };
 
@@ -303,7 +325,9 @@ export const printFromPreview = async (sessionId: string, options?: PrintPreview
   return printPdfFile(s.pdfTempPath, options);
 };
 
-export const exportPdfFromPreview = async (sessionId: string): Promise<PrintPreviewActionResult> => {
+export const exportPdfFromPreview = async (
+  sessionId: string
+): Promise<PrintPreviewActionResult> => {
   const sid = String(sessionId || '').trim();
   if (!sid) return { ok: false, code: 'INVALID', message: 'معرّف الجلسة غير صالح' };
 
@@ -318,7 +342,9 @@ export const exportPdfFromPreview = async (sessionId: string): Promise<PrintPrev
   return saveTempPdfAs(s.pdfTempPath, suggested);
 };
 
-export const exportDocxFromPreview = async (sessionId: string): Promise<PrintPreviewActionResult> => {
+export const exportDocxFromPreview = async (
+  sessionId: string
+): Promise<PrintPreviewActionResult> => {
   const sid = String(sessionId || '').trim();
   if (!sid) return { ok: false, code: 'INVALID', message: 'معرّف الجلسة غير صالح' };
 
@@ -336,7 +362,12 @@ export const exportDocxFromPreview = async (sessionId: string): Promise<PrintPre
     headerFooter: s.payload.headerFooter,
   });
 
-  if (!docxRes.ok) return { ok: false, code: docxRes.code as 'CANCELED' | 'FAILED' | 'INVALID', message: docxRes.message };
+  if (!docxRes.ok)
+    return {
+      ok: false,
+      code: docxRes.code as 'CANCELED' | 'FAILED' | 'INVALID',
+      message: docxRes.message,
+    };
   return { ok: true, savedPath: docxRes.savedPath };
 };
 

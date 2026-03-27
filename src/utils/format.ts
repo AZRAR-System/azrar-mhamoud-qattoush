@@ -48,7 +48,10 @@ export const formatDateYMD = (value: unknown): string => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-export const formatMonthYear = (value: unknown, locale: string = LOCALE_AR_LATN_GREGORY): string => {
+export const formatMonthYear = (
+  value: unknown,
+  locale: string = LOCALE_AR_LATN_GREGORY
+): string => {
   if (!value) return '—';
   const d = value instanceof Date ? value : new Date(String(value));
   if (Number.isNaN(d.getTime())) return '—';

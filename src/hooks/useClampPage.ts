@@ -14,4 +14,3 @@ export function useClampPage(opts: {
     if (page > maxPage) setPage(maxPage);
   }, [enabled, page, pageCount, setPage]);
 }
-

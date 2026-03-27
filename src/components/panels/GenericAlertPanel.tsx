@@ -21,13 +21,37 @@ type GenericAlertLike = Partial<tbl_Alerts> & {
   الكود_الداخلي?: string;
 };
 
-const isGenericAlertLike = (value: unknown): value is GenericAlertLike => typeof value === 'object' && value !== null;
+const isGenericAlertLike = (value: unknown): value is GenericAlertLike =>
+  typeof value === 'object' && value !== null;
 
 const getLevelMeta = (level?: string) => {
-  if (level === 'critical') return { icon: AlertTriangle, title: 'حرج', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20' };
-  if (level === 'warning') return { icon: AlertCircle, title: 'تحذير', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20' };
-  if (level === 'success') return { icon: CheckCircle, title: 'تم', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' };
-  return { icon: Info, title: 'معلومة', color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20' };
+  if (level === 'critical')
+    return {
+      icon: AlertTriangle,
+      title: 'حرج',
+      color: 'text-red-600',
+      bg: 'bg-red-50 dark:bg-red-900/20',
+    };
+  if (level === 'warning')
+    return {
+      icon: AlertCircle,
+      title: 'تحذير',
+      color: 'text-orange-600',
+      bg: 'bg-orange-50 dark:bg-orange-900/20',
+    };
+  if (level === 'success')
+    return {
+      icon: CheckCircle,
+      title: 'تم',
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+    };
+  return {
+    icon: Info,
+    title: 'معلومة',
+    color: 'text-indigo-600',
+    bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+  };
 };
 
 export const GenericAlertPanel: React.FC<GenericAlertPanelProps> = ({ id, alert, onClose }) => {
@@ -41,8 +65,10 @@ export const GenericAlertPanel: React.FC<GenericAlertPanelProps> = ({ id, alert,
   const title = resolved?.title || resolved?.نوع_التنبيه || 'تنبيه';
   const description = resolved?.description || resolved?.الوصف || '';
   const timestamp = resolved?.timestamp || resolved?.تاريخ_الانشاء || '—';
-  const level = resolved?.level || (resolved?.category === 'SmartBehavior' ? 'critical' : undefined);
-  const tenantName = resolved?.tenantName || resolved?.المستأجر || resolved?.tenant || resolved?.اسم_المستأجر;
+  const level =
+    resolved?.level || (resolved?.category === 'SmartBehavior' ? 'critical' : undefined);
+  const tenantName =
+    resolved?.tenantName || resolved?.المستأجر || resolved?.tenant || resolved?.اسم_المستأجر;
   const phone = resolved?.phone || resolved?.رقم_الهاتف;
   const propertyCode = resolved?.propertyCode || resolved?.الكود_الداخلي;
 
@@ -72,7 +98,9 @@ export const GenericAlertPanel: React.FC<GenericAlertPanelProps> = ({ id, alert,
       <div className="mt-4 space-y-3">
         {description ? (
           <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700">
-            <div className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{description}</div>
+            <div className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
+              {description}
+            </div>
           </div>
         ) : (
           <div className="text-sm text-slate-500 dark:text-slate-400">لا توجد تفاصيل إضافية.</div>
@@ -82,20 +110,25 @@ export const GenericAlertPanel: React.FC<GenericAlertPanelProps> = ({ id, alert,
           <div className="p-3 rounded-xl border border-gray-100 dark:border-slate-700">
             <div className="text-xs text-slate-500 dark:text-slate-400">التاريخ</div>
             <div className="text-sm font-bold text-slate-800 dark:text-white" dir="ltr">
-              {String(timestamp).includes('T') ? String(timestamp).split('T')[0] : String(timestamp)}
+              {String(timestamp).includes('T')
+                ? String(timestamp).split('T')[0]
+                : String(timestamp)}
             </div>
           </div>
 
           <div className="p-3 rounded-xl border border-gray-100 dark:border-slate-700">
             <div className="text-xs text-slate-500 dark:text-slate-400">العقار / المستأجر</div>
             <div className="text-sm font-bold text-slate-800 dark:text-white">
-              {tenantName ? tenantName : '—'}{propertyCode ? ` • ${propertyCode}` : ''}
+              {tenantName ? tenantName : '—'}
+              {propertyCode ? ` • ${propertyCode}` : ''}
             </div>
           </div>
 
           <div className="p-3 rounded-xl border border-gray-100 dark:border-slate-700">
             <div className="text-xs text-slate-500 dark:text-slate-400">المعرف</div>
-            <div className="text-sm font-bold text-slate-800 dark:text-white" dir="ltr">{resolved?.id || id || '—'}</div>
+            <div className="text-sm font-bold text-slate-800 dark:text-white" dir="ltr">
+              {resolved?.id || id || '—'}
+            </div>
           </div>
 
           <div className="p-3 rounded-xl border border-gray-100 dark:border-slate-700">

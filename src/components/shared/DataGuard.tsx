@@ -1,7 +1,7 @@
 /**
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
- * 
+ *
  * Data Guard Component
  * مكون للتحقق من وجود البيانات المطلوبة قبل عرض المحتوى
  */
@@ -14,22 +14,22 @@ import { Card } from '@/components/ui/Card';
 export interface DataGuardProps {
   /** المحتوى الذي سيتم عرضه إذا كانت البيانات موجودة */
   children: React.ReactNode;
-  
+
   /** دالة التحقق من البيانات */
   check: () => { isValid: boolean; message?: string; missingData?: string[] };
-  
+
   /** رسالة مخصصة عند عدم وجود البيانات */
   emptyMessage?: string;
-  
+
   /** عنوان الزر للانتقال لإضافة البيانات */
   actionLabel?: string;
-  
+
   /** رابط الانتقال لإضافة البيانات */
   actionLink?: string;
-  
+
   /** دالة تُنفذ عند الضغط على زر الإضافة */
   onAction?: () => void;
-  
+
   /** إظهار أيقونة تحذير */
   showWarning?: boolean;
 }
@@ -45,7 +45,7 @@ export const DataGuard: React.FC<DataGuardProps> = ({
   actionLabel,
   actionLink,
   onAction,
-  showWarning = true
+  showWarning = true,
 }) => {
   const result = check();
 
@@ -72,9 +72,7 @@ export const DataGuard: React.FC<DataGuardProps> = ({
         </div>
 
         {/* العنوان */}
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">
-          لا توجد بيانات
-        </h2>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">لا توجد بيانات</h2>
 
         {/* الرسالة */}
         <p className="text-slate-600 dark:text-slate-400 mb-6">
@@ -84,9 +82,7 @@ export const DataGuard: React.FC<DataGuardProps> = ({
         {/* البيانات المفقودة */}
         {result.missingData && result.missingData.length > 0 && (
           <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-              البيانات المفقودة:
-            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">البيانات المفقودة:</p>
             <div className="flex flex-wrap gap-2 justify-center">
               {result.missingData.map((item) => (
                 <span
@@ -104,18 +100,15 @@ export const DataGuard: React.FC<DataGuardProps> = ({
         {(actionLabel || onAction || actionLink) && (
           <div className="flex justify-center gap-3">
             {onAction && (
-              <Button
-                onClick={onAction}
-                className="gap-2"
-              >
+              <Button onClick={onAction} className="gap-2">
                 <Plus size={18} />
                 {actionLabel || 'إضافة بيانات'}
               </Button>
             )}
-            
+
             {actionLink && (
               <Button
-                onClick={() => window.location.hash = actionLink}
+                onClick={() => (window.location.hash = actionLink)}
                 variant="outline"
                 className="gap-2"
               >
@@ -144,9 +137,8 @@ const getDataLabel = (dataType: string): string => {
     contract: 'العقد',
     personId: 'معرف الشخص',
     propertyId: 'معرف العقار',
-    contractId: 'معرف العقد'
+    contractId: 'معرف العقد',
   };
 
   return labels[dataType] || dataType;
 };
-

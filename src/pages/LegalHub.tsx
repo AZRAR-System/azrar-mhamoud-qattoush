@@ -1,11 +1,32 @@
-﻿
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
-import { ContractDetailsResult, LegalNoticeRecord, LegalNoticeTemplate, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types';
-import { Scale, FileText, Send, Printer, Copy, Clock, Search, CheckCircle, Plus, Trash2, MessageCircle, ExternalLink, Pencil } from 'lucide-react';
+import {
+  ContractDetailsResult,
+  LegalNoticeRecord,
+  LegalNoticeTemplate,
+  الأشخاص_tbl,
+  العقارات_tbl,
+  العقود_tbl,
+  الكمبيالات_tbl,
+} from '@/types';
+import {
+  Scale,
+  FileText,
+  Send,
+  Printer,
+  Copy,
+  Clock,
+  Search,
+  CheckCircle,
+  Plus,
+  Trash2,
+  MessageCircle,
+  ExternalLink,
+  Pencil,
+} from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { safeCopyToClipboard } from '@/utils/clipboard';
 import { printTextUnified } from '@/services/printing/unifiedPrint';
@@ -42,7 +63,7 @@ export const LegalHub: React.FC = () => {
   const [historySearch, setHistorySearch] = useState('');
 
   const [historyPage, setHistoryPage] = useState(1);
-  
+
   // Generator State
   const [selectedContractId, setSelectedContractId] = useState('');
   const [selectedContractTenantId, setSelectedContractTenantId] = useState('');
@@ -65,10 +86,11 @@ export const LegalHub: React.FC = () => {
   const [editNote, setEditNote] = useState('');
   const [editReply, setEditReply] = useState('');
 
-  
   // New Template Modal State
   const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
-  const [newTemplateForm, setNewTemplateForm] = useState<Pick<LegalNoticeTemplate, 'title' | 'category' | 'content'>>({
+  const [newTemplateForm, setNewTemplateForm] = useState<
+    Pick<LegalNoticeTemplate, 'title' | 'category' | 'content'>
+  >({
     title: '',
     category: 'General',
     content: '',
@@ -112,7 +134,12 @@ export const LegalHub: React.FC = () => {
     let property: العقارات_tbl | null = null;
 
     try {
-      const res = await installmentsContractsPagedSmart({ query: cid, filter: 'all', offset: 0, limit: 1 });
+      const res = await installmentsContractsPagedSmart({
+        query: cid,
+        filter: 'all',
+        offset: 0,
+        limit: 1,
+      });
       const first = res.items[0] || null;
       if (first?.contract) contract = first.contract;
       if (first?.tenant) tenant = first.tenant;
@@ -124,8 +151,10 @@ export const LegalHub: React.FC = () => {
 
     // Fallback: fetch minimal entities
     if (!contract) contract = await domainGetSmart('contracts', cid);
-    if (!tenant && contract?.رقم_المستاجر) tenant = await domainGetSmart('people', String(contract.رقم_المستاجر));
-    if (!property && contract?.رقم_العقار) property = await domainGetSmart('properties', String(contract.رقم_العقار));
+    if (!tenant && contract?.رقم_المستاجر)
+      tenant = await domainGetSmart('people', String(contract.رقم_المستاجر));
+    if (!property && contract?.رقم_العقار)
+      property = await domainGetSmart('properties', String(contract.رقم_العقار));
 
     const ownerId = property?.رقم_المالك ? String(property.رقم_المالك) : '';
     const owner = ownerId ? await domainGetSmart('people', ownerId) : null;
@@ -143,7 +172,7 @@ export const LegalHub: React.FC = () => {
     if (isDesktopFast) {
       const seq = ++generationSeqRef.current;
       void (async () => {
-        const tmpl = templates.find(t => t.id === selectedTemplateId);
+        const tmpl = templates.find((t) => t.id === selectedTemplateId);
         if (!tmpl) return;
 
         const bundle = await getDesktopContractBundle(selectedContractId);
@@ -169,21 +198,25 @@ export const LegalHub: React.FC = () => {
             const remaining = getInstallmentPaidAndRemaining(inst).remaining;
             return { inst, due, remaining };
           })
-          .filter(x => (x.remaining || 0) > 0);
+          .filter((x) => (x.remaining || 0) > 0);
 
         const overdue = installmentsWithRemaining
-          .filter(x => x.due && daysBetweenDateOnly(x.due, today) > 0)
+          .filter((x) => x.due && daysBetweenDateOnly(x.due, today) > 0)
           .sort((a, b) => (a.due?.getTime() || 0) - (b.due?.getTime() || 0));
 
-        const totalRemaining = Math.round(installmentsWithRemaining.reduce((sum, x) => sum + (x.remaining || 0), 0));
+        const totalRemaining = Math.round(
+          installmentsWithRemaining.reduce((sum, x) => sum + (x.remaining || 0), 0)
+        );
         const overdueCount = overdue.length;
         const overdueTotal = Math.round(overdue.reduce((sum, x) => sum + (x.remaining || 0), 0));
-        const overdueOldestDueDate = overdue[0]?.inst?.تاريخ_استحقاق ? String(overdue[0].inst.تاريخ_استحقاق) : '';
+        const overdueOldestDueDate = overdue[0]?.inst?.تاريخ_استحقاق
+          ? String(overdue[0].inst.تاريخ_استحقاق)
+          : '';
         const overdueMaxDaysLate = overdue.length
           ? Math.max(
               0,
               ...overdue
-                .map(x => (x.due ? daysBetweenDateOnly(x.due, today) : 0))
+                .map((x) => (x.due ? daysBetweenDateOnly(x.due, today) : 0))
                 .filter((n) => Number.isFinite(n))
             )
           : 0;
@@ -280,7 +313,7 @@ export const LegalHub: React.FC = () => {
       };
     }
 
-    const c = contracts.find(x => x.رقم_العقد === selectedContractId);
+    const c = contracts.find((x) => x.رقم_العقد === selectedContractId);
     setSelectedContractTenantId(String(c?.رقم_المستاجر || ''));
   }, [isDesktopFast, selectedContractId, contracts]);
 
@@ -293,7 +326,7 @@ export const LegalHub: React.FC = () => {
   }) => {
     const contract = isDesktopFast
       ? await domainGetSmart('contracts', payload.contractId)
-      : contracts.find(c => c.رقم_العقد === payload.contractId) || null;
+      : contracts.find((c) => c.رقم_العقد === payload.contractId) || null;
 
     // Unified audit log (shared with payment notifications panel)
     try {
@@ -324,7 +357,7 @@ export const LegalHub: React.FC = () => {
       templateTitle: payload.templateTitle || 'مخصص',
       contentSnapshot: payload.textSnapshot,
       sentMethod: payload.method,
-      createdBy: 'Admin'
+      createdBy: 'Admin',
     });
 
     toast.success('تم اعتماد الإرسال وحفظه في السجل');
@@ -347,7 +380,10 @@ export const LegalHub: React.FC = () => {
 
   const handleCopy = async () => {
     try {
-      const text = generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
+      const text =
+        generatedText.trim().length > 0
+          ? applyOfficialBrandSignature(generatedText)
+          : generatedText;
       const res = await safeCopyToClipboard(text);
       if (!res.ok) throw new Error(res.error || 'copy_failed');
       toast.success('تم نسخ النص');
@@ -357,7 +393,8 @@ export const LegalHub: React.FC = () => {
   };
 
   const handlePrint = () => {
-    const text = generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
+    const text =
+      generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
     if (!text.trim()) return;
     void printTextUnified({
       documentType: 'legalhub_notice',
@@ -369,19 +406,25 @@ export const LegalHub: React.FC = () => {
 
   const handleWhatsApp = () => {
     if (!selectedContractId || !generatedText) return;
-    const text = generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
+    const text =
+      generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
 
     if (isDesktopFast) {
       void (async () => {
         const details = await getDesktopContractBundle(selectedContractId);
-        const phones = [details?.tenant?.رقم_الهاتف, details?.tenant?.رقم_هاتف_اضافي].filter(Boolean) as string[];
+        const phones = [details?.tenant?.رقم_الهاتف, details?.tenant?.رقم_هاتف_اضافي].filter(
+          Boolean
+        ) as string[];
         if (phones.length === 0) {
           toast.warning('رقم هاتف المستأجر غير متوفر');
           return;
         }
-        void openWhatsAppForPhones(text, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
+        void openWhatsAppForPhones(text, phones, {
+          defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+          delayMs: 10_000,
+        });
 
-        const tmpl = templates.find(t => t.id === selectedTemplateId);
+        const tmpl = templates.find((t) => t.id === selectedTemplateId);
         setPendingSend({
           method: 'WhatsApp',
           contractId: selectedContractId,
@@ -395,14 +438,19 @@ export const LegalHub: React.FC = () => {
     }
 
     const details = DbService.getContractDetails(selectedContractId);
-    const phones = [details?.tenant?.رقم_الهاتف, details?.tenant?.رقم_هاتف_اضافي].filter(Boolean) as string[];
+    const phones = [details?.tenant?.رقم_الهاتف, details?.tenant?.رقم_هاتف_اضافي].filter(
+      Boolean
+    ) as string[];
     if (phones.length === 0) {
       toast.warning('رقم هاتف المستأجر غير متوفر');
       return;
     }
-    void openWhatsAppForPhones(text, phones, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 });
+    void openWhatsAppForPhones(text, phones, {
+      defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+      delayMs: 10_000,
+    });
 
-    const tmpl = templates.find(t => t.id === selectedTemplateId);
+    const tmpl = templates.find((t) => t.id === selectedTemplateId);
     setPendingSend({
       method: 'WhatsApp',
       contractId: selectedContractId,
@@ -415,9 +463,10 @@ export const LegalHub: React.FC = () => {
 
   const handlePreparePrint = () => {
     if (!generatedText || !selectedContractId) return;
-    const text = generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
+    const text =
+      generatedText.trim().length > 0 ? applyOfficialBrandSignature(generatedText) : generatedText;
     handlePrint();
-    const tmpl = templates.find(t => t.id === selectedTemplateId);
+    const tmpl = templates.find((t) => t.id === selectedTemplateId);
     setPendingSend({
       method: 'Print',
       contractId: selectedContractId,
@@ -469,39 +518,39 @@ export const LegalHub: React.FC = () => {
   };
 
   const handleAddTemplate = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!newTemplateForm.title || !newTemplateForm.content) {
-          toast.warning('العنوان والنص مطلوبان');
-          return;
-      }
-      
-      const res = DbService.addLegalTemplate(newTemplateForm);
-      if (res.success) {
-          toast.success('تم إضافة النموذج بنجاح');
-          setIsAddTemplateOpen(false);
-          setNewTemplateForm({ title: '', category: 'General', content: '' });
-          refreshData();
-      }
+    e.preventDefault();
+    if (!newTemplateForm.title || !newTemplateForm.content) {
+      toast.warning('العنوان والنص مطلوبان');
+      return;
+    }
+
+    const res = DbService.addLegalTemplate(newTemplateForm);
+    if (res.success) {
+      toast.success('تم إضافة النموذج بنجاح');
+      setIsAddTemplateOpen(false);
+      setNewTemplateForm({ title: '', category: 'General', content: '' });
+      refreshData();
+    }
   };
 
-    const handleDeleteTemplate = async (id: string) => {
-      const ok = await toast.confirm({
+  const handleDeleteTemplate = async (id: string) => {
+    const ok = await toast.confirm({
       title: 'حذف نموذج',
       message: 'هل أنت متأكد من حذف هذا النموذج؟',
       confirmText: 'حذف',
       cancelText: 'إلغاء',
       isDangerous: true,
-      });
-      if (!ok) return;
+    });
+    if (!ok) return;
 
-      DbService.deleteLegalTemplate(id);
-      refreshData();
-      if (selectedTemplateId === id) {
-        setSelectedTemplateId('');
-        setGeneratedText('');
-      }
-      toast.success('تم حذف النموذج');
-    };
+    DbService.deleteLegalTemplate(id);
+    refreshData();
+    if (selectedTemplateId === id) {
+      setSelectedTemplateId('');
+      setGeneratedText('');
+    }
+    toast.success('تم حذف النموذج');
+  };
 
   // Helper to identify if a template is custom (not in mockData IDs usually, but mockData IDs are static strings)
   const isCustom = (id: string) => id.startsWith('TMPL-');
@@ -511,8 +560,9 @@ export const LegalHub: React.FC = () => {
   const filteredHistory = (() => {
     const q = historySearch.trim().toLowerCase();
     if (!q) return history;
-    return history.filter(h => {
-      const hay = `${h.templateTitle || ''} ${h.contractId || ''} ${h.sentMethod || ''}`.toLowerCase();
+    return history.filter((h) => {
+      const hay =
+        `${h.templateTitle || ''} ${h.contractId || ''} ${h.sentMethod || ''}`.toLowerCase();
       return hay.includes(q);
     });
   })();
@@ -535,7 +585,6 @@ export const LegalHub: React.FC = () => {
 
   return (
     <div className="animate-fade-in space-y-6">
-      
       {/* Header */}
       <div className={DS.components.pageHeader}>
         <div>
@@ -543,12 +592,13 @@ export const LegalHub: React.FC = () => {
             <Scale size={22} />
             المركز القانوني والإخطارات
           </h2>
-          <p className={DS.components.pageSubtitle}>توليد وإدارة الإنذارات والإشعارات القانونية للمستأجرين.</p>
+          <p className={DS.components.pageSubtitle}>
+            توليد وإدارة الإنذارات والإشعارات القانونية للمستأجرين.
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-200px)]">
-        
         {/* LEFT PANEL: GENERATOR */}
         <div className="app-card flex flex-col">
           <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-between items-center">
@@ -574,11 +624,13 @@ export const LegalHub: React.FC = () => {
               </Button>
             </div>
           </div>
-          
+
           <div className="p-6 flex-1 flex flex-col gap-4 overflow-y-auto">
             {/* Contract Select */}
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">1. اختر العقد</label>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                1. اختر العقد
+              </label>
               <ContractPicker
                 value={selectedContractId}
                 onChange={(contractId) => setSelectedContractId(contractId)}
@@ -614,29 +666,38 @@ export const LegalHub: React.FC = () => {
 
             {/* Template Select */}
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">2. نوع الإخطار</label>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                2. نوع الإخطار
+              </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                {templates.map(t => (
+                {templates.map((t) => (
                   <div key={t.id} className="relative group">
-                      <button
-                        onClick={() => setSelectedTemplateId(t.id)}
-                        className={`w-full text-right px-3 py-2 rounded-lg text-sm font-medium border transition flex justify-between items-center
-                          ${selectedTemplateId === t.id 
-                            ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500 text-indigo-700 dark:text-indigo-300' 
-                            : 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'}`}
-                      >
-                        <span className="truncate">{t.title}</span>
-                        {selectedTemplateId === t.id && <CheckCircle size={14} className="text-indigo-600 flex-shrink-0" />}
-                      </button>
-                      {isCustom(t.id) && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(t.id); }}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 p-1 bg-red-100 text-red-500 rounded hidden group-hover:block hover:bg-red-200"
-                            title="حذف النموذج"
-                          >
-                              <Trash2 size={12} />
-                          </button>
+                    <button
+                      onClick={() => setSelectedTemplateId(t.id)}
+                      className={`w-full text-right px-3 py-2 rounded-lg text-sm font-medium border transition flex justify-between items-center
+                          ${
+                            selectedTemplateId === t.id
+                              ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500 text-indigo-700 dark:text-indigo-300'
+                              : 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                          }`}
+                    >
+                      <span className="truncate">{t.title}</span>
+                      {selectedTemplateId === t.id && (
+                        <CheckCircle size={14} className="text-indigo-600 flex-shrink-0" />
                       )}
+                    </button>
+                    {isCustom(t.id) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteTemplate(t.id);
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 p-1 bg-red-100 text-red-500 rounded hidden group-hover:block hover:bg-red-200"
+                        title="حذف النموذج"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -644,8 +705,10 @@ export const LegalHub: React.FC = () => {
 
             {/* Editor */}
             <div className="flex-1 flex flex-col min-h-[200px]">
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">3. معاينة وتعديل النص</label>
-              <textarea 
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                3. معاينة وتعديل النص
+              </label>
+              <textarea
                 className="flex-1 w-full bg-yellow-50/50 dark:bg-slate-900 border border-yellow-200 dark:border-slate-600 rounded-xl p-4 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-slate-800 dark:text-slate-200"
                 value={generatedText}
                 onChange={(e) => setGeneratedText(e.target.value)}
@@ -654,39 +717,39 @@ export const LegalHub: React.FC = () => {
             </div>
           </div>
 
-           <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-between">
-             <button 
-                onClick={handleCopy}
-                disabled={!generatedText}
-                className="flex items-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition disabled:opacity-50"
-             >
-                <Copy size={18} /> نسخ
-             </button>
-             <div className="flex gap-2">
-               <button 
+          <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-between">
+            <button
+              onClick={handleCopy}
+              disabled={!generatedText}
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition disabled:opacity-50"
+            >
+              <Copy size={18} /> نسخ
+            </button>
+            <div className="flex gap-2">
+              <button
                 onClick={handleWhatsApp}
                 disabled={!generatedText || !selectedContractId}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-bold shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:shadow-none"
-               >
-                 <MessageCircle size={18} /> واتساب
-               </button>
-                <RBACGuard requiredPermission="PRINT_EXECUTE">
-                  <button 
+              >
+                <MessageCircle size={18} /> واتساب
+              </button>
+              <RBACGuard requiredPermission="PRINT_EXECUTE">
+                <button
                   onClick={handlePreparePrint}
-                    disabled={!generatedText}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition font-bold disabled:opacity-50"
-                  >
-                     <Printer size={18} /> طباعة
-                  </button>
-                </RBACGuard>
-                <button 
+                  disabled={!generatedText}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition font-bold disabled:opacity-50"
+                >
+                  <Printer size={18} /> طباعة
+                </button>
+              </RBACGuard>
+              <button
                 onClick={handleApproveSend}
                 disabled={!pendingSend}
-                  className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-bold shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:shadow-none"
-                >
-                 <Send size={18} /> اعتماد الإرسال
-                </button>
-             </div>
+                className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-bold shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:shadow-none"
+              >
+                <Send size={18} /> اعتماد الإرسال
+              </button>
+            </div>
           </div>
         </div>
 
@@ -698,7 +761,10 @@ export const LegalHub: React.FC = () => {
             </h3>
             <div className="flex items-center gap-2">
               <div className="relative hidden sm:block">
-                <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search
+                  size={14}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
                 <input
                   value={historySearch}
                   onChange={(e) => setHistorySearch(e.target.value)}
@@ -709,7 +775,11 @@ export const LegalHub: React.FC = () => {
               <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-2 py-0.5 rounded text-xs font-bold">
                 {formatNumber(filteredHistory.length)}
               </span>
-              <PaginationControls page={historyPage} pageCount={historyPageCount} onPageChange={setHistoryPage} />
+              <PaginationControls
+                page={historyPage}
+                pageCount={historyPageCount}
+                onPageChange={setHistoryPage}
+              />
             </div>
           </div>
 
@@ -731,8 +801,13 @@ export const LegalHub: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
                   {visibleHistory.map((rec) => (
-                    <tr key={rec.id} className="hover:bg-indigo-50/50 dark:hover:bg-slate-700/30 transition">
-                      <td className="p-4 font-bold text-slate-700 dark:text-slate-200">{rec.templateTitle}</td>
+                    <tr
+                      key={rec.id}
+                      className="hover:bg-indigo-50/50 dark:hover:bg-slate-700/30 transition"
+                    >
+                      <td className="p-4 font-bold text-slate-700 dark:text-slate-200">
+                        {rec.templateTitle}
+                      </td>
                       <td className="p-4 text-slate-500 font-mono">
                         <button
                           type="button"
@@ -743,11 +818,17 @@ export const LegalHub: React.FC = () => {
                           #{safeContractId(rec.contractId)}
                         </button>
                       </td>
-                      <td className="p-4 text-slate-500" dir="ltr">{formatDateYMD(rec.sentDate)}</td>
+                      <td className="p-4 text-slate-500" dir="ltr">
+                        {formatDateYMD(rec.sentDate)}
+                      </td>
                       <td className="p-4">
                         <span className="flex items-center gap-1 text-xs bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded w-fit">
-                           {rec.sentMethod === 'WhatsApp' ? <MessageCircle size={12}/> : <Printer size={12}/>}
-                           {rec.sentMethod}
+                          {rec.sentMethod === 'WhatsApp' ? (
+                            <MessageCircle size={12} />
+                          ) : (
+                            <Printer size={12} />
+                          )}
+                          {rec.sentMethod}
                         </span>
                       </td>
                       <td className="p-4">
@@ -777,73 +858,82 @@ export const LegalHub: React.FC = () => {
             )}
           </div>
         </div>
-
       </div>
 
       {/* ADD TEMPLATE MODAL */}
       {isAddTemplateOpen && (
-          <AppModal
-            open={isAddTemplateOpen}
-            onClose={() => setIsAddTemplateOpen(false)}
-            size="lg"
-            title="إضافة نموذج جديد"
-            footer={
-              <div className="flex justify-end gap-3">
-                <Button type="button" variant="secondary" onClick={() => setIsAddTemplateOpen(false)}>
-                  إلغاء
-                </Button>
-                <Button type="submit" variant="primary" form="add-template-form">
-                  حفظ النموذج
-                </Button>
-              </div>
-            }
-          >
-                  <form id="add-template-form" onSubmit={handleAddTemplate} className="space-y-4">
-                      <div>
-                          <label className="block text-sm font-bold mb-1">عنوان النموذج</label>
-                          <input 
-                              required 
-                              className="w-full border p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none focus:ring-2 focus:ring-purple-500" 
-                              value={newTemplateForm.title}
-                              onChange={e => setNewTemplateForm({...newTemplateForm, title: e.target.value})}
-                              placeholder="مثال: إنذار عدلي أولي"
-                          />
-                      </div>
-                      
-                      <div>
-                          <label className="block text-sm font-bold mb-1">التصنيف</label>
-                          <select 
-                              className="w-full border p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
-                              value={newTemplateForm.category}
-                              onChange={(e) => {
-                                const next = String(e.target.value || '').trim();
-                                if (next === 'General' || next === 'Warning' || next === 'Eviction' || next === 'Renewal') {
-                                  setNewTemplateForm({ ...newTemplateForm, category: next });
-                                }
-                              }}
-                          >
-                              <option value="General">عام</option>
-                              <option value="Warning">إنذار / تنبيه</option>
-                              <option value="Eviction">إخلاء</option>
-                              <option value="Renewal">تجديد</option>
-                          </select>
-                      </div>
+        <AppModal
+          open={isAddTemplateOpen}
+          onClose={() => setIsAddTemplateOpen(false)}
+          size="lg"
+          title="إضافة نموذج جديد"
+          footer={
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="secondary" onClick={() => setIsAddTemplateOpen(false)}>
+                إلغاء
+              </Button>
+              <Button type="submit" variant="primary" form="add-template-form">
+                حفظ النموذج
+              </Button>
+            </div>
+          }
+        >
+          <form id="add-template-form" onSubmit={handleAddTemplate} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold mb-1">عنوان النموذج</label>
+              <input
+                required
+                className="w-full border p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none focus:ring-2 focus:ring-purple-500"
+                value={newTemplateForm.title}
+                onChange={(e) => setNewTemplateForm({ ...newTemplateForm, title: e.target.value })}
+                placeholder="مثال: إنذار عدلي أولي"
+              />
+            </div>
 
-                      <div>
-                          <label className="block text-sm font-bold mb-1">نص النموذج</label>
-                          <div className="mb-2">
-                            <MergeVariablesCatalog title="كل المتغيرات (بالعربية)" maxHeightClassName="max-h-56" />
-                          </div>
-                          <textarea 
-                              required
-                              className="w-full h-32 border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none focus:ring-2 focus:ring-purple-500 text-sm leading-relaxed"
-                              value={newTemplateForm.content}
-                              onChange={e => setNewTemplateForm({...newTemplateForm, content: e.target.value})}
-                              placeholder="أدخل نص النموذج هنا..."
-                          />
-                      </div>
-                  </form>
-                      </AppModal>
+            <div>
+              <label className="block text-sm font-bold mb-1">التصنيف</label>
+              <select
+                className="w-full border p-2.5 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
+                value={newTemplateForm.category}
+                onChange={(e) => {
+                  const next = String(e.target.value || '').trim();
+                  if (
+                    next === 'General' ||
+                    next === 'Warning' ||
+                    next === 'Eviction' ||
+                    next === 'Renewal'
+                  ) {
+                    setNewTemplateForm({ ...newTemplateForm, category: next });
+                  }
+                }}
+              >
+                <option value="General">عام</option>
+                <option value="Warning">إنذار / تنبيه</option>
+                <option value="Eviction">إخلاء</option>
+                <option value="Renewal">تجديد</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">نص النموذج</label>
+              <div className="mb-2">
+                <MergeVariablesCatalog
+                  title="كل المتغيرات (بالعربية)"
+                  maxHeightClassName="max-h-56"
+                />
+              </div>
+              <textarea
+                required
+                className="w-full h-32 border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none focus:ring-2 focus:ring-purple-500 text-sm leading-relaxed"
+                value={newTemplateForm.content}
+                onChange={(e) =>
+                  setNewTemplateForm({ ...newTemplateForm, content: e.target.value })
+                }
+                placeholder="أدخل نص النموذج هنا..."
+              />
+            </div>
+          </form>
+        </AppModal>
       )}
 
       {/* EDIT HISTORY MODAL */}
@@ -864,49 +954,58 @@ export const LegalHub: React.FC = () => {
             </div>
           }
         >
-            <div className="space-y-4">
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                عقد: <b className="font-mono">#{safeContractId(editingHistory.contractId)}</b> • {editingHistory.templateTitle}
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold mb-1">ملاحظة داخلية (اختياري)</label>
-                <textarea
-                  className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none text-sm resize-none"
-                  rows={3}
-                  value={editNote}
-                  onChange={(e) => setEditNote(e.target.value)}
-                  placeholder="مثال: تم التواصل وتم الاتفاق على موعد سداد"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold mb-1">ملاحظة الرد (اختياري)</label>
-                <textarea
-                  className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none text-sm resize-none"
-                  rows={3}
-                  value={editReply}
-                  onChange={(e) => setEditReply(e.target.value)}
-                  placeholder="مثال: رد المستأجر: سأدفع غداً"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold mb-2">صورة الرد / مرفقات الرد (اختياري)</label>
-                <AttachmentManager referenceType={'LegalNotice'} referenceId={editingHistory.id} />
-              </div>
+          <div className="space-y-4">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              عقد: <b className="font-mono">#{safeContractId(editingHistory.contractId)}</b> •{' '}
+              {editingHistory.templateTitle}
             </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">ملاحظة داخلية (اختياري)</label>
+              <textarea
+                className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none text-sm resize-none"
+                rows={3}
+                value={editNote}
+                onChange={(e) => setEditNote(e.target.value)}
+                placeholder="مثال: تم التواصل وتم الاتفاق على موعد سداد"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">ملاحظة الرد (اختياري)</label>
+              <textarea
+                className="w-full border p-3 rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none text-sm resize-none"
+                rows={3}
+                value={editReply}
+                onChange={(e) => setEditReply(e.target.value)}
+                placeholder="مثال: رد المستأجر: سأدفع غداً"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-2">
+                صورة الرد / مرفقات الرد (اختياري)
+              </label>
+              <AttachmentManager referenceType={'LegalNotice'} referenceId={editingHistory.id} />
+            </div>
+          </div>
         </AppModal>
       )}
 
       {/* VARIABLES MODAL */}
       {isVariablesOpen && (
-        <AppModal open={isVariablesOpen} onClose={() => setIsVariablesOpen(false)} size="4xl" title="متغيرات الدمج (بالعربية)">
-          <MergeVariablesCatalog title="كل المتغيرات المتاحة (اضغط للنسخ)" maxHeightClassName="max-h-[60vh]" />
+        <AppModal
+          open={isVariablesOpen}
+          onClose={() => setIsVariablesOpen(false)}
+          size="4xl"
+          title="متغيرات الدمج (بالعربية)"
+        >
+          <MergeVariablesCatalog
+            title="كل المتغيرات المتاحة (اضغط للنسخ)"
+            maxHeightClassName="max-h-[60vh]"
+          />
         </AppModal>
       )}
-
     </div>
   );
 };
-

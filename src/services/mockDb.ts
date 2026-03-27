@@ -63,11 +63,7 @@ import { INSTALLMENT_STATUS } from './db/installmentConstants';
 import { buildCache, DbCache } from './dbCache';
 import { KEYS } from './db/keys';
 import { get, save } from './db/kv';
-import {
-  createContractWrites,
-  getContracts,
-  getContractDetails,
-} from './db/contracts';
+import { createContractWrites, getContracts, getContractDetails } from './db/contracts';
 import {
   createInstallmentPaymentHandlers,
   generateContractInstallmentsInternal,
@@ -116,12 +112,7 @@ import { runInitData } from './db/initData';
 import { resetOperationalData } from './db/resetOperationalData';
 import { lookupKeyFor, normKeySimple } from './db/lookupKeys';
 import { MOCK_REPORTS } from './db/mockDbConstants';
-import {
-  getProperties,
-  addProperty,
-  updateProperty,
-  getPropertyDetails,
-} from './db/properties';
+import { getProperties, addProperty, updateProperty, getPropertyDetails } from './db/properties';
 import {
   addPersonWithAutoLinkInternal,
   updatePersonWithAutoLinkInternal,
@@ -183,7 +174,6 @@ const isUnknownRecord = (value: unknown): value is UnknownRecord => {
 const asUnknownRecord = (value: unknown): UnknownRecord => {
   return (isUnknownRecord(value) ? value : Object.create(null)) as UnknownRecord;
 };
-
 
 // --- Aggregation wiring (domain logic under src/services/db/) ---
 type LogMeta = {
@@ -1108,7 +1098,9 @@ export const DbService = {
     type?: 'alert' | 'info' | 'success';
     action?: MarqueeMessage['action'];
   }): DbResult<string> => {
-    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(DbService._marqueeAllowedPanels);
+    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(
+      DbService._marqueeAllowedPanels
+    );
 
     const content = sanitizeMarqueeText(data?.content, 300);
     if (!content) return fail('نص الإعلان مطلوب');
@@ -1153,7 +1145,9 @@ export const DbService = {
 
     const next = { ...all[idx] } as MarqueeAdRecord;
 
-    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(DbService._marqueeAllowedPanels);
+    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(
+      DbService._marqueeAllowedPanels
+    );
 
     if (typeof patch.content === 'string') {
       const content = sanitizeMarqueeText(patch.content, 300);
@@ -1205,7 +1199,9 @@ export const DbService = {
   getMarqueeMessages: (): MarqueeMessage[] => {
     const messages: MarqueeMessage[] = [];
 
-    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(DbService._marqueeAllowedPanels);
+    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(
+      DbService._marqueeAllowedPanels
+    );
 
     // 0) Custom ads (user-added, time-bound)
     try {
@@ -1311,8 +1307,9 @@ export const DbService = {
       });
 
       const openCount = allOpen.length;
-      const overdueCount = allOpen.filter((f) => isYmdBefore(String(f.dueDate || ''), todayYMD))
-        .length;
+      const overdueCount = allOpen.filter((f) =>
+        isYmdBefore(String(f.dueDate || ''), todayYMD)
+      ).length;
       const firstDate = openCount > 0 ? String(allOpen[0]?.dueDate || todayYMD) : todayYMD;
 
       if (openCount > 0) {
@@ -1354,9 +1351,7 @@ export const DbService = {
 
     // 3) Open reminders (show ALL until done)
     try {
-      const allOpen = (get<SystemReminder>(KEYS.REMINDERS) || [])
-        .filter((r) => !r.isDone)
-        .slice();
+      const allOpen = (get<SystemReminder>(KEYS.REMINDERS) || []).filter((r) => !r.isDone).slice();
 
       allOpen.sort((a, b) => {
         const ad = String(a.date || '');
@@ -1376,7 +1371,9 @@ export const DbService = {
       });
 
       const openCount = allOpen.length;
-      const overdueCount = allOpen.filter((r) => isYmdBefore(String(r.date || ''), todayYMD)).length;
+      const overdueCount = allOpen.filter((r) =>
+        isYmdBefore(String(r.date || ''), todayYMD)
+      ).length;
       const firstDate = openCount > 0 ? String(allOpen[0]?.date || todayYMD) : todayYMD;
 
       if (openCount > 0) {
@@ -1563,8 +1560,7 @@ export const DbService = {
       const count = targets.reduce((sum, t) => sum + (t.items?.length || 0), 0);
       const total = targets.reduce(
         (sum, t) =>
-          sum +
-          (t.items || []).reduce((s: number, it) => s + (Number(it.amountRemaining) || 0), 0),
+          sum + (t.items || []).reduce((s: number, it) => s + (Number(it.amountRemaining) || 0), 0),
         0
       );
 
@@ -1711,12 +1707,7 @@ export const DbService = {
     if (!candidateUsername) {
       throw new Error('اسم المستخدم مطلوب');
     }
-    if (
-      all.some(
-        (u) =>
-          String(u.اسم_المستخدم || '').trim() === candidateUsername
-      )
-    ) {
+    if (all.some((u) => String(u.اسم_المستخدم || '').trim() === candidateUsername)) {
       throw new Error('اسم المستخدم موجود مسبقاً');
     }
 
@@ -2386,7 +2377,8 @@ export const DbService = {
     try {
       const resUnknown = await desktopDb.listTemplates({ templateType });
       const res = asUnknownRecord(resUnknown);
-      if (res['success'] !== true) return fail(String(res['message'] || 'تعذر قراءة قائمة القوالب'));
+      if (res['success'] !== true)
+        return fail(String(res['message'] || 'تعذر قراءة قائمة القوالب'));
       const items = res['items'];
       return ok(Array.isArray(items) ? items.filter((x) => typeof x === 'string') : []);
     } catch (e: unknown) {
@@ -2413,7 +2405,8 @@ export const DbService = {
     try {
       const resUnknown = await desktopDb.listTemplates({ templateType });
       const res = asUnknownRecord(resUnknown);
-      if (res['success'] !== true) return fail(String(res['message'] || 'تعذر قراءة قائمة القوالب'));
+      if (res['success'] !== true)
+        return fail(String(res['message'] || 'تعذر قراءة قائمة القوالب'));
       const itemsRaw = res['items'];
       const items = Array.isArray(itemsRaw) ? itemsRaw.filter((x) => typeof x === 'string') : [];
       const detailsRaw = res['details'];
@@ -2431,7 +2424,10 @@ export const DbService = {
             })
         : undefined;
       const dir = typeof res['dir'] === 'string' ? String(res['dir']) : '';
-      const t = typeof res['templateType'] === 'string' ? String(res['templateType']) : String(templateType || 'contracts');
+      const t =
+        typeof res['templateType'] === 'string'
+          ? String(res['templateType'])
+          : String(templateType || 'contracts');
       return ok({ items, details, dir, templateType: t });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'تعذر قراءة قائمة القوالب';
@@ -2473,7 +2469,10 @@ export const DbService = {
     }
 
     try {
-      const resUnknown = await bridge.deleteTemplate({ templateName: String(templateName || ''), templateType });
+      const resUnknown = await bridge.deleteTemplate({
+        templateName: String(templateName || ''),
+        templateType,
+      });
       const res = asUnknownRecord(resUnknown);
       if (res['success'] !== true) {
         return fail(String(res['message'] || 'فشل حذف القالب'));
@@ -2550,7 +2549,8 @@ export const DbService = {
       try {
         const resUnknown = await desktopDb.readAttachmentFile(att.filePath);
         const res = asUnknownRecord(resUnknown);
-        if (res['success'] === true) return (typeof res['dataUri'] === 'string' ? res['dataUri'] : null);
+        if (res['success'] === true)
+          return typeof res['dataUri'] === 'string' ? res['dataUri'] : null;
 
         // Best-effort: pull missing files from remote SQL then retry once.
         if (typeof desktopDb.pullAttachmentsNow === 'function') {
@@ -2644,14 +2644,12 @@ export const DbService = {
 
     const upsertBy = <T extends object>(key: string, idField: keyof T) => {
       const all = get<T>(key);
-      const idx = all.findIndex(
-        (x) => String(asUnknownRecord(x)[String(idField)] ?? '') === rawId
-      );
+      const idx = all.findIndex((x) => String(asUnknownRecord(x)[String(idField)] ?? '') === rawId);
       if (idx === -1) return fail('السجل غير موجود');
       const next = { ...all[idx], ...patch } as T;
-      (next as unknown as Record<string, unknown>)[String(idField)] = asUnknownRecord(all[idx])[String(
-        idField
-      )];
+      (next as unknown as Record<string, unknown>)[String(idField)] = asUnknownRecord(all[idx])[
+        String(idField)
+      ];
       const updated = [...all];
       updated[idx] = next;
       save(key, updated);
@@ -3302,7 +3300,7 @@ export const DbService = {
         const tenantInstallments = installments
           .filter((i) => tenantContracts.some((c) => c.رقم_العقد === i.رقم_العقد))
           .filter((i) => i.نوع_الكمبيالة !== 'تأمين')
-            .filter((i) => !isArchived(i))
+          .filter((i) => !isArchived(i))
           .filter((i) => norm(i.حالة_الكمبيالة) !== INSTALLMENT_STATUS.CANCELLED);
 
         const computed = tenantInstallments.map((inst) => {
@@ -3899,7 +3897,8 @@ export const DbService = {
           DbService.updateReminder(next.reminderId, { date: next.dueDate });
         const patchRec = asUnknownRecord(patch);
         const dueTime = patchRec['dueTime'];
-        if (typeof dueTime === 'string') DbService.updateReminder(next.reminderId, { time: dueTime });
+        if (typeof dueTime === 'string')
+          DbService.updateReminder(next.reminderId, { time: dueTime });
         if (patch.status === 'Pending' || patch.status === 'Done')
           DbService.setReminderDone(next.reminderId, next.status === 'Done');
       }

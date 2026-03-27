@@ -1,14 +1,21 @@
 ﻿/**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
- * 
+ *
  * Daily Summary Widget - ملخص يومي للإشعارات والأحداث
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Bell, Calendar, AlertTriangle, CheckCircle, 
-  TrendingUp, Clock, FileText, Home, ArrowRight 
+import {
+  Bell,
+  Calendar,
+  AlertTriangle,
+  CheckCircle,
+  TrendingUp,
+  Clock,
+  FileText,
+  Home,
+  ArrowRight,
 } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { ROUTE_PATHS } from '@/routes/paths';
@@ -59,16 +66,20 @@ export const DailySummaryWidget: React.FC = () => {
     const isDesktopFast = isDesktop && !!desktopSummary;
 
     // حساب الإحصائيات (تنبيهات مفتوحة فقط)
-    const openAlerts = alerts.filter(a => !a.تم_القراءة);
+    const openAlerts = alerts.filter((a) => !a.تم_القراءة);
     const getAlertPriority = (alert: tbl_Alerts): string | undefined => {
       const priority = (alert as unknown as Record<string, unknown>)['الأولوية'];
       return typeof priority === 'string' ? priority : undefined;
     };
-    const criticalAlerts = openAlerts.filter(a => getAlertPriority(a) === 'عالية').length;
+    const criticalAlerts = openAlerts.filter((a) => getAlertPriority(a) === 'عالية').length;
 
     const paymentsToday = isDesktopFast
       ? Number(desktopSummary?.paymentsToday || 0) || 0
-      : (isDesktop ? 0 : DbService.getInstallments().filter(i => i.تاريخ_استحقاق === today && i.حالة_الكمبيالة === 'مدفوع').length);
+      : isDesktop
+        ? 0
+        : DbService.getInstallments().filter(
+            (i) => i.تاريخ_استحقاق === today && i.حالة_الكمبيالة === 'مدفوع'
+          ).length;
 
     // ✅ Payment notifications policy: pre-due reminders only (align with panel)
     const getTargetItemsLength = (target: unknown): number => {
@@ -79,34 +90,42 @@ export const DailySummaryWidget: React.FC = () => {
 
     const paymentRemindersNext7 = isDesktopFast
       ? Number(desktopSummary?.dueNext7Payments || 0) || 0
-      : (isDesktop
-          ? 0
-          : DbService.getPaymentNotificationTargets(7).reduce(
-              (sum, target) => sum + getTargetItemsLength(target),
-              0
-          ));
+      : isDesktop
+        ? 0
+        : DbService.getPaymentNotificationTargets(7).reduce(
+            (sum, target) => sum + getTargetItemsLength(target),
+            0
+          );
 
     const contractsExpiring = isDesktopFast
       ? Number(desktopSummary?.contractsExpiring30 || 0) || 0
-      : (isDesktop ? 0 : DbService.getContracts().filter(c => {
-          const endDate = new Date(c.تاريخ_النهاية);
-          const daysUntilExpiry = Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-          return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
-        }).length);
+      : isDesktop
+        ? 0
+        : DbService.getContracts().filter((c) => {
+            const endDate = new Date(c.تاريخ_النهاية);
+            const daysUntilExpiry = Math.ceil(
+              (endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+            );
+            return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+          }).length;
 
     const maintenanceOpen = isDesktopFast
       ? Number(desktopSummary?.maintenanceOpen || 0) || 0
-      : (isDesktop ? 0 : DbService.getMaintenanceTickets().filter(m => m.الحالة === 'مفتوح' || m.الحالة === 'قيد التنفيذ').length);
+      : isDesktop
+        ? 0
+        : DbService.getMaintenanceTickets().filter(
+            (m) => m.الحالة === 'مفتوح' || m.الحالة === 'قيد التنفيذ'
+          ).length;
 
     const newContracts = 0; // لا يوجد تاريخ إنشاء في نموذج العقود الحالي
 
     const totalRevenue = isDesktopFast
       ? Number(desktopSummary?.revenueToday || 0) || 0
-      : (isDesktop
-          ? 0
-          : DbService.getInstallments()
-              .filter(i => i.تاريخ_استحقاق === today && i.حالة_الكمبيالة === 'مدفوع')
-              .reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0));
+      : isDesktop
+        ? 0
+        : DbService.getInstallments()
+            .filter((i) => i.تاريخ_استحقاق === today && i.حالة_الكمبيالة === 'مدفوع')
+            .reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
 
     setSummary({
       date: today,
@@ -117,7 +136,7 @@ export const DailySummaryWidget: React.FC = () => {
       contractsExpiring,
       maintenanceOpen,
       newContracts,
-      totalRevenue
+      totalRevenue,
     });
   };
 
@@ -130,7 +149,7 @@ export const DailySummaryWidget: React.FC = () => {
       value: summary.criticalAlerts,
       color: 'text-red-600',
       bgColor: 'bg-red-50 dark:bg-red-900/20',
-      action: () => window.location.hash = ROUTE_PATHS.ALERTS
+      action: () => (window.location.hash = ROUTE_PATHS.ALERTS),
     },
     {
       icon: Clock,
@@ -138,7 +157,7 @@ export const DailySummaryWidget: React.FC = () => {
       value: summary.paymentRemindersNext7,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
-      action: () => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 })
+      action: () => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 }),
     },
     {
       icon: FileText,
@@ -146,7 +165,7 @@ export const DailySummaryWidget: React.FC = () => {
       value: summary.contractsExpiring,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50 dark:bg-amber-900/20',
-      action: () => window.location.hash = ROUTE_PATHS.CONTRACTS
+      action: () => (window.location.hash = ROUTE_PATHS.CONTRACTS),
     },
     {
       icon: Home,
@@ -154,7 +173,7 @@ export const DailySummaryWidget: React.FC = () => {
       value: summary.maintenanceOpen,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
-      action: () => window.location.hash = ROUTE_PATHS.MAINTENANCE
+      action: () => (window.location.hash = ROUTE_PATHS.MAINTENANCE),
     },
     {
       icon: CheckCircle,
@@ -162,7 +181,7 @@ export const DailySummaryWidget: React.FC = () => {
       value: summary.newContracts,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
-      action: () => window.location.hash = ROUTE_PATHS.CONTRACTS
+      action: () => (window.location.hash = ROUTE_PATHS.CONTRACTS),
     },
     {
       icon: TrendingUp,
@@ -170,8 +189,8 @@ export const DailySummaryWidget: React.FC = () => {
       value: `${summary.totalRevenue.toLocaleString()} د.أ`,
       color: 'text-green-600',
       bgColor: 'bg-green-50 dark:bg-green-900/20',
-      action: () => window.location.hash = ROUTE_PATHS.OPERATIONS
-    }
+      action: () => (window.location.hash = ROUTE_PATHS.OPERATIONS),
+    },
   ];
 
   return (
@@ -186,11 +205,11 @@ export const DailySummaryWidget: React.FC = () => {
             <h3 className="font-bold text-lg">الملخص اليومي</h3>
             <p className="text-xs text-indigo-100 flex items-center gap-1">
               <Calendar size={12} />
-              {new Date().toLocaleDateString('ar-EG', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+              {new Date().toLocaleDateString('ar-EG', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
               })}
             </p>
           </div>
@@ -213,14 +232,13 @@ export const DailySummaryWidget: React.FC = () => {
               <div className={`p-2 rounded-lg ${item.bgColor}`}>
                 <item.icon size={16} className={item.color} />
               </div>
-              <ArrowRight size={14} className="text-gray-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition" />
+              <ArrowRight
+                size={14}
+                className="text-gray-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition"
+              />
             </div>
-            <div className={`text-2xl font-bold ${item.color} mb-1`}>
-              {item.value}
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {item.label}
-            </div>
+            <div className={`text-2xl font-bold ${item.color} mb-1`}>{item.value}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{item.label}</div>
           </button>
         ))}
       </div>
@@ -232,4 +250,3 @@ export const DailySummaryWidget: React.FC = () => {
     </div>
   );
 };
-

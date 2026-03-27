@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Info, Users, Home, FileText, BrainCircuit, CloudLightning, 
-  ChevronLeft, ChevronRight, Check 
+import {
+  Info,
+  Users,
+  Home,
+  FileText,
+  BrainCircuit,
+  CloudLightning,
+  ChevronLeft,
+  ChevronRight,
+  Check,
 } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 
@@ -14,8 +21,8 @@ const STEPS = [
     features: [
       'لوحة قيادة شاملة للمؤشرات الحيوية',
       'إدارة ذكية للعقود والدفعات',
-      'نظام أرشفة ومتابعة دقيق'
-    ]
+      'نظام أرشفة ومتابعة دقيق',
+    ],
   },
   {
     title: 'إدارة المستأجرين والملاك',
@@ -25,8 +32,8 @@ const STEPS = [
     features: [
       'إضافة وتعديل بيانات الأشخاص',
       'تصنيف وتقييم سلوك المستأجرين',
-      'نظام القائمة السوداء (Blacklist) للحماية'
-    ]
+      'نظام القائمة السوداء (Blacklist) للحماية',
+    ],
   },
   {
     title: 'إدارة المحفظة العقارية',
@@ -36,8 +43,8 @@ const STEPS = [
     features: [
       'إضافة العقارات وتحديد المالك',
       'متابعة حالة الإشغال (شاغر/مؤجر)',
-      'سجل الصيانة والخدمات (كهرباء/مياه)'
-    ]
+      'سجل الصيانة والخدمات (كهرباء/مياه)',
+    ],
   },
   {
     title: 'محرك العقود الذكي',
@@ -47,8 +54,8 @@ const STEPS = [
     features: [
       'حساب تلقائي للكمبيالات والتواريخ',
       'تنبيهات قرب انتهاء العقود',
-      'إجراء المخالصات والتجديد بنقرة واحدة'
-    ]
+      'إجراء المخالصات والتجديد بنقرة واحدة',
+    ],
   },
   {
     title: 'المحرك الذكي (Smart Engine)',
@@ -58,8 +65,8 @@ const STEPS = [
     features: [
       'اقتراح القيم بناءً على الأنماط السابقة',
       'كشف الأخطاء والقيم الشاذة تلقائياً',
-      'تطبيق قواعد التحقق الذكية'
-    ]
+      'تطبيق قواعد التحقق الذكية',
+    ],
   },
   {
     title: 'التنبيهات والمزامنة',
@@ -69,9 +76,9 @@ const STEPS = [
     features: [
       'تنبيهات فورية للدفعات المستحقة',
       'مزامنة البيانات مع السيرفر في الخلفية',
-      'مؤشر حالة الاتصال (Online/Local)'
-    ]
-  }
+      'مؤشر حالة الاتصال (Online/Local)',
+    ],
+  },
 ];
 
 export const OnboardingGuide: React.FC = () => {
@@ -92,7 +99,7 @@ export const OnboardingGuide: React.FC = () => {
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
-      setCurrentStep(prev => prev + 1);
+      setCurrentStep((prev) => prev + 1);
     } else {
       handleComplete();
     }
@@ -100,7 +107,7 @@ export const OnboardingGuide: React.FC = () => {
 
   const handlePrev = () => {
     if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
+      setCurrentStep((prev) => prev - 1);
     }
   };
 
@@ -123,14 +130,19 @@ export const OnboardingGuide: React.FC = () => {
       closeOnEsc
     >
       {/* Left Side (Image/Icon) */}
-      <div className={`p-8 md:w-1/3 flex flex-col items-center justify-center text-white text-center ${Step.color} transition-colors duration-500`}>
+      <div
+        className={`p-8 md:w-1/3 flex flex-col items-center justify-center text-white text-center ${Step.color} transition-colors duration-500`}
+      >
         <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 shadow-inner">
           <Icon size={40} />
         </div>
         <h3 className="font-bold text-xl mb-2">الخطوة {currentStep + 1}</h3>
         <div className="flex gap-1 mt-2">
           {STEPS.map((_, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === currentStep ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`} />
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${i === currentStep ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}
+            />
           ))}
         </div>
       </div>
@@ -139,15 +151,22 @@ export const OnboardingGuide: React.FC = () => {
       <div className="p-8 md:w-2/3 flex flex-col">
         <div className="flex-1">
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">{Step.title}</h2>
-          <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-6">{Step.description}</p>
+          <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-6">
+            {Step.description}
+          </p>
 
           <div className="space-y-3">
             {Step.features.map((feat, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+              <div
+                key={i}
+                className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700"
+              >
                 <div className={`p-1 rounded-full ${Step.color} bg-opacity-10 text-current`}>
                   <Check size={14} className={Step.color.replace('bg-', 'text-')} />
                 </div>
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{feat}</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  {feat}
+                </span>
               </div>
             ))}
           </div>

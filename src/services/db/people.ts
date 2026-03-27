@@ -127,7 +127,9 @@ export const getPersonDetails = (id: string): PersonDetailsResult | null => {
     .map((r) => r.الدور);
   const props = get<العقارات_tbl>(KEYS.PROPERTIES).filter((pr) => pr.رقم_المالك === id);
   const contracts = get<العقود_tbl>(KEYS.CONTRACTS).filter((c) => c.رقم_المستاجر === id);
-  const blacklist = get<BlacklistRecord>(KEYS.BLACKLIST).find((b) => b.personId === id && b.isActive);
+  const blacklist = get<BlacklistRecord>(KEYS.BLACKLIST).find(
+    (b) => b.personId === id && b.isActive
+  );
 
   const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).filter((i) =>
     contracts.some((c) => c.رقم_العقد === i.رقم_العقد)
@@ -180,7 +182,10 @@ export const addToBlacklist = (
   ]);
 };
 
-export const updateBlacklistRecord = (id: string, data: Partial<BlacklistRecord>): DbResult<null> => {
+export const updateBlacklistRecord = (
+  id: string,
+  data: Partial<BlacklistRecord>
+): DbResult<null> => {
   const all = get<BlacklistRecord>(KEYS.BLACKLIST);
   const idx = all.findIndex((b) => b.id === id);
   if (idx > -1) {

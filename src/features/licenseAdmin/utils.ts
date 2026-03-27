@@ -8,7 +8,9 @@ export function fmtDateTime(iso?: string): string {
 export { getErrorMessage } from '@/utils/errors';
 
 export function licenseStatusToArabic(status?: string): string {
-  const v = String(status || '').trim().toLowerCase();
+  const v = String(status || '')
+    .trim()
+    .toLowerCase();
   if (!v) return '';
   if (v === 'active') return 'نشط';
   if (v === 'suspended') return 'معلق';
@@ -17,4 +19,3 @@ export function licenseStatusToArabic(status?: string): string {
   if (v === 'mismatch') return 'غير مطابق';
   return status || '';
 }
-

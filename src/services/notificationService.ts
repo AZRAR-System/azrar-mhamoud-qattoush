@@ -1,7 +1,7 @@
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
- * 
+ *
  * Notification Service - Integrated System
  * Handles alerts, toast notifications, and audio feedback
  */
@@ -39,19 +39,10 @@ class NotificationService {
   /**
    * Send a comprehensive notification with sound and toast
    */
-  notify(
-    message: string,
-    type: NotificationType = 'info',
-    options: NotificationOptions = {}
-  ) {
+  notify(message: string, type: NotificationType = 'info', options: NotificationOptions = {}) {
     if (!this.isEnabled) return;
 
-    const {
-      title,
-      sound = true,
-      showNotification = true,
-      category = type,
-    } = options;
+    const { title, sound = true, showNotification = true, category = type } = options;
 
     // Play sound if enabled
     if (sound) {
@@ -153,13 +144,9 @@ class NotificationService {
   }
 
   contractEnding(contractId: string, tenantName: string, daysRemaining: number) {
-    this.warning(
-      `العقد مع ${tenantName} ينتهي خلال ${daysRemaining} أيام`,
-      'انتهاء عقد قريب',
-      {
-        category: 'contracts',
-      }
-    );
+    this.warning(`العقد مع ${tenantName} ينتهي خلال ${daysRemaining} أيام`, 'انتهاء عقد قريب', {
+      category: 'contracts',
+    });
   }
 
   maintenanceRequired(propertyCode: string, issueType: string) {
@@ -181,7 +168,11 @@ class NotificationService {
   }
 
   systemAlert(message: string, severity: 'critical' | 'warning' | 'info' = 'warning') {
-    const typeMap = { critical: 'error' as NotificationType, warning: 'warning' as NotificationType, info: 'info' as NotificationType };
+    const typeMap = {
+      critical: 'error' as NotificationType,
+      warning: 'warning' as NotificationType,
+      info: 'info' as NotificationType,
+    };
     this.notify(message, typeMap[severity], {
       title: `تنبيه نظام - ${severity}`,
       category: 'system',
@@ -198,17 +189,17 @@ class NotificationService {
       type,
       category,
     };
-    
+
     const notifications = JSON.parse(localStorage.getItem('notificationLogs') || '[]');
     notifications.push(log);
-    
+
     // Keep only last 100 notifications
     if (notifications.length > 100) {
       notifications.shift();
     }
-      const serialized = JSON.stringify(notifications);
-      void storage.setItem('notificationLogs', serialized);
-      localStorage.setItem('notificationLogs', serialized);
+    const serialized = JSON.stringify(notifications);
+    void storage.setItem('notificationLogs', serialized);
+    localStorage.setItem('notificationLogs', serialized);
   }
 
   /**
@@ -225,8 +216,8 @@ class NotificationService {
    */
   clearLogs() {
     localStorage.setItem('notificationLogs', '[]');
-      void storage.setItem('notificationLogs', '[]');
-      localStorage.setItem('notificationLogs', '[]');
+    void storage.setItem('notificationLogs', '[]');
+    localStorage.setItem('notificationLogs', '[]');
   }
 }
 

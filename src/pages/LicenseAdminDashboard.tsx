@@ -45,10 +45,7 @@ export const LicenseAdminDashboard: React.FC = () => {
     saveLicenseAdminSelectedServer(selectedServer);
   }, [selectedServer]);
 
-  const serverOptions = useMemo(
-    () => servers.map((s) => ({ value: s, label: s })),
-    [servers]
-  );
+  const serverOptions = useMemo(() => servers.map((s) => ({ value: s, label: s })), [servers]);
 
   const refreshSession = async () => {
     if (!canUseBridge) {
@@ -71,8 +68,11 @@ export const LicenseAdminDashboard: React.FC = () => {
         return;
       }
 
-      const tokRes = await window.desktopLicenseAdmin.getAdminTokenStatus({ serverUrl: selectedServer });
-      const tokRec = tokRes && typeof tokRes === 'object' ? (tokRes as Record<string, unknown>) : {};
+      const tokRes = await window.desktopLicenseAdmin.getAdminTokenStatus({
+        serverUrl: selectedServer,
+      });
+      const tokRec =
+        tokRes && typeof tokRes === 'object' ? (tokRes as Record<string, unknown>) : {};
       if (tokRec.ok === true) setTokenConfigured(Boolean(tokRec.configured));
       else setTokenConfigured(null);
     } catch (e: unknown) {
@@ -95,7 +95,10 @@ export const LicenseAdminDashboard: React.FC = () => {
     setError('');
     setInfo('');
     try {
-      const res = await window.desktopLicenseAdmin.login({ username: username.trim(), password: password.trim() });
+      const res = await window.desktopLicenseAdmin.login({
+        username: username.trim(),
+        password: password.trim(),
+      });
       const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
       if (rec.ok !== true) throw new Error(String(rec.error || 'Login failed'));
       setPassword('');
@@ -153,7 +156,9 @@ export const LicenseAdminDashboard: React.FC = () => {
       <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">لوحة برنامج إدارة التفعيل</h1>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              لوحة برنامج إدارة التفعيل
+            </h1>
             <div className="text-xs text-slate-500 dark:text-slate-400">
               نقطة انطلاق لإعداد السيرفر/الدخول ثم إدارة التراخيص والمتابعة.
             </div>
@@ -200,7 +205,11 @@ export const LicenseAdminDashboard: React.FC = () => {
                 </Button>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <Button variant="danger" onClick={removeSelectedServer} disabled={busy || servers.length <= 1}>
+                <Button
+                  variant="danger"
+                  onClick={removeSelectedServer}
+                  disabled={busy || servers.length <= 1}
+                >
                   حذف المحدد
                 </Button>
               </div>
@@ -213,8 +222,17 @@ export const LicenseAdminDashboard: React.FC = () => {
             <div>
               <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">الدخول</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                الحالة: {canUseBridge ? (loggedIn ? 'مُسجل دخول' : loggedIn === false ? 'غير مُسجل' : '—') : 'Electron فقط'}
-                {loggedIn ? ` — توكن السيرفر: ${tokenConfigured === null ? '—' : tokenConfigured ? 'مُعد' : 'غير مُعد'}` : ''}
+                الحالة:{' '}
+                {canUseBridge
+                  ? loggedIn
+                    ? 'مُسجل دخول'
+                    : loggedIn === false
+                      ? 'غير مُسجل'
+                      : '—'
+                  : 'Electron فقط'}
+                {loggedIn
+                  ? ` — توكن السيرفر: ${tokenConfigured === null ? '—' : tokenConfigured ? 'مُعد' : 'غير مُعد'}`
+                  : ''}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -230,11 +248,22 @@ export const LicenseAdminDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <div className="text-xs text-slate-500 mb-1">اسم المستخدم</div>
-                <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" disabled={busy} />
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="admin"
+                  disabled={busy}
+                />
               </div>
               <div>
                 <div className="text-xs text-slate-500 mb-1">كلمة المرور</div>
-                <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" disabled={busy} />
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type="password"
+                  placeholder="••••••••"
+                  disabled={busy}
+                />
               </div>
               <div className="flex items-end">
                 <Button onClick={() => void doLogin()} disabled={busy || !canUseBridge}>
@@ -251,18 +280,24 @@ export const LicenseAdminDashboard: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 space-y-3">
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">إدارة التراخيص</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">إصدار/تعليق/إلغاء + ربط جهاز + حفظ ملف ترخيص</div>
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              إدارة التراخيص
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              إصدار/تعليق/إلغاء + ربط جهاز + حفظ ملف ترخيص
+            </div>
             <Link to={ROUTE_PATHS.LICENSE_ADMIN_LICENSES}>
-              <Button disabled={!loggedIn || busy || !canUseBridge}>
-                فتح
-              </Button>
+              <Button disabled={!loggedIn || busy || !canUseBridge}>فتح</Button>
             </Link>
           </Card>
 
           <Card className="p-4 space-y-3">
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">العملاء والمفاتيح</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">تجميع مفاتيح الترخيص حسب العميل</div>
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              العملاء والمفاتيح
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              تجميع مفاتيح الترخيص حسب العميل
+            </div>
             <Link to={ROUTE_PATHS.LICENSE_ADMIN_CUSTOMERS}>
               <Button variant="secondary" disabled={!loggedIn || busy || !canUseBridge}>
                 فتح
@@ -271,8 +306,12 @@ export const LicenseAdminDashboard: React.FC = () => {
           </Card>
 
           <Card className="p-4 space-y-3">
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">تفعيل النظام</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">عرض بصمة الجهاز + تفعيل عبر ملف أو الإنترنت</div>
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              تفعيل النظام
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              عرض بصمة الجهاز + تفعيل عبر ملف أو الإنترنت
+            </div>
             <Link to={ROUTE_PATHS.ACTIVATION}>
               <Button variant="secondary" disabled={busy}>
                 فتح

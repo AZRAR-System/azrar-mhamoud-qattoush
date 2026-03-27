@@ -563,7 +563,10 @@ export function createInstallmentPaymentHandlers(deps: InstallmentPaymentDeps) {
       `└─ التاريخ: ${reversalDate}`;
     logOperation(userId, 'عكس سداد - نجح', 'الكمبيالات', id, auditDesc);
 
-    return ok(inst, `✅ تم عكس السداد بنجاح: ${formatCurrencyJOD(reversedAmount)} (السبب: ${reason})`);
+    return ok(
+      inst,
+      `✅ تم عكس السداد بنجاح: ${formatCurrencyJOD(reversedAmount)} (السبب: ${reason})`
+    );
   };
 
   return { markInstallmentPaid, setInstallmentLateFee, reversePayment };

@@ -14,7 +14,7 @@ export const safeJsonParseArray = (raw: unknown): unknown[] => {
   return Array.isArray(parsed) ? parsed : [];
 };
 
-export const safeJsonParse = <T,>(raw: string | null | undefined, fallback: T): T => {
+export const safeJsonParse = <T>(raw: string | null | undefined, fallback: T): T => {
   if (!raw) return fallback;
   const parsed = tryParseJson(raw);
   return parsed === null ? fallback : (parsed as T);

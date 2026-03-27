@@ -56,7 +56,9 @@ export const useInAppReminderNotifier = () => {
 
     const scan = () => {
       const today = formatDateOnly(new Date());
-      const reminders = (DbService.getReminders?.() || []).filter((r: unknown) => isReminderLike(r) && !r.isDone);
+      const reminders = (DbService.getReminders?.() || []).filter(
+        (r: unknown) => isReminderLike(r) && !r.isDone
+      );
 
       const now = new Date();
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -73,7 +75,11 @@ export const useInAppReminderNotifier = () => {
         const title = String(r.type) === 'Task' ? 'مهمة اليوم' : 'تذكير اليوم';
         const message = String(r.title || '').trim() || 'لديك تذكير جديد اليوم';
 
-        notificationService.warning(message, title, { category: 'reminders', sound: true, showNotification: true });
+        notificationService.warning(message, title, {
+          category: 'reminders',
+          sound: true,
+          showNotification: true,
+        });
 
         notified.add(id);
         saveNotifiedSet(notified);

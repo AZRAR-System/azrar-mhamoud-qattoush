@@ -1,7 +1,20 @@
 ﻿import React, { useEffect, useState, memo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants';
-import { Bell, Menu, UserCircle, Moon, Sun, LogOut, Calendar, Clock as ClockIcon, X, ChevronRight, ChevronDown, Server } from 'lucide-react';
+import {
+  Bell,
+  Menu,
+  UserCircle,
+  Moon,
+  Sun,
+  LogOut,
+  Calendar,
+  Clock as ClockIcon,
+  X,
+  ChevronRight,
+  ChevronDown,
+  Server,
+} from 'lucide-react';
 import { SmartModalEngine } from '@/components/shared/SmartModalEngine';
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
 import { OnboardingGuide } from '@/components/shared/OnboardingGuide';
@@ -18,8 +31,10 @@ import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
-const getUnknownMessage = (v: unknown): string | undefined => (isRecord(v) && typeof v.message === 'string' ? v.message : undefined);
-const getUnknownSuccess = (v: unknown): boolean | undefined => (isRecord(v) && typeof v.success === 'boolean' ? v.success : undefined);
+const getUnknownMessage = (v: unknown): string | undefined =>
+  isRecord(v) && typeof v.message === 'string' ? v.message : undefined;
+const getUnknownSuccess = (v: unknown): boolean | undefined =>
+  isRecord(v) && typeof v.success === 'boolean' ? v.success : undefined;
 const getUnknownPending = (v: unknown): boolean => (isRecord(v) ? Boolean(v.pending) : false);
 
 // --- Optimized Clock Component ---
@@ -36,21 +51,23 @@ const LiveClock = memo(() => {
   const formattedDate = currentDate.toLocaleDateString('en-GB', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
   });
 
   const formattedTime = formatTimeHM(currentDate, { locale: 'en-US', hour12: true });
 
   return (
-     <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 bg-slate-100/50 dark:bg-slate-900/40 rounded-lg border border-slate-200/70 dark:border-slate-800 backdrop-blur-sm">
-       <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200 border-l border-slate-300/70 dark:border-slate-700 pl-3 ml-1">
-         <Calendar size={14} className="text-indigo-500" />
-          <span className="text-xs font-bold font-mono pt-0.5">{formattedDate}</span>
-       </div>
-       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-          <ClockIcon size={14} className="text-orange-500" />
-          <span className="text-[10px] font-bold font-mono pt-0.5" dir="ltr">{formattedTime}</span>
-       </div>
+    <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 bg-slate-100/50 dark:bg-slate-900/40 rounded-lg border border-slate-200/70 dark:border-slate-800 backdrop-blur-sm">
+      <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200 border-l border-slate-300/70 dark:border-slate-700 pl-3 ml-1">
+        <Calendar size={14} className="text-indigo-500" />
+        <span className="text-xs font-bold font-mono pt-0.5">{formattedDate}</span>
+      </div>
+      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+        <ClockIcon size={14} className="text-orange-500" />
+        <span className="text-[10px] font-bold font-mono pt-0.5" dir="ltr">
+          {formattedTime}
+        </span>
+      </div>
     </div>
   );
 });
@@ -62,10 +79,14 @@ const Breadcrumbs = memo(({ pathname }: { pathname: string }) => {
 
   return (
     <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
-      <a href="#/" className="hover:text-indigo-500 transition-colors">الرئيسية</a>
+      <a href="#/" className="hover:text-indigo-500 transition-colors">
+        الرئيسية
+      </a>
       {parts.map((part, idx) => {
         const isLast = idx === parts.length - 1;
-        const label = ROUTE_TITLES[('/' + parts.slice(0, idx + 1).join('/')) as keyof typeof ROUTE_TITLES] || part;
+        const label =
+          ROUTE_TITLES[('/' + parts.slice(0, idx + 1).join('/')) as keyof typeof ROUTE_TITLES] ||
+          part;
         return (
           <React.Fragment key={idx}>
             <ChevronRight size={10} className="text-slate-300 dark:text-slate-700" />
@@ -80,9 +101,23 @@ const Breadcrumbs = memo(({ pathname }: { pathname: string }) => {
 });
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
-  type SqlStatus = { configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string };
+  type SqlStatus = {
+    configured: boolean;
+    enabled: boolean;
+    connected: boolean;
+    lastError?: string;
+    lastSyncAt?: string;
+  };
   type DesktopOkMessage = { ok?: boolean; message?: string };
-  type SqlSyncEvent = { id: string; ts: string; direction: 'push' | 'pull' | 'system'; action: string; key?: string; status: 'ok' | 'error'; message?: string };
+  type SqlSyncEvent = {
+    id: string;
+    ts: string;
+    direction: 'push' | 'pull' | 'system';
+    action: string;
+    key?: string;
+    status: 'ok' | 'error';
+    message?: string;
+  };
 
   const { openPanel } = useSmartModal();
   const { user } = useAuth();
@@ -96,7 +131,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const serverOnboardingGuard = useRef(false);
 
   const hasDesktopBridge = !!window.desktopDb;
-  const [sqlStatus, setSqlStatus] = useState<{ configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string } | null>(null);
+  const [sqlStatus, setSqlStatus] = useState<{
+    configured: boolean;
+    enabled: boolean;
+    connected: boolean;
+    lastError?: string;
+    lastSyncAt?: string;
+  } | null>(null);
   const rrLocation = useLocation();
   const pathname = rrLocation.pathname || '/';
 
@@ -137,7 +178,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         const parts: string[] = [];
         if (agg.upserts > 0) parts.push(`${agg.upserts} تحديث`);
         if (agg.deletes > 0) parts.push(`${agg.deletes} حذف`);
-        toast.showToast(`تمت المزامنة: ${parts.join(' / ')}`, 'success', 'المزامنة', { sound: false });
+        toast.showToast(`تمت المزامنة: ${parts.join(' / ')}`, 'success', 'المزامنة', {
+          sound: false,
+        });
       }
 
       agg.lastToastAt = Date.now();
@@ -151,8 +194,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       if (!evt || evt.direction === 'system') return;
 
       if (evt.status === 'error') agg.errors += 1;
-      else if (typeof evt.action === 'string' && evt.action.toLowerCase().includes('delete')) agg.deletes += 1;
-      else if (typeof evt.action === 'string' && evt.action.toLowerCase().includes('upsert')) agg.upserts += 1;
+      else if (typeof evt.action === 'string' && evt.action.toLowerCase().includes('delete'))
+        agg.deletes += 1;
+      else if (typeof evt.action === 'string' && evt.action.toLowerCase().includes('upsert'))
+        agg.upserts += 1;
       else {
         // Fallback: treat unknown successful change as an upsert
         agg.upserts += 1;
@@ -189,7 +234,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         const st = (await sqlStatusFn()) as unknown as SqlStatus | null;
         if (!cancelled) setSqlStatus(st || null);
       } catch {
-        if (!cancelled) setSqlStatus(prev => prev ? { ...prev, connected: false } : { configured: false, enabled: false, connected: false });
+        if (!cancelled)
+          setSqlStatus((prev) =>
+            prev
+              ? { ...prev, connected: false }
+              : { configured: false, enabled: false, connected: false }
+          );
       }
     };
 
@@ -220,7 +270,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         const alreadyAttempted = localStorage.getItem(autoRestoreAttemptKey) === '1';
 
         // Always show server connection screen first in a new system
-        openPanel('SERVER_DRAWER', undefined, { title: 'إعدادات المخدم', initialSection: 'server' });
+        openPanel('SERVER_DRAWER', undefined, {
+          title: 'إعدادات المخدم',
+          initialSection: 'server',
+        });
 
         // If already configured+enabled, attempt to connect and pull immediately (once)
         if (!alreadyAttempted) {
@@ -229,7 +282,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           if (cancelled) return;
           if (st?.configured && st?.enabled) {
             await window.desktopDb?.sqlConnect?.();
-            const syncRes = (await window.desktopDb?.sqlSyncNow?.()) as unknown as DesktopOkMessage | null;
+            const syncRes =
+              (await window.desktopDb?.sqlSyncNow?.()) as unknown as DesktopOkMessage | null;
             if (cancelled) return;
             if (syncRes?.ok) {
               // Reload to rebuild in-memory indexes/caches and ensure relationships are consistent
@@ -281,7 +335,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
     let cancelled = false;
     const bridge = window.desktopUpdater;
-    if (!bridge?.getPendingRestore || !bridge?.restorePending || !bridge?.clearPendingRestore) return;
+    if (!bridge?.getPendingRestore || !bridge?.restorePending || !bridge?.clearPendingRestore)
+      return;
 
     Promise.resolve(bridge.getPendingRestore())
       .then((info: unknown) => {
@@ -315,7 +370,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               openPanel('CONFIRM_MODAL', 'restore_failed_exception', {
                 title: 'فشل الاسترجاع',
                 confirmText: 'حسناً',
-                message: (e instanceof Error ? e.message : undefined) || 'تعذر استرجاع النسخة الاحتياطية.',
+                message:
+                  (e instanceof Error ? e.message : undefined) || 'تعذر استرجاع النسخة الاحتياطية.',
               });
             }
           },
@@ -350,12 +406,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   // ================================
   useEffect(() => {
     const handleResize = () => {
-        const desktop = window.innerWidth >= 1024;
-        setIsDesktop(desktop);
-        if (desktop) setSidebarOpen(true);
-        else setSidebarOpen(false);
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+      if (desktop) setSidebarOpen(true);
+      else setSidebarOpen(false);
     };
-    
+
     window.addEventListener('resize', handleResize);
     handleResize(); // Init
 
@@ -379,7 +435,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
   // Close sidebar on mobile route change
   useEffect(() => {
-      if (!isDesktop) setSidebarOpen(false);
+    if (!isDesktop) setSidebarOpen(false);
   }, [location.pathname, isDesktop]);
 
   // Mobile sidebar parity: ESC closes + lock body scroll
@@ -442,7 +498,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     if (byRoute) return byRoute;
 
     // Search in top level
-    const current = NAV_ITEMS.find(n => n.path === location.pathname);
+    const current = NAV_ITEMS.find((n) => n.path === location.pathname);
     if (current) return current.label;
 
     // Search in children
@@ -459,22 +515,21 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   };
 
   const toggleMenu = (label: string) => {
-      setExpandedMenus(prev => 
-        prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
-      );
+    setExpandedMenus((prev) =>
+      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]
+    );
   };
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300 font-sans">
-
       {/* ================================ */}
       {/* Mobile Overlay */}
       {/* ================================ */}
       {!isDesktop && sidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-md layer-sidebar animate-fade-in"
-            onClick={() => setSidebarOpen(false)}
-          />
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-md layer-sidebar animate-fade-in"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
 
       {/* ================================ */}
@@ -491,31 +546,35 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       >
         {/* Modern Logo Header */}
         <div className="h-24 flex items-center justify-between px-6">
-          {(sidebarOpen || !isDesktop) ? (
+          {sidebarOpen || !isDesktop ? (
             <div className="flex items-center gap-4 animate-fade-in">
               <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 via-indigo-500 to-indigo-400 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/30 text-white font-black text-xl transform hover:rotate-6 transition-transform">
                 A
               </div>
               <div className="flex flex-col">
                 <span className="text-xl font-black tracking-tight text-gradient">AZRAR</span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">v{appVersion || '—'} Real Estate</span>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  v{appVersion || '—'} Real Estate
+                </span>
               </div>
             </div>
           ) : (
-             <div className="w-full flex justify-center">
-               <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20">A</div>
-             </div>
+            <div className="w-full flex justify-center">
+              <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20">
+                A
+              </div>
+            </div>
           )}
 
           {!isDesktop && (
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all"
-                aria-label="إغلاق"
-              >
-                  <X size={22} />
-              </button>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all"
+              aria-label="إغلاق"
+            >
+              <X size={22} />
+            </button>
           )}
         </div>
 
@@ -523,89 +582,104 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 no-scrollbar">
           {NAV_ITEMS.map((item: NavItem) => {
             const Icon = item.icon;
-            const isOpenState = (sidebarOpen || !isDesktop);
+            const isOpenState = sidebarOpen || !isDesktop;
             const hasChildren = item.children && item.children.length > 0;
             const isExpanded = expandedMenus.includes(item.label);
-            
+
             const isSelfActive = location.pathname === item.path;
             const isChildActive = !!item.children?.some((c) => c.path === location.pathname);
             const isActive = isSelfActive || isChildActive;
 
             if (hasChildren) {
-                const visibleChildren = (item.children ?? []).filter((child) => {
-                  if (child?.role && !isRole(user?.الدور, child.role)) return false;
-                  return true;
-                });
+              const visibleChildren = (item.children ?? []).filter((child) => {
+                if (child?.role && !isRole(user?.الدور, child.role)) return false;
+                return true;
+              });
 
-                return (
-                    <div key={item.label} className="mb-2">
-                        <button
-                            onClick={() => {
-                                if (!isOpenState) setSidebarOpen(true);
-                                toggleMenu(item.label);
-                            }}
-                            className={`
+              return (
+                <div key={item.label} className="mb-2">
+                  <button
+                    onClick={() => {
+                      if (!isOpenState) setSidebarOpen(true);
+                      toggleMenu(item.label);
+                    }}
+                    className={`
                                 w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
                               ${isActive ? 'bg-indigo-50/80 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 shadow-soft' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40'}
                                 ${!isOpenState ? 'justify-center' : ''}
                             `}
-                        >
-                            <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className={`transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : ''}`} />
-                            {isOpenState && (
-                                <>
-                                    <span className="text-sm font-bold flex-1 text-right">{item.label}</span>
-                                    <ChevronDown size={18} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-                                </>
-                            )}
-                            {isActive && !isOpenState && <div className="absolute left-0 w-1.5 h-8 bg-indigo-600 rounded-r-full shadow-lg shadow-indigo-600/50" />}
-                        </button>
+                  >
+                    <Icon
+                      size={22}
+                      strokeWidth={isActive ? 2.5 : 2}
+                      className={`transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : ''}`}
+                    />
+                    {isOpenState && (
+                      <>
+                        <span className="text-sm font-bold flex-1 text-right">{item.label}</span>
+                        <ChevronDown
+                          size={18}
+                          className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </>
+                    )}
+                    {isActive && !isOpenState && (
+                      <div className="absolute left-0 w-1.5 h-8 bg-indigo-600 rounded-r-full shadow-lg shadow-indigo-600/50" />
+                    )}
+                  </button>
 
-                        {isOpenState && isExpanded && (
-                            <div className="mt-2 mr-6 border-r-2 border-indigo-100 dark:border-indigo-900/30 pr-4 space-y-1.5 animate-slide-up">
-                                {visibleChildren.map((child) => {
-                                    const ChildIcon = child.icon;
-                                    const isChildActive = location.pathname === child.path;
-                                    return (
-                                        <a
-                                            key={child.path}
-                                            href={`#${child.path}`}
-                                            className={`
+                  {isOpenState && isExpanded && (
+                    <div className="mt-2 mr-6 border-r-2 border-indigo-100 dark:border-indigo-900/30 pr-4 space-y-1.5 animate-slide-up">
+                      {visibleChildren.map((child) => {
+                        const ChildIcon = child.icon;
+                        const isChildActive = location.pathname === child.path;
+                        return (
+                          <a
+                            key={child.path}
+                            href={`#${child.path}`}
+                            className={`
                                               flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all
-                                                ${isChildActive
-                                              ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/25'
-                                              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/40'
+                                                ${
+                                                  isChildActive
+                                                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/25'
+                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/40'
                                                 }
                                             `}
-                                        >
-                                            <ChildIcon size={16} />
-                                            <span>{child.label}</span>
-                                        </a>
-                                    );
-                                })}
-                            </div>
-                        )}
+                          >
+                            <ChildIcon size={16} />
+                            <span>{child.label}</span>
+                          </a>
+                        );
+                      })}
                     </div>
-                );
+                  )}
+                </div>
+              );
             }
-            
+
             return (
               <a
                 key={item.path}
                 href={`#${item.path}`}
-                className={
-                  `
+                className={`
                   flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
-                  ${isActive
-                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xl shadow-indigo-600/30'
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-white'
+                  ${
+                    isActive
+                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xl shadow-indigo-600/30'
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-white'
                   }
                   ${!isOpenState ? 'justify-center' : ''}
-                `
-                }
+                `}
               >
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className="transition-transform group-hover:scale-110" />
+                <Icon
+                  size={22}
+                  strokeWidth={isActive ? 2.5 : 2}
+                  className="transition-transform group-hover:scale-110"
+                />
                 {isOpenState && <span className="text-sm font-bold">{item.label}</span>}
-                {isActive && !isOpenState && <div className="absolute left-0 w-1.5 h-8 bg-white rounded-r-full" />}
+                {isActive && !isOpenState && (
+                  <div className="absolute left-0 w-1.5 h-8 bg-white rounded-r-full" />
+                )}
               </a>
             );
           })}
@@ -613,32 +687,32 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
         {/* User Block - Enhanced Glass Style */}
         {(sidebarOpen || !isDesktop) && (
-            <div className="mx-4 mb-6 p-4 rounded-3xl bg-slate-50/50 dark:bg-slate-950/40 border border-white/20 dark:border-slate-800/50 shadow-soft">
-              <div className="flex items-center gap-4">
-                  <div className="relative">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-200 to-white dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border border-white dark:border-slate-800 shadow-inner">
-                        <UserCircle size={32} className="text-slate-400" />
-                      </div>
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-4 border-white dark:border-slate-900 rounded-full shadow-lg"></div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate">
-                          {user?.اسم_للعرض || user?.اسم_المستخدم || 'مستخدم'}
-                      </p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                        {user?.الدور || '—'}
-                      </p>
-                  </div>
+          <div className="mx-4 mb-6 p-4 rounded-3xl bg-slate-50/50 dark:bg-slate-950/40 border border-white/20 dark:border-slate-800/50 shadow-soft">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-200 to-white dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border border-white dark:border-slate-800 shadow-inner">
+                  <UserCircle size={32} className="text-slate-400" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-4 border-white dark:border-slate-900 rounded-full shadow-lg"></div>
               </div>
-
-              <a
-                href="#/logout"
-                className="mt-4 w-full inline-flex items-center justify-center gap-3 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-red-100 dark:hover:border-red-900/30 hover:shadow-lg text-xs font-black"
-              >
-                <LogOut size={18} />
-                <span>تسجيل الخروج</span>
-              </a>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate">
+                  {user?.اسم_للعرض || user?.اسم_المستخدم || 'مستخدم'}
+                </p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                  {user?.الدور || '—'}
+                </p>
+              </div>
             </div>
+
+            <a
+              href="#/logout"
+              className="mt-4 w-full inline-flex items-center justify-center gap-3 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-red-100 dark:hover:border-red-900/30 hover:shadow-lg text-xs font-black"
+            >
+              <LogOut size={18} />
+              <span>تسجيل الخروج</span>
+            </a>
+          </div>
         )}
       </aside>
 
@@ -646,10 +720,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       {/* Main Content Area */}
       {/* ================================ */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full layer-content">
-
         {/* Floating Modern Header */}
         <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft layer-header transition-all">
-          
           <div className="flex items-center gap-6">
             {!isDesktop && (
               <button
@@ -657,10 +729,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 onClick={() => setSidebarOpen(true)}
                 className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl hover:scale-105 active:scale-95 transition-all"
               >
-                    <Menu size={24} />
-                </button>
+                <Menu size={24} />
+              </button>
             )}
-            
+
             <div className="flex flex-col">
               <Breadcrumbs pathname={pathname} />
               <h1 className="text-xl lg:text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
@@ -676,9 +748,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           </div>
 
           <div className="flex items-center gap-4 lg:gap-6">
-            
             <div className="hidden xl:block">
-                <LiveClock />
+              <LiveClock />
             </div>
 
             <div className="flex items-center bg-slate-100/50 dark:bg-slate-800/40 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
@@ -690,10 +761,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <div className="flex items-center gap-2">
               {hasDesktopBridge && window.desktopDb?.sqlStatus && (
                 <button
-                  onClick={() => openPanel('SERVER_DRAWER', undefined, { title: 'إعدادات المخدم', initialSection: 'server' })}
+                  onClick={() =>
+                    openPanel('SERVER_DRAWER', undefined, {
+                      title: 'إعدادات المخدم',
+                      initialSection: 'server',
+                    })
+                  }
                   className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 transition-all hover:scale-105 active:scale-95 ${
                     sqlStatus?.enabled
-                      ? (sqlStatus?.connected ? 'text-emerald-600 dark:text-emerald-400 shadow-emerald-500/10' : 'text-red-600 dark:text-red-400 shadow-red-500/10')
+                      ? sqlStatus?.connected
+                        ? 'text-emerald-600 dark:text-emerald-400 shadow-emerald-500/10'
+                        : 'text-red-600 dark:text-red-400 shadow-red-500/10'
                       : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
@@ -734,17 +812,21 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         {/* Content Container - Modern Layout */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-transparent no-scrollbar scroll-smooth">
           <div className="max-w-[1600px] mx-auto w-full page-transition pb-24 lg:pb-12 min-h-full">
-              {children}
+            {children}
           </div>
-          
+
           {/* Elegant Footer */}
           <footer className="mt-auto py-10 text-center">
             <div className="inline-flex flex-col items-center gap-2 px-6 py-3 rounded-2xl bg-white/30 dark:bg-slate-900/30 backdrop-blur-sm border border-white/10 dark:border-slate-800/30">
               <p dir="ltr" className="text-[10px] font-bold text-slate-400 dark:text-slate-600">
-                &copy; 2025 — PRO EDITION — DEVELOPED BY <span className="text-indigo-500/80 dark:text-indigo-400/80">MAHMOUD QATTOUSH</span>
+                &copy; 2025 — PRO EDITION — DEVELOPED BY{' '}
+                <span className="text-indigo-500/80 dark:text-indigo-400/80">MAHMOUD QATTOUSH</span>
               </p>
               <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
-              <p dir="ltr" className="text-[9px] text-slate-300 dark:text-slate-700 tracking-[0.2em] uppercase">
+              <p
+                dir="ltr"
+                className="text-[9px] text-slate-300 dark:text-slate-700 tracking-[0.2em] uppercase"
+              >
                 AZRAR Real Estate Management
               </p>
             </div>

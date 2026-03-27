@@ -2,7 +2,11 @@ import { ROUTE_PATHS } from '@/routes/paths';
 
 export type LicenseGuardResult =
   | { ok: true }
-  | { ok: false; reason: 'not-desktop' | 'bridge-missing' | 'not-activated' | 'unknown'; message: string };
+  | {
+      ok: false;
+      reason: 'not-desktop' | 'bridge-missing' | 'not-activated' | 'unknown';
+      message: string;
+    };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === 'object';
@@ -12,7 +16,8 @@ export async function ensureDesktopActivated(opts?: {
   redirectToLogin?: boolean;
 }): Promise<LicenseGuardResult> {
   try {
-    if (typeof window === 'undefined') return { ok: false, reason: 'not-desktop', message: 'Not in browser context' };
+    if (typeof window === 'undefined')
+      return { ok: false, reason: 'not-desktop', message: 'Not in browser context' };
 
     const w = window as unknown as { desktopLicensing?: unknown; desktopDb?: unknown };
     const bridge = (w.desktopLicensing ?? w.desktopDb) as unknown;

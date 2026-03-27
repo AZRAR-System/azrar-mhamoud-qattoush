@@ -14,14 +14,14 @@ import {
   EyeOff,
   MessageCircle,
   Search,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
 import {
   NotificationTemplates,
   NotificationTemplate,
   TemplateContext,
   fillTemplateComplete,
-  openWhatsApp
+  openWhatsApp,
 } from '@/services/notificationTemplates';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { safeCopyToClipboard } from '@/utils/clipboard';
@@ -55,13 +55,13 @@ export const NotificationTemplatesPanel: React.FC = () => {
     let filtered = templates;
 
     if (selectedCategory) {
-      filtered = filtered.filter(t => t.category === selectedCategory);
+      filtered = filtered.filter((t) => t.category === selectedCategory);
     }
 
     if (searchTerm.trim()) {
       const lower = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        t =>
+        (t) =>
           t.name.toLowerCase().includes(lower) ||
           t.title.toLowerCase().includes(lower) ||
           t.body.toLowerCase().includes(lower)
@@ -130,7 +130,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
       title: 'العنوان',
       body: 'النص الأساسي',
       enabled: true,
-      tags: []
+      tags: [],
     });
     setTemplates(NotificationTemplates.getAll());
     handleEdit(newTemplate);
@@ -199,22 +199,20 @@ export const NotificationTemplatesPanel: React.FC = () => {
           >
             الكل
           </Button>
-          {(['reminder', 'due', 'late', 'warning', 'legal'] as const).map(
-            (category) => (
-              <Button
-                key={category}
-                variant={selectedCategory === category ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category === 'reminder' && 'تذكيرات'}
-                {category === 'due' && 'استحقاق'}
-                {category === 'late' && 'تأخر'}
-                {category === 'warning' && 'إنذارات'}
-                {category === 'legal' && 'قانوني'}
-              </Button>
-            )
-          )}
+          {(['reminder', 'due', 'late', 'warning', 'legal'] as const).map((category) => (
+            <Button
+              key={category}
+              variant={selectedCategory === category ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setSelectedCategory(category)}
+            >
+              {category === 'reminder' && 'تذكيرات'}
+              {category === 'due' && 'استحقاق'}
+              {category === 'late' && 'تأخر'}
+              {category === 'warning' && 'إنذارات'}
+              {category === 'legal' && 'قانوني'}
+            </Button>
+          ))}
         </div>
       </Card>
 
@@ -233,41 +231,29 @@ export const NotificationTemplatesPanel: React.FC = () => {
                 <Card className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-bold mb-2">
-                        اسم النموذج
-                      </label>
+                      <label className="block text-sm font-bold mb-2">اسم النموذج</label>
                       <Input
                         type="text"
                         value={editData.name || ''}
-                        onChange={(e) =>
-                          setEditData({ ...editData, name: e.target.value })
-                        }
+                        onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-bold mb-2">
-                        العنوان
-                      </label>
+                      <label className="block text-sm font-bold mb-2">العنوان</label>
                       <Input
                         type="text"
                         value={editData.title || ''}
-                        onChange={(e) =>
-                          setEditData({ ...editData, title: e.target.value })
-                        }
+                        onChange={(e) => setEditData({ ...editData, title: e.target.value })}
                         placeholder="مثال: {{tenantName}} - {{amount}}"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-bold mb-2">
-                        النص الأساسي
-                      </label>
+                      <label className="block text-sm font-bold mb-2">النص الأساسي</label>
                       <textarea
                         value={editData.body || ''}
-                        onChange={(e) =>
-                          setEditData({ ...editData, body: e.target.value })
-                        }
+                        onChange={(e) => setEditData({ ...editData, body: e.target.value })}
                         rows={6}
                         placeholder={`استخدم {{}} للمتغيرات:
 {{tenantName}} - اسم المستأجر
@@ -282,11 +268,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button
-                        variant="primary"
-                        onClick={handleSaveEdit}
-                        className="flex-1 gap-2"
-                      >
+                      <Button variant="primary" onClick={handleSaveEdit} className="flex-1 gap-2">
                         <Check size={16} /> حفظ التغييرات
                       </Button>
                       <Button
@@ -306,9 +288,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
                 // وضع العرض
                 <Card
                   className={`p-4 transition-all ${
-                    !template.enabled
-                      ? 'opacity-60 bg-slate-50 dark:bg-slate-800'
-                      : ''
+                    !template.enabled ? 'opacity-60 bg-slate-50 dark:bg-slate-800' : ''
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
@@ -320,12 +300,12 @@ export const NotificationTemplatesPanel: React.FC = () => {
                             template.category === 'reminder'
                               ? 'bg-indigo-100 text-indigo-700'
                               : template.category === 'due'
-                              ? 'bg-green-100 text-green-700'
-                              : template.category === 'late'
-                              ? 'bg-orange-100 text-orange-700'
-                              : template.category === 'warning'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-purple-100 text-purple-700'
+                                ? 'bg-green-100 text-green-700'
+                                : template.category === 'late'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : template.category === 'warning'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-purple-100 text-purple-700'
                           }`}
                         >
                           {template.category === 'reminder' && 'تذكير'}
@@ -364,16 +344,10 @@ export const NotificationTemplatesPanel: React.FC = () => {
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() =>
-                          handleToggleEnabled(template.id)
-                        }
+                        onClick={() => handleToggleEnabled(template.id)}
                         title={template.enabled ? 'تعطيل' : 'تفعيل'}
                       >
-                        {template.enabled ? (
-                          <Eye size={16} />
-                        ) : (
-                          <EyeOff size={16} />
-                        )}
+                        {template.enabled ? <Eye size={16} /> : <EyeOff size={16} />}
                       </Button>
                       <Button
                         size="sm"
@@ -435,7 +409,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
                             onChange={(e) =>
                               setPreviewContext({
                                 ...previewContext,
-                                tenantName: e.target.value
+                                tenantName: e.target.value,
                               })
                             }
                             uiSize="sm"
@@ -447,7 +421,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
                             onChange={(e) =>
                               setPreviewContext({
                                 ...previewContext,
-                                propertyCode: e.target.value
+                                propertyCode: e.target.value,
                               })
                             }
                             uiSize="sm"
@@ -459,7 +433,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
                             onChange={(e) =>
                               setPreviewContext({
                                 ...previewContext,
-                                amount: Number(e.target.value)
+                                amount: Number(e.target.value),
                               })
                             }
                             uiSize="sm"
@@ -471,7 +445,7 @@ export const NotificationTemplatesPanel: React.FC = () => {
                             onChange={(e) =>
                               setPreviewContext({
                                 ...previewContext,
-                                daysLate: Number(e.target.value)
+                                daysLate: Number(e.target.value),
                               })
                             }
                             uiSize="sm"
@@ -485,12 +459,10 @@ export const NotificationTemplatesPanel: React.FC = () => {
                         </p>
                         <div className="bg-white dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-700">
                           <p className="font-bold text-slate-900 dark:text-white mb-2">
-                            {fillTemplateComplete(template, previewContext)
-                              .title}
+                            {fillTemplateComplete(template, previewContext).title}
                           </p>
                           <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                            {fillTemplateComplete(template, previewContext)
-                              .body}
+                            {fillTemplateComplete(template, previewContext).body}
                           </p>
                         </div>
                       </div>
@@ -505,29 +477,25 @@ export const NotificationTemplatesPanel: React.FC = () => {
 
       {/* Info Box */}
       <Card className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
-        <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2">
-          💡 ملاحظات مهمة
-        </h4>
+        <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2">💡 ملاحظات مهمة</h4>
         <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
           <li>
-            • استخدم <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">
+            • استخدم{' '}
+            <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">
               {'{{'} {'}}'}
-            </code> للمتغيرات (مثل: <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">
-              {'{'}{'{'} tenantName {'}'}{'}'} 
-            </code>)
+            </code>{' '}
+            للمتغيرات (مثل:{' '}
+            <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">
+              {'{'}
+              {'{'} tenantName {'}'}
+              {'}'}
+            </code>
+            )
           </li>
-          <li>
-            • النماذج المعطلة لن تظهر في القوائم ولن يتم استخدامها
-          </li>
-          <li>
-            • يمكنك نسخ الرسالة أو فتحها مباشرة في واتساب
-          </li>
-          <li>
-            • التغييرات تُحفظ تلقائياً في ذاكرة المتصفح
-          </li>
-          <li>
-            • استخدم "إعادة التعيين" لاستعادة النماذج الافتراضية
-          </li>
+          <li>• النماذج المعطلة لن تظهر في القوائم ولن يتم استخدامها</li>
+          <li>• يمكنك نسخ الرسالة أو فتحها مباشرة في واتساب</li>
+          <li>• التغييرات تُحفظ تلقائياً في ذاكرة المتصفح</li>
+          <li>• استخدم "إعادة التعيين" لاستعادة النماذج الافتراضية</li>
         </ul>
       </Card>
     </div>

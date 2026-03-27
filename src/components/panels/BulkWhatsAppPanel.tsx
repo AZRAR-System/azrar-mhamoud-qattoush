@@ -1,6 +1,8 @@
 import React, { Suspense } from 'react';
 
-const BulkWhatsApp = React.lazy(() => import('@/pages/BulkWhatsApp').then((module) => ({ default: module.BulkWhatsApp })));
+const BulkWhatsApp = React.lazy(() =>
+  import('@/pages/BulkWhatsApp').then((module) => ({ default: module.BulkWhatsApp }))
+);
 
 const PanelLoader = () => (
   <div className="p-4">

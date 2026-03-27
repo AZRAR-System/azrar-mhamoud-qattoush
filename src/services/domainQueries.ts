@@ -17,7 +17,10 @@ export type DomainEntity = DomainEntityType;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const hasUnknownProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, unknown> =>
+const hasUnknownProp = <K extends string>(
+  obj: Record<string, unknown>,
+  key: K
+): obj is Record<string, unknown> & Record<K, unknown> =>
   Object.prototype.hasOwnProperty.call(obj, key);
 
 const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -52,9 +55,27 @@ type DashboardPerformance = {
 };
 
 type DashboardHighlights = {
-  dueInstallmentsToday: Array<{ contractId: string; tenantName: string; dueDate: string; remaining: number }>;
-  expiringContracts: Array<{ contractId: string; propertyId: string; propertyCode: string; tenantId: string; tenantName: string; endDate: string }>;
-  incompleteProperties: Array<{ propertyId: string; propertyCode: string; missingWater: boolean; missingElectric: boolean; missingArea: boolean }>;
+  dueInstallmentsToday: Array<{
+    contractId: string;
+    tenantName: string;
+    dueDate: string;
+    remaining: number;
+  }>;
+  expiringContracts: Array<{
+    contractId: string;
+    propertyId: string;
+    propertyCode: string;
+    tenantId: string;
+    tenantName: string;
+    endDate: string;
+  }>;
+  incompleteProperties: Array<{
+    propertyId: string;
+    propertyCode: string;
+    missingWater: boolean;
+    missingElectric: boolean;
+    missingArea: boolean;
+  }>;
 };
 
 type PaymentNotificationTarget = {
@@ -80,7 +101,9 @@ type PaymentNotificationTarget = {
 
 const isDesktop = () => typeof window !== 'undefined' && !!window.desktopDb;
 
-export async function domainSearchGlobalSmart(query: string): Promise<{ people: الأشخاص_tbl[]; properties: العقارات_tbl[]; contracts: العقود_tbl[] }> {
+export async function domainSearchGlobalSmart(
+  query: string
+): Promise<{ people: الأشخاص_tbl[]; properties: العقارات_tbl[]; contracts: العقود_tbl[] }> {
   const q = String(query || '').trim();
   if (!q) return { people: [], properties: [], contracts: [] };
 
@@ -89,9 +112,16 @@ export async function domainSearchGlobalSmart(query: string): Promise<{ people: 
       const res: unknown = await window.desktopDb.domainSearchGlobal(q);
       if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
         return {
-          people: isRecord(res) && hasUnknownProp(res, 'people') ? asArray<الأشخاص_tbl>(res.people) : [],
-          properties: isRecord(res) && hasUnknownProp(res, 'properties') ? asArray<العقارات_tbl>(res.properties) : [],
-          contracts: isRecord(res) && hasUnknownProp(res, 'contracts') ? asArray<العقود_tbl>(res.contracts) : [],
+          people:
+            isRecord(res) && hasUnknownProp(res, 'people') ? asArray<الأشخاص_tbl>(res.people) : [],
+          properties:
+            isRecord(res) && hasUnknownProp(res, 'properties')
+              ? asArray<العقارات_tbl>(res.properties)
+              : [],
+          contracts:
+            isRecord(res) && hasUnknownProp(res, 'contracts')
+              ? asArray<العقود_tbl>(res.contracts)
+              : [],
         };
       }
     } catch {
@@ -105,14 +135,23 @@ export async function domainSearchGlobalSmart(query: string): Promise<{ people: 
   return DbService.searchGlobal(q);
 }
 
-export async function domainSearchSmart<E extends DomainEntity>(entity: E, query: string, limit = 50): Promise<Array<DomainEntityMap[E]>> {
+export async function domainSearchSmart<E extends DomainEntity>(
+  entity: E,
+  query: string,
+  limit = 50
+): Promise<Array<DomainEntityMap[E]>> {
   const q = String(query || '').trim();
   const cap = Math.max(1, Math.min(200, Math.trunc(Number(limit) || 50)));
 
   if (isDesktop() && window.desktopDb?.domainSearch) {
     try {
       const res: unknown = await window.desktopDb.domainSearch({ entity, query: q, limit: cap });
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'items')
+      ) {
         return asArray<DomainEntityMap[E]>(res.items);
       }
     } catch {
@@ -129,26 +168,55 @@ export async function domainSearchSmart<E extends DomainEntity>(entity: E, query
   if (entity === 'people') {
     const lower = q.toLowerCase();
     return DbService.getPeople()
-      .filter((p) => !q || p.الاسم.toLowerCase().includes(lower) || String(p.رقم_الهاتف || '').includes(lower) || String(p.الرقم_الوطني || '').includes(lower))
+      .filter(
+        (p) =>
+          !q ||
+          p.الاسم.toLowerCase().includes(lower) ||
+          String(p.رقم_الهاتف || '').includes(lower) ||
+          String(p.الرقم_الوطني || '').includes(lower)
+      )
       .slice(0, cap) as Array<DomainEntityMap[E]>;
   }
   if (entity === 'properties') {
     const lower = q.toLowerCase();
     return DbService.getProperties()
-      .filter((p) => !q || p.الكود_الداخلي.toLowerCase().includes(lower) || String(p.العنوان || '').toLowerCase().includes(lower))
+      .filter(
+        (p) =>
+          !q ||
+          p.الكود_الداخلي.toLowerCase().includes(lower) ||
+          String(p.العنوان || '')
+            .toLowerCase()
+            .includes(lower)
+      )
       .slice(0, cap) as Array<DomainEntityMap[E]>;
   }
   const lower = q.toLowerCase();
   return DbService.getContracts()
-    .filter((c) => !q || String(c.رقم_العقد || '').toLowerCase().includes(lower) || String(c.حالة_العقد || '').toLowerCase().includes(lower))
+    .filter(
+      (c) =>
+        !q ||
+        String(c.رقم_العقد || '')
+          .toLowerCase()
+          .includes(lower) ||
+        String(c.حالة_العقد || '')
+          .toLowerCase()
+          .includes(lower)
+    )
     .slice(0, cap) as Array<DomainEntityMap[E]>;
 }
 
-export async function propertyPickerSearchSmart(payload: PropertyPickerSearchPayload): Promise<PropertyPickerItem[]> {
+export async function propertyPickerSearchSmart(
+  payload: PropertyPickerSearchPayload
+): Promise<PropertyPickerItem[]> {
   if (isDesktop() && window.desktopDb?.domainPropertyPickerSearch) {
     try {
       const res: unknown = await window.desktopDb.domainPropertyPickerSearch(payload);
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'items')
+      ) {
         return asArray<PropertyPickerItem>(res.items);
       }
     } catch {
@@ -161,7 +229,9 @@ export async function propertyPickerSearchSmart(payload: PropertyPickerSearchPay
   return props.map((p) => ({ property: p }));
 }
 
-export async function propertyPickerSearchPagedSmart(payload: PropertyPickerSearchPayload): Promise<{ items: PropertyPickerItem[]; total: number }> {
+export async function propertyPickerSearchPagedSmart(
+  payload: PropertyPickerSearchPayload
+): Promise<{ items: PropertyPickerItem[]; total: number }> {
   if (isDesktop() && window.desktopDb?.domainPropertyPickerSearch) {
     try {
       const res: unknown = await window.desktopDb.domainPropertyPickerSearch(payload);
@@ -191,13 +261,16 @@ export async function contractPickerSearchSmart(payload: {
   maxValue?: number | string;
   sort?: string;
   limit?: number;
-}): Promise<
-  Array<Omit<ContractPickerItem, 'remainingAmount'>>
-> {
+}): Promise<Array<Omit<ContractPickerItem, 'remainingAmount'>>> {
   if (isDesktop() && window.desktopDb?.domainContractPickerSearch) {
     try {
       const res: unknown = await window.desktopDb.domainContractPickerSearch(payload);
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'items')
+      ) {
         return asArray<Omit<ContractPickerItem, 'remainingAmount'>>(res.items);
       }
     } catch {
@@ -242,7 +315,10 @@ export async function contractPickerSearchPagedSmart(payload: {
         return {
           items: [],
           total: 0,
-          error: isRecord(res) && hasUnknownProp(res, 'message') ? asString(res.message) || 'فشل تحميل العقود (Desktop SQL)' : 'فشل تحميل العقود (Desktop SQL)',
+          error:
+            isRecord(res) && hasUnknownProp(res, 'message')
+              ? asString(res.message) || 'فشل تحميل العقود (Desktop SQL)'
+              : 'فشل تحميل العقود (Desktop SQL)',
         };
       }
     } catch (e: unknown) {
@@ -264,14 +340,26 @@ export async function contractPickerSearchPagedSmart(payload: {
   return { items, total: items.length };
 }
 
-export async function domainCountsSmart(): Promise<{ people: number; properties: number; contracts: number } | null> {
+export async function domainCountsSmart(): Promise<{
+  people: number;
+  properties: number;
+  contracts: number;
+} | null> {
   if (isDesktop() && window.desktopDb?.domainCounts) {
     try {
       const res: unknown = await window.desktopDb.domainCounts();
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'counts') && isRecord(res.counts)) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'counts') &&
+        isRecord(res.counts)
+      ) {
         return {
           people: hasUnknownProp(res.counts, 'people') ? asNumber(res.counts.people) : 0,
-          properties: hasUnknownProp(res.counts, 'properties') ? asNumber(res.counts.properties) : 0,
+          properties: hasUnknownProp(res.counts, 'properties')
+            ? asNumber(res.counts.properties)
+            : 0,
           contracts: hasUnknownProp(res.counts, 'contracts') ? asNumber(res.counts.contracts) : 0,
         };
       }
@@ -281,11 +369,21 @@ export async function domainCountsSmart(): Promise<{ people: number; properties:
         try {
           await window.desktopDb.domainMigrate();
           const again: unknown = await window.desktopDb.domainCounts();
-          if (isRecord(again) && hasUnknownProp(again, 'ok') && again.ok === true && hasUnknownProp(again, 'counts') && isRecord(again.counts)) {
+          if (
+            isRecord(again) &&
+            hasUnknownProp(again, 'ok') &&
+            again.ok === true &&
+            hasUnknownProp(again, 'counts') &&
+            isRecord(again.counts)
+          ) {
             return {
               people: hasUnknownProp(again.counts, 'people') ? asNumber(again.counts.people) : 0,
-              properties: hasUnknownProp(again.counts, 'properties') ? asNumber(again.counts.properties) : 0,
-              contracts: hasUnknownProp(again.counts, 'contracts') ? asNumber(again.counts.contracts) : 0,
+              properties: hasUnknownProp(again.counts, 'properties')
+                ? asNumber(again.counts.properties)
+                : 0,
+              contracts: hasUnknownProp(again.counts, 'contracts')
+                ? asNumber(again.counts.contracts)
+                : 0,
             };
           }
         } catch {
@@ -306,7 +404,12 @@ export async function dashboardSummarySmart(payload: {
   if (isDesktop() && window.desktopDb?.domainDashboardSummary) {
     try {
       const res: unknown = await window.desktopDb.domainDashboardSummary(payload);
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'data')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'data')
+      ) {
         return res.data as DashboardSummary;
       }
     } catch {
@@ -323,7 +426,12 @@ export async function dashboardPerformanceSmart(payload: {
   if (isDesktop() && window.desktopDb?.domainDashboardPerformance) {
     try {
       const res: unknown = await window.desktopDb.domainDashboardPerformance(payload);
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'data')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'data')
+      ) {
         return res.data as DashboardPerformance;
       }
     } catch {
@@ -339,7 +447,12 @@ export async function dashboardHighlightsSmart(payload: {
   if (isDesktop() && window.desktopDb?.domainDashboardHighlights) {
     try {
       const res: unknown = await window.desktopDb.domainDashboardHighlights(payload);
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'data')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'data')
+      ) {
         return res.data as DashboardHighlights;
       }
     } catch {
@@ -354,14 +467,16 @@ export async function dashboardHighlightsSmart(payload: {
 export async function paymentNotificationTargetsSmart(payload: {
   daysAhead: number;
   todayYMD?: string;
-}): Promise<
-  | PaymentNotificationTarget[]
-  | null
-> {
+}): Promise<PaymentNotificationTarget[] | null> {
   if (isDesktop() && window.desktopDb?.domainPaymentNotificationTargets) {
     try {
       const res: unknown = await window.desktopDb.domainPaymentNotificationTargets(payload);
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'items')
+      ) {
         return asArray<PaymentNotificationTarget>(res.items);
       }
     } catch {
@@ -371,7 +486,9 @@ export async function paymentNotificationTargetsSmart(payload: {
 
   if (!isDesktop()) {
     try {
-      const raw: unknown = DbService.getPaymentNotificationTargets(Number(payload?.daysAhead ?? 7) || 7);
+      const raw: unknown = DbService.getPaymentNotificationTargets(
+        Number(payload?.daysAhead ?? 7) || 7
+      );
       return Array.isArray(raw) ? (raw as PaymentNotificationTarget[]) : [];
     } catch {
       return [];
@@ -387,7 +504,12 @@ export async function personDetailsSmart(personId: string): Promise<PersonDetail
   if (isDesktop() && window.desktopDb?.domainPersonDetails) {
     try {
       const res: unknown = await window.desktopDb.domainPersonDetails({ personId: id });
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'data')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'data')
+      ) {
         return res.data as PersonDetailsResult;
       }
     } catch {
@@ -406,17 +528,30 @@ export async function personDetailsSmart(personId: string): Promise<PersonDetail
   return null;
 }
 
-export async function personTenancyContractsSmart(personId: string): Promise<
-  Array<{ contract: العقود_tbl; propertyCode?: string; propertyAddress?: string; tenantName?: string }> | null
-> {
+export async function personTenancyContractsSmart(personId: string): Promise<Array<{
+  contract: العقود_tbl;
+  propertyCode?: string;
+  propertyAddress?: string;
+  tenantName?: string;
+}> | null> {
   const id = String(personId || '').trim();
   if (!id) return null;
 
   if (isDesktop() && window.desktopDb?.domainPersonTenancyContracts) {
     try {
       const res: unknown = await window.desktopDb.domainPersonTenancyContracts({ personId: id });
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
-        return asArray<{ contract: العقود_tbl; propertyCode?: string; propertyAddress?: string; tenantName?: string }>(res.items);
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'items')
+      ) {
+        return asArray<{
+          contract: العقود_tbl;
+          propertyCode?: string;
+          propertyAddress?: string;
+          tenantName?: string;
+        }>(res.items);
       }
     } catch {
       // fall back
@@ -435,9 +570,13 @@ export async function personTenancyContractsSmart(personId: string): Promise<
 
       const items = contracts
         .filter((c) => String(c?.رقم_المستاجر ?? '') === id)
-        .sort((a, b) => String(b?.تاريخ_البداية ?? '').localeCompare(String(a?.تاريخ_البداية ?? '')))
+        .sort((a, b) =>
+          String(b?.تاريخ_البداية ?? '').localeCompare(String(a?.تاريخ_البداية ?? ''))
+        )
         .map((c) => {
-          const prop = properties.find((p) => String(p?.رقم_العقار ?? '') === String(c?.رقم_العقار ?? ''));
+          const prop = properties.find(
+            (p) => String(p?.رقم_العقار ?? '') === String(c?.رقم_العقار ?? '')
+          );
           return {
             contract: c,
             propertyCode: prop ? String(prop.الكود_الداخلي || '').trim() || undefined : undefined,
@@ -455,16 +594,21 @@ export async function personTenancyContractsSmart(personId: string): Promise<
   return null;
 }
 
-export async function contractDetailsSmart(contractId: string): Promise<
-  ContractDetailsResult | null
-> {
+export async function contractDetailsSmart(
+  contractId: string
+): Promise<ContractDetailsResult | null> {
   const cid = String(contractId || '').trim();
   if (!cid) return null;
 
   if (isDesktop() && window.desktopDb?.domainContractDetails) {
     try {
       const res: unknown = await window.desktopDb.domainContractDetails({ contractId: cid });
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'data')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'data')
+      ) {
         return res.data as ContractDetailsResult;
       }
     } catch {
@@ -480,7 +624,11 @@ export async function contractDetailsSmart(contractId: string): Promise<
 
 type SimpleResult = { success: boolean; message: string };
 
-const asSimpleResult = (res: unknown, successMessage: string, fallbackErrorMessage: string): SimpleResult => {
+const asSimpleResult = (
+  res: unknown,
+  successMessage: string,
+  fallbackErrorMessage: string
+): SimpleResult => {
   if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
     const msg = isRecord(res) && hasUnknownProp(res, 'message') ? asString(res.message) : '';
     return { success: true, message: msg || successMessage };
@@ -489,14 +637,25 @@ const asSimpleResult = (res: unknown, successMessage: string, fallbackErrorMessa
   return { success: false, message: msg || fallbackErrorMessage };
 };
 
-export async function ownershipHistorySmart(payload: { propertyId?: string; personId?: string }): Promise<unknown[]> {
+export async function ownershipHistorySmart(payload: {
+  propertyId?: string;
+  personId?: string;
+}): Promise<unknown[]> {
   const propertyId = asString(payload?.propertyId);
   const personId = asString(payload?.personId);
 
   if (isDesktop() && window.desktopDb?.domainOwnershipHistory) {
     try {
-      const res: unknown = await window.desktopDb.domainOwnershipHistory({ propertyId: propertyId || undefined, personId: personId || undefined });
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
+      const res: unknown = await window.desktopDb.domainOwnershipHistory({
+        propertyId: propertyId || undefined,
+        personId: personId || undefined,
+      });
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'items')
+      ) {
         return asArray<unknown>(res.items);
       }
       // Desktop safety: do not fall back to in-memory scans.
@@ -508,7 +667,10 @@ export async function ownershipHistorySmart(payload: { propertyId?: string; pers
 
   if (!isDesktop()) {
     try {
-      return DbService.getOwnershipHistory(propertyId || undefined, personId || undefined) as unknown[];
+      return DbService.getOwnershipHistory(
+        propertyId || undefined,
+        personId || undefined
+      ) as unknown[];
     } catch {
       return [];
     }
@@ -524,7 +686,12 @@ export async function propertyInspectionsSmart(propertyId: string): Promise<unkn
   if (isDesktop() && window.desktopDb?.domainPropertyInspections) {
     try {
       const res: unknown = await window.desktopDb.domainPropertyInspections({ propertyId: id });
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'items')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'items')
+      ) {
         return asArray<unknown>(res.items);
       }
       return [];
@@ -544,7 +711,9 @@ export async function propertyInspectionsSmart(propertyId: string): Promise<unkn
   return [];
 }
 
-export async function salesForPersonSmart(personId: string): Promise<{ listings: unknown[]; agreements: unknown[] } | null> {
+export async function salesForPersonSmart(
+  personId: string
+): Promise<{ listings: unknown[]; agreements: unknown[] } | null> {
   const id = asString(personId);
   if (!id) return null;
 
@@ -565,7 +734,9 @@ export async function salesForPersonSmart(personId: string): Promise<{ listings:
 
   if (!isDesktop()) {
     try {
-      const listings = DbService.getSalesListings().filter((l) => String((l as unknown as Record<string, unknown>)['رقم_المالك'] ?? '') === id);
+      const listings = DbService.getSalesListings().filter(
+        (l) => String((l as unknown as Record<string, unknown>)['رقم_المالك'] ?? '') === id
+      );
       const agreements = DbService.getSalesAgreements();
       // Keep legacy consumer-side filtering/mapping in panels.
       return { listings: listings as unknown[], agreements: agreements as unknown[] };
@@ -577,7 +748,9 @@ export async function salesForPersonSmart(personId: string): Promise<{ listings:
   return { listings: [], agreements: [] };
 }
 
-export async function salesForPropertySmart(propertyId: string): Promise<{ listings: unknown[]; agreements: unknown[] } | null> {
+export async function salesForPropertySmart(
+  propertyId: string
+): Promise<{ listings: unknown[]; agreements: unknown[] } | null> {
   const id = asString(propertyId);
   if (!id) return null;
 
@@ -640,13 +813,19 @@ export async function deletePersonSmart(personId: string): Promise<SimpleResult>
 
   try {
     const res = DbService.deletePerson(pid);
-    return { success: Boolean((res as unknown as Record<string, unknown>)['success']), message: asString((res as unknown as Record<string, unknown>)['message']) };
+    return {
+      success: Boolean((res as unknown as Record<string, unknown>)['success']),
+      message: asString((res as unknown as Record<string, unknown>)['message']),
+    };
   } catch {
     return { success: false, message: 'فشل حذف الشخص' };
   }
 }
 
-export async function updatePropertySmart(propertyId: string, patch: Record<string, unknown>): Promise<SimpleResult> {
+export async function updatePropertySmart(
+  propertyId: string,
+  patch: Record<string, unknown>
+): Promise<SimpleResult> {
   const pid = asString(propertyId);
   if (!pid) return { success: false, message: 'معرف غير صالح' };
 
@@ -661,7 +840,11 @@ export async function updatePropertySmart(propertyId: string, patch: Record<stri
 
   try {
     const res = DbService.updateProperty(pid, patch as never);
-    return { success: Boolean((res as unknown as Record<string, unknown>)['success']), message: asString((res as unknown as Record<string, unknown>)['message']) || 'تم تحديث العقار' };
+    return {
+      success: Boolean((res as unknown as Record<string, unknown>)['success']),
+      message:
+        asString((res as unknown as Record<string, unknown>)['message']) || 'تم تحديث العقار',
+    };
   } catch {
     return { success: false, message: 'فشل تحديث العقار' };
   }
@@ -682,7 +865,10 @@ export async function deleteInspectionSmart(id: string): Promise<SimpleResult> {
 
   try {
     const res = DbService.deleteInspection(iid);
-    return { success: Boolean((res as unknown as Record<string, unknown>)['success']), message: asString((res as unknown as Record<string, unknown>)['message']) };
+    return {
+      success: Boolean((res as unknown as Record<string, unknown>)['success']),
+      message: asString((res as unknown as Record<string, unknown>)['message']),
+    };
   } catch {
     return { success: false, message: 'فشل حذف الكشف' };
   }
@@ -723,7 +909,10 @@ export async function deleteSalesAgreementSmart(id: string): Promise<SimpleResul
 
   try {
     const res = DbService.deleteSalesAgreement(aid);
-    return { success: Boolean((res as unknown as Record<string, unknown>)['success']), message: asString((res as unknown as Record<string, unknown>)['message']) };
+    return {
+      success: Boolean((res as unknown as Record<string, unknown>)['success']),
+      message: asString((res as unknown as Record<string, unknown>)['message']),
+    };
   } catch {
     return { success: false, message: 'فشل حذف الاتفاقية' };
   }
@@ -759,10 +948,14 @@ export async function peoplePickerSearchPagedSmart(payload: {
   if (isDesktop()) return { items: [], total: 0 };
 
   // Legacy fallback: in-memory (non-desktop)
-  const q = String(payload?.query || '').trim().toLowerCase();
+  const q = String(payload?.query || '')
+    .trim()
+    .toLowerCase();
   const role = String(payload?.role || '').trim();
   const onlyIdleOwners = !!payload?.onlyIdleOwners;
-  const address = String(payload?.address || '').trim().toLowerCase();
+  const address = String(payload?.address || '')
+    .trim()
+    .toLowerCase();
   const nationalId = String(payload?.nationalId || '').trim();
   const classification = String(payload?.classification || '').trim();
   const minRating = Number(payload?.minRating ?? 0) || 0;
@@ -793,7 +986,9 @@ export async function peoplePickerSearchPagedSmart(payload: {
 
     if (onlyIdleOwners && role === 'مالك') {
       const ownerProps = properties.filter((pr) => String(pr.رقم_المالك) === id);
-      return !ownerProps.some((pr) => String(pr.حالة_العقار || '').trim() === 'مؤجر' || pr.IsRented === true);
+      return !ownerProps.some(
+        (pr) => String(pr.حالة_العقار || '').trim() === 'مؤجر' || pr.IsRented === true
+      );
     }
 
     if (q) {
@@ -801,7 +996,8 @@ export async function peoplePickerSearchPagedSmart(payload: {
       const phone = String(p.رقم_الهاتف || '');
       const nid = String(p.الرقم_الوطني || '');
       const ex = String(p.رقم_هاتف_اضافي || '');
-      if (!name.includes(q) && !phone.includes(q) && !nid.includes(q) && !ex.includes(q)) return false;
+      if (!name.includes(q) && !phone.includes(q) && !nid.includes(q) && !ex.includes(q))
+        return false;
     }
 
     if (address) {
@@ -864,7 +1060,10 @@ export async function installmentsContractsPagedSmart(payload: {
         return {
           items: [],
           total: 0,
-          error: isRecord(res) && hasUnknownProp(res, 'message') ? asString(res.message) || 'فشل تحميل الدفعات (Desktop SQL)' : 'فشل تحميل الدفعات (Desktop SQL)',
+          error:
+            isRecord(res) && hasUnknownProp(res, 'message')
+              ? asString(res.message) || 'فشل تحميل الدفعات (Desktop SQL)'
+              : 'فشل تحميل الدفعات (Desktop SQL)',
         };
       }
     } catch {
@@ -873,16 +1072,25 @@ export async function installmentsContractsPagedSmart(payload: {
   }
 
   // Desktop safety: do not fall back to in-memory scans.
-  if (isDesktop()) return { items: [], total: 0, error: 'المزامنة غير جاهزة أو الاستعلام غير متاح (Desktop)' };
+  if (isDesktop())
+    return { items: [], total: 0, error: 'المزامنة غير جاهزة أو الاستعلام غير متاح (Desktop)' };
 
   // Non-desktop fallback (web/mock): build a compact listing.
   try {
-    const q = String(payload?.query || '').trim().toLowerCase();
+    const q = String(payload?.query || '')
+      .trim()
+      .toLowerCase();
     const filter = String(payload?.filter || 'all');
     const filterStartDate = String(payload?.filterStartDate || '').trim();
     const filterEndDate = String(payload?.filterEndDate || '').trim();
-    const filterMinAmount = payload?.filterMinAmount !== undefined && payload?.filterMinAmount !== '' ? Number(payload?.filterMinAmount) : NaN;
-    const filterMaxAmount = payload?.filterMaxAmount !== undefined && payload?.filterMaxAmount !== '' ? Number(payload?.filterMaxAmount) : NaN;
+    const filterMinAmount =
+      payload?.filterMinAmount !== undefined && payload?.filterMinAmount !== ''
+        ? Number(payload?.filterMinAmount)
+        : NaN;
+    const filterMaxAmount =
+      payload?.filterMaxAmount !== undefined && payload?.filterMaxAmount !== ''
+        ? Number(payload?.filterMaxAmount)
+        : NaN;
     const filterPaymentMethod = String(payload?.filterPaymentMethod || 'all');
     const sort = String(payload?.sort || 'due-asc').trim();
     const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
@@ -901,7 +1109,8 @@ export async function installmentsContractsPagedSmart(payload: {
       return Number.isFinite(t) ? t : NaN;
     };
 
-    const getRemaining = (inst: الكمبيالات_tbl) => Math.max(0, Number(inst?.القيمة_المتبقية ?? inst?.القيمة ?? 0) || 0);
+    const getRemaining = (inst: الكمبيالات_tbl) =>
+      Math.max(0, Number(inst?.القيمة_المتبقية ?? inst?.القيمة ?? 0) || 0);
     const isDueSoon = (inst: الكمبيالات_tbl) => {
       const rem = getRemaining(inst);
       if (rem <= 0) return false;
@@ -919,9 +1128,15 @@ export async function installmentsContractsPagedSmart(payload: {
     };
 
     let rows: InstallmentsContractsItem[] = contracts.map((c) => {
-      const tenant = people.find((p) => String(p?.رقم_الشخص ?? '') === String(c?.رقم_المستاجر ?? ''));
-      const property = properties.find((p) => String(p?.رقم_العقار ?? '') === String(c?.رقم_العقار ?? ''));
-      const cInstalls = installments.filter((i) => String(i?.رقم_العقد ?? '') === String(c?.رقم_العقد ?? ''));
+      const tenant = people.find(
+        (p) => String(p?.رقم_الشخص ?? '') === String(c?.رقم_المستاجر ?? '')
+      );
+      const property = properties.find(
+        (p) => String(p?.رقم_العقار ?? '') === String(c?.رقم_العقار ?? '')
+      );
+      const cInstalls = installments.filter(
+        (i) => String(i?.رقم_العقد ?? '') === String(c?.رقم_العقد ?? '')
+      );
 
       const relevant = cInstalls;
       const hasAnyRelevant = relevant.length > 0;
@@ -929,17 +1144,33 @@ export async function installmentsContractsPagedSmart(payload: {
       const hasDueSoon = relevant.some(isDueSoon);
       const isFullyPaid = hasAnyRelevant && relevant.every((i) => getRemaining(i) <= 0);
 
-      return { contract: c, tenant, property, installments: cInstalls, hasDebt, hasDueSoon, isFullyPaid };
+      return {
+        contract: c,
+        tenant,
+        property,
+        installments: cInstalls,
+        hasDebt,
+        hasDueSoon,
+        isFullyPaid,
+      };
     });
 
     if (q) {
       rows = rows.filter((r) => {
-        const byContract = String(r.contract?.رقم_العقد ?? '').toLowerCase().includes(q);
+        const byContract = String(r.contract?.رقم_العقد ?? '')
+          .toLowerCase()
+          .includes(q);
         const byTenant =
-          String(r.tenant?.الاسم ?? '').toLowerCase().includes(q) || String(r.tenant?.رقم_الهاتف ?? '').includes(q);
+          String(r.tenant?.الاسم ?? '')
+            .toLowerCase()
+            .includes(q) || String(r.tenant?.رقم_الهاتف ?? '').includes(q);
         const byProp =
-          String(r.property?.الكود_الداخلي ?? '').toLowerCase().includes(q) ||
-          String(r.property?.العنوان ?? '').toLowerCase().includes(q);
+          String(r.property?.الكود_الداخلي ?? '')
+            .toLowerCase()
+            .includes(q) ||
+          String(r.property?.العنوان ?? '')
+            .toLowerCase()
+            .includes(q);
         return byContract || byTenant || byProp;
       });
     }
@@ -949,19 +1180,30 @@ export async function installmentsContractsPagedSmart(payload: {
     if (filter === 'paid') rows = rows.filter((r) => r.isFullyPaid);
 
     if (filterStartDate) {
-      rows = rows.filter((r) => r.installments.some((i) => String(i?.تاريخ_استحقاق || '') >= filterStartDate));
+      rows = rows.filter((r) =>
+        r.installments.some((i) => String(i?.تاريخ_استحقاق || '') >= filterStartDate)
+      );
     }
     if (filterEndDate) {
-      rows = rows.filter((r) => r.installments.some((i) => String(i?.تاريخ_استحقاق || '') <= filterEndDate));
+      rows = rows.filter((r) =>
+        r.installments.some((i) => String(i?.تاريخ_استحقاق || '') <= filterEndDate)
+      );
     }
     if (!Number.isNaN(filterMinAmount)) {
-      rows = rows.filter((r) => r.installments.some((i) => Number(i?.القيمة || 0) >= filterMinAmount));
+      rows = rows.filter((r) =>
+        r.installments.some((i) => Number(i?.القيمة || 0) >= filterMinAmount)
+      );
     }
     if (!Number.isNaN(filterMaxAmount)) {
-      rows = rows.filter((r) => r.installments.some((i) => Number(i?.القيمة || 0) <= filterMaxAmount));
+      rows = rows.filter((r) =>
+        r.installments.some((i) => Number(i?.القيمة || 0) <= filterMaxAmount)
+      );
     }
     if (filterPaymentMethod !== 'all') {
-      rows = rows.filter((r) => String(r.contract?.طريقة_الدفع || '').toLowerCase() === filterPaymentMethod.toLowerCase());
+      rows = rows.filter(
+        (r) =>
+          String(r.contract?.طريقة_الدفع || '').toLowerCase() === filterPaymentMethod.toLowerCase()
+      );
     }
 
     const getNextDueTs = (installs: unknown[] | undefined) => {
@@ -1030,19 +1272,30 @@ export async function installmentsContractsPagedSmart(payload: {
     return {
       items: [],
       total: 0,
-      error: isRecord(e) && hasUnknownProp(e, 'message') ? asString(e.message) || 'فشل تحميل الدفعات (Web)' : 'فشل تحميل الدفعات (Web)',
+      error:
+        isRecord(e) && hasUnknownProp(e, 'message')
+          ? asString(e.message) || 'فشل تحميل الدفعات (Web)'
+          : 'فشل تحميل الدفعات (Web)',
     };
   }
 }
 
-export async function domainGetSmart<E extends DomainEntity>(entity: E, id: string): Promise<DomainEntityMap[E] | null> {
+export async function domainGetSmart<E extends DomainEntity>(
+  entity: E,
+  id: string
+): Promise<DomainEntityMap[E] | null> {
   const safeId = String(id || '').trim();
   if (!safeId) return null;
 
   if (isDesktop() && window.desktopDb?.domainGet) {
     try {
       const res: unknown = await window.desktopDb.domainGet({ entity, id: safeId });
-      if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true && hasUnknownProp(res, 'data')) {
+      if (
+        isRecord(res) &&
+        hasUnknownProp(res, 'ok') &&
+        res.ok === true &&
+        hasUnknownProp(res, 'data')
+      ) {
         return (res.data ?? null) as DomainEntityMap[E] | null;
       }
     } catch {
@@ -1054,9 +1307,17 @@ export async function domainGetSmart<E extends DomainEntity>(entity: E, id: stri
   if (isDesktop()) return null;
 
   // Legacy fallback
-  if (entity === 'people') return (DbService.getPeople().find((p) => p.رقم_الشخص === safeId) || null) as DomainEntityMap[E] | null;
-  if (entity === 'properties') return (DbService.getProperties().find((p) => p.رقم_العقار === safeId) || null) as DomainEntityMap[E] | null;
-  return (DbService.getContracts().find((c) => c.رقم_العقد === safeId) || null) as DomainEntityMap[E] | null;
+  if (entity === 'people')
+    return (DbService.getPeople().find((p) => p.رقم_الشخص === safeId) || null) as
+      | DomainEntityMap[E]
+      | null;
+  if (entity === 'properties')
+    return (DbService.getProperties().find((p) => p.رقم_العقار === safeId) || null) as
+      | DomainEntityMap[E]
+      | null;
+  return (DbService.getContracts().find((c) => c.رقم_العقد === safeId) || null) as
+    | DomainEntityMap[E]
+    | null;
 }
 
 export async function propertyContractsSmart(
@@ -1068,9 +1329,16 @@ export async function propertyContractsSmart(
 
   if (isDesktop() && window.desktopDb?.domainPropertyContracts) {
     try {
-      const res: unknown = await window.desktopDb.domainPropertyContracts({ propertyId: pid, limit });
+      const res: unknown = await window.desktopDb.domainPropertyContracts({
+        propertyId: pid,
+        limit,
+      });
       if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
-        return hasUnknownProp(res, 'items') ? asArray<{ contract: العقود_tbl; tenantName?: string; guarantorName?: string }>(res.items) : [];
+        return hasUnknownProp(res, 'items')
+          ? asArray<{ contract: العقود_tbl; tenantName?: string; guarantorName?: string }>(
+              res.items
+            )
+          : [];
       }
       return null;
     } catch {
@@ -1085,15 +1353,21 @@ export async function propertyContractsSmart(
   try {
     const contracts = DbService.getContracts().filter((c) => String(c?.رقم_العقار ?? '') === pid);
     const people = DbService.getPeople();
-    const items = contracts.slice(0, Math.max(1, Math.min(5000, Math.trunc(Number(limit) || 5000)))).map((c) => {
-      const tenant = people.find((p) => String(p?.رقم_الشخص ?? '') === String(c?.رقم_المستاجر ?? ''));
-      const guarantor = people.find((p) => String(p?.رقم_الشخص ?? '') === String(c?.رقم_الكفيل ?? ''));
-      return {
-        contract: c,
-        tenantName: tenant ? String(tenant.الاسم || '').trim() || undefined : undefined,
-        guarantorName: guarantor ? String(guarantor.الاسم || '').trim() || undefined : undefined,
-      };
-    });
+    const items = contracts
+      .slice(0, Math.max(1, Math.min(5000, Math.trunc(Number(limit) || 5000))))
+      .map((c) => {
+        const tenant = people.find(
+          (p) => String(p?.رقم_الشخص ?? '') === String(c?.رقم_المستاجر ?? '')
+        );
+        const guarantor = people.find(
+          (p) => String(p?.رقم_الشخص ?? '') === String(c?.رقم_الكفيل ?? '')
+        );
+        return {
+          contract: c,
+          tenantName: tenant ? String(tenant.الاسم || '').trim() || undefined : undefined,
+          guarantorName: guarantor ? String(guarantor.الاسم || '').trim() || undefined : undefined,
+        };
+      });
 
     return items;
   } catch {

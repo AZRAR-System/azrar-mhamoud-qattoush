@@ -3,10 +3,13 @@ import type { ReportResult } from '@/types';
 
 type UnknownRecord = Record<string, unknown>;
 
-const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null;
 
-const hasUnknownProp = <K extends string>(obj: UnknownRecord, key: K): obj is UnknownRecord & Record<K, unknown> =>
-  Object.prototype.hasOwnProperty.call(obj, key);
+const hasUnknownProp = <K extends string>(
+  obj: UnknownRecord,
+  key: K
+): obj is UnknownRecord & Record<K, unknown> => Object.prototype.hasOwnProperty.call(obj, key);
 
 const isDesktop = (): boolean => typeof window !== 'undefined' && !!window.desktopDb;
 

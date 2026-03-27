@@ -1,7 +1,7 @@
 /**
  * � 2025 � Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System � All Rights Reserved
- * 
+ *
  * Report and Legal types
  */
 
@@ -17,7 +17,11 @@ export interface ReportDefinition {
 export interface ReportResult {
   title: string;
   generatedAt: string;
-  columns: { key: string; header: string; type?: 'text' | 'number' | 'currency' | 'date' | 'status' }[];
+  columns: {
+    key: string;
+    header: string;
+    type?: 'text' | 'number' | 'currency' | 'date' | 'status';
+  }[];
   data: unknown[];
   summary?: { label: string; value: string | number }[];
 }

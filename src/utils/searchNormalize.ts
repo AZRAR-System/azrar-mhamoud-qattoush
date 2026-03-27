@@ -5,7 +5,10 @@ const TATWEEL_RE = /\u0640/g;
 
 export type SearchNormalizeMode = 'strict' | 'lenient';
 
-export function normalizeArabicLetters(input: string, mode: SearchNormalizeMode = 'strict'): string {
+export function normalizeArabicLetters(
+  input: string,
+  mode: SearchNormalizeMode = 'strict'
+): string {
   const base = String(input || '')
     .replace(/[\u0622\u0623\u0625]/g, 'ا') // آأإ -> ا
     .replace(/\u0671/g, 'ا') // ٱ -> ا
@@ -31,8 +34,10 @@ export function normalizeSearchText(input: unknown, mode: SearchNormalizeMode = 
     .trim();
 }
 
-export const normalizeSearchTextStrict = (input: unknown): string => normalizeSearchText(input, 'strict');
-export const normalizeSearchTextLenient = (input: unknown): string => normalizeSearchText(input, 'lenient');
+export const normalizeSearchTextStrict = (input: unknown): string =>
+  normalizeSearchText(input, 'strict');
+export const normalizeSearchTextLenient = (input: unknown): string =>
+  normalizeSearchText(input, 'lenient');
 
 export function normalizeDigitsLoose(input: unknown): string {
   const s = normalizeDigitsToLatin(String(input ?? ''));

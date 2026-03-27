@@ -178,8 +178,12 @@ export const SmartModalEngine: React.FC = () => {
               >
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-2xl rounded-2xl px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-slate-800 dark:text-white truncate">{title}</div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">قيد التشغيل • يمكنك المتابعة داخل النظام</div>
+                    <div className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                      {title}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      قيد التشغيل • يمكنك المتابعة داخل النظام
+                    </div>
                   </div>
 
                   <button
@@ -275,81 +279,87 @@ export const SmartModalEngine: React.FC = () => {
 
         // Special Case for Confirmation Modal (Center)
         if (panel.type === 'CONFIRM_MODAL') {
-            const showCancel = panel.props?.cancelText !== null && panel.props?.showCancel !== false;
-            const handleCancel = () => {
-              try {
-                if (panel.props?.onCancel) panel.props.onCancel();
-              } finally {
-                closePanel(panel.id);
-              }
-            };
-            const handleConfirm = () => {
-              try {
-                if (panel.props?.onConfirm) panel.props.onConfirm();
-              } finally {
-                closePanel(panel.id);
-              }
-            };
-            return (
-              <AppModal
-                key={panel.id}
-                open
-                onClose={handleCancel}
-                title={panel.props?.title || 'تأكيد'}
-                size="sm"
-                closeOnBackdrop={false}
-                showCloseButton={false}
-              >
-                <p className="text-slate-600 dark:text-slate-300 text-sm mb-6 whitespace-pre-line">{panel.props?.message}</p>
-                <div className="flex justify-end gap-3">
-                  {showCancel && (
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="px-4 py-2 text-slate-600 dark:text-slate-200 font-bold hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg"
-                    >
-                      {panel.props?.cancelText || 'إلغاء'}
-                    </button>
-                  )}
+          const showCancel = panel.props?.cancelText !== null && panel.props?.showCancel !== false;
+          const handleCancel = () => {
+            try {
+              if (panel.props?.onCancel) panel.props.onCancel();
+            } finally {
+              closePanel(panel.id);
+            }
+          };
+          const handleConfirm = () => {
+            try {
+              if (panel.props?.onConfirm) panel.props.onConfirm();
+            } finally {
+              closePanel(panel.id);
+            }
+          };
+          return (
+            <AppModal
+              key={panel.id}
+              open
+              onClose={handleCancel}
+              title={panel.props?.title || 'تأكيد'}
+              size="sm"
+              closeOnBackdrop={false}
+              showCloseButton={false}
+            >
+              <p className="text-slate-600 dark:text-slate-300 text-sm mb-6 whitespace-pre-line">
+                {panel.props?.message}
+              </p>
+              <div className="flex justify-end gap-3">
+                {showCancel && (
                   <button
                     type="button"
-                    onClick={handleConfirm}
-                    className={`px-4 py-2 text-white font-bold rounded-lg shadow-lg ${panel.props?.variant === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                    onClick={handleCancel}
+                    className="px-4 py-2 text-slate-600 dark:text-slate-200 font-bold hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg"
                   >
-                    {panel.props?.confirmText || 'نعم'}
+                    {panel.props?.cancelText || 'إلغاء'}
                   </button>
-                </div>
-              </AppModal>
-            );
+                )}
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  className={`px-4 py-2 text-white font-bold rounded-lg shadow-lg ${panel.props?.variant === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                >
+                  {panel.props?.confirmText || 'نعم'}
+                </button>
+              </div>
+            </AppModal>
+          );
         }
 
         // Smart Prompt (Center Small)
         if (panel.type === 'SMART_PROMPT') {
-            const handleClose = () => {
-              try {
-                if (panel.props?.onClose) panel.props.onClose();
-              } finally {
-                closePanel(panel.id);
-              }
-            };
-            const titleId = `panel-title-${panel.id}`;
-            const title = panel.props?.title ?? PANEL_TITLES[panel.type] ?? '';
-            return (
-              <div key={panel.id} className="modal-overlay app-modal-overlay animate-fade-in" onClick={handleClose}>
-                <div
-                  className="modal-content app-modal-content app-surface-pulse-primary w-full max-w-md animate-scale-up overflow-hidden"
-                  onClick={(e) => e.stopPropagation()}
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby={titleId}
-                >
-                  <h3 id={titleId} className="sr-only">
-                    {title}
-                  </h3>
-                  <Component {...panel.props} onClose={handleClose} />
-                </div>
+          const handleClose = () => {
+            try {
+              if (panel.props?.onClose) panel.props.onClose();
+            } finally {
+              closePanel(panel.id);
+            }
+          };
+          const titleId = `panel-title-${panel.id}`;
+          const title = panel.props?.title ?? PANEL_TITLES[panel.type] ?? '';
+          return (
+            <div
+              key={panel.id}
+              className="modal-overlay app-modal-overlay animate-fade-in"
+              onClick={handleClose}
+            >
+              <div
+                className="modal-content app-modal-content app-surface-pulse-primary w-full max-w-md animate-scale-up overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+              >
+                <h3 id={titleId} className="sr-only">
+                  {title}
+                </h3>
+                <Component {...panel.props} onClose={handleClose} />
               </div>
-            );
+            </div>
+          );
         }
 
         // Standard Slide-over Panels (Right-side drawer)

@@ -63,7 +63,10 @@ describe('db/installments payment handlers', () => {
 
   it('reversePayment restores unpaid after full payment (SuperAdmin)', () => {
     const { markInstallmentPaid, reversePayment } = handlers();
-    markInstallmentPaid('INS-UT-1', 'admin', 'Admin', { paidAmount: 100, paymentDate: '2026-06-02' });
+    markInstallmentPaid('INS-UT-1', 'admin', 'Admin', {
+      paidAmount: 100,
+      paymentDate: '2026-06-02',
+    });
     const rev = reversePayment('INS-UT-1', 'sa', 'SuperAdmin', 'تصحيح اختبار');
     expect(rev.success).toBe(true);
     const inst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).find((i) => i.رقم_الكمبيالة === 'INS-UT-1');
@@ -72,7 +75,10 @@ describe('db/installments payment handlers', () => {
 
   it('reversePayment rejects non-SuperAdmin', () => {
     const { markInstallmentPaid, reversePayment } = handlers();
-    markInstallmentPaid('INS-UT-1', 'admin', 'Admin', { paidAmount: 100, paymentDate: '2026-06-02' });
+    markInstallmentPaid('INS-UT-1', 'admin', 'Admin', {
+      paidAmount: 100,
+      paymentDate: '2026-06-02',
+    });
     const rev = reversePayment('INS-UT-1', 'admin', 'Admin', 'سبب');
     expect(rev.success).toBe(false);
   });

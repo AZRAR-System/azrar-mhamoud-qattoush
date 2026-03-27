@@ -2,7 +2,14 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { app } from 'electron';
 
-import type { PrintMarginsMm, PrintPageSize, PrintSettings, PrintSettingsResult, PrintOrientation, SavePrintSettingsResult } from './types';
+import type {
+  PrintMarginsMm,
+  PrintPageSize,
+  PrintSettings,
+  PrintSettingsResult,
+  PrintOrientation,
+  SavePrintSettingsResult,
+} from './types';
 
 const toErrorMessage = (err: unknown, fallback: string): string => {
   if (err instanceof Error) return err.message || fallback;
@@ -27,7 +34,7 @@ const clampNumber = (v: unknown, min: number, max: number, fallback: number): nu
 };
 
 const normalizeMargins = (raw: unknown): PrintMarginsMm => {
-  const r = (typeof raw === 'object' && raw) ? (raw as Record<string, unknown>) : {};
+  const r = typeof raw === 'object' && raw ? (raw as Record<string, unknown>) : {};
   return {
     top: clampNumber(r.top, 0, 100, 16),
     right: clampNumber(r.right, 0, 100, 16),
@@ -47,7 +54,8 @@ const normalizePageSize = (raw: unknown): PrintPageSize => {
   return 'A4';
 };
 
-const normalizeOrientation = (raw: unknown): PrintOrientation => (raw === 'landscape' ? 'landscape' : 'portrait');
+const normalizeOrientation = (raw: unknown): PrintOrientation =>
+  raw === 'landscape' ? 'landscape' : 'portrait';
 
 const normalizeFontFamily = (raw: unknown): string => {
   const s = String(raw ?? '').trim();
@@ -65,7 +73,7 @@ const normalizeSofficePath = (raw: unknown): string | undefined => {
 };
 
 const normalizePdfExport = (raw: unknown): PrintSettings['pdfExport'] => {
-  const r = (typeof raw === 'object' && raw) ? (raw as Record<string, unknown>) : {};
+  const r = typeof raw === 'object' && raw ? (raw as Record<string, unknown>) : {};
   const sofficePath = normalizeSofficePath(r.sofficePath);
   if (!sofficePath) return undefined;
   return { sofficePath };
@@ -102,7 +110,7 @@ export const loadPrintSettings = async (): Promise<PrintSettingsResult> => {
       parsed = null;
     }
 
-    const r = (typeof parsed === 'object' && parsed) ? (parsed as Record<string, unknown>) : {};
+    const r = typeof parsed === 'object' && parsed ? (parsed as Record<string, unknown>) : {};
 
     const settings: PrintSettings = {
       pageSize: normalizePageSize(r.pageSize),
@@ -123,7 +131,8 @@ export const loadPrintSettings = async (): Promise<PrintSettingsResult> => {
 
 export const savePrintSettings = async (next: unknown): Promise<SavePrintSettingsResult> => {
   try {
-    if (typeof next !== 'object' || !next) return { ok: false, code: 'INVALID', message: 'إعدادات الطباعة غير صالحة' };
+    if (typeof next !== 'object' || !next)
+      return { ok: false, code: 'INVALID', message: 'إعدادات الطباعة غير صالحة' };
 
     const r = next as Record<string, unknown>;
 
@@ -146,7 +155,10 @@ export const savePrintSettings = async (next: unknown): Promise<SavePrintSetting
   }
 };
 
-export const buildCssPageSize = (pageSize: PrintPageSize, orientation: PrintOrientation): string => {
+export const buildCssPageSize = (
+  pageSize: PrintPageSize,
+  orientation: PrintOrientation
+): string => {
   const orient = orientation === 'landscape' ? 'landscape' : 'portrait';
 
   if (pageSize === 'A4' || pageSize === 'A5' || pageSize === 'Letter' || pageSize === 'Legal') {

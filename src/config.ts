@@ -1,4 +1,3 @@
-
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
@@ -27,13 +26,13 @@ export const SERVER_CONFIG = {
   // Request Settings
   TIMEOUT: 15000,
   RETRY_ATTEMPTS: 3,
-  
+
   // Headers
   HEADERS: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
     'X-App-Version': '3.0.1-PROD',
-  }
+  },
 };
 
 export const IS_PRODUCTION = getEnvString('MODE', '') === 'production';

@@ -43,7 +43,9 @@ export const GEO_CURRENCIES: GeoCurrency[] = [
 ];
 
 export const getGeoCountryByIso2 = (iso2: string | null | undefined): GeoCountry | undefined => {
-  const key = String(iso2 || '').trim().toUpperCase();
+  const key = String(iso2 || '')
+    .trim()
+    .toUpperCase();
   if (!key) return undefined;
   return GEO_COUNTRIES.find((c) => c.iso2 === key);
 };

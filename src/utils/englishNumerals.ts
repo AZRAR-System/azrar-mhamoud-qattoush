@@ -40,7 +40,9 @@ const patchIntlFormatters = (): void => {
           const instObj = inst as unknown as Record<string, unknown>;
           const fr = instObj['formatRange'];
           if (typeof fr === 'function') {
-            instObj['formatRange'] = wrapStringReturn((fr as (...args: unknown[]) => unknown).bind(inst));
+            instObj['formatRange'] = wrapStringReturn(
+              (fr as (...args: unknown[]) => unknown).bind(inst)
+            );
           }
         }
         if (typeof inst.formatToParts === 'function') {
@@ -75,12 +77,17 @@ const patchIntlFormatters = (): void => {
     } as unknown as typeof Intl.NumberFormat;
 
     // Preserve prototype and static helpers
-    (WrappedNumberFormat as unknown as { prototype: Intl.NumberFormat }).prototype = OrigNumberFormat.prototype as unknown as Intl.NumberFormat;
-    (WrappedNumberFormat as unknown as { supportedLocalesOf?: Intl.NumberFormatConstructor['supportedLocalesOf'] }).supportedLocalesOf =
-      OrigNumberFormat.supportedLocalesOf.bind(OrigNumberFormat);
+    (WrappedNumberFormat as unknown as { prototype: Intl.NumberFormat }).prototype =
+      OrigNumberFormat.prototype as unknown as Intl.NumberFormat;
+    (
+      WrappedNumberFormat as unknown as {
+        supportedLocalesOf?: Intl.NumberFormatConstructor['supportedLocalesOf'];
+      }
+    ).supportedLocalesOf = OrigNumberFormat.supportedLocalesOf.bind(OrigNumberFormat);
     Object.setPrototypeOf(WrappedNumberFormat, OrigNumberFormat);
 
-    (Intl as unknown as { NumberFormat: Intl.NumberFormatConstructor }).NumberFormat = WrappedNumberFormat;
+    (Intl as unknown as { NumberFormat: Intl.NumberFormatConstructor }).NumberFormat =
+      WrappedNumberFormat;
   } catch {
     // ignore
   }
@@ -104,7 +111,9 @@ const patchIntlFormatters = (): void => {
           const instObj = inst as unknown as Record<string, unknown>;
           const fr = instObj['formatRange'];
           if (typeof fr === 'function') {
-            instObj['formatRange'] = wrapStringReturn((fr as (...args: unknown[]) => unknown).bind(inst));
+            instObj['formatRange'] = wrapStringReturn(
+              (fr as (...args: unknown[]) => unknown).bind(inst)
+            );
           }
         }
         if (typeof inst.formatToParts === 'function') {
@@ -138,12 +147,17 @@ const patchIntlFormatters = (): void => {
       return inst;
     } as unknown as typeof Intl.DateTimeFormat;
 
-    (WrappedDateTimeFormat as unknown as { prototype: Intl.DateTimeFormat }).prototype = OrigDateTimeFormat.prototype as unknown as Intl.DateTimeFormat;
-    (WrappedDateTimeFormat as unknown as { supportedLocalesOf?: Intl.DateTimeFormatConstructor['supportedLocalesOf'] }).supportedLocalesOf =
-      OrigDateTimeFormat.supportedLocalesOf.bind(OrigDateTimeFormat);
+    (WrappedDateTimeFormat as unknown as { prototype: Intl.DateTimeFormat }).prototype =
+      OrigDateTimeFormat.prototype as unknown as Intl.DateTimeFormat;
+    (
+      WrappedDateTimeFormat as unknown as {
+        supportedLocalesOf?: Intl.DateTimeFormatConstructor['supportedLocalesOf'];
+      }
+    ).supportedLocalesOf = OrigDateTimeFormat.supportedLocalesOf.bind(OrigDateTimeFormat);
     Object.setPrototypeOf(WrappedDateTimeFormat, OrigDateTimeFormat);
 
-    (Intl as unknown as { DateTimeFormat: Intl.DateTimeFormatConstructor }).DateTimeFormat = WrappedDateTimeFormat;
+    (Intl as unknown as { DateTimeFormat: Intl.DateTimeFormatConstructor }).DateTimeFormat =
+      WrappedDateTimeFormat;
   } catch {
     // ignore
   }
@@ -166,7 +180,9 @@ export const installEnglishNumeralsPolyfill = (): void => {
   try {
     const origNum = Number.prototype.toLocaleString as unknown as ToLocaleStringFn;
     if (typeof origNum === 'function') {
-      Number.prototype.toLocaleString = wrapToLocaleString(origNum) as unknown as typeof Number.prototype.toLocaleString;
+      Number.prototype.toLocaleString = wrapToLocaleString(
+        origNum
+      ) as unknown as typeof Number.prototype.toLocaleString;
     }
   } catch {
     // ignore
@@ -175,7 +191,9 @@ export const installEnglishNumeralsPolyfill = (): void => {
   try {
     const origDate = Date.prototype.toLocaleString as unknown as ToLocaleStringFn;
     if (typeof origDate === 'function') {
-      Date.prototype.toLocaleString = wrapToLocaleString(origDate) as unknown as typeof Date.prototype.toLocaleString;
+      Date.prototype.toLocaleString = wrapToLocaleString(
+        origDate
+      ) as unknown as typeof Date.prototype.toLocaleString;
     }
   } catch {
     // ignore
@@ -184,7 +202,9 @@ export const installEnglishNumeralsPolyfill = (): void => {
   try {
     const origDateOnly = Date.prototype.toLocaleDateString as unknown as ToLocaleStringFn;
     if (typeof origDateOnly === 'function') {
-      Date.prototype.toLocaleDateString = wrapToLocaleString(origDateOnly) as unknown as typeof Date.prototype.toLocaleDateString;
+      Date.prototype.toLocaleDateString = wrapToLocaleString(
+        origDateOnly
+      ) as unknown as typeof Date.prototype.toLocaleDateString;
     }
   } catch {
     // ignore
@@ -193,7 +213,9 @@ export const installEnglishNumeralsPolyfill = (): void => {
   try {
     const origTimeOnly = Date.prototype.toLocaleTimeString as unknown as ToLocaleStringFn;
     if (typeof origTimeOnly === 'function') {
-      Date.prototype.toLocaleTimeString = wrapToLocaleString(origTimeOnly) as unknown as typeof Date.prototype.toLocaleTimeString;
+      Date.prototype.toLocaleTimeString = wrapToLocaleString(
+        origTimeOnly
+      ) as unknown as typeof Date.prototype.toLocaleTimeString;
     }
   } catch {
     // ignore

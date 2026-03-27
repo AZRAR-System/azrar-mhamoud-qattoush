@@ -1,5 +1,4 @@
-﻿
-import React from 'react';
+﻿import React from 'react';
 import { Printer, BookOpen, Code, Layers, Database, Server } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
@@ -7,18 +6,16 @@ import { RBACGuard } from '@/components/shared/RBACGuard';
 import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 
 export const Documentation: React.FC = () => {
-  
   const handlePrint = () => {
     void printCurrentViewUnified({ documentType: 'documentation' });
   };
 
   return (
     <div className="max-w-5xl mx-auto pb-20 animate-fade-in">
-      
       {/* Screen Only Header */}
       <div className={`${DS.components.pageHeader} mb-8 print:hidden`}>
         <div>
-          <h2 className={DS.components.pageTitle + " flex items-center gap-2"}>
+          <h2 className={DS.components.pageTitle + ' flex items-center gap-2'}>
             <BookOpen className="text-indigo-600" /> التوثيق التقني للنظام
           </h2>
           <p className={DS.components.pageSubtitle}>مرجع المطورين، الهيكلية، ودليل التشغيل</p>
@@ -32,11 +29,12 @@ export const Documentation: React.FC = () => {
 
       {/* Document Content (Printable) */}
       <div className="app-card p-12 rounded-3xl text-slate-800 dark:text-slate-200 print:shadow-none print:border-none print:p-0 print:text-black">
-        
         {/* Doc Header */}
         <div className="border-b-2 border-gray-100 dark:border-slate-700 pb-8 mb-8 text-center print:border-black">
           <h1 className="text-4xl font-black mb-2">نظام خبرني العقاري</h1>
-          <h2 className="text-xl text-slate-500 dark:text-slate-400 print:text-gray-600">التوثيق التقني الشامل (Technical Documentation)</h2>
+          <h2 className="text-xl text-slate-500 dark:text-slate-400 print:text-gray-600">
+            التوثيق التقني الشامل (Technical Documentation)
+          </h2>
           <p className="mt-4 text-sm font-mono text-slate-400">الإصدار 3.0 | التحديث: 2026-01-05</p>
         </div>
 
@@ -46,7 +44,10 @@ export const Documentation: React.FC = () => {
             1. مقدمة عن النظام
           </h3>
           <p className="leading-loose text-justify mb-4">
-            **نظام خبرني العقاري** هو منصة ويب حديثة (SPA - Single Page Application) مصممة لإدارة المحافظ العقارية بشكل متكامل. يهدف النظام إلى أتمتة العمليات اليومية للشركات العقارية، بدءاً من إدارة الملاك والمستأجرين، مروراً بإنشاء العقود وتحصيل الدفعات، وصولاً إلى الصيانة والتقارير المالية.
+            **نظام خبرني العقاري** هو منصة ويب حديثة (SPA - Single Page Application) مصممة لإدارة
+            المحافظ العقارية بشكل متكامل. يهدف النظام إلى أتمتة العمليات اليومية للشركات العقارية،
+            بدءاً من إدارة الملاك والمستأجرين، مروراً بإنشاء العقود وتحصيل الدفعات، وصولاً إلى
+            الصيانة والتقارير المالية.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
             <div className="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl print:border print:bg-transparent">
@@ -73,10 +74,10 @@ export const Documentation: React.FC = () => {
         {/* 2. Folder Structure */}
         <section className="mb-10 break-inside-avoid">
           <h3 className="text-2xl font-bold mb-4 flex items-center gap-2 text-indigo-700 dark:text-indigo-400 print:text-black">
-            <Code size={24}/> 2. بنية المشروع (Folder Structure)
+            <Code size={24} /> 2. بنية المشروع (Folder Structure)
           </h3>
           <div className="bg-slate-900 text-slate-300 p-6 rounded-xl font-mono text-sm leading-relaxed overflow-x-auto print:bg-gray-100 print:text-black print:border">
-<pre>{`/src
+            <pre>{`/src
 ├── /components          # مكونات الواجهة (UI Components)
 │   ├── /dashboard       # ودجات لوحة التحكم (Widgets)
 │   ├── /panels          # اللوحات الجانبية (Slide-over Panels)
@@ -113,24 +114,34 @@ export const Documentation: React.FC = () => {
         {/* 3. Core Layers */}
         <section className="mb-10 break-inside-avoid">
           <h3 className="text-2xl font-bold mb-4 flex items-center gap-2 text-indigo-700 dark:text-indigo-400 print:text-black">
-            <Layers size={24}/> 3. الطبقات الأساسية (Core Layers)
+            <Layers size={24} /> 3. الطبقات الأساسية (Core Layers)
           </h3>
           <div className="space-y-4">
             <div className="border-l-4 border-indigo-500 pl-4">
               <h4 className="font-bold text-lg">A. طبقة البيانات (Data Layer - DbService)</h4>
-              <p className="text-sm">الوسيط الوحيد بين الواجهة وقاعدة البيانات. تحتوي على دوال get, add, update, delete. تقرأ حالياً من التخزين المحلي.</p>
+              <p className="text-sm">
+                الوسيط الوحيد بين الواجهة وقاعدة البيانات. تحتوي على دوال get, add, update, delete.
+                تقرأ حالياً من التخزين المحلي.
+              </p>
             </div>
             <div className="border-l-4 border-purple-500 pl-4">
               <h4 className="font-bold text-lg">B. محرك الذكاء (Smart Behavior Engine)</h4>
-              <p className="text-sm">نظام يتعلم الأنماط من سلوك المستخدم (التتبع، التنبؤ، وكشف الشذوذ في البيانات).</p>
+              <p className="text-sm">
+                نظام يتعلم الأنماط من سلوك المستخدم (التتبع، التنبؤ، وكشف الشذوذ في البيانات).
+              </p>
             </div>
             <div className="border-l-4 border-green-500 pl-4">
               <h4 className="font-bold text-lg">C. نظام الصلاحيات (RBAC System)</h4>
-              <p className="text-sm">تحكم يعتمد على الأدوار (SuperAdmin, Admin, Employee) مع صلاحيات دقيقة مثل ADD_PERSON.</p>
+              <p className="text-sm">
+                تحكم يعتمد على الأدوار (SuperAdmin, Admin, Employee) مع صلاحيات دقيقة مثل
+                ADD_PERSON.
+              </p>
             </div>
             <div className="border-l-4 border-orange-500 pl-4">
               <h4 className="font-bold text-lg">D. سجل التدقيق (Audit Logging)</h4>
-              <p className="text-sm">يسجل كل حركة (إضافة/تعديل/حذف) مع اسم المستخدم والتاريخ لضمان الشفافية.</p>
+              <p className="text-sm">
+                يسجل كل حركة (إضافة/تعديل/حذف) مع اسم المستخدم والتاريخ لضمان الشفافية.
+              </p>
             </div>
           </div>
         </section>
@@ -138,7 +149,7 @@ export const Documentation: React.FC = () => {
         {/* 4. Data Structures */}
         <section className="mb-10 break-inside-avoid">
           <h3 className="text-2xl font-bold mb-4 flex items-center gap-2 text-indigo-700 dark:text-indigo-400 print:text-black">
-            <Database size={24}/> 4. هيكلية البيانات (Data Schema)
+            <Database size={24} /> 4. هيكلية البيانات (Data Schema)
           </h3>
           <div className="grid grid-cols-1 gap-4 text-sm">
             <div className="p-3 border rounded-lg bg-gray-50 dark:bg-slate-900/50 print:bg-white">
@@ -151,11 +162,17 @@ export const Documentation: React.FC = () => {
             </div>
             <div className="p-3 border rounded-lg bg-gray-50 dark:bg-slate-900/50 print:bg-white">
               <strong className="block text-lg mb-2">العقود (Contracts)</strong>
-              <code>رقم_العقد (PK), رقم_العقار (FK), رقم_المستاجر (FK), القيمة_السنوية, تواريخ_البداية_والنهاية</code>
+              <code>
+                رقم_العقد (PK), رقم_العقار (FK), رقم_المستاجر (FK), القيمة_السنوية,
+                تواريخ_البداية_والنهاية
+              </code>
             </div>
             <div className="p-3 border rounded-lg bg-gray-50 dark:bg-slate-900/50 print:bg-white">
               <strong className="block text-lg mb-2">الكمبيالات (Installments)</strong>
-              <code>رقم_الكمبيالة (PK), رقم_العقد (FK), تاريخ_الاستحقاق, القيمة, الحالة (مدفوع/غير مدفوع)</code>
+              <code>
+                رقم_الكمبيالة (PK), رقم_العقد (FK), تاريخ_الاستحقاق, القيمة, الحالة (مدفوع/غير
+                مدفوع)
+              </code>
             </div>
           </div>
         </section>
@@ -163,33 +180,42 @@ export const Documentation: React.FC = () => {
         {/* 5. Developer Guide */}
         <section className="mb-10 break-inside-avoid">
           <h3 className="text-2xl font-bold mb-4 flex items-center gap-2 text-indigo-700 dark:text-indigo-400 print:text-black">
-            <Server size={24}/> 5. دليل المطورين (Developer Guide)
+            <Server size={24} /> 5. دليل المطورين (Developer Guide)
           </h3>
-          
+
           <div className="mb-6">
             <h4 className="font-bold mb-2">قواعد كتابة الكود (Coding Standards)</h4>
             <ul className="list-disc list-inside space-y-1 text-sm">
-              <li>استخدام <strong>PascalCase</strong> للمكونات (Components).</li>
-              <li>استخدام <strong>camelCase</strong> للدوال والمتغيرات.</li>
+              <li>
+                استخدام <strong>PascalCase</strong> للمكونات (Components).
+              </li>
+              <li>
+                استخدام <strong>camelCase</strong> للدوال والمتغيرات.
+              </li>
               <li>فصل منطق البيانات (Services) عن الواجهة (UI).</li>
-              <li>استخدام <code>DbService</code> دائماً للتعامل مع البيانات وعدم استدعاء LocalStorage مباشرة.</li>
+              <li>
+                استخدام <code>DbService</code> دائماً للتعامل مع البيانات وعدم استدعاء LocalStorage
+                مباشرة.
+              </li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-bold mb-2">وضع Desktop فقط</h4>
             <p className="text-sm">
-              هذا المشروع يعمل كتطبيق مكتبي (Electron) مع قاعدة بيانات SQLite محلية. الربط مع Backend/LAN غير مستخدم.
+              هذا المشروع يعمل كتطبيق مكتبي (Electron) مع قاعدة بيانات SQLite محلية. الربط مع
+              Backend/LAN غير مستخدم.
             </p>
           </div>
 
           <div className="mt-6">
             <h4 className="font-bold mb-2">مرجع المطورين (مهم)</h4>
             <p className="text-sm mb-2">
-              المرجع التفصيلي للمعمارية وأوامر البناء وخريطة الدوال موجود ضمن مجلد التوثيق في المشروع.
+              المرجع التفصيلي للمعمارية وأوامر البناء وخريطة الدوال موجود ضمن مجلد التوثيق في
+              المشروع.
             </p>
             <div className="bg-slate-900 text-slate-300 p-4 rounded-xl font-mono text-sm leading-relaxed overflow-x-auto print:bg-gray-100 print:text-black print:border">
-<pre>{`docs/DEVELOPER_REFERENCE.md
+              <pre>{`docs/DEVELOPER_REFERENCE.md
 docs/TECHNICAL_DOCUMENTATION.md`}</pre>
             </div>
           </div>
@@ -198,7 +224,10 @@ docs/TECHNICAL_DOCUMENTATION.md`}</pre>
             <h4 className="font-bold mb-2">تحديثات الصيانة الأخيرة (2026-01)</h4>
             <ul className="list-disc list-inside space-y-1 text-sm">
               <li>سجل المزامنة يسجل التعديل والحذف بشكل أوضح + سطر ملخص بعد “مزامنة الآن”.</li>
-              <li>زر “مزامنة الآن” في لوحة المعلومات + مزامنة تلقائية كل 5 دقائق (مع منع التزامن المتكرر).</li>
+              <li>
+                زر “مزامنة الآن” في لوحة المعلومات + مزامنة تلقائية كل 5 دقائق (مع منع التزامن
+                المتكرر).
+              </li>
               <li>الترويسة: خيار تفعيل/تعطيل + “هوية الشركة” للطباعة والتصدير.</li>
               <li>Excel: إضافة ورقة “الترويسة” كـ Sheet إضافي داخل ملف .xlsx.</li>
             </ul>
@@ -210,9 +239,7 @@ docs/TECHNICAL_DOCUMENTATION.md`}</pre>
           <p>© 2025 — Developed by Mahmoud Qattoush</p>
           <p>AZRAR Real Estate Management System — All Rights Reserved</p>
         </div>
-
       </div>
     </div>
   );
 };
-

@@ -337,12 +337,7 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {t('أدخل البيانات الأساسية ثم أكمل باقي التفاصيل حسب الحاجة')}
-            {isDesktop ? (
-              <>
-                {' '}
-                • {t('وضع الديسكتوب')}
-              </>
-            ) : null}
+            {isDesktop ? <> • {t('وضع الديسكتوب')}</> : null}
           </p>
         </div>
 
@@ -392,7 +387,9 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                   <div className="text-sm font-bold text-slate-800 dark:text-white">
                     {t('البيانات الأساسية')}
                   </div>
-                  <div className={helperTextClass}>{t('الكود الداخلي والمالك مطلوبان لإنشاء العقار')}</div>
+                  <div className={helperTextClass}>
+                    {t('الكود الداخلي والمالك مطلوبان لإنشاء العقار')}
+                  </div>
                 </div>
               </div>
 
@@ -451,7 +448,9 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                     placeholder="0"
                     min={0}
                   />
-                  <div className={helperTextClass}>{t('اختياري — يساعد في التقارير والتقديرات')}</div>
+                  <div className={helperTextClass}>
+                    {t('اختياري — يساعد في التقارير والتقديرات')}
+                  </div>
                 </div>
               </div>
             </div>
@@ -460,8 +459,12 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
           {activeTab === 'specs' && (
             <div className={`${sectionClass} space-y-5 animate-fade-in`}>
               <div>
-                <div className="text-sm font-bold text-slate-800 dark:text-white">{t('المواصفات')}</div>
-                <div className={helperTextClass}>{t('معلومات عامة عن العقار لتسهيل البحث والفلاتر')}</div>
+                <div className="text-sm font-bold text-slate-800 dark:text-white">
+                  {t('المواصفات')}
+                </div>
+                <div className={helperTextClass}>
+                  {t('معلومات عامة عن العقار لتسهيل البحث والفلاتر')}
+                </div>
               </div>
               <div>
                 <label className={labelClass} htmlFor={fieldId('address')}>
@@ -637,7 +640,9 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                     id={fieldId('waterSubName')}
                     className={inputClass}
                     value={formData.اسم_اشتراك_المياه}
-                    onChange={(e) => setFormData({ ...formData, اسم_اشتراك_المياه: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, اسم_اشتراك_المياه: e.target.value })
+                    }
                     placeholder={ownerName ? ownerName : undefined}
                   />
                 </div>
@@ -745,7 +750,9 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                       }
                       min={0}
                     />
-                    <div className={helperTextClass}>{t('اختياري — لتحديد الحد الأدنى للتفاوض')}</div>
+                    <div className={helperTextClass}>
+                      {t('اختياري — لتحديد الحد الأدنى للتفاوض')}
+                    </div>
                   </div>
                 </div>
               )}
@@ -758,7 +765,9 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                 <div className="text-sm font-bold text-slate-800 dark:text-white">
                   {t('ملاحظات وحقول إضافية')}
                 </div>
-                <div className={helperTextClass}>{t('اكتب أي تفاصيل مهمة لتظهر لاحقاً في التقارير')}</div>
+                <div className={helperTextClass}>
+                  {t('اكتب أي تفاصيل مهمة لتظهر لاحقاً في التقارير')}
+                </div>
               </div>
               <div>
                 <label className={labelClass} htmlFor={fieldId('leasedBounds')}>

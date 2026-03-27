@@ -61,7 +61,9 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
   // Desktop fast mode may return partial joins; also guard against stale join ids.
   // Resolve tenant/property (and owner) directly from the contract ids when needed.
   const [resolvedTenant, setResolvedTenant] = useState<الأشخاص_tbl | null | undefined>(undefined);
-  const [resolvedProperty, setResolvedProperty] = useState<العقارات_tbl | null | undefined>(undefined);
+  const [resolvedProperty, setResolvedProperty] = useState<العقارات_tbl | null | undefined>(
+    undefined
+  );
   const [resolvedOwner, setResolvedOwner] = useState<الأشخاص_tbl | null | undefined>(undefined);
   const { openPanel } = useSmartModal();
   const toast = useToast();
@@ -190,13 +192,13 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
 
   const propertyResolved = useMemo<العقارات_tbl | undefined>(() => {
     const raw = data?.property as العقارات_tbl | undefined;
-    const picked = resolvedProperty === undefined ? raw : resolvedProperty ?? raw;
+    const picked = resolvedProperty === undefined ? raw : (resolvedProperty ?? raw);
     return (picked as العقارات_tbl | null | undefined) ?? raw;
   }, [data, resolvedProperty]);
 
   const tenantResolved = useMemo<الأشخاص_tbl | undefined>(() => {
     const raw = data?.tenant as الأشخاص_tbl | undefined;
-    const picked = resolvedTenant === undefined ? raw : resolvedTenant ?? raw;
+    const picked = resolvedTenant === undefined ? raw : (resolvedTenant ?? raw);
     return (picked as الأشخاص_tbl | null | undefined) ?? raw;
   }, [data, resolvedTenant]);
 
@@ -302,7 +304,9 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     return (
       <div className="p-10 text-center text-slate-600 dark:text-slate-300">
         <div className="font-bold">{t('غير مدعوم في وضع الديسكتوب الحالي')}</div>
-        <div className="text-sm mt-2">{t('يرجى تحديث نسخة الديسكتوب أو تفعيل وضع السرعة/SQL.')}</div>
+        <div className="text-sm mt-2">
+          {t('يرجى تحديث نسخة الديسكتوب أو تفعيل وضع السرعة/SQL.')}
+        </div>
       </div>
     );
   }
@@ -465,17 +469,19 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
       const resolvedOwner2 = (resolvedOwner ?? null) as الأشخاص_tbl | null;
 
       const guarantorResolved = guarantorId
-        ? (isDesktopFast
-            ? ((await domainGetSmart('people', guarantorId)) as الأشخاص_tbl | null)
-            : (DbService.getPeople?.() || []).find(
-                (p) => String(p?.رقم_الشخص ?? '') === guarantorId
-              ) || null)
+        ? isDesktopFast
+          ? ((await domainGetSmart('people', guarantorId)) as الأشخاص_tbl | null)
+          : (DbService.getPeople?.() || []).find(
+              (p) => String(p?.رقم_الشخص ?? '') === guarantorId
+            ) || null
         : null;
 
       const atts = contractId ? await listAttachmentsSmart('Contract', contractId) : [];
       const waInstallments = (installments || [])
         .slice()
-        .sort((a, b) => String(a?.تاريخ_استحقاق || '').localeCompare(String(b?.تاريخ_استحقاق || '')))
+        .sort((a, b) =>
+          String(a?.تاريخ_استحقاق || '').localeCompare(String(b?.تاريخ_استحقاق || ''))
+        )
         .map((x, idx) => ({
           rank: Number(x?.ترتيب_الكمبيالة || x?.رقم_القسط || idx + 1) || idx + 1,
           type: String(x?.نوع_الدفعة || x?.نوع_الكمبيالة || 'دفعة'),
@@ -512,7 +518,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
       <div className="app-card relative overflow-hidden group">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/10 to-purple-600/10 opacity-50 group-hover:opacity-100 transition-opacity duration-700" />
         <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-l from-indigo-500 to-purple-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]" />
-        
+
         <div className="relative p-8 flex flex-col md:flex-row justify-between gap-8">
           <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
             <div className="w-20 h-20 rounded-[2rem] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-xl border-4 border-white dark:border-slate-800 transition-transform group-hover:scale-110 duration-500">
@@ -523,7 +529,10 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 <h1 className="text-2xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
                   {t('عقد إيجار')} #{formatContractNumberShort(id)}
                 </h1>
-                <StatusBadge status={safeString(c.حالة_العقد)} className="!text-[10px] !px-3 !py-1 !font-black !rounded-xl" />
+                <StatusBadge
+                  status={safeString(c.حالة_العقد)}
+                  className="!text-[10px] !px-3 !py-1 !font-black !rounded-xl"
+                />
                 {c.autoRenew && (
                   <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black rounded-lg border border-emerald-100 dark:border-emerald-800/50 flex items-center gap-1.5 uppercase tracking-tight">
                     <RefreshCcw size={10} className="animate-spin-slow" />
@@ -539,7 +548,10 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                 {c.رقم_الفرصة && (
                   <span className="flex items-center gap-2">
                     <Link size={14} className="text-indigo-400" />
-                    {t('فرصة:')} <span className="font-mono text-indigo-600 dark:text-indigo-400">#{c.رقم_الفرصة}</span>
+                    {t('فرصة:')}{' '}
+                    <span className="font-mono text-indigo-600 dark:text-indigo-400">
+                      #{c.رقم_الفرصة}
+                    </span>
                   </span>
                 )}
               </div>
@@ -549,24 +561,41 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
           <div className="flex flex-wrap md:flex-col gap-2 min-w-[200px]">
             <div className="flex-1 grid grid-cols-2 gap-2">
               <RBACGuard requiredPermission="EDIT_CONTRACT">
-                <button onClick={handleEdit} className="flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-all text-[11px] font-black shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 active:scale-95">
+                <button
+                  onClick={handleEdit}
+                  className="flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-all text-[11px] font-black shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 active:scale-95"
+                >
                   <Edit2 size={14} /> {t('تعديل')}
                 </button>
               </RBACGuard>
               <RBACGuard requiredPermission="DELETE_CONTRACT">
-                <button onClick={handleDelete} className="flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-slate-800 border border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl transition-all text-[11px] font-black shadow-sm hover:bg-rose-50 dark:hover:bg-rose-900/20 active:scale-95">
+                <button
+                  onClick={handleDelete}
+                  className="flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-slate-800 border border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl transition-all text-[11px] font-black shadow-sm hover:bg-rose-50 dark:hover:bg-rose-900/20 active:scale-95"
+                >
                   <Trash2 size={14} /> {t('حذف')}
                 </button>
               </RBACGuard>
             </div>
             <div className="flex-1 grid grid-cols-1 gap-2">
               <RBACGuard requiredPermission="PRINT_EXECUTE">
-                <button onClick={handlePrint} className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-xl transition-all text-[11px] font-black shadow-lg shadow-black/20 hover:bg-black active:scale-95">
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-xl transition-all text-[11px] font-black shadow-lg shadow-black/20 hover:bg-black active:scale-95"
+                >
                   <Printer size={14} /> {t('طباعة')}
                 </button>
               </RBACGuard>
-              <button onClick={handleOpenWhatsAppSendPanel} disabled={isOpeningWhatsAppPanel} className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl transition-all text-[11px] font-black shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 active:scale-95 disabled:opacity-50">
-                {isOpeningWhatsAppPanel ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
+              <button
+                onClick={handleOpenWhatsAppSendPanel}
+                disabled={isOpeningWhatsAppPanel}
+                className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl transition-all text-[11px] font-black shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
+              >
+                {isOpeningWhatsAppPanel ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <MessageCircle size={14} />
+                )}
                 {t('إرسال واتساب')}
               </button>
             </div>
@@ -577,16 +606,25 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
       {/* Quick Actions Bar */}
       <div className="flex flex-wrap gap-3">
         <RBACGuard requiredPermission="CREATE_CONTRACT">
-          <button onClick={handleRenew} className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-2xl text-[11px] font-black border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all active:scale-95">
+          <button
+            onClick={handleRenew}
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-2xl text-[11px] font-black border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all active:scale-95"
+          >
             <RefreshCcw size={14} /> {t('تجديد العقد')}
           </button>
         </RBACGuard>
         <RBACGuard requiredPermission="EDIT_CONTRACT">
-          <button onClick={handleTerminate} className="flex items-center gap-2 px-5 py-2.5 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 rounded-2xl text-[11px] font-black border border-rose-100 dark:border-rose-800/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all active:scale-95">
+          <button
+            onClick={handleTerminate}
+            className="flex items-center gap-2 px-5 py-2.5 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 rounded-2xl text-[11px] font-black border border-rose-100 dark:border-rose-800/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all active:scale-95"
+          >
             <Ban size={14} /> {t('فسخ / مخالصة')}
           </button>
         </RBACGuard>
-        <button onClick={handleQuickFollowUpForContract} className="flex items-center gap-2 px-5 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-2xl text-[11px] font-black border border-amber-100 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-95">
+        <button
+          onClick={handleQuickFollowUpForContract}
+          className="flex items-center gap-2 px-5 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-2xl text-[11px] font-black border border-amber-100 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-95"
+        >
           <Clock size={14} /> {t('تذكير بمتابعة')}
         </button>
       </div>
@@ -598,9 +636,13 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400 group-hover:rotate-12 transition-transform">
               <DollarSign size={20} />
             </div>
-            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('إجمالي الإيجار')}</div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              {t('إجمالي الإيجار')}
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">{formatCurrencyJOD(dealSummary.rentTotal)}</div>
+          <div className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">
+            {formatCurrencyJOD(dealSummary.rentTotal)}
+          </div>
         </div>
 
         <div className="app-card p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20 group hover:scale-[1.02] transition-transform">
@@ -608,9 +650,13 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
               <CheckCircle size={20} />
             </div>
-            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('المدفوع')}</div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              {t('المدفوع')}
+            </div>
           </div>
-          <div className="text-2xl font-black text-emerald-600 tracking-tight">{formatCurrencyJOD(dealSummary.rentPaid)}</div>
+          <div className="text-2xl font-black text-emerald-600 tracking-tight">
+            {formatCurrencyJOD(dealSummary.rentPaid)}
+          </div>
         </div>
 
         <div className="app-card p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20 group hover:scale-[1.02] transition-transform">
@@ -618,9 +664,13 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             <div className="p-2.5 bg-rose-50 dark:bg-rose-900/30 rounded-xl text-rose-600 dark:text-rose-400 group-hover:-rotate-12 transition-transform">
               <AlertTriangle size={20} />
             </div>
-            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('المتبقي')}</div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              {t('المتبقي')}
+            </div>
           </div>
-          <div className="text-2xl font-black text-rose-600 tracking-tight">{formatCurrencyJOD(dealSummary.rentRemaining)}</div>
+          <div className="text-2xl font-black text-rose-600 tracking-tight">
+            {formatCurrencyJOD(dealSummary.rentRemaining)}
+          </div>
         </div>
 
         <div className="app-card p-6 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20 group hover:scale-[1.02] transition-transform">
@@ -628,19 +678,29 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             <div className="p-2.5 bg-amber-50 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
               <Shield size={20} />
             </div>
-            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('التأمين')}</div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              {t('التأمين')}
+            </div>
           </div>
-          <div className="text-2xl font-black text-amber-600 tracking-tight">{formatCurrencyJOD(dealSummary.depositValue)}</div>
+          <div className="text-2xl font-black text-amber-600 tracking-tight">
+            {formatCurrencyJOD(dealSummary.depositValue)}
+          </div>
         </div>
       </div>
 
       {/* Main Content Tabs */}
       <div className="app-card overflow-hidden border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20">
         <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-2">
-          <button onClick={() => setActiveTab('details')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'details' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-100 dark:border-slate-800' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}>
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'details' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-100 dark:border-slate-800' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+          >
             <ListTodo size={18} /> {t('التفاصيل والكمبيالات')}
           </button>
-          <button onClick={() => setActiveTab('timeline')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'timeline' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-100 dark:border-slate-800' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}>
+          <button
+            onClick={() => setActiveTab('timeline')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'timeline' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-100 dark:border-slate-800' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+          >
             <History size={18} /> {t('سجل النشاطات')}
           </button>
         </div>
@@ -651,40 +711,68 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
               {/* Entity Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Tenant Card */}
-                <div onClick={() => tenantResolved && openPanel('PERSON_DETAILS', String(tenantResolved.رقم_الشخص))} className="p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer group">
+                <div
+                  onClick={() =>
+                    tenantResolved && openPanel('PERSON_DETAILS', String(tenantResolved.رقم_الشخص))
+                  }
+                  className="p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer group"
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm group-hover:scale-110 transition-transform">
                       <User size={24} />
                     </div>
                     <div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('المستأجر')}</div>
-                      <div className="text-base font-black text-slate-800 dark:text-white truncate max-w-[180px]">{tenantResolved?.الاسم || t('غير معروف')}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        {t('المستأجر')}
+                      </div>
+                      <div className="text-base font-black text-slate-800 dark:text-white truncate max-w-[180px]">
+                        {tenantResolved?.الاسم || t('غير معروف')}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Property Card */}
-                <div onClick={() => propertyResolved && openPanel('PROPERTY_DETAILS', String(propertyResolved.رقم_العقار))} className="p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer group">
+                <div
+                  onClick={() =>
+                    propertyResolved &&
+                    openPanel('PROPERTY_DETAILS', String(propertyResolved.رقم_العقار))
+                  }
+                  className="p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer group"
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm group-hover:scale-110 transition-transform">
                       <Home size={24} />
                     </div>
                     <div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('العقار')}</div>
-                      <div className="text-base font-black text-slate-800 dark:text-white truncate max-w-[180px]">{propertyResolved?.العنوان || t('غير معروف')}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        {t('العقار')}
+                      </div>
+                      <div className="text-base font-black text-slate-800 dark:text-white truncate max-w-[180px]">
+                        {propertyResolved?.العنوان || t('غير معروف')}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Owner Card */}
-                <div onClick={() => resolvedOwner && openPanel('PERSON_DETAILS', String(resolvedOwner.رقم_الشخص))} className="p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer group">
+                <div
+                  onClick={() =>
+                    resolvedOwner && openPanel('PERSON_DETAILS', String(resolvedOwner.رقم_الشخص))
+                  }
+                  className="p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer group"
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-sm group-hover:scale-110 transition-transform">
                       <Shield size={24} />
                     </div>
                     <div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('المالك')}</div>
-                      <div className="text-base font-black text-slate-800 dark:text-white truncate max-w-[180px]">{resolvedOwner?.الاسم || t('غير معروف')}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        {t('المالك')}
+                      </div>
+                      <div className="text-base font-black text-slate-800 dark:text-white truncate max-w-[180px]">
+                        {resolvedOwner?.الاسم || t('غير معروف')}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -697,7 +785,9 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                     <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
                       <Calendar size={20} />
                     </div>
-                    <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{t('جدول الكمبيالات والدفعات')}</h4>
+                    <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
+                      {t('جدول الكمبيالات والدفعات')}
+                    </h4>
                   </div>
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     {t('إجمالي الأقساط:')} {installments.length}
@@ -719,20 +809,29 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                       <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                         {installments.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="app-table-empty">{t('لا توجد كمبيالات لهذا العقد.')}</td>
+                            <td colSpan={5} className="app-table-empty">
+                              {t('لا توجد كمبيالات لهذا العقد.')}
+                            </td>
                           </tr>
                         ) : (
                           installments.map((inst, idx) => (
-                            <tr key={inst.رقم_الكمبيالة || idx} className="app-table-row app-table-row-striped group">
+                            <tr
+                              key={inst.رقم_الكمبيالة || idx}
+                              className="app-table-row app-table-row-striped group"
+                            >
                               <td className="app-table-td text-center font-black text-slate-400 group-hover:text-indigo-500 transition-colors">
                                 {inst.ترتيب_الكمبيالة || idx + 1}
                               </td>
                               <td className="app-table-td">
-                                <span className={`px-3 py-1 rounded-xl text-[10px] font-black border transition-colors ${
-                                  inst.نوع_الكمبيالة === 'إيجار' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border-indigo-100 dark:border-indigo-800/50' :
-                                  inst.نوع_الكمبيالة === 'تأمين' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 border-amber-100 dark:border-amber-800/50' :
-                                  'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-100 dark:border-slate-700'
-                                }`}>
+                                <span
+                                  className={`px-3 py-1 rounded-xl text-[10px] font-black border transition-colors ${
+                                    inst.نوع_الكمبيالة === 'إيجار'
+                                      ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border-indigo-100 dark:border-indigo-800/50'
+                                      : inst.نوع_الكمبيالة === 'تأمين'
+                                        ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 border-amber-100 dark:border-amber-800/50'
+                                        : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-100 dark:border-slate-700'
+                                  }`}
+                                >
                                   {inst.نوع_الكمبيالة}
                                 </span>
                               </td>
@@ -746,7 +845,10 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
                               </td>
                               <td className="app-table-td">
                                 <div className="flex justify-center">
-                                  <StatusBadge status={safeString(inst.حالة_الكمبيالة)} className="!text-[10px] !px-3 !py-1 !font-black !rounded-xl" />
+                                  <StatusBadge
+                                    status={safeString(inst.حالة_الكمبيالة)}
+                                    className="!text-[10px] !px-3 !py-1 !font-black !rounded-xl"
+                                  />
                                 </div>
                               </td>
                             </tr>
@@ -765,7 +867,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
       </div>
 
       <AttachmentManager referenceType="Contract" referenceId={id} />
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <NotesSection type="Contract" referenceId={id} />
         <DynamicFieldsDisplay formId="contracts" values={c.حقول_ديناميكية} />
@@ -773,5 +875,3 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     </div>
   );
 };
-
-

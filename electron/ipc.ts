@@ -1,4 +1,4 @@
-﻿﻿﻿import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
+﻿import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
 import {
   kvApplyRemoteDelete,
   kvDelete,
@@ -70,7 +70,11 @@ import {
 } from './sqlSync';
 import { validateInstallerCandidate } from './security/updaterInstallValidation.js';
 import { printEngine, type PrintEngineJob } from './printing';
-import { getPrintSettingsFilePath, loadPrintSettings, savePrintSettings } from './printing/settings/store';
+import {
+  getPrintSettingsFilePath,
+  loadPrintSettings,
+  savePrintSettings,
+} from './printing/settings/store';
 import { desktopUserHasPermission, getDesktopUserById } from './printing/permissions';
 
 import logger from './logger';
@@ -1021,8 +1025,10 @@ async function readLocalBackupLogEntries(limit = 200): Promise<LocalBackupLogEnt
           message: typeof x.message === 'string' ? x.message : undefined,
           latestPath: typeof x.latestPath === 'string' ? x.latestPath : undefined,
           archivePath: typeof x.archivePath === 'string' ? x.archivePath : undefined,
-          attachmentsLatestPath: typeof x.attachmentsLatestPath === 'string' ? x.attachmentsLatestPath : undefined,
-          attachmentsArchivePath: typeof x.attachmentsArchivePath === 'string' ? x.attachmentsArchivePath : undefined,
+          attachmentsLatestPath:
+            typeof x.attachmentsLatestPath === 'string' ? x.attachmentsLatestPath : undefined,
+          attachmentsArchivePath:
+            typeof x.attachmentsArchivePath === 'string' ? x.attachmentsArchivePath : undefined,
         })) as LocalBackupLogEntry[];
       return items.slice(-Math.max(1, Math.min(1000, Math.floor(limit))));
     }
@@ -1105,8 +1111,10 @@ async function getLocalBackupStatsBestEffort(dir: string): Promise<{
     return abs;
   };
 
-  const isLatestDb = (n: string) => n === 'AZRAR-backup-latest.db' || n === 'AZRAR-backup-latest.db.enc';
-  const isLatestAtt = (n: string) => n === 'AZRAR-attachments-latest.tar.gz' || n === 'AZRAR-attachments-latest.tar.gz.enc';
+  const isLatestDb = (n: string) =>
+    n === 'AZRAR-backup-latest.db' || n === 'AZRAR-backup-latest.db.enc';
+  const isLatestAtt = (n: string) =>
+    n === 'AZRAR-attachments-latest.tar.gz' || n === 'AZRAR-attachments-latest.tar.gz.enc';
 
   const isDbArchive = (n: string) =>
     /^AZRAR-backup-\d{4}-\d{2}-\d{2}(?:-\d+)?\.db(\.enc)?$/i.test(n);
@@ -1123,7 +1131,8 @@ async function getLocalBackupStatsBestEffort(dir: string): Promise<{
 
   for (const name of names) {
     if (!name) continue;
-    if (!(isLatestDb(name) || isLatestAtt(name) || isDbArchive(name) || isAttArchive(name))) continue;
+    if (!(isLatestDb(name) || isLatestAtt(name) || isDbArchive(name) || isAttArchive(name)))
+      continue;
     const abs = safeJoin(name);
     if (!abs) continue;
     try {
@@ -1197,7 +1206,9 @@ async function readLocalBackupAutomationSettings(): Promise<LocalBackupAutomatio
   return { v: 1, enabled: false, timeHHmm: '02:00', retentionDays: 30 };
 }
 
-async function writeLocalBackupAutomationSettings(next: LocalBackupAutomationSettings): Promise<void> {
+async function writeLocalBackupAutomationSettings(
+  next: LocalBackupAutomationSettings
+): Promise<void> {
   const out: LocalBackupAutomationSettings = {
     v: 1,
     enabled: next.enabled === true,
@@ -1349,8 +1360,16 @@ async function runLocalBackupToDir(dir: string): Promise<{
       const tmpPlain = path.join(app.getPath('temp'), `AZRAR-backup-tmp-${Date.now()}.db`);
       try {
         await exportDatabaseToMany([tmpPlain]);
-        await encryptFileToFile({ sourcePath: tmpPlain, destPath: latestPath, password: encryptionPassword });
-        await encryptFileToFile({ sourcePath: tmpPlain, destPath: archivePath, password: encryptionPassword });
+        await encryptFileToFile({
+          sourcePath: tmpPlain,
+          destPath: latestPath,
+          password: encryptionPassword,
+        });
+        await encryptFileToFile({
+          sourcePath: tmpPlain,
+          destPath: archivePath,
+          password: encryptionPassword,
+        });
       } finally {
         try {
           await fsp.unlink(tmpPlain);
@@ -1641,7 +1660,11 @@ async function backupAttachmentsBestEffort(destDir: string): Promise<boolean> {
 
 async function rmDirBestEffort(dir: string): Promise<void> {
   try {
-    const rm = (fsp as unknown as { rm?: (p: string, o: { recursive: boolean; force: boolean }) => Promise<void> }).rm;
+    const rm = (
+      fsp as unknown as {
+        rm?: (p: string, o: { recursive: boolean; force: boolean }) => Promise<void>;
+      }
+    ).rm;
     if (rm) {
       await rm(dir, { recursive: true, force: true });
       return;
@@ -1676,7 +1699,10 @@ async function exportAttachmentsArchiveToMany(opts: {
 
   const tempDir = path.join(app.getPath('temp'), `AZRAR-attachments-export-${Date.now()}`);
   const tmpTar = path.join(app.getPath('temp'), `AZRAR-attachments-export-${Date.now()}.tar.gz`);
-  const tmpTarEnc = path.join(app.getPath('temp'), `AZRAR-attachments-export-${Date.now()}.tar.gz.enc`);
+  const tmpTarEnc = path.join(
+    app.getPath('temp'),
+    `AZRAR-attachments-export-${Date.now()}.tar.gz.enc`
+  );
 
   let copiedAny = false;
   try {
@@ -1696,7 +1722,11 @@ async function exportAttachmentsArchiveToMany(opts: {
         throw new Error('تشفير النسخ الاحتياطية مفعل لكن كلمة المرور غير مضبوطة.');
       }
       // Encrypt once to a temp enc file, then copy to destinations.
-      await encryptFileToFile({ sourcePath: tmpTar, destPath: tmpTarEnc, password: opts.encryptionPassword });
+      await encryptFileToFile({
+        sourcePath: tmpTar,
+        destPath: tmpTarEnc,
+        password: opts.encryptionPassword,
+      });
       for (const p of destPaths) {
         await fsp.mkdir(path.dirname(p), { recursive: true });
         await fsp.copyFile(tmpTarEnc, p);
@@ -1728,7 +1758,11 @@ async function restoreAttachmentsFromArchiveBestEffort(opts: {
 
   const attachmentsRoot = await getWritableAttachmentsRootForRestore();
   if (await dirHasMeaningfulEntries(attachmentsRoot)) {
-    return { restored: false, skippedBecauseNotEmpty: true, message: 'مجلد المرفقات غير فارغ - تم تخطي الاستعادة لتجنب الكتابة فوق الملفات' };
+    return {
+      restored: false,
+      skippedBecauseNotEmpty: true,
+      message: 'مجلد المرفقات غير فارغ - تم تخطي الاستعادة لتجنب الكتابة فوق الملفات',
+    };
   }
 
   await fsp.mkdir(attachmentsRoot, { recursive: true });
@@ -1741,7 +1775,8 @@ async function restoreAttachmentsFromArchiveBestEffort(opts: {
   try {
     if (isEnc) {
       const password = String(opts.password || '');
-      if (!password) return { restored: false, message: 'لا توجد كلمة مرور لفك تشفير أرشيف المرفقات' };
+      if (!password)
+        return { restored: false, message: 'لا توجد كلمة مرور لفك تشفير أرشيف المرفقات' };
       await decryptFileToFile({ sourcePath: archivePath, destPath: tmpTar, password });
       await tar.x({ file: tmpTar, cwd: attachmentsRoot, gzip: true });
     } else {
@@ -1769,7 +1804,9 @@ async function encryptExistingAttachmentsAtRestBestEffort(password: string): Pro
     }
   })();
 
-  const roots = [stable, userData, legacyExe].filter((p): p is string => typeof p === 'string' && !!p);
+  const roots = [stable, userData, legacyExe].filter(
+    (p): p is string => typeof p === 'string' && !!p
+  );
 
   const walk = async (dir: string): Promise<void> => {
     let entries: Array<import('node:fs').Dirent> = [];
@@ -1840,7 +1877,9 @@ async function reencryptEncryptedAttachmentsAtRestBestEffort(
     }
   })();
 
-  const roots = [stable, userData, legacyExe].filter((p): p is string => typeof p === 'string' && !!p);
+  const roots = [stable, userData, legacyExe].filter(
+    (p): p is string => typeof p === 'string' && !!p
+  );
 
   const walk = async (dir: string): Promise<void> => {
     let entries: Array<import('node:fs').Dirent> = [];
@@ -1868,7 +1907,11 @@ async function reencryptEncryptedAttachmentsAtRestBestEffort(
         if (!alreadyEnc) continue;
 
         // Decrypt with old password to memory, then re-encrypt with new password.
-        const bytes = await decryptFileToBuffer({ sourcePath: abs, password: oldPassword, maxBytes: MAX_ATTACHMENT_BYTES });
+        const bytes = await decryptFileToBuffer({
+          sourcePath: abs,
+          password: oldPassword,
+          maxBytes: MAX_ATTACHMENT_BYTES,
+        });
         const tmp = `${abs}.azrar-tmpreenc-${Date.now()}`;
         await encryptBufferToFile({ bytes, destPath: tmp, password: newPassword });
         try {
@@ -2171,10 +2214,17 @@ export function registerIpcHandlers() {
 
       const st = await getLicenseStatus();
       if (!st.activated) {
-        return { ok: true, enabled: false, reason: (st as { reason?: string }).reason || 'not_activated' };
+        return {
+          ok: true,
+          enabled: false,
+          reason: (st as { reason?: string }).reason || 'not_activated',
+        };
       }
 
-      const enabled = isFeatureEnabled((st as { license?: { features?: unknown } }).license?.features, name);
+      const enabled = isFeatureEnabled(
+        (st as { license?: { features?: unknown } }).license?.features,
+        name
+      );
       return { ok: true, enabled };
     } catch (e: unknown) {
       return { ok: false, error: toErrorMessage(e, 'تعذر قراءة صلاحيات الترخيص') };
@@ -2188,7 +2238,7 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('license:activateOnline', async (_e, payload: unknown) => {
-    const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+    const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
     const res = await licenseActivateOnline({
       licenseKey: String(p.licenseKey || ''),
       ...(p.serverUrl ? { serverUrl: String(p.serverUrl) } : {}),
@@ -2262,7 +2312,8 @@ export function registerIpcHandlers() {
     if (v2) {
       storedAdminTokens = {
         v: 2,
-        defaultToken: typeof v2.defaultToken === 'string' ? v2.defaultToken : envDefaultToken || undefined,
+        defaultToken:
+          typeof v2.defaultToken === 'string' ? v2.defaultToken : envDefaultToken || undefined,
         byOrigin: v2.byOrigin && typeof v2.byOrigin === 'object' ? v2.byOrigin : {},
         updatedAt: typeof v2.updatedAt === 'string' ? v2.updatedAt : storedAdminTokens.updatedAt,
       };
@@ -2321,8 +2372,14 @@ export function registerIpcHandlers() {
     }
     return generatedDefaultPassword;
   };
-  const normalizeUser = (u: unknown) => String(u ?? '').trim().slice(0, 64);
-  const normalizePass = (p: unknown) => String(p ?? '').trim().slice(0, 128);
+  const normalizeUser = (u: unknown) =>
+    String(u ?? '')
+      .trim()
+      .slice(0, 64);
+  const normalizePass = (p: unknown) =>
+    String(p ?? '')
+      .trim()
+      .slice(0, 128);
 
   const hashPassword = (password: string, salt: Buffer, iterations: number): Buffer => {
     return crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
@@ -2368,8 +2425,12 @@ export function registerIpcHandlers() {
     const existing = readAuthUnsafe();
     if (existing) return existing;
 
-    const envUser = normalizeUser(process.env.AZRAR_LICENSE_ADMIN_UI_USERNAME || process.env.AZRAR_ADMIN_USERNAME);
-    const envPass = normalizePass(process.env.AZRAR_LICENSE_ADMIN_UI_PASSWORD || process.env.AZRAR_ADMIN_PASSWORD);
+    const envUser = normalizeUser(
+      process.env.AZRAR_LICENSE_ADMIN_UI_USERNAME || process.env.AZRAR_ADMIN_USERNAME
+    );
+    const envPass = normalizePass(
+      process.env.AZRAR_LICENSE_ADMIN_UI_PASSWORD || process.env.AZRAR_ADMIN_PASSWORD
+    );
     const username = envUser || DEFAULT_ADMIN_USERNAME;
     const password = envPass || getDefaultAdminPassword();
     const created = createAuth(username, password);
@@ -2384,7 +2445,8 @@ export function registerIpcHandlers() {
   const verifyLogin = (username: string, password: string): boolean => {
     try {
       const auth = ensureAuth();
-      if (normalizeUser(username).toLowerCase() !== String(auth.username).trim().toLowerCase()) return false;
+      if (normalizeUser(username).toLowerCase() !== String(auth.username).trim().toLowerCase())
+        return false;
       const salt = Buffer.from(String(auth.saltB64), 'base64');
       const iterations = Number(auth.iterations);
       const expected = Buffer.from(String(auth.hashB64), 'base64');
@@ -2437,7 +2499,7 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('licenseAdmin:login', async (_e, payload: unknown) => {
     try {
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const user = normalizeUser(p.username);
       const pass = normalizePass(p.password);
       if (!user) return { ok: false, error: 'Username is required.' };
@@ -2459,7 +2521,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const origin = normalizeServerUrl(p.serverUrl);
       const configured = !!getAdminTokenForOrigin(origin);
       return { ok: true, configured };
@@ -2472,7 +2534,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const token = String(p.token ?? '').trim();
       if (!token) return { ok: false, error: 'token is required.' };
       const origin = normalizeServerUrl(p.serverUrl);
@@ -2498,7 +2560,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const nextUser = normalizeUser(p.username);
       const nextPass = normalizePass(p.newPassword);
       if (!nextUser) return { ok: false, error: 'username is required.' };
@@ -2506,7 +2568,9 @@ export function registerIpcHandlers() {
       const updated = createAuth(nextUser, nextPass || getDefaultAdminPassword());
       if (!nextPass) {
         (updated as Record<string, unknown>).saltB64 = (current as Record<string, unknown>).saltB64;
-        (updated as Record<string, unknown>).iterations = (current as Record<string, unknown>).iterations;
+        (updated as Record<string, unknown>).iterations = (
+          current as Record<string, unknown>
+        ).iterations;
         (updated as Record<string, unknown>).hashB64 = (current as Record<string, unknown>).hashB64;
       }
       kvSet(ADMIN_AUTH_KEY, JSON.stringify(updated));
@@ -2520,7 +2584,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const q = typeof p.q === 'string' ? p.q : '';
@@ -2536,7 +2600,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const licenseKey = String(p.licenseKey || '').trim();
@@ -2552,13 +2616,15 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const body: Record<string, unknown> = {
         ...(p.licenseKey ? { licenseKey: String(p.licenseKey) } : {}),
         ...(p.expiresAt ? { expiresAt: String(p.expiresAt) } : {}),
-        ...(Number.isFinite(Number(p.maxActivations)) ? { maxActivations: Number(p.maxActivations) } : {}),
+        ...(Number.isFinite(Number(p.maxActivations))
+          ? { maxActivations: Number(p.maxActivations) }
+          : {}),
         ...(p.features && typeof p.features === 'object' ? { features: p.features } : {}),
       };
       const json = await postJson(serverUrl, '/api/license/admin/issue', body);
@@ -2572,7 +2638,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const licenseKey = String(p.licenseKey || '').trim();
@@ -2594,7 +2660,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const licenseKey = String(p.licenseKey || '').trim();
@@ -2623,7 +2689,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const licenseKey = String(p.licenseKey || '').trim();
@@ -2652,11 +2718,12 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const confirmPassword = String(p.confirmPassword || '').trim();
       if (!confirmPassword) return { ok: false, error: 'confirmPassword is required.' };
       const a = ensureAuth();
-      if (!verifyLogin(a.username, confirmPassword)) return { ok: false, error: 'Invalid password.' };
+      if (!verifyLogin(a.username, confirmPassword))
+        return { ok: false, error: 'Invalid password.' };
       const content = String(p.content || '');
       if (!content.trim()) return { ok: false, error: 'content is required.' };
       const safeName = String(p.defaultFileName || 'azrar-license.json')
@@ -2680,13 +2747,16 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const licenseKey = String(p.licenseKey || '').trim();
       if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
       const patch = p.patch && typeof p.patch === 'object' ? p.patch : {};
-      const json = await postJson(serverUrl, '/api/license/admin/updateAfterSales', { licenseKey, patch });
+      const json = await postJson(serverUrl, '/api/license/admin/updateAfterSales', {
+        licenseKey,
+        patch,
+      });
       return { ok: true, result: json };
     } catch (e: unknown) {
       return { ok: false, error: toErrorMessage(e, 'Failed to update after-sales') };
@@ -2697,14 +2767,17 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const licenseKey = String(p.licenseKey || '').trim();
       const deviceId = String(p.deviceId || '').trim();
       if (!licenseKey) return { ok: false, error: 'licenseKey is required.' };
       if (!deviceId) return { ok: false, error: 'deviceId is required.' };
-      const json = await postJson(serverUrl, '/api/license/admin/unbindDevice', { licenseKey, deviceId });
+      const json = await postJson(serverUrl, '/api/license/admin/unbindDevice', {
+        licenseKey,
+        deviceId,
+      });
       return { ok: true, result: json };
     } catch (e: unknown) {
       return { ok: false, error: toErrorMessage(e, 'Failed to unbind device') };
@@ -2715,7 +2788,7 @@ export function registerIpcHandlers() {
     try {
       const auth = requireAdminSession();
       if (!auth.ok) return { ok: false, error: auth.error };
-      const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {};
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
       const licenseKey = String(p.licenseKey || '').trim();
@@ -4035,7 +4108,8 @@ export function registerIpcHandlers() {
       const filePath = await chooseJsonFileViaDialog();
       if (!filePath) return { ok: false, message: 'تم الإلغاء' };
 
-      const isEnc = (await isEncryptedFile(filePath)) || path.extname(filePath).toLowerCase() === '.enc';
+      const isEnc =
+        (await isEncryptedFile(filePath)) || path.extname(filePath).toLowerCase() === '.enc';
       if (!isEnc) {
         const res = await importServerBackupFromFile(filePath, 'merge');
         addSqlSyncLogEntry({
@@ -4059,9 +4133,16 @@ export function registerIpcHandlers() {
         };
       }
 
-      const tmpJson = path.join(app.getPath('temp'), `AZRAR_SERVER_BACKUP_IMPORT_TMP_${Date.now()}.json`);
+      const tmpJson = path.join(
+        app.getPath('temp'),
+        `AZRAR_SERVER_BACKUP_IMPORT_TMP_${Date.now()}.json`
+      );
       try {
-        await decryptFileToFile({ sourcePath: filePath, destPath: tmpJson, password: encryptionPassword });
+        await decryptFileToFile({
+          sourcePath: filePath,
+          destPath: tmpJson,
+          password: encryptionPassword,
+        });
         const res = await importServerBackupFromFile(tmpJson, 'merge');
         addSqlSyncLogEntry({
           direction: 'system',
@@ -4113,7 +4194,8 @@ export function registerIpcHandlers() {
       const filePath = await chooseJsonFileViaDialog();
       if (!filePath) return { ok: false, message: 'تم الإلغاء' };
 
-      const isEnc = (await isEncryptedFile(filePath)) || path.extname(filePath).toLowerCase() === '.enc';
+      const isEnc =
+        (await isEncryptedFile(filePath)) || path.extname(filePath).toLowerCase() === '.enc';
       if (!isEnc) {
         const res = await importServerBackupFromFile(filePath, 'replace');
         addSqlSyncLogEntry({
@@ -4126,7 +4208,9 @@ export function registerIpcHandlers() {
       }
 
       const enc = await readBackupEncryptionSettings();
-      const encryptionPassword = enc.passwordEnc ? decryptSecretBestEffort(String(enc.passwordEnc || '')) : '';
+      const encryptionPassword = enc.passwordEnc
+        ? decryptSecretBestEffort(String(enc.passwordEnc || ''))
+        : '';
       if (!encryptionPassword) {
         return {
           ok: false,
@@ -4135,9 +4219,16 @@ export function registerIpcHandlers() {
         };
       }
 
-      const tmpJson = path.join(app.getPath('temp'), `AZRAR_SERVER_BACKUP_RESTORE_TMP_${Date.now()}.json`);
+      const tmpJson = path.join(
+        app.getPath('temp'),
+        `AZRAR_SERVER_BACKUP_RESTORE_TMP_${Date.now()}.json`
+      );
       try {
-        await decryptFileToFile({ sourcePath: filePath, destPath: tmpJson, password: encryptionPassword });
+        await decryptFileToFile({
+          sourcePath: filePath,
+          destPath: tmpJson,
+          password: encryptionPassword,
+        });
         const res = await importServerBackupFromFile(tmpJson, 'replace');
         addSqlSyncLogEntry({
           direction: 'system',
@@ -4567,7 +4658,10 @@ export function registerIpcHandlers() {
         }
       };
 
-      const normKeySimple = (v: unknown) => String(v ?? '').trim().toLowerCase();
+      const normKeySimple = (v: unknown) =>
+        String(v ?? '')
+          .trim()
+          .toLowerCase();
 
       const stableHash32 = (input: string): string => {
         let h = 5381;
@@ -4998,24 +5092,34 @@ export function registerIpcHandlers() {
     return await readLocalBackupAutomationSettings();
   });
 
-  ipcMain.handle('db:saveLocalBackupAutomationSettings', async (_e, payload: Record<string, unknown> | undefined) => {
-    try {
-      const current = await readLocalBackupAutomationSettings();
-      const next: LocalBackupAutomationSettings = {
-        ...current,
-        v: 1,
-        enabled: payload?.enabled === true,
-        timeHHmm: normalizeTimeHHmm(payload?.timeHHmm ?? current.timeHHmm),
-        retentionDays: normalizeRetentionDays(payload?.retentionDays ?? current.retentionDays),
-        lastRunAt: typeof current.lastRunAt === 'string' ? current.lastRunAt : undefined,
-      };
-      await writeLocalBackupAutomationSettings(next);
-      startLocalAutoBackupScheduler();
-      return { success: true, message: 'تم حفظ إعدادات النسخ الاحتياطي التلقائي', settings: await readLocalBackupAutomationSettings() };
-    } catch (e: unknown) {
-      return { success: false, message: toErrorMessage(e, 'فشل حفظ إعدادات النسخ الاحتياطي التلقائي') };
+  ipcMain.handle(
+    'db:saveLocalBackupAutomationSettings',
+    async (_e, payload: Record<string, unknown> | undefined) => {
+      try {
+        const current = await readLocalBackupAutomationSettings();
+        const next: LocalBackupAutomationSettings = {
+          ...current,
+          v: 1,
+          enabled: payload?.enabled === true,
+          timeHHmm: normalizeTimeHHmm(payload?.timeHHmm ?? current.timeHHmm),
+          retentionDays: normalizeRetentionDays(payload?.retentionDays ?? current.retentionDays),
+          lastRunAt: typeof current.lastRunAt === 'string' ? current.lastRunAt : undefined,
+        };
+        await writeLocalBackupAutomationSettings(next);
+        startLocalAutoBackupScheduler();
+        return {
+          success: true,
+          message: 'تم حفظ إعدادات النسخ الاحتياطي التلقائي',
+          settings: await readLocalBackupAutomationSettings(),
+        };
+      } catch (e: unknown) {
+        return {
+          success: false,
+          message: toErrorMessage(e, 'فشل حفظ إعدادات النسخ الاحتياطي التلقائي'),
+        };
+      }
     }
-  });
+  );
 
   ipcMain.handle('db:getLocalBackupStats', async () => {
     try {
@@ -5071,7 +5175,11 @@ export function registerIpcHandlers() {
       }
 
       const st = await readLocalBackupAutomationSettings();
-      await writeLocalBackupAutomationSettings({ ...st, enabled: st.enabled === true, lastRunAt: new Date().toISOString() });
+      await writeLocalBackupAutomationSettings({
+        ...st,
+        enabled: st.enabled === true,
+        lastRunAt: new Date().toISOString(),
+      });
       await pruneLocalBackupsBestEffort(dir, st.retentionDays ?? 30);
 
       await appendLocalBackupLogEntry({
@@ -5109,12 +5217,12 @@ export function registerIpcHandlers() {
       if (!filePath || !fs.existsSync(filePath)) {
         return { success: false, message: 'الملف غير موجود' };
       }
-      
+
       // Basic safety: ensure it's in a backup directory
       const settings = await readBackupSettings();
       const backupDir = settings.backupDir;
       if (backupDir && !filePath.startsWith(backupDir)) {
-         return { success: false, message: 'لا يمكن حذف ملفات خارج مجلد النسخ الاحتياطي' };
+        return { success: false, message: 'لا يمكن حذف ملفات خارج مجلد النسخ الاحتياطي' };
       }
 
       await fsp.unlink(filePath);
@@ -5140,7 +5248,10 @@ export function registerIpcHandlers() {
       if (isEncrypted) {
         const encState = await getBackupEncryptionPasswordState();
         if (!encState.configured || !encState.password) {
-           return { success: false, message: 'الملف مشفر ولكن لم يتم ضبط كلمة مرور التشفير في الإعدادات.' };
+          return {
+            success: false,
+            message: 'الملف مشفر ولكن لم يتم ضبط كلمة مرور التشفير في الإعدادات.',
+          };
         }
         password = encState.password;
       }
@@ -5148,10 +5259,10 @@ export function registerIpcHandlers() {
       // We use the same internal logic as db:import but with the provided path.
       dbMaintenanceMode = true;
       try {
-         await importDatabaseFrom(filePath, password);
-         return { success: true, message: 'تم استعادة البيانات بنجاح. سيتم إعادة تشغيل البرنامج.' };
+        await importDatabaseFrom(filePath, password);
+        return { success: true, message: 'تم استعادة البيانات بنجاح. سيتم إعادة تشغيل البرنامج.' };
       } finally {
-         dbMaintenanceMode = false;
+        dbMaintenanceMode = false;
       }
     } catch (e: unknown) {
       return { success: false, message: toErrorMessage(e, 'فشل استعادة النسخة الاحتياطية') };
@@ -5238,14 +5349,24 @@ export function registerIpcHandlers() {
         await exportDatabaseToMany([latestPath, archivePath]);
       } else {
         if (!encryptionConfigured || !encryptionPassword) {
-          throw new Error('تشفير النسخ الاحتياطية مفعل لكن كلمة المرور غير مضبوطة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.');
+          throw new Error(
+            'تشفير النسخ الاحتياطية مفعل لكن كلمة المرور غير مضبوطة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.'
+          );
         }
 
         const tmpPlain = path.join(app.getPath('temp'), `AZRAR-backup-tmp-${Date.now()}.db`);
         try {
           await exportDatabaseToMany([tmpPlain]);
-          await encryptFileToFile({ sourcePath: tmpPlain, destPath: latestPath, password: encryptionPassword });
-          await encryptFileToFile({ sourcePath: tmpPlain, destPath: archivePath, password: encryptionPassword });
+          await encryptFileToFile({
+            sourcePath: tmpPlain,
+            destPath: latestPath,
+            password: encryptionPassword,
+          });
+          await encryptFileToFile({
+            sourcePath: tmpPlain,
+            destPath: archivePath,
+            password: encryptionPassword,
+          });
         } finally {
           try {
             await fsp.unlink(tmpPlain);
@@ -5319,7 +5440,8 @@ export function registerIpcHandlers() {
         if (!['.db', '.sqlite', '.sqlite3'].includes(ext)) {
           return {
             success: false,
-            message: 'الملف يجب أن يكون قاعدة بيانات SQLite (.db / .sqlite / .sqlite3) أو ملف نسخة مشفرة (.enc)',
+            message:
+              'الملف يجب أن يكون قاعدة بيانات SQLite (.db / .sqlite / .sqlite3) أو ملف نسخة مشفرة (.enc)',
           };
         }
       }
@@ -5352,8 +5474,13 @@ export function registerIpcHandlers() {
           const archiveCandidate = candidates.find((p) => p && fs.existsSync(p));
           if (archiveCandidate) {
             const s = await readBackupEncryptionSettings();
-            const password = s.passwordEnc ? decryptSecretBestEffort(String(s.passwordEnc || '')) : '';
-            const r = await restoreAttachmentsFromArchiveBestEffort({ archivePath: archiveCandidate, password });
+            const password = s.passwordEnc
+              ? decryptSecretBestEffort(String(s.passwordEnc || ''))
+              : '';
+            const r = await restoreAttachmentsFromArchiveBestEffort({
+              archivePath: archiveCandidate,
+              password,
+            });
             attachmentsRestored = r.restored;
             attachmentsMsg = r.message;
           }
@@ -5372,15 +5499,25 @@ export function registerIpcHandlers() {
       }
 
       const enc = await readBackupEncryptionSettings();
-      const encryptionPassword = enc.passwordEnc ? decryptSecretBestEffort(String(enc.passwordEnc || '')) : '';
+      const encryptionPassword = enc.passwordEnc
+        ? decryptSecretBestEffort(String(enc.passwordEnc || ''))
+        : '';
       if (!encryptionPassword) {
         dbMaintenanceMode = false;
-        return { success: false, message: 'لا توجد كلمة مرور لتشفير النسخ الاحتياطية. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.' };
+        return {
+          success: false,
+          message:
+            'لا توجد كلمة مرور لتشفير النسخ الاحتياطية. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.',
+        };
       }
 
       const tmpPlain = path.join(app.getPath('temp'), `AZRAR-restore-tmp-${Date.now()}.db`);
       try {
-        await decryptFileToFile({ sourcePath: resolved, destPath: tmpPlain, password: encryptionPassword });
+        await decryptFileToFile({
+          sourcePath: resolved,
+          destPath: tmpPlain,
+          password: encryptionPassword,
+        });
         await importDatabase(tmpPlain);
       } finally {
         try {
@@ -5444,25 +5581,29 @@ export function registerIpcHandlers() {
         hasPassword: !!s.passwordEnc,
       };
     } catch (e: unknown) {
-      return { success: false, message: toErrorMessage(e, 'فشل قراءة إعدادات تشفير النسخ الاحتياطية') };
+      return {
+        success: false,
+        message: toErrorMessage(e, 'فشل قراءة إعدادات تشفير النسخ الاحتياطية'),
+      };
     }
   });
 
   ipcMain.handle('db:saveBackupEncryptionSettings', async (_evt, payload: unknown) => {
     try {
-      const p = (payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}) as Record<
-        string,
-        unknown
-      >;
+      const p = (
+        payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
+      ) as Record<string, unknown>;
 
       const nextEnabled = p.enabled === undefined ? undefined : !!p.enabled;
       const clearPassword = p.clearPassword === true;
       const password = typeof p.password === 'string' ? p.password : undefined;
 
       if (password !== undefined) {
-        if (password.length < 6) return { success: false, message: 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)' };
+        if (password.length < 6)
+          return { success: false, message: 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)' };
         if (password.length > 256) return { success: false, message: 'كلمة المرور طويلة جداً' };
-        if (password.includes('\u0000')) return { success: false, message: 'كلمة المرور غير صالحة' };
+        if (password.includes('\u0000'))
+          return { success: false, message: 'كلمة المرور غير صالحة' };
       }
 
       const current = await readBackupEncryptionSettings();
@@ -5490,7 +5631,11 @@ export function registerIpcHandlers() {
         const hadPassword = !!current.passwordEnc;
         const hasPassword = !!next.passwordEnc;
         const passwordChanged = password !== undefined;
-        if (nowEnabled && hasPassword && (!hadPassword || passwordChanged || current.enabled !== true)) {
+        if (
+          nowEnabled &&
+          hasPassword &&
+          (!hadPassword || passwordChanged || current.enabled !== true)
+        ) {
           const plain = decryptSecretBestEffort(String(next.passwordEnc || ''));
           if (plain) {
             setTimeout(() => {
@@ -5500,9 +5645,18 @@ export function registerIpcHandlers() {
         }
 
         // If password changed, re-encrypt already-encrypted attachments (prevents losing access).
-        if (nowEnabled && password !== undefined && currentPasswordPlain && password && currentPasswordPlain !== password) {
+        if (
+          nowEnabled &&
+          password !== undefined &&
+          currentPasswordPlain &&
+          password &&
+          currentPasswordPlain !== password
+        ) {
           setTimeout(() => {
-            void reencryptEncryptedAttachmentsAtRestBestEffort(currentPasswordPlain, password).catch(() => undefined);
+            void reencryptEncryptedAttachmentsAtRestBestEffort(
+              currentPasswordPlain,
+              password
+            ).catch(() => undefined);
           }, 800);
         }
       } catch {
@@ -5518,8 +5672,13 @@ export function registerIpcHandlers() {
         hasPassword: !!next.passwordEnc,
       };
     } catch (e: unknown) {
-      logger.warn('backup-encryption: failed to save settings', { err: toErrorMessage(e, 'فشل حفظ إعدادات تشفير النسخ الاحتياطية') });
-      return { success: false, message: toErrorMessage(e, 'فشل حفظ إعدادات تشفير النسخ الاحتياطية') };
+      logger.warn('backup-encryption: failed to save settings', {
+        err: toErrorMessage(e, 'فشل حفظ إعدادات تشفير النسخ الاحتياطية'),
+      });
+      return {
+        success: false,
+        message: toErrorMessage(e, 'فشل حفظ إعدادات تشفير النسخ الاحتياطية'),
+      };
     }
   });
 
@@ -5566,10 +5725,7 @@ export function registerIpcHandlers() {
     const stableHasData =
       stableEntries.filter(
         (n) =>
-          n &&
-          n !== '.write-test' &&
-          n !== '.migrated-from-exe' &&
-          n !== '.migrated-from-userData'
+          n && n !== '.write-test' && n !== '.migrated-from-exe' && n !== '.migrated-from-userData'
       ).length > 0;
     if (stableHasData) return;
 
@@ -5756,7 +5912,8 @@ export function registerIpcHandlers() {
 
     const roots = [stableRoot];
     if (legacyRoot) roots.push(legacyRoot);
-    if (userDataRoot && path.resolve(userDataRoot) !== path.resolve(stableRoot)) roots.push(userDataRoot);
+    if (userDataRoot && path.resolve(userDataRoot) !== path.resolve(stableRoot))
+      roots.push(userDataRoot);
     return roots;
   };
 
@@ -6001,7 +6158,8 @@ export function registerIpcHandlers() {
           if (!encState.configured || !encState.password) {
             return {
               success: false,
-              message: 'تشفير البيانات مفعل لكن كلمة المرور غير مضبوطة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.',
+              message:
+                'تشفير البيانات مفعل لكن كلمة المرور غير مضبوطة. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.',
             };
           }
           await encryptBufferToFile({ bytes: buf, destPath: absPath, password: encState.password });
@@ -6029,9 +6187,18 @@ export function registerIpcHandlers() {
       const data = looksEncrypted
         ? await (async () => {
             const s = await readBackupEncryptionSettings();
-            const password = s.passwordEnc ? decryptSecretBestEffort(String(s.passwordEnc || '')) : '';
-            if (!password) throw new Error('لا توجد كلمة مرور لفك تشفير المرفقات. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.');
-            return await decryptFileToBuffer({ sourcePath: abs, password, maxBytes: MAX_ATTACHMENT_BYTES });
+            const password = s.passwordEnc
+              ? decryptSecretBestEffort(String(s.passwordEnc || ''))
+              : '';
+            if (!password)
+              throw new Error(
+                'لا توجد كلمة مرور لفك تشفير المرفقات. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.'
+              );
+            return await decryptFileToBuffer({
+              sourcePath: abs,
+              password,
+              maxBytes: MAX_ATTACHMENT_BYTES,
+            });
           })()
         : await fsp.readFile(abs);
       const ext = path.extname(abs);
@@ -6039,7 +6206,10 @@ export function registerIpcHandlers() {
       const dataUri = `data:${mime};base64,${data.toString('base64')}`;
       return { success: true, dataUri };
     } catch (err: unknown) {
-      logger.warn('[IPC][attachments:read] blocked/failed', toErrorMessage(err, 'فشل قراءة المرفق'));
+      logger.warn(
+        '[IPC][attachments:read] blocked/failed',
+        toErrorMessage(err, 'فشل قراءة المرفق')
+      );
       return { success: false, message: toErrorMessage(err, 'Failed to read attachment') };
     }
   });
@@ -6052,7 +6222,10 @@ export function registerIpcHandlers() {
       await fsp.unlink(abs);
       return { success: true };
     } catch (err: unknown) {
-      logger.warn('[IPC][attachments:delete] blocked/failed', toErrorMessage(err, 'Failed to delete attachment'));
+      logger.warn(
+        '[IPC][attachments:delete] blocked/failed',
+        toErrorMessage(err, 'Failed to delete attachment')
+      );
       return { success: false, message: toErrorMessage(err, 'Failed to delete attachment') };
     }
   });
@@ -6073,17 +6246,27 @@ export function registerIpcHandlers() {
         ? abs
         : await (async () => {
             const s = await readBackupEncryptionSettings();
-            const password = s.passwordEnc ? decryptSecretBestEffort(String(s.passwordEnc || '')) : '';
+            const password = s.passwordEnc
+              ? decryptSecretBestEffort(String(s.passwordEnc || ''))
+              : '';
             if (!password) {
-              throw new Error('لا توجد كلمة مرور لفك تشفير المرفقات. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.');
+              throw new Error(
+                'لا توجد كلمة مرور لفك تشفير المرفقات. اضبط كلمة المرور من الإعدادات ثم أعد المحاولة.'
+              );
             }
             const ext = path.extname(abs);
-            const tmp = path.join(app.getPath('temp'), `AZRAR-attachment-open-${Date.now()}${ext || ''}`);
+            const tmp = path.join(
+              app.getPath('temp'),
+              `AZRAR-attachment-open-${Date.now()}${ext || ''}`
+            );
             await decryptFileToFile({ sourcePath: abs, destPath: tmp, password });
             // Best-effort cleanup after some time (do not fail open if cleanup fails).
-            setTimeout(() => {
-              void fsp.unlink(tmp).catch(() => undefined);
-            }, 10 * 60 * 1000);
+            setTimeout(
+              () => {
+                void fsp.unlink(tmp).catch(() => undefined);
+              },
+              10 * 60 * 1000
+            );
             return tmp;
           })();
 
@@ -6091,7 +6274,10 @@ export function registerIpcHandlers() {
       if (errMsg) return { success: false, message: String(errMsg) };
       return { success: true };
     } catch (err: unknown) {
-      logger.warn('[IPC][attachments:open] blocked/failed', toErrorMessage(err, 'Failed to open attachment'));
+      logger.warn(
+        '[IPC][attachments:open] blocked/failed',
+        toErrorMessage(err, 'Failed to open attachment')
+      );
       return { success: false, message: toErrorMessage(err, 'Failed to open attachment') };
     }
   });
@@ -6124,7 +6310,8 @@ export function registerIpcHandlers() {
   const WORD_TEMPLATE_KV_PREFIX = 'db_word_template_';
 
   const templateKvKeyPrefixFor = (t: WordTemplateType) => `${WORD_TEMPLATE_KV_PREFIX}${t}_`;
-  const makeTemplateKvKey = (t: WordTemplateType, key: string) => `${WORD_TEMPLATE_KV_PREFIX}${t}_${key}`;
+  const makeTemplateKvKey = (t: WordTemplateType, key: string) =>
+    `${WORD_TEMPLATE_KV_PREFIX}${t}_${key}`;
 
   const safeJsonParseStoredWordTemplate = (raw: string): StoredWordTemplate | null => {
     const s = String(raw || '').trim();
@@ -6152,7 +6339,9 @@ export function registerIpcHandlers() {
     }
   };
 
-  const listStoredTemplatesFor = (t: WordTemplateType): Array<{ kvKey: string; item: StoredWordTemplate }> => {
+  const listStoredTemplatesFor = (
+    t: WordTemplateType
+  ): Array<{ kvKey: string; item: StoredWordTemplate }> => {
     try {
       const prefix = templateKvKeyPrefixFor(t);
       const keys = (kvKeys?.() || []).filter((k) => String(k || '').startsWith(prefix));
@@ -6185,9 +6374,13 @@ export function registerIpcHandlers() {
 
   const sha256Hex = (buf: Buffer): string => crypto.createHash('sha256').update(buf).digest('hex');
 
-  const materializeTemplateFileFromStored = async (templatesDir: string, stored: StoredWordTemplate) => {
+  const materializeTemplateFileFromStored = async (
+    templatesDir: string,
+    stored: StoredWordTemplate
+  ) => {
     const safeName = path.basename(stored.fileName);
-    if (!safeName.toLowerCase().endsWith('.docx')) throw new Error('القالب يجب أن يكون ملف Word (.docx)');
+    if (!safeName.toLowerCase().endsWith('.docx'))
+      throw new Error('القالب يجب أن يكون ملف Word (.docx)');
     if (!stored.bytesBase64) throw new Error('القالب غير صالح');
 
     const abs = path.join(templatesDir, safeName);
@@ -6207,7 +6400,9 @@ export function registerIpcHandlers() {
   };
 
   const normalizeTemplateType = (raw: unknown): WordTemplateType => {
-    const v = String(raw || '').trim().toLowerCase();
+    const v = String(raw || '')
+      .trim()
+      .toLowerCase();
     if (v === 'contracts') return 'contracts';
     if (v === 'installments') return 'installments';
     if (v === 'handover') return 'handover';
@@ -6287,7 +6482,8 @@ export function registerIpcHandlers() {
           const buf = await fsp.readFile(abs);
           if (!buf || buf.byteLength <= 0 || buf.byteLength > MAX_TEMPLATE_BYTES) continue;
 
-          const key = crypto.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+          const key =
+            crypto.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`;
           const kvKey = makeTemplateKvKey(templateType, key);
           const item: StoredWordTemplate = {
             key,
@@ -6373,7 +6569,8 @@ export function registerIpcHandlers() {
         const nowIso = new Date().toISOString();
         const buf = await fsp.readFile(dest);
         if (buf && buf.byteLength > 0 && buf.byteLength <= MAX_TEMPLATE_BYTES) {
-          const key = crypto.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+          const key =
+            crypto.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`;
           const kvKey = makeTemplateKvKey(templateType, key);
           const item: StoredWordTemplate = {
             key,
@@ -6396,169 +6593,184 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle('templates:read', async (_e, payload: { templateName: string; templateType?: string }) => {
-    try {
-      const rawName = String(payload?.templateName || '').trim();
-      const templateType = normalizeTemplateType(payload?.templateType);
-      const templatesDir = await getTemplatesDir(templateType);
+  ipcMain.handle(
+    'templates:read',
+    async (_e, payload: { templateName: string; templateType?: string }) => {
+      try {
+        const rawName = String(payload?.templateName || '').trim();
+        const templateType = normalizeTemplateType(payload?.templateType);
+        const templatesDir = await getTemplatesDir(templateType);
 
-      let safeName = path.basename(rawName);
-      if (!safeName) {
-        // If not provided, try auto-pick when there is exactly one template
-        try {
-          const items = (await fsp.readdir(templatesDir)).filter((x) =>
-            x.toLowerCase().endsWith('.docx')
-          );
-          if (items.length === 1) safeName = items[0];
-        } catch {
-          // ignore
-        }
-      }
-      if (!safeName) return { success: false, message: 'اسم القالب غير صالح' };
-
-      if (!safeName.toLowerCase().endsWith('.docx')) {
-        return { success: false, message: 'القالب يجب أن يكون ملف Word (.docx)' };
-      }
-
-      const candidates = [
-        // Preferred: user-imported templates
-        path.join(templatesDir, safeName),
-        // Dev/workspace
-        path.join(process.cwd(), templateFallbackFolder(templateType), safeName),
-        // Packaged resources path (best-effort)
-        path.join(app.getAppPath(), templateFallbackFolder(templateType), safeName),
-        // Beside the installed EXE (portable/installed)
-        path.join(path.dirname(app.getPath('exe')), templateFallbackFolder(templateType), safeName),
-      ];
-
-      let found: string | null = null;
-      for (const p of candidates) {
-        try {
-          if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-            found = p;
-            break;
+        let safeName = path.basename(rawName);
+        if (!safeName) {
+          // If not provided, try auto-pick when there is exactly one template
+          try {
+            const items = (await fsp.readdir(templatesDir)).filter((x) =>
+              x.toLowerCase().endsWith('.docx')
+            );
+            if (items.length === 1) safeName = items[0];
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
-      }
+        if (!safeName) return { success: false, message: 'اسم القالب غير صالح' };
 
-      if (!found) {
-        // If the file isn't available locally, try to reconstruct it from KV (synced from SQL).
-        try {
-          const stored = listStoredTemplatesFor(templateType);
-          const hit = stored.find((s) => String(s.item.fileName).toLowerCase() === safeName.toLowerCase());
-          if (hit) {
-            const abs = await materializeTemplateFileFromStored(templatesDir, hit.item);
-            found = abs;
+        if (!safeName.toLowerCase().endsWith('.docx')) {
+          return { success: false, message: 'القالب يجب أن يكون ملف Word (.docx)' };
+        }
+
+        const candidates = [
+          // Preferred: user-imported templates
+          path.join(templatesDir, safeName),
+          // Dev/workspace
+          path.join(process.cwd(), templateFallbackFolder(templateType), safeName),
+          // Packaged resources path (best-effort)
+          path.join(app.getAppPath(), templateFallbackFolder(templateType), safeName),
+          // Beside the installed EXE (portable/installed)
+          path.join(
+            path.dirname(app.getPath('exe')),
+            templateFallbackFolder(templateType),
+            safeName
+          ),
+        ];
+
+        let found: string | null = null;
+        for (const p of candidates) {
+          try {
+            if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+              found = p;
+              break;
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
 
         if (!found) {
+          // If the file isn't available locally, try to reconstruct it from KV (synced from SQL).
+          try {
+            const stored = listStoredTemplatesFor(templateType);
+            const hit = stored.find(
+              (s) => String(s.item.fileName).toLowerCase() === safeName.toLowerCase()
+            );
+            if (hit) {
+              const abs = await materializeTemplateFileFromStored(templatesDir, hit.item);
+              found = abs;
+            }
+          } catch {
+            // ignore
+          }
+
+          if (!found) {
+            return {
+              success: false,
+              message: `لم يتم العثور على قالب Word: ${safeName}. يمكنك استيراد القالب من داخل البرنامج وسيتم حفظه تلقائياً داخل مجلد النظام: templates/${templateType}`,
+            };
+          }
+        }
+
+        const resolvedFound = await fsp.realpath(found).catch(() => found);
+        const allowedRoots = [
+          templatesDir,
+          path.join(process.cwd(), templateFallbackFolder(templateType)),
+          path.join(app.getAppPath(), templateFallbackFolder(templateType)),
+          path.join(path.dirname(app.getPath('exe')), templateFallbackFolder(templateType)),
+        ];
+
+        const isInsideAnyRoot = allowedRoots.some((root) => {
+          try {
+            const rootResolved = path.resolve(root);
+            const targetResolved = path.resolve(resolvedFound);
+            const rel = path.relative(rootResolved, targetResolved);
+            if (!rel || rel === '.') return true;
+            return !rel.startsWith('..') && !path.isAbsolute(rel);
+          } catch {
+            return false;
+          }
+        });
+
+        if (!isInsideAnyRoot) {
+          return { success: false, message: 'مسار القالب غير صالح' };
+        }
+
+        const st = await fsp.stat(resolvedFound);
+        if (!st.isFile()) return { success: false, message: 'القالب غير صالح' };
+        if (st.size <= 0) return { success: false, message: 'القالب فارغ' };
+        if (st.size > MAX_TEMPLATE_BYTES)
+          return { success: false, message: 'حجم القالب كبير جداً' };
+
+        const buf = await fsp.readFile(resolvedFound);
+        if (buf.byteLength > MAX_TEMPLATE_BYTES) {
+          return { success: false, message: 'حجم القالب كبير جداً' };
+        }
+
+        const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        const dataUri = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`;
+        return { success: true, dataUri, fileName: safeName };
+      } catch (err: unknown) {
+        return { success: false, message: toErrorMessage(err, 'Failed to read template') };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'templates:delete',
+    async (_e, payload: { templateName: string; templateType?: string }) => {
+      try {
+        const rawName = String(payload?.templateName || '').trim();
+        const templateType = normalizeTemplateType(payload?.templateType);
+        const templatesDir = await getTemplatesDir(templateType);
+
+        const safeName = path.basename(rawName);
+        if (!safeName) return { success: false, message: 'اسم القالب غير صالح' };
+        if (!safeName.toLowerCase().endsWith('.docx')) {
+          return { success: false, message: 'القالب يجب أن يكون ملف Word (.docx)' };
+        }
+
+        const abs = path.join(templatesDir, safeName);
+        const resolvedAbs = await fsp.realpath(abs).catch(() => abs);
+
+        // Ensure deletion only inside the template type directory.
+        const templatesDirResolved = await fsp.realpath(templatesDir).catch(() => templatesDir);
+        const rel = path.relative(templatesDirResolved, resolvedAbs);
+        if (!rel || rel === '.') {
+          return { success: false, message: 'مسار القالب غير صالح' };
+        }
+        if (rel.startsWith('..') || path.isAbsolute(rel)) {
+          return { success: false, message: 'مسار القالب غير صالح' };
+        }
+
+        await fsp.unlink(resolvedAbs);
+
+        // Remove from KV store (synced) if present.
+        try {
+          const stored = listStoredTemplatesFor(templateType);
+          const hit = stored.find(
+            (s) => String(s.item.fileName).toLowerCase() === safeName.toLowerCase()
+          );
+          if (hit) {
+            deleteKvAndPushDelete(hit.kvKey);
+          }
+        } catch {
+          // ignore
+        }
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = toErrorMessage(err, 'Failed to delete template');
+
+        if (/ENOENT/i.test(msg)) {
+          return { success: false, message: 'القالب غير موجود (ربما تم حذفه مسبقاً)' };
+        }
+        if (/EPERM|EBUSY/i.test(msg)) {
           return {
             success: false,
-            message: `لم يتم العثور على قالب Word: ${safeName}. يمكنك استيراد القالب من داخل البرنامج وسيتم حفظه تلقائياً داخل مجلد النظام: templates/${templateType}`,
+            message: 'تعذر حذف القالب (قد يكون مفتوحاً في Word). أغلقه ثم أعد المحاولة.',
           };
         }
+        return { success: false, message: msg };
       }
-
-      const resolvedFound = await fsp.realpath(found).catch(() => found);
-      const allowedRoots = [
-        templatesDir,
-        path.join(process.cwd(), templateFallbackFolder(templateType)),
-        path.join(app.getAppPath(), templateFallbackFolder(templateType)),
-        path.join(path.dirname(app.getPath('exe')), templateFallbackFolder(templateType)),
-      ];
-
-      const isInsideAnyRoot = allowedRoots.some((root) => {
-        try {
-          const rootResolved = path.resolve(root);
-          const targetResolved = path.resolve(resolvedFound);
-          const rel = path.relative(rootResolved, targetResolved);
-          if (!rel || rel === '.') return true;
-          return !rel.startsWith('..') && !path.isAbsolute(rel);
-        } catch {
-          return false;
-        }
-      });
-
-      if (!isInsideAnyRoot) {
-        return { success: false, message: 'مسار القالب غير صالح' };
-      }
-
-      const st = await fsp.stat(resolvedFound);
-      if (!st.isFile()) return { success: false, message: 'القالب غير صالح' };
-      if (st.size <= 0) return { success: false, message: 'القالب فارغ' };
-      if (st.size > MAX_TEMPLATE_BYTES) return { success: false, message: 'حجم القالب كبير جداً' };
-
-      const buf = await fsp.readFile(resolvedFound);
-      if (buf.byteLength > MAX_TEMPLATE_BYTES) {
-        return { success: false, message: 'حجم القالب كبير جداً' };
-      }
-
-      const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      const dataUri = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`;
-      return { success: true, dataUri, fileName: safeName };
-    } catch (err: unknown) {
-      return { success: false, message: toErrorMessage(err, 'Failed to read template') };
     }
-  });
-
-  ipcMain.handle('templates:delete', async (_e, payload: { templateName: string; templateType?: string }) => {
-    try {
-      const rawName = String(payload?.templateName || '').trim();
-      const templateType = normalizeTemplateType(payload?.templateType);
-      const templatesDir = await getTemplatesDir(templateType);
-
-      const safeName = path.basename(rawName);
-      if (!safeName) return { success: false, message: 'اسم القالب غير صالح' };
-      if (!safeName.toLowerCase().endsWith('.docx')) {
-        return { success: false, message: 'القالب يجب أن يكون ملف Word (.docx)' };
-      }
-
-      const abs = path.join(templatesDir, safeName);
-      const resolvedAbs = await fsp.realpath(abs).catch(() => abs);
-
-      // Ensure deletion only inside the template type directory.
-      const templatesDirResolved = await fsp.realpath(templatesDir).catch(() => templatesDir);
-      const rel = path.relative(templatesDirResolved, resolvedAbs);
-      if (!rel || rel === '.') {
-        return { success: false, message: 'مسار القالب غير صالح' };
-      }
-      if (rel.startsWith('..') || path.isAbsolute(rel)) {
-        return { success: false, message: 'مسار القالب غير صالح' };
-      }
-
-      await fsp.unlink(resolvedAbs);
-
-      // Remove from KV store (synced) if present.
-      try {
-        const stored = listStoredTemplatesFor(templateType);
-        const hit = stored.find((s) => String(s.item.fileName).toLowerCase() === safeName.toLowerCase());
-        if (hit) {
-          deleteKvAndPushDelete(hit.kvKey);
-        }
-      } catch {
-        // ignore
-      }
-      return { success: true };
-    } catch (err: unknown) {
-      const msg = toErrorMessage(err, 'Failed to delete template');
-
-      if (/ENOENT/i.test(msg)) {
-        return { success: false, message: 'القالب غير موجود (ربما تم حذفه مسبقاً)' };
-      }
-      if (/EPERM|EBUSY/i.test(msg)) {
-        return {
-          success: false,
-          message: 'تعذر حذف القالب (قد يكون مفتوحاً في Word). أغلقه ثم أعد المحاولة.',
-        };
-      }
-      return { success: false, message: msg };
-    }
-  });
+  );
 
   // Start local auto-backup scheduler (best-effort).
   startLocalAutoBackupScheduler();
@@ -6593,7 +6805,8 @@ export function registerIpcHandlers() {
       // Phase 10: unified dispatch (no print logic in renderer; only metadata + routing).
       if (action === 'printCurrentView') {
         const allowed = desktopUserHasPermission(userId, 'PRINT_EXECUTE');
-        if (!allowed) return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
+        if (!allowed)
+          return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
 
         // We intentionally ignore documentType/entityId/data here (for now) but we require them
         // so every UI entry-point sends consistent metadata.
@@ -6601,12 +6814,16 @@ export function registerIpcHandlers() {
         void entityId;
         void r.data;
 
-        return await printEngine.run({ type: 'currentView', mode: 'print' }, { webContents: e.sender });
+        return await printEngine.run(
+          { type: 'currentView', mode: 'print' },
+          { webContents: e.sender }
+        );
       }
 
       if (action === 'printText') {
         const allowed = desktopUserHasPermission(userId, 'PRINT_EXECUTE');
-        if (!allowed) return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
+        if (!allowed)
+          return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
 
         const text = typeof r.text === 'string' ? String(r.text) : '';
         const title = typeof r.title === 'string' ? String(r.title) : undefined;
@@ -6616,15 +6833,27 @@ export function registerIpcHandlers() {
         void entityId;
         void r.data;
 
-        return await printEngine.run({ type: 'text', mode: 'print', payload: { title, text } }, { webContents: e.sender });
+        return await printEngine.run(
+          { type: 'text', mode: 'print', payload: { title, text } },
+          { webContents: e.sender }
+        );
       }
 
       if (action === 'generate') {
-        const templateName = typeof r.templateName === 'string' ? String(r.templateName) : undefined;
-        const outputType = r.outputType === 'pdf' || r.outputType === 'docx' ? (r.outputType as 'pdf' | 'docx') : undefined;
-        const defaultFileName = typeof r.defaultFileName === 'string' ? String(r.defaultFileName) : undefined;
-        const data = (r.data && typeof r.data === 'object') ? (r.data as Record<string, unknown>) : undefined;
-        const headerFooter = (r.headerFooter && typeof r.headerFooter === 'object') ? (r.headerFooter as Record<string, unknown>) : undefined;
+        const templateName =
+          typeof r.templateName === 'string' ? String(r.templateName) : undefined;
+        const outputType =
+          r.outputType === 'pdf' || r.outputType === 'docx'
+            ? (r.outputType as 'pdf' | 'docx')
+            : undefined;
+        const defaultFileName =
+          typeof r.defaultFileName === 'string' ? String(r.defaultFileName) : undefined;
+        const data =
+          r.data && typeof r.data === 'object' ? (r.data as Record<string, unknown>) : undefined;
+        const headerFooter =
+          r.headerFooter && typeof r.headerFooter === 'object'
+            ? (r.headerFooter as Record<string, unknown>)
+            : undefined;
 
         if (!outputType) return { ok: false, code: 'INVALID', message: 'نوع الإخراج غير صالح' };
         if (!data) return { ok: false, code: 'INVALID', message: 'بيانات القالب غير صالحة' };
@@ -6652,10 +6881,16 @@ export function registerIpcHandlers() {
       }
 
       if (action === 'exportDocx') {
-        const templateName = typeof r.templateName === 'string' ? String(r.templateName) : undefined;
-        const defaultFileName = typeof r.defaultFileName === 'string' ? String(r.defaultFileName) : undefined;
-        const data = (r.data && typeof r.data === 'object') ? (r.data as Record<string, unknown>) : undefined;
-        const headerFooter = (r.headerFooter && typeof r.headerFooter === 'object') ? (r.headerFooter as Record<string, unknown>) : undefined;
+        const templateName =
+          typeof r.templateName === 'string' ? String(r.templateName) : undefined;
+        const defaultFileName =
+          typeof r.defaultFileName === 'string' ? String(r.defaultFileName) : undefined;
+        const data =
+          r.data && typeof r.data === 'object' ? (r.data as Record<string, unknown>) : undefined;
+        const headerFooter =
+          r.headerFooter && typeof r.headerFooter === 'object'
+            ? (r.headerFooter as Record<string, unknown>)
+            : undefined;
         if (!data) return { ok: false, code: 'INVALID', message: 'بيانات القالب غير صالحة' };
 
         const job: PrintEngineJob = {
@@ -6741,7 +6976,11 @@ export function registerIpcHandlers() {
       const filePath = await getPrintSettingsFilePath();
       return { ok: true, filePath };
     } catch (err: unknown) {
-      return { ok: false, code: 'FAILED', message: toErrorMessage(err, 'فشل تحديد مسار إعدادات الطباعة') };
+      return {
+        ok: false,
+        code: 'FAILED',
+        message: toErrorMessage(err, 'فشل تحديد مسار إعدادات الطباعة'),
+      };
     }
   });
 }

@@ -1,14 +1,21 @@
 ﻿/**
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
- * 
+ *
  * لوحة التحكم الاحترافية - Dashboard Professional Edition
  * Multi-layer, Real-time Dashboard with Advanced Analytics
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  BarChart3, TrendingUp, AlertCircle, Calendar, DollarSign, RefreshCw, Activity, Search
+  BarChart3,
+  TrendingUp,
+  AlertCircle,
+  Calendar,
+  DollarSign,
+  RefreshCw,
+  Activity,
+  Search,
 } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import type { الكمبيالات_tbl } from '@/types';
@@ -43,7 +50,8 @@ interface LayerConfig {
   description: string;
 }
 
-const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+const toRecord = (v: unknown): Record<string, unknown> =>
+  typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 const toNumber = (v: unknown): number => {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -54,32 +62,32 @@ const layerConfigs: LayerConfig[] = [
     id: 'overview',
     label: 'نظرة عامة',
     icon: <BarChart3 size={20} />,
-    description: 'التحليلات والملخصات المالية'
+    description: 'التحليلات والملخصات المالية',
   },
   {
     id: 'sales',
     label: 'تتبع المبيعات',
     icon: <TrendingUp size={20} />,
-    description: 'خط أنابيب المبيعات والأداء'
+    description: 'خط أنابيب المبيعات والأداء',
   },
   {
     id: 'calendar',
     label: 'التقويم والمهام',
     icon: <Calendar size={20} />,
-    description: 'الأحداث والمهام والمتابعة'
+    description: 'الأحداث والمهام والمتابعة',
   },
   {
     id: 'monitoring',
     label: 'نظام المراقبة',
     icon: <AlertCircle size={20} />,
-    description: 'التنبيهات والمشاكل المعلقة'
+    description: 'التنبيهات والمشاكل المعلقة',
   },
   {
     id: 'performance',
     label: 'الأداء المالي',
     icon: <DollarSign size={20} />,
-    description: 'التقارير المالية والإيرادات'
-  }
+    description: 'التقارير المالية والإيرادات',
+  },
 ];
 
 export const Dashboard: React.FC = () => {
@@ -91,16 +99,20 @@ export const Dashboard: React.FC = () => {
   const [, setTasksTick] = useState(0);
   const [syncBusy, setSyncBusy] = useState(false);
   const [pagesSearch, setPagesSearch] = useState('');
-  
+
   // Get dashboard data
-  const { data: dashboardData, isRefreshing, refresh } = useDashboardData({
+  const {
+    data: dashboardData,
+    isRefreshing,
+    refresh,
+  } = useDashboardData({
     autoRefresh,
     refreshIntervalMs: 30_000,
   });
 
   // Live update when tasks/reminders change
   useEffect(() => {
-    const handler = () => setTasksTick(t => t + 1);
+    const handler = () => setTasksTick((t) => t + 1);
     window.addEventListener('azrar:tasks-changed', handler);
     return () => window.removeEventListener('azrar:tasks-changed', handler);
   }, []);
@@ -109,7 +121,7 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     try {
       const stored = localStorage.getItem('dashboard_active_layer');
-      const valid = (layerConfigs.map(l => l.id) as string[]).includes(String(stored));
+      const valid = (layerConfigs.map((l) => l.id) as string[]).includes(String(stored));
       if (stored && valid) setActiveLayer(stored as LayerTab);
     } catch {
       // ignore
@@ -131,7 +143,10 @@ export const Dashboard: React.FC = () => {
   const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
 
   const userRecord = useMemo(() => toRecord(user), [user]);
-  const currentUsername = useMemo(() => String(userRecord['اسم_المستخدم'] ?? userRecord['name'] ?? '').trim(), [userRecord]);
+  const currentUsername = useMemo(
+    () => String(userRecord['اسم_المستخدم'] ?? userRecord['name'] ?? '').trim(),
+    [userRecord]
+  );
 
   const _employeeCommissionsThisMonth = useMemo(() => {
     // Preserve original behavior: re-evaluate on dashboard refresh.
@@ -144,14 +159,27 @@ export const Dashboard: React.FC = () => {
       const data = reportRec['data'];
       const rows = Array.isArray(data) ? (data as unknown[]) : [];
 
-      const monthRowsAll = rows.filter((r) => String(toRecord(r)['date'] ?? '').slice(0, 7) === currentMonth);
+      const monthRowsAll = rows.filter(
+        (r) => String(toRecord(r)['date'] ?? '').slice(0, 7) === currentMonth
+      );
       const monthRows = username
-        ? monthRowsAll.filter((r) => String(toRecord(r)['employeeUsername'] ?? '').trim() === username)
+        ? monthRowsAll.filter(
+            (r) => String(toRecord(r)['employeeUsername'] ?? '').trim() === username
+          )
         : monthRowsAll;
 
-      const totalOffice = monthRows.reduce<number>((sum, r) => sum + toNumber(toRecord(r)['officeCommission']), 0);
-      const totalIntro = monthRows.reduce<number>((sum, r) => sum + toNumber(toRecord(r)['intro']), 0);
-      const totalEmployee = monthRows.reduce<number>((sum, r) => sum + toNumber(toRecord(r)['employeeTotal']), 0);
+      const totalOffice = monthRows.reduce<number>(
+        (sum, r) => sum + toNumber(toRecord(r)['officeCommission']),
+        0
+      );
+      const totalIntro = monthRows.reduce<number>(
+        (sum, r) => sum + toNumber(toRecord(r)['intro']),
+        0
+      );
+      const totalEmployee = monthRows.reduce<number>(
+        (sum, r) => sum + toNumber(toRecord(r)['employeeTotal']),
+        0
+      );
 
       return {
         count: monthRows.length,
@@ -170,8 +198,13 @@ export const Dashboard: React.FC = () => {
     // Recompute when dashboard data changes (sync/refresh)
   }, [currentMonth, dashboardData.meta.updatedAt, currentUsername]);
 
-  const todayFollowUps = DbService.getFollowUps().filter((t) => String(toRecord(t)['dueDate'] ?? '') === todayYMD);
-  const todayReminders = DbService.getReminders().filter((r) => String(toRecord(r)['date'] ?? '') === todayYMD && String(toRecord(r)['type'] ?? '') === 'Task');
+  const todayFollowUps = DbService.getFollowUps().filter(
+    (t) => String(toRecord(t)['dueDate'] ?? '') === todayYMD
+  );
+  const todayReminders = DbService.getReminders().filter(
+    (r) =>
+      String(toRecord(r)['date'] ?? '') === todayYMD && String(toRecord(r)['type'] ?? '') === 'Task'
+  );
   const todayTaskTitles = [
     ...todayFollowUps.map((t) => String(toRecord(t)['task'] ?? '').trim()).filter(Boolean),
     ...todayReminders.map((r) => String(toRecord(r)['title'] ?? '').trim()).filter(Boolean),
@@ -182,7 +215,10 @@ export const Dashboard: React.FC = () => {
     refresh();
   };
 
-  const lastUpdatedAt = useMemo(() => new Date(dashboardData.meta.updatedAt || Date.now()), [dashboardData.meta.updatedAt]);
+  const lastUpdatedAt = useMemo(
+    () => new Date(dashboardData.meta.updatedAt || Date.now()),
+    [dashboardData.meta.updatedAt]
+  );
 
   const _handleSqlSyncNow = async () => {
     if (!window.desktopDb?.sqlSyncNow) {
@@ -192,7 +228,10 @@ export const Dashboard: React.FC = () => {
     if (syncBusy) return;
     setSyncBusy(true);
     try {
-      const res = (await window.desktopDb.sqlSyncNow()) as unknown as { ok?: boolean; message?: string } | null;
+      const res = (await window.desktopDb.sqlSyncNow()) as unknown as {
+        ok?: boolean;
+        message?: string;
+      } | null;
       if (res?.ok) toast.success(res?.message || 'تمت المزامنة');
       else toast.error(res?.message || 'فشل المزامنة');
     } catch (e: unknown) {
@@ -211,7 +250,9 @@ export const Dashboard: React.FC = () => {
     const matchesUser = (l: unknown) => {
       const rec = toRecord(l);
       const byName = username && String(rec['اسم_المستخدم'] ?? '').trim() === username;
-      const byId = userId && String(rec['userId'] ?? rec['user_id'] ?? rec['رقم_المستخدم'] ?? '').trim() === userId;
+      const byId =
+        userId &&
+        String(rec['userId'] ?? rec['user_id'] ?? rec['رقم_المستخدم'] ?? '').trim() === userId;
       return byName || byId;
     };
 
@@ -229,7 +270,7 @@ export const Dashboard: React.FC = () => {
     const out: LinkItem[] = [];
     const add = (label: string, path: string, icon?: IconComponent, group?: string) => {
       if (!path || !path.startsWith('/')) return;
-      if (out.some(x => x.path === path && x.label === label)) return;
+      if (out.some((x) => x.path === path && x.label === label)) return;
       out.push({ label, path, icon, group });
     };
 
@@ -265,7 +306,14 @@ export const Dashboard: React.FC = () => {
 
     const q = pagesSearch.trim().toLowerCase();
     const filtered = q
-      ? out.filter((x) => x.label.toLowerCase().includes(q) || x.path.toLowerCase().includes(q) || String(x.group || '').toLowerCase().includes(q))
+      ? out.filter(
+          (x) =>
+            x.label.toLowerCase().includes(q) ||
+            x.path.toLowerCase().includes(q) ||
+            String(x.group || '')
+              .toLowerCase()
+              .includes(q)
+        )
       : out;
 
     // Grouped display: primary first, then admin/tools
@@ -293,48 +341,72 @@ export const Dashboard: React.FC = () => {
         {/* Abstract Background Elements */}
         <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-indigo-500/20 to-transparent skew-x-12 transform translate-x-24" />
         <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl animate-pulse" />
-        
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 text-right" dir="rtl">
+
+        <div
+          className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 text-right"
+          dir="rtl"
+        >
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md">
               <Activity size={14} className="text-indigo-400 animate-pulse" />
-              <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">حالة النظام: متصل</span>
+              <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">
+                حالة النظام: متصل
+              </span>
             </div>
-            
+
             <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter leading-none">
-              أهلاً بك، <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-indigo-100">{String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}</span>
+              أهلاً بك،{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-indigo-100">
+                {String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}
+              </span>
             </h1>
             <p className="text-slate-400 font-bold max-w-xl text-lg leading-relaxed">
-              إليك نظرة سريعة على أداء نظام <span className="text-white">AZRAR</span> لهذا اليوم. كافة البيانات محدثة ولحظية.
+              إليك نظرة سريعة على أداء نظام <span className="text-white">AZRAR</span> لهذا اليوم.
+              كافة البيانات محدثة ولحظية.
             </p>
 
             <div className="flex items-center gap-4 pt-4">
-              <button 
+              <button
                 onClick={handleManualRefresh}
                 className="group flex items-center gap-3 bg-white text-slate-900 px-6 py-3 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10"
               >
-                <RefreshCw size={20} className={`group-hover:rotate-180 transition-transform duration-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  size={20}
+                  className={`group-hover:rotate-180 transition-transform duration-500 ${isRefreshing ? 'animate-spin' : ''}`}
+                />
                 تحديث البيانات
               </button>
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold text-slate-500 uppercase">آخر تحديث</span>
-                <span className="text-xs font-black text-slate-300">{formatTimeHM(lastUpdatedAt)}</span>
+                <span className="text-xs font-black text-slate-300">
+                  {formatTimeHM(lastUpdatedAt)}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Quick Stats Grid inside Hero */}
           <div className="grid grid-cols-2 gap-4 w-full lg:w-auto">
-             <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
-                <div className="text-indigo-400 mb-2"><DollarSign size={24} /></div>
-                <div className="text-2xl font-black text-white">{formatCurrencyJOD(dashboardData.kpis.totalRevenue)}</div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase mt-1">إيرادات الشهر</div>
-             </div>
-             <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
-                <div className="text-indigo-400 mb-2"><TrendingUp size={24} /></div>
-                <div className="text-2xl font-black text-white">{dashboardData.kpis.activeContracts}</div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase mt-1">عقود نشطة</div>
-             </div>
+            <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
+              <div className="text-indigo-400 mb-2">
+                <DollarSign size={24} />
+              </div>
+              <div className="text-2xl font-black text-white">
+                {formatCurrencyJOD(dashboardData.kpis.totalRevenue)}
+              </div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase mt-1">
+                إيرادات الشهر
+              </div>
+            </div>
+            <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
+              <div className="text-indigo-400 mb-2">
+                <TrendingUp size={24} />
+              </div>
+              <div className="text-2xl font-black text-white">
+                {dashboardData.kpis.activeContracts}
+              </div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase mt-1">عقود نشطة</div>
+            </div>
           </div>
         </div>
       </div>
@@ -347,27 +419,29 @@ export const Dashboard: React.FC = () => {
       {/* Content Layers with Modern Tabs */}
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4">
-           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2" dir="rtl">
-             {layerConfigs.map((layer) => (
-               <button
-                 key={layer.id}
-                 onClick={() => setActiveLayer(layer.id)}
-                 className={`
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2" dir="rtl">
+            {layerConfigs.map((layer) => (
+              <button
+                key={layer.id}
+                onClick={() => setActiveLayer(layer.id)}
+                className={`
                    flex items-center gap-3 px-6 py-3 rounded-2xl font-black whitespace-nowrap transition-all duration-300
-                   ${activeLayer === layer.id 
-                     ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 scale-105' 
-                     : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}
+                   ${
+                     activeLayer === layer.id
+                       ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 scale-105'
+                       : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                   }
                  `}
-               >
-                 {layer.icon}
-                 {layer.label}
-               </button>
-             ))}
-           </div>
+              >
+                {layer.icon}
+                {layer.label}
+              </button>
+            ))}
+          </div>
 
-           <div className="flex items-center gap-4">
-              <QuickActionsBar />
-           </div>
+          <div className="flex items-center gap-4">
+            <QuickActionsBar />
+          </div>
         </div>
 
         {/* Animated Layer Content */}
@@ -382,10 +456,20 @@ export const Dashboard: React.FC = () => {
                 <DollarSign size={48} />
               </div>
               <div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white">الأداء المالي المتقدم</h3>
-                <p className="text-slate-500 max-w-md mt-2 font-bold">هذه الطبقة قيد التطوير لتوفير تحليلات مالية أعمق ورسوم بيانية تفاعلية.</p>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+                  الأداء المالي المتقدم
+                </h3>
+                <p className="text-slate-500 max-w-md mt-2 font-bold">
+                  هذه الطبقة قيد التطوير لتوفير تحليلات مالية أعمق ورسوم بيانية تفاعلية.
+                </p>
               </div>
-              <Button onClick={() => setActiveLayer('overview')} variant="outline" className="rounded-2xl px-8">العودة للنظرة العامة</Button>
+              <Button
+                onClick={() => setActiveLayer('overview')}
+                variant="outline"
+                className="rounded-2xl px-8"
+              >
+                العودة للنظرة العامة
+              </Button>
             </div>
           )}
         </div>
@@ -393,41 +477,47 @@ export const Dashboard: React.FC = () => {
 
       {/* Secondary Widgets Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 px-2">
-         <div className="xl:col-span-2">
-            <DailySummaryWidget />
-         </div>
-         <div className="space-y-8">
-            <MarqueeWidget />
-            {/* System Shortcuts glass card */}
-            <div className="glass-card p-8">
-               <h4 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                 <Search size={20} className="text-indigo-500" />
-                 الوصول السريع للروابط
-               </h4>
-               <div className="relative mb-6">
-                  <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="ابحث عن صفحة..."
-                    value={pagesSearch}
-                    onChange={(e) => setPagesSearch(e.target.value)}
-                    className="w-full bg-slate-100/50 dark:bg-slate-800/50 border-none rounded-2xl py-3 pr-12 pl-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all text-right"
-                    dir="rtl"
-                  />
-               </div>
-               <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto no-scrollbar pr-1" dir="rtl">
-                  {pagesLinks.slice(0, 10).map((link, idx) => (
-                    <a 
-                      key={idx} 
-                      href={`#${link.path}`}
-                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-all text-[11px] font-black border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/50"
-                    >
-                      {link.label}
-                    </a>
-                  ))}
-               </div>
+        <div className="xl:col-span-2">
+          <DailySummaryWidget />
+        </div>
+        <div className="space-y-8">
+          <MarqueeWidget />
+          {/* System Shortcuts glass card */}
+          <div className="glass-card p-8">
+            <h4 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+              <Search size={20} className="text-indigo-500" />
+              الوصول السريع للروابط
+            </h4>
+            <div className="relative mb-6">
+              <Search
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="ابحث عن صفحة..."
+                value={pagesSearch}
+                onChange={(e) => setPagesSearch(e.target.value)}
+                className="w-full bg-slate-100/50 dark:bg-slate-800/50 border-none rounded-2xl py-3 pr-12 pl-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all text-right"
+                dir="rtl"
+              />
             </div>
-         </div>
+            <div
+              className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto no-scrollbar pr-1"
+              dir="rtl"
+            >
+              {pagesLinks.slice(0, 10).map((link, idx) => (
+                <a
+                  key={idx}
+                  href={`#${link.path}`}
+                  className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-all text-[11px] font-black border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/50"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Layer Navigation Tabs */}
@@ -463,7 +553,8 @@ export const Dashboard: React.FC = () => {
               const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
               const perf = dashboardData.performance;
-              const isPerfReady = !!perf && perf.monthKey === monthKey && perf.prevMonthKey === prevMonthKey;
+              const isPerfReady =
+                !!perf && perf.monthKey === monthKey && perf.prevMonthKey === prevMonthKey;
 
               let currentMonthCollections = 0;
               let previousMonthCollections = 0;
@@ -477,22 +568,30 @@ export const Dashboard: React.FC = () => {
                 dueUnpaidThisMonth = Number(perf?.dueUnpaidThisMonth || 0) || 0;
               } else {
                 const dashRec = toRecord(dashboardData);
-                const wnd = window as unknown as { desktopDb?: { domainDashboardPerformance?: unknown } };
-                const isDesktopFast = !!dashRec['desktopAggregations'] || !!dashRec['desktopHighlights'] || !!wnd.desktopDb?.domainDashboardPerformance;
+                const wnd = window as unknown as {
+                  desktopDb?: { domainDashboardPerformance?: unknown };
+                };
+                const isDesktopFast =
+                  !!dashRec['desktopAggregations'] ||
+                  !!dashRec['desktopHighlights'] ||
+                  !!wnd.desktopDb?.domainDashboardPerformance;
                 if (!isDesktopFast) {
                   // Web / legacy fallback
                   const installments = DbService.getInstallments();
                   const isPaid = (i: الكمبيالات_tbl) => String(i?.حالة_الكمبيالة) === 'مدفوع';
                   const getMonth = (d?: string) => String(d || '').slice(0, 7);
-                  const paidMonthSum = (m: string) => installments
-                    .filter((i) => isPaid(i) && (getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === m))
-                    .reduce((s, i) => s + Number(i.القيمة || 0), 0);
+                  const paidMonthSum = (m: string) =>
+                    installments
+                      .filter((i) => isPaid(i) && getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === m)
+                      .reduce((s, i) => s + Number(i.القيمة || 0), 0);
 
                   currentMonthCollections = paidMonthSum(monthKey);
                   previousMonthCollections = paidMonthSum(prevMonthKey);
-                  paidCountThisMonth = installments.filter((i) => isPaid(i) && (getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === monthKey)).length;
+                  paidCountThisMonth = installments.filter(
+                    (i) => isPaid(i) && getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === monthKey
+                  ).length;
                   dueUnpaidThisMonth = installments
-                    .filter((i) => !isPaid(i) && (getMonth(i.تاريخ_استحقاق) === monthKey))
+                    .filter((i) => !isPaid(i) && getMonth(i.تاريخ_استحقاق) === monthKey)
                     .reduce((s, i) => s + Number(i.القيمة_المتبقية ?? i.القيمة ?? 0), 0);
                 }
               }
@@ -501,21 +600,39 @@ export const Dashboard: React.FC = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">تحصيلات الشهر الحالي</div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(currentMonthCollections)}</div>
+                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+                        تحصيلات الشهر الحالي
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                        {formatCurrencyJOD(currentMonthCollections)}
+                      </div>
                     </div>
                     <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-900/20 border border-gray-200 dark:border-slate-700">
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">تحصيلات الشهر السابق</div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(previousMonthCollections)}</div>
+                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+                        تحصيلات الشهر السابق
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                        {formatCurrencyJOD(previousMonthCollections)}
+                      </div>
                     </div>
                     <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">إيرادات العمولات (الشهر الحالي)</div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(dashboardData.kpis.totalRevenue || 0)}</div>
+                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+                        إيرادات العمولات (الشهر الحالي)
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                        {formatCurrencyJOD(dashboardData.kpis.totalRevenue || 0)}
+                      </div>
                     </div>
                     <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">غير مدفوع مستحق هذا الشهر</div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(dueUnpaidThisMonth)}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">مدفوع هذا الشهر: {formatNumber(paidCountThisMonth)}</div>
+                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+                        غير مدفوع مستحق هذا الشهر
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                        {formatCurrencyJOD(dueUnpaidThisMonth)}
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        مدفوع هذا الشهر: {formatNumber(paidCountThisMonth)}
+                      </div>
                     </div>
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -535,4 +652,3 @@ export const Dashboard: React.FC = () => {
     </div>
   );
 };
-

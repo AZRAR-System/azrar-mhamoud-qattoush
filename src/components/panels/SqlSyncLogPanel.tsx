@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { 
-  RefreshCcw, 
-  Trash2, 
-  Search, 
-  Server, 
-  ArrowDownToLine, 
-  ArrowUpToLine, 
-  AlertTriangle, 
-  CheckCircle2, 
-  History
+import {
+  RefreshCcw,
+  Trash2,
+  Search,
+  Server,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  AlertTriangle,
+  CheckCircle2,
+  History,
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 
@@ -40,12 +40,12 @@ function formatTs(ts: string): string {
   try {
     const d = new Date(ts);
     if (Number.isNaN(d.getTime())) return ts;
-    return d.toLocaleString('ar-JO', { 
-      day: 'numeric', 
-      month: 'short', 
-      hour: '2-digit', 
+    return d.toLocaleString('ar-JO', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit'
+      second: '2-digit',
     });
   } catch {
     return ts;
@@ -94,7 +94,7 @@ export const SqlSyncLogPanel: React.FC = () => {
 
     const off = window.desktopDb?.onSqlSyncEvent?.((evt: SyncLogItem) => {
       if (!evt || !evt.id) return;
-      setItems(prev => {
+      setItems((prev) => {
         if (prev.length > 0 && prev[0]?.id === evt.id) return prev;
         return [evt, ...prev].slice(0, 1000);
       });
@@ -113,12 +113,14 @@ export const SqlSyncLogPanel: React.FC = () => {
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return items;
-    return items.filter(it => {
+    return items.filter((it) => {
       const key = String(it.key || '').toLowerCase();
       const msg = String(it.message || '').toLowerCase();
       const act = String(it.action || '').toLowerCase();
       const dir = String(it.direction || '').toLowerCase();
-      return key.includes(query) || msg.includes(query) || act.includes(query) || dir.includes(query);
+      return (
+        key.includes(query) || msg.includes(query) || act.includes(query) || dir.includes(query)
+      );
     });
   }, [items, q]);
 
@@ -148,9 +150,11 @@ export const SqlSyncLogPanel: React.FC = () => {
   }
 
   return (
-    <div className="p-4 md:p-8 h-full page-transition bg-slate-50/50 dark:bg-slate-950/20" dir="rtl">
+    <div
+      className="p-4 md:p-8 h-full page-transition bg-slate-50/50 dark:bg-slate-950/20"
+      dir="rtl"
+    >
       <div className="max-w-6xl mx-auto space-y-10">
-        
         {/* Header Section */}
         <div className="app-card overflow-hidden">
           <div className="app-card-header flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -169,12 +173,11 @@ export const SqlSyncLogPanel: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={refresh}
-                disabled={busy}
-                className="btn-secondary-modern"
-              >
-                <RefreshCcw size={18} className={busy ? 'animate-spin text-indigo-500' : 'text-indigo-500'} /> 
+              <button onClick={refresh} disabled={busy} className="btn-secondary-modern">
+                <RefreshCcw
+                  size={18}
+                  className={busy ? 'animate-spin text-indigo-500' : 'text-indigo-500'}
+                />
                 <span>{t('تحديث')}</span>
               </button>
               <button
@@ -182,7 +185,7 @@ export const SqlSyncLogPanel: React.FC = () => {
                 disabled={busy}
                 className="btn-secondary-modern border-rose-200 dark:border-rose-900/30 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10"
               >
-                <Trash2 size={18} /> 
+                <Trash2 size={18} />
                 <span>{t('مسح السجل')}</span>
               </button>
             </div>
@@ -196,8 +199,12 @@ export const SqlSyncLogPanel: React.FC = () => {
                   <RefreshCcw size={28} />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{t('مزامنة')}</div>
-                  <div className="text-3xl font-black text-slate-800 dark:text-white">{counts.synced.toLocaleString()}</div>
+                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">
+                    {t('مزامنة')}
+                  </div>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white">
+                    {counts.synced.toLocaleString()}
+                  </div>
                 </div>
               </div>
 
@@ -206,8 +213,12 @@ export const SqlSyncLogPanel: React.FC = () => {
                   <Trash2 size={28} />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{t('حذف')}</div>
-                  <div className="text-3xl font-black text-slate-800 dark:text-white">{counts.deleted.toLocaleString()}</div>
+                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">
+                    {t('حذف')}
+                  </div>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white">
+                    {counts.deleted.toLocaleString()}
+                  </div>
                 </div>
               </div>
 
@@ -216,18 +227,25 @@ export const SqlSyncLogPanel: React.FC = () => {
                   <AlertTriangle size={28} />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{t('أخطاء')}</div>
-                  <div className="text-3xl font-black text-slate-800 dark:text-white">{counts.errors.toLocaleString()}</div>
+                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">
+                    {t('أخطاء')}
+                  </div>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white">
+                    {counts.errors.toLocaleString()}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Search Bar */}
             <div className="relative group max-w-xl mb-10">
-              <Search size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <Search
+                size={20}
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
+              />
               <input
                 value={q}
-                onChange={e => setQ(e.target.value)}
+                onChange={(e) => setQ(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                 placeholder={t('ابحث بالمفتاح، النوع أو الرسالة...')}
               />
@@ -250,42 +268,70 @@ export const SqlSyncLogPanel: React.FC = () => {
                     {filtered.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="app-table-empty">
-                          <History className="text-slate-200 dark:text-slate-800/20 mx-auto mb-6" size={80} />
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t('لا يوجد سجل متاح حالياً')}</div>
+                          <History
+                            className="text-slate-200 dark:text-slate-800/20 mx-auto mb-6"
+                            size={80}
+                          />
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                            {t('لا يوجد سجل متاح حالياً')}
+                          </div>
                         </td>
                       </tr>
                     ) : (
-                      filtered.map(it => {
+                      filtered.map((it) => {
                         const isDelete = it.action === 'delete';
                         const isUpsert = it.action === 'upsert';
-                        const dirIcon = it.direction === 'pull' ? <ArrowDownToLine size={16} /> : it.direction === 'push' ? <ArrowUpToLine size={16} /> : <Server size={16} />;
-                        const statusIcon = it.status === 'ok' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <AlertTriangle size={16} className="text-rose-500" />;
+                        const dirIcon =
+                          it.direction === 'pull' ? (
+                            <ArrowDownToLine size={16} />
+                          ) : it.direction === 'push' ? (
+                            <ArrowUpToLine size={16} />
+                          ) : (
+                            <Server size={16} />
+                          );
+                        const statusIcon =
+                          it.status === 'ok' ? (
+                            <CheckCircle2 size={16} className="text-emerald-500" />
+                          ) : (
+                            <AlertTriangle size={16} className="text-rose-500" />
+                          );
 
                         return (
                           <tr key={it.id} className="app-table-row group">
                             <td className="app-table-td">
-                              <div className="font-mono text-[10px] font-black text-slate-500 bg-white/50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700 inline-block" dir="ltr">
+                              <div
+                                className="font-mono text-[10px] font-black text-slate-500 bg-white/50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700 inline-block"
+                                dir="ltr"
+                              >
                                 {formatTs(it.ts)}
                               </div>
                             </td>
                             <td className="app-table-td">
                               <span className="inline-flex items-center gap-3 font-black text-slate-700 dark:text-slate-200 text-xs">
-                                <div className={`p-2 rounded-xl shadow-sm transition-colors duration-300 ${it.direction === 'pull' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : it.direction === 'push' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                <div
+                                  className={`p-2 rounded-xl shadow-sm transition-colors duration-300 ${it.direction === 'pull' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : it.direction === 'push' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}
+                                >
                                   {dirIcon}
                                 </div>
-                                {it.direction === 'pull' ? t('سحب') : it.direction === 'push' ? t('رفع') : t('نظام')}
+                                {it.direction === 'pull'
+                                  ? t('سحب')
+                                  : it.direction === 'push'
+                                    ? t('رفع')
+                                    : t('نظام')}
                               </span>
                             </td>
                             <td className="app-table-td">
                               <div className="flex flex-col gap-2">
-                                <span className={
-                                  'inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm border self-start ' +
-                                  (isDelete
-                                    ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                    : isUpsert
-                                      ? 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'
-                                      : 'bg-slate-500/10 text-slate-600 border-slate-500/20')
-                                }>
+                                <span
+                                  className={
+                                    'inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm border self-start ' +
+                                    (isDelete
+                                      ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                      : isUpsert
+                                        ? 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'
+                                        : 'bg-slate-500/10 text-slate-600 border-slate-500/20')
+                                  }
+                                >
                                   {isDelete ? t('حذف') : isUpsert ? t('تعديل') : it.action}
                                 </span>
                                 {it.message && (
@@ -302,7 +348,9 @@ export const SqlSyncLogPanel: React.FC = () => {
                             </td>
                             <td className="app-table-td">
                               <div className="flex items-center justify-center">
-                                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border ${it.status === 'ok' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20'}`}>
+                                <span
+                                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border ${it.status === 'ok' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20'}`}
+                                >
                                   {statusIcon}
                                   {it.status === 'ok' ? t('ناجح') : t('فشل')}
                                 </span>

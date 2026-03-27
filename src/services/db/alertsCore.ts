@@ -39,12 +39,7 @@ export function upsertAlert(alert: tbl_Alerts) {
   save(KEYS.ALERTS, [alert, ...all]);
 }
 
-export const stableAlertId = (
-  dateISO: string,
-  type: string,
-  message: string,
-  category: string
-) => {
+export const stableAlertId = (dateISO: string, type: string, message: string, category: string) => {
   const input = `${dateISO}|${category}|${type}|${message}`;
   let hash = 2166136261;
   for (let i = 0; i < input.length; i++) {

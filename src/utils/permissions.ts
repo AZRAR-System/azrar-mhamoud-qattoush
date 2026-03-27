@@ -1,7 +1,7 @@
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * نظام الصلاحيات المركزي - Centralized Permission System
- * 
+ *
  * هذا النظام يضمن:
  * ✅ صلاحيات واحدة موحدة في كل النظام
  * ✅ سهولة إضافة roles جديدة
@@ -13,20 +13,20 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 export type Action =
   // 💰 إجراءات مالية
-  | 'INSTALLMENT_PAY'              // سداد الكمبيالة
-  | 'INSTALLMENT_PARTIAL_PAY'      // سداد جزئي
-  | 'INSTALLMENT_REVERSE'          // عكس السداد (High Risk)
-  | 'INSTALLMENT_EDIT'             // تعديل بيانات الكمبيالة
-  
+  | 'INSTALLMENT_PAY' // سداد الكمبيالة
+  | 'INSTALLMENT_PARTIAL_PAY' // سداد جزئي
+  | 'INSTALLMENT_REVERSE' // عكس السداد (High Risk)
+  | 'INSTALLMENT_EDIT' // تعديل بيانات الكمبيالة
+
   // 📧 إشعارات
-  | 'SEND_REMINDER'                // تذكير عادي
-  | 'SEND_WARNING'                 // تحذير
-  | 'SEND_LEGAL_NOTICE'            // إشعار قانوني
-  
+  | 'SEND_REMINDER' // تذكير عادي
+  | 'SEND_WARNING' // تحذير
+  | 'SEND_LEGAL_NOTICE' // إشعار قانوني
+
   // 👤 إدارة المستخدمين
-  | 'MANAGE_USERS'                 // إدارة المستخدمين
-  | 'MANAGE_ROLES'                 // إدارة الأدوار
-  | 'VIEW_AUDIT_LOG';              // عرض سجل التدقيق
+  | 'MANAGE_USERS' // إدارة المستخدمين
+  | 'MANAGE_ROLES' // إدارة الأدوار
+  | 'VIEW_AUDIT_LOG'; // عرض سجل التدقيق
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 2️⃣ مصفوفة الصلاحيات (RBAC Matrix)
@@ -41,14 +41,14 @@ export const ROLE_PERMISSIONS: Record<string, Action[]> = {
   SuperAdmin: [
     'INSTALLMENT_PAY',
     'INSTALLMENT_PARTIAL_PAY',
-    'INSTALLMENT_REVERSE',      // ⚠️ صلاحية خطرة جداً
+    'INSTALLMENT_REVERSE', // ⚠️ صلاحية خطرة جداً
     'INSTALLMENT_EDIT',
     'SEND_REMINDER',
     'SEND_WARNING',
     'SEND_LEGAL_NOTICE',
     'MANAGE_USERS',
     'MANAGE_ROLES',
-    'VIEW_AUDIT_LOG'
+    'VIEW_AUDIT_LOG',
   ],
 
   /**
@@ -64,7 +64,7 @@ export const ROLE_PERMISSIONS: Record<string, Action[]> = {
     'SEND_REMINDER',
     'SEND_WARNING',
     'SEND_LEGAL_NOTICE',
-    'VIEW_AUDIT_LOG'
+    'VIEW_AUDIT_LOG',
   ],
 
   /**
@@ -73,16 +73,13 @@ export const ROLE_PERMISSIONS: Record<string, Action[]> = {
    * - فقط السداد والتذكيرات
    * - لا يمكنه العكس أو التعديل
    */
-  Employee: [
-    'INSTALLMENT_PAY',
-    'SEND_REMINDER'
-  ],
+  Employee: ['INSTALLMENT_PAY', 'SEND_REMINDER'],
 
   /**
    * 👤 Tenant
    * - لا يوجد صلاحيات
    */
-  Tenant: []
+  Tenant: [],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -91,11 +88,11 @@ export const ROLE_PERMISSIONS: Record<string, Action[]> = {
 
 /**
  * تحقق ما إذا كان المستخدم يمتلك صلاحية معينة
- * 
+ *
  * @param userRole - دور المستخدم
  * @param action - الإجراء المطلوب
  * @returns true إذا كان لديه الصلاحية، false وإلا
- * 
+ *
  * @example
  * if (can(user.role, 'INSTALLMENT_REVERSE')) {
  *   // عرض الزر
@@ -108,7 +105,7 @@ export function can(userRole: string | undefined, action: Action): boolean {
 
 /**
  * تحقق ما إذا كان المستخدم يمتلك أي من الصلاحيات المعطاة
- * 
+ *
  * @example
  * if (canAny(user.role, ['INSTALLMENT_REVERSE', 'MANAGE_USERS'])) {
  *   // لديه واحدة من الصلاحيتين على الأقل
@@ -116,12 +113,12 @@ export function can(userRole: string | undefined, action: Action): boolean {
  */
 export function canAny(userRole: string | undefined, actions: Action[]): boolean {
   if (!userRole) return false;
-  return actions.some(action => can(userRole, action));
+  return actions.some((action) => can(userRole, action));
 }
 
 /**
  * تحقق ما إذا كان المستخدم يمتلك جميع الصلاحيات المعطاة
- * 
+ *
  * @example
  * if (canAll(user.role, ['INSTALLMENT_REVERSE', 'MANAGE_USERS'])) {
  *   // لديه كلا الصلاحيتين
@@ -129,7 +126,7 @@ export function canAny(userRole: string | undefined, actions: Action[]): boolean
  */
 export function canAll(userRole: string | undefined, actions: Action[]): boolean {
   if (!userRole) return false;
-  return actions.every(action => can(userRole, action));
+  return actions.every((action) => can(userRole, action));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -137,9 +134,9 @@ export function canAll(userRole: string | undefined, actions: Action[]): boolean
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const HIGH_RISK_ACTIONS: Action[] = [
-  'INSTALLMENT_REVERSE',  // عكس السداد
-  'MANAGE_USERS',         // إدارة المستخدمين
-  'MANAGE_ROLES'          // إدارة الأدوار
+  'INSTALLMENT_REVERSE', // عكس السداد
+  'MANAGE_USERS', // إدارة المستخدمين
+  'MANAGE_ROLES', // إدارة الأدوار
 ];
 
 /**
@@ -163,7 +160,7 @@ export const PERMISSION_ERRORS: Record<Action, string> = {
   SEND_LEGAL_NOTICE: 'ليس لديك صلاحية إرسال الإشعارات القانونية',
   MANAGE_USERS: 'ليس لديك صلاحية إدارة المستخدمين',
   MANAGE_ROLES: 'ليس لديك صلاحية إدارة الأدوار',
-  VIEW_AUDIT_LOG: 'ليس لديك صلاحية عرض سجل التدقيق'
+  VIEW_AUDIT_LOG: 'ليس لديك صلاحية عرض سجل التدقيق',
 };
 
 /**

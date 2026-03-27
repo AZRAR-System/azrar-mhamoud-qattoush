@@ -34,8 +34,13 @@ export const buildHeaderFooter = (input?: HeaderFooterInput): HeaderFooterResolv
     date: toIsoDate(input?.dateIso),
   };
 
-  const defaultHeaderTemplate = ['{{company_name}}', '{{company_slogan}}', '{{company_identity_text}}'].join('\n');
-  const defaultFooterTemplate = 'التاريخ: {{date}}    المستخدم: {{user_name}}    صفحة: {{page_number}}';
+  const defaultHeaderTemplate = [
+    '{{company_name}}',
+    '{{company_slogan}}',
+    '{{company_identity_text}}',
+  ].join('\n');
+  const defaultFooterTemplate =
+    'التاريخ: {{date}}    المستخدم: {{user_name}}    صفحة: {{page_number}}';
 
   const headerText = renderTextTemplate(input?.headerTemplate || defaultHeaderTemplate, vars);
   const footerText = renderTextTemplate(input?.footerTemplate || defaultFooterTemplate, vars);

@@ -277,7 +277,9 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
           <ShieldAlert className="w-6 h-6 text-yellow-700 dark:text-yellow-300" />
         </div>
         <div className="font-bold">{t('غير مدعوم في وضع الديسكتوب الحالي')}</div>
-        <div className="text-sm mt-2">{t('يرجى تحديث نسخة الديسكتوب أو تفعيل وضع السرعة/SQL.')}</div>
+        <div className="text-sm mt-2">
+          {t('يرجى تحديث نسخة الديسكتوب أو تفعيل وضع السرعة/SQL.')}
+        </div>
       </div>
     );
   }
@@ -341,9 +343,9 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
     .slice()
     .sort((a, b) => String(b.تاريخ_البداية || '').localeCompare(String(a.تاريخ_البداية || '')));
 
-     const handlePrint = () => {
-       void printCurrentViewUnified({ documentType: 'person', entityId: id });
-     };
+  const handlePrint = () => {
+    void printCurrentViewUnified({ documentType: 'person', entityId: id });
+  };
 
   const handleEditAgreementFromPerson = (agreementId: string) => {
     try {
@@ -437,8 +439,8 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                 <tr>
                   <td className="p-3 bg-gray-50 font-bold">{t('القائمة السوداء')}</td>
                   <td className="p-3">
-                    {t('محظور')} • {t('السبب:')} {safeString(blacklistRecord.reason)} • {t('التاريخ:')}{' '}
-                    {safeString(blacklistRecord.dateAdded).split('T')[0]}
+                    {t('محظور')} • {t('السبب:')} {safeString(blacklistRecord.reason)} •{' '}
+                    {t('التاريخ:')} {safeString(blacklistRecord.dateAdded).split('T')[0]}
                   </td>
                 </tr>
               ) : null}
@@ -476,13 +478,19 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
 
         {/* Header */}
         <div className="app-card relative overflow-hidden group">
-          <div className={`absolute inset-0 opacity-10 transition-opacity duration-700 group-hover:opacity-20 ${blacklistRecord ? 'bg-rose-600' : 'bg-gradient-to-br from-indigo-600 to-purple-600'}`} />
-          <div className={`absolute top-0 right-0 left-0 h-1.5 transition-all duration-500 ${blacklistRecord ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-gradient-to-l from-indigo-500 to-purple-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]'}`} />
-          
+          <div
+            className={`absolute inset-0 opacity-10 transition-opacity duration-700 group-hover:opacity-20 ${blacklistRecord ? 'bg-rose-600' : 'bg-gradient-to-br from-indigo-600 to-purple-600'}`}
+          />
+          <div
+            className={`absolute top-0 right-0 left-0 h-1.5 transition-all duration-500 ${blacklistRecord ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-gradient-to-l from-indigo-500 to-purple-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]'}`}
+          />
+
           <div className="relative p-8 flex flex-col md:flex-row justify-between gap-10">
             <div className="flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-right">
               <div className="relative">
-                <div className={`w-28 h-28 rounded-[2.5rem] flex items-center justify-center border-4 shadow-2xl transition-transform duration-500 hover:scale-110 ${blacklistRecord ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400' : 'bg-white dark:bg-slate-800 border-white dark:border-slate-700 text-slate-400 dark:text-slate-500'}`}>
+                <div
+                  className={`w-28 h-28 rounded-[2.5rem] flex items-center justify-center border-4 shadow-2xl transition-transform duration-500 hover:scale-110 ${blacklistRecord ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400' : 'bg-white dark:bg-slate-800 border-white dark:border-slate-700 text-slate-400 dark:text-slate-500'}`}
+                >
                   {blacklistRecord ? <Ban size={48} /> : <User size={48} />}
                 </div>
                 {blacklistRecord && (
@@ -491,7 +499,7 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                   </div>
                 )}
               </div>
-              
+
               <div className="flex-1 min-w-0 space-y-4">
                 <div className="flex flex-col gap-2">
                   <h1 className="text-3xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
@@ -499,7 +507,10 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                   </h1>
                   <div className="flex flex-wrap justify-center md:justify-start gap-2">
                     {roles.map((r: string) => (
-                      <span key={r} className="px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-black border border-indigo-100 dark:border-indigo-800/50 uppercase tracking-widest shadow-sm">
+                      <span
+                        key={r}
+                        className="px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-black border border-indigo-100 dark:border-indigo-800/50 uppercase tracking-widest shadow-sm"
+                      >
                         {r}
                       </span>
                     ))}
@@ -513,11 +524,15 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
 
                 <div className="flex flex-wrap justify-center md:justify-start items-center gap-6 text-xs font-bold text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-2 group/info">
-                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover/info:text-indigo-500 transition-colors"><Activity size={14} /></div>
+                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover/info:text-indigo-500 transition-colors">
+                      <Activity size={14} />
+                    </div>
                     {safeString(p.الرقم_الوطني)}
                   </span>
                   <span className="flex items-center gap-2 group/info">
-                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover/info:text-indigo-500 transition-colors"><MapPin size={14} /></div>
+                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover/info:text-indigo-500 transition-colors">
+                      <MapPin size={14} />
+                    </div>
                     {safeString(p.العنوان) || t('غير محدد')}
                   </span>
                 </div>
@@ -543,12 +558,18 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
 
               <div className="grid grid-cols-2 gap-2">
                 <RBACGuard requiredPermission="EDIT_PERSON">
-                  <button onClick={handleEdit} className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl transition-all text-[11px] font-black shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 active:scale-95">
+                  <button
+                    onClick={handleEdit}
+                    className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl transition-all text-[11px] font-black shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 active:scale-95"
+                  >
                     <Edit2 size={14} /> {t('تعديل')}
                   </button>
                 </RBACGuard>
                 <RBACGuard requiredPermission="DELETE_PERSON">
-                  <button onClick={handleDelete} className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-800 border border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl transition-all text-[11px] font-black shadow-sm hover:bg-rose-50 dark:hover:bg-rose-900/20 active:scale-95">
+                  <button
+                    onClick={handleDelete}
+                    className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-800 border border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl transition-all text-[11px] font-black shadow-sm hover:bg-rose-50 dark:hover:bg-rose-900/20 active:scale-95"
+                  >
                     <Trash2 size={14} /> {t('حذف')}
                   </button>
                 </RBACGuard>
@@ -556,11 +577,22 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
 
               <div className="grid grid-cols-1 gap-2">
                 <RBACGuard requiredPermission="PRINT_EXECUTE">
-                  <button onClick={handlePrint} className="flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white rounded-2xl transition-all text-[11px] font-black shadow-lg shadow-black/20 hover:bg-black active:scale-95">
+                  <button
+                    onClick={handlePrint}
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white rounded-2xl transition-all text-[11px] font-black shadow-lg shadow-black/20 hover:bg-black active:scale-95"
+                  >
                     <Printer size={14} /> {t('طباعة / PDF')}
                   </button>
                 </RBACGuard>
-                <button onClick={() => void openWhatsAppForPhones('', [safeString(p.رقم_الهاتف), extraPhone], { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 })} className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 text-white rounded-2xl transition-all text-[11px] font-black shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 active:scale-95">
+                <button
+                  onClick={() =>
+                    void openWhatsAppForPhones('', [safeString(p.رقم_الهاتف), extraPhone], {
+                      defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+                      delayMs: 10_000,
+                    })
+                  }
+                  className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 text-white rounded-2xl transition-all text-[11px] font-black shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 active:scale-95"
+                >
                   <Phone size={14} /> {t('واتساب')}
                 </button>
               </div>
@@ -579,24 +611,36 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 group-hover:rotate-12 transition-transform">
               <FileText size={28} />
             </div>
-            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t('إجمالي الكمبيالات')}</div>
-            <div className="text-3xl font-black text-slate-800 dark:text-white tracking-tighter">{safeNumber(stats.totalInstallments).toLocaleString()}</div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+              {t('إجمالي الكمبيالات')}
+            </div>
+            <div className="text-3xl font-black text-slate-800 dark:text-white tracking-tighter">
+              {safeNumber(stats.totalInstallments).toLocaleString()}
+            </div>
           </div>
-          
+
           <div className="app-card p-8 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform">
             <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-4 group-hover:-rotate-12 transition-transform">
               <ShieldAlert size={28} />
             </div>
-            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t('متأخرات')}</div>
-            <div className="text-3xl font-black text-rose-600 tracking-tighter">{safeNumber(stats.lateInstallments).toLocaleString()}</div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+              {t('متأخرات')}
+            </div>
+            <div className="text-3xl font-black text-rose-600 tracking-tighter">
+              {safeNumber(stats.lateInstallments).toLocaleString()}
+            </div>
           </div>
-          
+
           <div className="app-card p-8 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform">
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
               <Activity size={28} />
             </div>
-            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t('نسبة الالتزام')}</div>
-            <div className="text-3xl font-black text-emerald-600 tracking-tighter">{safeNumber(stats.commitmentRatio)}%</div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+              {t('نسبة الالتزام')}
+            </div>
+            <div className="text-3xl font-black text-emerald-600 tracking-tighter">
+              {safeNumber(stats.commitmentRatio)}%
+            </div>
           </div>
         </div>
 
@@ -608,7 +652,9 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                 <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
                   <Home size={20} />
                 </div>
-                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{t('العقارات المملوكة')}</h4>
+                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
+                  {t('العقارات المملوكة')}
+                </h4>
               </div>
               <div className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                 {ownedProperties.map((prop) =>
@@ -634,7 +680,7 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                             <div className="text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">
                               {prop.العنوان}
                             </div>
-                            
+
                             {best ? (
                               <div className="mt-2 flex flex-wrap items-center gap-3">
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-lg border border-indigo-100 dark:border-indigo-800/50">
@@ -643,7 +689,10 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                                 </span>
                                 {tenantName && (
                                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                                    {t('المستأجر:')} <span className="text-slate-800 dark:text-slate-200">{tenantName}</span>
+                                    {t('المستأجر:')}{' '}
+                                    <span className="text-slate-800 dark:text-slate-200">
+                                      {tenantName}
+                                    </span>
                                   </span>
                                 )}
                               </div>
@@ -656,10 +705,15 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                         </div>
 
                         <div className="flex items-center gap-4">
-                          <span className={`px-4 py-1.5 rounded-2xl text-[10px] font-black border uppercase tracking-widest ${prop.IsRented ? 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/40' : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/40'}`}>
+                          <span
+                            className={`px-4 py-1.5 rounded-2xl text-[10px] font-black border uppercase tracking-widest ${prop.IsRented ? 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/40' : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/40'}`}
+                          >
                             {prop.حالة_العقار}
                           </span>
-                          <ArrowRight size={18} className="text-slate-300 group-hover:translate-x-[-4px] transition-transform" />
+                          <ArrowRight
+                            size={18}
+                            className="text-slate-300 group-hover:translate-x-[-4px] transition-transform"
+                          />
                         </div>
                       </div>
                     );
@@ -677,7 +731,9 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                 <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
                   <FileText size={20} />
                 </div>
-                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{t('العقود المرتبطة')}</h4>
+                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
+                  {t('العقود المرتبطة')}
+                </h4>
               </div>
 
               <div className="p-6 space-y-8">
@@ -700,11 +756,16 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                                 {t('عقد')} #{formatContractNumberShort(c.رقم_العقد)}
                               </div>
                               <div className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-2">
-                                <span className="font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">{getPropCode(String(c.رقم_العقار))}</span>
+                                <span className="font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                                  {getPropCode(String(c.رقم_العقار))}
+                                </span>
                                 {c.تاريخ_البداية && <span>• {safeString(c.تاريخ_البداية)}</span>}
                               </div>
                             </div>
-                            <StatusBadge status={safeString(c.حالة_العقد)} className="!text-[9px] !px-2 !py-0.5 !rounded-lg" />
+                            <StatusBadge
+                              status={safeString(c.حالة_العقد)}
+                              className="!text-[9px] !px-2 !py-0.5 !rounded-lg"
+                            />
                           </div>
                         </div>
                       ))}
@@ -737,11 +798,21 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                                   {t('عقد')} #{formatContractNumberShort(c.رقم_العقد)}
                                 </div>
                                 <div className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                                  {t('عقار:')} <span className="font-mono">{getPropCode(String(c.رقم_العقار))}</span>
-                                  {tenantName && <span className="block mt-1 font-semibold text-slate-700 dark:text-slate-300">{t('المستأجر:')} {tenantName}</span>}
+                                  {t('عقار:')}{' '}
+                                  <span className="font-mono">
+                                    {getPropCode(String(c.رقم_العقار))}
+                                  </span>
+                                  {tenantName && (
+                                    <span className="block mt-1 font-semibold text-slate-700 dark:text-slate-300">
+                                      {t('المستأجر:')} {tenantName}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
-                              <StatusBadge status={safeString(c.حالة_العقد)} className="!text-[9px] !px-2 !py-0.5 !rounded-lg" />
+                              <StatusBadge
+                                status={safeString(c.حالة_العقد)}
+                                className="!text-[9px] !px-2 !py-0.5 !rounded-lg"
+                              />
                             </div>
                           </div>
                         );
@@ -780,11 +851,23 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                                   <span className="font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-[10px] font-black text-indigo-600 dark:text-indigo-400 shadow-sm">
                                     {getPropCode(String(c.رقم_العقار))}
                                   </span>
-                                  <StatusBadge status={safeString(c.حالة_العقد)} className="!text-[9px] !px-2 !py-0.5 !rounded-lg" />
+                                  <StatusBadge
+                                    status={safeString(c.حالة_العقد)}
+                                    className="!text-[9px] !px-2 !py-0.5 !rounded-lg"
+                                  />
                                 </div>
                                 <div className="mt-2 text-xs font-bold text-slate-600 dark:text-slate-300">
-                                  {propAddress && <div className="flex items-center gap-1.5 mb-1"><MapPin size={12} className="text-indigo-400" /> {propAddress}</div>}
-                                  {tenantName && <div className="flex items-center gap-1.5"><User size={12} className="text-indigo-400" /> {t('المستأجر:')} {tenantName}</div>}
+                                  {propAddress && (
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <MapPin size={12} className="text-indigo-400" /> {propAddress}
+                                    </div>
+                                  )}
+                                  {tenantName && (
+                                    <div className="flex items-center gap-1.5">
+                                      <User size={12} className="text-indigo-400" />{' '}
+                                      {t('المستأجر:')} {tenantName}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex gap-2 w-full md:w-auto">
@@ -795,7 +878,9 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                                   {t('فتح العقد')}
                                 </button>
                                 <button
-                                  onClick={() => openPanel('PROPERTY_DETAILS', String(c.رقم_العقار))}
+                                  onClick={() =>
+                                    openPanel('PROPERTY_DETAILS', String(c.رقم_العقار))
+                                  }
                                   className="flex-1 md:w-28 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
                                 >
                                   {t('فتح العقار')}
@@ -818,7 +903,9 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                 <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400">
                   <HistoryIcon size={20} />
                 </div>
-                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{t('سجل نقل الملكية')}</h4>
+                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
+                  {t('سجل نقل الملكية')}
+                </h4>
               </div>
               <div className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                 {ownershipHistory
@@ -837,16 +924,31 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                         className="p-6 bg-white dark:bg-slate-900 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-all group flex flex-col md:flex-row md:items-center justify-between gap-4"
                       >
                         <div className="flex items-center gap-5">
-                          <div className={`p-3 rounded-2xl ${directionKey === 'باع' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'}`}>
-                            {directionKey === 'باع' ? <ArrowUpToLine size={20} /> : <ArrowDownToLine size={20} />}
+                          <div
+                            className={`p-3 rounded-2xl ${directionKey === 'باع' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'}`}
+                          >
+                            {directionKey === 'باع' ? (
+                              <ArrowUpToLine size={20} />
+                            ) : (
+                              <ArrowDownToLine size={20} />
+                            )}
                           </div>
                           <div>
                             <div className="text-base font-black text-slate-800 dark:text-slate-200">
-                              {t(directionKey)} {t('عقار')} <span className="font-mono text-indigo-600 dark:text-indigo-400">{getPropCode(r.رقم_العقار)}</span>
+                              {t(directionKey)} {t('عقار')}{' '}
+                              <span className="font-mono text-indigo-600 dark:text-indigo-400">
+                                {getPropCode(r.رقم_العقار)}
+                              </span>
                             </div>
                             <div className="mt-1 text-xs font-bold text-slate-500 flex items-center gap-3">
-                              <span className="flex items-center gap-1.5"><Calendar size={12} /> {r.تاريخ_نقل_الملكية}</span>
-                              {r.رقم_المعاملة && <span className="flex items-center gap-1.5"><FileText size={12} /> {t('معاملة:')} {r.رقم_المعاملة}</span>}
+                              <span className="flex items-center gap-1.5">
+                                <Calendar size={12} /> {r.تاريخ_نقل_الملكية}
+                              </span>
+                              {r.رقم_المعاملة && (
+                                <span className="flex items-center gap-1.5">
+                                  <FileText size={12} /> {t('معاملة:')} {r.رقم_المعاملة}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -979,5 +1081,3 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
     </div>
   );
 };
-
-

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { MarqueeMessage } from '@/types';
@@ -8,7 +7,10 @@ import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { Button } from '@/components/ui/Button';
 import type { PanelType } from '@/context/ModalContext';
 
-export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () => void }> = ({ isCustomizing, onRemove }) => {
+export const MarqueeWidget: React.FC<{ isCustomizing?: boolean; onRemove?: () => void }> = ({
+  isCustomizing,
+  onRemove,
+}) => {
   const [messages, setMessages] = useState<MarqueeMessage[]>([]);
   const [repeatFactor, setRepeatFactor] = useState<number>(1);
   const [marqueeShiftPx, setMarqueeShiftPx] = useState<number>(0);
@@ -58,7 +60,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
     const load = () => {
       const next = DbService.getMarqueeMessages();
       const signature = next
-        .map(m => {
+        .map((m) => {
           const action = m.action ? JSON.stringify(m.action) : '';
           return `${String(m.id)}|${String(m.type)}|${String(m.priority)}|${String(m.content)}|${action}`;
         })
@@ -105,19 +107,25 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
 
     const hoursStr = await dialogs.prompt({
       title: 'مدة الظهور (بالساعات)',
-      message: 'حدد عدد الساعات التي يبقى فيها الإعلان ظاهراً ثم يختفي تلقائياً. اكتب 0 ليبقى دائماً.',
+      message:
+        'حدد عدد الساعات التي يبقى فيها الإعلان ظاهراً ثم يختفي تلقائياً. اكتب 0 ليبقى دائماً.',
       inputType: 'number',
       defaultValue: '0',
       placeholder: '0',
       required: true,
       validationRegex: /^\d+$/,
-      validationError: 'أدخل رقم صحيح (0 أو أكثر)'
+      validationError: 'أدخل رقم صحيح (0 أو أكثر)',
     });
     if (!hoursStr) return;
 
     const durationHours = Number(hoursStr);
 
-    const local = DbService.addMarqueeAd({ content, durationHours, type: 'info', priority: 'Normal' });
+    const local = DbService.addMarqueeAd({
+      content,
+      durationHours,
+      type: 'info',
+      priority: 'Normal',
+    });
     if (!local.success) dialogs.toast.error(local.message || 'فشل إضافة الإعلان');
     else dialogs.toast.success(local.message || 'تمت إضافة الإعلان للشريط');
   };
@@ -125,7 +133,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
   const displayMessages = useMemo(() => {
     // Dedupe by id
     const seen = new Set<string>();
-    return messages.filter(m => {
+    return messages.filter((m) => {
       const id = String(m.id || '');
       if (!id) return false;
       if (seen.has(id)) return false;
@@ -148,7 +156,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
 
   useLayoutEffect(() => {
     if (!hasMessages) {
-      setRepeatFactor(prev => (prev === 1 ? prev : 1));
+      setRepeatFactor((prev) => (prev === 1 ? prev : 1));
       return;
     }
 
@@ -165,7 +173,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
       // Extra padding (~4rem) matches the group's gap/padding so the end doesn't feel tight.
       const required = Math.ceil((viewportWidth + 64) / baseWidth);
       const next = Math.max(1, Math.min(MAX_REPEAT, required));
-      setRepeatFactor(prev => (prev === next ? prev : next));
+      setRepeatFactor((prev) => (prev === next ? prev : next));
     };
 
     compute();
@@ -182,7 +190,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
 
   useLayoutEffect(() => {
     if (!hasMessages) {
-      setMarqueeShiftPx(prev => (prev === 0 ? prev : 0));
+      setMarqueeShiftPx((prev) => (prev === 0 ? prev : 0));
       return;
     }
 
@@ -196,12 +204,12 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
       // This includes any spacing between groups and guarantees a seamless loop.
       const shift = Math.round(second.offsetLeft || 0);
       if (shift > 0) {
-        setMarqueeShiftPx(prev => (prev === shift ? prev : shift));
+        setMarqueeShiftPx((prev) => (prev === shift ? prev : shift));
         return;
       }
 
       const fallback = Math.round(first.scrollWidth || 0);
-      setMarqueeShiftPx(prev => (prev === fallback ? prev : fallback));
+      setMarqueeShiftPx((prev) => (prev === fallback ? prev : fallback));
     };
 
     compute();
@@ -238,9 +246,9 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
   }, [marqueeDurationSec, marqueeShiftPx]);
 
   const getIcon = (type: MarqueeMessage['type']) => {
-      if (type === 'alert') return <AlertTriangle size={14} className="text-yellow-300" />;
-      if (type === 'success') return <CheckCircle size={14} className="text-green-300" />;
-      return <Info size={14} className="text-indigo-300" />;
+    if (type === 'alert') return <AlertTriangle size={14} className="text-yellow-300" />;
+    if (type === 'success') return <CheckCircle size={14} className="text-green-300" />;
+    return <Info size={14} className="text-indigo-300" />;
   };
 
   const handleClick = (msg: MarqueeMessage) => {
@@ -324,18 +332,31 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
           <Plus size={16} />
         </Button>
       </div>
-      
+
       {/* Moving Content Area */}
-      <div ref={marqueeViewportRef} dir="ltr" className="flex-1 overflow-hidden relative h-full flex items-center justify-start px-2 mask-image-gradient">
+      <div
+        ref={marqueeViewportRef}
+        dir="ltr"
+        className="flex-1 overflow-hidden relative h-full flex items-center justify-start px-2 mask-image-gradient"
+      >
         {/* Hidden measurer: measures width of ONE copy of the messages */}
         {hasMessages && (
           <div
             ref={marqueeMeasureRef}
             className="marquee-group"
-            style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none', top: 0, left: -100000 }}
+            style={{
+              position: 'absolute',
+              visibility: 'hidden',
+              pointerEvents: 'none',
+              top: 0,
+              left: -100000,
+            }}
           >
             {displayMessages.map((msg) => (
-              <div key={`m-${String(msg.id)}`} className="text-sm font-bold flex items-center gap-2 px-4 py-1 rounded-xl border">
+              <div
+                key={`m-${String(msg.id)}`}
+                className="text-sm font-bold flex items-center gap-2 px-4 py-1 rounded-xl border"
+              >
                 {getIcon(msg.type)}
                 <span dir="rtl">{msg.content}</span>
               </div>
@@ -344,7 +365,10 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
         )}
 
         {!hasMessages ? (
-          <div dir="rtl" className="px-4 py-1 rounded-xl bg-gray-50 dark:bg-slate-900/30 border border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold">
+          <div
+            dir="rtl"
+            className="px-4 py-1 rounded-xl bg-gray-50 dark:bg-slate-900/30 border border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold"
+          >
             لا توجد تنبيهات/مهام عاجلة حالياً — يمكنك إضافة إعلان من زر +
           </div>
         ) : (
@@ -386,7 +410,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean, onRemove?: () =>
       </div>
 
       {isCustomizing && onRemove && (
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             onRemove();

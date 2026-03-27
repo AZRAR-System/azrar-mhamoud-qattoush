@@ -48,7 +48,14 @@ export type PropertyPickerItem = {
   active?: العقود_tbl;
 };
 
-export type ContractPickerTab = 'active' | 'expiring' | 'expired' | 'terminated' | 'archived' | 'all' | '';
+export type ContractPickerTab =
+  | 'active'
+  | 'expiring'
+  | 'expired'
+  | 'terminated'
+  | 'archived'
+  | 'all'
+  | '';
 
 export type ContractPickerSearchPayload = {
   query: string;

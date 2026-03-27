@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import {
-  MessageCircle,
-  Copy,
-  X,
-  Send,
-} from 'lucide-react';
+import { MessageCircle, Copy, X, Send } from 'lucide-react';
 import {
   NotificationTemplates,
   NotificationTemplate,
@@ -59,18 +54,18 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   onClose,
   onSent,
 }) => {
-  const [selectedTemplate, setSelectedTemplate] = useState<NotificationTemplate | null>(
-    null
-  );
+  const [selectedTemplate, setSelectedTemplate] = useState<NotificationTemplate | null>(null);
   const [messageText, setMessageText] = useState('');
 
   // الحصول على القوالب المناسبة
   const templates = category
     ? NotificationTemplates.getByCategory(category)
-    : NotificationTemplates.getAll().filter(t => t.enabled);
+    : NotificationTemplates.getAll().filter((t) => t.enabled);
 
   // السياق المستخدم لملء النموذج
-  const primaryPhone = (tenantPhones && tenantPhones.length ? tenantPhones : [tenantPhone]).filter(Boolean)[0] || tenantPhone;
+  const primaryPhone =
+    (tenantPhones && tenantPhones.length ? tenantPhones : [tenantPhone]).filter(Boolean)[0] ||
+    tenantPhone;
 
   const context: TemplateContext = {
     tenantName,
@@ -85,7 +80,12 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     اسم_المستأجر: tenantName,
     رقم_الهاتف: primaryPhone,
     عدد_الكمبيالات: typeof overdueInstallmentsCount === 'number' ? overdueInstallmentsCount : 1,
-    مجموع_المبالغ_المتأخرة: typeof overdueAmountTotal === 'number' ? overdueAmountTotal : (typeof remainingAmount === 'number' ? remainingAmount : amount),
+    مجموع_المبالغ_المتأخرة:
+      typeof overdueAmountTotal === 'number'
+        ? overdueAmountTotal
+        : typeof remainingAmount === 'number'
+          ? remainingAmount
+          : amount,
     تفاصيل_الكمبيالات: overdueInstallmentsDetails || '',
 
     // Fixed summary template helpers (used by approved fixed templates)
@@ -93,7 +93,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     المستحقات_القريبة: `• ${Number(typeof remainingAmount === 'number' ? remainingAmount : amount).toLocaleString('en-US')} د.أ — ${dueDate} (قريبة)`,
     المستحقات_اليوم: `• ${Number(typeof remainingAmount === 'number' ? remainingAmount : amount).toLocaleString('en-US')} د.أ — ${dueDate} (اليوم)`,
     المستحقات_المتأخرة: `• ${Number(typeof remainingAmount === 'number' ? remainingAmount : amount).toLocaleString('en-US')} د.أ — ${dueDate} (متأخر ${Number(daysLate || 0)} يوم)`,
-    الإجمالي: Number(typeof remainingAmount === 'number' ? remainingAmount : amount).toLocaleString('en-US'),
+    الإجمالي: Number(typeof remainingAmount === 'number' ? remainingAmount : amount).toLocaleString(
+      'en-US'
+    ),
   };
 
   // معالج اختيار النموذج
@@ -105,13 +107,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
   // معالج نسخ الرسالة
   const handleCopy = () => {
-    const text = messageText.trim().length > 0 ? applyOfficialBrandSignature(messageText) : messageText;
+    const text =
+      messageText.trim().length > 0 ? applyOfficialBrandSignature(messageText) : messageText;
     void safeCopyToClipboard(text);
   };
 
   // معالج فتح في واتساب
   const handleOpenWhatsApp = () => {
-    const phones = (tenantPhones && tenantPhones.length ? tenantPhones : [tenantPhone]).filter(Boolean) as string[];
+    const phones = (tenantPhones && tenantPhones.length ? tenantPhones : [tenantPhone]).filter(
+      Boolean
+    ) as string[];
     if (phones.length <= 1) {
       openWhatsApp(messageText, phones[0] || tenantPhone);
     } else {
@@ -133,14 +138,10 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       {!selectedTemplate ? (
         // قائمة اختيار النموذج
         <div>
-          <h3 className="font-bold text-slate-900 dark:text-white mb-3">
-            اختر نموذج رسالة
-          </h3>
+          <h3 className="font-bold text-slate-900 dark:text-white mb-3">اختر نموذج رسالة</h3>
           <div className="grid gap-2">
             {templates.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                لا توجد نماذج متاحة
-              </p>
+              <p className="text-sm text-slate-500">لا توجد نماذج متاحة</p>
             ) : (
               templates.map((template) => (
                 <button
@@ -150,24 +151,20 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-white">
-                        {template.name}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1 truncate">
-                        {template.title}
-                      </p>
+                      <p className="font-bold text-slate-900 dark:text-white">{template.name}</p>
+                      <p className="text-xs text-slate-500 mt-1 truncate">{template.title}</p>
                     </div>
                     <span
                       className={`text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap ml-2 ${
                         template.category === 'reminder'
                           ? 'bg-indigo-100 text-indigo-700'
                           : template.category === 'due'
-                          ? 'bg-green-100 text-green-700'
-                          : template.category === 'late'
-                          ? 'bg-orange-100 text-orange-700'
-                          : template.category === 'warning'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-purple-100 text-purple-700'
+                            ? 'bg-green-100 text-green-700'
+                            : template.category === 'late'
+                              ? 'bg-orange-100 text-orange-700'
+                              : template.category === 'warning'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-purple-100 text-purple-700'
                       }`}
                     >
                       {template.category === 'reminder' && 'تذكير'}
@@ -186,9 +183,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         // عرض وتحرير الرسالة
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-slate-900 dark:text-white">
-              {selectedTemplate.name}
-            </h3>
+            <h3 className="font-bold text-slate-900 dark:text-white">{selectedTemplate.name}</h3>
             <button
               onClick={() => {
                 setSelectedTemplate(null);
@@ -208,12 +203,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           />
 
           <div className="mt-3 flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCopy}
-              className="gap-2 flex-1"
-            >
+            <Button variant="secondary" size="sm" onClick={handleCopy} className="gap-2 flex-1">
               <Copy size={16} /> نسخ
             </Button>
             <Button
@@ -225,12 +215,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               <MessageCircle size={16} /> واتساب
             </Button>
             {onSent && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSend}
-                className="gap-2 flex-1"
-              >
+              <Button variant="primary" size="sm" onClick={handleSend} className="gap-2 flex-1">
                 <Send size={16} /> إرسال
               </Button>
             )}

@@ -29,7 +29,9 @@ const clampNonNegative = (n: unknown) => {
   return Math.max(0, x);
 };
 
-export const getRentalTier = (officeCommissionTotal: number): { tierId: RentalTierId; rate: number } => {
+export const getRentalTier = (
+  officeCommissionTotal: number
+): { tierId: RentalTierId; rate: number } => {
   const total = clampNonNegative(officeCommissionTotal);
 
   // ✅ حرفيًا حسب المواصفات: الشريحة تعتمد فقط على إجمالي عمولة الإيجار.

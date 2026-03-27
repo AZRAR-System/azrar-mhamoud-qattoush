@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { Search, User, Home, FileText, ChevronLeft, ArrowRight } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
@@ -90,30 +89,36 @@ export const GlobalSearch: React.FC = () => {
   }
 
   const renderBadge = (matchReason: string) => {
-      if (!matchReason || matchReason.includes('مباشرة') || matchReason.includes('رقم العقد')) return null;
-      return (
-        <span className="text-[10px] bg-amber-100/70 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-lg flex items-center gap-1 border border-amber-200/70 dark:border-amber-500/20">
-              <ArrowRight size={10} /> {matchReason}
-          </span>
-      );
-  }
+    if (!matchReason || matchReason.includes('مباشرة') || matchReason.includes('رقم العقد'))
+      return null;
+    return (
+      <span className="text-[10px] bg-amber-100/70 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-lg flex items-center gap-1 border border-amber-200/70 dark:border-amber-500/20">
+        <ArrowRight size={10} /> {matchReason}
+      </span>
+    );
+  };
 
   return (
     <>
       {/* Trigger Button (Visible in Header) */}
-      <div 
+      <div
         onClick={() => setIsOpen(true)}
         className="relative hidden xl:block group cursor-pointer"
       >
         <div className="flex items-center justify-between pl-4 pr-3 py-2.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 border border-transparent hover:border-indigo-300/60 dark:hover:border-indigo-400/20 transition-all w-64">
-           <span className="text-sm text-slate-600 dark:text-slate-300">بحث شامل...</span>
-           <span className="text-xs bg-white/70 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded border border-slate-200/70 dark:border-slate-800">Ctrl+K</span>
+          <span className="text-sm text-slate-600 dark:text-slate-300">بحث شامل...</span>
+          <span className="text-xs bg-white/70 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded border border-slate-200/70 dark:border-slate-800">
+            Ctrl+K
+          </span>
         </div>
-        <Search className="absolute right-4 top-3 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" size={18} />
+        <Search
+          className="absolute right-4 top-3 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"
+          size={18}
+        />
       </div>
 
       {/* Mobile Trigger */}
-      <button 
+      <button
         onClick={() => setIsOpen(true)}
         className="xl:hidden p-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 rounded-full"
       >
@@ -163,14 +168,21 @@ export const GlobalSearch: React.FC = () => {
                 </div>
               )}
 
-              {query && results.people.length === 0 && results.properties.length === 0 && results.contracts.length === 0 && (
-                <div className="p-8 text-center text-slate-500">لا توجد نتائج مطابقة لـ "{query}"</div>
-              )}
+              {query &&
+                results.people.length === 0 &&
+                results.properties.length === 0 &&
+                results.contracts.length === 0 && (
+                  <div className="p-8 text-center text-slate-500">
+                    لا توجد نتائج مطابقة لـ "{query}"
+                  </div>
+                )}
 
               {/* People Results */}
               {results.people.length > 0 && (
                 <div className="p-2">
-                  <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">الأشخاص</div>
+                  <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    الأشخاص
+                  </div>
                   {results.people.map((p) => (
                     <div
                       key={p.رقم_الشخص}
@@ -185,9 +197,14 @@ export const GlobalSearch: React.FC = () => {
                           <p className="font-bold text-slate-700 dark:text-slate-200">{p.الاسم}</p>
                           {renderBadge(p.matchReason)}
                         </div>
-                        <p className="text-xs text-slate-400">{p.رقم_الهاتف} • {p.الرقم_الوطني}</p>
+                        <p className="text-xs text-slate-400">
+                          {p.رقم_الهاتف} • {p.الرقم_الوطني}
+                        </p>
                       </div>
-                      <ChevronLeft size={16} className="text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                      <ChevronLeft
+                        size={16}
+                        className="text-slate-300 opacity-0 group-hover:opacity-100 transition"
+                      />
                     </div>
                   ))}
                 </div>
@@ -196,7 +213,9 @@ export const GlobalSearch: React.FC = () => {
               {/* Properties Results */}
               {results.properties.length > 0 && (
                 <div className="p-2">
-                  <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">العقارات</div>
+                  <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    العقارات
+                  </div>
                   {results.properties.map((p) => (
                     <div
                       key={p.رقم_العقار}
@@ -208,12 +227,17 @@ export const GlobalSearch: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-700 dark:text-slate-200">{p.الكود_الداخلي}</p>
+                          <p className="font-bold text-slate-700 dark:text-slate-200">
+                            {p.الكود_الداخلي}
+                          </p>
                           {renderBadge(p.matchReason)}
                         </div>
                         <p className="text-xs text-slate-400">{p.العنوان}</p>
                       </div>
-                      <ChevronLeft size={16} className="text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                      <ChevronLeft
+                        size={16}
+                        className="text-slate-300 opacity-0 group-hover:opacity-100 transition"
+                      />
                     </div>
                   ))}
                 </div>
@@ -222,7 +246,9 @@ export const GlobalSearch: React.FC = () => {
               {/* Contracts Results */}
               {results.contracts.length > 0 && (
                 <div className="p-2">
-                  <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">العقود</div>
+                  <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    العقود
+                  </div>
                   {results.contracts.map((c) => (
                     <div
                       key={c.رقم_العقد}
@@ -234,12 +260,19 @@ export const GlobalSearch: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-700 dark:text-slate-200">عقد #{formatContractNumberShort(c.رقم_العقد)}</p>
+                          <p className="font-bold text-slate-700 dark:text-slate-200">
+                            عقد #{formatContractNumberShort(c.رقم_العقد)}
+                          </p>
                           {renderBadge(c.matchReason)}
                         </div>
-                        <p className="text-xs text-slate-400">{c.تاريخ_البداية} - {c.تاريخ_النهاية}</p>
+                        <p className="text-xs text-slate-400">
+                          {c.تاريخ_البداية} - {c.تاريخ_النهاية}
+                        </p>
                       </div>
-                      <ChevronLeft size={16} className="text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                      <ChevronLeft
+                        size={16}
+                        className="text-slate-300 opacity-0 group-hover:opacity-100 transition"
+                      />
                     </div>
                   ))}
                 </div>
@@ -249,9 +282,18 @@ export const GlobalSearch: React.FC = () => {
             {/* Footer */}
             <div className="bg-slate-50/70 dark:bg-slate-950/30 p-3 text-center border-t border-slate-200/70 dark:border-slate-800">
               <p className="text-xs text-slate-400">
-                استخدم <kbd className="font-sans bg-white/70 dark:bg-slate-900/40 px-1 rounded border border-slate-200/70 dark:border-slate-800">↑</kbd>{' '}
-                <kbd className="font-sans bg-white/70 dark:bg-slate-900/40 px-1 rounded border border-slate-200/70 dark:border-slate-800">↓</kbd> للتنقل، و{' '}
-                <kbd className="font-sans bg-white/70 dark:bg-slate-900/40 px-1 rounded border border-slate-200/70 dark:border-slate-800">Enter</kbd> للاختيار
+                استخدم{' '}
+                <kbd className="font-sans bg-white/70 dark:bg-slate-900/40 px-1 rounded border border-slate-200/70 dark:border-slate-800">
+                  ↑
+                </kbd>{' '}
+                <kbd className="font-sans bg-white/70 dark:bg-slate-900/40 px-1 rounded border border-slate-200/70 dark:border-slate-800">
+                  ↓
+                </kbd>{' '}
+                للتنقل، و{' '}
+                <kbd className="font-sans bg-white/70 dark:bg-slate-900/40 px-1 rounded border border-slate-200/70 dark:border-slate-800">
+                  Enter
+                </kbd>{' '}
+                للاختيار
               </p>
             </div>
           </div>

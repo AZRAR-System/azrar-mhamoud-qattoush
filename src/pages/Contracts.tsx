@@ -161,14 +161,18 @@ const ContractCard = React.memo(
                 <div className="space-y-2">
                   <div className="rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/30 p-3">
                     <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
-                      <div className="text-[10px] text-slate-400 whitespace-nowrap pt-0.5">{t('المالك')}</div>
+                      <div className="text-[10px] text-slate-400 whitespace-nowrap pt-0.5">
+                        {t('المالك')}
+                      </div>
                       <div className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-snug">
                         {ownerName || '—'}
                       </div>
 
                       <div className="h-px col-span-2 bg-slate-200/60 dark:bg-slate-700/60" />
 
-                      <div className="text-[10px] text-slate-400 whitespace-nowrap pt-0.5">{t('المستأجر')}</div>
+                      <div className="text-[10px] text-slate-400 whitespace-nowrap pt-0.5">
+                        {t('المستأجر')}
+                      </div>
                       <div className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-snug">
                         {tenantName || '—'}
                       </div>
@@ -177,12 +181,21 @@ const ContractCard = React.memo(
 
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <div className="whitespace-normal break-words">
-                      <span className="font-bold text-slate-500 dark:text-slate-400">{t('العقار')}:</span>{' '}
-                      <span className="font-mono text-slate-700 dark:text-slate-300">{propCode}</span>
+                      <span className="font-bold text-slate-500 dark:text-slate-400">
+                        {t('العقار')}:
+                      </span>{' '}
+                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                        {propCode}
+                      </span>
                     </div>
                     <div className="whitespace-normal break-words">
-                      <span className="font-bold text-slate-500 dark:text-slate-400">{t('رقم الفرصة')}:</span>{' '}
-                      <span className="font-mono text-slate-700 dark:text-slate-300 whitespace-normal break-words" dir="ltr">
+                      <span className="font-bold text-slate-500 dark:text-slate-400">
+                        {t('رقم الفرصة')}:
+                      </span>{' '}
+                      <span
+                        className="font-mono text-slate-700 dark:text-slate-300 whitespace-normal break-words"
+                        dir="ltr"
+                      >
                         {opportunityNumberText || '—'}
                       </span>
                     </div>
@@ -403,7 +416,13 @@ export const Contracts: React.FC = () => {
       }
 
       // Optional deep link to exact contract details
-      const detailsId = (params.get('detailsId') || params.get('details') || params.get('id') || params.get('contractId') || '').trim();
+      const detailsId = (
+        params.get('detailsId') ||
+        params.get('details') ||
+        params.get('id') ||
+        params.get('contractId') ||
+        ''
+      ).trim();
       if (detailsId && deepLinkOpenedRef.current !== detailsId) {
         deepLinkOpenedRef.current = detailsId;
         openPanel('CONTRACT_DETAILS', detailsId);
@@ -453,10 +472,7 @@ export const Contracts: React.FC = () => {
     [people]
   );
   const peopleExtraPhoneMap = useMemo(
-    () =>
-      new Map(
-        people.map((p) => [String(p.رقم_الشخص), normalizeDigitsLoose(p.رقم_هاتف_اضافي)])
-      ),
+    () => new Map(people.map((p) => [String(p.رقم_الشخص), normalizeDigitsLoose(p.رقم_هاتف_اضافي)])),
     [people]
   );
   const propsById = useMemo(
@@ -940,8 +956,9 @@ export const Contracts: React.FC = () => {
   const handleImportFile = async (file: File) => {
     const ok = await toast.confirm({
       title: t('استيراد العقود'),
-      message:
-        t('سيتم استيراد العقود من الملف. سيتم تخطي أي سطر لا يمكن ربطه بعقار/مستأجر موجود. هل تريد المتابعة؟'),
+      message: t(
+        'سيتم استيراد العقود من الملف. سيتم تخطي أي سطر لا يمكن ربطه بعقار/مستأجر موجود. هل تريد المتابعة؟'
+      ),
       confirmText: t('متابعة'),
       cancelText: t('إلغاء'),
     });

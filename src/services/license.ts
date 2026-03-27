@@ -21,10 +21,15 @@ export type SignedLicenseFileV1 = {
 let cachedPublicKeyB64: string | null = null;
 
 const getEnvPublicKeyB64 = (): string =>
-  String((import.meta as unknown as { env?: Record<string, string> })?.env?.VITE_AZRAR_LICENSE_PUBLIC_KEY || '').trim();
+  String(
+    (import.meta as unknown as { env?: Record<string, string> })?.env
+      ?.VITE_AZRAR_LICENSE_PUBLIC_KEY || ''
+  ).trim();
 
 const normalizeB64 = (raw: string): string => {
-  const s = String(raw || '').trim().replace(/\s+/g, '');
+  const s = String(raw || '')
+    .trim()
+    .replace(/\s+/g, '');
   if (!s) return '';
 
   // Accept base64url by converting to standard base64.
@@ -160,7 +165,10 @@ export function parseLicenseFileContent(raw: string): SignedLicenseFileV1 {
   };
 }
 
-export async function verifyLicenseFile(lic: SignedLicenseFileV1, opts: { deviceId?: string; now?: Date } = {}): Promise<void> {
+export async function verifyLicenseFile(
+  lic: SignedLicenseFileV1,
+  opts: { deviceId?: string; now?: Date } = {}
+): Promise<void> {
   const publicKeyB64 = await getPublicKeyB64();
   if (!publicKeyB64) {
     throw new Error('مفتاح التحقق غير مُعد. (VITE_AZRAR_LICENSE_PUBLIC_KEY)');
@@ -188,7 +196,7 @@ export async function verifyLicenseFile(lic: SignedLicenseFileV1, opts: { device
   const pubBytes = base64ToBytes(publicKeyB64);
 
   if (sigBytes.length !== 64 || pubBytes.length !== 32) {
-    throw new Error('صيغة التوقيع أو المفتاح غير صالحة.' );
+    throw new Error('صيغة التوقيع أو المفتاح غير صالحة.');
   }
 
   const ok = await verifyAsync(sigBytes, msgBytes, pubBytes);

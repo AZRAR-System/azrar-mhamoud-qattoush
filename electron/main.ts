@@ -21,7 +21,9 @@ type ParsedArgv = {
 
 function parseArgvForLicenseServer(): ParsedArgv {
   try {
-    const argv = Array.isArray(process.argv) ? process.argv.map((s) => String(s || '').toLowerCase()) : [];
+    const argv = Array.isArray(process.argv)
+      ? process.argv.map((s) => String(s || '').toLowerCase())
+      : [];
     const withLicenseServer =
       argv.includes('--with-license-server') ||
       argv.includes('--license-server') ||
@@ -35,7 +37,9 @@ function parseArgvForLicenseServer(): ParsedArgv {
 
 function envTrue(name: string): boolean {
   try {
-    const v = String(process.env[name] || '').trim().toLowerCase();
+    const v = String(process.env[name] || '')
+      .trim()
+      .toLowerCase();
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
   } catch {
     return false;
@@ -240,7 +244,7 @@ async function installContentSecurityPolicy() {
         responseHeaders['Referrer-Policy'] = ['no-referrer'];
         responseHeaders['X-Frame-Options'] = ['DENY'];
         responseHeaders['Permissions-Policy'] = [
-          'camera=(), microphone=(), geolocation=(), payment=(), usb=(), hid=(), serial=(), clipboard-read=(), clipboard-write=()'
+          'camera=(), microphone=(), geolocation=(), payment=(), usb=(), hid=(), serial=(), clipboard-read=(), clipboard-write=()',
         ];
         callback({ responseHeaders });
       }
@@ -255,7 +259,9 @@ let isQuitting = false;
 
 function inferIsLicenseAdminMode(): boolean {
   try {
-    const envMode = String(process.env.AZRAR_APP_MODE || '').trim().toLowerCase();
+    const envMode = String(process.env.AZRAR_APP_MODE || '')
+      .trim()
+      .toLowerCase();
     if (envMode) return envMode === 'license-admin';
 
     // Packaged builds: prefer reliable identifiers.
@@ -275,14 +281,22 @@ function inferIsLicenseAdminMode(): boolean {
       // ignore
     }
 
-    const argv = Array.isArray(process.argv) ? process.argv.map((s) => String(s || '').toLowerCase()) : [];
+    const argv = Array.isArray(process.argv)
+      ? process.argv.map((s) => String(s || '').toLowerCase())
+      : [];
     if (argv.includes('--license-admin')) return true;
     if (argv.includes('--app=license-admin')) return true;
     if (argv.includes('--app-mode=license-admin')) return true;
 
-    const name = String(app.getName() || '').trim().toLowerCase();
+    const name = String(app.getName() || '')
+      .trim()
+      .toLowerCase();
     if (!name) return false;
-    return name.includes('license-admin') || name.includes('licenseadmin') || name.includes('azrar-license-admin');
+    return (
+      name.includes('license-admin') ||
+      name.includes('licenseadmin') ||
+      name.includes('azrar-license-admin')
+    );
   } catch {
     return false;
   }

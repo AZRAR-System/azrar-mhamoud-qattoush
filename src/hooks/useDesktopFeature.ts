@@ -12,8 +12,10 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 const isHasFeatureResult = (v: unknown): v is HasFeatureResult => {
   if (!isRecord(v)) return false;
   if (typeof v.ok !== 'boolean') return false;
-  if ('enabled' in v && typeof v.enabled !== 'boolean' && typeof v.enabled !== 'undefined') return false;
-  if ('reason' in v && typeof v.reason !== 'string' && typeof v.reason !== 'undefined') return false;
+  if ('enabled' in v && typeof v.enabled !== 'boolean' && typeof v.enabled !== 'undefined')
+    return false;
+  if ('reason' in v && typeof v.reason !== 'string' && typeof v.reason !== 'undefined')
+    return false;
   if ('error' in v && typeof v.error !== 'string' && typeof v.error !== 'undefined') return false;
   return true;
 };
@@ -43,49 +45,56 @@ export function useDesktopFeature(featureName: string): DesktopFeatureState {
   const [reason, setReason] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
 
-  const runCheck = useCallback(async (isStale: () => boolean) => {
-    const api = (window as unknown as { desktopLicense?: { hasFeature?: (feature: string) => Promise<unknown> } }).desktopLicense;
-    if (!api?.hasFeature) {
-      // Non-desktop builds or older desktop builds: don't block UI.
-      if (isStale()) return;
-      setLoading(false);
-      setEnabled(true);
-      setOk(undefined);
-      setReason(undefined);
-      setError(undefined);
-      return;
-    }
-
-    if (isStale()) return;
-    setLoading(true);
-
-    try {
-      const res = await api.hasFeature(featureName);
-      if (isStale()) return;
-
-      if (isHasFeatureResult(res)) {
-        setOk(res.ok);
-        setEnabled(res.enabled !== false);
-        setReason(typeof res.reason === 'string' ? res.reason : undefined);
-        setError(typeof res.error === 'string' ? res.error : undefined);
-      } else {
-        // Unexpected response shape: don't block UI.
-        setOk(undefined);
+  const runCheck = useCallback(
+    async (isStale: () => boolean) => {
+      const api = (
+        window as unknown as {
+          desktopLicense?: { hasFeature?: (feature: string) => Promise<unknown> };
+        }
+      ).desktopLicense;
+      if (!api?.hasFeature) {
+        // Non-desktop builds or older desktop builds: don't block UI.
+        if (isStale()) return;
+        setLoading(false);
         setEnabled(true);
+        setOk(undefined);
         setReason(undefined);
         setError(undefined);
+        return;
       }
-    } catch (e: unknown) {
+
       if (isStale()) return;
-      const msg = e instanceof Error ? e.message : (typeof e === 'string' ? e : undefined);
-      setOk(false);
-      setEnabled(true);
-      setReason(undefined);
-      setError(msg || 'hasFeature failed');
-    } finally {
-      if (!isStale()) setLoading(false);
-    }
-  }, [featureName]);
+      setLoading(true);
+
+      try {
+        const res = await api.hasFeature(featureName);
+        if (isStale()) return;
+
+        if (isHasFeatureResult(res)) {
+          setOk(res.ok);
+          setEnabled(res.enabled !== false);
+          setReason(typeof res.reason === 'string' ? res.reason : undefined);
+          setError(typeof res.error === 'string' ? res.error : undefined);
+        } else {
+          // Unexpected response shape: don't block UI.
+          setOk(undefined);
+          setEnabled(true);
+          setReason(undefined);
+          setError(undefined);
+        }
+      } catch (e: unknown) {
+        if (isStale()) return;
+        const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : undefined;
+        setOk(false);
+        setEnabled(true);
+        setReason(undefined);
+        setError(msg || 'hasFeature failed');
+      } finally {
+        if (!isStale()) setLoading(false);
+      }
+    },
+    [featureName]
+  );
 
   useEffect(() => {
     let stale = false;
@@ -96,7 +105,15 @@ export function useDesktopFeature(featureName: string): DesktopFeatureState {
   }, [runCheck]);
 
   return useMemo(
-    () => ({ featureName, loading, enabled, ok, reason, error, refresh: () => void runCheck(() => false) }),
+    () => ({
+      featureName,
+      loading,
+      enabled,
+      ok,
+      reason,
+      error,
+      refresh: () => void runCheck(() => false),
+    }),
     [enabled, error, featureName, loading, ok, reason, runCheck]
   );
 }

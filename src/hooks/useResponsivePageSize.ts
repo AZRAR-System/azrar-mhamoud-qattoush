@@ -82,7 +82,8 @@ export function useResponsivePageSize(map: ResponsivePageSizeMap): number {
     return () => {
       for (const mql of mqls) {
         const legacy = mql as MediaQueryListLegacy;
-        if (typeof mql.removeEventListener === 'function') mql.removeEventListener('change', update);
+        if (typeof mql.removeEventListener === 'function')
+          mql.removeEventListener('change', update);
         else if (typeof legacy.removeListener === 'function') legacy.removeListener(update);
       }
     };

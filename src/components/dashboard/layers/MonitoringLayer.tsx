@@ -4,7 +4,16 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, AlertCircle, Info, CheckCircle, Zap, TrendingDown, Bell, Activity } from 'lucide-react';
+import {
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  CheckCircle,
+  Zap,
+  TrendingDown,
+  Bell,
+  Activity,
+} from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { useSmartModal } from '@/context/ModalContext';
@@ -47,7 +56,10 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
   const [selectedTab, setSelectedTab] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
   const [allAlerts, setAllAlerts] = useState<Alert[]>([]);
   const [apiProbe, setApiProbe] = useState<ApiProbe>({ mode: 'local', ok: true });
-  const [dbProbe, setDbProbe] = useState<DbProbe>({ ok: true, engine: storage.isDesktop() ? 'sqlite' : 'localStorage' });
+  const [dbProbe, setDbProbe] = useState<DbProbe>({
+    ok: true,
+    engine: storage.isDesktop() ? 'sqlite' : 'localStorage',
+  });
 
   const dataRef = useRef(data);
   useEffect(() => {
@@ -109,13 +121,17 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
       } else {
         const expiringContracts = contracts.filter((c) => {
           const endDate = new Date(c.تاريخ_النهاية);
-          const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          const daysUntilExpiry = Math.ceil(
+            (endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+          );
           return isTenancyRelevant(c) && daysUntilExpiry > 0 && daysUntilExpiry <= 30;
         });
 
         expiringContracts.slice(0, 2).forEach((contract) => {
           const property = properties.find((p) => p.رقم_العقار === contract.رقم_العقار);
-          const daysUntilExpiry = Math.ceil((new Date(contract.تاريخ_النهاية).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          const daysUntilExpiry = Math.ceil(
+            (new Date(contract.تاريخ_النهاية).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+          );
 
           alerts.push({
             id: `expiring-${contract.رقم_العقد}`,
@@ -141,11 +157,17 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
             description: `بيانات العقار (${propertyCode}) تحتاج تحديث`,
             timestamp: '—',
             action: 'تحديث',
-            raw: { propertyId: r.propertyId, propertyCode, missing: { water: r.missingWater, electric: r.missingElectric, area: r.missingArea } },
+            raw: {
+              propertyId: r.propertyId,
+              propertyCode,
+              missing: { water: r.missingWater, electric: r.missingElectric, area: r.missingArea },
+            },
           });
         });
       } else {
-        const incompleteProperties = properties.filter((p) => !p.رقم_اشتراك_الكهرباء || !p.رقم_اشتراك_المياه || !p.المساحة);
+        const incompleteProperties = properties.filter(
+          (p) => !p.رقم_اشتراك_الكهرباء || !p.رقم_اشتراك_المياه || !p.المساحة
+        );
 
         incompleteProperties.slice(0, 2).forEach((property) => {
           alerts.push({
@@ -237,7 +259,10 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
         }
 
         const sizeMb = Math.round((bytes / (1024 * 1024)) * 100) / 100;
-        const path = isDesktop && typeof window.desktopDb?.getPath === 'function' ? await window.desktopDb.getPath() : undefined;
+        const path =
+          isDesktop && typeof window.desktopDb?.getPath === 'function'
+            ? await window.desktopDb.getPath()
+            : undefined;
 
         return {
           ok: true,
@@ -272,9 +297,8 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
     };
   }, []);
 
-  const filteredAlerts = selectedTab === 'all'
-    ? allAlerts
-    : allAlerts.filter((a: Alert) => a.level === selectedTab);
+  const filteredAlerts =
+    selectedTab === 'all' ? allAlerts : allAlerts.filter((a: Alert) => a.level === selectedTab);
 
   const getAlertIcon = (level: Alert['level']) => {
     switch (level) {
@@ -308,23 +332,28 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
       icon: AlertTriangle,
       label: 'التنبيهات الحرجة',
       value: allAlerts.filter((a: Alert) => a.level === 'critical').length,
-      color: 'from-red-500 to-red-600'
+      color: 'from-red-500 to-red-600',
     },
     {
       icon: AlertCircle,
       label: 'تحذيرات',
       value: allAlerts.filter((a: Alert) => a.level === 'warning').length,
-      color: 'from-orange-500 to-orange-600'
+      color: 'from-orange-500 to-orange-600',
     },
     {
       icon: Info,
       label: 'معلومات',
       value: allAlerts.filter((a: Alert) => a.level === 'info').length,
-      color: 'from-indigo-500 to-indigo-600'
+      color: 'from-indigo-500 to-indigo-600',
     },
   ];
 
-  type PendingActionItem = { action: string; assignee: string; dueDate: string; priority: 'عالية' | 'متوسطة' | 'منخفضة' };
+  type PendingActionItem = {
+    action: string;
+    assignee: string;
+    dueDate: string;
+    priority: 'عالية' | 'متوسطة' | 'منخفضة';
+  };
   const pendingActions = useMemo<PendingActionItem[]>(() => {
     try {
       const followUps = data.followUps || [];
@@ -378,14 +407,22 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
           {/* App Mode */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className={`w-3 h-3 rounded-full ${apiProbe.mode === 'local' ? 'bg-amber-500' : apiProbe.ok ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div
+                className={`w-3 h-3 rounded-full ${apiProbe.mode === 'local' ? 'bg-amber-500' : apiProbe.ok ? 'bg-green-500' : 'bg-red-500'}`}
+              ></div>
               <p className="font-bold text-slate-700 dark:text-slate-300">وضع التطبيق</p>
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-600 dark:text-slate-400">الحالة:</span>
-                <span className={`font-bold ${apiProbe.mode === 'local' ? 'text-amber-600 dark:text-amber-400' : apiProbe.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {apiProbe.mode === 'local' ? 'وضع محلي (بدون سيرفر)' : apiProbe.ok ? 'متصل' : 'غير متصل'}
+                <span
+                  className={`font-bold ${apiProbe.mode === 'local' ? 'text-amber-600 dark:text-amber-400' : apiProbe.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                >
+                  {apiProbe.mode === 'local'
+                    ? 'وضع محلي (بدون سيرفر)'
+                    : apiProbe.ok
+                      ? 'متصل'
+                      : 'غير متصل'}
                 </span>
               </div>
             </div>
@@ -394,31 +431,47 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
           {/* Database Status */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className={`w-3 h-3 rounded-full ${dbProbe.ok ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div
+                className={`w-3 h-3 rounded-full ${dbProbe.ok ? 'bg-green-500' : 'bg-red-500'}`}
+              ></div>
               <p className="font-bold text-slate-700 dark:text-slate-300">قاعدة البيانات</p>
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-600 dark:text-slate-400">الحالة:</span>
-                <span className={`font-bold ${dbProbe.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{dbProbe.ok ? 'متصلة' : 'غير متاحة'}</span>
+                <span
+                  className={`font-bold ${dbProbe.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                >
+                  {dbProbe.ok ? 'متصلة' : 'غير متاحة'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600 dark:text-slate-400">حجم البيانات:</span>
-                <span className="text-slate-700 dark:text-slate-300 font-bold">{typeof dbProbe.sizeMb === 'number' ? `${dbProbe.sizeMb} MB` : '—'}</span>
+                <span className="text-slate-700 dark:text-slate-300 font-bold">
+                  {typeof dbProbe.sizeMb === 'number' ? `${dbProbe.sizeMb} MB` : '—'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600 dark:text-slate-400">عدد السجلات:</span>
-                <span className="text-slate-700 dark:text-slate-300 font-bold">{typeof dbProbe.records === 'number' ? dbProbe.records : '—'}</span>
+                <span className="text-slate-700 dark:text-slate-300 font-bold">
+                  {typeof dbProbe.records === 'number' ? dbProbe.records : '—'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600 dark:text-slate-400">المحرك:</span>
-                <span className="text-slate-700 dark:text-slate-300 font-bold">{dbProbe.engine === 'sqlite' ? 'SQLite (Desktop)' : 'localStorage (Browser)'}</span>
+                <span className="text-slate-700 dark:text-slate-300 font-bold">
+                  {dbProbe.engine === 'sqlite' ? 'SQLite (Desktop)' : 'localStorage (Browser)'}
+                </span>
               </div>
               {dbProbe.engine === 'sqlite' && dbProbe.path ? (
-                <div className="text-xs text-slate-600 dark:text-slate-400 mt-2 break-words">{dbProbe.path}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 mt-2 break-words">
+                  {dbProbe.path}
+                </div>
               ) : null}
               {!dbProbe.ok && dbProbe.error ? (
-                <div className="text-xs text-red-600 dark:text-red-400 mt-2 break-words">{dbProbe.error}</div>
+                <div className="text-xs text-red-600 dark:text-red-400 mt-2 break-words">
+                  {dbProbe.error}
+                </div>
               ) : null}
             </div>
           </div>
@@ -432,7 +485,9 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
           الإجراءات المعلقة
         </h3>
         {pendingActions.length === 0 ? (
-          <div className="text-center py-8 text-slate-600 dark:text-slate-400">لا توجد إجراءات معلقة</div>
+          <div className="text-center py-8 text-slate-600 dark:text-slate-400">
+            لا توجد إجراءات معلقة
+          </div>
         ) : (
           <div className="space-y-3">
             {pendingActions.map((item, index) => (
@@ -445,14 +500,18 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
                   <p className="text-sm text-slate-600 dark:text-slate-400">{item.assignee}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.dueDate}</p>
-                  <span className={`text-xs font-bold px-2 py-1 rounded inline-block mt-1 ${
-                    item.priority === 'عالية'
-                      ? 'bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200'
-                      : item.priority === 'متوسطة'
-                      ? 'bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-200'
-                      : 'bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200'
-                  }`}>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {item.dueDate}
+                  </p>
+                  <span
+                    className={`text-xs font-bold px-2 py-1 rounded inline-block mt-1 ${
+                      item.priority === 'عالية'
+                        ? 'bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200'
+                        : item.priority === 'متوسطة'
+                          ? 'bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-200'
+                          : 'bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200'
+                    }`}
+                  >
                     {item.priority}
                   </span>
                 </div>
@@ -483,7 +542,13 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
                   : 'bg-gray-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600'
               }`}
             >
-              {tab === 'all' ? 'الكل' : tab === 'critical' ? 'حرجة' : tab === 'warning' ? 'تحذيرات' : 'معلومات'}
+              {tab === 'all'
+                ? 'الكل'
+                : tab === 'critical'
+                  ? 'حرجة'
+                  : tab === 'warning'
+                    ? 'تحذيرات'
+                    : 'معلومات'}
             </button>
           ))}
         </div>
@@ -498,13 +563,15 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
                 onClick={() => openPanel('GENERIC_ALERT', String(alert.id), { alert })}
                 className={`w-full text-right flex items-start gap-3 p-4 rounded-lg border transition hover:shadow-md ${getAlertColor(alert.level)}`}
               >
-                <div className="flex-shrink-0 mt-1">
-                  {getAlertIcon(alert.level)}
-                </div>
+                <div className="flex-shrink-0 mt-1">{getAlertIcon(alert.level)}</div>
                 <div className="flex-1">
                   <p className="font-bold text-slate-900 dark:text-white">{alert.title}</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{alert.description}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">{alert.timestamp}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    {alert.description}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
+                    {alert.timestamp}
+                  </p>
                 </div>
                 <span className="flex-shrink-0 px-3 py-1 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 rounded text-sm font-medium">
                   {alert.action}
@@ -528,12 +595,20 @@ export const MonitoringLayer: React.FC<MonitoringLayerProps> = ({ data }) => {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-indigo-50 dark:bg-indigo-950 rounded-lg border border-indigo-200 dark:border-indigo-800">
-            <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium mb-2">إجمالي العقود</p>
-            <p className="font-bold text-slate-900 dark:text-white">{data.contracts?.length || 0}</p>
+            <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium mb-2">
+              إجمالي العقود
+            </p>
+            <p className="font-bold text-slate-900 dark:text-white">
+              {data.contracts?.length || 0}
+            </p>
           </div>
           <div className="p-4 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-800">
-            <p className="text-sm text-orange-600 dark:text-orange-400 font-medium mb-2">العقارات</p>
-            <p className="font-bold text-slate-900 dark:text-white">{data.properties?.length || 0}</p>
+            <p className="text-sm text-orange-600 dark:text-orange-400 font-medium mb-2">
+              العقارات
+            </p>
+            <p className="font-bold text-slate-900 dark:text-white">
+              {data.properties?.length || 0}
+            </p>
           </div>
           <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
             <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-2">الأشخاص</p>

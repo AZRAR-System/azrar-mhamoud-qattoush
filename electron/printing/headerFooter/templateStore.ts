@@ -2,8 +2,13 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { app } from 'electron';
 
-const DEFAULT_HEADER_TEMPLATE = ['{{company_name}}', '{{company_slogan}}', '{{company_identity_text}}'].join('\n');
-const DEFAULT_FOOTER_TEMPLATE = 'التاريخ: {{date}}    المستخدم: {{user_name}}    صفحة: {{page_number}}';
+const DEFAULT_HEADER_TEMPLATE = [
+  '{{company_name}}',
+  '{{company_slogan}}',
+  '{{company_identity_text}}',
+].join('\n');
+const DEFAULT_FOOTER_TEMPLATE =
+  'التاريخ: {{date}}    المستخدم: {{user_name}}    صفحة: {{page_number}}';
 
 const ensureDir = async (dir: string): Promise<void> => {
   await fsp.mkdir(dir, { recursive: true });
@@ -33,7 +38,10 @@ const ensureDefaultFile = async (filePath: string, content: string): Promise<voi
   }
 };
 
-export const ensureHeaderFooterDefaultTemplates = async (): Promise<{ headerPath: string; footerPath: string }> => {
+export const ensureHeaderFooterDefaultTemplates = async (): Promise<{
+  headerPath: string;
+  footerPath: string;
+}> => {
   const dir = await getHeaderFooterTemplatesDir();
   const headerPath = path.join(dir, 'header.template.txt');
   const footerPath = path.join(dir, 'footer.template.txt');
@@ -44,7 +52,10 @@ export const ensureHeaderFooterDefaultTemplates = async (): Promise<{ headerPath
   return { headerPath, footerPath };
 };
 
-export const loadHeaderFooterTemplates = async (): Promise<{ headerTemplate?: string; footerTemplate?: string }> => {
+export const loadHeaderFooterTemplates = async (): Promise<{
+  headerTemplate?: string;
+  footerTemplate?: string;
+}> => {
   const { headerPath, footerPath } = await ensureHeaderFooterDefaultTemplates();
 
   const headerTemplate = await safeReadText(headerPath);

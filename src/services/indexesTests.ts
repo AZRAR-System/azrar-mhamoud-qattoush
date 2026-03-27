@@ -1,6 +1,6 @@
 /**
  * 🧪 اختبارات الفهارس (Indexes Tests)
- * 
+ *
  * هذا الملف يحتوي على اختبارات شاملة لجميع الفهارس والقيود الفريدة
  */
 
@@ -15,7 +15,7 @@ import {
   checkSalePropertyUnique as _checkSalePropertyUnique,
   validatePropertyIndexes,
   validateContractIndexes,
-  DATABASE_INDEXES as _DATABASE_INDEXES
+  DATABASE_INDEXES as _DATABASE_INDEXES,
 } from './databaseIndexes';
 
 import { get, save as _save } from './storage';
@@ -28,7 +28,7 @@ const KEYS = {
   CONTRACTS: 'db_contracts',
   ROLES: 'db_roles',
   USERS: 'db_users',
-  SALES: 'db_sales'
+  SALES: 'db_sales',
 };
 
 /**
@@ -37,7 +37,7 @@ const KEYS = {
 export const testPersonUniqueConstraints = (): { success: boolean; message: string } => {
   try {
     const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
-    
+
     // اختبار 1: التحقق من رقم وطني موجود
     if (people.length > 0 && people[0].الرقم_الوطني) {
       const result = checkPersonUniqueConstraints(people[0].الرقم_الوطني);
@@ -64,13 +64,10 @@ export const testPersonUniqueConstraints = (): { success: boolean; message: stri
 export const testPersonRoleUniqueConstraint = (): { success: boolean; message: string } => {
   try {
     const roles = get<شخص_دور_tbl>(KEYS.ROLES);
-    
+
     if (roles.length > 0) {
-      const result = checkPersonRoleUniqueConstraint(
-        roles[0].رقم_الشخص,
-        roles[0].الدور
-      );
-      
+      const result = checkPersonRoleUniqueConstraint(roles[0].رقم_الشخص, roles[0].الدور);
+
       if (result.isValid) {
         return { success: false, message: '❌ فشل: يجب أن يكتشف التكرار' };
       }
@@ -88,7 +85,7 @@ export const testPersonRoleUniqueConstraint = (): { success: boolean; message: s
 export const testPropertyCodeUnique = (): { success: boolean; message: string } => {
   try {
     const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
-    
+
     if (properties.length > 0) {
       const result = checkPropertyCodeUnique(properties[0].الكود_الداخلي);
       if (result.isValid) {
@@ -113,16 +110,12 @@ export const testPropertyCodeUnique = (): { success: boolean; message: string } 
 export const testLandUniqueConstraint = (): { success: boolean; message: string } => {
   try {
     const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
-    const lands = properties.filter(p => p.النوع === 'أرض' && p.رقم_قطعة && p.رقم_لوحة);
-    
+    const lands = properties.filter((p) => p.النوع === 'أرض' && p.رقم_قطعة && p.رقم_لوحة);
+
     if (lands.length > 0) {
       const land = lands[0];
-      const result = checkLandUniqueConstraint(
-        land.رقم_قطعة,
-        land.رقم_لوحة,
-        'أرض'
-      );
-      
+      const result = checkLandUniqueConstraint(land.رقم_قطعة, land.رقم_لوحة, 'أرض');
+
       if (result.isValid) {
         return { success: false, message: '❌ فشل: يجب أن يكتشف تكرار الأرض' };
       }
@@ -147,18 +140,13 @@ export const testApartmentUniqueConstraint = (): { success: boolean; message: st
   try {
     const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
     const apartments = properties.filter(
-      p => p.النوع === 'شقة' && p.رقم_قطعة && p.رقم_لوحة && p.رقم_شقة
+      (p) => p.النوع === 'شقة' && p.رقم_قطعة && p.رقم_لوحة && p.رقم_شقة
     );
-    
+
     if (apartments.length > 0) {
       const apt = apartments[0];
-      const result = checkApartmentUniqueConstraint(
-        apt.رقم_قطعة,
-        apt.رقم_لوحة,
-        apt.رقم_شقة,
-        'شقة'
-      );
-      
+      const result = checkApartmentUniqueConstraint(apt.رقم_قطعة, apt.رقم_لوحة, apt.رقم_شقة, 'شقة');
+
       if (result.isValid) {
         return { success: false, message: '❌ فشل: يجب أن يكتشف تكرار الشقة' };
       }
@@ -176,14 +164,11 @@ export const testApartmentUniqueConstraint = (): { success: boolean; message: st
 export const testActiveContractUniqueConstraint = (): { success: boolean; message: string } => {
   try {
     const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
-    const activeContracts = contracts.filter(c => isTenancyRelevant(c));
+    const activeContracts = contracts.filter((c) => isTenancyRelevant(c));
 
     if (activeContracts.length > 0) {
       const contract = activeContracts[0];
-      const result = checkActiveContractUniqueConstraint(
-        contract.رقم_العقار,
-        'نشط'
-      );
+      const result = checkActiveContractUniqueConstraint(contract.رقم_العقار, 'نشط');
 
       if (result.isValid) {
         return { success: false, message: '❌ فشل: يجب أن يكتشف عقد ساري موجود' };
@@ -211,7 +196,7 @@ export const testValidatePropertyIndexes = (): { success: boolean; message: stri
         النوع: existing.النوع,
         رقم_قطعة: existing.رقم_قطعة,
         رقم_لوحة: existing.رقم_لوحة,
-        رقم_شقة: existing.رقم_شقة
+        رقم_شقة: existing.رقم_شقة,
       });
 
       if (result.isValid) {
@@ -224,7 +209,7 @@ export const testValidatePropertyIndexes = (): { success: boolean; message: stri
       الكود_الداخلي: 'NEW-999',
       النوع: 'أرض',
       رقم_قطعة: '9999',
-      رقم_لوحة: '9999'
+      رقم_لوحة: '9999',
     });
 
     if (!newResult.isValid) {
@@ -243,13 +228,13 @@ export const testValidatePropertyIndexes = (): { success: boolean; message: stri
 export const testValidateContractIndexes = (): { success: boolean; message: string } => {
   try {
     const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
-    const activeContracts = contracts.filter(c => isTenancyRelevant(c));
+    const activeContracts = contracts.filter((c) => isTenancyRelevant(c));
 
     if (activeContracts.length > 0) {
       const contract = activeContracts[0];
       const result = validateContractIndexes({
         رقم_العقار: contract.رقم_العقار,
-        حالة_العقد: 'نشط'
+        حالة_العقد: 'نشط',
       });
 
       if (result.isValid) {
@@ -280,26 +265,26 @@ export const runAllIndexesTests = (): {
     { name: '5️⃣ القيد الفريد للشقق', fn: testApartmentUniqueConstraint },
     { name: '6️⃣ القيد الفريد للعقد الساري', fn: testActiveContractUniqueConstraint },
     { name: '7️⃣ التحقق الشامل للعقار', fn: testValidatePropertyIndexes },
-    { name: '8️⃣ التحقق الشامل للعقد', fn: testValidateContractIndexes }
+    { name: '8️⃣ التحقق الشامل للعقد', fn: testValidateContractIndexes },
   ];
 
-  const results = tests.map(test => {
+  const results = tests.map((test) => {
     const result = test.fn();
     return {
       test: test.name,
       success: result.success,
-      message: result.message
+      message: result.message,
     };
   });
 
-  const passed = results.filter(r => r.success).length;
-  const failed = results.filter(r => !r.success).length;
+  const passed = results.filter((r) => r.success).length;
+  const failed = results.filter((r) => !r.success).length;
 
   return {
     total: tests.length,
     passed,
     failed,
-    results
+    results,
   };
 };
 
@@ -314,7 +299,7 @@ export const displayIndexesTestResults = (): string => {
   output += '🧪 نتائج اختبارات الفهارس (Indexes Tests Results)\n';
   output += '═══════════════════════════════════════════════════════\n\n';
 
-  testResults.results.forEach(result => {
+  testResults.results.forEach((result) => {
     output += `${result.test}\n`;
     output += `${result.message}\n\n`;
   });
@@ -327,4 +312,3 @@ export const displayIndexesTestResults = (): string => {
 
   return output;
 };
-

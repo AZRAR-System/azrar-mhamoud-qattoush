@@ -45,7 +45,9 @@ let resolvedDbPath: string | null = null;
 type DbEncryptionMode = 'none' | 'sqlcipher';
 
 const getDbEncryptionMode = (): DbEncryptionMode => {
-  const raw = String(process.env.AZRAR_DB_ENCRYPTION || '').trim().toLowerCase();
+  const raw = String(process.env.AZRAR_DB_ENCRYPTION || '')
+    .trim()
+    .toLowerCase();
   if (raw === 'sqlcipher') return 'sqlcipher';
   return 'none';
 };
@@ -233,7 +235,10 @@ function resolveDbPathSync(): string {
       // If the DB does not exist in the new location yet, try to recover it from a legacy userData folder.
       // This handles upgrades where Electron's userData folder name changed.
       if (!safeExistsFileSync(exeAdjacentPath) && !safeExistsFileSync(userDataPath)) {
-        const legacy = findLegacyDbCandidateSync({ currentTargetPath: userDataPath, exeAdjacentPath });
+        const legacy = findLegacyDbCandidateSync({
+          currentTargetPath: userDataPath,
+          exeAdjacentPath,
+        });
         if (legacy) {
           // Prefer keeping the "next to exe" legacy behavior when possible.
           _maybeMigrateLegacyDbSync(legacy.path, exeAdjacentPath);
@@ -254,7 +259,10 @@ function resolveDbPathSync(): string {
 
         // If we are switching to exe-adjacent but a legacy DB exists somewhere else, migrate it.
         if (!safeExistsFileSync(exeAdjacentPath)) {
-          const legacy = findLegacyDbCandidateSync({ currentTargetPath: userDataPath, exeAdjacentPath });
+          const legacy = findLegacyDbCandidateSync({
+            currentTargetPath: userDataPath,
+            exeAdjacentPath,
+          });
           if (legacy) {
             _maybeMigrateLegacyDbSync(legacy.path, exeAdjacentPath);
           }

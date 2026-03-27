@@ -5,8 +5,10 @@ import { normalizeDigitsToLatin, parseNumberOrUndefined } from '@/utils/numberIn
 
 export type MoneyInputValue = number | undefined;
 
-export interface MoneyInputProps
-  extends Omit<React.ComponentProps<typeof Input>, 'type' | 'value' | 'defaultValue' | 'onChange'> {
+export interface MoneyInputProps extends Omit<
+  React.ComponentProps<typeof Input>,
+  'type' | 'value' | 'defaultValue' | 'onChange'
+> {
   value?: MoneyInputValue;
   defaultValue?: MoneyInputValue;
   onValueChange?: (value: MoneyInputValue) => void;

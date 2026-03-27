@@ -4,7 +4,17 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Calendar, Clock, CheckCircle, AlertCircle, FileText, Zap, Plus, Trash2, Edit2 } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  FileText,
+  Zap,
+  Plus,
+  Trash2,
+  Edit2,
+} from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant } from '@/utils/tenancy';
@@ -92,7 +102,9 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
   const contracts = useMemo(() => {
     try {
-      return (Array.isArray(_data?.contracts) ? (_data.contracts as unknown as العقود_tbl[]) : []) || [];
+      return (
+        (Array.isArray(_data?.contracts) ? (_data.contracts as unknown as العقود_tbl[]) : []) || []
+      );
     } catch {
       return [] as العقود_tbl[];
     }
@@ -100,7 +112,10 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
   const properties = useMemo(() => {
     try {
-      return (Array.isArray(_data?.properties) ? (_data.properties as unknown as العقارات_tbl[]) : []) || [];
+      return (
+        (Array.isArray(_data?.properties) ? (_data.properties as unknown as العقارات_tbl[]) : []) ||
+        []
+      );
     } catch {
       return [] as العقارات_tbl[];
     }
@@ -138,7 +153,13 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       const desktopExpiring = _data.desktopHighlights?.expiringContracts ?? [];
       if (desktopExpiring.length > 0) {
         const today = toDateOnly(new Date());
-        const list: Array<{ id: string; propertyCode: string; tenantName: string; endDate: string; daysUntil: number }> = [];
+        const list: Array<{
+          id: string;
+          propertyCode: string;
+          tenantName: string;
+          endDate: string;
+          daysUntil: number;
+        }> = [];
 
         for (const r of desktopExpiring) {
           const contractId = String(r?.contractId || '').trim();
@@ -163,7 +184,13 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       }
 
       const today = toDateOnly(new Date());
-      const list: Array<{ id: string; propertyCode: string; tenantName: string; endDate: string; daysUntil: number }> = [];
+      const list: Array<{
+        id: string;
+        propertyCode: string;
+        tenantName: string;
+        endDate: string;
+        daysUntil: number;
+      }> = [];
 
       for (const c of contracts) {
         if (!isTenancyRelevant(c)) continue;
@@ -199,7 +226,13 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       list.sort((a, b) => a.daysUntil - b.daysUntil);
       return list.slice(0, 8);
     } catch {
-      return [] as Array<{ id: string; propertyCode: string; tenantName: string; endDate: string; daysUntil: number }>;
+      return [] as Array<{
+        id: string;
+        propertyCode: string;
+        tenantName: string;
+        endDate: string;
+        daysUntil: number;
+      }>;
     }
   }, [contracts, peopleById, propertiesById, _data.desktopHighlights]);
 
@@ -222,7 +255,10 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
       const now = new Date();
       const candidates = contracts
-        .filter((c) => !c?.isArchived && (String(c?.رقم_المستاجر) === id || String(c?.رقم_الكفيل || '') === id))
+        .filter(
+          (c) =>
+            !c?.isArchived && (String(c?.رقم_المستاجر) === id || String(c?.رقم_الكفيل || '') === id)
+        )
         .map((c) => {
           const start = new Date(String(c?.تاريخ_البداية || ''));
           const end = new Date(String(c?.تاريخ_النهاية || ''));
@@ -307,22 +343,29 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           const parsed = JSON.parse(legacy) as unknown;
           const items = Array.isArray(parsed) ? parsed : [];
           const today = new Date();
-          const addDays = (n: number) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + n);
+          const addDays = (n: number) =>
+            new Date(today.getFullYear(), today.getMonth(), today.getDate() + n);
 
           items.forEach((raw) => {
             const t = isRecord(raw) ? raw : {};
             const rawDue = String(t.dueDate ?? '');
-            const mappedDate =
-              /^\d{4}-\d{2}-\d{2}$/.test(rawDue) ? rawDue :
-              rawDue === 'اليوم' ? formatDateYMD(today) :
-              rawDue === 'غدا' ? formatDateYMD(addDays(1)) :
-              rawDue === 'بعد يومين' ? formatDateYMD(addDays(2)) :
-              rawDue === 'هذا الأسبوع' ? formatDateYMD(addDays(7)) :
-              rawDue === 'الأسبوع القادم' ? formatDateYMD(addDays(14)) :
-              formatDateYMD(today);
+            const mappedDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDue)
+              ? rawDue
+              : rawDue === 'اليوم'
+                ? formatDateYMD(today)
+                : rawDue === 'غدا'
+                  ? formatDateYMD(addDays(1))
+                  : rawDue === 'بعد يومين'
+                    ? formatDateYMD(addDays(2))
+                    : rawDue === 'هذا الأسبوع'
+                      ? formatDateYMD(addDays(7))
+                      : rawDue === 'الأسبوع القادم'
+                        ? formatDateYMD(addDays(14))
+                        : formatDateYMD(today);
 
             const priority = String(t.priority ?? 'متوسطة');
-            const priorityKey: FollowUpTask['priority'] = priority === 'عالية' ? 'High' : priority === 'منخفضة' ? 'Low' : 'Medium';
+            const priorityKey: FollowUpTask['priority'] =
+              priority === 'عالية' ? 'High' : priority === 'منخفضة' ? 'Low' : 'Medium';
 
             const id = DbService.addFollowUp({
               task: String(t.title ?? '').trim() || 'مهمة',
@@ -351,7 +394,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       const all = dataRef.current.followUps || [];
       const mapped: Task[] = all.map((f) => {
         const pr = String(f.priority || 'Medium');
-        const priority: Task['priority'] = pr === 'High' ? 'عالية' : pr === 'Low' ? 'منخفضة' : 'متوسطة';
+        const priority: Task['priority'] =
+          pr === 'High' ? 'عالية' : pr === 'Low' ? 'منخفضة' : 'متوسطة';
         const status: Task['status'] = String(f.status) === 'Done' ? 'completed' : 'pending';
         const category = String(f.category || (f.type === 'Task' ? 'عام' : f.type || 'عام'));
         const description = String(f.note || '').trim() || undefined;
@@ -398,7 +442,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
     }
 
     const pr = String(newTask.priority || 'متوسطة');
-    const priorityKey: FollowUpTask['priority'] = pr === 'عالية' ? 'High' : pr === 'منخفضة' ? 'Low' : 'Medium';
+    const priorityKey: FollowUpTask['priority'] =
+      pr === 'عالية' ? 'High' : pr === 'منخفضة' ? 'Low' : 'Medium';
 
     const selectedContractId = String(newTask.contractId || '').trim() || undefined;
     const selectedPropertyId = String(newTask.propertyId || '').trim() || undefined;
@@ -422,7 +467,20 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
     });
 
     loadTasks();
-    setNewTask({ title: '', dueDate: formatDateYMD(new Date()), dueTime: '', priority: 'متوسطة', status: 'pending', category: 'عام', description: '', personId: '', contractId: '', propertyId: '', clientName: '', phone: '' });
+    setNewTask({
+      title: '',
+      dueDate: formatDateYMD(new Date()),
+      dueTime: '',
+      priority: 'متوسطة',
+      status: 'pending',
+      category: 'عام',
+      description: '',
+      personId: '',
+      contractId: '',
+      propertyId: '',
+      clientName: '',
+      phone: '',
+    });
     setShowAddModal(false);
   };
 
@@ -433,7 +491,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
     }
 
     const pr = String(editingTask.priority || 'متوسطة');
-    const priorityKey: FollowUpTask['priority'] = pr === 'عالية' ? 'High' : pr === 'منخفضة' ? 'Low' : 'Medium';
+    const priorityKey: FollowUpTask['priority'] =
+      pr === 'عالية' ? 'High' : pr === 'منخفضة' ? 'Low' : 'Medium';
     const selectedContractId = String(editingTask.contractId || '').trim() || undefined;
     const selectedPropertyId = String(editingTask.propertyId || '').trim() || undefined;
 
@@ -459,7 +518,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
   };
 
   const handleToggleTask = (id: string) => {
-    const target = tasks.find(t => t.id === id);
+    const target = tasks.find((t) => t.id === id);
     if (!target) return;
     if (target.status === 'pending') {
       DbService.completeFollowUp(id);
@@ -512,7 +571,9 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
       // Follow-ups today
       const todayStr = formatDateYMD(today);
-      const todayFollowUps = followUps.filter((f) => String(f?.dueDate) === todayStr && String(f?.status) !== 'Done');
+      const todayFollowUps = followUps.filter(
+        (f) => String(f?.dueDate) === todayStr && String(f?.status) !== 'Done'
+      );
       todayFollowUps.forEach((f) => {
         const name = String(f?.clientName || '').trim();
         todayEvents.push(name ? `مهمة: ${f.task} • ${name}` : `مهمة: ${f.task}`);
@@ -534,7 +595,9 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
 
         todayInstallments.forEach((i) => {
           const contract = contracts.find((c) => c.رقم_العقد === i.رقم_العقد);
-          const tenant = contract ? people.find((p) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
+          const tenant = contract
+            ? people.find((p) => p.رقم_الشخص === contract.رقم_المستاجر)
+            : null;
           todayEvents.push(`موعد دفع - ${tenant?.الاسم || 'مستأجر'}`);
         });
       }
@@ -565,7 +628,9 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
         desktopExpiring.slice(0, 2).forEach((r) => {
           const endIso = String(r?.endDate || '').trim();
           const endDate = new Date(endIso);
-          const dateStr = Number.isFinite(endDate.getTime()) ? formatDateYMD(endDate) : endIso || '—';
+          const dateStr = Number.isFinite(endDate.getTime())
+            ? formatDateYMD(endDate)
+            : endIso || '—';
           const propertyCode = String(r?.propertyCode || '').trim() || 'عقار';
 
           const existingDate = dates.find((d) => d.date === dateStr);
@@ -578,7 +643,9 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       } else {
         const expiringContracts = contracts.filter((c) => {
           const endDate = new Date(c.تاريخ_النهاية);
-          const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          const daysUntilExpiry = Math.ceil(
+            (endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+          );
           return isTenancyRelevant(c) && daysUntilExpiry > 0 && daysUntilExpiry <= 30;
         });
 
@@ -591,7 +658,10 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           if (existingDate) {
             existingDate.events.push(`تجديد عقد - ${property?.الكود_الداخلي || 'عقار'}`);
           } else {
-            dates.push({ date: dateStr, events: [`تجديد عقد - ${property?.الكود_الداخلي || 'عقار'}`] });
+            dates.push({
+              date: dateStr,
+              events: [`تجديد عقد - ${property?.الكود_الداخلي || 'عقار'}`],
+            });
           }
         });
       }
@@ -612,7 +682,9 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       const today = new Date();
       return (contracts || []).filter((c) => {
         const endDate = new Date(c.تاريخ_النهاية);
-        const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        const daysUntilExpiry = Math.ceil(
+          (endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        );
         return isTenancyRelevant(c) && daysUntilExpiry > 0 && daysUntilExpiry <= 30;
       }).length;
     } catch {
@@ -628,7 +700,9 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium opacity-90">المهام المعلقة</p>
-              <p className="text-3xl font-bold mt-2">{formatNumber(tasks.filter(t => t.status === 'pending').length)}</p>
+              <p className="text-3xl font-bold mt-2">
+                {formatNumber(tasks.filter((t) => t.status === 'pending').length)}
+              </p>
               <p className="text-sm opacity-75 mt-2">تحتاج الاهتمام</p>
             </div>
             <AlertCircle className="w-12 h-12 opacity-20 group-hover:opacity-30 transition" />
@@ -669,14 +743,22 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
             <div className="flex gap-2">
               <button
                 className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded"
-                onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))}
+                onClick={() =>
+                  setSelectedDate(
+                    new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1)
+                  )
+                }
                 title="الشهر السابق"
               >
                 ←
               </button>
               <button
                 className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded"
-                onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1))}
+                onClick={() =>
+                  setSelectedDate(
+                    new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1)
+                  )
+                }
                 title="الشهر التالي"
               >
                 →
@@ -685,11 +767,13 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           </div>
 
           <div className="grid grid-cols-7 gap-2 text-center text-xs mb-2">
-            {['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(day => (
-              <div key={day} className="font-bold text-slate-600 dark:text-slate-400 py-1">
-                {day.slice(0, 2)}
-              </div>
-            ))}
+            {['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(
+              (day) => (
+                <div key={day} className="font-bold text-slate-600 dark:text-slate-400 py-1">
+                  {day.slice(0, 2)}
+                </div>
+              )
+            )}
           </div>
 
           <div className="grid grid-cols-7 gap-2">
@@ -698,7 +782,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
-              const isToday = day === new Date().getDate() && selectedDate.getMonth() === new Date().getMonth();
+              const isToday =
+                day === new Date().getDate() && selectedDate.getMonth() === new Date().getMonth();
               const dateObj = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day);
               const ymd = formatDateYMD(dateObj);
               return (
@@ -742,14 +827,16 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                         <li key={idx}>
                           <button
                             type="button"
-                            onClick={() => openPanel('GENERIC_ALERT', undefined, {
-                              alert: {
-                                level: 'info',
-                                title: 'حدث مهم',
-                                description: event,
-                                timestamp: item.date,
-                              }
-                            })}
+                            onClick={() =>
+                              openPanel('GENERIC_ALERT', undefined, {
+                                alert: {
+                                  level: 'info',
+                                  title: 'حدث مهم',
+                                  description: event,
+                                  timestamp: item.date,
+                                },
+                              })
+                            }
                             className="w-full text-right text-sm text-slate-600 dark:text-slate-300 hover:underline"
                           >
                             • {event}
@@ -792,136 +879,168 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
               const now = new Date();
               const nowMinutes = now.getHours() * 60 + now.getMinutes();
               const taskMinutes = toMinutes(task.dueTime);
-              const isOverdueNow = task.status === 'pending' && task.dueDate === todayStr && taskMinutes !== null && nowMinutes >= taskMinutes;
+              const isOverdueNow =
+                task.status === 'pending' &&
+                task.dueDate === todayStr &&
+                taskMinutes !== null &&
+                nowMinutes >= taskMinutes;
 
               return (
-              <div
-                key={task.id}
-                className={`flex items-start gap-3 p-4 rounded-lg border transition ${
-                  task.status === 'completed'
-                    ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 opacity-60'
-                    : task.priority === 'عالية'
-                    ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
-                    : task.priority === 'متوسطة'
-                    ? 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800'
-                    : 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
-                }`}
-              >
-                <button
-                  onClick={() => handleToggleTask(task.id)}
-                  className="mt-1 p-1 hover:bg-white dark:hover:bg-slate-700 rounded transition flex-shrink-0"
-                  title={task.status === 'completed' ? 'تحويل إلى معلقة' : 'تحديد كمكتملة'}
-                >
-                  <CheckCircle
-                    size={18}
-                    className={task.status === 'completed' ? 'text-green-500 fill-green-500' : 'text-gray-400'}
-                  />
-                </button>
-
-                <div className="flex-1">
-                  <p className={`font-medium ${task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-900 dark:text-white'}`}>
-                    {task.title}
-                  </p>
-                  {task.description && (
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{task.description}</p>
-                  )}
-
-                  {(() => {
-                    const personId = String(task.personId || '').trim();
-                    const contractId = String(task.contractId || '').trim();
-                    const propertyId = String(task.propertyId || '').trim();
-                    if (!personId && !contractId && !propertyId) return null;
-
-                    const person = personId ? peopleById.get(personId) : undefined;
-                    const contract = contractId ? contractsById.get(contractId) : undefined;
-                    const derivedPropertyId = propertyId || String(contract?.رقم_العقار || '').trim();
-                    const property = derivedPropertyId ? propertiesById.get(derivedPropertyId) : undefined;
-
-                    const personName = String(person?.الاسم || task.clientName || '').trim();
-                    const phone = String(task.phone || person?.رقم_الهاتف || '').trim();
-                    const propertyCode = String(property?.الكود_الداخلي || '').trim();
-
-                    const address = String(property?.العنوان || '').trim();
-                    const contractStart = contract?.تاريخ_البداية ? formatDateYMD(contract.تاريخ_البداية) : '';
-                    const contractEnd = contract?.تاريخ_النهاية ? formatDateYMD(contract.تاريخ_النهاية) : '';
-                    const contractRange = contractStart && contractEnd ? `${contractStart} → ${contractEnd}` : '';
-
-                    const ownedProperties = personId
-                      ? properties.filter((p) => String(p?.رقم_المالك || '').trim() === personId)
-                      : [];
-                    const ownedSummary = ownedProperties.length
-                      ? ownedProperties
-                          .slice()
-                          .sort((a, b) => String(a?.الكود_الداخلي || '').localeCompare(String(b?.الكود_الداخلي || '')))
-                          .slice(0, 3)
-                          .map((p) => String(p?.الكود_الداخلي || p?.رقم_العقار || '').trim())
-                          .filter(Boolean)
-                      : [];
-
-                    return (
-                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                        {personName ? <span>الشخص: {personName}</span> : null}
-                        {phone ? <span dir="ltr">{phone}</span> : null}
-                        {contractId ? <span dir="ltr">العقد: {contractId}</span> : null}
-                        {propertyCode ? <span>العقار: {propertyCode}</span> : derivedPropertyId ? <span dir="ltr">العقار: {derivedPropertyId}</span> : null}
-                        {contractRange ? <span dir="ltr">{contractRange}</span> : null}
-                        {address ? <span>العنوان: {address}</span> : null}
-                        {ownedProperties.length > 0 ? (
-                          <span>
-                            عقارات يملكها: {formatNumber(ownedProperties.length)}
-                            {ownedSummary.length ? ` (${ownedSummary.join('، ')})` : ''}
-                          </span>
-                        ) : null}
-                      </div>
-                    );
-                  })()}
-
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-xs bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded">
-                      {task.category}
-                    </span>
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${
-                      task.priority === 'عالية'
-                        ? 'bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200'
+                <div
+                  key={task.id}
+                  className={`flex items-start gap-3 p-4 rounded-lg border transition ${
+                    task.status === 'completed'
+                      ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 opacity-60'
+                      : task.priority === 'عالية'
+                        ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
                         : task.priority === 'متوسطة'
-                        ? 'bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-200'
-                        : 'bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200'
-                    }`}>
-                      {task.priority}
-                    </span>
-                    <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                      <Clock size={12} />
-                      <span dir="ltr">
-                        {task.dueDate}
-                        {task.dueTime ? ` • ${formatTimeFromHM(task.dueTime, { locale: 'en-US', hour12: true })}` : ''}
-                      </span>
-                    </span>
+                          ? 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800'
+                          : 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
+                  }`}
+                >
+                  <button
+                    onClick={() => handleToggleTask(task.id)}
+                    className="mt-1 p-1 hover:bg-white dark:hover:bg-slate-700 rounded transition flex-shrink-0"
+                    title={task.status === 'completed' ? 'تحويل إلى معلقة' : 'تحديد كمكتملة'}
+                  >
+                    <CheckCircle
+                      size={18}
+                      className={
+                        task.status === 'completed'
+                          ? 'text-green-500 fill-green-500'
+                          : 'text-gray-400'
+                      }
+                    />
+                  </button>
 
-                    {isOverdueNow && (
-                      <span className="text-xs bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded font-bold">
-                        متأخرة الآن
-                      </span>
+                  <div className="flex-1">
+                    <p
+                      className={`font-medium ${task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-900 dark:text-white'}`}
+                    >
+                      {task.title}
+                    </p>
+                    {task.description && (
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                        {task.description}
+                      </p>
                     )}
+
+                    {(() => {
+                      const personId = String(task.personId || '').trim();
+                      const contractId = String(task.contractId || '').trim();
+                      const propertyId = String(task.propertyId || '').trim();
+                      if (!personId && !contractId && !propertyId) return null;
+
+                      const person = personId ? peopleById.get(personId) : undefined;
+                      const contract = contractId ? contractsById.get(contractId) : undefined;
+                      const derivedPropertyId =
+                        propertyId || String(contract?.رقم_العقار || '').trim();
+                      const property = derivedPropertyId
+                        ? propertiesById.get(derivedPropertyId)
+                        : undefined;
+
+                      const personName = String(person?.الاسم || task.clientName || '').trim();
+                      const phone = String(task.phone || person?.رقم_الهاتف || '').trim();
+                      const propertyCode = String(property?.الكود_الداخلي || '').trim();
+
+                      const address = String(property?.العنوان || '').trim();
+                      const contractStart = contract?.تاريخ_البداية
+                        ? formatDateYMD(contract.تاريخ_البداية)
+                        : '';
+                      const contractEnd = contract?.تاريخ_النهاية
+                        ? formatDateYMD(contract.تاريخ_النهاية)
+                        : '';
+                      const contractRange =
+                        contractStart && contractEnd ? `${contractStart} → ${contractEnd}` : '';
+
+                      const ownedProperties = personId
+                        ? properties.filter((p) => String(p?.رقم_المالك || '').trim() === personId)
+                        : [];
+                      const ownedSummary = ownedProperties.length
+                        ? ownedProperties
+                            .slice()
+                            .sort((a, b) =>
+                              String(a?.الكود_الداخلي || '').localeCompare(
+                                String(b?.الكود_الداخلي || '')
+                              )
+                            )
+                            .slice(0, 3)
+                            .map((p) => String(p?.الكود_الداخلي || p?.رقم_العقار || '').trim())
+                            .filter(Boolean)
+                        : [];
+
+                      return (
+                        <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                          {personName ? <span>الشخص: {personName}</span> : null}
+                          {phone ? <span dir="ltr">{phone}</span> : null}
+                          {contractId ? <span dir="ltr">العقد: {contractId}</span> : null}
+                          {propertyCode ? (
+                            <span>العقار: {propertyCode}</span>
+                          ) : derivedPropertyId ? (
+                            <span dir="ltr">العقار: {derivedPropertyId}</span>
+                          ) : null}
+                          {contractRange ? <span dir="ltr">{contractRange}</span> : null}
+                          {address ? <span>العنوان: {address}</span> : null}
+                          {ownedProperties.length > 0 ? (
+                            <span>
+                              عقارات يملكها: {formatNumber(ownedProperties.length)}
+                              {ownedSummary.length ? ` (${ownedSummary.join('، ')})` : ''}
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className="text-xs bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded">
+                        {task.category}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-1 rounded font-medium ${
+                          task.priority === 'عالية'
+                            ? 'bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200'
+                            : task.priority === 'متوسطة'
+                              ? 'bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-200'
+                              : 'bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200'
+                        }`}
+                      >
+                        {task.priority}
+                      </span>
+                      <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                        <Clock size={12} />
+                        <span dir="ltr">
+                          {task.dueDate}
+                          {task.dueTime
+                            ? ` • ${formatTimeFromHM(task.dueTime, { locale: 'en-US', hour12: true })}`
+                            : ''}
+                        </span>
+                      </span>
+
+                      {isOverdueNow && (
+                        <span className="text-xs bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded font-bold">
+                          متأخرة الآن
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => setEditingTask(task)}
+                      className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
+                      title="تعديل المهمة"
+                    >
+                      <Edit2 size={16} className="text-indigo-500" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTask(task.id)}
+                      className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
+                      title="حذف المهمة"
+                    >
+                      <Trash2 size={16} className="text-red-500" />
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => setEditingTask(task)}
-                    className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
-                    title="تعديل المهمة"
-                  >
-                    <Edit2 size={16} className="text-indigo-500" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteTask(task.id)}
-                    className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
-                    title="حذف المهمة"
-                  >
-                    <Trash2 size={16} className="text-red-500" />
-                  </button>
-                </div>
-              </div>
               );
             })}
           </div>
@@ -935,7 +1054,9 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           جدول تجديد العقود
         </h3>
         {expiringContracts.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 dark:text-slate-400">لا توجد عقود للتجديد خلال 90 يوم</div>
+          <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+            لا توجد عقود للتجديد خلال 90 يوم
+          </div>
         ) : (
           <div className="space-y-2">
             {expiringContracts.map((item) => (
@@ -955,12 +1076,20 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                 className="w-full text-right flex items-center justify-between gap-3 p-4 bg-gray-50 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
               >
                 <div>
-                  <div className="font-bold text-slate-900 dark:text-white">{item.propertyCode}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-300">{item.tenantName}</div>
+                  <div className="font-bold text-slate-900 dark:text-white">
+                    {item.propertyCode}
+                  </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
+                    {item.tenantName}
+                  </div>
                 </div>
                 <div className="text-left">
-                  <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{formatDateYMD(item.endDate)}</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">بعد {formatNumber(item.daysUntil)} يوم</div>
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                    {formatDateYMD(item.endDate)}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    بعد {formatNumber(item.daysUntil)} يوم
+                  </div>
                 </div>
               </button>
             ))}
@@ -995,8 +1124,12 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           titleClassName="text-white"
           title={
             <div className="flex flex-col">
-              <span className="text-xl font-bold leading-tight">{editingTask ? 'تعديل المهمة' : 'مهمة جديدة'}</span>
-              <span className="text-indigo-100 text-sm font-medium mt-1">إضافة أو تعديل المهام بسهولة</span>
+              <span className="text-xl font-bold leading-tight">
+                {editingTask ? 'تعديل المهمة' : 'مهمة جديدة'}
+              </span>
+              <span className="text-indigo-100 text-sm font-medium mt-1">
+                إضافة أو تعديل المهام بسهولة
+              </span>
             </div>
           }
           footer={
@@ -1044,308 +1177,331 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           }
           bodyClassName="p-6"
         >
-            <div className="space-y-4">
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  عنوان المهمة *
-                </label>
-                <input
-                  type="text"
-                  value={editingTask ? editingTask.title : newTask.title}
-                  onChange={(e) => {
-                    if (editingTask) {
-                      setEditingTask({ ...editingTask, title: e.target.value });
-                    } else {
-                      setNewTask({ ...newTask, title: e.target.value });
-                    }
-                  }}
-                  placeholder="أدخل عنوان المهمة"
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+          <div className="space-y-4">
+            {/* Title */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                عنوان المهمة *
+              </label>
+              <input
+                type="text"
+                value={editingTask ? editingTask.title : newTask.title}
+                onChange={(e) => {
+                  if (editingTask) {
+                    setEditingTask({ ...editingTask, title: e.target.value });
+                  } else {
+                    setNewTask({ ...newTask, title: e.target.value });
+                  }
+                }}
+                placeholder="أدخل عنوان المهمة"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  الوصف
-                </label>
-                <textarea
-                  value={editingTask ? editingTask.description || '' : newTask.description || ''}
-                  onChange={(e) => {
-                    if (editingTask) {
-                      setEditingTask({ ...editingTask, description: e.target.value });
-                    } else {
-                      setNewTask({ ...newTask, description: e.target.value });
-                    }
-                  }}
-                  placeholder="أدخل وصف المهمة"
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 h-20 resize-none"
-                />
-              </div>
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                الوصف
+              </label>
+              <textarea
+                value={editingTask ? editingTask.description || '' : newTask.description || ''}
+                onChange={(e) => {
+                  if (editingTask) {
+                    setEditingTask({ ...editingTask, description: e.target.value });
+                  } else {
+                    setNewTask({ ...newTask, description: e.target.value });
+                  }
+                }}
+                placeholder="أدخل وصف المهمة"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 h-20 resize-none"
+              />
+            </div>
 
-              {/* Category */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  الفئة
-                </label>
-                <select
-                  value={editingTask ? editingTask.category : newTask.category}
-                  onChange={(e) => {
-                    if (editingTask) {
-                      setEditingTask({ ...editingTask, category: e.target.value });
-                    } else {
-                      setNewTask({ ...newTask, category: e.target.value });
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="عام">عام</option>
-                  <option value="عقود">عقود</option>
-                  <option value="عقارات">عقارات</option>
-                  <option value="دفعات">دفعات</option>
-                  <option value="تقارير">تقارير</option>
-                  <option value="اجتماعات">اجتماعات</option>
-                  <option value="متابعة">متابعة</option>
-                </select>
-              </div>
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                الفئة
+              </label>
+              <select
+                value={editingTask ? editingTask.category : newTask.category}
+                onChange={(e) => {
+                  if (editingTask) {
+                    setEditingTask({ ...editingTask, category: e.target.value });
+                  } else {
+                    setNewTask({ ...newTask, category: e.target.value });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="عام">عام</option>
+                <option value="عقود">عقود</option>
+                <option value="عقارات">عقارات</option>
+                <option value="دفعات">دفعات</option>
+                <option value="تقارير">تقارير</option>
+                <option value="اجتماعات">اجتماعات</option>
+                <option value="متابعة">متابعة</option>
+              </select>
+            </div>
 
-              {/* Person (primary) */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  الشخص (أساس المتابعة)
-                </label>
-                <select
-                  value={editingTask ? (editingTask.personId || '') : (String(newTask.personId || ''))}
-                  onChange={(e) => {
-                    const personId = String(e.target.value || '').trim();
-                    const best = pickBestContractForPerson(personId);
-                    const contractId = String(best?.رقم_العقد || '').trim();
-                    const propertyId = String(best?.رقم_العقار || '').trim();
+            {/* Person (primary) */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                الشخص (أساس المتابعة)
+              </label>
+              <select
+                value={editingTask ? editingTask.personId || '' : String(newTask.personId || '')}
+                onChange={(e) => {
+                  const personId = String(e.target.value || '').trim();
+                  const best = pickBestContractForPerson(personId);
+                  const contractId = String(best?.رقم_العقد || '').trim();
+                  const propertyId = String(best?.رقم_العقار || '').trim();
 
-                    if (editingTask) {
-                      setEditingTask({
-                        ...editingTask,
-                        personId: personId || undefined,
-                        contractId: contractId || undefined,
-                        propertyId: propertyId || undefined,
-                      });
-                    } else {
-                      setNewTask({
-                        ...newTask,
-                        personId: personId || undefined,
-                        contractId: contractId || undefined,
-                        propertyId: propertyId || undefined,
-                      });
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">— اختر شخص —</option>
-                  {people
+                  if (editingTask) {
+                    setEditingTask({
+                      ...editingTask,
+                      personId: personId || undefined,
+                      contractId: contractId || undefined,
+                      propertyId: propertyId || undefined,
+                    });
+                  } else {
+                    setNewTask({
+                      ...newTask,
+                      personId: personId || undefined,
+                      contractId: contractId || undefined,
+                      propertyId: propertyId || undefined,
+                    });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">— اختر شخص —</option>
+                {people
+                  .slice()
+                  .sort((a, b) => String(a?.الاسم || '').localeCompare(String(b?.الاسم || '')))
+                  .map((p) => {
+                    const id = String(p?.رقم_الشخص || '').trim();
+                    if (!id) return null;
+                    const name = String(p?.الاسم || '').trim() || id;
+                    const phone = String(p?.رقم_الهاتف || '').trim();
+                    const label = phone ? `${name} • ${phone}` : name;
+                    return (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    );
+                  })}
+              </select>
+            </div>
+
+            {/* Contract */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                العقد (اختياري)
+              </label>
+              <select
+                value={
+                  editingTask ? editingTask.contractId || '' : String(newTask.contractId || '')
+                }
+                onChange={(e) => {
+                  const contractId = String(e.target.value || '').trim();
+                  const contract = contractId ? contractsById.get(contractId) : undefined;
+                  const propertyId = String(contract?.رقم_العقار || '').trim();
+
+                  if (editingTask) {
+                    setEditingTask({
+                      ...editingTask,
+                      contractId: contractId || undefined,
+                      propertyId: propertyId || undefined,
+                    });
+                  } else {
+                    setNewTask({
+                      ...newTask,
+                      contractId: contractId || undefined,
+                      propertyId: propertyId || undefined,
+                    });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">— بدون —</option>
+                {(() => {
+                  const currentPersonId = String(
+                    editingTask ? editingTask.personId : newTask.personId || ''
+                  ).trim();
+                  const list = currentPersonId
+                    ? contracts.filter(
+                        (c) =>
+                          String(c?.رقم_المستاجر) === currentPersonId ||
+                          String(c?.رقم_الكفيل || '') === currentPersonId
+                      )
+                    : contracts;
+
+                  return list
                     .slice()
-                    .sort((a, b) => String(a?.الاسم || '').localeCompare(String(b?.الاسم || '')))
-                    .map((p) => {
-                      const id = String(p?.رقم_الشخص || '').trim();
+                    .sort((a, b) =>
+                      String(a?.رقم_العقد || '').localeCompare(String(b?.رقم_العقد || ''))
+                    )
+                    .map((c) => {
+                      const id = String(c?.رقم_العقد || '').trim();
                       if (!id) return null;
-                      const name = String(p?.الاسم || '').trim() || id;
-                      const phone = String(p?.رقم_الهاتف || '').trim();
-                      const label = phone ? `${name} • ${phone}` : name;
+                      const property = propertiesById.get(String(c?.رقم_العقار || '').trim());
+                      const propertyCode = String(property?.الكود_الداخلي || '').trim();
+                      const label = propertyCode ? `${id} • ${propertyCode}` : id;
                       return (
                         <option key={id} value={id}>
                           {label}
                         </option>
                       );
-                    })}
-                </select>
-              </div>
+                    });
+                })()}
+              </select>
+            </div>
 
-              {/* Contract */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  العقد (اختياري)
-                </label>
-                <select
-                  value={editingTask ? (editingTask.contractId || '') : (String(newTask.contractId || ''))}
-                  onChange={(e) => {
-                    const contractId = String(e.target.value || '').trim();
-                    const contract = contractId ? contractsById.get(contractId) : undefined;
-                    const propertyId = String(contract?.رقم_العقار || '').trim();
+            {/* Property */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                العقار
+              </label>
+              <select
+                value={
+                  editingTask ? editingTask.propertyId || '' : String(newTask.propertyId || '')
+                }
+                onChange={(e) => {
+                  const propertyId = String(e.target.value || '').trim();
+                  const best = pickBestContractForProperty(propertyId);
+                  const contractId = String(best?.رقم_العقد || '').trim();
 
-                    if (editingTask) {
-                      setEditingTask({
-                        ...editingTask,
-                        contractId: contractId || undefined,
-                        propertyId: propertyId || undefined,
-                      });
-                    } else {
-                      setNewTask({
-                        ...newTask,
-                        contractId: contractId || undefined,
-                        propertyId: propertyId || undefined,
-                      });
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">— بدون —</option>
-                  {(() => {
-                    const currentPersonId = String(editingTask ? editingTask.personId : newTask.personId || '').trim();
-                    const list = currentPersonId
-                      ? contracts.filter((c) => String(c?.رقم_المستاجر) === currentPersonId || String(c?.رقم_الكفيل || '') === currentPersonId)
-                      : contracts;
+                  if (editingTask) {
+                    setEditingTask({
+                      ...editingTask,
+                      propertyId: propertyId || undefined,
+                      contractId: contractId || undefined,
+                    });
+                  } else {
+                    setNewTask({
+                      ...newTask,
+                      propertyId: propertyId || undefined,
+                      contractId: contractId || undefined,
+                    });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+              >
+                <option value="">— بدون —</option>
+                {(() => {
+                  const currentContractId = String(
+                    editingTask ? editingTask.contractId : newTask.contractId || ''
+                  ).trim();
+                  if (currentContractId) {
+                    const contract = contractsById.get(currentContractId);
+                    const pid = String(contract?.رقم_العقار || '').trim();
+                    const property = pid ? propertiesById.get(pid) : undefined;
+                    const code = String(property?.الكود_الداخلي || '').trim();
+                    const label = code ? `${code} • ${pid}` : pid;
+                    return pid ? (
+                      <option key={pid} value={pid}>
+                        {label}
+                      </option>
+                    ) : null;
+                  }
 
-                    return list
-                      .slice()
-                      .sort((a, b) => String(a?.رقم_العقد || '').localeCompare(String(b?.رقم_العقد || '')))
-                      .map((c) => {
-                        const id = String(c?.رقم_العقد || '').trim();
-                        if (!id) return null;
-                        const property = propertiesById.get(String(c?.رقم_العقار || '').trim());
-                        const propertyCode = String(property?.الكود_الداخلي || '').trim();
-                        const label = propertyCode ? `${id} • ${propertyCode}` : id;
-                        return (
-                          <option key={id} value={id}>
-                            {label}
-                          </option>
-                        );
-                      });
-                  })()}
-                </select>
-              </div>
+                  const currentPersonId = String(
+                    editingTask ? editingTask.personId : newTask.personId || ''
+                  ).trim();
+                  const list = currentPersonId
+                    ? properties.filter(
+                        (p) => String(p?.رقم_المالك || '').trim() === currentPersonId
+                      )
+                    : properties;
 
-              {/* Property */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  العقار
-                </label>
-                <select
-                  value={editingTask ? (editingTask.propertyId || '') : (String(newTask.propertyId || ''))}
-                  onChange={(e) => {
-                    const propertyId = String(e.target.value || '').trim();
-                    const best = pickBestContractForProperty(propertyId);
-                    const contractId = String(best?.رقم_العقد || '').trim();
-
-                    if (editingTask) {
-                      setEditingTask({
-                        ...editingTask,
-                        propertyId: propertyId || undefined,
-                        contractId: contractId || undefined,
-                      });
-                    } else {
-                      setNewTask({
-                        ...newTask,
-                        propertyId: propertyId || undefined,
-                        contractId: contractId || undefined,
-                      });
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
-                >
-                  <option value="">— بدون —</option>
-                  {(() => {
-                    const currentContractId = String(editingTask ? editingTask.contractId : newTask.contractId || '').trim();
-                    if (currentContractId) {
-                      const contract = contractsById.get(currentContractId);
-                      const pid = String(contract?.رقم_العقار || '').trim();
-                      const property = pid ? propertiesById.get(pid) : undefined;
-                      const code = String(property?.الكود_الداخلي || '').trim();
+                  return list
+                    .slice()
+                    .sort((a, b) =>
+                      String(a?.الكود_الداخلي || '').localeCompare(String(b?.الكود_الداخلي || ''))
+                    )
+                    .map((p) => {
+                      const pid = String(p?.رقم_العقار || '').trim();
+                      if (!pid) return null;
+                      const code = String(p?.الكود_الداخلي || '').trim();
                       const label = code ? `${code} • ${pid}` : pid;
-                      return pid ? (
+                      return (
                         <option key={pid} value={pid}>
                           {label}
                         </option>
-                      ) : null;
-                    }
-
-                    const currentPersonId = String(editingTask ? editingTask.personId : newTask.personId || '').trim();
-                    const list = currentPersonId
-                      ? properties.filter((p) => String(p?.رقم_المالك || '').trim() === currentPersonId)
-                      : properties;
-
-                    return list
-                      .slice()
-                      .sort((a, b) => String(a?.الكود_الداخلي || '').localeCompare(String(b?.الكود_الداخلي || '')))
-                      .map((p) => {
-                        const pid = String(p?.رقم_العقار || '').trim();
-                        if (!pid) return null;
-                        const code = String(p?.الكود_الداخلي || '').trim();
-                        const label = code ? `${code} • ${pid}` : pid;
-                        return (
-                          <option key={pid} value={pid}>
-                            {label}
-                          </option>
-                        );
-                      });
-                  })()}
-                </select>
-                {!!String(editingTask ? editingTask.contractId : newTask.contractId || '').trim() && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    يتم تعبئة العقار تلقائياً من العقد عند اختيار العقد.
-                  </p>
-                )}
-              </div>
-
-              {/* Priority */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  الأولوية
-                </label>
-                <select
-                  value={editingTask ? editingTask.priority : newTask.priority}
-                  onChange={(e) => {
-                    if (editingTask) {
-                      setEditingTask({ ...editingTask, priority: e.target.value as Task['priority'] });
-                    } else {
-                      setNewTask({ ...newTask, priority: e.target.value as Task['priority'] });
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="منخفضة">منخفضة</option>
-                  <option value="متوسطة">متوسطة</option>
-                  <option value="عالية">عالية</option>
-                </select>
-              </div>
-
-              {/* Due Date */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  تاريخ الاستحقاق
-                </label>
-                <input
-                  type="date"
-                  value={editingTask ? editingTask.dueDate : (newTask.dueDate || '')}
-                  onChange={(e) => {
-                    if (editingTask) {
-                      setEditingTask({ ...editingTask, dueDate: e.target.value });
-                    } else {
-                      setNewTask({ ...newTask, dueDate: e.target.value });
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              {/* Due Time */}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  وقت الاستحقاق (اختياري)
-                </label>
-                <input
-                  type="time"
-                  value={editingTask ? (editingTask.dueTime || '') : (String(newTask.dueTime || ''))}
-                  onChange={(e) => {
-                    if (editingTask) {
-                      setEditingTask({ ...editingTask, dueTime: e.target.value });
-                    } else {
-                      setNewTask({ ...newTask, dueTime: e.target.value });
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+                      );
+                    });
+                })()}
+              </select>
+              {!!String(editingTask ? editingTask.contractId : newTask.contractId || '').trim() && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  يتم تعبئة العقار تلقائياً من العقد عند اختيار العقد.
+                </p>
+              )}
             </div>
+
+            {/* Priority */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                الأولوية
+              </label>
+              <select
+                value={editingTask ? editingTask.priority : newTask.priority}
+                onChange={(e) => {
+                  if (editingTask) {
+                    setEditingTask({
+                      ...editingTask,
+                      priority: e.target.value as Task['priority'],
+                    });
+                  } else {
+                    setNewTask({ ...newTask, priority: e.target.value as Task['priority'] });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="منخفضة">منخفضة</option>
+                <option value="متوسطة">متوسطة</option>
+                <option value="عالية">عالية</option>
+              </select>
+            </div>
+
+            {/* Due Date */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                تاريخ الاستحقاق
+              </label>
+              <input
+                type="date"
+                value={editingTask ? editingTask.dueDate : newTask.dueDate || ''}
+                onChange={(e) => {
+                  if (editingTask) {
+                    setEditingTask({ ...editingTask, dueDate: e.target.value });
+                  } else {
+                    setNewTask({ ...newTask, dueDate: e.target.value });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            {/* Due Time */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                وقت الاستحقاق (اختياري)
+              </label>
+              <input
+                type="time"
+                value={editingTask ? editingTask.dueTime || '' : String(newTask.dueTime || '')}
+                onChange={(e) => {
+                  if (editingTask) {
+                    setEditingTask({ ...editingTask, dueTime: e.target.value });
+                  } else {
+                    setNewTask({ ...newTask, dueTime: e.target.value });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
         </AppModal>
       )}
     </div>

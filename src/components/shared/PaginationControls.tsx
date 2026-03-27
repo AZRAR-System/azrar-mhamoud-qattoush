@@ -19,7 +19,9 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
   size = 'sm',
 }) => {
   const safePageCount = Number.isFinite(pageCount) ? Math.max(1, Math.floor(pageCount)) : 1;
-  const safePage = Number.isFinite(page) ? Math.min(Math.max(1, Math.floor(page)), safePageCount) : 1;
+  const safePage = Number.isFinite(page)
+    ? Math.min(Math.max(1, Math.floor(page)), safePageCount)
+    : 1;
 
   if (!showIfSingle && safePageCount <= 1) return null;
 
@@ -28,7 +30,12 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
 
   return (
     <div className={className || 'flex items-center justify-between gap-2'}>
-      <Button size={size} variant="secondary" onClick={() => onPageChange(safePage - 1)} disabled={!canPrev}>
+      <Button
+        size={size}
+        variant="secondary"
+        onClick={() => onPageChange(safePage - 1)}
+        disabled={!canPrev}
+      >
         السابق
       </Button>
 
@@ -36,7 +43,12 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
         {safePage} / {safePageCount}
       </div>
 
-      <Button size={size} variant="secondary" onClick={() => onPageChange(safePage + 1)} disabled={!canNext}>
+      <Button
+        size={size}
+        variant="secondary"
+        onClick={() => onPageChange(safePage + 1)}
+        disabled={!canNext}
+      >
         التالي
       </Button>
     </div>

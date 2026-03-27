@@ -61,7 +61,9 @@ export const Logout = () => {
         </div>
 
         <div className="mt-8 text-center border-t border-gray-100 dark:border-slate-700 pt-4 text-[10px] text-slate-400 dark:text-slate-500">
-          <p dir="ltr">&copy; 2025 — Developed by <span className="font-bold">Mahmoud Qattoush</span></p>
+          <p dir="ltr">
+            &copy; 2025 — Developed by <span className="font-bold">Mahmoud Qattoush</span>
+          </p>
           <p dir="ltr">AZRAR Real Estate Management System — All Rights Reserved</p>
         </div>
       </div>

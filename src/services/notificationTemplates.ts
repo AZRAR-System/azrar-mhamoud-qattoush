@@ -63,7 +63,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['جودة البيانات', 'عقار', 'كهرباء', 'مياه', 'ثابت']
+    tags: ['جودة البيانات', 'عقار', 'كهرباء', 'مياه', 'ثابت'],
   },
   {
     id: 'installment_reminder_upcoming_summary_fixed',
@@ -81,7 +81,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['دفع', 'تذكير', 'قبل الاستحقاق', 'ملخص', 'ثابت']
+    tags: ['دفع', 'تذكير', 'قبل الاستحقاق', 'ملخص', 'ثابت'],
   },
   {
     id: 'installment_reminder_due_today_summary_fixed',
@@ -99,7 +99,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['دفع', 'استحقاق', 'اليوم', 'ملخص', 'ثابت']
+    tags: ['دفع', 'استحقاق', 'اليوم', 'ملخص', 'ثابت'],
   },
   {
     id: 'installment_reminder_overdue_summary_fixed',
@@ -117,7 +117,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['دفع', 'تأخير', 'متأخر', 'ملخص', 'ثابت']
+    tags: ['دفع', 'تأخير', 'متأخر', 'ملخص', 'ثابت'],
   },
   {
     id: 'pre_due_reminder',
@@ -140,7 +140,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['دفع', 'تذكير', 'قبل الاستحقاق']
+    tags: ['دفع', 'تذكير', 'قبل الاستحقاق'],
   },
   {
     id: 'due_day_reminder',
@@ -163,7 +163,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['دفع', 'استحقاق', 'نفس اليوم']
+    tags: ['دفع', 'استحقاق', 'نفس اليوم'],
   },
   {
     id: 'post_late_reminder',
@@ -189,7 +189,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['دفع', 'تأخير', 'تنبيه']
+    tags: ['دفع', 'تأخير', 'تنبيه'],
   },
   {
     id: 'legal_warning',
@@ -216,7 +216,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['إنذار', 'قانوني', 'طارئ']
+    tags: ['إنذار', 'قانوني', 'طارئ'],
   },
   {
     id: 'legal_notice',
@@ -246,7 +246,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['قانوني', 'إشعار', 'إجراءات']
+    tags: ['قانوني', 'إشعار', 'إجراءات'],
   },
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -276,7 +276,7 @@ ${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['تحصيل', 'تأخير', 'ودي', 'ثابت']
+    tags: ['تحصيل', 'تأخير', 'ودي', 'ثابت'],
   },
   {
     id: 'collection_legal_late_payment_fixed',
@@ -301,7 +301,7 @@ ${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['تحصيل', 'تأخير', 'قانوني', 'ثابت']
+    tags: ['تحصيل', 'تأخير', 'قانوني', 'ثابت'],
   },
   {
     id: 'collection_pay_notice_7_days_fixed',
@@ -327,7 +327,7 @@ ${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['تحصيل', 'مهلة', '7 أيام', 'ثابت']
+    tags: ['تحصيل', 'مهلة', '7 أيام', 'ثابت'],
   },
   {
     id: 'collection_eviction_notice_fixed',
@@ -354,8 +354,8 @@ ${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    tags: ['تحصيل', 'إخلاء', 'قانوني', 'ثابت']
-  }
+    tags: ['تحصيل', 'إخلاء', 'قانوني', 'ثابت'],
+  },
 ];
 
 // فئة إدارة النماذج
@@ -380,7 +380,7 @@ class NotificationTemplateManager {
         this.templates = Array.isArray(parsed) ? parsed : [];
 
         // Merge missing defaults by id (do not overwrite user-edited templates)
-        const existingIds = new Set(this.templates.map(t => t.id));
+        const existingIds = new Set(this.templates.map((t) => t.id));
         let changed = false;
         for (const t of DEFAULT_TEMPLATES) {
           if (!existingIds.has(t.id)) {
@@ -423,14 +423,14 @@ class NotificationTemplateManager {
    * الحصول على نموذج بواسطة ID
    */
   getById(id: string): NotificationTemplate | undefined {
-    return this.templates.find(t => t.id === id);
+    return this.templates.find((t) => t.id === id);
   }
 
   /**
    * الحصول على النماذج حسب الفئة
    */
   getByCategory(category: NotificationTemplate['category']): NotificationTemplate[] {
-    return this.templates.filter(t => t.category === category && t.enabled);
+    return this.templates.filter((t) => t.category === category && t.enabled);
   }
 
   /**
@@ -440,7 +440,7 @@ class NotificationTemplateManager {
     const newTemplate: NotificationTemplate = {
       ...template,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
     this.templates.push(newTemplate);
     this.saveTemplates();
@@ -450,8 +450,11 @@ class NotificationTemplateManager {
   /**
    * تحديث نموذج
    */
-  update(id: string, updates: Partial<Omit<NotificationTemplate, 'id' | 'createdAt'>>): NotificationTemplate | undefined {
-    const template = this.templates.find(t => t.id === id);
+  update(
+    id: string,
+    updates: Partial<Omit<NotificationTemplate, 'id' | 'createdAt'>>
+  ): NotificationTemplate | undefined {
+    const template = this.templates.find((t) => t.id === id);
     if (template) {
       Object.assign(template, updates, { updatedAt: new Date().toISOString() });
       this.saveTemplates();
@@ -463,7 +466,7 @@ class NotificationTemplateManager {
    * حذف نموذج
    */
   delete(id: string): boolean {
-    const index = this.templates.findIndex(t => t.id === id);
+    const index = this.templates.findIndex((t) => t.id === id);
     if (index !== -1) {
       this.templates.splice(index, 1);
       this.saveTemplates();
@@ -476,7 +479,7 @@ class NotificationTemplateManager {
    * تفعيل/تعطيل نموذج
    */
   toggleEnabled(id: string): NotificationTemplate | undefined {
-    const template = this.templates.find(t => t.id === id);
+    const template = this.templates.find((t) => t.id === id);
     if (template) {
       template.enabled = !template.enabled;
       template.updatedAt = new Date().toISOString();
@@ -506,23 +509,29 @@ import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
  * ملء النموذج بالبيانات
  * يستبدل جميع placeholders من نوع {{ key }} بالقيم المقابلة
  */
-export function fillTemplate(template: NotificationTemplate | string, context: TemplateContext): string {
+export function fillTemplate(
+  template: NotificationTemplate | string,
+  context: TemplateContext
+): string {
   const content = typeof template === 'string' ? template : template.body;
-  const mergedContext: Record<string, unknown> = { ...getMessageGlobalContext(), ...(context || {}) };
+  const mergedContext: Record<string, unknown> = {
+    ...getMessageGlobalContext(),
+    ...(context || {}),
+  };
 
   return content.replace(/\{\{\s*([\w\u0600-\u06FF]+)\s*\}\}/g, (match, key) => {
     const value = mergedContext[key];
-    
+
     // معالجة خاصة لبعض أنواع البيانات
     if (value === undefined || value === null) {
       return match; // إرجاع الـ placeholder كما هو إذا لم تكن القيمة موجودة
     }
-    
+
     if (typeof value === 'number') {
       // Always use English digits for consistency across the app
       return value.toLocaleString('en-US');
     }
-    
+
     return String(value);
   });
 }
@@ -531,7 +540,9 @@ export function fillTemplate(template: NotificationTemplate | string, context: T
  * الحصول على رابط واتساب مع الرسالة المملوءة
  */
 export function getWhatsAppLink(message: string, phoneNumber: string): string {
-  return buildWhatsAppLink(message, phoneNumber, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync() });
+  return buildWhatsAppLink(message, phoneNumber, {
+    defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+  });
 }
 
 /**
@@ -545,8 +556,15 @@ export function openWhatsApp(message: string, phoneNumber: string): void {
 /**
  * فتح واتساب لأكثر من رقم (مع تأخير بين الأرقام)
  */
-export async function openWhatsAppMulti(message: string, phoneNumbers: string[], delayMs: number = 10_000): Promise<void> {
-  await openWhatsAppForPhones(message, phoneNumbers, { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs });
+export async function openWhatsAppMulti(
+  message: string,
+  phoneNumbers: string[],
+  delayMs: number = 10_000
+): Promise<void> {
+  await openWhatsAppForPhones(message, phoneNumbers, {
+    defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+    delayMs,
+  });
 }
 
 /**
@@ -570,7 +588,7 @@ export function fillTemplateComplete(
     title: fillTemplate(template.title, context),
     body: fillTemplate(template.body, context),
     category: template.category,
-    enabled: template.enabled
+    enabled: template.enabled,
   };
 }
 
@@ -578,46 +596,44 @@ export function fillTemplateComplete(
 export const NotificationTemplates = {
   // الحصول على جميع النماذج
   getAll: () => templateManager.getAll(),
-  
+
   // الحصول على نموذج بـ ID
   getById: (id: string) => templateManager.getById(id),
-  
+
   // الحصول على النماذج حسب الفئة
   getByCategory: (category: NotificationTemplate['category']) =>
     templateManager.getByCategory(category),
-  
+
   // إضافة نموذج جديد
   add: (template: Omit<NotificationTemplate, 'createdAt' | 'updatedAt'>) =>
     templateManager.add(template),
-  
+
   // تحديث نموذج
   update: (id: string, updates: Partial<Omit<NotificationTemplate, 'id' | 'createdAt'>>) =>
     templateManager.update(id, updates),
-  
+
   // حذف نموذج
   delete: (id: string) => templateManager.delete(id),
-  
+
   // تفعيل/تعطيل نموذج
   toggleEnabled: (id: string) => templateManager.toggleEnabled(id),
-  
+
   // إعادة تعيين إلى الافتراضية
   reset: () => templateManager.reset(),
-  
+
   // ملء النموذج بالبيانات
   fill: (template: NotificationTemplate | string, context: TemplateContext) =>
     fillTemplate(template, context),
-  
+
   // ملء النموذج كاملاً
   fillComplete: (template: NotificationTemplate, context: TemplateContext) =>
     fillTemplateComplete(template, context),
-  
+
   // الحصول على رابط واتساب
-  getWhatsAppLink: (message: string, phoneNumber: string) =>
-    getWhatsAppLink(message, phoneNumber),
-  
+  getWhatsAppLink: (message: string, phoneNumber: string) => getWhatsAppLink(message, phoneNumber),
+
   // فتح واتساب
-  openWhatsApp: (message: string, phoneNumber: string) =>
-    openWhatsApp(message, phoneNumber)
+  openWhatsApp: (message: string, phoneNumber: string) => openWhatsApp(message, phoneNumber),
 };
 
 export default NotificationTemplates;

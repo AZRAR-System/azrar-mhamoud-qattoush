@@ -118,7 +118,10 @@ export function isCodeActivationAllowed(): boolean {
   }
 }
 
-export async function activateWithLicenseKey(licenseKey: string, opts?: { serverUrl?: string }): Promise<void> {
+export async function activateWithLicenseKey(
+  licenseKey: string,
+  opts?: { serverUrl?: string }
+): Promise<void> {
   const w = globalThis as unknown as { window?: Window };
   const bridge = w.window?.desktopLicense;
   if (!bridge?.activateOnline) {

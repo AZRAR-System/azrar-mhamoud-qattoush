@@ -1,5 +1,4 @@
-﻿
-import React, { useCallback } from 'react';
+﻿import React, { useCallback } from 'react';
 import { normalizeDigitsToLatin } from '@/utils/numberInput';
 
 type UiSize = 'sm' | 'md' | 'lg';
@@ -35,7 +34,8 @@ export const Input: React.FC<InputProps> = ({
   const iconPositionClass = isRtl ? 'right-3' : 'left-3';
 
   const requestedType = String(props.type || 'text');
-  const shouldCoerceType = coerceLocalizedTypes && ['number', 'time', 'datetime-local'].includes(requestedType);
+  const shouldCoerceType =
+    coerceLocalizedTypes && ['number', 'time', 'datetime-local'].includes(requestedType);
 
   const effectiveType = shouldCoerceType ? 'text' : requestedType;
   const effectiveDir = shouldCoerceType ? 'ltr' : props.dir;
@@ -95,7 +95,13 @@ export const Input: React.FC<InputProps> = ({
           lang={effectiveLang as string | undefined}
           onChange={handleChange}
         />
-        {icon && <div className={`absolute ${iconPositionClass} top-2.5 text-gray-400 pointer-events-none`}>{icon}</div>}
+        {icon && (
+          <div
+            className={`absolute ${iconPositionClass} top-2.5 text-gray-400 pointer-events-none`}
+          >
+            {icon}
+          </div>
+        )}
       </div>
       {error && <p className="text-xs text-rose-500 mt-1">{error}</p>}
     </div>

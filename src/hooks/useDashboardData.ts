@@ -20,7 +20,11 @@ import type {
   tbl_Alerts,
 } from '@/types';
 import type { SystemHealth } from '@/types/types';
-import { dashboardHighlightsSmart, dashboardPerformanceSmart, dashboardSummarySmart } from '@/services/domainQueries';
+import {
+  dashboardHighlightsSmart,
+  dashboardPerformanceSmart,
+  dashboardSummarySmart,
+} from '@/services/domainQueries';
 
 export interface UseDashboardDataOptions {
   autoRefresh?: boolean;
@@ -74,9 +78,27 @@ export interface DashboardData {
   };
 
   desktopHighlights?: {
-    dueInstallmentsToday: Array<{ contractId: string; tenantName: string; dueDate: string; remaining: number }>;
-    expiringContracts: Array<{ contractId: string; propertyId: string; propertyCode: string; tenantId: string; tenantName: string; endDate: string }>;
-    incompleteProperties: Array<{ propertyId: string; propertyCode: string; missingWater: boolean; missingElectric: boolean; missingArea: boolean }>;
+    dueInstallmentsToday: Array<{
+      contractId: string;
+      tenantName: string;
+      dueDate: string;
+      remaining: number;
+    }>;
+    expiringContracts: Array<{
+      contractId: string;
+      propertyId: string;
+      propertyCode: string;
+      tenantId: string;
+      tenantName: string;
+      endDate: string;
+    }>;
+    incompleteProperties: Array<{
+      propertyId: string;
+      propertyCode: string;
+      missingWater: boolean;
+      missingElectric: boolean;
+      missingArea: boolean;
+    }>;
   };
 
   // Sales
@@ -177,7 +199,8 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
       try {
         setIsRefreshing(true);
 
-        const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
+        const toRecord = (v: unknown): Record<string, unknown> =>
+          typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM (local)
@@ -224,37 +247,37 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         const systemHealth: SystemHealth | null = dbExt.checkSystemHealth?.() ?? null;
         const logsRaw: unknown[] = dbExt.getLogs?.() ?? [];
 
-      const getMonthKey = (comm: unknown) => {
-        // Prefer explicit paid month if present (YYYY-MM)
-        const rec = toRecord(comm);
-        const paidMonth = String(rec['شهر_دفع_العمولة'] ?? '');
-        if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth;
-        const rawDate = String(rec['تاريخ_الإنشاء'] ?? rec['تاريخ_العقد'] ?? '');
-        return rawDate.slice(0, 7);
-      };
-      const getYearKey = (comm: unknown) => {
-        const rec = toRecord(comm);
-        const paidMonth = String(rec['شهر_دفع_العمولة'] ?? '');
-        if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth.slice(0, 4);
-        const rawDate = String(rec['تاريخ_الإنشاء'] ?? rec['تاريخ_العقد'] ?? '');
-        return rawDate.slice(0, 4);
-      };
+        const getMonthKey = (comm: unknown) => {
+          // Prefer explicit paid month if present (YYYY-MM)
+          const rec = toRecord(comm);
+          const paidMonth = String(rec['شهر_دفع_العمولة'] ?? '');
+          if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth;
+          const rawDate = String(rec['تاريخ_الإنشاء'] ?? rec['تاريخ_العقد'] ?? '');
+          return rawDate.slice(0, 7);
+        };
+        const getYearKey = (comm: unknown) => {
+          const rec = toRecord(comm);
+          const paidMonth = String(rec['شهر_دفع_العمولة'] ?? '');
+          if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth.slice(0, 4);
+          const rawDate = String(rec['تاريخ_الإنشاء'] ?? rec['تاريخ_العقد'] ?? '');
+          return rawDate.slice(0, 4);
+        };
 
-      // ✅ Dashboard cards show current month only (commissions/revenue)
-      const commissions = commissionsAll.filter((c) => getMonthKey(c) === currentMonth);
+        // ✅ Dashboard cards show current month only (commissions/revenue)
+        const commissions = commissionsAll.filter((c) => getMonthKey(c) === currentMonth);
 
-      // ✅ Comparisons: current vs previous month, current vs previous year
-      const previousMonthRevenue = commissionsAll
-        .filter((c) => getMonthKey(c) === previousMonth)
-        .reduce((sum, c) => sum + (c.المجموع || 0), 0);
+        // ✅ Comparisons: current vs previous month, current vs previous year
+        const previousMonthRevenue = commissionsAll
+          .filter((c) => getMonthKey(c) === previousMonth)
+          .reduce((sum, c) => sum + (c.المجموع || 0), 0);
 
-      const currentYearRevenue = commissionsAll
-        .filter((c) => getYearKey(c) === currentYear)
-        .reduce((sum, c) => sum + (c.المجموع || 0), 0);
+        const currentYearRevenue = commissionsAll
+          .filter((c) => getYearKey(c) === currentYear)
+          .reduce((sum, c) => sum + (c.المجموع || 0), 0);
 
-      const previousYearRevenue = commissionsAll
-        .filter((c) => getYearKey(c) === previousYear)
-        .reduce((sum, c) => sum + (c.المجموع || 0), 0);
+        const previousYearRevenue = commissionsAll
+          .filter((c) => getYearKey(c) === previousYear)
+          .reduce((sum, c) => sum + (c.المجموع || 0), 0);
 
         // ✅ Calculate KPIs from real data (current month for revenue)
         const totalRevenue = commissions.reduce((sum, c) => sum + (c.المجموع || 0), 0);
@@ -271,28 +294,30 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           ? Number(desktopSummary?.occupiedProperties || 0) || 0
           : properties.filter((p) => p.IsRented === true).length;
 
-        const occupancyRate = totalProperties > 0 ? (occupiedProperties / totalProperties) * 100 : 0;
+        const occupancyRate =
+          totalProperties > 0 ? (occupiedProperties / totalProperties) * 100 : 0;
 
         // ✅ Payment notifications policy: pre-due reminders only
         // Align KPI counts with PaymentNotificationsPanel (no due-today / overdue reminders).
         const dueNext7Payments = isDesktopFast
           ? Number(desktopSummary?.dueNext7Payments || 0) || 0
           : (() => {
-              const targets: PaymentNotificationTarget[] = DbService.getPaymentNotificationTargets(7);
+              const targets: PaymentNotificationTarget[] =
+                DbService.getPaymentNotificationTargets(7);
               return targets.reduce<number>((sum, t) => sum + (t.items?.length || 0), 0);
             })();
-      const latePayments = 0;
-      const dueTodayPayments = 0;
-      const dueTotalPayments = dueNext7Payments;
+        const latePayments = 0;
+        const dueTodayPayments = 0;
+        const dueTotalPayments = dueNext7Payments;
 
-      // ✅ Sales calculation from real data
-      const activeSalesListings = salesListings.filter((s) => s.الحالة === 'Active');
-      const newOffers = activeSalesListings.length;
-      const pendingSales = salesListings.filter((s) => s.الحالة === 'Pending').length;
-      const completedSales = salesListings.filter((s) => s.الحالة === 'Sold').length;
-      const totalSalesValue = salesListings
-        .filter((s) => s.الحالة === 'Sold')
-        .reduce((sum, s) => sum + (s.السعر_المطلوب || 0), 0);
+        // ✅ Sales calculation from real data
+        const activeSalesListings = salesListings.filter((s) => s.الحالة === 'Active');
+        const newOffers = activeSalesListings.length;
+        const pendingSales = salesListings.filter((s) => s.الحالة === 'Pending').length;
+        const completedSales = salesListings.filter((s) => s.الحالة === 'Sold').length;
+        const totalSalesValue = salesListings
+          .filter((s) => s.الحالة === 'Sold')
+          .reduce((sum, s) => sum + (s.السعر_المطلوب || 0), 0);
 
         // ✅ Tasks from follow-ups (DbService model: dueDate/status)
 
@@ -301,96 +326,121 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         const overdueTasks = pendingFollowUps.filter((f) => String(f?.dueDate) < todayYMD).length;
         const upcomingTasks = pendingFollowUps.filter((f) => {
           const due = String(f?.dueDate);
-        return due > todayYMD && due <= weekYMD;
-      }).length;
+          return due > todayYMD && due <= weekYMD;
+        }).length;
 
-      // ✅ Alerts (open/unread only) so counts match dismissal behavior
-      const openAlerts = alerts.filter((a) => !a.تم_القراءة);
-      const criticalAlerts = openAlerts.filter((a) => String(a.category) === 'Critical' || a.نوع_التنبيه === 'عاجل').length;
-      const warningAlerts = openAlerts.filter((a) => String(a.category) === 'Warning' || a.نوع_التنبيه === 'تحذير').length;
-      const infoAlerts = openAlerts.filter((a) => String(a.category) === 'Info' || a.نوع_التنبيه === 'معلومة').length;
+        // ✅ Alerts (open/unread only) so counts match dismissal behavior
+        const openAlerts = alerts.filter((a) => !a.تم_القراءة);
+        const criticalAlerts = openAlerts.filter(
+          (a) => String(a.category) === 'Critical' || a.نوع_التنبيه === 'عاجل'
+        ).length;
+        const warningAlerts = openAlerts.filter(
+          (a) => String(a.category) === 'Warning' || a.نوع_التنبيه === 'تحذير'
+        ).length;
+        const infoAlerts = openAlerts.filter(
+          (a) => String(a.category) === 'Info' || a.نوع_التنبيه === 'معلومة'
+        ).length;
 
-        const desktopPerf = isDesktopFast ? await dashboardPerformanceSmart({ monthKey: currentMonth, prevMonthKey: previousMonth }) : null;
-        const desktopHighlights = isDesktopFast ? await dashboardHighlightsSmart({ todayYMD }) : null;
+        const desktopPerf = isDesktopFast
+          ? await dashboardPerformanceSmart({ monthKey: currentMonth, prevMonthKey: previousMonth })
+          : null;
+        const desktopHighlights = isDesktopFast
+          ? await dashboardHighlightsSmart({ todayYMD })
+          : null;
 
         setData({
-        meta: {
-          updatedAt: Date.now(),
-        },
+          meta: {
+            updatedAt: Date.now(),
+          },
 
-        systemHealth,
-        logsRaw,
+          systemHealth,
+          logsRaw,
 
-        kpis: {
-          totalRevenue,
-          previousMonthRevenue,
-          currentYearRevenue,
-          previousYearRevenue,
-          activeContracts,
-          occupancyRate: Math.round(occupancyRate),
-          latePayments,
-          dueTodayPayments,
-          dueNext7Payments,
-          dueTotalPayments,
-          totalPeople: isDesktopFast ? Number(desktopSummary?.totalPeople || 0) || 0 : people.length,
-          totalProperties,
-          totalContracts: isDesktopFast ? Number(desktopSummary?.totalContracts || 0) || 0 : contracts.length,
-          occupiedProperties,
-        },
+          kpis: {
+            totalRevenue,
+            previousMonthRevenue,
+            currentYearRevenue,
+            previousYearRevenue,
+            activeContracts,
+            occupancyRate: Math.round(occupancyRate),
+            latePayments,
+            dueTodayPayments,
+            dueNext7Payments,
+            dueTotalPayments,
+            totalPeople: isDesktopFast
+              ? Number(desktopSummary?.totalPeople || 0) || 0
+              : people.length,
+            totalProperties,
+            totalContracts: isDesktopFast
+              ? Number(desktopSummary?.totalContracts || 0) || 0
+              : contracts.length,
+            occupiedProperties,
+          },
 
-        performance: desktopPerf
-          ? {
-              monthKey: currentMonth,
-              prevMonthKey: previousMonth,
-              currentMonthCollections: Number(desktopPerf.currentMonthCollections || 0) || 0,
-              previousMonthCollections: Number(desktopPerf.previousMonthCollections || 0) || 0,
-              paidCountThisMonth: Number(desktopPerf.paidCountThisMonth || 0) || 0,
-              dueUnpaidThisMonth: Number(desktopPerf.dueUnpaidThisMonth || 0) || 0,
-            }
-          : undefined,
+          performance: desktopPerf
+            ? {
+                monthKey: currentMonth,
+                prevMonthKey: previousMonth,
+                currentMonthCollections: Number(desktopPerf.currentMonthCollections || 0) || 0,
+                previousMonthCollections: Number(desktopPerf.previousMonthCollections || 0) || 0,
+                paidCountThisMonth: Number(desktopPerf.paidCountThisMonth || 0) || 0,
+                dueUnpaidThisMonth: Number(desktopPerf.dueUnpaidThisMonth || 0) || 0,
+              }
+            : undefined,
 
-        desktopAggregations: isDesktopFast
-          ? {
-              propertyTypeCounts: Array.isArray(desktopSummary?.propertyTypeCounts) ? desktopSummary.propertyTypeCounts : [],
-              contractStatusCounts: Array.isArray(desktopSummary?.contractStatusCounts) ? desktopSummary.contractStatusCounts : [],
-            }
-          : undefined,
+          desktopAggregations: isDesktopFast
+            ? {
+                propertyTypeCounts: Array.isArray(desktopSummary?.propertyTypeCounts)
+                  ? desktopSummary.propertyTypeCounts
+                  : [],
+                contractStatusCounts: Array.isArray(desktopSummary?.contractStatusCounts)
+                  ? desktopSummary.contractStatusCounts
+                  : [],
+              }
+            : undefined,
 
-        desktopHighlights: isDesktopFast && desktopHighlights
-          ? {
-              dueInstallmentsToday: Array.isArray(desktopHighlights?.dueInstallmentsToday) ? desktopHighlights.dueInstallmentsToday : [],
-              expiringContracts: Array.isArray(desktopHighlights?.expiringContracts) ? desktopHighlights.expiringContracts : [],
-              incompleteProperties: Array.isArray(desktopHighlights?.incompleteProperties) ? desktopHighlights.incompleteProperties : [],
-            }
-          : undefined,
-        sales: {
-          newOffers,
-          inNegotiation: pendingSales,
-          completed: completedSales,
-          totalValue: totalSalesValue,
-        },
-        tasks: {
-          today: todayTasks,
-          overdue: overdueTasks,
-          upcoming: upcomingTasks,
-        },
-        alerts: {
-          critical: criticalAlerts,
-          warning: warningAlerts,
-          info: infoAlerts,
-        },
-        people,
-        properties,
-        contracts,
-        commissions,
+          desktopHighlights:
+            isDesktopFast && desktopHighlights
+              ? {
+                  dueInstallmentsToday: Array.isArray(desktopHighlights?.dueInstallmentsToday)
+                    ? desktopHighlights.dueInstallmentsToday
+                    : [],
+                  expiringContracts: Array.isArray(desktopHighlights?.expiringContracts)
+                    ? desktopHighlights.expiringContracts
+                    : [],
+                  incompleteProperties: Array.isArray(desktopHighlights?.incompleteProperties)
+                    ? desktopHighlights.incompleteProperties
+                    : [],
+                }
+              : undefined,
+          sales: {
+            newOffers,
+            inNegotiation: pendingSales,
+            completed: completedSales,
+            totalValue: totalSalesValue,
+          },
+          tasks: {
+            today: todayTasks,
+            overdue: overdueTasks,
+            upcoming: upcomingTasks,
+          },
+          alerts: {
+            critical: criticalAlerts,
+            warning: warningAlerts,
+            info: infoAlerts,
+          },
+          people,
+          properties,
+          contracts,
+          commissions,
 
-        commissionsAll,
-        installments,
-        salesListings,
-        salesAgreements,
-        followUps,
-        alertsRaw: alerts,
-      });
+          commissionsAll,
+          installments,
+          salesListings,
+          salesAgreements,
+          followUps,
+          alertsRaw: alerts,
+        });
       } catch (error: unknown) {
         console.error('Error refreshing dashboard data:', error);
         const detail =

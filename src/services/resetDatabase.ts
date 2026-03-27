@@ -1,7 +1,7 @@
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
- * 
+ *
  * Database Reset Service
  * أداة حذف جميع البيانات وإعادة النظام لحالته الأولية
  */
@@ -10,7 +10,8 @@ import { storage } from '@/services/storage';
 
 type UnknownRecord = Record<string, unknown>;
 
-const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null && !Array.isArray(value);
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const getErrorMessage = (error: unknown): string => {
   const msg = isRecord(error) ? error['message'] : undefined;
@@ -93,9 +94,7 @@ const APP_STATE_KEYS = [
 ];
 
 // مفاتيح قديمة/تجريبية نريد تنظيفها إن وُجدت (بدون إعادة إنشائها)
-const LEGACY_CLEANUP_KEYS = [
-  'demo_data_loaded',
-];
+const LEGACY_CLEANUP_KEYS = ['demo_data_loaded'];
 
 const unique = (arr: string[]): string[] => Array.from(new Set(arr.filter(Boolean)));
 
@@ -118,11 +117,12 @@ const getKeysToClear = async (): Promise<string[]> => {
   }
 
   // Only keep relevant keys
-  return unique(keys).filter(k =>
-    k.startsWith('db_') ||
-    k.startsWith('ui_') ||
-    APP_STATE_KEYS.includes(k) ||
-    LEGACY_CLEANUP_KEYS.includes(k)
+  return unique(keys).filter(
+    (k) =>
+      k.startsWith('db_') ||
+      k.startsWith('ui_') ||
+      APP_STATE_KEYS.includes(k) ||
+      LEGACY_CLEANUP_KEYS.includes(k)
   );
 };
 
@@ -160,7 +160,11 @@ const deleteAllAttachmentFiles = async (): Promise<void> => {
 /**
  * حذف جميع البيانات من localStorage
  */
-export const clearAllData = async (): Promise<{ success: boolean; message: string; deletedKeys: string[] }> => {
+export const clearAllData = async (): Promise<{
+  success: boolean;
+  message: string;
+  deletedKeys: string[];
+}> => {
   try {
     const deletedKeys: string[] = [];
 
@@ -184,7 +188,7 @@ export const clearAllData = async (): Promise<{ success: boolean; message: strin
         desktopResetDone = false;
       }
     }
-    
+
     // حذف جميع المفاتيح
     for (const key of keysToClear) {
       try {
@@ -195,7 +199,6 @@ export const clearAllData = async (): Promise<{ success: boolean; message: strin
           await storage.removeItem(key);
         }
         deletedKeys.push(key);
-
       } catch {
         // ignore single-key failures
       }
@@ -204,13 +207,13 @@ export const clearAllData = async (): Promise<{ success: boolean; message: strin
     return {
       success: true,
       message: `تم حذف/تصفير البيانات بنجاح (تمت معالجة ${deletedKeys.length} مفتاح)`,
-      deletedKeys
+      deletedKeys,
     };
   } catch (error: unknown) {
     return {
       success: false,
       message: `فشل حذف البيانات: ${getErrorMessage(error)}`,
-      deletedKeys: []
+      deletedKeys: [],
     };
   }
 };
@@ -222,24 +225,23 @@ export const resetToFreshState = async (): Promise<{ success: boolean; message: 
   try {
     // 1. حذف جميع البيانات
     const clearResult = await clearAllData();
-    
+
     if (!clearResult.success) {
       return clearResult;
     }
-    
+
     // 2. إنشاء مستخدم admin فقط
     const adminUser = {
       id: '1',
       اسم_المستخدم: 'admin',
       كلمة_المرور: '123456',
       الدور: 'SuperAdmin',
-      isActive: true
+      isActive: true,
     };
 
     const users = [adminUser];
     await storage.setItem('db_users', JSON.stringify(users));
 
-    
     // 3. إنشاء Lookups الأساسية
     const basicLookups = [
       { id: '1', category: 'person_roles', label: 'مالك' },
@@ -254,20 +256,19 @@ export const resetToFreshState = async (): Promise<{ success: boolean; message: 
       { id: '8', category: 'prop_type', label: 'أرض' },
       { id: '9', category: 'prop_status', label: 'شاغر' },
       { id: '10', category: 'prop_status', label: 'مؤجر' },
-      { id: '11', category: 'prop_status', label: 'صيانة' }
+      { id: '11', category: 'prop_status', label: 'صيانة' },
     ];
 
     await storage.setItem('db_lookups', JSON.stringify(basicLookups));
 
-    
     return {
       success: true,
-      message: `تم إعادة تهيئة النظام بنجاح!\n- تم حذف ${clearResult.deletedKeys.length} مفتاح\n- تم إنشاء مستخدم admin\n- تم إنشاء ${basicLookups.length} lookup أساسي`
+      message: `تم إعادة تهيئة النظام بنجاح!\n- تم حذف ${clearResult.deletedKeys.length} مفتاح\n- تم إنشاء مستخدم admin\n- تم إنشاء ${basicLookups.length} lookup أساسي`,
     };
   } catch (error: unknown) {
     return {
       success: false,
-      message: `فشلت إعادة التهيئة: ${getErrorMessage(error)}`
+      message: `فشلت إعادة التهيئة: ${getErrorMessage(error)}`,
     };
   }
 };
@@ -277,7 +278,7 @@ export const resetToFreshState = async (): Promise<{ success: boolean; message: 
  */
 export const getDatabaseStats = async (): Promise<Record<string, number>> => {
   const stats: Record<string, number> = {};
-  const keys = unique(BASE_DB_KEYS.filter(k => k.startsWith('db_')));
+  const keys = unique(BASE_DB_KEYS.filter((k) => k.startsWith('db_')));
 
   for (const key of keys) {
     try {
@@ -292,4 +293,3 @@ export const getDatabaseStats = async (): Promise<Record<string, number>> => {
 
   return stats;
 };
-

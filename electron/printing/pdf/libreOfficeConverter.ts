@@ -10,7 +10,11 @@ export type LibreOfficeExportConfig = {
 
 type SpawnResult = { code: number | null; stdout: string; stderr: string };
 
-const spawnCollect = async (command: string, args: string[], opts?: { cwd?: string }): Promise<SpawnResult> =>
+const spawnCollect = async (
+  command: string,
+  args: string[],
+  opts?: { cwd?: string }
+): Promise<SpawnResult> =>
   new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: opts?.cwd,
@@ -60,7 +64,11 @@ const resolveSofficeFromPath = async (): Promise<string | null> => {
 
     const r = await spawnCollect('which', ['soffice']);
     if (r.code !== 0) return null;
-    const first = r.stdout.split(/\r?\n/g).map((s) => s.trim()).find(Boolean) || null;
+    const first =
+      r.stdout
+        .split(/\r?\n/g)
+        .map((s) => s.trim())
+        .find(Boolean) || null;
     if (!first) return null;
     return (await fileExists(first)) ? first : null;
   } catch {
@@ -91,7 +99,11 @@ const findFirstPdfInDir = async (dir: string): Promise<string | null> => {
   }
 };
 
-const waitForPdfPath = async (dir: string, expectedPath: string, timeoutMs = 4000): Promise<string | null> => {
+const waitForPdfPath = async (
+  dir: string,
+  expectedPath: string,
+  timeoutMs = 4000
+): Promise<string | null> => {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (await fileExists(expectedPath)) return expectedPath;
@@ -104,13 +116,14 @@ const waitForPdfPath = async (dir: string, expectedPath: string, timeoutMs = 400
 
 export const convertDocxBytesToPdfBytes = async (
   docxBytes: Buffer,
-  cfg?: LibreOfficeExportConfig,
+  cfg?: LibreOfficeExportConfig
 ): Promise<{ ok: true; pdfBytes: Buffer } | { ok: false; message: string }> => {
   const sofficePath = await resolveSofficePath(cfg);
   if (!sofficePath) {
     return {
       ok: false,
-      message: 'تعذر العثور على LibreOffice (soffice). ثبّت LibreOffice أو حدّد المسار في إعدادات الطباعة (pdfExport.sofficePath).',
+      message:
+        'تعذر العثور على LibreOffice (soffice). ثبّت LibreOffice أو حدّد المسار في إعدادات الطباعة (pdfExport.sofficePath).',
     };
   }
 
@@ -139,12 +152,16 @@ export const convertDocxBytesToPdfBytes = async (
     const r = await spawnCollect(sofficePath, args, { cwd: workDir });
     if (r.code !== 0) {
       const details = (r.stderr || r.stdout || '').trim();
-      return { ok: false, message: details ? `فشل تحويل DOCX إلى PDF: ${details}` : 'فشل تحويل DOCX إلى PDF' };
+      return {
+        ok: false,
+        message: details ? `فشل تحويل DOCX إلى PDF: ${details}` : 'فشل تحويل DOCX إلى PDF',
+      };
     }
 
     const expectedPdf = path.join(workDir, 'input.pdf');
     const pdfPath = await waitForPdfPath(workDir, expectedPdf);
-    if (!pdfPath) return { ok: false, message: 'تم تشغيل المحول لكن لم يتم العثور على ملف PDF الناتج' };
+    if (!pdfPath)
+      return { ok: false, message: 'تم تشغيل المحول لكن لم يتم العثور على ملف PDF الناتج' };
 
     const pdfBytes = await fsp.readFile(pdfPath);
     return { ok: true, pdfBytes };

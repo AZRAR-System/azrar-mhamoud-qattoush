@@ -39,7 +39,13 @@ type DesktopCapabilities = {
 export class GlobalErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null, componentStack: '', errorStack: '', actionMessage: undefined };
+    this.state = {
+      hasError: false,
+      error: null,
+      componentStack: '',
+      errorStack: '',
+      actionMessage: undefined,
+    };
   }
 
   private readonly ERROR_LOG_KEY = 'app_error_log';
@@ -86,7 +92,8 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
     this.recordError(error, 'react', { componentStack: String(errorInfo?.componentStack || '') });
   }
 
-  private clamp = (s: string) => (s.length > this.MAX_FIELD_CHARS ? s.slice(0, this.MAX_FIELD_CHARS) : s);
+  private clamp = (s: string) =>
+    s.length > this.MAX_FIELD_CHARS ? s.slice(0, this.MAX_FIELD_CHARS) : s;
 
   private safeNowId = () => {
     // Good-enough uniqueness without adding deps.
@@ -111,7 +118,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
       if (!raw) return [];
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return [];
-      return parsed.filter(v => typeof v === 'object' && v !== null) as ErrorLogEntry[];
+      return parsed.filter((v) => typeof v === 'object' && v !== null) as ErrorLogEntry[];
     } catch {
       return [];
     }
@@ -119,7 +126,10 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
 
   private writeLog = (entries: ErrorLogEntry[]) => {
     try {
-      localStorage.setItem(this.ERROR_LOG_KEY, JSON.stringify(entries.slice(0, this.MAX_LOG_ENTRIES)));
+      localStorage.setItem(
+        this.ERROR_LOG_KEY,
+        JSON.stringify(entries.slice(0, this.MAX_LOG_ENTRIES))
+      );
     } catch {
       // ignore
     }
@@ -129,17 +139,16 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
     try {
       const json = JSON.stringify(record);
       // Keep it small to avoid bloating storage
-      localStorage.setItem(this.LAST_ERROR_KEY, json.length > 10_000 ? json.slice(0, 10_000) : json);
+      localStorage.setItem(
+        this.LAST_ERROR_KEY,
+        json.length > 10_000 ? json.slice(0, 10_000) : json
+      );
     } catch {
       // ignore
     }
   };
 
-  private recordError = (
-    err: unknown,
-    kind: ErrorLogKind,
-    extra?: { componentStack?: string }
-  ) => {
+  private recordError = (err: unknown, kind: ErrorLogKind, extra?: { componentStack?: string }) => {
     try {
       const asError = err instanceof Error ? err : new Error(String(err ?? 'Unknown Error'));
       const at = new Date().toISOString();
@@ -156,7 +165,9 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
         message,
         sessionId,
         stack: stack || undefined,
-        componentStack: extra?.componentStack ? this.clamp(String(extra.componentStack)) : undefined,
+        componentStack: extra?.componentStack
+          ? this.clamp(String(extra.componentStack))
+          : undefined,
         url: typeof window !== 'undefined' ? String(window.location.href || '') : undefined,
         hash: typeof window !== 'undefined' ? String(window.location.hash || '') : undefined,
         userAgent: typeof navigator !== 'undefined' ? String(navigator.userAgent || '') : undefined,
@@ -180,7 +191,12 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
     }
 
     this.recordError(asError, kind);
-    this.setState({ hasError: true, error: asError, componentStack: '', errorStack: String(asError.stack ?? '') });
+    this.setState({
+      hasError: true,
+      error: asError,
+      componentStack: '',
+      errorStack: String(asError.stack ?? ''),
+    });
   };
 
   private handleWindowError = (event: Event) => {
@@ -197,7 +213,13 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
   };
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null, componentStack: '', errorStack: '', actionMessage: undefined });
+    this.setState({
+      hasError: false,
+      error: null,
+      componentStack: '',
+      errorStack: '',
+      actionMessage: undefined,
+    });
     window.location.hash = ROUTE_PATHS.DASHBOARD;
     window.location.reload();
   };
@@ -296,7 +318,11 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
         lastErrorRaw,
         lastError: lastErrorParsed ?? (lastErrorRaw ? { raw: lastErrorRaw } : null),
         errorLogRaw,
-        errorLog: Array.isArray(errorLogParsed) ? errorLogParsed : (errorLogRaw ? { raw: errorLogRaw } : []),
+        errorLog: Array.isArray(errorLogParsed)
+          ? errorLogParsed
+          : errorLogRaw
+            ? { raw: errorLogRaw }
+            : [],
       },
     };
   };
@@ -320,7 +346,8 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
       }
 
       try {
-        const sqlGetSettings = (db as unknown as { sqlGetSettings?: () => Promise<unknown> }).sqlGetSettings;
+        const sqlGetSettings = (db as unknown as { sqlGetSettings?: () => Promise<unknown> })
+          .sqlGetSettings;
         if (typeof sqlGetSettings === 'function') {
           out.settings = await this.withTimeout(sqlGetSettings(), 1500, 'sqlGetSettings');
         }
@@ -394,14 +421,18 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
               <AlertTriangle size={40} className="text-red-600 dark:text-red-400" />
             </div>
 
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">عذراً، حدث خطأ غير متوقع</h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+              عذراً، حدث خطأ غير متوقع
+            </h1>
 
             <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
               واجه النظام مشكلة أثناء معالجة طلبك. تم تسجيل الخطأ وسنقوم بمراجعته.
             </p>
 
             <div className="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl text-left dir-ltr mb-6 overflow-auto max-h-32 border border-gray-200 dark:border-slate-700">
-              <code className="text-xs text-red-500 font-mono">{this.state.error?.message || 'Unknown Error'}</code>
+              <code className="text-xs text-red-500 font-mono">
+                {this.state.error?.message || 'Unknown Error'}
+              </code>
             </div>
 
             {(this.state.componentStack || this.state.errorStack) && (
@@ -459,7 +490,9 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
             </div>
 
             {this.state.actionMessage && (
-              <div className="mt-4 text-xs text-slate-500 dark:text-slate-400">{this.state.actionMessage}</div>
+              <div className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+                {this.state.actionMessage}
+              </div>
             )}
           </div>
         </div>

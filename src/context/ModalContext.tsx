@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface PanelProps extends Record<string, unknown> {
@@ -13,7 +12,7 @@ export interface PanelProps extends Record<string, unknown> {
   onCancel?(): void;
 }
 
-export type PanelType = 
+export type PanelType =
   | 'PERSON_DETAILS'
   | 'PROPERTY_DETAILS'
   | 'CONTRACT_DETAILS'

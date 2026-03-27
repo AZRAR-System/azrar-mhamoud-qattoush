@@ -34,7 +34,9 @@ const existsFile = (p: string): boolean => {
   }
 };
 
-export const resolveContractTemplatePath = async (templateName?: string): Promise<{ templatePath: string; fileName: string }> => {
+export const resolveContractTemplatePath = async (
+  templateName?: string
+): Promise<{ templatePath: string; fileName: string }> => {
   const templatesDir = await getContractsTemplatesDir();
 
   const pickSingleIfAny = async (): Promise<string | null> => {
@@ -53,7 +55,10 @@ export const resolveContractTemplatePath = async (templateName?: string): Promis
   const safeName = String(templateName || '').trim();
   if (!safeName) {
     const picked = await pickSingleIfAny();
-    if (!picked) throw new Error('لم يتم تحديد قالب Word. قم باستيراد قالب أو ضع قالب واحد فقط ليتم اختياره تلقائياً.');
+    if (!picked)
+      throw new Error(
+        'لم يتم تحديد قالب Word. قم باستيراد قالب أو ضع قالب واحد فقط ليتم اختياره تلقائياً.'
+      );
     return { templatePath: picked, fileName: path.basename(picked) };
   }
 

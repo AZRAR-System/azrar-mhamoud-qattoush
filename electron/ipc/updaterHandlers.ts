@@ -5,7 +5,10 @@ import { spawn } from 'node:child_process';
 
 import type { autoUpdater as ElectronAutoUpdater } from 'electron-updater';
 
-type HandleTrusted = (channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown) => void;
+type HandleTrusted = (
+  channel: string,
+  listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown
+) => void;
 
 type AutoUpdaterType = typeof ElectronAutoUpdater;
 type UpdaterSetFeedUrlArg = Parameters<NonNullable<AutoUpdaterType>['setFeedURL']>[0];
@@ -26,7 +29,11 @@ export function registerUpdaterHandlers(opts: {
   hasEmbeddedUpdaterConfig: () => boolean;
   writeUpdaterSettings: (settings: { feedUrl?: string }) => Promise<void>;
 
-  validateInstallerCandidate: (filePath: string, st: fs.Stats, maxBytes: number) => { ok: boolean; message?: string };
+  validateInstallerCandidate: (
+    filePath: string,
+    st: fs.Stats,
+    maxBytes: number
+  ) => { ok: boolean; message?: string };
   maxInstallerBytes: number;
   verifyWindowsExeAuthenticodeSync: (filePath: string) => { ok: boolean; message?: string };
   createMandatoryPreUpdateBackup: (reason: 'install' | 'installFromFile') => Promise<unknown>;
@@ -78,7 +85,8 @@ export function registerUpdaterHandlers(opts: {
       }
 
       if (app.isPackaged) {
-        if (!autoUpdater) return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
+        if (!autoUpdater)
+          return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
         autoUpdater.setFeedURL({ provider: 'generic', url: normalized } as UpdaterSetFeedUrlArg);
       }
 
@@ -91,20 +99,33 @@ export function registerUpdaterHandlers(opts: {
 
   handleTrusted('updater:check', async () => {
     if (!app.isPackaged) {
-      return { success: false, message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).' };
+      return {
+        success: false,
+        message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
+      };
     }
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
     }
     try {
       const res = await autoUpdater.checkForUpdates();
-      const updateInfo = (res as { 
-         updateInfo?: unknown } | null | undefined)?.updateInfo;
+      const updateInfo = (
+        res as
+          | {
+              updateInfo?: unknown;
+            }
+          | null
+          | undefined
+      )?.updateInfo;
       const available = Boolean(updateInfo);
       return { success: true, updateAvailable: available, info: updateInfo };
     } catch (e: unknown) {
       if (!getCurrentFeedUrl() && !hasEmbeddedUpdaterConfig()) {
-        return { success: false, message: 'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.' };
+        return {
+          success: false,
+          message:
+            'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.',
+        };
       }
       return { success: false, message: toErrorMessage(e, 'فشل التحقق من التحديث') };
     }
@@ -112,7 +133,10 @@ export function registerUpdaterHandlers(opts: {
 
   handleTrusted('updater:download', async () => {
     if (!app.isPackaged) {
-      return { success: false, message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).' };
+      return {
+        success: false,
+        message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
+      };
     }
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
@@ -122,7 +146,11 @@ export function registerUpdaterHandlers(opts: {
       return { success: true };
     } catch (e: unknown) {
       if (!getCurrentFeedUrl() && !hasEmbeddedUpdaterConfig()) {
-        return { success: false, message: 'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.' };
+        return {
+          success: false,
+          message:
+            'لم يتم ضبط رابط التحديث. يرجى تحديده في إعدادات النظام أو عبر المتغير AZRAR_UPDATE_URL.',
+        };
       }
       return { success: false, message: toErrorMessage(e, 'فشل تنزيل التحديث') };
     }
@@ -130,7 +158,10 @@ export function registerUpdaterHandlers(opts: {
 
   handleTrusted('updater:install', async () => {
     if (!app.isPackaged) {
-      return { success: false, message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).' };
+      return {
+        success: false,
+        message: 'ميزة التحديث التلقائي تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
+      };
     }
     if (!autoUpdater) {
       return { success: false, message: 'خدمة التحديث غير متاحة في هذه النسخة.' };
@@ -140,7 +171,13 @@ export function registerUpdaterHandlers(opts: {
       try {
         await createMandatoryPreUpdateBackup('install');
       } catch (e: unknown) {
-        return { success: false, message: toErrorMessage(e, 'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.') };
+        return {
+          success: false,
+          message: toErrorMessage(
+            e,
+            'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.'
+          ),
+        };
       }
       // This quits the app and runs the installer for the downloaded update.
       autoUpdater.quitAndInstall(true, true);
@@ -152,7 +189,10 @@ export function registerUpdaterHandlers(opts: {
 
   handleTrusted('updater:installFromFile', async () => {
     if (!app.isPackaged) {
-      return { success: false, message: 'ميزة تثبيت التحديث من ملف تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).' };
+      return {
+        success: false,
+        message: 'ميزة تثبيت التحديث من ملف تعمل فقط بعد تثبيت البرنامج (نسخة Packaged).',
+      };
     }
 
     const result = await dialog.showOpenDialog({
@@ -197,7 +237,13 @@ export function registerUpdaterHandlers(opts: {
       try {
         await createMandatoryPreUpdateBackup('installFromFile');
       } catch (e: unknown) {
-        return { success: false, message: toErrorMessage(e, 'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.') };
+        return {
+          success: false,
+          message: toErrorMessage(
+            e,
+            'فشل أخذ نسخة احتياطية قبل التحديث. تم إيقاف التحديث حفاظاً على البيانات.'
+          ),
+        };
       }
       // Run installer detached, then quit the app.
       spawn(resolved, [], { detached: true, stdio: 'ignore' }).unref();

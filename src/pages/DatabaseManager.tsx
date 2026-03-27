@@ -1,6 +1,15 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
-import { Database, RefreshCw, Trash2, Key, Table, AlertTriangle, ShieldCheck, HardDrive, CheckCircle } from 'lucide-react';
+import {
+  Database,
+  RefreshCw,
+  Trash2,
+  Key,
+  Table,
+  AlertTriangle,
+  ShieldCheck,
+  HardDrive,
+  CheckCircle,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { buildCache, DbCache } from '@/services/dbCache';
 import { useToast } from '@/context/ToastContext';
@@ -189,7 +198,11 @@ export const DatabaseManager: React.FC = () => {
   }, [validationPageCount]);
 
   const visibleValidationItems = useMemo(
-    () => validationItems.slice((validationPage - 1) * validationPageSize, validationPage * validationPageSize),
+    () =>
+      validationItems.slice(
+        (validationPage - 1) * validationPageSize,
+        validationPage * validationPageSize
+      ),
     [validationItems, validationPage]
   );
 
@@ -205,7 +218,7 @@ export const DatabaseManager: React.FC = () => {
     setRebuilding(true);
     setTimeout(() => {
       buildCache();
-      setCacheTick(t => t + 1);
+      setCacheTick((t) => t + 1);
       setRebuilding(false);
       toast.success('تم إعادة بناء الفهارس وتحديث التجميعات (Aggregates) بنجاح');
     }, 1500);
@@ -230,7 +243,9 @@ export const DatabaseManager: React.FC = () => {
 
   const refreshLocalStorageList = () => {
     try {
-      const keys = Array.from(new Set(Object.keys(localStorage))).filter(k => !HIDDEN_KEYS.has(k));
+      const keys = Array.from(new Set(Object.keys(localStorage))).filter(
+        (k) => !HIDDEN_KEYS.has(k)
+      );
       const orderIndex = new Map<string, number>();
       KNOWN_ORDER.forEach((k, i) => orderIndex.set(k, i));
 
@@ -242,7 +257,7 @@ export const DatabaseManager: React.FC = () => {
       });
 
       setTables(
-        sorted.map(k => {
+        sorted.map((k) => {
           const kind: 'db' | 'system' = k.startsWith('db_') ? 'db' : 'system';
           const name = FRIENDLY_NAMES[k] ?? (kind === 'db' ? `جدول: ${k}` : `مفتاح: ${k}`);
           const icon = kind === 'db' ? Table : Key;
@@ -289,24 +304,24 @@ export const DatabaseManager: React.FC = () => {
     const installmentsArr = getArray('db_installments');
     const usersArr = getArray('db_users');
 
-    const peopleWithNationalId = peopleArr.filter(p => p['الرقم_الوطني']).length;
-    const peopleWithPhone = peopleArr.filter(p => p['رقم_الهاتف']).length;
-    const propertiesWithCode = propertiesArr.filter(p => p['الكود_الداخلي']).length;
-    const usersWithUsername = usersArr.filter(u => u['اسم_المستخدم']).length;
+    const peopleWithNationalId = peopleArr.filter((p) => p['الرقم_الوطني']).length;
+    const peopleWithPhone = peopleArr.filter((p) => p['رقم_الهاتف']).length;
+    const propertiesWithCode = propertiesArr.filter((p) => p['الكود_الداخلي']).length;
+    const usersWithUsername = usersArr.filter((u) => u['اسم_المستخدم']).length;
 
-    const missingOwners = propertiesArr.filter(p => {
+    const missingOwners = propertiesArr.filter((p) => {
       const ownerId = p['رقم_المالك'];
       return !!ownerId && !DbCache.people.has(String(ownerId));
     }).length;
-    const missingContractProperty = contractsArr.filter(c => {
+    const missingContractProperty = contractsArr.filter((c) => {
       const propertyId = c['رقم_العقار'];
       return !!propertyId && !DbCache.properties.has(String(propertyId));
     }).length;
-    const missingContractTenant = contractsArr.filter(c => {
+    const missingContractTenant = contractsArr.filter((c) => {
       const tenantId = c['رقم_المستاجر'];
       return !!tenantId && !DbCache.people.has(String(tenantId));
     }).length;
-    const missingInstallmentContract = installmentsArr.filter(i => {
+    const missingInstallmentContract = installmentsArr.filter((i) => {
       const contractId = i['رقم_العقد'];
       return !!contractId && !DbCache.contracts.has(String(contractId));
     }).length;
@@ -475,7 +490,7 @@ export const DatabaseManager: React.FC = () => {
       }
 
       buildCache();
-      setCacheTick(t => t + 1);
+      setCacheTick((t) => t + 1);
       refreshLocalStorageList();
       toast.success('تم مسح البيانات');
     }
@@ -507,7 +522,9 @@ export const DatabaseManager: React.FC = () => {
             <Database size={22} />
             مدير قواعد البيانات والفهارس
           </h2>
-          <p className={DS.components.pageSubtitle}>إدارة الجداول، تحسين الأداء، والتحكم في القيود</p>
+          <p className={DS.components.pageSubtitle}>
+            إدارة الجداول، تحسين الأداء، والتحكم في القيود
+          </p>
         </div>
         <Button
           onClick={handleRebuildIndexes}
@@ -519,7 +536,6 @@ export const DatabaseManager: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
         {/* Table Stats */}
         <div className="app-table-wrapper">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-wrap items-center justify-between gap-4">
@@ -531,9 +547,13 @@ export const DatabaseManager: React.FC = () => {
                 جداول النظام (LocalStorage)
               </h3>
             </div>
-            <PaginationControls page={tablesPage} pageCount={tablesPageCount} onPageChange={setTablesPage} />
+            <PaginationControls
+              page={tablesPage}
+              pageCount={tablesPageCount}
+              onPageChange={setTablesPage}
+            />
           </div>
-          
+
           <div className="max-h-[600px] overflow-auto no-scrollbar">
             <table className="app-table">
               <thead className="app-table-thead">
@@ -547,19 +567,27 @@ export const DatabaseManager: React.FC = () => {
               <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                 {visibleTables.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="app-table-empty">لا توجد جداول متاحة</td>
+                    <td colSpan={4} className="app-table-empty">
+                      لا توجد جداول متاحة
+                    </td>
                   </tr>
                 ) : (
-                  visibleTables.map(t => (
+                  visibleTables.map((t) => (
                     <tr key={t.key} className="app-table-row app-table-row-striped group">
                       <td className="app-table-td">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl transition-transform group-hover:scale-110 ${t.kind === 'db' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
+                          <div
+                            className={`p-2 rounded-xl transition-transform group-hover:scale-110 ${t.kind === 'db' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}
+                          >
                             <t.icon size={16} />
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-sm font-black text-slate-700 dark:text-slate-200">{t.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono mt-0.5 tracking-tighter">({t.key})</span>
+                            <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                              {t.name}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5 tracking-tighter">
+                              ({t.key})
+                            </span>
                           </div>
                         </div>
                       </td>
@@ -571,9 +599,9 @@ export const DatabaseManager: React.FC = () => {
                       </td>
                       <td className="app-table-td">
                         <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
+                          <button
                             onClick={() => handleClearKey(t.key)}
-                            className="app-table-action-btn-danger" 
+                            className="app-table-action-btn-danger"
                             title="مسح البيانات"
                           >
                             <Trash2 size={16} />
@@ -603,31 +631,47 @@ export const DatabaseManager: React.FC = () => {
               >
                 <ShieldCheck size={12} /> {validating ? 'جاري الفحص...' : 'فحص القيود'}
               </button>
-              <span className={`text-xs px-2 py-1 rounded font-bold flex items-center gap-1 ${DbCache.isInitialized ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                 <CheckCircle size={12} /> {DbCache.isInitialized ? 'Optimization Active' : 'Needs Rebuild'}
+              <span
+                className={`text-xs px-2 py-1 rounded font-bold flex items-center gap-1 ${DbCache.isInitialized ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}
+              >
+                <CheckCircle size={12} />{' '}
+                {DbCache.isInitialized ? 'Optimization Active' : 'Needs Rebuild'}
               </span>
             </div>
           </div>
           <div className="p-4 space-y-3">
             <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
               <span>حالة الكاش: {DbCache.isInitialized ? 'مفعل' : 'غير مبني'}</span>
-              <span>آخر تحديث: {DbCache.lastUpdated ? formatDateTime(DbCache.lastUpdated) : '—'}</span>
+              <span>
+                آخر تحديث: {DbCache.lastUpdated ? formatDateTime(DbCache.lastUpdated) : '—'}
+              </span>
             </div>
 
             {memoryIndexDiagnostics.map((idx, i) => (
-              <div key={i} className="flex justify-between items-center p-3 border border-gray-100 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900">
+              <div
+                key={i}
+                className="flex justify-between items-center p-3 border border-gray-100 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
+              >
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${idx.type.includes('Primary') ? 'bg-indigo-100 text-indigo-600' : idx.type.includes('Secondary') ? 'bg-emerald-100 text-emerald-600' : idx.type.includes('Foreign') ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-600'}`}>
+                  <div
+                    className={`p-2 rounded-lg ${idx.type.includes('Primary') ? 'bg-indigo-100 text-indigo-600' : idx.type.includes('Secondary') ? 'bg-emerald-100 text-emerald-600' : idx.type.includes('Foreign') ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-600'}`}
+                  >
                     <Key size={16} />
                   </div>
                   <div>
                     <p className="font-bold text-sm text-slate-700 dark:text-white">{idx.name}</p>
                     <p className="text-xs text-slate-400">On: {idx.table}</p>
-                    {idx.note ? <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{idx.note}</p> : null}
+                    {idx.note ? (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {idx.note}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 border ${idx.status === 'Active' ? 'bg-green-50 text-green-700 border-green-100' : idx.status === 'Warning' ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 border ${idx.status === 'Active' ? 'bg-green-50 text-green-700 border-green-100' : idx.status === 'Warning' ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                  >
                     <ShieldCheck size={12} /> {idx.status}
                   </span>
                   <span className="text-xs font-mono text-slate-400">{idx.type}</span>
@@ -647,16 +691,26 @@ export const DatabaseManager: React.FC = () => {
                 </div>
 
                 <div className="mt-2 text-sm text-slate-600 dark:text-slate-300 flex items-center gap-3">
-                  <span className={`px-2 py-1 rounded-lg text-xs font-bold ${validation.isValid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <span
+                    className={`px-2 py-1 rounded-lg text-xs font-bold ${validation.isValid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                  >
                     {validation.isValid ? 'سليم' : 'يوجد مشاكل'}
                   </span>
-                  <span>الأخطاء: <span className="font-mono">{validation.errors.length}</span></span>
-                  <span>التحذيرات: <span className="font-mono">{validation.warnings.length}</span></span>
+                  <span>
+                    الأخطاء: <span className="font-mono">{validation.errors.length}</span>
+                  </span>
+                  <span>
+                    التحذيرات: <span className="font-mono">{validation.warnings.length}</span>
+                  </span>
                 </div>
 
-                {(validation.errors.length > 0 || validation.warnings.length > 0) ? (
+                {validation.errors.length > 0 || validation.warnings.length > 0 ? (
                   <div className="mt-3 space-y-2">
-                    <PaginationControls page={validationPage} pageCount={validationPageCount} onPageChange={setValidationPage} />
+                    <PaginationControls
+                      page={validationPage}
+                      pageCount={validationPageCount}
+                      onPageChange={setValidationPage}
+                    />
                     <div className="space-y-2 max-h-48 overflow-auto">
                       {visibleValidationItems.map((it, idx) => (
                         <div
@@ -682,9 +736,7 @@ export const DatabaseManager: React.FC = () => {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );
 };
-

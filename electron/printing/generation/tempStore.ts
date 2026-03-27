@@ -20,7 +20,11 @@ const safeStem = (v: string): string =>
     .trim()
     .slice(0, 80) || 'document';
 
-export const writeTempFile = async (opts: { ext: 'docx' | 'pdf'; baseName?: string; bytes: Buffer }): Promise<{ tempPath: string; fileName: string }> => {
+export const writeTempFile = async (opts: {
+  ext: 'docx' | 'pdf';
+  baseName?: string;
+  bytes: Buffer;
+}): Promise<{ tempPath: string; fileName: string }> => {
   const dir = await getPrintTempDir();
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const rand = crypto.randomBytes(6).toString('hex');
@@ -48,7 +52,7 @@ export const cleanupTempDir = async (keepNewest = 80): Promise<void> => {
         } catch {
           return null;
         }
-      }),
+      })
     );
 
     const sorted = files
@@ -63,7 +67,7 @@ export const cleanupTempDir = async (keepNewest = 80): Promise<void> => {
         } catch {
           // ignore
         }
-      }),
+      })
     );
   } catch {
     // ignore

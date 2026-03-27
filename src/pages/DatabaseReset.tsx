@@ -1,7 +1,7 @@
 ﻿/**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
- * 
+ *
  * Database Reset Page
  * صفحة حذف البيانات وإعادة تهيئة النظام
  */
@@ -77,7 +77,7 @@ const DatabaseReset: React.FC = () => {
       setShowConfirm(false);
       setConfirmText('');
       await refreshStats();
-    
+
       if (res.success) {
         setTimeout(() => {
           window.location.reload();
@@ -101,7 +101,7 @@ const DatabaseReset: React.FC = () => {
       setShowConfirm(false);
       setConfirmText('');
       await refreshStats();
-    
+
       if (res.success) {
         setTimeout(() => {
           window.location.reload();
@@ -118,7 +118,9 @@ const DatabaseReset: React.FC = () => {
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
       <div className="app-card rounded-lg shadow-lg p-6">
         {/* Header */}
-        <div className={`${DS.components.pageHeader} pb-4 border-b border-gray-200 dark:border-slate-700`}>
+        <div
+          className={`${DS.components.pageHeader} pb-4 border-b border-gray-200 dark:border-slate-700`}
+        >
           <div>
             <h1 className={`${DS.components.pageTitle} flex items-center gap-2`}>
               <Database size={22} className="text-indigo-600" />
@@ -138,13 +140,16 @@ const DatabaseReset: React.FC = () => {
             {Object.entries(stats).map(([key, count]) => (
               <div key={key} className="bg-white dark:bg-slate-600 p-3 rounded shadow-sm">
                 <div className="text-xs text-gray-500 dark:text-gray-300 truncate">{key}</div>
-                <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{count}</div>
+                <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                  {count}
+                </div>
               </div>
             ))}
           </div>
           <div className="mt-4 pt-4 border-t border-indigo-200 dark:border-slate-600">
             <div className="text-lg font-bold text-gray-800 dark:text-white">
-              إجمالي السجلات: <span className="text-indigo-600 dark:text-indigo-400">{totalRecords}</span>
+              إجمالي السجلات:{' '}
+              <span className="text-indigo-600 dark:text-indigo-400">{totalRecords}</span>
             </div>
           </div>
         </div>
@@ -156,7 +161,9 @@ const DatabaseReset: React.FC = () => {
             <div className="flex items-start gap-3 mb-3">
               <RefreshCw className="text-green-600 dark:text-green-400 mt-1" size={24} />
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">إعادة تهيئة النظام</h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">
+                  إعادة تهيئة النظام
+                </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
                   حذف جميع البيانات والاحتفاظ بـ:
                 </p>
@@ -181,7 +188,9 @@ const DatabaseReset: React.FC = () => {
             <div className="flex items-start gap-3 mb-3">
               <AlertTriangle className="text-red-600 dark:text-red-400 mt-1" size={24} />
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">حذف جميع البيانات</h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">
+                  حذف جميع البيانات
+                </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
                   ⚠️ تحذير: سيتم حذف جميع البيانات نهائياً بدون إمكانية الاسترجاع!
                 </p>
@@ -232,7 +241,9 @@ const DatabaseReset: React.FC = () => {
           {showConfirm ? (
             <>
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                {showConfirm === 'reset' ? 'اكتب "إعادة تهيئة" للتأكيد:' : 'اكتب "حذف نهائي" للتأكيد:'}
+                {showConfirm === 'reset'
+                  ? 'اكتب "إعادة تهيئة" للتأكيد:'
+                  : 'اكتب "حذف نهائي" للتأكيد:'}
               </p>
               <input
                 type="text"
@@ -248,20 +259,26 @@ const DatabaseReset: React.FC = () => {
 
         {/* Result Message */}
         {result && (
-          <div className={`mt-4 p-4 rounded-lg flex items-start gap-3 ${
-            result.success
-              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700'
-              : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700'
-          }`}>
+          <div
+            className={`mt-4 p-4 rounded-lg flex items-start gap-3 ${
+              result.success
+                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700'
+                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700'
+            }`}
+          >
             {result.success ? (
               <CheckCircle className="text-green-600 dark:text-green-400 mt-1" size={24} />
             ) : (
               <AlertTriangle className="text-red-600 dark:text-red-400 mt-1" size={24} />
             )}
             <div className="flex-1">
-              <p className={`font-medium ${
-                result.success ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'
-              }`}>
+              <p
+                className={`font-medium ${
+                  result.success
+                    ? 'text-green-800 dark:text-green-300'
+                    : 'text-red-800 dark:text-red-300'
+                }`}
+              >
                 {result.message}
               </p>
               {result.success && (
@@ -290,4 +307,3 @@ const DatabaseReset: React.FC = () => {
 };
 
 export default DatabaseReset;
-

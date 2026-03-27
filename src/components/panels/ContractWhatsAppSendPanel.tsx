@@ -24,13 +24,7 @@ export const ContractWhatsAppSendPanel: React.FC<{
   commissionTenant?: number;
   installments?: InstallmentInfo[];
   attachments?: AttachmentInfo[];
-}> = ({
-  onClose,
-  contract,
-  property,
-  tenant,
-  installments,
-}) => {
+}> = ({ onClose, contract, property, tenant, installments }) => {
   const tenantPhones = React.useMemo(() => {
     const phones = [
       String(tenant?.رقم_الهاتف || '').trim(),

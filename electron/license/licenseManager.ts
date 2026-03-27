@@ -14,7 +14,7 @@ export const getDeviceFingerprint = () => ({ ok: true, fingerprint: 'bypassed-fi
 export const getLicenseStatus = async (): Promise<LicenseStatus> => {
   // تفعيل النظام دائماً
   kvSet(ACTIVATED_FLAG_KEY, '1');
-  
+
   return {
     activated: true,
     reason: 'active',
@@ -26,7 +26,9 @@ export const getLicenseStatus = async (): Promise<LicenseStatus> => {
 };
 
 export const activateFromContent = async (_rawContent: string) => ({ ok: true });
-export const activateOnline = async (_params: { licenseKey: string; serverUrl?: string }) => ({ ok: true });
+export const activateOnline = async (_params: { licenseKey: string; serverUrl?: string }) => ({
+  ok: true,
+});
 export const deactivate = async () => ({ ok: true });
 export const refreshOnlineStatus = async () => ({ ok: true, status: await getLicenseStatus() });
 export const startOnlineStatusMonitor = () => {};

@@ -24,7 +24,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 
 export const getPersonSeedFromPerson = (person: unknown): string => {
   if (!isRecord(person)) return '';
-  const seed = person['رقم_الشخص'] ?? person['الرقم_الوطني'] ?? person['رقم_الهاتف'] ?? person['الاسم'] ?? '';
+  const seed =
+    person['رقم_الشخص'] ?? person['الرقم_الوطني'] ?? person['رقم_الهاتف'] ?? person['الاسم'] ?? '';
   return String(seed ?? '');
 };
 

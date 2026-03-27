@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
@@ -7,7 +6,12 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   placeholder?: string;
 }
 
-export const Select: React.FC<SelectProps> = ({ options, placeholder, className = '', ...props }) => {
+export const Select: React.FC<SelectProps> = ({
+  options,
+  placeholder,
+  className = '',
+  ...props
+}) => {
   const isRtl = typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl';
   const chevronPos = isRtl ? 'left-3' : 'right-3';
   const padding = isRtl ? 'pl-10 pr-4' : 'pr-10 pl-4';

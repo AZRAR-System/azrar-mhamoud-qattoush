@@ -1,7 +1,7 @@
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
- * 
+ *
  * Data Validation Service
  * التحقق من صحة البيانات والعلاقات والفهارس
  */
@@ -13,10 +13,13 @@ let parseWarnings: string[] = [];
 
 type UnknownRecord = Record<string, unknown>;
 
-const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null && !Array.isArray(value);
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const hasUnknownProp = <K extends string>(obj: UnknownRecord, key: K): obj is UnknownRecord & Record<K, unknown> =>
-  Object.prototype.hasOwnProperty.call(obj, key);
+const hasUnknownProp = <K extends string>(
+  obj: UnknownRecord,
+  key: K
+): obj is UnknownRecord & Record<K, unknown> => Object.prototype.hasOwnProperty.call(obj, key);
 
 const get = <T>(key: string): T[] => {
   const data = localStorage.getItem(key);
@@ -58,7 +61,7 @@ export const checkPrimaryKeyDuplicates = (): ValidationResult => {
 
   // التحقق من الأشخاص
   const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
-  const personIds = people.map(p => p.رقم_الشخص);
+  const personIds = people.map((p) => p.رقم_الشخص);
   const duplicatePersonIds = personIds.filter((id, index) => personIds.indexOf(id) !== index);
   if (duplicatePersonIds.length > 0) {
     errors.push(`تكرار في رقم الشخص: ${duplicatePersonIds.join(', ')}`);
@@ -66,7 +69,7 @@ export const checkPrimaryKeyDuplicates = (): ValidationResult => {
 
   // التحقق من العقارات
   const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
-  const propertyIds = properties.map(p => p.رقم_العقار);
+  const propertyIds = properties.map((p) => p.رقم_العقار);
   const duplicatePropertyIds = propertyIds.filter((id, index) => propertyIds.indexOf(id) !== index);
   if (duplicatePropertyIds.length > 0) {
     errors.push(`تكرار في رقم العقار: ${duplicatePropertyIds.join(', ')}`);
@@ -74,7 +77,7 @@ export const checkPrimaryKeyDuplicates = (): ValidationResult => {
 
   // التحقق من العقود
   const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
-  const contractIds = contracts.map(c => c.رقم_العقد);
+  const contractIds = contracts.map((c) => c.رقم_العقد);
   const duplicateContractIds = contractIds.filter((id, index) => contractIds.indexOf(id) !== index);
   if (duplicateContractIds.length > 0) {
     errors.push(`تكرار في رقم العقد: ${duplicateContractIds.join(', ')}`);
@@ -82,8 +85,10 @@ export const checkPrimaryKeyDuplicates = (): ValidationResult => {
 
   // التحقق من الكمبيالات
   const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-  const installmentIds = installments.map(i => i.رقم_الكمبيالة);
-  const duplicateInstallmentIds = installmentIds.filter((id, index) => installmentIds.indexOf(id) !== index);
+  const installmentIds = installments.map((i) => i.رقم_الكمبيالة);
+  const duplicateInstallmentIds = installmentIds.filter(
+    (id, index) => installmentIds.indexOf(id) !== index
+  );
   if (duplicateInstallmentIds.length > 0) {
     errors.push(`تكرار في رقم الكمبيالة: ${duplicateInstallmentIds.join(', ')}`);
   }
@@ -91,7 +96,7 @@ export const checkPrimaryKeyDuplicates = (): ValidationResult => {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 };
 
@@ -106,7 +111,7 @@ export const checkUniqueConstraints = (): ValidationResult => {
 
   // التحقق من الرقم الوطني
   const nationalIds = people
-    .map(p => p.الرقم_الوطني)
+    .map((p) => p.الرقم_الوطني)
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
   const duplicateNationalIds = nationalIds.filter((id, index) => nationalIds.indexOf(id) !== index);
   if (duplicateNationalIds.length > 0) {
@@ -115,15 +120,19 @@ export const checkUniqueConstraints = (): ValidationResult => {
 
   // التحقق من الكود الداخلي للعقارات
   const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
-  const propertyCodes = properties.map(p => p.الكود_الداخلي);
-  const duplicatePropertyCodes = propertyCodes.filter((code, index) => propertyCodes.indexOf(code) !== index);
+  const propertyCodes = properties.map((p) => p.الكود_الداخلي);
+  const duplicatePropertyCodes = propertyCodes.filter(
+    (code, index) => propertyCodes.indexOf(code) !== index
+  );
   if (duplicatePropertyCodes.length > 0) {
     errors.push(`تكرار في الكود الداخلي للعقار: ${duplicatePropertyCodes.join(', ')}`);
   }
 
   // التحقق من أسماء المستخدمين
   const users = get<unknown>(KEYS.USERS);
-  const usernames = users.map(u => (isRecord(u) && hasUnknownProp(u, 'اسم_المستخدم') ? u.اسم_المستخدم : undefined));
+  const usernames = users.map((u) =>
+    isRecord(u) && hasUnknownProp(u, 'اسم_المستخدم') ? u.اسم_المستخدم : undefined
+  );
   const duplicateUsernames = usernames.filter((name, index) => usernames.indexOf(name) !== index);
   if (duplicateUsernames.length > 0) {
     errors.push(`تكرار في اسم المستخدم: ${duplicateUsernames.join(', ')}`);
@@ -132,7 +141,7 @@ export const checkUniqueConstraints = (): ValidationResult => {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 };
 
@@ -149,19 +158,19 @@ export const checkForeignKeyIntegrity = (): ValidationResult => {
   const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
   const roles = get<شخص_دور_tbl>(KEYS.ROLES);
 
-  const personIds = new Set(people.map(p => p.رقم_الشخص));
-  const propertyIds = new Set(properties.map(p => p.رقم_العقار));
-  const contractIds = new Set(contracts.map(c => c.رقم_العقد));
+  const personIds = new Set(people.map((p) => p.رقم_الشخص));
+  const propertyIds = new Set(properties.map((p) => p.رقم_العقار));
+  const contractIds = new Set(contracts.map((c) => c.رقم_العقد));
 
   // التحقق من العقارات → المالك
-  properties.forEach(property => {
+  properties.forEach((property) => {
     if (!personIds.has(property.رقم_المالك)) {
       errors.push(`العقار ${property.الكود_الداخلي}: المالك ${property.رقم_المالك} غير موجود`);
     }
   });
 
   // التحقق من العقود → العقار والمستأجر والكفيل
-  contracts.forEach(contract => {
+  contracts.forEach((contract) => {
     if (!propertyIds.has(contract.رقم_العقار)) {
       errors.push(`العقد ${contract.رقم_العقد}: العقار ${contract.رقم_العقار} غير موجود`);
     }
@@ -174,14 +183,16 @@ export const checkForeignKeyIntegrity = (): ValidationResult => {
   });
 
   // التحقق من الكمبيالات → العقد
-  installments.forEach(installment => {
+  installments.forEach((installment) => {
     if (!contractIds.has(installment.رقم_العقد)) {
-      errors.push(`الكمبيالة ${installment.رقم_الكمبيالة}: العقد ${installment.رقم_العقد} غير موجود`);
+      errors.push(
+        `الكمبيالة ${installment.رقم_الكمبيالة}: العقد ${installment.رقم_العقد} غير موجود`
+      );
     }
   });
 
   // التحقق من الأدوار → الشخص
-  roles.forEach(role => {
+  roles.forEach((role) => {
     if (!personIds.has(role.رقم_الشخص)) {
       errors.push(`الدور: الشخص ${role.رقم_الشخص} غير موجود`);
     }
@@ -190,7 +201,7 @@ export const checkForeignKeyIntegrity = (): ValidationResult => {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 };
 
@@ -205,10 +216,9 @@ export const checkBusinessLogic = (): ValidationResult => {
   const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
 
   // التحقق من حالة العقار مع العقود
-  properties.forEach(property => {
-    const activeContracts = contracts.filter(c =>
-      c.رقم_العقار === property.رقم_العقار &&
-      c.حالة_العقد === 'نشط'
+  properties.forEach((property) => {
+    const activeContracts = contracts.filter(
+      (c) => c.رقم_العقار === property.رقم_العقار && c.حالة_العقد === 'نشط'
     );
 
     if (property.IsRented && activeContracts.length === 0) {
@@ -220,12 +230,14 @@ export const checkBusinessLogic = (): ValidationResult => {
     }
 
     if (activeContracts.length > 1) {
-      errors.push(`العقار ${property.الكود_الداخلي}: يوجد أكثر من عقد نشط (${activeContracts.length})`);
+      errors.push(
+        `العقار ${property.الكود_الداخلي}: يوجد أكثر من عقد نشط (${activeContracts.length})`
+      );
     }
   });
 
   // التحقق من تواريخ العقود
-  contracts.forEach(contract => {
+  contracts.forEach((contract) => {
     const startDate = new Date(contract.تاريخ_البداية);
     const endDate = new Date(contract.تاريخ_النهاية);
 
@@ -233,8 +245,9 @@ export const checkBusinessLogic = (): ValidationResult => {
       errors.push(`العقد ${contract.رقم_العقد}: تاريخ النهاية قبل تاريخ البداية`);
     }
 
-    const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
-                       (endDate.getMonth() - startDate.getMonth());
+    const monthsDiff =
+      (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+      (endDate.getMonth() - startDate.getMonth());
 
     if (Math.abs(monthsDiff - contract.مدة_العقد_بالاشهر) > 1) {
       warnings.push(`العقد ${contract.رقم_العقد}: مدة العقد لا تتطابق مع الفرق بين التواريخ`);
@@ -244,7 +257,7 @@ export const checkBusinessLogic = (): ValidationResult => {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 };
 
@@ -259,16 +272,16 @@ export const validateAllData = (): ValidationResult => {
     checkPrimaryKeyDuplicates(),
     checkUniqueConstraints(),
     checkForeignKeyIntegrity(),
-    checkBusinessLogic()
+    checkBusinessLogic(),
   ];
 
-  const allErrors = results.flatMap(r => r.errors);
-  const allWarnings = [...parseWarnings, ...results.flatMap(r => r.warnings)];
+  const allErrors = results.flatMap((r) => r.errors);
+  const allWarnings = [...parseWarnings, ...results.flatMap((r) => r.warnings)];
 
   return {
     isValid: allErrors.length === 0,
     errors: allErrors,
-    warnings: allWarnings
+    warnings: allWarnings,
   };
 };
 
@@ -280,7 +293,9 @@ export const validateNewPerson = (data: Partial<الأشخاص_tbl>): Validation
   const warnings: string[] = [];
 
   const isLikelyJordanPhone = (phoneRaw: string) => {
-    const v = String(phoneRaw || '').trim().replace(/\D/g, '');
+    const v = String(phoneRaw || '')
+      .trim()
+      .replace(/\D/g, '');
     if (!v) return true;
     // Accept either local Jordan mobile format or already-international 962...
     return /^07[789]\d{7}$/.test(v) || /^9627[789]\d{7}$/.test(v);
@@ -306,7 +321,9 @@ export const validateNewPerson = (data: Partial<الأشخاص_tbl>): Validation
   })();
 
   if (extraPhoneRaw && !isLikelyJordanPhone(String(extraPhoneRaw))) {
-    warnings.push('رقم الهاتف الإضافي يجب أن يكون بصيغة أردنية (07xxxxxxxx) أو دولية (9627xxxxxxxx)');
+    warnings.push(
+      'رقم الهاتف الإضافي يجب أن يكون بصيغة أردنية (07xxxxxxxx) أو دولية (9627xxxxxxxx)'
+    );
   }
 
   // التحقق من صيغة الرقم الوطني
@@ -318,7 +335,7 @@ export const validateNewPerson = (data: Partial<الأشخاص_tbl>): Validation
   const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
 
   if (data.الرقم_الوطني) {
-    const duplicate = people.find(p => p.الرقم_الوطني === data.الرقم_الوطني);
+    const duplicate = people.find((p) => p.الرقم_الوطني === data.الرقم_الوطني);
     if (duplicate) {
       errors.push(`الرقم الوطني ${data.الرقم_الوطني} موجود مسبقاً للشخص: ${duplicate.الاسم}`);
     }
@@ -327,7 +344,7 @@ export const validateNewPerson = (data: Partial<الأشخاص_tbl>): Validation
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 };
 
@@ -357,7 +374,7 @@ export const validateNewProperty = (data: Partial<العقارات_tbl>): Valida
 
   // التحقق من عدم تكرار الكود الداخلي
   const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
-  const duplicate = properties.find(p => p.الكود_الداخلي === data.الكود_الداخلي);
+  const duplicate = properties.find((p) => p.الكود_الداخلي === data.الكود_الداخلي);
   if (duplicate) {
     errors.push(`الكود الداخلي ${data.الكود_الداخلي} موجود مسبقاً`);
   }
@@ -365,7 +382,7 @@ export const validateNewProperty = (data: Partial<العقارات_tbl>): Valida
   // التحقق من وجود المالك
   if (data.رقم_المالك) {
     const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
-    const owner = people.find(p => p.رقم_الشخص === data.رقم_المالك);
+    const owner = people.find((p) => p.رقم_الشخص === data.رقم_المالك);
     if (!owner) {
       errors.push(`المالك ${data.رقم_المالك} غير موجود`);
     }
@@ -374,7 +391,6 @@ export const validateNewProperty = (data: Partial<العقارات_tbl>): Valida
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 };
-

@@ -153,7 +153,8 @@ export const migrateLegacyContractNumbersOnce = () => {
         const linked = String(asUnknownRecord(c)['linkedContractId'] ?? '').trim();
         const rel = String(asUnknownRecord(c)['عقد_مرتبط'] ?? '').trim();
         const patch = { ...c } as العقود_tbl;
-        if (linked && mapping.has(linked)) asUnknownRecord(patch)['linkedContractId'] = mapping.get(linked);
+        if (linked && mapping.has(linked))
+          asUnknownRecord(patch)['linkedContractId'] = mapping.get(linked);
         if (rel && mapping.has(rel)) asUnknownRecord(patch)['عقد_مرتبط'] = mapping.get(rel);
         return patch;
       }
@@ -161,7 +162,8 @@ export const migrateLegacyContractNumbersOnce = () => {
       const patch = { ...c, رقم_العقد: nextId } as العقود_tbl;
       const linked = String(asUnknownRecord(c)['linkedContractId'] ?? '').trim();
       const rel = String(asUnknownRecord(c)['عقد_مرتبط'] ?? '').trim();
-      if (linked && mapping.has(linked)) asUnknownRecord(patch)['linkedContractId'] = mapping.get(linked);
+      if (linked && mapping.has(linked))
+        asUnknownRecord(patch)['linkedContractId'] = mapping.get(linked);
       if (rel && mapping.has(rel)) asUnknownRecord(patch)['عقد_مرتبط'] = mapping.get(rel);
       return patch;
     });

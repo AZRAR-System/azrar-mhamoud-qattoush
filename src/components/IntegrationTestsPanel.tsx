@@ -1,7 +1,7 @@
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System
- * 
+ *
  * مكون واجهة الاختبارات التسلسلية
  * Integration Tests UI Component
  */
@@ -37,9 +37,9 @@ export const IntegrationTestsPanel: React.FC = () => {
   };
 
   const toggleTestExpand = (index: number) => {
-    setExpandedTests(prev => ({
+    setExpandedTests((prev) => ({
       ...prev,
-      [index]: !prev[index]
+      [index]: !prev[index],
     }));
   };
 
@@ -55,9 +55,9 @@ export const IntegrationTestsPanel: React.FC = () => {
     document.body.removeChild(element);
   };
 
-  const passedCount = results.filter(r => r.status === 'PASS').length;
-  const failedCount = results.filter(r => r.status === 'FAIL').length;
-  const skippedCount = results.filter(r => r.status === 'SKIP').length;
+  const passedCount = results.filter((r) => r.status === 'PASS').length;
+  const failedCount = results.filter((r) => r.status === 'FAIL').length;
+  const skippedCount = results.filter((r) => r.status === 'SKIP').length;
 
   return (
     <div className="w-full h-full bg-gray-900 text-gray-100 p-6 overflow-auto" dir="rtl">
@@ -150,8 +150,8 @@ export const IntegrationTestsPanel: React.FC = () => {
                   result.status === 'PASS'
                     ? 'bg-green-900 border-green-700'
                     : result.status === 'FAIL'
-                    ? 'bg-red-900 border-red-700'
-                    : 'bg-yellow-900 border-yellow-700'
+                      ? 'bg-red-900 border-red-700'
+                      : 'bg-yellow-900 border-yellow-700'
                 }`}
               >
                 {/* Test Header */}
@@ -161,11 +161,7 @@ export const IntegrationTestsPanel: React.FC = () => {
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <span className="text-2xl">
-                      {result.status === 'PASS'
-                        ? '✅'
-                        : result.status === 'FAIL'
-                        ? '❌'
-                        : '⏭️'}
+                      {result.status === 'PASS' ? '✅' : result.status === 'FAIL' ? '❌' : '⏭️'}
                     </span>
                     <div className="text-right">
                       <div className="font-semibold">{result.testName}</div>
@@ -174,15 +170,9 @@ export const IntegrationTestsPanel: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     {result.duration && (
-                      <span className="text-sm opacity-75">
-                        {result.duration.toFixed(2)}ms
-                      </span>
+                      <span className="text-sm opacity-75">{result.duration.toFixed(2)}ms</span>
                     )}
-                    {expandedTests[index] ? (
-                      <ChevronUp size={20} />
-                    ) : (
-                      <ChevronDown size={20} />
-                    )}
+                    {expandedTests[index] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                   </div>
                 </button>
 
@@ -193,15 +183,13 @@ export const IntegrationTestsPanel: React.FC = () => {
                       {typeof result.data === 'object' ? (
                         Object.entries(result.data).map(([key, value]) => (
                           <div key={key} className="flex items-start gap-4">
-                            <span className="text-indigo-400 flex-shrink-0 min-w-fit">
-                              {key}:
-                            </span>
+                            <span className="text-indigo-400 flex-shrink-0 min-w-fit">{key}:</span>
                             <span className="text-gray-300 break-all">
                               {Array.isArray(value)
                                 ? `[${value.length} عنصر]`
                                 : typeof value === 'object'
-                                ? JSON.stringify(value, null, 2)
-                                : String(value)}
+                                  ? JSON.stringify(value, null, 2)
+                                  : String(value)}
                             </span>
                           </div>
                         ))

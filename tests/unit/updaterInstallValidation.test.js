@@ -3,9 +3,8 @@
 let validateInstallerCandidate;
 
 beforeAll(async () => {
-  ({ validateInstallerCandidate } = await import(
-    '../../electron/security/updaterInstallValidation.js'
-  ));
+  ({ validateInstallerCandidate } =
+    await import('../../electron/security/updaterInstallValidation.js'));
 });
 
 describe('updater install-from-file validation', () => {
@@ -34,13 +33,21 @@ describe('updater install-from-file validation', () => {
   });
 
   test('rejects non-file', () => {
-    const res = validateInstallerCandidate('C:/tmp/AZRAR-Setup.exe', makeStat({ isFile: false }), 10);
+    const res = validateInstallerCandidate(
+      'C:/tmp/AZRAR-Setup.exe',
+      makeStat({ isFile: false }),
+      10
+    );
     expect(res.ok).toBe(false);
   });
 
   test('rejects zero/invalid size', () => {
-    expect(validateInstallerCandidate('C:/tmp/AZRAR-Setup.exe', makeStat({ size: 0 }), 10).ok).toBe(false);
-    expect(validateInstallerCandidate('C:/tmp/AZRAR-Setup.exe', makeStat({ size: NaN }), 10).ok).toBe(false);
+    expect(validateInstallerCandidate('C:/tmp/AZRAR-Setup.exe', makeStat({ size: 0 }), 10).ok).toBe(
+      false
+    );
+    expect(
+      validateInstallerCandidate('C:/tmp/AZRAR-Setup.exe', makeStat({ size: NaN }), 10).ok
+    ).toBe(false);
   });
 
   test('rejects too-large size', () => {

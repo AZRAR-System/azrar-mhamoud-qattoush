@@ -30,11 +30,19 @@ export const MergeVariablesCatalog: React.FC<Props> = ({
     }
   };
 
-  const Section = ({ sectionTitle, items }: { sectionTitle: string; items: Array<{ key: string; label: string }> }) => {
+  const Section = ({
+    sectionTitle,
+    items,
+  }: {
+    sectionTitle: string;
+    items: Array<{ key: string; label: string }>;
+  }) => {
     if (!items.length) return null;
     return (
       <div>
-        <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">{sectionTitle}</div>
+        <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+          {sectionTitle}
+        </div>
         <div className="flex flex-wrap gap-2">
           {items.map((it) => (
             <button
@@ -44,7 +52,11 @@ export const MergeVariablesCatalog: React.FC<Props> = ({
               className="px-2 py-1 text-xs rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300"
               title={it.label}
             >
-              <span className="font-mono">{'{{'}{it.key}{'}}'}</span>
+              <span className="font-mono">
+                {'{{'}
+                {it.key}
+                {'}}'}
+              </span>
               <span className="mx-2 text-slate-400">•</span>
               <span className="font-bold text-slate-700 dark:text-slate-200">{it.label}</span>
             </button>
@@ -56,7 +68,9 @@ export const MergeVariablesCatalog: React.FC<Props> = ({
 
   return (
     <div className="p-3 rounded-xl border border-dashed border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/60">
-      <div className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2">{title} (اضغط للنسخ)</div>
+      <div className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2">
+        {title} (اضغط للنسخ)
+      </div>
       <div className={`space-y-3 overflow-auto pr-1 ${maxHeightClassName}`}>
         <Section sectionTitle="متغيرات العقد" items={c.contract} />
         <Section sectionTitle="متغيرات العقار" items={c.property} />

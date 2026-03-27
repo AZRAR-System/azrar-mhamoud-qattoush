@@ -59,7 +59,10 @@ export function makeCascadeDeletes(logOperation: CascadeLogOperation) {
     const agreement = agreements.find((a) => a.id === id);
     if (!agreement) return ok();
 
-    save(KEYS.SALES_AGREEMENTS, agreements.filter((a) => a.id !== id));
+    save(
+      KEYS.SALES_AGREEMENTS,
+      agreements.filter((a) => a.id !== id)
+    );
 
     const ext = get<العمولات_الخارجية_tbl>(KEYS.EXTERNAL_COMMISSIONS);
     if (ext.some((x) => x.id === `EXT-${id}`)) {
@@ -71,7 +74,10 @@ export function makeCascadeDeletes(logOperation: CascadeLogOperation) {
 
     const oh = get<سجل_الملكية_tbl>(KEYS.OWNERSHIP_HISTORY);
     if (oh.some((r) => r.agreementId === id)) {
-      save(KEYS.OWNERSHIP_HISTORY, oh.filter((r) => r.agreementId !== id));
+      save(
+        KEYS.OWNERSHIP_HISTORY,
+        oh.filter((r) => r.agreementId !== id)
+      );
     }
 
     purgeRefs('Sales', id);
@@ -141,12 +147,18 @@ export function makeCascadeDeletes(logOperation: CascadeLogOperation) {
 
     const legal = get<LegalNoticeRecord>(KEYS.LEGAL_HISTORY);
     if (legal.some((r) => r.contractId === id)) {
-      save(KEYS.LEGAL_HISTORY, legal.filter((r) => r.contractId !== id));
+      save(
+        KEYS.LEGAL_HISTORY,
+        legal.filter((r) => r.contractId !== id)
+      );
     }
 
     const nlogs = get<NotificationSendLogRow>(KEYS.NOTIFICATION_SEND_LOGS);
     if (nlogs.some((l) => l.contractId === id)) {
-      save(KEYS.NOTIFICATION_SEND_LOGS, nlogs.filter((l) => l.contractId !== id));
+      save(
+        KEYS.NOTIFICATION_SEND_LOGS,
+        nlogs.filter((l) => l.contractId !== id)
+      );
     }
 
     purgeRefs('Contract', id);
@@ -204,12 +216,18 @@ export function makeCascadeDeletes(logOperation: CascadeLogOperation) {
 
     const oh = get<سجل_الملكية_tbl>(KEYS.OWNERSHIP_HISTORY);
     if (oh.some((r) => r.رقم_العقار === id)) {
-      save(KEYS.OWNERSHIP_HISTORY, oh.filter((r) => r.رقم_العقار !== id));
+      save(
+        KEYS.OWNERSHIP_HISTORY,
+        oh.filter((r) => r.رقم_العقار !== id)
+      );
     }
 
     const nlogs = get<NotificationSendLogRow>(KEYS.NOTIFICATION_SEND_LOGS);
     if (nlogs.some((l) => l.propertyId === id)) {
-      save(KEYS.NOTIFICATION_SEND_LOGS, nlogs.filter((l) => l.propertyId !== id));
+      save(
+        KEYS.NOTIFICATION_SEND_LOGS,
+        nlogs.filter((l) => l.propertyId !== id)
+      );
     }
 
     const inspections = get<PropertyInspection>(KEYS.INSPECTIONS);
@@ -218,7 +236,10 @@ export function makeCascadeDeletes(logOperation: CascadeLogOperation) {
       for (const ins of toDelete) {
         purgeRefs('Inspection', ins.id);
       }
-      save(KEYS.INSPECTIONS, inspections.filter((x) => x.propertyId !== id));
+      save(
+        KEYS.INSPECTIONS,
+        inspections.filter((x) => x.propertyId !== id)
+      );
     }
 
     purgeRefs('Property', id);
@@ -259,7 +280,10 @@ export function makeCascadeDeletes(logOperation: CascadeLogOperation) {
 
     const offers = get<عروض_الشراء_tbl>(KEYS.SALES_OFFERS);
     if (offers.some((o) => o.رقم_المشتري === id)) {
-      save(KEYS.SALES_OFFERS, offers.filter((o) => o.رقم_المشتري !== id));
+      save(
+        KEYS.SALES_OFFERS,
+        offers.filter((o) => o.رقم_المشتري !== id)
+      );
     }
 
     const agreements = get<اتفاقيات_البيع_tbl>(KEYS.SALES_AGREEMENTS);
@@ -272,7 +296,9 @@ export function makeCascadeDeletes(logOperation: CascadeLogOperation) {
     for (const l of listings) {
       const offers2 = get<عروض_الشراء_tbl>(KEYS.SALES_OFFERS).filter((o) => o.listingId !== l.id);
       save(KEYS.SALES_OFFERS, offers2);
-      const ags2 = get<اتفاقيات_البيع_tbl>(KEYS.SALES_AGREEMENTS).filter((a) => a.listingId === l.id);
+      const ags2 = get<اتفاقيات_البيع_tbl>(KEYS.SALES_AGREEMENTS).filter(
+        (a) => a.listingId === l.id
+      );
       for (const a of ags2) forceDeleteSalesAgreementInternal(a.id);
       purgeRefs('Sales', l.id);
     }
@@ -293,45 +319,60 @@ export function makeCascadeDeletes(logOperation: CascadeLogOperation) {
 
     const nlogs2 = get<NotificationSendLogRow>(KEYS.NOTIFICATION_SEND_LOGS);
     if (nlogs2.some((l) => l.tenantId === id)) {
-      save(KEYS.NOTIFICATION_SEND_LOGS, nlogs2.filter((l) => l.tenantId !== id));
+      save(
+        KEYS.NOTIFICATION_SEND_LOGS,
+        nlogs2.filter((l) => l.tenantId !== id)
+      );
     }
 
     const interactions = get<ClientInteraction>(KEYS.CLIENT_INTERACTIONS);
     if (interactions.some((i) => i.clientId === id)) {
-      save(KEYS.CLIENT_INTERACTIONS, interactions.filter((i) => i.clientId !== id));
+      save(
+        KEYS.CLIENT_INTERACTIONS,
+        interactions.filter((i) => i.clientId !== id)
+      );
     }
 
     const users = get<المستخدمين_tbl>(KEYS.USERS);
     const linkedUsers = users.filter((u) => asUnknownRecord(u)['linkedPersonId'] === id);
     if (linkedUsers.length) {
       const linkedIds = new Set(linkedUsers.map((u) => u.id));
-      save(KEYS.USERS, users.filter((u) => !linkedIds.has(u.id)));
+      save(
+        KEYS.USERS,
+        users.filter((u) => !linkedIds.has(u.id))
+      );
       const perms = get<مستخدم_صلاحية_tbl>(KEYS.USER_PERMISSIONS);
       if (perms.some((p) => linkedIds.has(p.userId))) {
-        save(KEYS.USER_PERMISSIONS, perms.filter((p) => !linkedIds.has(p.userId)));
+        save(
+          KEYS.USER_PERMISSIONS,
+          perms.filter((p) => !linkedIds.has(p.userId))
+        );
       }
     }
 
     const roles = get<شخص_دور_tbl>(KEYS.ROLES);
     if (roles.some((r) => r.رقم_الشخص === id)) {
-      save(KEYS.ROLES, roles.filter((r) => r.رقم_الشخص !== id));
+      save(
+        KEYS.ROLES,
+        roles.filter((r) => r.رقم_الشخص !== id)
+      );
     }
     const blacklist = get<BlacklistRecord>(KEYS.BLACKLIST);
     if (blacklist.some((b) => b.personId === id)) {
-      save(KEYS.BLACKLIST, blacklist.filter((b) => b.personId !== id));
+      save(
+        KEYS.BLACKLIST,
+        blacklist.filter((b) => b.personId !== id)
+      );
     }
 
     purgeRefs('Person', id);
 
-    save(KEYS.PEOPLE, people.filter((p) => p.رقم_الشخص !== id));
-
-    logOperation(
-      'Admin',
-      'حذف',
-      'People',
-      id,
-      'حذف شخص نهائياً (Cascade) مع كل البيانات المرتبطة'
+    save(
+      KEYS.PEOPLE,
+      people.filter((p) => p.رقم_الشخص !== id)
     );
+
+    logOperation('Admin', 'حذف', 'People', id, 'حذف شخص نهائياً (Cascade) مع كل البيانات المرتبطة');
     return ok();
   };
 

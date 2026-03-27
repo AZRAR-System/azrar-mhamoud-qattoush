@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+  useEffect,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle, AlertTriangle, Info, AlertCircle } from 'lucide-react';
 import { audioService } from '@/services/audioService';
@@ -27,7 +34,12 @@ interface DialogOptions {
 
 interface ToastContextType {
   toasts: Toast[];
-  showToast: (message: string, type: ToastType, title?: string, options?: { sound?: boolean }) => void;
+  showToast: (
+    message: string,
+    type: ToastType,
+    title?: string,
+    options?: { sound?: boolean }
+  ) => void;
   removeToast: (id: string) => void;
   success: (message: string, title?: string) => void;
   error: (message: string, title?: string) => void;
@@ -50,66 +62,88 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const showToast = useCallback((message: string, type: ToastType = 'info', title?: string, options?: { sound?: boolean }) => {
-    const id = Math.random().toString(36).substr(2, 9);
-    const duration = type === 'error' ? 5000 : type === 'warning' ? 4500 : 3500;
-    
-    setToasts(prev => [...prev, { id, type, message, title, duration }]);
+  const showToast = useCallback(
+    (message: string, type: ToastType = 'info', title?: string, options?: { sound?: boolean }) => {
+      const id = Math.random().toString(36).substr(2, 9);
+      const duration = type === 'error' ? 5000 : type === 'warning' ? 4500 : 3500;
 
-    // Play sound (unless suppressed)
-    if (options?.sound !== false) {
-      type PlaySoundInput = Parameters<typeof audioService.playSound>[0];
-      type SoundKey = Extract<PlaySoundInput, string>;
+      setToasts((prev) => [...prev, { id, type, message, title, duration }]);
 
-      const soundMap: Record<ToastType, SoundKey> = {
-        success: 'success',
-        error: 'error',
-        warning: 'warning',
-        info: 'info',
-        delete: 'delete'
-      };
-      audioService.playSound(soundMap[type]);
-    }
+      // Play sound (unless suppressed)
+      if (options?.sound !== false) {
+        type PlaySoundInput = Parameters<typeof audioService.playSound>[0];
+        type SoundKey = Extract<PlaySoundInput, string>;
 
-    // Auto remove
-    setTimeout(() => {
-      removeToast(id);
-    }, duration);
-  }, [removeToast]);
+        const soundMap: Record<ToastType, SoundKey> = {
+          success: 'success',
+          error: 'error',
+          warning: 'warning',
+          info: 'info',
+          delete: 'delete',
+        };
+        audioService.playSound(soundMap[type]);
+      }
+
+      // Auto remove
+      setTimeout(() => {
+        removeToast(id);
+      }, duration);
+    },
+    [removeToast]
+  );
 
   // Connect notification service to toast context on mount
   useEffect(() => {
     notificationService.setHandler({
-      onNotify: (message: string, type: 'success' | 'error' | 'warning' | 'info' | 'delete', title?: string) => {
+      onNotify: (
+        message: string,
+        type: 'success' | 'error' | 'warning' | 'info' | 'delete',
+        title?: string
+      ) => {
         // This will be called by notificationService to show toast
         // notificationService already handles audio; avoid double beeps.
         showToast(message, type, title, { sound: false });
-      }
+      },
     });
   }, [showToast]);
 
-  const success = useCallback((message: string, title?: string) => {
-    showToast(message, 'success', title || 'نجاح');
-  }, [showToast]);
+  const success = useCallback(
+    (message: string, title?: string) => {
+      showToast(message, 'success', title || 'نجاح');
+    },
+    [showToast]
+  );
 
-  const error = useCallback((message: string, title?: string) => {
-    showToast(message, 'error', title || 'خطأ');
-  }, [showToast]);
+  const error = useCallback(
+    (message: string, title?: string) => {
+      showToast(message, 'error', title || 'خطأ');
+    },
+    [showToast]
+  );
 
-  const warning = useCallback((message: string, title?: string) => {
-    showToast(message, 'warning', title || 'تحذير');
-  }, [showToast]);
+  const warning = useCallback(
+    (message: string, title?: string) => {
+      showToast(message, 'warning', title || 'تحذير');
+    },
+    [showToast]
+  );
 
-  const info = useCallback((message: string, title?: string) => {
-    showToast(message, 'info', title || 'معلومة');
-  }, [showToast]);
+  const info = useCallback(
+    (message: string, title?: string) => {
+      showToast(message, 'info', title || 'معلومة');
+    },
+    [showToast]
+  );
 
-  const deleteToast = useCallback((message: string, title?: string) => {
-    showToast(message, 'delete', title || 'تم الحذف');
-  }, [showToast]);
+  const deleteToast = useCallback(
+    (message: string, title?: string) => {
+      showToast(message, 'delete', title || 'تم الحذف');
+    },
+    [showToast]
+  );
 
   const confirm = useCallback((options: DialogOptions): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -141,18 +175,27 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [dialog, dialogResolve]);
 
   return (
-    <ToastContext.Provider value={{ toasts, showToast, removeToast, success, error, warning, info, delete: deleteToast, confirm }}>
+    <ToastContext.Provider
+      value={{
+        toasts,
+        showToast,
+        removeToast,
+        success,
+        error,
+        warning,
+        info,
+        delete: deleteToast,
+        confirm,
+      }}
+    >
       {children}
-      {portalReady && typeof document !== 'undefined' &&
+      {portalReady &&
+        typeof document !== 'undefined' &&
         createPortal(
           <>
             <ToastContainer toasts={toasts} removeToast={removeToast} />
             {dialog && (
-              <ConfirmDialog
-                options={dialog}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-              />
+              <ConfirmDialog options={dialog} onConfirm={handleConfirm} onCancel={handleCancel} />
             )}
           </>,
           document.body
@@ -170,10 +213,13 @@ export const useToast = () => {
 };
 
 // Toast Container Component
-const ToastContainer: React.FC<{ toasts: Toast[], removeToast: (id: string) => void }> = ({ toasts, removeToast }) => {
+const ToastContainer: React.FC<{ toasts: Toast[]; removeToast: (id: string) => void }> = ({
+  toasts,
+  removeToast,
+}) => {
   return (
     <div className="fixed bottom-6 right-6 layer-toast flex flex-col gap-3 pointer-events-none">
-      {toasts.map(toast => (
+      {toasts.map((toast) => (
         <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
       ))}
     </div>
@@ -181,9 +227,10 @@ const ToastContainer: React.FC<{ toasts: Toast[], removeToast: (id: string) => v
 };
 
 // Individual Toast Component
-const Toast: React.FC<{ toast: Toast, onClose: () => void }> = ({ toast, onClose }) => {
+const Toast: React.FC<{ toast: Toast; onClose: () => void }> = ({ toast, onClose }) => {
   const getStyles = (type: ToastType) => {
-    const baseStyles = 'pointer-events-auto w-full max-w-sm rounded-xl shadow-2xl border p-4 flex items-start gap-3 animate-slide-up';
+    const baseStyles =
+      'pointer-events-auto w-full max-w-sm rounded-xl shadow-2xl border p-4 flex items-start gap-3 animate-slide-up';
     const styles: Record<ToastType, string> = {
       success: `${baseStyles} bg-gradient-to-r from-green-50 to-white dark:from-green-900/30 dark:to-slate-800 border-green-500`,
       error: `${baseStyles} bg-gradient-to-r from-red-50 to-white dark:from-red-900/30 dark:to-slate-800 border-red-500`,
@@ -216,9 +263,7 @@ const Toast: React.FC<{ toast: Toast, onClose: () => void }> = ({ toast, onClose
       </div>
 
       <div className="flex-1 pt-0.5">
-        <h4 className="font-bold text-sm mb-1 text-slate-900 dark:text-white">
-          {toast.title}
-        </h4>
+        <h4 className="font-bold text-sm mb-1 text-slate-900 dark:text-white">{toast.title}</h4>
         <p className="text-sm opacity-85 leading-snug text-slate-700 dark:text-slate-300">
           {toast.message}
         </p>
@@ -236,9 +281,9 @@ const Toast: React.FC<{ toast: Toast, onClose: () => void }> = ({ toast, onClose
 
 // Confirm Dialog Component
 const ConfirmDialog: React.FC<{
-  options: DialogOptions,
-  onConfirm: () => void,
-  onCancel: () => void
+  options: DialogOptions;
+  onConfirm: () => void;
+  onCancel: () => void;
 }> = ({ options, onConfirm, onCancel }) => {
   return (
     <AppModal
@@ -264,7 +309,9 @@ const ConfirmDialog: React.FC<{
           <button
             onClick={onConfirm}
             className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium transition-colors ${
-              options.isDangerous ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+              options.isDangerous
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-indigo-600 hover:bg-indigo-700'
             }`}
           >
             {options.confirmText || 'تأكيد'}

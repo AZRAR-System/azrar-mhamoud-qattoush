@@ -1,7 +1,7 @@
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
- * 
+ *
  * Notification System Examples - Test Cases
  */
 
@@ -9,48 +9,34 @@ import { notificationService } from '@/services/notificationService';
 import { useNotification } from '@/hooks/useNotification';
 
 type UnknownRecord = Record<string, unknown>;
-const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null;
 
 /**
  * Example 1: Basic Notifications with Sound
- * 
+ *
  * استخدام الإشعارات الأساسية مع الصوت
  */
 export const example1_basicNotifications = () => {
   // Success notification
-  notificationService.success(
-    'تم حفظ البيانات بنجاح',
-    'حفظ ناجح'
-  );
+  notificationService.success('تم حفظ البيانات بنجاح', 'حفظ ناجح');
 
   // Error notification
-  notificationService.error(
-    'فشل الاتصال بالخادم',
-    'خطأ في الاتصال'
-  );
+  notificationService.error('فشل الاتصال بالخادم', 'خطأ في الاتصال');
 
   // Warning notification
-  notificationService.warning(
-    'هناك تحديثات معلقة',
-    'تحذير'
-  );
+  notificationService.warning('هناك تحديثات معلقة', 'تحذير');
 
   // Info notification
-  notificationService.info(
-    'آخر تحديث: اليوم في 10:30 صباحاً',
-    'معلومة'
-  );
+  notificationService.info('آخر تحديث: اليوم في 10:30 صباحاً', 'معلومة');
 
   // Delete notification
-  notificationService.delete(
-    'تم حذف السجل بنجاح',
-    'حذف'
-  );
+  notificationService.delete('تم حذف السجل بنجاح', 'حذف');
 };
 
 /**
  * Example 2: Business Event Notifications
- * 
+ *
  * إشعارات أحداث الأعمال
  */
 export const example2_businessEvents = () => {
@@ -81,7 +67,7 @@ export const example2_businessEvents = () => {
 
 /**
  * Example 3: Using in React Component with Hook
- * 
+ *
  * استخدام الإشعارات في مكون React
  */
 export const example3_reactComponent = () => {
@@ -96,7 +82,7 @@ export const example3_reactComponent = () => {
 
       // Show notification
       notify.success('تم إنشاء العقد بنجاح');
-      
+
       // Trigger business event notification
       notify.contractCreated(contractId, tenantName);
     } catch (error) {
@@ -110,47 +96,35 @@ export const example3_reactComponent = () => {
 
 /**
  * Example 4: Custom Notifications with Options
- * 
+ *
  * إشعارات مخصصة مع خيارات متقدمة
  */
 export const example4_customOptions = () => {
-  notificationService.notify(
-    'تم معالجة الطلب بنجاح وسيتم التواصل معك قريباً',
-    'success',
-    {
-      title: 'طلب معالج',
-      duration: 6000,  // عرض لمدة 6 ثواني
-      sound: true,
-      showNotification: true,
-      category: 'requests'
-    }
-  );
+  notificationService.notify('تم معالجة الطلب بنجاح وسيتم التواصل معك قريباً', 'success', {
+    title: 'طلب معالج',
+    duration: 6000, // عرض لمدة 6 ثواني
+    sound: true,
+    showNotification: true,
+    category: 'requests',
+  });
 
   // Without sound
-  notificationService.notify(
-    'تم تحديث البيانات',
-    'info',
-    {
-      sound: false,
-      category: 'updates'
-    }
-  );
+  notificationService.notify('تم تحديث البيانات', 'info', {
+    sound: false,
+    category: 'updates',
+  });
 
   // Silent notification (for logging only)
-  notificationService.notify(
-    'إجراء في الخلفية',
-    'info',
-    {
-      showNotification: false,
-      sound: false,
-      category: 'background'
-    }
-  );
+  notificationService.notify('إجراء في الخلفية', 'info', {
+    showNotification: false,
+    sound: false,
+    category: 'background',
+  });
 };
 
 /**
  * Example 5: Notification Logging
- * 
+ *
  * الحصول على سجل الإشعارات
  */
 export const example5_notifications_logging = () => {
@@ -159,11 +133,11 @@ export const example5_notifications_logging = () => {
   console.log('All notifications:', logs);
 
   // Filter by type
-  const successLogs = logs.filter(log => log.type === 'success');
+  const successLogs = logs.filter((log) => log.type === 'success');
   console.log('Success notifications:', successLogs);
 
   // Filter by category
-  const contractLogs = logs.filter(log => log.category === 'contracts');
+  const contractLogs = logs.filter((log) => log.category === 'contracts');
   console.log('Contract notifications:', contractLogs);
 
   // Clear logs
@@ -172,7 +146,7 @@ export const example5_notifications_logging = () => {
 
 /**
  * Example 6: Payment Flow with Notifications
- * 
+ *
  * تدفق الدفع مع الإشعارات
  */
 export const example6_paymentFlow = () => {
@@ -188,10 +162,7 @@ export const example6_paymentFlow = () => {
 
       if (paymentProcessed) {
         // Notify payment received
-        notificationService.success(
-          `تم استلام دفعة بقيمة ${amount} د.أ`,
-          'دفعة مستقبلة'
-        );
+        notificationService.success(`تم استلام دفعة بقيمة ${amount} د.أ`, 'دفعة مستقبلة');
 
         // If it was overdue
         if (daysLate > 0) {
@@ -220,7 +191,7 @@ export const example6_paymentFlow = () => {
 
 /**
  * Example 7: Real-time Alerts
- * 
+ *
  * التنبيهات الفورية
  */
 export const example7_realtimeAlerts = () => {
@@ -236,10 +207,7 @@ export const example7_realtimeAlerts = () => {
       const tenant = String(inst['tenant'] ?? '').trim();
 
       if (dueDate === today && status === 'unpaid') {
-        notificationService.warning(
-          `دفعة مستحقة اليوم: ${amount} د.أ من ${tenant}`,
-          'دفعة مستحقة'
-        );
+        notificationService.warning(`دفعة مستحقة اليوم: ${amount} د.أ من ${tenant}`, 'دفعة مستحقة');
       }
     });
   };
@@ -278,11 +246,10 @@ export const example7_realtimeAlerts = () => {
         endDate < thirtyDaysLater &&
         String(contract['status'] ?? '').trim() === 'active'
       ) {
-        const daysRemaining = Math.floor((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        notificationService.warning(
-          `العقد ينتهي خلال ${daysRemaining} يوم`,
-          'تجديد عقد'
+        const daysRemaining = Math.floor(
+          (endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
         );
+        notificationService.warning(`العقد ينتهي خلال ${daysRemaining} يوم`, 'تجديد عقد');
       }
     });
   };
@@ -290,17 +257,17 @@ export const example7_realtimeAlerts = () => {
   return {
     checkDueInstallments,
     checkOverdueInstallments,
-    checkExpiringContracts
+    checkExpiringContracts,
   };
 };
 
 /**
  * Example 8: Error Handling with Notifications
- * 
+ *
  * معالجة الأخطاء مع الإشعارات
  */
 export const example8_errorHandling = () => {
-  const handleDataOperation = async <T,>(operation: () => Promise<T>): Promise<T> => {
+  const handleDataOperation = async <T>(operation: () => Promise<T>): Promise<T> => {
     try {
       const result = await operation();
       notificationService.success('تمت العملية بنجاح');
@@ -308,11 +275,11 @@ export const example8_errorHandling = () => {
     } catch (error: unknown) {
       // User-friendly error messages
       const errorMap: Record<string, string> = {
-        'NETWORK_ERROR': 'فشل الاتصال بالخادم',
-        'VALIDATION_ERROR': 'البيانات المدخلة غير صحيحة',
-        'AUTH_ERROR': 'ليس لديك صلاحيات كافية',
-        'NOT_FOUND': 'السجل المطلوب غير موجود',
-        'CONFLICT': 'البيانات متضاربة مع بيانات موجودة'
+        NETWORK_ERROR: 'فشل الاتصال بالخادم',
+        VALIDATION_ERROR: 'البيانات المدخلة غير صحيحة',
+        AUTH_ERROR: 'ليس لديك صلاحيات كافية',
+        NOT_FOUND: 'السجل المطلوب غير موجود',
+        CONFLICT: 'البيانات متضاربة مع بيانات موجودة',
       };
 
       const code = isRecord(error) ? String(error['code'] ?? '').trim() : '';
@@ -322,10 +289,7 @@ export const example8_errorHandling = () => {
 
       // Log critical errors
       if (isRecord(error) && Boolean(error['critical'])) {
-        notificationService.systemAlert(
-          `خطأ حرج: ${errorMessage}`,
-          'critical'
-        );
+        notificationService.systemAlert(`خطأ حرج: ${errorMessage}`, 'critical');
       }
 
       throw error;
@@ -337,15 +301,11 @@ export const example8_errorHandling = () => {
 
 /**
  * Example 9: Batch Notifications
- * 
+ *
  * إشعارات دفعية
  */
 export const example9_batchNotifications = () => {
-  const notifyProcessingComplete = (
-    successful: number,
-    failed: number,
-    total: number
-  ) => {
+  const notifyProcessingComplete = (successful: number, failed: number, total: number) => {
     if (failed === 0) {
       notificationService.success(
         `تمت معالجة ${successful} من ${total} سجلات بنجاح`,
@@ -365,7 +325,7 @@ export const example9_batchNotifications = () => {
 
 /**
  * Example 10: Integration Test
- * 
+ *
  * اختبار التكامل الكامل
  */
 export const example10_integrationTest = async () => {

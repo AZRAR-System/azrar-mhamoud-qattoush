@@ -1,7 +1,7 @@
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
- * 
+ *
  * Custom Hook for using Notification Service
  */
 
@@ -42,13 +42,19 @@ export const useNotification = () => {
     notificationService.installmentDue(amount, tenantName, daysUntilDue);
   }, []);
 
-  const installmentOverdue = useCallback((amount: number, tenantName: string, daysOverdue: number) => {
-    notificationService.installmentOverdue(amount, tenantName, daysOverdue);
-  }, []);
+  const installmentOverdue = useCallback(
+    (amount: number, tenantName: string, daysOverdue: number) => {
+      notificationService.installmentOverdue(amount, tenantName, daysOverdue);
+    },
+    []
+  );
 
-  const contractEnding = useCallback((contractId: string, tenantName: string, daysRemaining: number) => {
-    notificationService.contractEnding(contractId, tenantName, daysRemaining);
-  }, []);
+  const contractEnding = useCallback(
+    (contractId: string, tenantName: string, daysRemaining: number) => {
+      notificationService.contractEnding(contractId, tenantName, daysRemaining);
+    },
+    []
+  );
 
   const maintenanceRequired = useCallback((propertyCode: string, issueType: string) => {
     notificationService.maintenanceRequired(propertyCode, issueType);
@@ -62,9 +68,12 @@ export const useNotification = () => {
     notificationService.commissionCalculated(amount, type);
   }, []);
 
-  const systemAlert = useCallback((message: string, severity: 'critical' | 'warning' | 'info' = 'warning') => {
-    notificationService.systemAlert(message, severity);
-  }, []);
+  const systemAlert = useCallback(
+    (message: string, severity: 'critical' | 'warning' | 'info' = 'warning') => {
+      notificationService.systemAlert(message, severity);
+    },
+    []
+  );
 
   return {
     // Basic notifications
@@ -73,7 +82,7 @@ export const useNotification = () => {
     warning,
     info,
     delete: delete_,
-    
+
     // Business notifications
     contractCreated,
     installmentPaid,

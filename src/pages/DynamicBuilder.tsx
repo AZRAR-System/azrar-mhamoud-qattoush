@@ -1,5 +1,4 @@
-﻿
-import React, { useMemo, useState, useEffect } from 'react';
+﻿import React, { useMemo, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { useToast } from '@/context/ToastContext';
 import { DS } from '@/constants/designSystem';
@@ -7,22 +6,9 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 
-import {
-  DynamicTable,
-  DynamicRecord,
-  DynamicFormField,
-  FieldType
-} from '@/types';
+import { DynamicTable, DynamicRecord, DynamicFormField, FieldType } from '@/types';
 
-import {
-  Plus,
-  Database,
-  Table,
-  Type,
-  CheckCircle,
-  Trash2,
-  Wrench
-} from 'lucide-react';
+import { Plus, Database, Table, Type, CheckCircle, Trash2, Wrench } from 'lucide-react';
 
 import { DatePicker } from '@/components/ui/DatePicker';
 
@@ -34,7 +20,7 @@ const SYSTEM_FORMS = [
   { id: 'properties', label: 'نموذج العقارات' },
   { id: 'contracts', label: 'نموذج العقود' },
   { id: 'installments', label: 'نموذج الكمبيالات' },
-  { id: 'maintenance', label: 'نموذج الصيانة' }
+  { id: 'maintenance', label: 'نموذج الصيانة' },
 ];
 
 const getErrorMessage = (error: unknown): string | undefined => {
@@ -55,7 +41,14 @@ export const DynamicBuilder: React.FC = () => {
   const [activeTable, setActiveTable] = useState<string | null>(null);
   const [records, setRecords] = useState<DynamicRecord[]>([]);
 
-  const recordsPageSize = useResponsivePageSize({ base: 10, sm: 12, md: 16, lg: 20, xl: 24, '2xl': 30 });
+  const recordsPageSize = useResponsivePageSize({
+    base: 10,
+    sm: 12,
+    md: 16,
+    lg: 20,
+    xl: 24,
+    '2xl': 30,
+  });
   const [recordsPage, setRecordsPage] = useState(1);
   const recordsPageCount = useMemo(
     () => Math.max(1, Math.ceil((records.length || 0) / recordsPageSize)),
@@ -97,7 +90,8 @@ export const DynamicBuilder: React.FC = () => {
   useEffect(() => {
     const t = DbService.getDynamicTables();
     setTables(t);
-    if (t.length > 0 && (!activeTable || !t.some(x => x.id === activeTable))) setActiveTable(t[0].id);
+    if (t.length > 0 && (!activeTable || !t.some((x) => x.id === activeTable)))
+      setActiveTable(t[0].id);
     if (t.length === 0 && activeTable) setActiveTable(null);
   }, [activeTable, dbSignal]);
 
@@ -156,7 +150,7 @@ export const DynamicBuilder: React.FC = () => {
     if (activeTable) {
       DbService.addDynamicRecord({
         tableId: activeTable,
-        ...newRecordData
+        ...newRecordData,
       });
       setRecords(DbService.getDynamicRecords(activeTable));
       setNewRecordData({});
@@ -200,9 +194,10 @@ export const DynamicBuilder: React.FC = () => {
   // ---------------------------------------------------
   // UI CLASSES
   // ---------------------------------------------------
-  const inputClass = "w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none";
-  const selectClass = "w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm rounded-lg p-2 appearance-none focus:ring-2 focus:ring-indigo-500 outline-none";
-
+  const inputClass =
+    'w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none';
+  const selectClass =
+    'w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm rounded-lg p-2 appearance-none focus:ring-2 focus:ring-indigo-500 outline-none';
 
   // ###################################################
   // ###################################################
@@ -211,7 +206,6 @@ export const DynamicBuilder: React.FC = () => {
   // ###################################################
   return (
     <div className="flex flex-col h-full animate-fade-in pb-6">
-      
       {/* HEADER */}
       <div className={DS.components.pageHeader}>
         <div>
@@ -223,27 +217,26 @@ export const DynamicBuilder: React.FC = () => {
         </div>
       </div>
 
-
       <div className="flex gap-6 flex-1">
-
         {/* ---------------------------------- */}
         {/*       LEFT: Form Field Builder      */}
         {/* ---------------------------------- */}
         <div className="w-80 app-card p-4">
-          
           <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
             <Wrench size={16} /> الحقول الإضافية للنماذج
           </h3>
 
           <div className="space-y-2 mb-4">
-            {SYSTEM_FORMS.map(f => (
+            {SYSTEM_FORMS.map((f) => (
               <button
                 key={f.id}
                 onClick={() => setActiveForm(f.id)}
                 className={`w-full text-right px-3 py-2 rounded-lg text-sm font-medium 
-                  ${activeForm === f.id 
-                    ? 'bg-indigo-600 text-white' 
-                    : 'bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600'}`}
+                  ${
+                    activeForm === f.id
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600'
+                  }`}
               >
                 {f.label}
               </button>
@@ -252,26 +245,32 @@ export const DynamicBuilder: React.FC = () => {
 
           {/* Add new form field */}
           <div className="p-3 bg-gray-50 dark:bg-slate-700/40 rounded-xl border border-gray-200 dark:border-slate-600 mb-5">
-            <h4 className="text-xs text-slate-600 dark:text-slate-300 mb-2 font-bold">إضافة حقل جديد</h4>
+            <h4 className="text-xs text-slate-600 dark:text-slate-300 mb-2 font-bold">
+              إضافة حقل جديد
+            </h4>
 
             <input
               placeholder="عنوان الحقل"
               className={`${inputClass} mb-2`}
               value={newFormField.label}
-              onChange={e => setNewFormField({ ...newFormField, label: e.target.value })}
+              onChange={(e) => setNewFormField({ ...newFormField, label: e.target.value })}
             />
 
             <input
               placeholder="اسم برمجي (owner_phone)"
               className={`${inputClass} mb-2`}
               value={newFormField.name}
-              onChange={e => setNewFormField({ ...newFormField, name: e.target.value.replace(/\s+/g, '_') })}
+              onChange={(e) =>
+                setNewFormField({ ...newFormField, name: e.target.value.replace(/\s+/g, '_') })
+              }
             />
 
             <select
               className={`${selectClass} mb-3`}
               value={newFormField.type}
-              onChange={e => setNewFormField({ ...newFormField, type: e.target.value as FieldType })}
+              onChange={(e) =>
+                setNewFormField({ ...newFormField, type: e.target.value as FieldType })
+              }
             >
               <option value="text">نص</option>
               <option value="number">رقم</option>
@@ -293,7 +292,7 @@ export const DynamicBuilder: React.FC = () => {
             </h4>
 
             <div className="space-y-2 max-h-80 overflow-y-auto">
-              {formFields.map(f => (
+              {formFields.map((f) => (
                 <div
                   key={f.id}
                   className="p-2 bg-gray-50 dark:bg-slate-700 rounded-xl flex justify-between items-center text-sm"
@@ -314,22 +313,22 @@ export const DynamicBuilder: React.FC = () => {
               )}
             </div>
           </div>
-
         </div>
-
 
         {/* ---------------------------------- */}
         {/*       RIGHT: Dynamic Tables         */}
         {/* ---------------------------------- */}
         <div className="flex-1 app-card flex flex-col">
-
           {/* TABLES LIST */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <Table size={16} /> الجداول المخصصة
             </h3>
 
-            <button onClick={() => setShowNewTable(true)} className="text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg">
+            <button
+              onClick={() => setShowNewTable(true)}
+              className="text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg"
+            >
               <Plus size={18} />
             </button>
           </div>
@@ -341,7 +340,7 @@ export const DynamicBuilder: React.FC = () => {
                 className={`${inputClass} mb-2`}
                 placeholder="اسم الجدول الجديد"
                 value={newTableName}
-                onChange={e => setNewTableName(e.target.value)}
+                onChange={(e) => setNewTableName(e.target.value)}
               />
 
               <button
@@ -355,14 +354,16 @@ export const DynamicBuilder: React.FC = () => {
 
           {/* SELECT TABLE */}
           <div className="p-2 flex gap-2 overflow-x-auto">
-            {tables.map(t => (
+            {tables.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setActiveTable(t.id)}
                 className={`px-4 py-2 rounded-xl text-sm font-bold 
-                  ${activeTable === t.id
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'bg-gray-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
+                  ${
+                    activeTable === t.id
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'bg-gray-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
               >
                 {t.title}
               </button>
@@ -374,7 +375,9 @@ export const DynamicBuilder: React.FC = () => {
             <>
               {/* ADD FIELD BUTTON */}
               <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-                <h4 className="font-bold text-lg">{tables.find(t => t.id === activeTable)?.title}</h4>
+                <h4 className="font-bold text-lg">
+                  {tables.find((t) => t.id === activeTable)?.title}
+                </h4>
 
                 <button
                   onClick={() => setShowNewField(!showNewField)}
@@ -387,25 +390,26 @@ export const DynamicBuilder: React.FC = () => {
               {/* CREATE FIELD UI */}
               {showNewField && (
                 <div className="p-4 grid grid-cols-4 gap-4 border-b border-gray-200 dark:border-slate-700 bg-indigo-50/50 dark:bg-slate-900/20">
-
                   <input
                     className={inputClass}
                     placeholder="عنوان الحقل"
                     value={newField.label}
-                    onChange={e => setNewField({ ...newField, label: e.target.value })}
+                    onChange={(e) => setNewField({ ...newField, label: e.target.value })}
                   />
 
                   <input
                     className={`${inputClass} font-mono`}
                     placeholder="field_name"
                     value={newField.name}
-                    onChange={e => setNewField({ ...newField, name: e.target.value })}
+                    onChange={(e) => setNewField({ ...newField, name: e.target.value })}
                   />
 
                   <select
                     className={selectClass}
                     value={newField.type}
-                    onChange={e => setNewField({ ...newField, type: e.target.value as FieldType })}
+                    onChange={(e) =>
+                      setNewField({ ...newField, type: e.target.value as FieldType })
+                    }
                   >
                     <option value="text">نص</option>
                     <option value="number">رقم</option>
@@ -428,36 +432,40 @@ export const DynamicBuilder: React.FC = () => {
                 </h4>
 
                 <div className="grid grid-cols-3 gap-4">
-                  {tables.find(t => t.id === activeTable)?.fields.map(f => {
-                    const currentValue = newRecordData[f.name];
-                    const inputValue =
-                      typeof currentValue === 'string' || typeof currentValue === 'number'
-                        ? String(currentValue)
-                        : '';
+                  {tables
+                    .find((t) => t.id === activeTable)
+                    ?.fields.map((f) => {
+                      const currentValue = newRecordData[f.name];
+                      const inputValue =
+                        typeof currentValue === 'string' || typeof currentValue === 'number'
+                          ? String(currentValue)
+                          : '';
 
-                    return (
-                      <div key={f.id}>
-                        <label className="block text-xs mb-1">{f.label}</label>
+                      return (
+                        <div key={f.id}>
+                          <label className="block text-xs mb-1">{f.label}</label>
 
-                        {f.type === 'date' ? (
-                          <DatePicker
-                            value={typeof currentValue === 'string' ? currentValue : undefined}
-                            onChange={d => setNewRecordData({ ...newRecordData, [f.name]: d })}
-                          />
-                        ) : (
-                          <input
-                            type={f.type === 'number' ? 'number' : 'text'}
-                            className={inputClass}
-                            value={inputValue}
-                            onChange={e => setNewRecordData({ ...newRecordData, [f.name]: e.target.value })}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
+                          {f.type === 'date' ? (
+                            <DatePicker
+                              value={typeof currentValue === 'string' ? currentValue : undefined}
+                              onChange={(d) => setNewRecordData({ ...newRecordData, [f.name]: d })}
+                            />
+                          ) : (
+                            <input
+                              type={f.type === 'number' ? 'number' : 'text'}
+                              className={inputClass}
+                              value={inputValue}
+                              onChange={(e) =>
+                                setNewRecordData({ ...newRecordData, [f.name]: e.target.value })
+                              }
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
 
-                {(tables.find(t => t.id === activeTable)?.fields.length ?? 0) > 0 && (
+                {(tables.find((t) => t.id === activeTable)?.fields.length ?? 0) > 0 && (
                   <button
                     onClick={handleAddRecord}
                     className="mt-4 bg-green-600 text-white px-6 py-2 rounded-xl text-sm font-bold"
@@ -470,26 +478,38 @@ export const DynamicBuilder: React.FC = () => {
               {/* DATA TABLE */}
               <div className="flex-1 p-4 overflow-y-auto">
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {records.length.toLocaleString()} سجل</div>
-                  <PaginationControls page={recordsPage} pageCount={recordsPageCount} onPageChange={setRecordsPage} />
+                  <div className="text-xs text-slate-600 dark:text-slate-400">
+                    الإجمالي: {records.length.toLocaleString()} سجل
+                  </div>
+                  <PaginationControls
+                    page={recordsPage}
+                    pageCount={recordsPageCount}
+                    onPageChange={setRecordsPage}
+                  />
                 </div>
                 <table className="w-full text-right border-collapse">
                   <thead>
                     <tr className="bg-gray-100 text-xs">
-                      {tables.find(t => t.id === activeTable)?.fields.map(f => (
-                        <th key={f.id} className="p-3 border">{f.label}</th>
-                      ))}
+                      {tables
+                        .find((t) => t.id === activeTable)
+                        ?.fields.map((f) => (
+                          <th key={f.id} className="p-3 border">
+                            {f.label}
+                          </th>
+                        ))}
                     </tr>
                   </thead>
 
                   <tbody>
-                    {visibleRecords.map(r => (
+                    {visibleRecords.map((r) => (
                       <tr key={r.id} className="border-b">
-                        {tables.find(t => t.id === activeTable)?.fields.map(f => (
-                          <td key={f.id} className="p-3 border">
-                            {r[f.name] ? String(r[f.name]) : '-'}
-                          </td>
-                        ))}
+                        {tables
+                          .find((t) => t.id === activeTable)
+                          ?.fields.map((f) => (
+                            <td key={f.id} className="p-3 border">
+                              {r[f.name] ? String(r[f.name]) : '-'}
+                            </td>
+                          ))}
                       </tr>
                     ))}
 
@@ -503,7 +523,6 @@ export const DynamicBuilder: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-400">
@@ -515,4 +534,3 @@ export const DynamicBuilder: React.FC = () => {
     </div>
   );
 };
-

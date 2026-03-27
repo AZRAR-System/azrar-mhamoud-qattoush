@@ -7,8 +7,9 @@ export const safeCopyToClipboard = async (text: string): Promise<ClipboardWriteR
   if (!payload) return { ok: false, error: 'empty' };
 
   try {
-    const bridge = (window as unknown as { desktopDb?: { writeClipboardText?: (t: string) => Promise<unknown> } })
-      .desktopDb;
+    const bridge = (
+      window as unknown as { desktopDb?: { writeClipboardText?: (t: string) => Promise<unknown> } }
+    ).desktopDb;
 
     if (bridge?.writeClipboardText) {
       const res = await bridge.writeClipboardText(payload);

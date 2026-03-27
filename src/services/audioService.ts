@@ -5,7 +5,16 @@
 
 import { storage } from '@/services/storage';
 
-type SoundType = 'success' | 'error' | 'warning' | 'info' | 'delete' | 'add' | 'save' | 'cancel' | 'confirm';
+type SoundType =
+  | 'success'
+  | 'error'
+  | 'warning'
+  | 'info'
+  | 'delete'
+  | 'add'
+  | 'save'
+  | 'cancel'
+  | 'confirm';
 
 interface SoundConfig {
   volume: number;
@@ -21,7 +30,7 @@ const _SOUND_CONFIG: Record<SoundType, string> = {
   add: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
   save: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
   cancel: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
-  confirm: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA=='
+  confirm: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
 };
 
 class AudioService {
@@ -77,7 +86,8 @@ class AudioService {
     const type: SoundType = typeof input === 'string' ? input : input.type;
 
     try {
-      const webkitAudioContext = (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const webkitAudioContext = (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
       const AudioContextCtor = window.AudioContext || webkitAudioContext;
       if (!AudioContextCtor) throw new Error('AudioContext not available');
 
@@ -120,7 +130,7 @@ class AudioService {
       add: { frequency: 900, volume: 0.7, modulate: false },
       save: { frequency: 750, volume: 0.75, modulate: true },
       cancel: { frequency: 400, volume: 0.7, modulate: false },
-      confirm: { frequency: 650, volume: 0.75, modulate: true }
+      confirm: { frequency: 650, volume: 0.75, modulate: true },
     };
     return settings[type];
   }

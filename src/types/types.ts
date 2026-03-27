@@ -1,4 +1,3 @@
-
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
@@ -15,7 +14,13 @@ export type ContractStatus = 'نشط' | 'مجدد' | 'منتهي' | 'قريب ا
 export type PropertyStatus = 'شاغر' | 'مؤجر' | 'تحت الصيانة' | 'معروض للبيع';
 export type MaintenanceStatus = 'مفتوح' | 'قيد التنفيذ' | 'مغلق';
 export type MaintenancePriority = 'منخفضة' | 'متوسطة' | 'عالية';
-export type AlertCategory = 'Financial' | 'DataQuality' | 'Risk' | 'Expiry' | 'System' | 'SmartBehavior';
+export type AlertCategory =
+  | 'Financial'
+  | 'DataQuality'
+  | 'Risk'
+  | 'Expiry'
+  | 'System'
+  | 'SmartBehavior';
 
 export interface DbResult<T> {
   success: boolean;
@@ -23,15 +28,32 @@ export interface DbResult<T> {
   data?: T;
 }
 
-export type PermissionCode = 
-  | 'ADD_PERSON' | 'EDIT_PERSON' | 'DELETE_PERSON'
-  | 'ADD_PROPERTY' | 'EDIT_PROPERTY' | 'DELETE_PROPERTY'
-  | 'CREATE_CONTRACT' | 'EDIT_CONTRACT' | 'DELETE_CONTRACT'
-  | 'EDIT_MAINTENANCE' | 'CLOSE_MAINTENANCE' | 'DELETE_MAINTENANCE'
-  | 'SETTINGS_VIEWER' | 'SETTINGS_ADMIN' | 'SETTINGS_AUDIT'
-  | 'VIEW_REPORTS' | 'MANAGE_USERS'
-  | 'BLACKLIST_VIEW' | 'BLACKLIST_ADD' | 'BLACKLIST_REMOVE'
-  | 'PRINT_PREVIEW' | 'PRINT_EXECUTE' | 'PRINT_EXPORT' | 'PRINT_SETTINGS_EDIT' | 'PRINT_TEMPLATES_EDIT';
+export type PermissionCode =
+  | 'ADD_PERSON'
+  | 'EDIT_PERSON'
+  | 'DELETE_PERSON'
+  | 'ADD_PROPERTY'
+  | 'EDIT_PROPERTY'
+  | 'DELETE_PROPERTY'
+  | 'CREATE_CONTRACT'
+  | 'EDIT_CONTRACT'
+  | 'DELETE_CONTRACT'
+  | 'EDIT_MAINTENANCE'
+  | 'CLOSE_MAINTENANCE'
+  | 'DELETE_MAINTENANCE'
+  | 'SETTINGS_VIEWER'
+  | 'SETTINGS_ADMIN'
+  | 'SETTINGS_AUDIT'
+  | 'VIEW_REPORTS'
+  | 'MANAGE_USERS'
+  | 'BLACKLIST_VIEW'
+  | 'BLACKLIST_ADD'
+  | 'BLACKLIST_REMOVE'
+  | 'PRINT_PREVIEW'
+  | 'PRINT_EXECUTE'
+  | 'PRINT_EXPORT'
+  | 'PRINT_SETTINGS_EDIT'
+  | 'PRINT_TEMPLATES_EDIT';
 
 export interface الأشخاص_tbl {
   رقم_الشخص: string;
@@ -438,7 +460,14 @@ export interface MarqueeMessage {
     | { kind: 'panel'; panel: string; id?: string; options?: Record<string, unknown> }
     | { kind: 'hash'; hash: string };
 }
-export type { FieldType, DynamicFormField, DynamicTable, DynamicRecord, ReferenceType, Attachment } from './dynamic.types';
+export type {
+  FieldType,
+  DynamicFormField,
+  DynamicTable,
+  DynamicRecord,
+  ReferenceType,
+  Attachment,
+} from './dynamic.types';
 
 export interface PropertyInspection {
   id: string;
@@ -484,7 +513,11 @@ export interface ReportDefinition {
 export interface ReportResult {
   title: string;
   generatedAt: string;
-  columns: { key: string; header: string; type?: 'text' | 'number' | 'currency' | 'date' | 'status' }[];
+  columns: {
+    key: string;
+    header: string;
+    type?: 'text' | 'number' | 'currency' | 'date' | 'status';
+  }[];
   data: unknown[];
   summary?: { label: string; value: string | number }[];
 }
@@ -551,7 +584,7 @@ export interface SystemHealth {
     integrityWarnings: number;
     orphans: number;
     logicErrors: number;
-  }
+  };
 }
 
 export interface PredictiveInsight {
@@ -564,63 +597,63 @@ export interface PredictiveInsight {
 
 // Interfaces for complex return types in DbService
 export interface PersonDetailsResult {
-    person: الأشخاص_tbl;
-    roles: string[];
-    ownedProperties: العقارات_tbl[];
-    contracts: العقود_tbl[];
-    blacklistRecord?: BlacklistRecord;
-    stats: {
-        totalInstallments: number;
-        lateInstallments: number;
-        commitmentRatio: number;
-    }
+  person: الأشخاص_tbl;
+  roles: string[];
+  ownedProperties: العقارات_tbl[];
+  contracts: العقود_tbl[];
+  blacklistRecord?: BlacklistRecord;
+  stats: {
+    totalInstallments: number;
+    lateInstallments: number;
+    commitmentRatio: number;
+  };
 }
 
 export interface PropertyDetailsResult {
-    property: العقارات_tbl;
-    owner?: الأشخاص_tbl;
-    currentTenant?: الأشخاص_tbl | null;
+  property: العقارات_tbl;
+  owner?: الأشخاص_tbl;
+  currentTenant?: الأشخاص_tbl | null;
   currentGuarantor?: الأشخاص_tbl | null;
-    currentContract?: العقود_tbl;
-    history: العقود_tbl[];
+  currentContract?: العقود_tbl;
+  history: العقود_tbl[];
 }
 
 export interface ContractDetailsResult {
-    contract: العقود_tbl;
-    property?: العقارات_tbl;
-    tenant?: الأشخاص_tbl;
-    installments: الكمبيالات_tbl[];
+  contract: العقود_tbl;
+  property?: العقارات_tbl;
+  tenant?: الأشخاص_tbl;
+  installments: الكمبيالات_tbl[];
 }
 
 // Smart Engine Types
 export type SmartCategory = 'person' | 'property' | 'contract' | 'maintenance';
 
 export interface SmartBehaviorPattern {
-    category: SmartCategory;
-    field: string;
+  category: SmartCategory;
+  field: string;
   value: unknown;
-    timestamp: number;
+  timestamp: number;
 }
 
 export interface SmartSuggestion {
-    field: string;
+  field: string;
   suggestedValue: unknown;
-    confidence: number; // 0 to 1
-    reason?: string;
+  confidence: number; // 0 to 1
+  reason?: string;
 }
 
 // Smart Rules Library
 export interface SmartRule {
-    learningKey: string; // matches field name
-    hint: string;
-    expectedType: 'string' | 'number' | 'email' | 'phone' | 'date';
-    validation?: {
-        regex?: RegExp;
-        min?: number;
-        max?: number;
-        options?: string[];
-    };
-    severity: 'info' | 'warning' | 'error';
+  learningKey: string; // matches field name
+  hint: string;
+  expectedType: 'string' | 'number' | 'email' | 'phone' | 'date';
+  validation?: {
+    regex?: RegExp;
+    min?: number;
+    max?: number;
+    options?: string[];
+  };
+  severity: 'info' | 'warning' | 'error';
 }
 
 // --- NEW DASHBOARD WIDGET TYPES ---

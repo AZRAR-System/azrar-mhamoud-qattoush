@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { NoteRecord, ReferenceType } from '@/types';
 import { addNoteSmart, listNotesSmart } from '@/services/refsDataSmart';
@@ -59,11 +58,18 @@ export const NotesSection: React.FC<NotesSectionProps> = ({ referenceId, type })
             لا توجد ملاحظات. أضف أول ملاحظة.
           </div>
         )}
-        {notes.map(note => (
-          <div key={note.id} className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-100 dark:border-yellow-800/30">
-            <p className="text-slate-700 dark:text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">{note.content}</p>
+        {notes.map((note) => (
+          <div
+            key={note.id}
+            className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-100 dark:border-yellow-800/30"
+          >
+            <p className="text-slate-700 dark:text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">
+              {note.content}
+            </p>
             <div className="mt-2 pt-2 border-t border-yellow-100 dark:border-yellow-800/30 flex justify-between text-[10px] text-slate-400">
-              <span className="flex items-center gap-1"><User size={10}/> {note.employee}</span>
+              <span className="flex items-center gap-1">
+                <User size={10} /> {note.employee}
+              </span>
               <span dir="ltr">{new Date(note.date).toLocaleString()}</span>
             </div>
           </div>
@@ -72,15 +78,15 @@ export const NotesSection: React.FC<NotesSectionProps> = ({ referenceId, type })
 
       <div className="p-3 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/30">
         <div className="flex gap-2">
-          <input 
-            type="text" 
+          <input
+            type="text"
             className="flex-1 text-sm border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-900 dark:text-white"
             placeholder="اكتب ملاحظة..."
             value={newNote}
-            onChange={e => setNewNote(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && void handleAdd()}
+            onChange={(e) => setNewNote(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void handleAdd()}
           />
-          <button 
+          <button
             onClick={() => void handleAdd()}
             className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition shadow-sm"
           >

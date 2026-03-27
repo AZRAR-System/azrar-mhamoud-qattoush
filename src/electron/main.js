@@ -1,4 +1,3 @@
-
 const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 
@@ -11,13 +10,13 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 768,
-    title: "نظام خبرني العقاري",
+    title: 'نظام خبرني العقاري',
     icon: path.join(__dirname, '../public/favicon.ico'), // Ensure you have an icon
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false, // For simple migration. Use preload in production for security.
-      webSecurity: false // Allow loading local resources if needed
-    }
+      webSecurity: false, // Allow loading local resources if needed
+    },
   });
 
   // Remove Menu Bar (Optional - for cleaner look)

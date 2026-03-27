@@ -90,7 +90,8 @@ function decryptBytes(password: string, enc: Buffer): Buffer {
 
   const iterations = enc.readUInt32LE(offset);
   offset += 4;
-  if (!Number.isFinite(iterations) || iterations <= 0) throw new Error('Invalid encryption metadata');
+  if (!Number.isFinite(iterations) || iterations <= 0)
+    throw new Error('Invalid encryption metadata');
 
   const salt = enc.subarray(offset, offset + SALT_BYTES);
   offset += SALT_BYTES;
@@ -146,7 +147,12 @@ export async function decryptFileToBuffer(args: DecryptFileToBufferArgs): Promis
   const out = isEnc ? decryptBytes(password, raw) : raw;
 
   const maxBytes = args.maxBytes;
-  if (typeof maxBytes === 'number' && Number.isFinite(maxBytes) && maxBytes > 0 && out.length > maxBytes) {
+  if (
+    typeof maxBytes === 'number' &&
+    Number.isFinite(maxBytes) &&
+    maxBytes > 0 &&
+    out.length > maxBytes
+  ) {
     throw new Error('File too large');
   }
   return out;

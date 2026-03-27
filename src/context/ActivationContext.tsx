@@ -87,7 +87,16 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       activateWithLicenseFileContent,
       deactivate,
     }),
-    [activatedAt, activationError, reason, review, refresh, activate, activateWithLicenseFileContent, deactivate]
+    [
+      activatedAt,
+      activationError,
+      reason,
+      review,
+      refresh,
+      activate,
+      activateWithLicenseFileContent,
+      deactivate,
+    ]
   );
 
   return <ActivationContext.Provider value={value}>{children}</ActivationContext.Provider>;

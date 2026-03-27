@@ -1,6 +1,6 @@
 /**
  * 🔍 نظام الفهارس (Database Indexes)
- * 
+ *
  * هذا الملف يحتوي على جميع الفهارس والقيود الفريدة المشروطة
  * لضمان سلامة البيانات وسرعة البحث
  */
@@ -9,7 +9,8 @@ import { العقارات_tbl, العقود_tbl, الأشخاص_tbl, شخص_دو
 import { isTenancyRelevant } from '@/utils/tenancy';
 
 type UnknownRecord = Record<string, unknown>;
-const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null;
 
 const KEYS = {
   PEOPLE: 'db_people',
@@ -40,14 +41,12 @@ export const checkPersonUniqueConstraints = (
   if (!رقم_الوطني) return { isValid: true };
 
   const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
-  const duplicate = people.find(
-    p => p.الرقم_الوطني === رقم_الوطني && p.رقم_الشخص !== excludeId
-  );
+  const duplicate = people.find((p) => p.الرقم_الوطني === رقم_الوطني && p.رقم_الشخص !== excludeId);
 
   if (duplicate) {
     return {
       isValid: false,
-      error: `الرقم الوطني ${رقم_الوطني} مستخدم بالفعل`
+      error: `الرقم الوطني ${رقم_الوطني} مستخدم بالفعل`,
     };
   }
 
@@ -64,14 +63,12 @@ export const checkPersonRoleUniqueConstraint = (
   _excludeId?: string
 ): { isValid: boolean; error?: string } => {
   const roles = get<شخص_دور_tbl>(KEYS.ROLES);
-  const duplicate = roles.find(
-    r => r.رقم_الشخص === رقم_الشخص && r.الدور === رقم_الدور
-  );
+  const duplicate = roles.find((r) => r.رقم_الشخص === رقم_الشخص && r.الدور === رقم_الدور);
 
   if (duplicate) {
     return {
       isValid: false,
-      error: `الشخص لديه هذا الدور بالفعل`
+      error: `الشخص لديه هذا الدور بالفعل`,
     };
   }
 
@@ -90,39 +87,35 @@ export const checkUserUniqueConstraints = (
 
   // التحقق من رقم_الشخص
   if (رقم_الشخص) {
-    const duplicatePerson = users.find(
-      (u) => {
-        if (!isRecord(u)) return false;
-        const personId = u['رقم_الشخص'];
-        if (typeof personId !== 'string') return false;
-        const userId = u['id'];
-        const userIdComparable = typeof userId === 'string' ? userId : undefined;
-        return personId === رقم_الشخص && userIdComparable !== excludeId;
-      }
-    );
+    const duplicatePerson = users.find((u) => {
+      if (!isRecord(u)) return false;
+      const personId = u['رقم_الشخص'];
+      if (typeof personId !== 'string') return false;
+      const userId = u['id'];
+      const userIdComparable = typeof userId === 'string' ? userId : undefined;
+      return personId === رقم_الشخص && userIdComparable !== excludeId;
+    });
     if (duplicatePerson) {
       return {
         isValid: false,
-        error: `هذا الشخص لديه حساب مستخدم بالفعل`
+        error: `هذا الشخص لديه حساب مستخدم بالفعل`,
       };
     }
   }
 
   // التحقق من اسم_الدخول
-  const duplicateUsername = users.find(
-    (u) => {
-      if (!isRecord(u)) return false;
-      const username = u['اسم_المستخدم'];
-      if (typeof username !== 'string') return false;
-      const userId = u['id'];
-      const userIdComparable = typeof userId === 'string' ? userId : undefined;
-      return username === اسم_الدخول && userIdComparable !== excludeId;
-    }
-  );
+  const duplicateUsername = users.find((u) => {
+    if (!isRecord(u)) return false;
+    const username = u['اسم_المستخدم'];
+    if (typeof username !== 'string') return false;
+    const userId = u['id'];
+    const userIdComparable = typeof userId === 'string' ? userId : undefined;
+    return username === اسم_الدخول && userIdComparable !== excludeId;
+  });
   if (duplicateUsername) {
     return {
       isValid: false,
-      error: `اسم المستخدم ${اسم_الدخول} مستخدم بالفعل`
+      error: `اسم المستخدم ${اسم_الدخول} مستخدم بالفعل`,
     };
   }
 
@@ -138,13 +131,13 @@ export const checkPropertyCodeUnique = (
 ): { isValid: boolean; error?: string } => {
   const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
   const duplicate = properties.find(
-    p => p.الكود_الداخلي === الكود_الداخلي && p.رقم_العقار !== excludeId
+    (p) => p.الكود_الداخلي === الكود_الداخلي && p.رقم_العقار !== excludeId
   );
 
   if (duplicate) {
     return {
       isValid: false,
-      error: `الكود الداخلي ${الكود_الداخلي} مستخدم بالفعل`
+      error: `الكود الداخلي ${الكود_الداخلي} مستخدم بالفعل`,
     };
   }
 
@@ -166,16 +159,17 @@ export const checkLandUniqueConstraint = (
 
   const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
   const duplicate = properties.find(
-    p => p.النوع === 'أرض' &&
-         p.رقم_قطعة === رقم_القطعة &&
-         p.رقم_لوحة === رقم_اللوحة &&
-         p.رقم_العقار !== excludeId
+    (p) =>
+      p.النوع === 'أرض' &&
+      p.رقم_قطعة === رقم_القطعة &&
+      p.رقم_لوحة === رقم_اللوحة &&
+      p.رقم_العقار !== excludeId
   );
 
   if (duplicate) {
     return {
       isValid: false,
-      error: `يوجد أرض بنفس رقم القطعة (${رقم_القطعة}) ورقم اللوحة (${رقم_اللوحة})`
+      error: `يوجد أرض بنفس رقم القطعة (${رقم_القطعة}) ورقم اللوحة (${رقم_اللوحة})`,
     };
   }
 
@@ -198,17 +192,18 @@ export const checkApartmentUniqueConstraint = (
 
   const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
   const duplicate = properties.find(
-    p => p.النوع === 'شقة' &&
-         p.رقم_قطعة === رقم_القطعة &&
-         p.رقم_لوحة === رقم_اللوحة &&
-         p.رقم_شقة === رقم_الشقة &&
-         p.رقم_العقار !== excludeId
+    (p) =>
+      p.النوع === 'شقة' &&
+      p.رقم_قطعة === رقم_القطعة &&
+      p.رقم_لوحة === رقم_اللوحة &&
+      p.رقم_شقة === رقم_الشقة &&
+      p.رقم_العقار !== excludeId
   );
 
   if (duplicate) {
     return {
       isValid: false,
-      error: `يوجد شقة بنفس رقم القطعة (${رقم_القطعة}) ورقم اللوحة (${رقم_اللوحة}) ورقم الشقة (${رقم_الشقة})`
+      error: `يوجد شقة بنفس رقم القطعة (${رقم_القطعة}) ورقم اللوحة (${رقم_اللوحة}) ورقم الشقة (${رقم_الشقة})`,
     };
   }
 
@@ -231,14 +226,17 @@ export const checkActiveContractUniqueConstraint = (
 
   const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
   const duplicate = contracts.find(
-      c => isTenancyRelevant(c) && c.رقم_العقار === رقم_العقار && 
-           c.رقم_العقد !== excludeId && !c.isArchived
+    (c) =>
+      isTenancyRelevant(c) &&
+      c.رقم_العقار === رقم_العقار &&
+      c.رقم_العقد !== excludeId &&
+      !c.isArchived
   );
 
   if (duplicate) {
     return {
       isValid: false,
-      error: `يوجد عقد ساري بالفعل لهذا العقار (${duplicate.رقم_العقد})`
+      error: `يوجد عقد ساري بالفعل لهذا العقار (${duplicate.رقم_العقد})`,
     };
   }
 
@@ -254,21 +252,19 @@ export const checkSalePropertyUnique = (
   excludeId?: string
 ): { isValid: boolean; error?: string } => {
   const sales = get<unknown>('db_sales');
-  const duplicate = sales.find(
-    (s) => {
-      if (!isRecord(s)) return false;
-      const propertyId = s['رقم_العقار'];
-      if (typeof propertyId !== 'string') return false;
-      const saleId = s['id'];
-      const saleIdComparable = typeof saleId === 'string' ? saleId : undefined;
-      return propertyId === رقم_العقار && saleIdComparable !== excludeId;
-    }
-  );
+  const duplicate = sales.find((s) => {
+    if (!isRecord(s)) return false;
+    const propertyId = s['رقم_العقار'];
+    if (typeof propertyId !== 'string') return false;
+    const saleId = s['id'];
+    const saleIdComparable = typeof saleId === 'string' ? saleId : undefined;
+    return propertyId === رقم_العقار && saleIdComparable !== excludeId;
+  });
 
   if (duplicate) {
     return {
       isValid: false,
-      error: `هذا العقار معروض للبيع بالفعل`
+      error: `هذا العقار معروض للبيع بالفعل`,
     };
   }
 
@@ -321,7 +317,7 @@ export const validatePropertyIndexes = (
 
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 };
 
@@ -348,7 +344,7 @@ export const validateContractIndexes = (
 
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 };
 
@@ -360,18 +356,18 @@ export const DATABASE_INDEXES = {
   الأشخاص: {
     PK: 'رقم_الشخص',
     UNIQUE: ['الرقم_الوطني'],
-    INDEX: ['الاسم', 'رقم_الهاتف']
+    INDEX: ['الاسم', 'رقم_الهاتف'],
   },
 
   // 2️⃣ جدول شخص_دور
   شخص_دور: {
     UNIQUE_COMPOSITE: ['رقم_الشخص', 'رقم_الدور'],
-    INDEX: ['رقم_الشخص', 'رقم_الدور']
+    INDEX: ['رقم_الشخص', 'رقم_الدور'],
   },
 
   // 3️⃣ جدول المستخدمين
   المستخدمين: {
-    UNIQUE: ['رقم_الشخص', 'اسم_الدخول']
+    UNIQUE: ['رقم_الشخص', 'اسم_الدخول'],
   },
 
   // 4️⃣ جدول العقارات
@@ -381,50 +377,47 @@ export const DATABASE_INDEXES = {
     INDEX: ['رقم_القطعة', 'رقم_اللوحة', 'رقم_الشقة', 'نوع_العقار', 'رقم_المالك'],
     UNIQUE_CONDITIONAL: [
       { fields: ['رقم_القطعة', 'رقم_اللوحة'], where: "نوع_العقار = 'أرض'" },
-      { fields: ['رقم_القطعة', 'رقم_اللوحة', 'رقم_الشقة'], where: "نوع_العقار = 'شقة'" }
-    ]
+      { fields: ['رقم_القطعة', 'رقم_اللوحة', 'رقم_الشقة'], where: "نوع_العقار = 'شقة'" },
+    ],
   },
 
   // 5️⃣ جدول العقود
   العقود: {
     PK: 'رقم_العقد',
     INDEX: ['رقم_العقار', 'رقم_المستأجر', 'تاريخ_بداية_العقد'],
-    UNIQUE_CONDITIONAL: [
-      { fields: ['رقم_العقار', 'حالة_العقد'], where: "حالة_العقد = 'ساري'" }
-    ]
+    UNIQUE_CONDITIONAL: [{ fields: ['رقم_العقار', 'حالة_العقد'], where: "حالة_العقد = 'ساري'" }],
   },
 
   // 6️⃣ جدول الكمبيالات
   الكمبيالات: {
     PK: 'رقم_الكمبيالة',
-    INDEX: ['رقم_العقد', 'تاريخ_الاستحقاق', 'حالة_الكمبيالة']
+    INDEX: ['رقم_العقد', 'تاريخ_الاستحقاق', 'حالة_الكمبيالة'],
   },
 
   // 7️⃣ جدول الدفعات
   الدفعات: {
     PK: 'رقم_الدفعة',
-    INDEX: ['رقم_الكمبيالة', 'تاريخ_الدفع']
+    INDEX: ['رقم_الكمبيالة', 'تاريخ_الدفع'],
   },
 
   // 8️⃣ جدول البيع
   البيع: {
     UNIQUE: ['رقم_العقار'],
-    INDEX: ['رقم_المشتري', 'تاريخ_البيع']
+    INDEX: ['رقم_المشتري', 'تاريخ_البيع'],
   },
 
   // 9️⃣ جدول العمولات (إيجار)
   العمولات: {
-    INDEX: ['رقم_العقد', 'رقم_الشخص_المستحق', 'نوع_العمولة']
+    INDEX: ['رقم_العقد', 'رقم_الشخص_المستحق', 'نوع_العمولة'],
   },
 
   // 🔟 جدول عمولات البيع
   عمولات_البيع: {
-    INDEX: ['رقم_البيع', 'رقم_الشخص_المستحق']
+    INDEX: ['رقم_البيع', 'رقم_الشخص_المستحق'],
   },
 
   // 1️⃣1️⃣ جدول الحظر
   الحظر: {
-    INDEX: ['رقم_الشخص', 'حالة_الحظر']
-  }
+    INDEX: ['رقم_الشخص', 'حالة_الحظر'],
+  },
 };
-

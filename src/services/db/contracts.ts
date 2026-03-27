@@ -3,13 +3,7 @@
  */
 
 import type { ClearanceRecord, ContractDetailsResult, DbResult } from '@/types';
-import {
-  العقود_tbl,
-  العقارات_tbl,
-  الأشخاص_tbl,
-  الكمبيالات_tbl,
-  العمولات_tbl,
-} from '@/types';
+import { العقود_tbl, العقارات_tbl, الأشخاص_tbl, الكمبيالات_tbl, العمولات_tbl } from '@/types';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 import { get, save } from './kv';
 import { KEYS } from './keys';
@@ -141,13 +135,7 @@ export function createContractWrites(deps: ContractWritesDeps) {
 
     handleSmartEngine('contract', contract);
 
-    logOperation(
-      'Admin',
-      'إضافة',
-      'Contracts',
-      id,
-      `إنشاء عقد جديد للعقار ${contract.رقم_العقار}`
-    );
+    logOperation('Admin', 'إضافة', 'Contracts', id, `إنشاء عقد جديد للعقار ${contract.رقم_العقار}`);
     return ok(contract);
   };
 

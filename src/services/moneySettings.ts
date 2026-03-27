@@ -55,7 +55,9 @@ export const setMoneySettingsSync = (patch: MoneySettings): void => {
 };
 
 export const getCurrencySuffix = (currencyCode: string): string => {
-  const code = String(currencyCode || '').trim().toUpperCase();
+  const code = String(currencyCode || '')
+    .trim()
+    .toUpperCase();
   if (!code) return '';
 
   const map: Record<string, string> = {

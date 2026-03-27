@@ -3,7 +3,10 @@ import { openExternalUrl } from '@/utils/externalLink';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const hasUnknownProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, unknown> =>
+const hasUnknownProp = <K extends string>(
+  obj: Record<string, unknown>,
+  key: K
+): obj is Record<string, unknown> & Record<K, unknown> =>
   Object.prototype.hasOwnProperty.call(obj, key);
 
 export type WhatsAppLinkOptions = {
@@ -46,7 +49,9 @@ const isDesktopEnv = (): boolean => {
 export function normalizeWhatsAppPhone(phone: string, options?: WhatsAppLinkOptions): string {
   const strip00 = options?.stripInternationalPrefix00 ?? true;
   const defaultCountryCode = String(options?.defaultCountryCode || '').trim();
-  let digits = String(phone || '').trim().replace(/\D/g, '');
+  let digits = String(phone || '')
+    .trim()
+    .replace(/\D/g, '');
   if (!digits) return '';
 
   // Handle international dialing prefix (e.g. 00962...) without guessing a country code.
@@ -77,7 +82,11 @@ export function normalizeWhatsAppPhone(phone: string, options?: WhatsAppLinkOpti
   return digits;
 }
 
-export function buildWhatsAppLink(message: string, phoneNumber: string, options?: WhatsAppLinkOptions): string {
+export function buildWhatsAppLink(
+  message: string,
+  phoneNumber: string,
+  options?: WhatsAppLinkOptions
+): string {
   const normalized = normalizeWhatsAppPhone(phoneNumber, options);
   if (!normalized) return '';
 
@@ -135,7 +144,9 @@ export function buildWhatsAppLinks(
   options?: WhatsAppLinkOptions
 ): string[] {
   const list = collectWhatsAppPhones(phones, options);
-  return list.map((p) => buildWhatsAppLink(message, p, { ...options, defaultCountryCode: undefined }));
+  return list.map((p) =>
+    buildWhatsAppLink(message, p, { ...options, defaultCountryCode: undefined })
+  );
 }
 
 export async function openWhatsAppForPhones(

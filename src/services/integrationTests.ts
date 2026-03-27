@@ -1,7 +1,7 @@
 ﻿/**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — Integration Tests
- * 
+ *
  * اختبارات تسلسلية كاملة:
  * 1. إضافة شخص (مالك)
  * 2. إضافة عقار
@@ -12,7 +12,14 @@
 
 import { DbService } from './index';
 import { domainSearchSmart } from './domainQueries';
-import type { PropertyStatus, العمولات_tbl, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '../types';
+import type {
+  PropertyStatus,
+  العمولات_tbl,
+  الأشخاص_tbl,
+  العقارات_tbl,
+  العقود_tbl,
+  الكمبيالات_tbl,
+} from '../types';
 
 // ============================================
 // 🧪 INTEGRATION TEST SUITE
@@ -66,7 +73,7 @@ export class IntegrationTestSuite {
   // ============================================
   // ✅ TEST 1: إضافة شخص (مالك)
   // ============================================
-  
+
   async test_01_AddPerson(): Promise<TestResult> {
     const start = performance.now();
     try {
@@ -74,8 +81,9 @@ export class IntegrationTestSuite {
         return {
           testName: 'إضافة شخص (مالك)',
           status: 'SKIP',
-          message: '⏭️ تم تخطي الاختبار: إنشاء بيانات الاختبار مُعطّل. فعّل VITE_ENABLE_INTEGRATION_TEST_DATA=true أو window.ENABLE_INTEGRATION_TEST_DATA=true.',
-          duration: performance.now() - start
+          message:
+            '⏭️ تم تخطي الاختبار: إنشاء بيانات الاختبار مُعطّل. فعّل VITE_ENABLE_INTEGRATION_TEST_DATA=true أو window.ENABLE_INTEGRATION_TEST_DATA=true.',
+          duration: performance.now() - start,
         };
       }
 
@@ -86,32 +94,32 @@ export class IntegrationTestSuite {
         البريد_الإلكتروني: `mohammad+${runId}@khaberni.com`,
         عنوان_السكن: 'عمّان، الأردن',
         رقم_الهوية: '123456789',
-        نوع_الهوية: 'الهوية الوطنية'
+        نوع_الهوية: 'الهوية الوطنية',
       };
 
       const result = DbService.addPerson(personData, ['مالك']);
-      
+
       if (!result.success || !result.data) {
         return {
           testName: 'إضافة شخص (مالك)',
           status: 'FAIL',
           message: `فشل في إضافة الشخص`,
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
       this.testData.person = result.data;
-      
+
       // التحقق من البيانات المضافة في KV
       const people = DbService.getPeople();
-      const addedPerson = people.find(p => p.رقم_الشخص === result.data.رقم_الشخص);
+      const addedPerson = people.find((p) => p.رقم_الشخص === result.data.رقم_الشخص);
 
       if (!addedPerson) {
         return {
           testName: 'إضافة شخص (مالك)',
           status: 'FAIL',
           message: 'تم إضافة الشخص لكن لم يتم العثور عليه في قائمة الأشخاص',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -125,7 +133,10 @@ export class IntegrationTestSuite {
         for (let i = 0; i < attempts; i++) {
           try {
             const items = await domainSearchSmart('people', queryName, 50);
-            if (Array.isArray(items) && items.some((p) => getIdLike(p) === String(result.data.رقم_الشخص).trim())) {
+            if (
+              Array.isArray(items) &&
+              items.some((p) => getIdLike(p) === String(result.data.رقم_الشخص).trim())
+            ) {
               foundInDomain = true;
               break;
             }
@@ -139,8 +150,9 @@ export class IntegrationTestSuite {
           return {
             testName: 'إضافة شخص (مالك)',
             status: 'FAIL',
-            message: 'تمت الإضافة في KV لكن لم تظهر في جداول النطاق (SQLite) في وضع Desktop بعد الانتظار.',
-            duration: performance.now() - start
+            message:
+              'تمت الإضافة في KV لكن لم تظهر في جداول النطاق (SQLite) في وضع Desktop بعد الانتظار.',
+            duration: performance.now() - start,
           };
         }
       }
@@ -152,16 +164,16 @@ export class IntegrationTestSuite {
         data: {
           personId: result.data.رقم_الشخص,
           name: result.data.الاسم,
-          phone: result.data.رقم_الهاتف
+          phone: result.data.رقم_الهاتف,
         },
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     } catch (error) {
       return {
         testName: 'إضافة شخص (مالك)',
         status: 'FAIL',
         message: `❌ خطأ: ${error instanceof Error ? error.message : 'unknown error'}`,
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     }
   }
@@ -169,7 +181,7 @@ export class IntegrationTestSuite {
   // ============================================
   // ✅ TEST 2: إضافة عقار
   // ============================================
-  
+
   async test_02_AddProperty(): Promise<TestResult> {
     const start = performance.now();
     try {
@@ -178,7 +190,7 @@ export class IntegrationTestSuite {
           testName: 'إضافة عقار',
           status: 'SKIP',
           message: '⏭️ تم تخطي الاختبار: لم يتم إضافة شخص في الخطوة السابقة',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -191,7 +203,7 @@ export class IntegrationTestSuite {
         عدد_الغرف: '3',
         حالة_العقار: 'شاغر' as PropertyStatus,
         الإيجار_التقديري: 2000,
-        IsRented: false
+        IsRented: false,
       };
 
       const result = DbService.addProperty(propertyData);
@@ -201,7 +213,7 @@ export class IntegrationTestSuite {
           testName: 'إضافة عقار',
           status: 'FAIL',
           message: `فشل في إضافة العقار`,
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -209,14 +221,14 @@ export class IntegrationTestSuite {
 
       // التحقق من البيانات المضافة
       const properties = DbService.getProperties();
-      const addedProperty = properties.find(p => p.رقم_العقار === result.data.رقم_العقار);
+      const addedProperty = properties.find((p) => p.رقم_العقار === result.data.رقم_العقار);
 
       if (!addedProperty) {
         return {
           testName: 'إضافة عقار',
           status: 'FAIL',
           message: 'تم إضافة العقار لكن لم يتم العثور عليه في قائمة العقارات',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -228,16 +240,16 @@ export class IntegrationTestSuite {
           propertyId: result.data.رقم_العقار,
           name: result.data.العنوان,
           location: result.data.المدينة || 'غير محدد',
-          monthlyPrice: result.data.الإيجار_التقديري
+          monthlyPrice: result.data.الإيجار_التقديري,
         },
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     } catch (error) {
       return {
         testName: 'إضافة عقار',
         status: 'FAIL',
         message: `❌ خطأ: ${error instanceof Error ? error.message : 'unknown error'}`,
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     }
   }
@@ -245,7 +257,7 @@ export class IntegrationTestSuite {
   // ============================================
   // ✅ TEST 3: إنشاء عقد إيجار
   // ============================================
-  
+
   async test_03_CreateContract(): Promise<TestResult> {
     const start = performance.now();
     try {
@@ -254,26 +266,29 @@ export class IntegrationTestSuite {
           testName: 'إنشاء عقد إيجار',
           status: 'SKIP',
           message: '⏭️ تم تخطي الاختبار: لم يتم إضافة شخص أو عقار في الخطوات السابقة',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
       // إضافة مستأجر جديد
       const runId = Date.now() + Math.floor(Math.random() * 10000);
-      const tenantResult = DbService.addPerson({
-        الاسم: 'علي محمد الدعيج',
-        رقم_الهاتف: makeJordanTestPhone(runId + 1),
-        عنوان_السكن: 'عمّان، الأردن',
-        البريد_الإلكتروني: `ali+${runId}@khaberni.com`,
-        الرقم_الوطني: makeJordanNationalId10(runId + 2)
-      }, ['مستأجر']);
+      const tenantResult = DbService.addPerson(
+        {
+          الاسم: 'علي محمد الدعيج',
+          رقم_الهاتف: makeJordanTestPhone(runId + 1),
+          عنوان_السكن: 'عمّان، الأردن',
+          البريد_الإلكتروني: `ali+${runId}@khaberni.com`,
+          الرقم_الوطني: makeJordanNationalId10(runId + 2),
+        },
+        ['مستأجر']
+      );
 
       if (!tenantResult.success || !tenantResult.data) {
         return {
           testName: 'إنشاء عقد إيجار',
           status: 'FAIL',
           message: `فشل في إضافة المستأجر${tenantResult?.message ? `: ${tenantResult.message}` : ''}`,
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -293,13 +308,13 @@ export class IntegrationTestSuite {
         القيمة_السنوية: monthlyPrice * 12,
         تكرار_الدفع: 12, // شهري
         قيمة_التأمين: monthlyPrice * 2,
-        طريقة_الدفع: 'Postpaid'
+        طريقة_الدفع: 'Postpaid',
       };
 
       const contractResult = DbService.createContract(
         contractData,
         500, // عمولة المالك
-        300  // عمولة المستأجر
+        300 // عمولة المستأجر
       );
 
       if (!contractResult.success || !contractResult.data) {
@@ -307,7 +322,7 @@ export class IntegrationTestSuite {
           testName: 'إنشاء عقد إيجار',
           status: 'FAIL',
           message: `فشل في إنشاء العقد`,
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -315,20 +330,22 @@ export class IntegrationTestSuite {
 
       // التحقق من العقد والكمبيالات
       const contracts = DbService.getContracts();
-      const addedContract = contracts.find(c => c.رقم_العقد === contractResult.data.رقم_العقد);
+      const addedContract = contracts.find((c) => c.رقم_العقد === contractResult.data.رقم_العقد);
 
       if (!addedContract) {
         return {
           testName: 'إنشاء عقد إيجار',
           status: 'FAIL',
           message: 'تم إنشاء العقد لكن لم يتم العثور عليه في قائمة العقود',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
       // التحقق من الكمبيالات
       const allInstallments = DbService.getInstallments();
-      const contractInstallments = allInstallments.filter(i => i.رقم_العقد === contractResult.data.رقم_العقد);
+      const contractInstallments = allInstallments.filter(
+        (i) => i.رقم_العقد === contractResult.data.رقم_العقد
+      );
 
       this.testData.installments = contractInstallments;
 
@@ -344,16 +361,16 @@ export class IntegrationTestSuite {
           endDate: contractResult.data.تاريخ_النهاية,
           annualValue: contractResult.data.القيمة_السنوية,
           installmentsCount: contractInstallments.length,
-          status: contractResult.data.حالة_العقد
+          status: contractResult.data.حالة_العقد,
         },
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     } catch (error) {
       return {
         testName: 'إنشاء عقد إيجار',
         status: 'FAIL',
         message: `❌ خطأ: ${error instanceof Error ? error.message : 'unknown error'}`,
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     }
   }
@@ -361,7 +378,7 @@ export class IntegrationTestSuite {
   // ============================================
   // ✅ TEST 4: التحقق من الكمبيالات
   // ============================================
-  
+
   async test_04_VerifyInstallments(): Promise<TestResult> {
     const start = performance.now();
     try {
@@ -370,7 +387,7 @@ export class IntegrationTestSuite {
           testName: 'التحقق من الكمبيالات',
           status: 'SKIP',
           message: '⏭️ تم تخطي الاختبار: لم يتم إنشاء عقد في الخطوة السابقة',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -383,7 +400,7 @@ export class IntegrationTestSuite {
           testName: 'التحقق من الكمبيالات',
           status: 'FAIL',
           message: 'لم يتم إنشاء أي كمبيالات للعقد',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -392,8 +409,8 @@ export class IntegrationTestSuite {
       const expectedTotal = (contract.قيمة_التأمين ?? 0) + (contract.القيمة_السنوية ?? 0);
 
       // التحقق من الحالات
-      const unpaidInstallments = installments.filter(i => i.حالة_الكمبيالة !== 'مدفوع');
-      const securityDeposit = installments.find(i => i.نوع_الكمبيالة === 'تأمين');
+      const unpaidInstallments = installments.filter((i) => i.حالة_الكمبيالة !== 'مدفوع');
+      const securityDeposit = installments.find((i) => i.نوع_الكمبيالة === 'تأمين');
 
       return {
         testName: 'التحقق من الكمبيالات',
@@ -404,26 +421,26 @@ export class IntegrationTestSuite {
           totalAmount: totalAmount,
           expectedTotal: expectedTotal,
           unpaidInstallments: unpaidInstallments.length,
-          paidInstallments: installments.filter(i => i.حالة_الكمبيالة === 'مدفوع').length,
+          paidInstallments: installments.filter((i) => i.حالة_الكمبيالة === 'مدفوع').length,
           securityDepositExists: !!securityDeposit,
           securityDepositAmount: securityDeposit?.القيمة || 0,
-          installmentDetails: installments.map(i => ({
+          installmentDetails: installments.map((i) => ({
             installmentNo: i.رقم_الكمبيالة,
             type: i.نوع_الكمبيالة,
             amount: i.القيمة,
             dueDate: i.تاريخ_استحقاق,
             status: i.حالة_الكمبيالة,
-            order: i.ترتيب_الكمبيالة
-          }))
+            order: i.ترتيب_الكمبيالة,
+          })),
         },
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     } catch (error) {
       return {
         testName: 'التحقق من الكمبيالات',
         status: 'FAIL',
         message: `❌ خطأ: ${error instanceof Error ? error.message : 'unknown error'}`,
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     }
   }
@@ -431,7 +448,7 @@ export class IntegrationTestSuite {
   // ============================================
   // ✅ TEST 5: التحقق من العمولات
   // ============================================
-  
+
   async test_05_VerifyCommissions(): Promise<TestResult> {
     const start = performance.now();
     try {
@@ -440,19 +457,21 @@ export class IntegrationTestSuite {
           testName: 'التحقق من العمولات',
           status: 'SKIP',
           message: '⏭️ تم تخطي الاختبار: لم يتم إنشاء عقد في الخطوة السابقة',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
       const commissions = DbService.getCommissions();
-      const contractCommissions = commissions.filter(c => c.رقم_العقد === this.testData.contract.رقم_العقد);
+      const contractCommissions = commissions.filter(
+        (c) => c.رقم_العقد === this.testData.contract.رقم_العقد
+      );
 
       if (contractCommissions.length === 0) {
         return {
           testName: 'التحقق من العمولات',
           status: 'FAIL',
           message: 'لم يتم العثور على عمولات للعقد',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -465,7 +484,7 @@ export class IntegrationTestSuite {
         النوع: 'عمولة_وسيط',
         التاريخ: new Date().toISOString(),
         القيمة: 1000,
-        ملاحظات: 'عمولة وسيط معتمد'
+        ملاحظات: 'عمولة وسيط معتمد',
       });
 
       this.testData.commission = commission;
@@ -480,16 +499,16 @@ export class IntegrationTestSuite {
           ownerCommission: commission.عمولة_المالك,
           tenantCommission: commission.عمولة_المستأجر,
           totalCommission: totalCommission,
-          commissionDate: commission.تاريخ_العقد
+          commissionDate: commission.تاريخ_العقد,
         },
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     } catch (error) {
       return {
         testName: 'التحقق من العمولات',
         status: 'FAIL',
         message: `❌ خطأ: ${error instanceof Error ? error.message : 'unknown error'}`,
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     }
   }
@@ -497,7 +516,7 @@ export class IntegrationTestSuite {
   // ============================================
   // ✅ TEST 6: التحقق من سداد الكمبيالات
   // ============================================
-  
+
   async test_06_PayInstallment(): Promise<TestResult> {
     const start = performance.now();
     try {
@@ -506,13 +525,13 @@ export class IntegrationTestSuite {
           testName: 'سداد كمبيالة',
           status: 'SKIP',
           message: '⏭️ تم تخطي الاختبار: لم يتم إنشاء كمبيالات',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
       // اختيار أول كمبيالة غير مدفوعة
       const unpaidInstallment = this.testData.installments.find(
-        i => i.حالة_الكمبيالة !== 'مدفوع' && i.نوع_الكمبيالة === 'إيجار'
+        (i) => i.حالة_الكمبيالة !== 'مدفوع' && i.نوع_الكمبيالة === 'إيجار'
       );
 
       if (!unpaidInstallment) {
@@ -520,26 +539,28 @@ export class IntegrationTestSuite {
           testName: 'سداد كمبيالة',
           status: 'SKIP',
           message: '⏭️ تم تخطي الاختبار: جميع الكمبيالات مدفوعة بالفعل',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
       DbService.markInstallmentPaid(unpaidInstallment.رقم_الكمبيالة, 'test-user', 'Admin', {
         paidAmount: unpaidInstallment.القيمة,
         paymentDate: new Date().toISOString().split('T')[0],
-        isPartial: false
+        isPartial: false,
       });
 
       // التحقق من التحديث
       const allInstallments = DbService.getInstallments();
-      const updatedInstallment = allInstallments.find(i => i.رقم_الكمبيالة === unpaidInstallment.رقم_الكمبيالة);
+      const updatedInstallment = allInstallments.find(
+        (i) => i.رقم_الكمبيالة === unpaidInstallment.رقم_الكمبيالة
+      );
 
       if (!updatedInstallment || updatedInstallment.حالة_الكمبيالة !== 'مدفوع') {
         return {
           testName: 'سداد كمبيالة',
           status: 'FAIL',
           message: 'فشل في تحديث حالة الكمبيالة إلى مدفوع',
-          duration: performance.now() - start
+          duration: performance.now() - start,
         };
       }
 
@@ -552,16 +573,16 @@ export class IntegrationTestSuite {
           amount: unpaidInstallment.القيمة,
           dueDate: unpaidInstallment.تاريخ_استحقاق,
           paidDate: updatedInstallment.تاريخ_الدفع,
-          status: updatedInstallment.حالة_الكمبيالة
+          status: updatedInstallment.حالة_الكمبيالة,
         },
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     } catch (error) {
       return {
         testName: 'سداد كمبيالة',
         status: 'FAIL',
         message: `❌ خطأ: ${error instanceof Error ? error.message : 'unknown error'}`,
-        duration: performance.now() - start
+        duration: performance.now() - start,
       };
     }
   }
@@ -569,7 +590,7 @@ export class IntegrationTestSuite {
   // ============================================
   // ✅ TEST 7: التحقق من سلامة البيانات
   // ============================================
-  
+
   async test_07_DataIntegrity(): Promise<TestResult> {
     const start = performance.now();
     try {
@@ -595,7 +616,8 @@ export class IntegrationTestSuite {
         return {
           testName: 'التحقق من سلامة البيانات',
           status: 'SKIP',
-          message: '⏭️ تم تخطي الاختبار: النظام فارغ (وضع نظيف) ولا توجد بيانات تشغيلية للتحقق منها.',
+          message:
+            '⏭️ تم تخطي الاختبار: النظام فارغ (وضع نظيف) ولا توجد بيانات تشغيلية للتحقق منها.',
           duration: performance.now() - start,
         };
       }
@@ -609,16 +631,22 @@ export class IntegrationTestSuite {
 
       // Presence checks become warnings (may be empty in real systems)
       if (Array.isArray(people) && people.length === 0) warnings.push('ℹ️ قائمة الأشخاص فارغة');
-      if (Array.isArray(properties) && properties.length === 0) warnings.push('ℹ️ قائمة العقارات فارغة');
+      if (Array.isArray(properties) && properties.length === 0)
+        warnings.push('ℹ️ قائمة العقارات فارغة');
 
       // Referential integrity checks (only when data exists)
-      if (Array.isArray(contracts) && contracts.length > 0 && Array.isArray(people) && Array.isArray(properties)) {
+      if (
+        Array.isArray(contracts) &&
+        contracts.length > 0 &&
+        Array.isArray(people) &&
+        Array.isArray(properties)
+      ) {
         for (const contract of contracts) {
-          const tenant = people.find(p => p.رقم_الشخص === contract.رقم_المستاجر);
-          const property = properties.find(p => p.رقم_العقار === contract.رقم_العقار);
+          const tenant = people.find((p) => p.رقم_الشخص === contract.رقم_المستاجر);
+          const property = properties.find((p) => p.رقم_العقار === contract.رقم_العقار);
 
           // owner comes from property
-          const owner = property ? people.find(p => p.رقم_الشخص === property.رقم_المالك) : null;
+          const owner = property ? people.find((p) => p.رقم_الشخص === property.رقم_المالك) : null;
 
           if (!tenant) errors.push(`❌ العقد ${contract.رقم_العقد}: المستأجر غير موجود`);
           if (!property) errors.push(`❌ العقد ${contract.رقم_العقد}: العقار غير موجود`);
@@ -639,7 +667,10 @@ export class IntegrationTestSuite {
       return {
         testName: 'التحقق من سلامة البيانات',
         status: warnings.length > 0 ? 'PASS' : 'PASS',
-        message: warnings.length > 0 ? `✅ التحقق ناجح مع ملاحظات (${warnings.length})` : '✅ جميع البيانات صحيحة وسليمة',
+        message:
+          warnings.length > 0
+            ? `✅ التحقق ناجح مع ملاحظات (${warnings.length})`
+            : '✅ جميع البيانات صحيحة وسليمة',
         data: {
           warnings,
           peopleCount: Array.isArray(people) ? people.length : 0,
@@ -664,7 +695,7 @@ export class IntegrationTestSuite {
   // ============================================
   // 🎯 تشغيل جميع الاختبارات
   // ============================================
-  
+
   async runAllTests(): Promise<TestResult[]> {
     console.warn('\n🚀 بدء مجموعة الاختبارات التسلسلية...\n');
     console.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -676,7 +707,7 @@ export class IntegrationTestSuite {
       () => this.test_04_VerifyInstallments(),
       () => this.test_05_VerifyCommissions(),
       () => this.test_06_PayInstallment(),
-      () => this.test_07_DataIntegrity()
+      () => this.test_07_DataIntegrity(),
     ];
 
     for (const test of tests) {
@@ -687,21 +718,22 @@ export class IntegrationTestSuite {
 
     console.warn('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     this.printSummary();
-    
+
     return this.results;
   }
 
   // ============================================
   // 📊 طباعة نتائج الاختبار
   // ============================================
-  
+
   private printTestResult(result: TestResult): void {
     const icon = result.status === 'PASS' ? '✅' : result.status === 'FAIL' ? '❌' : '⏭️';
-    const status = result.status === 'PASS' ? '✅ نجح' : result.status === 'FAIL' ? '❌ فشل' : '⏭️ تم تخطيه';
-    
+    const status =
+      result.status === 'PASS' ? '✅ نجح' : result.status === 'FAIL' ? '❌ فشل' : '⏭️ تم تخطيه';
+
     console.warn(`${icon} ${result.testName.padEnd(40)} | ${status}`);
     console.warn(`   📝 ${result.message}`);
-    
+
     if (result.data) {
       if (typeof result.data === 'object') {
         Object.entries(result.data).forEach(([key, value]) => {
@@ -715,7 +747,7 @@ export class IntegrationTestSuite {
         });
       }
     }
-    
+
     if (result.duration) {
       console.warn(`   ⏱️ المدة: ${result.duration.toFixed(2)}ms`);
     }
@@ -725,11 +757,11 @@ export class IntegrationTestSuite {
   // ============================================
   // 📈 ملخص النتائج
   // ============================================
-  
+
   private printSummary(): void {
-    const passed = this.results.filter(r => r.status === 'PASS').length;
-    const failed = this.results.filter(r => r.status === 'FAIL').length;
-    const skipped = this.results.filter(r => r.status === 'SKIP').length;
+    const passed = this.results.filter((r) => r.status === 'PASS').length;
+    const failed = this.results.filter((r) => r.status === 'FAIL').length;
+    const skipped = this.results.filter((r) => r.status === 'SKIP').length;
     const total = this.results.length;
     const totalDuration = this.results.reduce((sum, r) => sum + (r.duration || 0), 0);
 
@@ -751,18 +783,18 @@ export class IntegrationTestSuite {
   // ============================================
   // 📁 تصدير النتائج
   // ============================================
-  
+
   exportResults(): string {
     const report = {
       timestamp: new Date().toISOString(),
       summary: {
         total: this.results.length,
-        passed: this.results.filter(r => r.status === 'PASS').length,
-        failed: this.results.filter(r => r.status === 'FAIL').length,
-        skipped: this.results.filter(r => r.status === 'SKIP').length
+        passed: this.results.filter((r) => r.status === 'PASS').length,
+        failed: this.results.filter((r) => r.status === 'FAIL').length,
+        skipped: this.results.filter((r) => r.status === 'SKIP').length,
       },
       results: this.results,
-      testData: this.testData
+      testData: this.testData,
     };
 
     return JSON.stringify(report, null, 2);
@@ -855,7 +887,8 @@ export async function runSystemScenarioTests(options?: {
         id: 'data-mutation-note',
         name: 'اختبارات الإدخال التسلسلية',
         status: 'SKIP',
-        message: '⏭️ تم تخطي اختبارات الإدخال لأنها تغيّر بيانات النظام. فعّل "السماح بإنشاء بيانات اختبار" لتشغيلها.',
+        message:
+          '⏭️ تم تخطي اختبارات الإدخال لأنها تغيّر بيانات النظام. فعّل "السماح بإنشاء بيانات اختبار" لتشغيلها.',
       },
     ];
   }

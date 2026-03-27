@@ -2,7 +2,10 @@ import { العقود_tbl } from '@/types';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const hasUnknownProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, unknown> =>
+const hasUnknownProp = <K extends string>(
+  obj: Record<string, unknown>,
+  key: K
+): obj is Record<string, unknown> & Record<K, unknown> =>
   Object.prototype.hasOwnProperty.call(obj, key);
 
 export const getTenancyStatusScore = (status: unknown) => {
@@ -12,7 +15,8 @@ export const getTenancyStatusScore = (status: unknown) => {
   const lower = raw.toLowerCase();
 
   // Normalize common variants across datasets/legacy imports.
-  if (raw === 'نشط' || raw === 'ساري' || raw === 'سارية' || raw === 'فعال' || lower === 'active') return 3;
+  if (raw === 'نشط' || raw === 'ساري' || raw === 'سارية' || raw === 'فعال' || lower === 'active')
+    return 3;
   if (raw === 'قريب الانتهاء' || raw === 'قريبة الانتهاء') return 2;
   if (raw === 'مجدد' || raw === 'تجديد' || lower === 'renewed') return 1;
   return 0;

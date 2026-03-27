@@ -159,9 +159,13 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     commissionTouchedRef.current = true;
     // Only lock auto-generation if the contract already has a stored clause.
     // This allows old contracts (missing the new field) to get an auto-filled default when editing.
-    rentPaymentTextTouchedRef.current = Boolean(String(details.contract.نص_كيفية_أداء_البدل ?? '').trim());
+    rentPaymentTextTouchedRef.current = Boolean(
+      String(details.contract.نص_كيفية_أداء_البدل ?? '').trim()
+    );
     // Only lock duration auto-generation if the contract already has a stored duration text.
-    contractDurationTextTouchedRef.current = Boolean(String(details.contract.نص_مدة_العقد ?? '').trim());
+    contractDurationTextTouchedRef.current = Boolean(
+      String(details.contract.نص_مدة_العقد ?? '').trim()
+    );
 
     const paid = (details.installments || []).some(
       (i) => String(i?.حالة_الكمبيالة || '').trim() === 'مدفوع'
@@ -724,7 +728,9 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
       };
 
       const contractKey = String(contractData?.رقم_العقد || '').trim();
-      const promptKey = contractKey ? `contract_whatsapp_prompt_${contractKey}` : 'contract_whatsapp_prompt';
+      const promptKey = contractKey
+        ? `contract_whatsapp_prompt_${contractKey}`
+        : 'contract_whatsapp_prompt';
 
       openPanel('CONFIRM_MODAL', promptKey, {
         title: t('إرسال واتساب'),
@@ -893,7 +899,10 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label htmlFor={`${baseId}-duration-text-pick`} className="block text-sm font-bold mb-1">
+                <label
+                  htmlFor={`${baseId}-duration-text-pick`}
+                  className="block text-sm font-bold mb-1"
+                >
                   {t('مدة الإيجار (من الجدول المساعد)')}
                 </label>
                 <select
@@ -935,11 +944,15 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-4">
-                <div className="text-xs font-bold text-emerald-800">{t('الإيجار الشهري (محسوب)')}</div>
+                <div className="text-xs font-bold text-emerald-800">
+                  {t('الإيجار الشهري (محسوب)')}
+                </div>
                 <div className="text-lg font-extrabold text-emerald-700 mt-1">
                   {formatCurrencyJOD(Math.round(contractValueInfo.monthly || 0))}
                 </div>
-                <div className="text-[11px] text-emerald-700/80 mt-1">{t('= القيمة السنوية ÷ 12')}</div>
+                <div className="text-[11px] text-emerald-700/80 mt-1">
+                  {t('= القيمة السنوية ÷ 12')}
+                </div>
               </div>
               <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-4">
                 <div className="text-xs font-bold text-indigo-800">
@@ -953,7 +966,9 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                 </div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                <div className="text-xs font-bold text-slate-700 dark:text-slate-200">{t('ملاحظة')}</div>
+                <div className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  {t('ملاحظة')}
+                </div>
                 <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
                   {t(
                     'عند كون العقد أقل من سنة (مثل 6 أشهر)، تعتمد العمولة على قيمة العقد حسب الأشهر وليس على القيمة السنوية كاملة.'
@@ -993,7 +1008,10 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                 </div>
               </div>
               <div>
-                <label htmlFor={`${baseId}-deposit-duedate`} className="block text-sm font-bold mb-1">
+                <label
+                  htmlFor={`${baseId}-deposit-duedate`}
+                  className="block text-sm font-bold mb-1"
+                >
                   {t('تاريخ استحقاق التأمين (قبل الانتهاء بيوم)')}
                 </label>
                 <input
@@ -1088,7 +1106,10 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label htmlFor={`${baseId}-rentpay-text`} className="block text-sm font-bold mb-1">
+                  <label
+                    htmlFor={`${baseId}-rentpay-text`}
+                    className="block text-sm font-bold mb-1"
+                  >
                     {t('كيفية أداء البدل (كتابة)')}
                   </label>
                   <textarea
@@ -1376,7 +1397,9 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                   <div className="min-w-[240px]">
                     <div className="font-bold text-amber-800">{t('تحديث الدفعات')}</div>
                     <div className="text-xs text-amber-700 mt-1">
-                      {t('عند تفعيل هذا الخيار سيتم استبدال جدول الكمبيالات لهذا العقد بالجدول الجديد.')}
+                      {t(
+                        'عند تفعيل هذا الخيار سيتم استبدال جدول الكمبيالات لهذا العقد بالجدول الجديد.'
+                      )}
                     </div>
                     {hasPaidInstallments && (
                       <div className="text-xs text-red-700 mt-2 font-bold">
@@ -1392,14 +1415,16 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                       disabled={hasPaidInstallments}
                       onChange={(e) => setRegenerateInstallments(e.target.checked)}
                     />
-                      {t('إعادة توليد الدفعات (آمن عند عدم وجود دفعات مدفوعة)')}
+                    {t('إعادة توليد الدفعات (آمن عند عدم وجود دفعات مدفوعة)')}
                   </label>
                 </div>
               </div>
             )}
 
             <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 max-h-96 overflow-auto">
-              <h5 className="font-bold mb-4 flex items-center gap-2">📋 {t('جدول الدفعات المتوقع')}</h5>
+              <h5 className="font-bold mb-4 flex items-center gap-2">
+                📋 {t('جدول الدفعات المتوقع')}
+              </h5>
               <table className="w-full text-sm table-fixed min-w-[760px]">
                 <thead>
                   <tr className="bg-indigo-100 dark:bg-indigo-900/30 border-b-2 border-indigo-500">

@@ -3,7 +3,9 @@ import { safeStorage } from 'electron';
 // Simple encrypted storage (best-effort) for sensitive license state.
 // Stored as a JSON string. When safeStorage is unavailable, falls back to plaintext.
 
-export const encryptBestEffort = (plain: string): { v: 1; encB64: string; plain?: never } | { v: 0; plain: string; encB64?: never } => {
+export const encryptBestEffort = (
+  plain: string
+): { v: 1; encB64: string; plain?: never } | { v: 0; plain: string; encB64?: never } => {
   try {
     if (safeStorage.isEncryptionAvailable()) {
       const enc = safeStorage.encryptString(String(plain ?? ''));

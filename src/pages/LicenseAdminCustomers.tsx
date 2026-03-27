@@ -78,7 +78,8 @@ export const LicenseAdminCustomers: React.FC = () => {
       const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
       if (rec.ok !== true) throw new Error(String(rec.error || 'Failed'));
 
-      const result = rec.result && typeof rec.result === 'object' ? (rec.result as Record<string, unknown>) : {};
+      const result =
+        rec.result && typeof rec.result === 'object' ? (rec.result as Record<string, unknown>) : {};
       const arr = Array.isArray(result.items) ? result.items : [];
       const parsed = arr
         .map((r) => (r && typeof r === 'object' ? (r as Record<string, unknown>) : null))
@@ -91,7 +92,8 @@ export const LicenseAdminCustomers: React.FC = () => {
           maxActivations: typeof r.maxActivations === 'number' ? r.maxActivations : undefined,
           activationsCount: typeof r.activationsCount === 'number' ? r.activationsCount : undefined,
           customerName: typeof r.customerName === 'string' ? String(r.customerName) : undefined,
-          customerCompany: typeof r.customerCompany === 'string' ? String(r.customerCompany) : undefined,
+          customerCompany:
+            typeof r.customerCompany === 'string' ? String(r.customerCompany) : undefined,
           customerPhone: typeof r.customerPhone === 'string' ? String(r.customerPhone) : undefined,
           customerCity: typeof r.customerCity === 'string' ? String(r.customerCity) : undefined,
         }))
@@ -172,8 +174,12 @@ export const LicenseAdminCustomers: React.FC = () => {
       <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">العملاء والمفاتيح</h1>
-            <div className="text-xs text-slate-500 dark:text-slate-400">تجميع مفاتيح الترخيص حسب العميل</div>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              العملاء والمفاتيح
+            </h1>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              تجميع مفاتيح الترخيص حسب العميل
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Link to={ROUTE_PATHS.LICENSE_ADMIN}>
@@ -186,7 +192,11 @@ export const LicenseAdminCustomers: React.FC = () => {
                 التراخيص
               </Button>
             </Link>
-            <Button variant="secondary" onClick={() => void refreshList()} disabled={busy || loggedIn !== true}>
+            <Button
+              variant="secondary"
+              onClick={() => void refreshList()}
+              disabled={busy || loggedIn !== true}
+            >
               تحديث
             </Button>
           </div>
@@ -195,7 +205,9 @@ export const LicenseAdminCustomers: React.FC = () => {
         <Card className="p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
-              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">رابط سيرفر التفعيل</div>
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                رابط سيرفر التفعيل
+              </div>
               <Input
                 value={serverUrl}
                 onChange={(e) => {
@@ -213,8 +225,15 @@ export const LicenseAdminCustomers: React.FC = () => {
               />
             </div>
             <div>
-              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">بحث</div>
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم/الشركة/الهاتف/المدينة" disabled={busy} />
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                بحث
+              </div>
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="بحث بالاسم/الشركة/الهاتف/المدينة"
+                disabled={busy}
+              />
             </div>
           </div>
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
@@ -223,7 +242,9 @@ export const LicenseAdminCustomers: React.FC = () => {
           {!canUseBridge ? (
             <div className="text-sm text-slate-500">هذه الصفحة تعمل داخل Electron فقط</div>
           ) : loggedIn === false ? (
-            <div className="text-sm text-slate-500">يرجى تسجيل الدخول من صفحة “إدارة التفعيل” أولاً.</div>
+            <div className="text-sm text-slate-500">
+              يرجى تسجيل الدخول من صفحة “إدارة التفعيل” أولاً.
+            </div>
           ) : null}
         </Card>
 
@@ -233,7 +254,9 @@ export const LicenseAdminCustomers: React.FC = () => {
               <Card key={g.key} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
-                    <div className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{g.label}</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                      {g.label}
+                    </div>
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
                       {g.name ? <span>الاسم: {g.name}</span> : null}
                       {g.company ? <span>الشركة: {g.company}</span> : null}
@@ -241,7 +264,9 @@ export const LicenseAdminCustomers: React.FC = () => {
                       {g.city ? <span>المدينة: {g.city}</span> : null}
                     </div>
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">عدد المفاتيح: {g.items.length}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    عدد المفاتيح: {g.items.length}
+                  </div>
                 </div>
 
                 <div className="app-table-wrapper">
@@ -258,21 +283,36 @@ export const LicenseAdminCustomers: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                         {g.items.map((it) => (
-                          <tr key={it.licenseKey} className="app-table-row app-table-row-striped group">
+                          <tr
+                            key={it.licenseKey}
+                            className="app-table-row app-table-row-striped group"
+                          >
                             <td className="app-table-td" title={it.licenseKey}>
-                              <div className="font-mono text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 px-2 py-1 rounded-lg border border-indigo-100/50 dark:border-indigo-800/50 inline-block" dir="ltr">
+                              <div
+                                className="font-mono text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 px-2 py-1 rounded-lg border border-indigo-100/50 dark:border-indigo-800/50 inline-block"
+                                dir="ltr"
+                              >
                                 {it.licenseKey}
                               </div>
                             </td>
                             <td className="app-table-td">
-                              {it.status ? <StatusBadge status={licenseStatusToArabic(it.status)} className="!text-[10px] !px-2 !py-0.5" /> : ''}
+                              {it.status ? (
+                                <StatusBadge
+                                  status={licenseStatusToArabic(it.status)}
+                                  className="!text-[10px] !px-2 !py-0.5"
+                                />
+                              ) : (
+                                ''
+                              )}
                             </td>
                             <td className="app-table-td font-mono text-[10px] text-slate-500 font-bold whitespace-nowrap">
                               {it.expiresAt ? fmtDateTime(it.expiresAt) : ''}
                             </td>
                             <td className="app-table-td text-center">
                               <span className="text-xs font-black text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                                {typeof it.activationsCount === 'number' ? it.activationsCount : '0'}
+                                {typeof it.activationsCount === 'number'
+                                  ? it.activationsCount
+                                  : '0'}
                               </span>
                             </td>
                             <td className="app-table-td font-mono text-[10px] text-slate-400 font-medium whitespace-nowrap">
@@ -294,7 +334,9 @@ export const LicenseAdminCustomers: React.FC = () => {
               </Card>
             ))}
 
-            {filtered.length === 0 ? <div className="text-sm text-slate-500">لا توجد نتائج</div> : null}
+            {filtered.length === 0 ? (
+              <div className="text-sm text-slate-500">لا توجد نتائج</div>
+            ) : null}
           </div>
         ) : null}
       </div>

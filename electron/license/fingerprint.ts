@@ -11,7 +11,8 @@ export type DeviceFingerprintResult = {
   error?: string;
 };
 
-const sha256Hex = (text: string): string => crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+const sha256Hex = (text: string): string =>
+  crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 
 const safeTrim = (v: unknown): string => String(v ?? '').trim();
 
@@ -42,19 +43,19 @@ const runPwshJson = (command: string): Record<string, unknown> | null => {
 const getWindowsSources = (): Record<string, string> => {
   // Prefer CIM (newer) and emit JSON for robust parsing.
   const cmd = [
-    "$csp = Get-CimInstance -ClassName Win32_ComputerSystemProduct | Select-Object -First 1;",
-    "$bb = Get-CimInstance -ClassName Win32_BaseBoard | Select-Object -First 1;",
-    "$bios = Get-CimInstance -ClassName Win32_BIOS | Select-Object -First 1;",
+    '$csp = Get-CimInstance -ClassName Win32_ComputerSystemProduct | Select-Object -First 1;',
+    '$bb = Get-CimInstance -ClassName Win32_BaseBoard | Select-Object -First 1;',
+    '$bios = Get-CimInstance -ClassName Win32_BIOS | Select-Object -First 1;',
     // Disk serial via PhysicalMedia can be empty on some systems.
-    "$pm = Get-CimInstance -ClassName Win32_PhysicalMedia | Select-Object -First 1;",
-    "$o = [ordered]@{};",
-    "$o.Hostname = $env:COMPUTERNAME;",
-    "$o.CspUuid = $csp.UUID;",
-    "$o.CspIdent = $csp.IdentifyingNumber;",
-    "$o.BaseboardSerial = $bb.SerialNumber;",
-    "$o.BiosSerial = $bios.SerialNumber;",
-    "$o.DiskSerial = $pm.SerialNumber;",
-    "$o | ConvertTo-Json -Compress",
+    '$pm = Get-CimInstance -ClassName Win32_PhysicalMedia | Select-Object -First 1;',
+    '$o = [ordered]@{};',
+    '$o.Hostname = $env:COMPUTERNAME;',
+    '$o.CspUuid = $csp.UUID;',
+    '$o.CspIdent = $csp.IdentifyingNumber;',
+    '$o.BaseboardSerial = $bb.SerialNumber;',
+    '$o.BiosSerial = $bios.SerialNumber;',
+    '$o.DiskSerial = $pm.SerialNumber;',
+    '$o | ConvertTo-Json -Compress',
   ].join(' ');
 
   const obj = runPwshJson(cmd);
@@ -94,7 +95,8 @@ const getLinuxSources = (): Record<string, string> => {
   const hostname = safeTrim(os.hostname());
   if (hostname) res.Hostname = hostname;
 
-  const machineId = readTextFileFirstLine('/etc/machine-id') || readTextFileFirstLine('/var/lib/dbus/machine-id');
+  const machineId =
+    readTextFileFirstLine('/etc/machine-id') || readTextFileFirstLine('/var/lib/dbus/machine-id');
   if (machineId) res.MachineId = machineId;
 
   const productUuid = readTextFileFirstLine('/sys/class/dmi/id/product_uuid');
@@ -125,7 +127,12 @@ export const getDeviceFingerprintV2 = (): DeviceFingerprintResult => {
     const fp = sha256Hex(material);
 
     if (!stableKeys) {
-      return { ok: true, fingerprint: `fp2:${fp}`, sources: {}, warning: 'No hardware sources available; using empty fingerprint base.' };
+      return {
+        ok: true,
+        fingerprint: `fp2:${fp}`,
+        sources: {},
+        warning: 'No hardware sources available; using empty fingerprint base.',
+      };
     }
 
     return { ok: true, fingerprint: `fp2:${fp}`, sources };

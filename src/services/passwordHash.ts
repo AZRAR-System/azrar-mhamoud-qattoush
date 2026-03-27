@@ -31,11 +31,19 @@ const constantTimeEqual = (a: Uint8Array, b: Uint8Array): boolean => {
   return diff === 0;
 };
 
-const pbkdf2Sha256 = async (password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> => {
+const pbkdf2Sha256 = async (
+  password: string,
+  salt: Uint8Array,
+  iterations: number
+): Promise<Uint8Array> => {
   const cryptoObj = getCrypto();
-  const key = await cryptoObj.subtle.importKey('raw', textEncoder.encode(password), 'PBKDF2', false, [
-    'deriveBits',
-  ]);
+  const key = await cryptoObj.subtle.importKey(
+    'raw',
+    textEncoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
 
   const bits = await cryptoObj.subtle.deriveBits(
     {
@@ -56,12 +64,17 @@ export const isHashedPassword = (value: unknown): value is string => {
   return s.startsWith(`${PREFIX}$`);
 };
 
-export const hashPassword = async (password: string, opts?: { iterations?: number }): Promise<string> => {
+export const hashPassword = async (
+  password: string,
+  opts?: { iterations?: number }
+): Promise<string> => {
   const p = String(password ?? '').trim();
   if (!p) return '';
 
   const cryptoObj = getCrypto();
-  const iterations = Number.isFinite(opts?.iterations) ? Number(opts?.iterations) : DEFAULT_ITERATIONS;
+  const iterations = Number.isFinite(opts?.iterations)
+    ? Number(opts?.iterations)
+    : DEFAULT_ITERATIONS;
 
   const salt = new Uint8Array(SALT_BYTES);
   cryptoObj.getRandomValues(salt);

@@ -9,7 +9,13 @@ function isSchemeRelativeUrl(raw: string): boolean {
 function isRelativeOrAnchorUrl(raw: string): boolean {
   const s = String(raw || '');
   // Allow anchor and typical relative URLs, but not scheme-relative (//example.com).
-  return (/^\s*#/.test(s) || /^\s*\//.test(s) || /^\s*\.\.?\//.test(s) || /^\s*[^:\s?#]+([?#]|$)/.test(s)) && !isSchemeRelativeUrl(s);
+  return (
+    (/^\s*#/.test(s) ||
+      /^\s*\//.test(s) ||
+      /^\s*\.\.?\//.test(s) ||
+      /^\s*[^:\s?#]+([?#]|$)/.test(s)) &&
+    !isSchemeRelativeUrl(s)
+  );
 }
 
 function hasKnownScheme(raw: string): boolean {
@@ -66,7 +72,22 @@ export function sanitizeDocxHtml(dirtyHtml: string): string {
   return DOMPurify.sanitize(String(dirtyHtml || ''), {
     USE_PROFILES: { html: true },
     // Strip high-risk tags that aren't needed for DOCX viewing.
-    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta', 'base', 'form', 'input', 'button', 'textarea', 'select', 'option'],
+    FORBID_TAGS: [
+      'script',
+      'style',
+      'iframe',
+      'object',
+      'embed',
+      'link',
+      'meta',
+      'base',
+      'form',
+      'input',
+      'button',
+      'textarea',
+      'select',
+      'option',
+    ],
     // Remove inline styles to reduce attack surface (CSS URLs, etc.).
     FORBID_ATTR: ['style', 'srcset'],
   });

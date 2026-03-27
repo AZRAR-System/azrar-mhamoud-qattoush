@@ -48,7 +48,10 @@ const safeJsonParse = <T,>(raw: string | null, fallback: T): T => {
 const normalizePhoneLoose = (raw?: string): string => {
   const value = String(raw || '').trim();
   if (!value) return '';
-  const cleaned = value.replace(/\s+/g, '').replace(/(?!^)\+/g, '').replace(/[^\d+]/g, '');
+  const cleaned = value
+    .replace(/\s+/g, '')
+    .replace(/(?!^)\+/g, '')
+    .replace(/[^\d+]/g, '');
   return cleaned;
 };
 
@@ -60,7 +63,8 @@ const clampInt = (n: unknown, min: number, max: number): number => {
   return Math.min(max, Math.max(min, Math.trunc(x)));
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
 
 const getValue = (obj: unknown, key: string): unknown => (isRecord(obj) ? obj[key] : undefined);
 
@@ -78,10 +82,7 @@ const formatYmd = (d: Date): string => {
   }
 };
 
-const applyTemplateVars = (
-  template: string,
-  vars: Record<string, string | number>
-): string => {
+const applyTemplateVars = (template: string, vars: Record<string, string | number>): string => {
   let out = String(template ?? '');
   const entries = Object.entries(vars);
   for (const [k, v] of entries) {
@@ -134,7 +135,10 @@ export const BulkWhatsApp: React.FC = () => {
   }, [dbSignal]);
 
   useEffect(() => {
-    const loadedTemplates = safeJsonParse<MessageTemplate[]>(localStorage.getItem(STORAGE_KEYS.templates), []);
+    const loadedTemplates = safeJsonParse<MessageTemplate[]>(
+      localStorage.getItem(STORAGE_KEYS.templates),
+      []
+    );
     setTemplates(Array.isArray(loadedTemplates) ? loadedTemplates : []);
 
     const draft = String(localStorage.getItem(STORAGE_KEYS.draft) || '');
@@ -168,7 +172,14 @@ export const BulkWhatsApp: React.FC = () => {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [contactsList]);
 
-  const contactsPageSize = useResponsivePageSize({ base: 10, sm: 14, md: 20, lg: 24, xl: 30, '2xl': 40 });
+  const contactsPageSize = useResponsivePageSize({
+    base: 10,
+    sm: 14,
+    md: 20,
+    lg: 24,
+    xl: 30,
+    '2xl': 40,
+  });
   const [contactsPage, setContactsPage] = useState(1);
   const contactsPageCount = useMemo(
     () => Math.max(1, Math.ceil((contacts.length || 0) / contactsPageSize)),
@@ -217,7 +228,9 @@ export const BulkWhatsApp: React.FC = () => {
     for (const c of chosen) {
       const p1 = normalizePhoneLoose(c.phone);
       const p2 = normalizePhoneLoose(c.extraPhone);
-      const normalized = collectWhatsAppPhones([p1, p2], { defaultCountryCode: getDefaultWhatsAppCountryCodeSync() });
+      const normalized = collectWhatsAppPhones([p1, p2], {
+        defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+      });
       const ph = normalized[0] || '';
       if (!ph) continue;
       if (seen.has(ph)) continue;
@@ -258,7 +271,8 @@ export const BulkWhatsApp: React.FC = () => {
       return;
     }
 
-    const name = String(templateName || '').trim() || `رسالة ${new Date().toISOString().slice(0, 10)}`;
+    const name =
+      String(templateName || '').trim() || `رسالة ${new Date().toISOString().slice(0, 10)}`;
     const now = Date.now();
 
     const existingIndex = templates.findIndex((t) => t.id === selectedTemplateId);
@@ -341,7 +355,10 @@ export const BulkWhatsApp: React.FC = () => {
           date: formatYmd(new Date()),
         });
 
-        const link = buildWhatsAppLink(rendered, r.phone, { defaultCountryCode: undefined, target: 'auto' });
+        const link = buildWhatsAppLink(rendered, r.phone, {
+          defaultCountryCode: undefined,
+          target: 'auto',
+        });
         if (link) {
           openExternalUrl(link);
           opened++;
@@ -349,7 +366,9 @@ export const BulkWhatsApp: React.FC = () => {
         }
 
         if (i < recipients.length - 1 && baseDelayMs > 0) {
-          const waitMs = useJitter ? Math.round(randBetween(jitterMinMs, jitterMaxMs)) : baseDelayMs;
+          const waitMs = useJitter
+            ? Math.round(randBetween(jitterMinMs, jitterMaxMs))
+            : baseDelayMs;
           await sleep(waitMs);
         }
       }
@@ -357,7 +376,8 @@ export const BulkWhatsApp: React.FC = () => {
       setIsRunning(false);
       setProgress((p) => ({ ...p, done: opened, currentName: '' }));
       cancelRef.current = false;
-      if (opened > 0) DbService.logEvent('User', 'BulkWhatsApp', 'Contacts', `Opened ${opened} chats`);
+      if (opened > 0)
+        DbService.logEvent('User', 'BulkWhatsApp', 'Contacts', `Opened ${opened} chats`);
       if (opened > 0) toast.success(`تم فتح ${opened} محادثة واتساب`);
     }
   };
@@ -381,7 +401,9 @@ export const BulkWhatsApp: React.FC = () => {
       <div className={DS.components.pageHeader}>
         <div>
           <h2 className={DS.components.pageTitle}>إرسال واتساب جماعي</h2>
-          <p className={DS.components.pageSubtitle}>اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح</p>
+          <p className={DS.components.pageSubtitle}>
+            اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح
+          </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
           <Users size={16} />
@@ -392,7 +414,9 @@ export const BulkWhatsApp: React.FC = () => {
       <div className="app-card p-4 space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <label className="block text-sm font-bold text-slate-800 dark:text-white mb-2">نص الرسالة</label>
+            <label className="block text-sm font-bold text-slate-800 dark:text-white mb-2">
+              نص الرسالة
+            </label>
 
             <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2">
               <select
@@ -436,36 +460,66 @@ export const BulkWhatsApp: React.FC = () => {
             />
 
             <div className="mt-3 rounded-xl border border-gray-200 dark:border-slate-700 p-3">
-              <div className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2">متغيرات يمكنك استخدامها داخل الرسالة</div>
+              <div className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2">
+                متغيرات يمكنك استخدامها داخل الرسالة
+              </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={() => handleInsertToken('{name}')} disabled={isRunning}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleInsertToken('{name}')}
+                  disabled={isRunning}
+                >
                   {'{name}'}
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => handleInsertToken('{phone}')} disabled={isRunning}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleInsertToken('{phone}')}
+                  disabled={isRunning}
+                >
                   {'{phone}'}
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => handleInsertToken('{index}')} disabled={isRunning}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleInsertToken('{index}')}
+                  disabled={isRunning}
+                >
                   {'{index}'}
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => handleInsertToken('{total}')} disabled={isRunning}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleInsertToken('{total}')}
+                  disabled={isRunning}
+                >
                   {'{total}'}
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => handleInsertToken('{date}')} disabled={isRunning}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleInsertToken('{date}')}
+                  disabled={isRunning}
+                >
                   {'{date}'}
                 </Button>
               </div>
               <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                مثال: مرحباً {"{name}"} — هذا تذكير رقم {"{index}"}/{"{total}"} بتاريخ {"{date}"}
+                مثال: مرحباً {'{name}'} — هذا تذكير رقم {'{index}'}/{'{total}'} بتاريخ {'{date}'}
               </div>
             </div>
 
             <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              ملاحظة: النظام يفتح المحادثات مع الرسالة (يدعم الإيموجي ✅)، وواتساب يتطلب منك الضغط على زر الإرسال.
+              ملاحظة: النظام يفتح المحادثات مع الرسالة (يدعم الإيموجي ✅)، وواتساب يتطلب منك الضغط
+              على زر الإرسال.
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-800 dark:text-white mb-2">المهلة بين كل فتح (ثواني)</label>
+            <label className="block text-sm font-bold text-slate-800 dark:text-white mb-2">
+              المهلة بين كل فتح (ثواني)
+            </label>
             <Input
               type="number"
               min={8}
@@ -475,7 +529,9 @@ export const BulkWhatsApp: React.FC = () => {
               disabled={isRunning}
             />
 
-            <label className="block text-sm font-bold text-slate-800 dark:text-white mt-4 mb-2">الحد الأقصى لكل دفعة</label>
+            <label className="block text-sm font-bold text-slate-800 dark:text-white mt-4 mb-2">
+              الحد الأقصى لكل دفعة
+            </label>
             <Input
               type="number"
               min={1}
@@ -525,7 +581,9 @@ export const BulkWhatsApp: React.FC = () => {
                 {progress.done} / {progress.total}
               </div>
               {progress.currentName ? (
-                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">الحالي: {progress.currentName}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  الحالي: {progress.currentName}
+                </div>
               ) : null}
             </div>
           </div>
@@ -539,15 +597,25 @@ export const BulkWhatsApp: React.FC = () => {
             جهات الاتصال
           </div>
           <div className="flex items-center gap-2">
-            <PaginationControls page={contactsPage} pageCount={contactsPageCount} onPageChange={setContactsPage} />
-            <Button variant="secondary" onClick={toggleSelectAll} disabled={isRunning || contacts.length === 0}>
+            <PaginationControls
+              page={contactsPage}
+              pageCount={contactsPageCount}
+              onPageChange={setContactsPage}
+            />
+            <Button
+              variant="secondary"
+              onClick={toggleSelectAll}
+              disabled={isRunning || contacts.length === 0}
+            >
               تحديد/إلغاء الكل
             </Button>
           </div>
         </div>
 
         {contacts.length === 0 ? (
-          <div className="p-8 text-center text-slate-600 dark:text-slate-400">لا توجد بيانات أشخاص لعرضها</div>
+          <div className="p-8 text-center text-slate-600 dark:text-slate-400">
+            لا توجد بيانات أشخاص لعرضها
+          </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-slate-700 max-h-[520px] overflow-auto">
             {visibleContacts.map((c) => {
@@ -571,7 +639,9 @@ export const BulkWhatsApp: React.FC = () => {
                       disabled={disabled || isRunning}
                     />
                     <div className="min-w-0">
-                      <div className="font-bold text-slate-800 dark:text-white truncate">{c.name}</div>
+                      <div className="font-bold text-slate-800 dark:text-white truncate">
+                        {c.name}
+                      </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400 font-mono dir-ltr truncate">
                         {c.phone || c.extraPhone || 'لا يوجد رقم'}
                       </div>

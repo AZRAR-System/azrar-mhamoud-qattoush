@@ -42,8 +42,12 @@ export class AppShellErrorBoundary extends React.Component<Props, State> {
     return (
       <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
         <div className="w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-lg ring-1 ring-black/5 dark:ring-white/5 p-6">
-          <h2 className="text-lg font-black text-slate-800 dark:text-white">حدث خطأ داخل واجهة النظام</h2>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">تم التقاط الخطأ لمنع الشاشة الفارغة. يمكنك إعادة تحميل التطبيق أو العودة للرئيسية.</p>
+          <h2 className="text-lg font-black text-slate-800 dark:text-white">
+            حدث خطأ داخل واجهة النظام
+          </h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            تم التقاط الخطأ لمنع الشاشة الفارغة. يمكنك إعادة تحميل التطبيق أو العودة للرئيسية.
+          </p>
 
           <div className="mt-5 flex flex-wrap gap-3 justify-end">
             <button

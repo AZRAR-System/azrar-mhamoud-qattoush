@@ -2,10 +2,15 @@ import ExcelJS from 'exceljs';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const hasStringProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, string> =>
-  typeof obj[key] === 'string';
+const hasStringProp = <K extends string>(
+  obj: Record<string, unknown>,
+  key: K
+): obj is Record<string, unknown> & Record<K, string> => typeof obj[key] === 'string';
 
-const hasUnknownProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, unknown> =>
+const hasUnknownProp = <K extends string>(
+  obj: Record<string, unknown>,
+  key: K
+): obj is Record<string, unknown> & Record<K, unknown> =>
   Object.prototype.hasOwnProperty.call(obj, key);
 
 const toExcelCellValue = (v: unknown): ExcelJS.CellValue => {
@@ -36,9 +41,7 @@ const toCellString = (v: unknown): string => {
 
     const richText = hasUnknownProp(v, 'richText') ? v.richText : undefined;
     if (Array.isArray(richText)) {
-      return richText
-        .map((x) => (isRecord(x) && hasStringProp(x, 'text') ? x.text : ''))
-        .join('');
+      return richText.map((x) => (isRecord(x) && hasStringProp(x, 'text') ? x.text : '')).join('');
     }
 
     const formulaResult = hasUnknownProp(v, 'result') ? v.result : undefined;
@@ -79,7 +82,7 @@ export function exportToXlsx<T extends Record<string, unknown>>(
     const wb = new ExcelJS.Workbook();
 
     const ws = wb.addWorksheet(sheetName);
-    ws.addRow(columns.map(c => c.header));
+    ws.addRow(columns.map((c) => c.header));
     for (const row of rows) {
       ws.addRow(columns.map((c) => toExcelCellValue(row[c.key] ?? '')));
     }
@@ -141,7 +144,7 @@ export async function readCsvFile(file: File): Promise<Array<Record<string, stri
   const lines = text
     .replace(/^\uFEFF/, '')
     .split(/\r?\n/)
-    .map(l => l.trim())
+    .map((l) => l.trim())
     .filter(Boolean);
   if (lines.length === 0) return [];
 
@@ -168,10 +171,10 @@ export async function readCsvFile(file: File): Promise<Array<Record<string, stri
       cur += ch;
     }
     out.push(cur);
-    return out.map(x => x.trim());
+    return out.map((x) => x.trim());
   };
 
-  const headers = splitCsvLine(lines[0] ?? '').map(h => h.trim());
+  const headers = splitCsvLine(lines[0] ?? '').map((h) => h.trim());
   const rows: Array<Record<string, string>> = [];
   for (const line of lines.slice(1)) {
     const cells = splitCsvLine(line);

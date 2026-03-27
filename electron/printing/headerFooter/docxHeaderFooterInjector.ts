@@ -26,14 +26,16 @@ const setTextFile = (zip: PizZip, filePath: string, text: string): void => {
 };
 
 const ensureOverride = (typesXml: string, partName: string, contentType: string): string => {
-   if (typesXml.includes(`PartName="${partName}"`)) return typesXml;
-   const override = `<Override PartName="${partName}" ContentType="${contentType}"/>`;
+  if (typesXml.includes(`PartName="${partName}"`)) return typesXml;
+  const override = `<Override PartName="${partName}" ContentType="${contentType}"/>`;
   const idx = typesXml.lastIndexOf('</Types>');
   if (idx === -1) return typesXml;
   return typesXml.slice(0, idx) + override + typesXml.slice(idx);
 };
 
-const parseRelationships = (relsXml: string): Array<{ id: string; type: string; target: string }> => {
+const parseRelationships = (
+  relsXml: string
+): Array<{ id: string; type: string; target: string }> => {
   const out: Array<{ id: string; type: string; target: string }> = [];
   const re = /<Relationship\s+[^>]*Id="([^"]+)"[^>]*Type="([^"]+)"[^>]*Target="([^"]+)"[^>]*\/>/g;
   let m: RegExpExecArray | null;
@@ -58,7 +60,11 @@ const pickNextRid = (rels: Array<{ id: string }>): string => {
   return `rId${max + 1}`;
 };
 
-const ensureRelationship = (relsXml: string, type: 'header' | 'footer', target: string): { xml: string; id: string } => {
+const ensureRelationship = (
+  relsXml: string,
+  type: 'header' | 'footer',
+  target: string
+): { xml: string; id: string } => {
   const rels = parseRelationships(relsXml);
   const typeUrl = `http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}`;
 
@@ -91,13 +97,17 @@ const buildFooterXml = (line: string): string => {
   const before = escapeXml(parts[0] ?? '');
   const after = escapeXml(parts.slice(1).join(HEADER_FOOTER_PAGE_TOKEN) ?? '');
 
-    const pageField = `<w:fldSimple w:instr=" PAGE \\* MERGEFORMAT "><w:r><w:rPr><w:noProof/></w:rPr><w:t>1</w:t></w:r></w:fldSimple>`;
+  const pageField = `<w:fldSimple w:instr=" PAGE \\* MERGEFORMAT "><w:r><w:rPr><w:noProof/></w:rPr><w:t>1</w:t></w:r></w:fldSimple>`;
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:p><w:pPr><w:jc w:val="right"/><w:bidi/></w:pPr><w:r><w:rPr><w:rtl/></w:rPr><w:t xml:space="preserve">${before}</w:t></w:r>${pageField}<w:r><w:rPr><w:rtl/></w:rPr><w:t xml:space="preserve">${after}</w:t></w:r></w:p></w:ftr>`;
 };
 
-const upsertHeaderFooterRefsInLastSectPr = (documentXml: string, headerRid?: string, footerRid?: string): string => {
+const upsertHeaderFooterRefsInLastSectPr = (
+  documentXml: string,
+  headerRid?: string,
+  footerRid?: string
+): string => {
   const start = documentXml.lastIndexOf('<w:sectPr');
   if (start === -1) return documentXml;
 
@@ -120,7 +130,10 @@ const upsertHeaderFooterRefsInLastSectPr = (documentXml: string, headerRid?: str
   return documentXml.slice(0, start) + nextSect + documentXml.slice(end);
 };
 
-export const injectHeaderFooterIntoDocxZip = (zip: PizZip, resolved: HeaderFooterResolved): void => {
+export const injectHeaderFooterIntoDocxZip = (
+  zip: PizZip,
+  resolved: HeaderFooterResolved
+): void => {
   const wantsHeader = resolved.headerEnabled && resolved.headerLines.length > 0;
   const wantsFooter = resolved.footerEnabled && resolved.footerLine.trim().length > 0;
   if (!wantsHeader && !wantsFooter) return;
@@ -137,14 +150,14 @@ export const injectHeaderFooterIntoDocxZip = (zip: PizZip, resolved: HeaderFoote
       typesXml = ensureOverride(
         typesXml,
         '/word/header1.xml',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml'
       );
     }
     if (wantsFooter) {
       typesXml = ensureOverride(
         typesXml,
         '/word/footer1.xml',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml'
       );
     }
     setTextFile(zip, typesPath, typesXml);

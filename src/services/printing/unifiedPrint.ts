@@ -1,4 +1,7 @@
-import type { DesktopPrintDispatchRequest, DesktopPrintDispatchResult } from '@/types/electron.types';
+import type {
+  DesktopPrintDispatchRequest,
+  DesktopPrintDispatchResult,
+} from '@/types/electron.types';
 
 export type UnifiedPrintContext = {
   documentType: string;
@@ -18,7 +21,9 @@ export type UnifiedHeaderFooter = {
   dateIso?: string;
 };
 
-export const printCurrentViewUnified = async (ctx: UnifiedPrintContext): Promise<DesktopPrintDispatchResult | undefined> => {
+export const printCurrentViewUnified = async (
+  ctx: UnifiedPrintContext
+): Promise<DesktopPrintDispatchResult | undefined> => {
   // Desktop unified dispatch (Phase 10). Falls back to legacy desktopPrintEngine if not available.
   const request: DesktopPrintDispatchRequest = {
     action: 'printCurrentView',
@@ -33,14 +38,19 @@ export const printCurrentViewUnified = async (ctx: UnifiedPrintContext): Promise
 
   if (window.desktopPrintEngine?.run) {
     // Legacy (still main-process printing). No metadata support.
-    return (await window.desktopPrintEngine.run({ type: 'currentView', mode: 'print' })) as unknown as DesktopPrintDispatchResult;
+    return (await window.desktopPrintEngine.run({
+      type: 'currentView',
+      mode: 'print',
+    })) as unknown as DesktopPrintDispatchResult;
   }
 
   // Web mode: no-op.
   return undefined;
 };
 
-export const printTextUnified = async (ctx: UnifiedPrintContext & { text: string; title?: string }): Promise<DesktopPrintDispatchResult | undefined> => {
+export const printTextUnified = async (
+  ctx: UnifiedPrintContext & { text: string; title?: string }
+): Promise<DesktopPrintDispatchResult | undefined> => {
   const request: DesktopPrintDispatchRequest = {
     action: 'printText',
     documentType: String(ctx.documentType || '').trim() || 'unknown',
@@ -75,7 +85,7 @@ export const generateTemplateUnified = async (
     outputType: 'docx' | 'pdf';
     defaultFileName?: string;
     headerFooter?: UnifiedHeaderFooter;
-  },
+  }
 ): Promise<DesktopPrintDispatchResult | undefined> => {
   const request: DesktopPrintDispatchRequest = {
     action: 'generate',
@@ -115,7 +125,7 @@ export const exportDocxUnified = async (
     data: Record<string, unknown>;
     defaultFileName?: string;
     headerFooter?: UnifiedHeaderFooter;
-  },
+  }
 ): Promise<DesktopPrintDispatchResult | undefined> => {
   const request: DesktopPrintDispatchRequest = {
     action: 'exportDocx',

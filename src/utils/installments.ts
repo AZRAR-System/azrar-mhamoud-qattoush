@@ -2,7 +2,10 @@ import type { الكمبيالات_tbl } from '@/types';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const hasUnknownProp = <K extends string>(obj: Record<string, unknown>, key: K): obj is Record<string, unknown> & Record<K, unknown> =>
+const hasUnknownProp = <K extends string>(
+  obj: Record<string, unknown>,
+  key: K
+): obj is Record<string, unknown> & Record<K, unknown> =>
   Object.prototype.hasOwnProperty.call(obj, key);
 
 export const getInstallmentPaidAndRemaining = (inst: الكمبيالات_tbl) => {
@@ -15,9 +18,7 @@ export const getInstallmentPaidAndRemaining = (inst: الكمبيالات_tbl) =
 
   // Prefer stored remaining amount if available.
   const rawRemaining =
-    isRecord(inst) && hasUnknownProp(inst, 'القيمة_المتبقية')
-      ? inst.القيمة_المتبقية
-      : undefined;
+    isRecord(inst) && hasUnknownProp(inst, 'القيمة_المتبقية') ? inst.القيمة_المتبقية : undefined;
   if (typeof rawRemaining === 'number' && Number.isFinite(rawRemaining)) {
     const remaining = Math.max(0, rawRemaining);
     const paid = Math.max(0, (inst.القيمة || 0) - remaining);
@@ -26,9 +27,7 @@ export const getInstallmentPaidAndRemaining = (inst: الكمبيالات_tbl) =
 
   // Fallback: compute from payment history.
   const rawPayments =
-    isRecord(inst) && hasUnknownProp(inst, 'سجل_الدفعات')
-      ? inst.سجل_الدفعات
-      : undefined;
+    isRecord(inst) && hasUnknownProp(inst, 'سجل_الدفعات') ? inst.سجل_الدفعات : undefined;
   const payments = Array.isArray(rawPayments) ? rawPayments : [];
 
   const paid = payments.reduce((sum: number, p: unknown) => {

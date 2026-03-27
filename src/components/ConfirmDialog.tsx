@@ -86,10 +86,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       headerClassName={`${styles.headerBg} border-b border-gray-200 dark:border-slate-700`}
       footer={
         <div className="flex gap-3 justify-end">
-          <Button variant="secondary" className="bg-gray-400 hover:bg-gray-500 text-white" onClick={handleCancel}>
+          <Button
+            variant="secondary"
+            className="bg-gray-400 hover:bg-gray-500 text-white"
+            onClick={handleCancel}
+          >
             {cancelText}
           </Button>
-          <Button variant="primary" className={`${styles.confirmBtn} text-white`} onClick={handleConfirm}>
+          <Button
+            variant="primary"
+            className={`${styles.confirmBtn} text-white`}
+            onClick={handleConfirm}
+          >
             {confirmText}
           </Button>
         </div>
@@ -98,7 +106,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       <div className="flex items-start gap-4">
         {styles.icon}
         <div>
-          <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line">{message}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line">
+            {message}
+          </p>
         </div>
       </div>
       {children ? <div className="mt-4">{children}</div> : null}

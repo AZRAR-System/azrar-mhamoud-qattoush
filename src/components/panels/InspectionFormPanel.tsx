@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { AttachmentManager } from '@/components/AttachmentManager';
@@ -9,7 +8,8 @@ import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
 
 type UnknownRecord = Record<string, unknown>;
-const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null;
 const toRecordOrNull = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
 
 interface InspectionFormPanelProps {
@@ -19,7 +19,12 @@ interface InspectionFormPanelProps {
   onSuccess?: () => void;
 }
 
-export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, propertyId, onClose, onSuccess }) => {
+export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({
+  id,
+  propertyId,
+  onClose,
+  onSuccess,
+}) => {
   const toast = useToast();
   const [inspectionId, setInspectionId] = useState<string | undefined>(id);
   const [resolvedPropertyId, setResolvedPropertyId] = useState<string>(propertyId || '');
@@ -174,8 +179,12 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
             ? (() => {
                 const internal = property['الكود_الداخلي'];
                 const num = property['رقم_العقار'];
-                const internalText = typeof internal === 'string' || typeof internal === 'number' ? String(internal) : '';
-                const numText = typeof num === 'string' || typeof num === 'number' ? String(num) : '';
+                const internalText =
+                  typeof internal === 'string' || typeof internal === 'number'
+                    ? String(internal)
+                    : '';
+                const numText =
+                  typeof num === 'string' || typeof num === 'number' ? String(num) : '';
                 const label = internalText || numText;
                 return `العقار: ${label}`;
               })()
@@ -188,7 +197,9 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
       <div className="p-6 space-y-6 flex-1">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">تاريخ الكشف <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+              تاريخ الكشف <span className="text-red-500">*</span>
+            </label>
             <input
               type="date"
               value={form.inspectionDate}
@@ -225,7 +236,9 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
         />
 
         <div>
-          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">ملاحظات</label>
+          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+            ملاحظات
+          </label>
           <textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -236,7 +249,9 @@ export const InspectionFormPanel: React.FC<InspectionFormPanelProps> = ({ id, pr
 
         {inspectionId ? (
           <div className="space-y-3">
-            <div className="text-sm font-bold text-slate-700 dark:text-slate-300">صور وملفات الكشف</div>
+            <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
+              صور وملفات الكشف
+            </div>
             <AttachmentManager referenceType="Inspection" referenceId={inspectionId} />
           </div>
         ) : (

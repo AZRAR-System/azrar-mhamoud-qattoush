@@ -17,23 +17,19 @@ const collectNavPaths = (items: NavItem[]): string[] => {
  */
 export const validateRoutes = (): void => {
   const routeValues = new Set<string>(
-    (Object.values(ROUTE_PATHS) as unknown[])
-      .map(v => String(v))
-      .filter(p => p.startsWith('/'))
+    (Object.values(ROUTE_PATHS) as unknown[]).map((v) => String(v)).filter((p) => p.startsWith('/'))
   );
 
   const navPaths = collectNavPaths(NAV_ITEMS);
 
   for (const p of navPaths) {
     if (!routeValues.has(p)) {
-       
       console.warn(`[routes] NAV path not in ROUTE_PATHS: ${p}`);
     }
   }
 
   for (const p of routeValues) {
     if (!ROUTE_TITLES[p]) {
-       
       console.warn(`[routes] Missing ROUTE_TITLES entry for: ${p}`);
     }
   }

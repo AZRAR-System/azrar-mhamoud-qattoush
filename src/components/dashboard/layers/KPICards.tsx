@@ -44,23 +44,28 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
 
   // ✅ Calculate real trends
   const totalProperties = Number(data.kpis.totalProperties || 0) || 0;
-  const occupiedCount = Number(data.kpis.occupiedProperties ?? data.properties.filter(p => p.IsRented === true).length) || 0;
+  const occupiedCount =
+    Number(
+      data.kpis.occupiedProperties ?? data.properties.filter((p) => p.IsRented === true).length
+    ) || 0;
   const vacantCount = Math.max(0, totalProperties - occupiedCount);
-  const unreadAlertsTotal = (data.alerts?.critical || 0) + (data.alerts?.warning || 0) + (data.alerts?.info || 0);
+  const unreadAlertsTotal =
+    (data.alerts?.critical || 0) + (data.alerts?.warning || 0) + (data.alerts?.info || 0);
 
   const cards: KPICard[] = [
     {
       title: 'إيرادات الشهر الحالي',
-        value: formatCurrencyJOD(data.kpis.totalRevenue),
+      value: formatCurrencyJOD(data.kpis.totalRevenue),
       icon: DollarSign,
       color: 'from-green-500 to-emerald-600',
       textColor: 'text-green-600',
       bgColor: 'bg-green-50 dark:bg-green-900/20',
       trend: (
         <div className="flex flex-col gap-0.5">
-            <div>الشهر السابق: {formatCurrencyJOD(data.kpis.previousMonthRevenue || 0)}</div>
+          <div>الشهر السابق: {formatCurrencyJOD(data.kpis.previousMonthRevenue || 0)}</div>
           <div>
-              السنة الحالية: {formatCurrencyJOD(data.kpis.currentYearRevenue || 0)} | السنة السابقة: {formatCurrencyJOD(data.kpis.previousYearRevenue || 0)}
+            السنة الحالية: {formatCurrencyJOD(data.kpis.currentYearRevenue || 0)} | السنة السابقة:{' '}
+            {formatCurrencyJOD(data.kpis.previousYearRevenue || 0)}
           </div>
         </div>
       ),
@@ -68,7 +73,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     },
     {
       title: 'العقود النشطة',
-        value: formatNumber(data.kpis.activeContracts),
+      value: formatNumber(data.kpis.activeContracts),
       icon: Briefcase,
       color: 'from-indigo-500 to-cyan-600',
       textColor: 'text-indigo-600',
@@ -118,7 +123,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     },
     {
       title: 'إجمالي الأشخاص',
-        value: formatNumber(data.kpis.totalPeople),
+      value: formatNumber(data.kpis.totalPeople),
       icon: Users,
       color: 'from-indigo-500 to-indigo-600',
       textColor: 'text-indigo-600',
@@ -149,11 +154,15 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
         return (
           <div key={index} className={className} onClick={card.onClick}>
             {/* Background Glow */}
-            <div className={`absolute -right-4 -top-4 w-24 h-24 bg-gradient-to-br ${card.color} opacity-0 group-hover:opacity-10 blur-2xl transition-opacity duration-500 rounded-full`} />
-            
+            <div
+              className={`absolute -right-4 -top-4 w-24 h-24 bg-gradient-to-br ${card.color} opacity-0 group-hover:opacity-10 blur-2xl transition-opacity duration-500 rounded-full`}
+            />
+
             <div className="relative z-10">
               <div className="flex items-start justify-between mb-5">
-                <div className={`p-4 rounded-2xl ${card.bgColor} shadow-inner group-hover:scale-110 transition-transform duration-500`}>
+                <div
+                  className={`p-4 rounded-2xl ${card.bgColor} shadow-inner group-hover:scale-110 transition-transform duration-500`}
+                >
                   <Icon className={`${card.textColor} group-hover:animate-pulse`} size={24} />
                 </div>
                 <div className="flex flex-col items-end">
@@ -171,7 +180,9 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
                   <TrendingUp size={12} className={card.textColor} />
                   <span className="truncate max-w-[150px]">{card.trend}</span>
                 </div>
-                <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${card.color} animate-pulse`} />
+                <div
+                  className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${card.color} animate-pulse`}
+                />
               </div>
 
               {/* Special Progress Bar for Occupancy */}

@@ -22,7 +22,7 @@ export const QuickActionsBar: React.FC = () => {
     openPanel('CONTRACT_FORM', 'new', {
       onSuccess: () => {
         toast.success('تم إضافة العقد بنجاح');
-      }
+      },
     });
   };
 
@@ -30,7 +30,7 @@ export const QuickActionsBar: React.FC = () => {
     openPanel('PERSON_FORM', 'new', {
       onSuccess: () => {
         toast.success('تم إضافة الشخص بنجاح');
-      }
+      },
     });
   };
 
@@ -38,7 +38,7 @@ export const QuickActionsBar: React.FC = () => {
     openPanel('PROPERTY_FORM', 'new', {
       onSuccess: () => {
         toast.success('تم إضافة العقار بنجاح');
-      }
+      },
     });
   };
 
@@ -48,42 +48,42 @@ export const QuickActionsBar: React.FC = () => {
       label: 'عقد جديد',
       color: 'bg-indigo-500 hover:bg-indigo-600',
       action: handleAddContract,
-      desc: 'أضف عقد جديد من قسم العقود'
+      desc: 'أضف عقد جديد من قسم العقود',
     },
     {
       icon: Users,
       label: 'شخص جديد',
       color: 'bg-purple-500 hover:bg-purple-600',
       action: handleAddPerson,
-      desc: 'أضف شخص جديد من قسم الأشخاص'
+      desc: 'أضف شخص جديد من قسم الأشخاص',
     },
     {
       icon: Building2,
       label: 'عقار جديد',
       color: 'bg-green-500 hover:bg-green-600',
       action: handleAddProperty,
-      desc: 'أضف عقار جديد من قسم العقارات'
+      desc: 'أضف عقار جديد من قسم العقارات',
     },
     {
       icon: BarChart3,
       label: 'تقارير',
       color: 'bg-indigo-500 hover:bg-indigo-600',
       action: () => openSection(ROUTE_PATHS.REPORTS, 'التقارير'),
-      desc: 'عرض التقارير المتقدمة'
+      desc: 'عرض التقارير المتقدمة',
     },
     {
       icon: Bell,
       label: 'إشعارات',
       color: 'bg-yellow-500 hover:bg-yellow-600',
       action: () => openSection(ROUTE_PATHS.ALERTS, 'الإشعارات'),
-      desc: 'عرض الإشعارات والتنبيهات'
+      desc: 'عرض الإشعارات والتنبيهات',
     },
     {
       icon: Search,
       label: 'بحث',
       color: 'bg-cyan-500 hover:bg-cyan-600',
       action: () => window.dispatchEvent(new Event(GLOBAL_SEARCH_OPEN_EVENT)),
-      desc: 'بحث متقدم عن البيانات'
+      desc: 'بحث متقدم عن البيانات',
     },
     {
       icon: FileText,
@@ -92,7 +92,7 @@ export const QuickActionsBar: React.FC = () => {
       action: () => {
         window.location.hash = ROUTE_PATHS.DOCUMENTS;
       },
-      desc: 'إدارة المستندات'
+      desc: 'إدارة المستندات',
     },
     {
       icon: Phone,
@@ -101,7 +101,7 @@ export const QuickActionsBar: React.FC = () => {
       action: () => {
         window.location.hash = ROUTE_PATHS.CONTACTS;
       },
-      desc: 'نظام الاتصالات'
+      desc: 'نظام الاتصالات',
     },
   ];
 
@@ -133,7 +133,8 @@ export const QuickActionsBar: React.FC = () => {
 
       <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg">
         <p className="text-xs text-indigo-700 dark:text-indigo-300">
-          💡 <strong>ملاحظة:</strong> بعض الاختصارات تفتح طبقة عرض داخلية، بينما (اتصالات/مستندات) تفتح صفحات كاملة.
+          💡 <strong>ملاحظة:</strong> بعض الاختصارات تفتح طبقة عرض داخلية، بينما (اتصالات/مستندات)
+          تفتح صفحات كاملة.
         </p>
       </div>
     </div>

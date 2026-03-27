@@ -52,7 +52,9 @@ export async function verifyAppIntegrityOrQuit(): Promise<void> {
   if (!app.isPackaged) return;
 
   // Support break-glass for support/debugging.
-  const allow = String(process.env.AZRAR_ALLOW_TAMPERED_APP || '').trim().toLowerCase();
+  const allow = String(process.env.AZRAR_ALLOW_TAMPERED_APP || '')
+    .trim()
+    .toLowerCase();
   if (allow === '1' || allow === 'true') return;
 
   const appPath = app.getAppPath();

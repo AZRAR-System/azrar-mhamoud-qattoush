@@ -18,7 +18,16 @@ export const PrintLetterhead: React.FC<{ className?: string }> = ({ className })
   const logoUrl = String(s?.logoUrl || '').trim();
 
   const hasAny =
-    companyName || slogan || address || phone || email || website || taxNumber || commercialRegister || companyIdentityText || logoUrl;
+    companyName ||
+    slogan ||
+    address ||
+    phone ||
+    email ||
+    website ||
+    taxNumber ||
+    commercialRegister ||
+    companyIdentityText ||
+    logoUrl;
   if (!hasAny) return null;
 
   return (
@@ -32,8 +41,12 @@ export const PrintLetterhead: React.FC<{ className?: string }> = ({ className })
           ) : null}
 
           <div className="min-w-0">
-            {companyName ? <div className="text-xl font-black text-slate-900">{companyName}</div> : null}
-            {slogan ? <div className="text-sm font-bold text-slate-600 mt-0.5">{slogan}</div> : null}
+            {companyName ? (
+              <div className="text-xl font-black text-slate-900">{companyName}</div>
+            ) : null}
+            {slogan ? (
+              <div className="text-sm font-bold text-slate-600 mt-0.5">{slogan}</div>
+            ) : null}
             <div className="text-[11px] text-slate-600 mt-2 leading-relaxed">
               {address ? <div>{address}</div> : null}
               <div className="flex flex-wrap gap-x-3 gap-y-1">

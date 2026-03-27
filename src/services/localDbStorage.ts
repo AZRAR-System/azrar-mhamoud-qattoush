@@ -22,4 +22,3 @@ export function dbOk<T = null>(data?: T, message = 'تمت العملية بنج
 export function dbFail<T = null>(message = 'حدث خطأ'): DbResult<T> {
   return { success: false, message };
 }
-

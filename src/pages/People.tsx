@@ -906,9 +906,7 @@ export const People: React.FC = () => {
         key={person.رقم_الشخص}
         className={`group w-full animate-slide-up ${roleRing} ${isBlacklisted ? 'ring-2 ring-red-500/20 border-red-500/30' : ''}`}
       >
-        <div
-          className={`h-1 w-full ${roleVisual.stripe}`}
-        ></div>
+        <div className={`h-1 w-full ${roleVisual.stripe}`}></div>
         <div className="p-5 flex flex-col h-full">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -974,9 +972,7 @@ export const People: React.FC = () => {
                 <div className={`font-bold ${contractTitleClass}`}>{t('مرتبط بعقد')}</div>
                 <div>
                   {t('رقم العقد:')}{' '}
-                  <span className="font-mono">
-                    #{formatContractNumberShort(pick.رقم_العقد)}
-                  </span>
+                  <span className="font-mono">#{formatContractNumberShort(pick.رقم_العقد)}</span>
                   {linkedProperty?.الكود_الداخلي ? (
                     <>
                       {' '}
@@ -1187,9 +1183,7 @@ export const People: React.FC = () => {
         key={person.رقم_الشخص}
         className={`group w-full animate-slide-up ${roleRing} ${isBlacklisted ? 'ring-2 ring-red-500/20 border-red-500/30' : ''}`}
       >
-        <div
-          className={`h-1 w-full ${roleVisual.stripe}`}
-        ></div>
+        <div className={`h-1 w-full ${roleVisual.stripe}`}></div>
         <div className="p-5 flex flex-col h-full">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">

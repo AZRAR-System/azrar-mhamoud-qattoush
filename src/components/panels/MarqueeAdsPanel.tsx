@@ -19,8 +19,10 @@ const getErrorMessage = (error: unknown): string | undefined => {
   return undefined;
 };
 
-const isMarqueeType = (value: string): value is LocalAd['type'] => value === 'alert' || value === 'info' || value === 'success';
-const isMarqueePriority = (value: string): value is LocalAd['priority'] => value === 'Normal' || value === 'High';
+const isMarqueeType = (value: string): value is LocalAd['type'] =>
+  value === 'alert' || value === 'info' || value === 'success';
+const isMarqueePriority = (value: string): value is LocalAd['priority'] =>
+  value === 'Normal' || value === 'High';
 
 type LocalAd = {
   id: string;
@@ -43,7 +45,10 @@ function formatAction(action?: MarqueeAction): string {
   return 'بدون إجراء';
 }
 
-async function promptAction(dialogs: ReturnType<typeof useAppDialogs>, current?: MarqueeAction): Promise<MarqueeAction | null> {
+async function promptAction(
+  dialogs: ReturnType<typeof useAppDialogs>,
+  current?: MarqueeAction
+): Promise<MarqueeAction | null> {
   const kind = await dialogs.prompt({
     title: 'إجراء عند الضغط (اختياري)',
     message: 'حدد ماذا يحدث عند الضغط على الإعلان في الشريط.',
@@ -83,7 +88,10 @@ async function promptAction(dialogs: ReturnType<typeof useAppDialogs>, current?:
       { label: 'تفاصيل عقد (CONTRACT_DETAILS)', value: 'CONTRACT_DETAILS' },
       { label: 'تفاصيل عقار (PROPERTY_DETAILS)', value: 'PROPERTY_DETAILS' },
       { label: 'تفاصيل شخص (PERSON_DETAILS)', value: 'PERSON_DETAILS' },
-      { label: 'مولد الإنذارات القانونية (LEGAL_NOTICE_GENERATOR)', value: 'LEGAL_NOTICE_GENERATOR' },
+      {
+        label: 'مولد الإنذارات القانونية (LEGAL_NOTICE_GENERATOR)',
+        value: 'LEGAL_NOTICE_GENERATOR',
+      },
       { label: 'إعلانات الشريط (MARQUEE_ADS)', value: 'MARQUEE_ADS' },
     ],
     required: true,
@@ -199,7 +207,7 @@ export const MarqueeAdsPanel: React.FC = () => {
       placeholder: '0',
       required: true,
       validationRegex: /^\d+$/,
-      validationError: 'أدخل رقم صحيح (0 أو أكثر)'
+      validationError: 'أدخل رقم صحيح (0 أو أكثر)',
     });
     if (hoursStr === null) return;
 
@@ -240,7 +248,8 @@ export const MarqueeAdsPanel: React.FC = () => {
     setBusy(true);
     try {
       const res = DbService.updateMarqueeAd?.(ad.id, { enabled: nextEnabled });
-      if (res?.success) dialogs.toast.success(nextEnabled ? 'تم تفعيل الإعلان' : 'تم إيقاف الإعلان');
+      if (res?.success)
+        dialogs.toast.success(nextEnabled ? 'تم تفعيل الإعلان' : 'تم إيقاف الإعلان');
       else dialogs.toast.error(res?.message || 'فشل تحديث الإعلان');
     } catch (e: unknown) {
       dialogs.toast.error(getErrorMessage(e) || 'فشل تحديث الإعلان');
@@ -299,7 +308,7 @@ export const MarqueeAdsPanel: React.FC = () => {
       placeholder: 'مثال: 24 أو 0 أو اتركه فارغاً',
       required: false,
       validationRegex: /^$|^\d+$/,
-      validationError: 'أدخل رقم صحيح أو اتركه فارغاً'
+      validationError: 'أدخل رقم صحيح أو اتركه فارغاً',
     });
     if (expiryHoursStr === null) return;
 
@@ -311,7 +320,9 @@ export const MarqueeAdsPanel: React.FC = () => {
 
     setBusy(true);
     try {
-      const patch: Partial<Pick<LocalAd, 'content' | 'type' | 'priority' | 'expiresAt'>> & { action?: MarqueeAction | null } = {
+      const patch: Partial<Pick<LocalAd, 'content' | 'type' | 'priority' | 'expiresAt'>> & {
+        action?: MarqueeAction | null;
+      } = {
         content,
         type: typeValue,
         priority: priorityValue,
@@ -377,10 +388,13 @@ export const MarqueeAdsPanel: React.FC = () => {
           localItems.map((it) => (
             <Card key={it.id} className="p-4 flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-slate-800 dark:text-white break-words">{String(it.content || '')}</div>
+                <div className="text-sm font-bold text-slate-800 dark:text-white break-words">
+                  {String(it.content || '')}
+                </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  الحالة: {it.enabled === false ? 'متوقف' : 'نشط'} • النوع: {String(it.type || 'info')} • الأولوية: {String(it.priority || 'Normal')} • الانتهاء: {formatExpiry(it.expiresAt)}
-                  {' '}• الإجراء: {formatAction(it.action)}
+                  الحالة: {it.enabled === false ? 'متوقف' : 'نشط'} • النوع:{' '}
+                  {String(it.type || 'info')} • الأولوية: {String(it.priority || 'Normal')} •
+                  الانتهاء: {formatExpiry(it.expiresAt)} • الإجراء: {formatAction(it.action)}
                 </div>
               </div>
               <Button

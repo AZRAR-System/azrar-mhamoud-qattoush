@@ -76,7 +76,10 @@ export const AppModal: React.FC<AppModalProps> = ({
 }) => {
   const reactId = useId();
   const modalInstanceId = useMemo(() => `app-modal-${reactId}`, [reactId]);
-  const titleId = useMemo(() => labelledById ?? `app-modal-title-${reactId}`, [labelledById, reactId]);
+  const titleId = useMemo(
+    () => labelledById ?? `app-modal-title-${reactId}`,
+    [labelledById, reactId]
+  );
   const contentRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
 
@@ -111,7 +114,7 @@ export const AppModal: React.FC<AppModalProps> = ({
           'select:not([disabled])',
           'textarea:not([disabled])',
           '[tabindex]:not([tabindex="-1"])',
-        ].join(','),
+        ].join(',')
       );
       return Array.from(nodes).filter((el) => {
         if (!el) return false;
@@ -238,13 +241,19 @@ export const AppModal: React.FC<AppModalProps> = ({
           </div>
         )}
 
-        <div className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 sm:p-8 ${bodyClassName ?? ''}`}>{children}</div>
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 sm:p-8 ${bodyClassName ?? ''}`}
+        >
+          {children}
+        </div>
 
         {footer ? (
-          <div className="no-print p-6 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/30 dark:bg-slate-950/20">{footer}</div>
+          <div className="no-print p-6 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/30 dark:bg-slate-950/20">
+            {footer}
+          </div>
         ) : null}
       </div>
     </div>,
-    document.body,
+    document.body
   );
 };
