@@ -1,4 +1,4 @@
-﻿import path from 'node:path';
+import path from 'node:path';
 import { app, dialog, safeStorage } from 'electron';
 import { createRequire } from 'node:module';
 import type BetterSqlite3 from 'better-sqlite3';
@@ -482,7 +482,7 @@ type ReportRunResult = {
   message?: string;
 };
 
-const DOMAIN_SCHEMA_VERSION = 5;
+const DOMAIN_SCHEMA_VERSION = 6;
 
 function metaGet(dbh: SqliteDb, key: string): string | null {
   const row = dbh.prepare('SELECT v FROM domain_meta WHERE k = ?').get(key) as
@@ -707,6 +707,18 @@ function ensureDomainSchema(dbh: SqliteDb): void {
     // New unique indexes only; no data rewrite.
     // If legacy duplicates exist, index creation is best-effort and won't crash.
     metaSet(dbh, 'domain_migrated_at', '');
+  }
+
+  if (current < 6) {
+    // Composite indexes for common domain SQL (installments by contract + due date, contracts by property/tenant + filters).
+    dbh.exec(`
+      CREATE INDEX IF NOT EXISTS idx_installments_contractId_dueDate ON installments(contractId, dueDate);
+      CREATE INDEX IF NOT EXISTS idx_installments_contractId_status ON installments(contractId, status);
+      CREATE INDEX IF NOT EXISTS idx_contracts_propertyId_isArchived ON contracts(propertyId, isArchived);
+      CREATE INDEX IF NOT EXISTS idx_contracts_tenantId_status ON contracts(tenantId, status);
+      CREATE INDEX IF NOT EXISTS idx_properties_ownerId_status ON properties(ownerId, status);
+      CREATE INDEX IF NOT EXISTS idx_maintenance_propertyId_status ON maintenance_tickets(propertyId, status);
+    `);
   }
 
   metaSet(dbh, 'domain_schema_version', String(DOMAIN_SCHEMA_VERSION));
