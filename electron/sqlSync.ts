@@ -263,7 +263,13 @@ const errorResult = <T extends Record<string, unknown>>(
   code: SqlResultCode,
   message: string,
   extra?: T
-) => ({ ok: false, code, message, ...(extra || {}) });
+) => ({
+  ok: false,
+  code,
+  message,
+  ...(extra || {}),
+  items: (Array.isArray(extra?.items) ? extra.items : []) as unknown as never[],
+});
 
 const ensureError = <T extends Record<string, unknown>>(
   ensured: unknown,
@@ -278,7 +284,13 @@ const ensureError = <T extends Record<string, unknown>>(
     isRecord(ensured) && typeof ensured.message === 'string' && ensured.message
       ? ensured.message
       : fallback;
-  return { ok: false, code, message, ...(extra || {}) };
+  return {
+    ok: false,
+    code,
+    message,
+    ...(extra || {}),
+    items: (Array.isArray(extra?.items) ? extra.items : []) as unknown as never[],
+  };
 };
 
 const getRecordProp = (obj: unknown, key: string): unknown =>
@@ -1135,8 +1147,8 @@ function toSqlConfig(settings: SqlSettings, dbOverride?: string): sql.config {
       min: 0,
       idleTimeoutMillis: 30000,
     },
-    requestTimeout: 15000,
-    connectionTimeout: 8000,
+    requestTimeout: 60000,
+    connectionTimeout: 30000,
   };
 }
 
@@ -1241,10 +1253,10 @@ function toSqlConfigRaw(opts: {
     pool: {
       max: 3,
       min: 0,
-      idleTimeoutMillis: 15000,
+      idleTimeoutMillis: 30000,
     },
-    requestTimeout: 20000,
-    connectionTimeout: 10000,
+    requestTimeout: 60000,
+    connectionTimeout: 30000,
   };
 }
 

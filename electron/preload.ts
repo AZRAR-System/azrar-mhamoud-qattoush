@@ -1,4 +1,4 @@
-﻿import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
 type SqlSettings = Record<string, unknown>;
 type SqlProvisionPayload = Record<string, unknown>;
@@ -21,10 +21,13 @@ export type DbChannel =
   | 'db:getPath'
   | 'db:getBackupDir'
   | 'db:chooseBackupDir'
+  | 'db:chooseDirectory'
   | 'db:getLocalBackupAutomationSettings'
   | 'db:saveLocalBackupAutomationSettings'
   | 'db:runLocalBackupNow'
   | 'db:getLocalBackupStats'
+  | 'db:deleteLocalBackupFile'
+  | 'db:restoreLocalBackupFile'
   | 'db:getLocalBackupLog'
   | 'db:clearLocalBackupLog'
   | 'db:getBackupEncryptionSettings'
@@ -110,11 +113,14 @@ contextBridge.exposeInMainWorld('desktopDb', {
   getPath: () => ipcRenderer.invoke('db:getPath'),
   getBackupDir: () => ipcRenderer.invoke('db:getBackupDir'),
   chooseBackupDir: () => ipcRenderer.invoke('db:chooseBackupDir'),
+  chooseDirectory: () => ipcRenderer.invoke('db:chooseDirectory'),
   getLocalBackupAutomationSettings: () => ipcRenderer.invoke('db:getLocalBackupAutomationSettings'),
   saveLocalBackupAutomationSettings: (payload: Record<string, unknown>) =>
     ipcRenderer.invoke('db:saveLocalBackupAutomationSettings', payload),
   runLocalBackupNow: () => ipcRenderer.invoke('db:runLocalBackupNow'),
   getLocalBackupStats: () => ipcRenderer.invoke('db:getLocalBackupStats'),
+  deleteLocalBackupFile: (filePath: string) => ipcRenderer.invoke('db:deleteLocalBackupFile', filePath),
+  restoreLocalBackupFile: (filePath: string) => ipcRenderer.invoke('db:restoreLocalBackupFile', filePath),
   getLocalBackupLog: (payload: Record<string, unknown>) => ipcRenderer.invoke('db:getLocalBackupLog', payload),
   clearLocalBackupLog: () => ipcRenderer.invoke('db:clearLocalBackupLog'),
   getBackupEncryptionSettings: () => ipcRenderer.invoke('db:getBackupEncryptionSettings'),

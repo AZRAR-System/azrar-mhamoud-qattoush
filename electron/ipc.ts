@@ -1,4 +1,4 @@
-﻿import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
+﻿﻿﻿import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
 import {
   kvApplyRemoteDelete,
   kvDelete,
@@ -150,6 +150,36 @@ const requiredPrintPermissionForJob = (job: PrintEngineJob): string => {
       return 'PRINT_EXECUTE';
   }
 };
+
+/**
+ * Combined logic for importing a database file, potentially decrypting it first.
+ */
+async function importDatabaseFrom(sourcePath: string, password?: string): Promise<void> {
+  let finalPath = sourcePath;
+  let tmpPath: string | null = null;
+
+  try {
+    const isEnc = await isEncryptedFile(sourcePath);
+    if (isEnc) {
+      if (!password) {
+        throw new Error('الملف مشفر ولكن لم يتم توفير كلمة مرور.');
+      }
+      tmpPath = sourcePath + '.tmp-decrypted';
+      await decryptFileToFile({ sourcePath, destPath: tmpPath, password });
+      finalPath = tmpPath;
+    }
+
+    await importDatabase(finalPath);
+  } finally {
+    if (tmpPath) {
+      try {
+        await fsp.unlink(tmpPath);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
 
 type FspCpOptions = { recursive: boolean; force: boolean };
 type FspCpFn = (src: string, dest: string, options: FspCpOptions) => Promise<void>;
@@ -2863,7 +2893,7 @@ export function registerIpcHandlers() {
     }
 
     const v = validateInstallerCandidate(resolved, st, MAX_INSTALLER_BYTES);
-    if (!v.ok) return { success: false, message: v.message || 'ملف التحديث غير صالح' };
+    if (!v.ok) return { success: false, message: v.reason || 'ملف التحديث غير صالح' };
 
     // Verify the Windows Authenticode signature before running any external installer.
     // This reduces the risk of running a tampered file.
@@ -4953,6 +4983,17 @@ export function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('db:chooseDirectory', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'اختر مجلد',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, message: 'تم الإلغاء' };
+    }
+    return { success: true, path: result.filePaths[0] };
+  });
+
   ipcMain.handle('db:getLocalBackupAutomationSettings', async () => {
     return await readLocalBackupAutomationSettings();
   });
@@ -5059,6 +5100,61 @@ export function registerIpcHandlers() {
         message: toErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية'),
       });
       return { success: false, message: toErrorMessage(e, 'فشل إنشاء النسخة الاحتياطية') };
+    }
+  });
+
+  // Delete a specific backup file
+  ipcMain.handle('db:deleteLocalBackupFile', async (_, filePath: string) => {
+    try {
+      if (!filePath || !fs.existsSync(filePath)) {
+        return { success: false, message: 'الملف غير موجود' };
+      }
+      
+      // Basic safety: ensure it's in a backup directory
+      const settings = await readBackupSettings();
+      const backupDir = settings.backupDir;
+      if (backupDir && !filePath.startsWith(backupDir)) {
+         return { success: false, message: 'لا يمكن حذف ملفات خارج مجلد النسخ الاحتياطي' };
+      }
+
+      await fsp.unlink(filePath);
+      return { success: true, message: 'تم حذف النسخة الاحتياطية بنجاح' };
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل حذف الملف') };
+    }
+  });
+
+  // Restore a specific backup file (takes full path)
+  ipcMain.handle('db:restoreLocalBackupFile', async (_, filePath: string) => {
+    if (dbMaintenanceMode)
+      return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
+
+    try {
+      if (!filePath || !fs.existsSync(filePath)) {
+        return { success: false, message: 'الملف غير موجود' };
+      }
+
+      const isEncrypted = filePath.endsWith('.enc');
+      let password = '';
+
+      if (isEncrypted) {
+        const encState = await getBackupEncryptionPasswordState();
+        if (!encState.configured || !encState.password) {
+           return { success: false, message: 'الملف مشفر ولكن لم يتم ضبط كلمة مرور التشفير في الإعدادات.' };
+        }
+        password = encState.password;
+      }
+
+      // We use the same internal logic as db:import but with the provided path.
+      dbMaintenanceMode = true;
+      try {
+         await importDatabaseFrom(filePath, password);
+         return { success: true, message: 'تم استعادة البيانات بنجاح. سيتم إعادة تشغيل البرنامج.' };
+      } finally {
+         dbMaintenanceMode = false;
+      }
+    } catch (e: unknown) {
+      return { success: false, message: toErrorMessage(e, 'فشل استعادة النسخة الاحتياطية') };
     }
   });
 

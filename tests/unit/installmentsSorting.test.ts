@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 
 import type { InstallmentsContractsItem } from '../../src/types/domain.types';
+import type { الكمبيالات_tbl } from '../../src/types/types';
 
 // Mock DbService used by installmentsContractsPagedSmart (non-desktop fallback)
 const DbServiceMock = {
@@ -62,15 +63,15 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
     jest.useRealTimers();
   });
 
-  test('due-asc sorts by next unpaid due date and keeps nulls last', async () => {
+  test('due-asc sorts by most relevant due date (unpaid first, then last paid)', async () => {
     const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     const res = await installmentsContractsPagedSmart({ sort: 'due-asc', offset: 0, limit: 50 });
     expect(res.error).toBeUndefined();
 
     const ids = res.items.map((x: InstallmentsContractsItem) => String(x.contract?.رقم_العقد ?? ''));
-    // contract 3 (Feb 5) then contract 1 (Feb 10), then contract 2 (no payable due)
-    expect(ids).toEqual(['3', '1', '2']);
+    // contract 3 (Feb 5 unpaid) then contract 2 (Feb 8 paid) then contract 1 (Feb 10 unpaid)
+    expect(ids).toEqual(['3', '2', '1']);
   });
 
   test('defaults to due-asc when sort is omitted', async () => {
@@ -80,18 +81,66 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
     expect(res.error).toBeUndefined();
 
     const ids = res.items.map((x: InstallmentsContractsItem) => String(x.contract?.رقم_العقد ?? ''));
-    expect(ids).toEqual(['3', '1', '2']);
+    expect(ids).toEqual(['3', '2', '1']);
   });
 
-  test('due-desc sorts by next unpaid due date descending and keeps nulls last', async () => {
+  test('due-desc sorts by most relevant due date descending', async () => {
     const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     const res = await installmentsContractsPagedSmart({ sort: 'due-desc', offset: 0, limit: 50 });
     expect(res.error).toBeUndefined();
 
     const ids = res.items.map((x: InstallmentsContractsItem) => String(x.contract?.رقم_العقد ?? ''));
-    // contract 1 (Feb 10) then contract 3 (Feb 5), then contract 2 (no payable due)
-    expect(ids).toEqual(['1', '3', '2']);
+    // contract 1 (Feb 10) then contract 2 (Feb 8) then contract 3 (Feb 5)
+    expect(ids).toEqual(['1', '2', '3']);
+  });
+
+  test('amount-asc / amount-desc sort by annual value', async () => {
+    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
+
+    const resAsc = await installmentsContractsPagedSmart({ sort: 'amount-asc', offset: 0, limit: 50 });
+    const amountsAsc = resAsc.items.map((x: InstallmentsContractsItem) => x.contract?.القيمة_السنوية ?? 0);
+    for (let i = 0; i < amountsAsc.length - 1; i++) {
+      expect(amountsAsc[i]).toBeLessThanOrEqual(amountsAsc[i + 1]);
+    }
+
+    const resDesc = await installmentsContractsPagedSmart({ sort: 'amount-desc', offset: 0, limit: 50 });
+    const amountsDesc = resDesc.items.map((x: InstallmentsContractsItem) => x.contract?.القيمة_السنوية ?? 0);
+    for (let i = 0; i < amountsDesc.length - 1; i++) {
+      expect(amountsDesc[i]).toBeGreaterThanOrEqual(amountsDesc[i + 1]);
+    }
+  });
+
+  test('filtering by amount and date', async () => {
+    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
+
+    // Amount range
+    const resAmount = await installmentsContractsPagedSmart({ filterMinAmount: 1000, filterMaxAmount: 5000, offset: 0, limit: 50 });
+    resAmount.items.forEach(item => {
+      const hasMatch = item.installments.some((i: الكمبيالات_tbl) => i.القيمة >= 1000 && i.القيمة <= 5000);
+      expect(hasMatch).toBe(true);
+    });
+
+    // Date range
+    const resDate = await installmentsContractsPagedSmart({ filterStartDate: '2025-02-06', filterEndDate: '2025-02-09', offset: 0, limit: 50 });
+    resDate.items.forEach(item => {
+      const hasMatch = item.installments.some((i: الكمبيالات_tbl) => i.تاريخ_استحقاق >= '2025-02-06' && i.تاريخ_استحقاق <= '2025-02-09');
+      expect(hasMatch).toBe(true);
+    });
+  });
+
+  test('filtering by payment method', async () => {
+    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
+
+    const resPrepaid = await installmentsContractsPagedSmart({ filterPaymentMethod: 'Prepaid', offset: 0, limit: 50 });
+    resPrepaid.items.forEach(item => {
+      expect(item.contract?.طريقة_الدفع).toBe('Prepaid');
+    });
+
+    const resPostpaid = await installmentsContractsPagedSmart({ filterPaymentMethod: 'Postpaid', offset: 0, limit: 50 });
+    resPostpaid.items.forEach(item => {
+      expect(item.contract?.طريقة_الدفع).toBe('Postpaid');
+    });
   });
 
   test('tenant-asc / tenant-desc sort by tenant name', async () => {
