@@ -199,7 +199,12 @@ const lookupKeyFor = (category: unknown, label: unknown): string => {
 };
 
 // Phase 3A: Import domain-specific services
-import * as PropertiesService from './propertiesService';
+import {
+  getProperties,
+  addProperty,
+  updateProperty,
+  getPropertyDetails,
+} from './db/properties';
 import {
   addPersonWithAutoLinkInternal,
   updatePersonWithAutoLinkInternal,
@@ -236,13 +241,13 @@ export {
   generateWhatsAppLink,
 } from './db/people';
 
-export const {
+export {
   getProperties,
   addProperty,
   updateProperty,
-  deleteProperty: deletePropertyLegacy,
+  deleteProperty,
   getPropertyDetails,
-} = PropertiesService;
+} from './db/properties';
 
 // Merged Constants from previous mockData.ts
 const MOCK_REPORTS: ReportDefinition[] = [
