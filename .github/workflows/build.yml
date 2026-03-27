@@ -1,4 +1,4 @@
-﻿name: Build and Release AZRAR Desktop
+name: Build and Release AZRAR Desktop
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
 
     - name: Install dependencies
@@ -80,7 +80,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
 
     - name: Install dependencies
@@ -111,7 +111,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
 
     - name: Install dependencies
@@ -251,7 +251,8 @@ jobs:
     runs-on: windows-latest
     needs: [build, release]
     if: always()
-    
+    continue-on-error: true
+
     steps:
     - name: Notify Discord
       if: success()
