@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
  *
@@ -48,6 +48,8 @@ import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { useClampPage } from '@/hooks/useClampPage';
+import { useResetPageToZero } from '@/hooks/useResetPageToZero';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -795,22 +797,21 @@ export const People: React.FC = () => {
     void loadData();
   }, [desktopPage, isDesktopFast, loadData]);
 
-  useEffect(() => {
-    if (!isDesktopFast) return;
-    const maxPage = Math.max(0, desktopPageCount - 1);
-    if (desktopPage > maxPage) setDesktopPage(maxPage);
-  }, [desktopPage, desktopPageCount, isDesktopFast]);
+  useClampPage({
+    enabled: isDesktopFast,
+    page: desktopPage,
+    pageCount: desktopPageCount,
+    setPage: (n) => setDesktopPage(n),
+  });
 
-  useEffect(() => {
-    if (isDesktopFast) return;
-    const maxPage = Math.max(0, uiPageCount - 1);
-    if (uiPage > maxPage) setUiPage(maxPage);
-  }, [isDesktopFast, uiPage, uiPageCount]);
+  useClampPage({
+    enabled: !isDesktopFast,
+    page: uiPage,
+    pageCount: uiPageCount,
+    setPage: (n) => setUiPage(n),
+  });
 
-  useEffect(() => {
-    if (isDesktopFast) return;
-    setUiPage(0);
-  }, [
+  useResetPageToZero(!isDesktopFast, (n) => setUiPage(n), [
     searchTerm,
     activeRoleTab,
     showOnlyIdleOwners,
@@ -821,7 +822,6 @@ export const People: React.FC = () => {
     advFilters.classification,
     advFilters.minRating,
     pageSize,
-    isDesktopFast,
   ]);
 
   const renderCard = (person: الأشخاص_tbl) => {

@@ -1,23 +1,21 @@
 ﻿import { useCallback, useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
+
+const t = (s: string) => s;
 import { AlertDetail, الأشخاص_tbl, العقارات_tbl, العقود_tbl, tbl_Alerts } from '@/types';
-import { Bell, CheckCircle, Clock, AlertTriangle, CheckCheck, ExternalLink, User, Home, MessageCircle, Send, StickyNote, FileText, Layers, Database, ShieldAlert, PenTool } from 'lucide-react';
+import { Bell, CheckCircle, Clock, AlertTriangle, CheckCheck, User, Home, MessageCircle, Send, StickyNote, FileText, Layers, Database, ShieldAlert, PenTool } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
-import { DS } from '@/constants/designSystem';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
 import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { NotificationTemplates } from '@/services/notificationTemplates';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
-
-const isOnlyFilter = (value: string): value is 'unread' | 'all' => value === 'unread' || value === 'all';
 
 const isExpiryKind = (value: string): value is 'pre_notice' | 'approved' | 'rejected' | 'auto' => {
     return value === 'pre_notice' || value === 'approved' || value === 'rejected' || value === 'auto';
@@ -458,16 +456,18 @@ export const Alerts = () => {
   };
 
   return (
-    <div className="animate-fade-in relative">
+    <div className="animate-fade-in pb-10 space-y-8">
       
-            <div className={`${DS.components.pageHeader} mb-6`}>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/20 dark:border-slate-800/50 shadow-xl shadow-slate-200/20 dark:shadow-black/20">
                 <div>
-                    <h2 className={`${DS.components.pageTitle} flex items-center gap-2`}>
-                        <Bell size={22} />
-                        التنبيهات والإشعارات
+                    <h2 className="text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3">
+                        <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20">
+                         <Bell size={28} />
+                        </div>
+                        {t('التنبيهات والإشعارات')}
                     </h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر
+                    <p className="text-slate-500 dark:text-slate-400 mt-2 font-bold text-sm ml-1">
+                        {t('مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر')}
                     </p>
                 </div>
 
@@ -475,144 +475,140 @@ export const Alerts = () => {
                     <Button
                         variant="secondary"
                         onClick={handleMarkAllRead}
-                        rightIcon={<CheckCheck size={18} />}
+                        className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
+                        rightIcon={<CheckCheck size={20} />}
                     >
-                        تعليم الكل كمقروء
+                        {t('تعليم الكل كمقروء')}
                     </Button>
                 )}
             </div>
 
-            <Card className="p-4 mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                    <Input
-                        type="text"
-                        placeholder="بحث في التنبيهات..."
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                    />
+            <div className="app-card p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div className="relative">
+                      <Input
+                          type="text"
+                          placeholder={t("بحث في التنبيهات...")}
+                          value={q}
+                          onChange={(e) => setQ(e.target.value)}
+                          className="pl-10 pr-4 py-3 bg-slate-50/50 dark:bg-slate-950/30 border-slate-100 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-bold text-sm"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-slate-950/30 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <button 
+                        onClick={() => setOnly('unread')}
+                        className={`flex-1 py-2 rounded-xl font-black text-xs transition-all ${only === 'unread' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                      >
+                        {t('غير مقروء')}
+                      </button>
+                      <button 
+                        onClick={() => setOnly('all')}
+                        className={`flex-1 py-2 rounded-xl font-black text-xs transition-all ${only === 'all' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                      >
+                        {t('الكل')}
+                      </button>
+                    </div>
 
                     <select
-                        className="w-full text-sm border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 rounded px-3 py-2 outline-none"
-                        value={only}
-                        onChange={(e) => {
-                            const nextOnly = String(e.target.value);
-                            if (isOnlyFilter(nextOnly)) setOnly(nextOnly);
-                        }}
-                    >
-                        <option value="unread">غير مقروء فقط</option>
-                        <option value="all">الكل</option>
-                    </select>
-
-                    <select
-                        className="w-full text-sm border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 rounded px-3 py-2 outline-none"
+                        className="w-full text-xs font-black border-none bg-slate-50/50 dark:bg-slate-950/30 p-3 rounded-2xl outline-none ring-1 ring-slate-100 dark:ring-slate-800 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
                     >
-                        <option value="">كل الأنواع</option>
-                        {availableCategories.map((cat) => {
-                            const labels: Record<string, string> = {
-                                Financial: 'تحصيل/مالي',
-                                Expiry: 'انتهاء/تجديد',
-                                Risk: 'مخاطر',
-                                DataQuality: 'جودة البيانات',
-                                SmartBehavior: 'سلوك/ذكاء',
-                                System: 'النظام',
-                                Security: 'أمان',
-                                Maintenance: 'صيانة',
-                            };
-                            return (
-                                <option key={cat} value={cat}>
-                                    {labels[cat] || cat}
-                                </option>
-                            );
-                        })}
+                        <option value="">{t('كل التصنيفات')}</option>
+                        {availableCategories.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
                     </select>
                 </div>
-            </Card>
-
-            <div className="app-card min-h-[400px]">
-        {alerts.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-20 h-20 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-4">
-               <CheckCircle size={40} className="text-green-500" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">لا توجد تنبيهات جديدة</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">النظام يعمل بكفاءة ولا توجد مشاكل معلقة.</p>
-          </div>
-        ) : (
+
+            <div className="grid grid-cols-1 gap-6">
+                {pagedAlerts.length === 0 ? (
+                    <div className="app-card p-20 flex flex-col items-center justify-center text-center">
+                        <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center text-slate-300 mb-6">
+                          <CheckCheck size={40} />
+                        </div>
+                        <h3 className="text-xl font-black text-slate-800 dark:text-white">{t('لا توجد تنبيهات حالياً')}</h3>
+                        <p className="text-slate-500 dark:text-slate-400 mt-2 font-bold">{t('لقد قمت بمراجعة كافة الإشعارات الهامة.')}</p>
+                    </div>
+                ) : (
                     <>
-                        <div className="p-3 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-2">
-                            <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {alerts.length.toLocaleString()} تنبيه</div>
-                            <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
+                        <div className="flex items-center justify-between px-2">
+                          <div className="text-xs font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                            {alerts.length.toLocaleString()} {t('تنبيه')}
+                          </div>
+                          <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
                         </div>
 
-                        <div className="divide-y divide-gray-50 dark:divide-slate-700">
-                        {pagedAlerts.map((alert) => (
-              <div 
-                key={alert.id} 
-                onClick={() => setSelectedAlert(alert)}
-                className="p-5 flex flex-col md:flex-row items-center gap-4 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition group cursor-pointer"
-              >
-                
-                {/* Icon */}
-                <div className={`p-3 rounded-2xl flex-shrink-0 relative ${getAlertStyle(alert)}`}>
-                  {getAlertIcon(alert.category)}
-                  {alert.count && alert.count > 1 && (
-                      <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800">
-                          {alert.count}
-                      </span>
-                  )}
-                </div>
+                        <div className="grid grid-cols-1 gap-4">
+                            {pagedAlerts.map((a) => (
+                                <div
+                                    key={a.id}
+                                    className={`app-card group relative transition-all duration-300 hover:shadow-lg border-r-4 ${a.category === 'Financial' ? 'border-r-rose-500' : a.category === 'DataQuality' ? 'border-r-indigo-500' : a.category === 'Risk' ? 'border-r-orange-500' : 'border-r-slate-400'}`}
+                                >
+                                    <div className="p-6 flex flex-col md:flex-row gap-6">
+                                        <div className={`w-14 h-14 rounded-[1.25rem] flex items-center justify-center shrink-0 shadow-lg ${a.category === 'Financial' ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white' : a.category === 'DataQuality' ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white' : a.category === 'Risk' ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white' : 'bg-gradient-to-br from-slate-500 to-slate-600 text-white'}`}>
+                                            {getAlertIcon(a.category || '')}
+                                        </div>
 
-                {/* Content */}
-                <div className="flex-1 w-full">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-slate-800 dark:text-white text-lg flex items-center gap-2">
-                        {alert.نوع_التنبيه}
-                        {alert.count && alert.count > 1 && (
-                            <span className="text-xs font-normal bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded text-gray-500 dark:text-gray-300">
-                                {alert.count} عناصر
-                            </span>
-                        )}
-                    </h3>
-                    <span className="text-xs text-slate-400 font-mono" dir="ltr">
-                      {new Date(alert.تاريخ_الانشاء).toLocaleDateString('en-GB')}
-                    </span>
-                  </div>
-                  
-                  {/* Context Badges (Only if specific tenant/prop exists) */}
-                  {(alert.tenantName || alert.propertyCode) && alert.propertyCode !== 'N/A' && (
-                      <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-300 mb-2">
-                          {alert.tenantName && (
-                              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded">
-                                  <User size={14} className="text-indigo-500" />
-                                  <span className="font-bold">{alert.tenantName}</span>
-                              </div>
-                          )}
-                          {alert.propertyCode && (
-                              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded">
-                                  <Home size={14} className="text-purple-500" />
-                                  <span className="font-mono">{alert.propertyCode}</span>
-                              </div>
-                          )}
-                      </div>
-                  )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                                                <h3 className="font-black text-lg text-slate-800 dark:text-white truncate">
+                                                    {a.نوع_التنبيه}
+                                                </h3>
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-700">
+                                                    {new Date(a.تاريخ_الانشاء).toLocaleDateString('en-GB')}
+                                                </span>
+                                            </div>
 
-                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
-                    {alert.الوصف}
-                  </p>
-                </div>
+                                            <p className="text-sm font-bold text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
+                                                {a.الوصف}
+                                            </p>
 
-                {/* Quick Action Trigger */}
-                <div className="text-slate-300 group-hover:text-indigo-500 transition">
-                    <ExternalLink size={20} />
-                </div>
+                                            <div className="flex flex-wrap items-center gap-4 text-xs font-black">
+                                                {a.tenantName && (
+                                                    <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 rounded-full border border-indigo-100 dark:border-indigo-800/50">
+                                                        <User size={14} /> {a.tenantName}
+                                                    </div>
+                                                )}
+                                                {a.propertyCode && (
+                                                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-800/50">
+                                                        <Home size={14} /> {a.propertyCode}
+                                                    </div>
+                                                )}
+                                                {a.category && (
+                                                    <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-full border border-slate-100 dark:border-slate-700">
+                                                        <Layers size={14} /> {a.category}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
 
-              </div>
-            ))}
+                                        <div className="flex md:flex-col gap-2 justify-end min-w-[120px]">
+                                            <Button
+                                                size="sm"
+                                                variant="primary"
+                                                onClick={() => setSelectedAlert(a)}
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
+                                            >
+                                                {t('مراجعة وإجراء')}
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => handleDismiss(a)}
+                                                className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-black text-xs px-4 py-2.5 rounded-xl transition-all"
+                                            >
+                                                {t('تجاهل')}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </>
-        )}
+                )}
       </div>
 
       {/* QUICK ACTION MODAL */}

@@ -1,12 +1,31 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, History, RefreshCcw, Search, Shield, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { 
+  ArrowRight, 
+  Check, 
+  History, 
+  RefreshCcw, 
+  X, 
+  Database, 
+  Globe, 
+  Server, 
+  User, 
+  Lock, 
+  ShieldCheck, 
+  Save, 
+  FileArchive, 
+  Plus, 
+  Download, 
+  Upload,
+  Layers, 
+  Clock, 
+  Info, 
+  ShieldAlert, 
+  Loader2 
+} from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { useSmartModal } from '@/context/ModalContext';
 import { isSuperAdmin } from '@/utils/roles';
-import { useDbSignal } from '@/hooks/useDbSignal';
-import { tableLabel } from '@/utils/auditLabels';
 import { resolveDesktopError, resolveDesktopMessage } from '@/utils/desktopMessages';
 
 type SqlStatus = {
@@ -48,6 +67,7 @@ type SqlCoverageItem = {
   localBytes: number;
   remoteUpdatedAt?: string;
   remoteIsDeleted?: boolean;
+  remoteBytes?: number;
   status:
     | 'inSync'
     | 'localAhead'
@@ -71,6 +91,7 @@ type SqlCoverageResponse = {
 type SqlBackupAutomationSettings = {
   enabled: boolean;
   retentionDays: number;
+  timeHHmm?: string;
 };
 
 type SqlBackupAutomationResponse = {
@@ -97,7 +118,7 @@ const getDesktopMessage = (res: unknown, fallback: string): string =>
   resolveDesktopMessage(res, fallback);
 
 export const ServerSqlSection: React.FC = () => {
-  const { t } = useTranslation();
+  const t = useCallback((s: string) => s, []);
   const {
     error: toastError,
     success: toastSuccess,
@@ -106,7 +127,6 @@ export const ServerSqlSection: React.FC = () => {
   } = useToast();
   const { user } = useAuth();
   const { openPanel } = useSmartModal();
-  const dbSignal = useDbSignal();
 
   const isDesktop = !!window.desktopDb;
 
@@ -144,28 +164,63 @@ export const ServerSqlSection: React.FC = () => {
     enabled: true,
     retentionDays: 30,
   });
-  const [sqlBackupAutoBusy, setSqlBackupAutoBusy] = useState(false);
   const [sqlServerBackups, setSqlServerBackups] = useState<SqlServerBackupItem[]>([]);
   const [sqlServerBackupsBusy, setSqlServerBackupsBusy] = useState(false);
 
   const [sqlCoverage, setSqlCoverage] = useState<SqlCoverageResponse | null>(null);
   const [sqlCoverageBusy, setSqlCoverageBusy] = useState(false);
-  const [sqlCoverageQuery, setSqlCoverageQuery] = useState('');
 
-  const [sqlProvision, setSqlProvision] = useState({
-    adminUser: '',
-    adminPassword: '',
-    managerUser: 'azrar_manager',
-    managerPassword: '',
-    employeeUser: 'azrar_employee',
-    employeePassword: '',
-  });
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
-  const entityLabel = useCallback((keyRaw: unknown) => {
-    const key = String(keyRaw ?? '').trim();
-    if (!key) return 'بيانات النظام';
-    return key.startsWith('db_') ? tableLabel(key) : 'بيانات النظام';
-  }, []);
+  const keyLabels = useMemo<Record<string, string>>(() => ({
+    db_people: 'الأشخاص',
+    db_companies: 'الشركات',
+    db_contacts: 'جهات الاتصال',
+    db_properties: 'العقارات',
+    db_contracts: 'العقود',
+    db_installments: 'الأقساط',
+    db_payments: 'الدفعات',
+    db_commissions: 'العمولات',
+    db_alerts: 'التنبيهات',
+    db_attachments: 'المرفقات',
+    db_users: 'المستخدمون',
+    db_user_permissions: 'صلاحيات المستخدمين',
+    db_roles: 'الأدوار',
+    db_settings: 'إعدادات النظام',
+    db_lookup_categories: 'تصنيفات الجداول',
+    db_lookups: 'الجداول المساعدة',
+    db_legal_templates: 'قوالب العقود/النماذج',
+    db_legal_history: 'سجل القانوني',
+    db_followups: 'المتابعات',
+    db_notes: 'الملاحظات',
+    db_reminders: 'التذكيرات',
+    db_maintenance_tickets: 'بلاغات الصيانة',
+    db_notification_send_logs: 'سجل الإشعارات',
+    db_operations: 'العمليات',
+    db_marquee: 'الشريط الإعلاني',
+    db_smart_behavior: 'سلوك الأدوات الذكية',
+    db_sales_listings: 'عروض البيع',
+    db_sales_offers: 'طلبات الشراء',
+    db_sales_agreements: 'اتفاقيات البيع',
+    db_ownership_history: 'سجل الملكية',
+    db_blacklist: 'القائمة السوداء',
+    db_dynamic_tables: 'الجداول الديناميكية',
+    db_dynamic_records: 'السجلات الديناميكية',
+    db_dynamic_form_fields: 'حقول النماذج',
+    db_activities: 'الأنشطة',
+    db_external_commissions: 'العمولات الخارجية',
+    db_dashboard_config: 'إعدادات لوحة التحكم',
+    db_clearance_records: 'سجلات براءة الذمة',
+    db_dashboard_notes: 'ملاحظات لوحة التحكم',
+    db_client_interactions: 'تفاعلات العملاء',
+    db_property_inspections: 'معاينات العقارات',
+  }), []);
 
   const refreshSqlStatus = useCallback(async () => {
     await runGuarded('sql:status', async () => {
@@ -239,8 +294,8 @@ export const ServerSqlSection: React.FC = () => {
           encrypt: sqlForm.encrypt,
           trustServerCertificate: sqlForm.trustServerCertificate,
         })) as unknown as DesktopOkMessage | null;
-        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تم الاتصال'));
-        else toastError(getDesktopMessage(res, 'فشل الاتصال'));
+        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تم الاتصال بنجاح'));
+        else toastError(getDesktopMessage(res, 'فشل الاتصال بالمخدم'));
       } finally {
         setSqlBusy(false);
         void refreshSqlStatus();
@@ -286,13 +341,13 @@ export const ServerSqlSection: React.FC = () => {
         }
 
         if (!sqlForm.enabled) {
-          toastSuccess('تم حفظ الإعدادات (المزامنة غير مفعلة)');
+          toastSuccess('تم حفظ الإعدادات (المزامنة معطلة)');
           return;
         }
 
         const res = (await window.desktopDb.sqlConnect()) as unknown as DesktopOkMessage | null;
-        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تم الاتصال'));
-        else toastError(getDesktopMessage(res, 'فشل الاتصال'));
+        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تم حفظ الإعدادات والاتصال'));
+        else toastError(getDesktopMessage(res, 'فشل الاتصال بعد الحفظ'));
       } finally {
         setSqlBusy(false);
         void refreshSqlStatus();
@@ -307,7 +362,7 @@ export const ServerSqlSection: React.FC = () => {
       setSqlBusy(true);
       try {
         await window.desktopDb.sqlDisconnect();
-        toastSuccess('تم قطع الاتصال');
+        toastSuccess('تم قطع الاتصال بنجاح');
       } finally {
         setSqlBusy(false);
         void refreshSqlStatus();
@@ -328,28 +383,14 @@ export const ServerSqlSection: React.FC = () => {
     });
   }, [runGuarded]);
 
-  const saveSqlBackupAutomation = async (next: Partial<SqlBackupAutomationSettings>) => {
-    if (!window.desktopDb?.sqlSaveBackupAutomationSettings) return;
-    await runGuarded('sql:backupAutoSave', async () => {
-      setSqlBackupAutoBusy(true);
-      try {
-        const res = (await window.desktopDb.sqlSaveBackupAutomationSettings(
-          next
-        )) as unknown as SqlBackupAutomationResponse | null;
-        if (res?.ok && res?.settings) {
-          setSqlBackupAuto(res.settings);
-          toastSuccess('تم حفظ إعدادات النسخ الاحتياطي');
-        } else {
-          toastError(getDesktopMessage(res, 'فشل حفظ إعدادات النسخ الاحتياطي'));
-        }
-      } finally {
-        setSqlBackupAutoBusy(false);
-      }
-    });
-  };
-
   const refreshSqlServerBackups = useCallback(async () => {
     if (!window.desktopDb?.sqlListServerBackups) return;
+    
+    if (!sqlStatus || !sqlStatus.enabled) {
+      setSqlServerBackups([]);
+      return;
+    }
+
     await runGuarded('sql:serverBackupsRefresh', async () => {
       setSqlServerBackupsBusy(true);
       try {
@@ -357,47 +398,22 @@ export const ServerSqlSection: React.FC = () => {
           ok: boolean;
           items?: SqlServerBackupItem[];
           message?: string;
+          code?: string;
         } | null;
-        if (res?.ok) setSqlServerBackups(Array.isArray(res.items) ? res.items : []);
-        else toastError(getDesktopMessage(res, 'فشل قراءة النسخ الاحتياطية'));
-      } finally {
-        setSqlServerBackupsBusy(false);
-      }
-    });
-  }, [toastError, runGuarded]);
-
-  const handleCreateServerBackupNow = async () => {
-    if (!window.desktopDb?.sqlCreateServerBackup) {
-      toastError('هذه الميزة غير متاحة في هذه النسخة');
-      return;
-    }
-
-    await runGuarded('sql:serverBackupsCreateNow', async () => {
-      setSqlServerBackupsBusy(true);
-      try {
-        const res = (await window.desktopDb.sqlCreateServerBackup({
-          note: 'manual',
-        })) as unknown as {
-          ok: boolean;
-          message: string;
-          deletedOld?: number;
-        } | null;
+        
         if (res?.ok) {
-          toastSuccess(getDesktopMessage(res, 'تم رفع نسخة احتياطية إلى المخدم'));
-          if (typeof res?.deletedOld === 'number' && res.deletedOld > 0) {
-            toastSuccess(
-              `تم حذف ${res.deletedOld} نسخة قديمة (احتفاظ ${sqlBackupAuto.retentionDays} يوم)`
-            );
-          }
-          void refreshSqlServerBackups();
+          setSqlServerBackups(Array.isArray(res.items) ? res.items : []);
         } else {
-          toastError(getDesktopMessage(res, 'فشل رفع النسخة الاحتياطية'));
+          if (res?.code !== 'ERR_SQL_DISABLED') {
+            toastError(getDesktopMessage(res, 'فشل قراءة النسخ الاحتياطية'));
+          }
+          setSqlServerBackups([]);
         }
       } finally {
         setSqlServerBackupsBusy(false);
       }
     });
-  };
+  }, [toastError, runGuarded, sqlStatus]);
 
   const handleRestoreServerBackup = async (id: string, mode: 'merge' | 'replace') => {
     if (!window.desktopDb?.sqlRestoreServerBackup) {
@@ -456,56 +472,6 @@ export const ServerSqlSection: React.FC = () => {
     });
   };
 
-  const handleSqlImportServerBackup = async () => {
-    if (!window.desktopDb?.sqlImportBackup) {
-      toastError('هذه الميزة غير متاحة في هذه النسخة');
-      return;
-    }
-
-    await runGuarded('sql:importBackup', async () => {
-      setSqlBusy(true);
-      try {
-        const res =
-          (await window.desktopDb.sqlImportBackup()) as unknown as DesktopOkMessage | null;
-        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تم استيراد النسخة الاحتياطية'));
-        else toastError(getDesktopMessage(res, 'فشل استيراد النسخة الاحتياطية'));
-        void refreshSqlStatus();
-      } finally {
-        setSqlBusy(false);
-      }
-    });
-  };
-
-  const handleSqlRestoreServerBackup = async () => {
-    if (!window.desktopDb?.sqlRestoreBackup) {
-      toastError('هذه الميزة غير متاحة في هذه النسخة');
-      return;
-    }
-
-    await runGuarded('sql:restoreBackupFull', async () => {
-      const ok = await toastConfirm({
-        title: 'تأكيد الاستعادة الكاملة',
-        message:
-          'سيتم استبدال البيانات المحلية بالكامل من ملف النسخة الاحتياطية. تأكد أنك تملك نسخة احتياطية قبل المتابعة. هل تريد الاستمرار؟',
-        confirmText: 'استعادة كاملة',
-        cancelText: 'إلغاء',
-        isDangerous: true,
-      });
-      if (!ok) return;
-
-      setSqlBusy(true);
-      try {
-        const res =
-          (await window.desktopDb.sqlRestoreBackup()) as unknown as DesktopOkMessage | null;
-        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تمت الاستعادة الكاملة'));
-        else toastError(getDesktopMessage(res, 'فشل الاستعادة الكاملة'));
-        void refreshSqlStatus();
-      } finally {
-        setSqlBusy(false);
-      }
-    });
-  };
-
   const handleSqlSyncNow = async () => {
     if (!window.desktopDb?.sqlSyncNow) {
       toastError('هذه الميزة غير متاحة في هذه النسخة');
@@ -516,7 +482,7 @@ export const ServerSqlSection: React.FC = () => {
       setSqlBusy(true);
       try {
         const res = (await window.desktopDb.sqlSyncNow()) as unknown as DesktopOkMessage | null;
-        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تمت المزامنة'));
+        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تمت المزامنة بنجاح'));
         else toastError(getDesktopMessage(res, 'فشل المزامنة'));
         void refreshSqlStatus();
       } finally {
@@ -525,75 +491,26 @@ export const ServerSqlSection: React.FC = () => {
     });
   };
 
-  const handleSqlProvision = async () => {
-    if (!window.desktopDb?.sqlProvision) {
-      toastWarning('ميزة تهيئة المخدم متاحة فقط في وضع Desktop (Electron)');
+  const refreshSqlCoverage = useCallback(async () => {
+    if (!window.desktopDb?.sqlGetCoverage) {
+      toastWarning('تغطية المزامنة متاحة فقط في نسخة Desktop');
       return;
     }
 
-    await runGuarded('sql:provision', async () => {
-      setSqlBusy(true);
-      try {
-        const res = (await window.desktopDb.sqlProvision({
-          server: sqlForm.server,
-          port: Number(sqlForm.port || 1433) || 1433,
-          database: sqlForm.database,
-          encrypt: sqlForm.encrypt,
-          trustServerCertificate: sqlForm.trustServerCertificate,
-          adminUser: sqlProvision.adminUser,
-          adminPassword: sqlProvision.adminPassword,
-          managerUser: sqlProvision.managerUser,
-          managerPassword: sqlProvision.managerPassword,
-          employeeUser: sqlProvision.employeeUser,
-          employeePassword: sqlProvision.employeePassword,
-        })) as unknown as DesktopOkMessage | null;
-        if (res?.ok) {
-          toastSuccess(getDesktopMessage(res, 'تمت تهيئة المخدم'));
-          const s =
-            (await window.desktopDb.sqlGetSettings?.()) as unknown as DesktopSqlSettings | null;
-          if (s) {
-            setSqlForm((prev) => ({
-              ...prev,
-              enabled: !!s?.enabled,
-              server: String(s?.server || prev.server),
-              port: Number(s?.port || prev.port || 1433) || 1433,
-              database: String(s?.database || prev.database),
-              authMode: s?.authMode === 'windows' ? 'windows' : 'sql',
-              user: String(s?.user || ''),
-              hasPassword: !!s?.hasPassword,
-              password: '',
-            }));
-          }
-          setSqlProvision((p) => ({
-            ...p,
-            adminPassword: '',
-            managerPassword: '',
-            employeePassword: '',
-          }));
-        } else {
-          toastError(getDesktopMessage(res, 'فشل تهيئة المخدم'));
-        }
-      } finally {
-        setSqlBusy(false);
-        void refreshSqlStatus();
-      }
-    });
-  };
-
-  const refreshSqlCoverage = async () => {
-    if (!window.desktopDb?.sqlGetCoverage) {
-      toastWarning('تغطية المزامنة متاحة فقط في نسخة Desktop');
+    if (!sqlStatus || !sqlStatus.enabled) {
+      setSqlCoverage(null);
       return;
     }
 
     await runGuarded('sql:coverageRefresh', async () => {
       setSqlCoverageBusy(true);
       try {
-        const res =
-          (await window.desktopDb.sqlGetCoverage()) as unknown as SqlCoverageResponse | null;
-        setSqlCoverage(res ?? null);
+        const res = (await window.desktopDb.sqlGetCoverage()) as unknown as SqlCoverageResponse | null;
+        setSqlCoverage(res);
         if (res && res.ok && res.remoteOk === false && res.remoteMessage) {
           toastWarning(getDesktopMessage({ message: res.remoteMessage }, res.remoteMessage));
+        } else if (res && !res.ok) {
+          toastError(getDesktopMessage(res, 'فشل فحص تغطية المزامنة'));
         }
       } catch (e: unknown) {
         toastError(getErrorMessage(e) || 'فشل فحص تغطية المزامنة');
@@ -601,7 +518,7 @@ export const ServerSqlSection: React.FC = () => {
         setSqlCoverageBusy(false);
       }
     });
-  };
+  }, [toastError, toastWarning, runGuarded, sqlStatus]);
 
   const pullFullFromServer = async () => {
     if (!window.desktopDb?.sqlPullFullNow) {
@@ -613,7 +530,7 @@ export const ServerSqlSection: React.FC = () => {
       const ok = await toastConfirm({
         title: 'تأكيد السحب من المخدم',
         message:
-          'سيتم سحب أحدث بيانات من المخدم وقد يؤدي ذلك لاستبدال/تعديل بيانات محلية. يُفضّل تنفيذ نسخة احتياطية قبل المتابعة. هل تريد الاستمرار؟',
+          'سيتم سحب أحدث بيانات من المخدم وقد يؤدي ذلك لاستبدال/تعديل بيانات محلية. هل تريد الاستمرار؟',
         confirmText: 'سحب الآن',
         cancelText: 'إلغاء',
         isDangerous: true,
@@ -649,7 +566,7 @@ export const ServerSqlSection: React.FC = () => {
       const ok = await toastConfirm({
         title: 'تأكيد الدمج والنشر (SuperAdmin)',
         message:
-          'هذه العملية ستقوم بنشر نسخة موحدة من بعض بيانات الإدارة إلى المخدم وقد تؤثر على أجهزة أخرى. هل أنت متأكد؟',
+          'هذه العملية ستقوم بنشر نسخة موحدة من بعض بيانات الإدارة إلى المخدم لجميع الأجهزة. هل أنت متأكد؟',
         confirmText: 'تنفيذ',
         cancelText: 'إلغاء',
         isDangerous: true,
@@ -658,19 +575,13 @@ export const ServerSqlSection: React.FC = () => {
 
       setSqlCoverageBusy(true);
       try {
+        const allKeys = Object.keys(keyLabels);
         const res = (await window.desktopDb.sqlMergePublishAdmin({
-          keys: [
-            'db_users',
-            'db_user_permissions',
-            'db_roles',
-            'db_lookup_categories',
-            'db_lookups',
-            'db_legal_templates',
-          ],
+          keys: allKeys,
           prefer: 'local',
         })) as unknown as DesktopOkMessage | null;
 
-        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تم الدمج/النشر'));
+        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تم الدمج/النشر بنجاح'));
         else toastError(getDesktopMessage(res, 'فشل الدمج/النشر'));
 
         await refreshSqlStatus();
@@ -686,899 +597,530 @@ export const ServerSqlSection: React.FC = () => {
   useEffect(() => {
     if (!isDesktop) return;
     void loadSqlSection();
-  }, [isDesktop, loadSqlSection, dbSignal]);
+  }, [isDesktop, loadSqlSection]);
 
   useEffect(() => {
     if (!isDesktop) return;
     void refreshSqlBackupAutomation();
     void refreshSqlServerBackups();
-  }, [isDesktop, refreshSqlBackupAutomation, refreshSqlServerBackups]);
+    void refreshSqlCoverage();
+  }, [isDesktop, refreshSqlBackupAutomation, refreshSqlServerBackups, refreshSqlCoverage]);
 
   return (
-    <div className="p-8 h-full animate-fade-in">
-      <div className="max-w-4xl mx-auto app-card p-6 rounded-3xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-black text-slate-800 dark:text-white">
-              {t('إعدادات المخدم (SQL Server)')}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {t(
-                'عند الضغط على اتصال سيتم إنشاء قاعدة البيانات/الجدول تلقائياً إذا كانت الصلاحيات تسمح.'
-              )}
-            </p>
+    <div className="p-4 md:p-8 h-full page-transition bg-slate-50/50 dark:bg-slate-950/20" dir="rtl">
+      <div className="max-w-6xl mx-auto space-y-10">
+        
+        {/* Main Settings Card */}
+        <div className="app-card overflow-hidden">
+          <div className="app-card-header flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="p-4 bg-indigo-600 dark:bg-indigo-500 rounded-2xl text-white shadow-lg shadow-indigo-600/20 animate-float">
+                <Database size={32} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-800 dark:text-white leading-tight">
+                  {t('إعدادات المخدم (SQL Server)')}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-wider">
+                  {t('إدارة الاتصال المباشر بقاعدة بيانات SQL Server للمزامنة والنسخ الاحتياطي.')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => openPanel('SQL_SYNC_LOG')}
+                className="btn-secondary-modern"
+                disabled={sqlBusy}
+              >
+                <History size={18} className="text-indigo-500" /> 
+                <span>{t('سجل المزامنة')}</span>
+              </button>
+              <button
+                onClick={refreshSqlStatus}
+                className="btn-secondary-modern"
+                disabled={sqlBusy}
+              >
+                <RefreshCcw size={18} className={sqlBusy ? 'animate-spin text-indigo-500' : 'text-indigo-500'} /> 
+                <span>{t('تحديث')}</span>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => openPanel('SQL_SYNC_LOG')}
-              className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
-              disabled={sqlBusy}
-              title={t('عرض كل ما تم مزامنته أو حذفه')}
-            >
-              <History size={16} /> {t('سجل المزامنة')}
-            </button>
-            <button
-              onClick={refreshSqlStatus}
-              className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
-              disabled={sqlBusy}
-            >
-              <RefreshCcw size={16} /> {t('تحديث الحالة')}
-            </button>
+
+          <div className="app-card-body">
+            {!isDesktop ? (
+              <div className="p-8 rounded-[2rem] bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-400 flex items-center gap-5">
+                <div className="p-3 bg-amber-100 dark:bg-amber-900/40 rounded-xl">
+                  <ShieldAlert size={28} />
+                </div>
+                <p className="text-sm font-black">{t('إعدادات المخدم والاتصال بـ SQL Server متاحة فقط في نسخة سطح المكتب.')}</p>
+              </div>
+            ) : !window.desktopDb?.sqlGetSettings ? (
+              <div className="p-8 rounded-[2rem] bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 text-indigo-800 dark:text-indigo-400 flex items-center gap-5">
+                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl">
+                  <Info size={28} />
+                </div>
+                <p className="text-sm font-black">{t('هذه النسخة لا تحتوي بعد على ميزات الاتصال بالمخدم.')}</p>
+              </div>
+            ) : (
+              <div className="space-y-10">
+                {/* Connection Status Toggle */}
+                <div className={`p-8 rounded-[2.5rem] border-2 transition-all duration-700 ${sqlForm.enabled ? 'bg-emerald-50/40 border-emerald-500/20 dark:bg-emerald-900/10 dark:border-emerald-500/10 shadow-xl shadow-emerald-500/5' : 'bg-slate-50/50 border-slate-200 dark:bg-slate-800/30 dark:border-slate-800'}`}>
+                  <div className="flex items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                      <div className={`p-4 rounded-2xl shadow-inner transition-colors duration-500 ${sqlForm.enabled ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                        <Globe size={28} />
+                      </div>
+                      <div>
+                        <div className="text-xl font-black text-slate-800 dark:text-white">{t('حالة المزامنة')}</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400 font-bold mt-1">
+                          {sqlForm.enabled ? t('النظام يقوم بمزامنة البيانات محلياً ومع المخدم بشكل آمن.') : t('المزامنة مع المخدم معطلة حالياً.')}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSqlForm((p) => ({ ...p, enabled: !p.enabled }))}
+                      className={`relative inline-flex h-10 w-18 items-center rounded-full transition-all duration-500 focus:outline-none ${sqlForm.enabled ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-300 dark:bg-slate-700'}`}
+                      disabled={sqlBusy}
+                    >
+                      <span className={`inline-block h-8 w-8 transform rounded-full bg-white shadow-md transition-transform duration-500 ${sqlForm.enabled ? '-translate-x-1.5' : '-translate-x-8.5'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Connection Form */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2">
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-server">
+                      {t('عنوان الخادم')}
+                    </label>
+                    <div className="relative group">
+                      <Server size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <input
+                        id="settings-sql-server"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                        placeholder={t('127.0.0.1 أو اسم الخادم')}
+                        value={sqlForm.server}
+                        onChange={(e) => setSqlForm((p) => ({ ...p, server: e.target.value }))}
+                        disabled={sqlBusy}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-port">
+                      {t('المنفذ')}
+                    </label>
+                    <input
+                      id="settings-sql-port"
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 px-5 text-sm font-mono font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                      placeholder="1433"
+                      value={String(sqlForm.port ?? 1433)}
+                      onChange={(e) => setSqlForm((p) => ({ ...p, port: Number(e.target.value || 1433) || 1433 }))}
+                      disabled={sqlBusy}
+                    />
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-database">
+                      {t('اسم قاعدة البيانات')}
+                    </label>
+                    <div className="relative group">
+                      <Database size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <input
+                        id="settings-sql-database"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                        placeholder="AZRAR_DB"
+                        value={sqlForm.database}
+                        onChange={(e) => setSqlForm((p) => ({ ...p, database: e.target.value }))}
+                        disabled={sqlBusy}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-auth-mode">
+                      {t('نوع المصادقة')}
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="settings-sql-auth-mode"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                        value={sqlForm.authMode}
+                        onChange={(e) => setSqlForm((p) => ({ ...p, authMode: e.target.value === 'windows' ? 'windows' : 'sql' }))}
+                        disabled={sqlBusy}
+                      >
+                        <option value="sql">{t('SQL Authentication')}</option>
+                        <option value="windows">{t('Windows Authentication')}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-1">
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-username">
+                      {t('اسم المستخدم')}
+                    </label>
+                    <div className="relative group">
+                      <User size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <input
+                        id="settings-sql-username"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                        placeholder="sa"
+                        value={sqlForm.user}
+                        onChange={(e) => setSqlForm((p) => ({ ...p, user: e.target.value }))}
+                        disabled={sqlBusy || sqlForm.authMode === 'windows'}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-[0.2em] px-2" htmlFor="settings-sql-password">
+                      {t('كلمة المرور')}
+                    </label>
+                    <div className="relative group">
+                      <Lock size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <input
+                        id="settings-sql-password"
+                        type="password"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                        placeholder={sqlForm.hasPassword ? t('•••••••• (محفوظة)') : t('أدخل كلمة المرور')}
+                        value={sqlForm.password}
+                        onChange={(e) => setSqlForm((p) => ({ ...p, password: e.target.value }))}
+                        disabled={sqlBusy || sqlForm.authMode === 'windows'}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 lg:col-span-3 flex flex-wrap gap-8 items-center p-6 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-700">
+                    <label className="flex items-center gap-4 cursor-pointer group">
+                      <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${sqlForm.encrypt ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-600/20' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'}`}>
+                        {sqlForm.encrypt && <Check size={16} className="text-white" />}
+                      </div>
+                      <input type="checkbox" className="hidden" checked={sqlForm.encrypt} onChange={(e) => setSqlForm((p) => ({ ...p, encrypt: e.target.checked }))} disabled={sqlBusy} />
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">{t('تشفير الاتصال (SSL)')}</span>
+                    </label>
+                    
+                    <label className="flex items-center gap-4 cursor-pointer group">
+                      <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${sqlForm.trustServerCertificate ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-600/20' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'}`}>
+                        {sqlForm.trustServerCertificate && <Check size={16} className="text-white" />}
+                      </div>
+                      <input type="checkbox" className="hidden" checked={sqlForm.trustServerCertificate} onChange={(e) => setSqlForm((p) => ({ ...p, trustServerCertificate: e.target.checked }))} disabled={sqlBusy} />
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">{t('الثقة في شهادة الخادم')}</span>
+                    </label>
+                  </div>
+
+                  <div className="md:col-span-2 lg:col-span-3 flex flex-wrap gap-4 pt-6">
+                    <button
+                      onClick={handleSqlTest}
+                      className="btn-secondary-modern !px-8"
+                      disabled={sqlBusy}
+                    >
+                      {sqlBusy ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} className="text-emerald-500" />}
+                      <span>{t('اختبار الاتصال')}</span>
+                    </button>
+                    <button
+                      onClick={handleSqlSaveAndConnect}
+                      className="btn-primary-modern !px-10"
+                      disabled={sqlBusy}
+                    >
+                      {sqlBusy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                      <span>{t('حفظ البيانات والاتصال')}</span>
+                    </button>
+                    <button
+                      onClick={handleSqlDisconnect}
+                      className="btn-secondary-modern border-rose-200 dark:border-rose-900/30 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 !px-8"
+                      disabled={sqlBusy}
+                    >
+                      <X size={18} />
+                      <span>{t('قطع الاتصال')}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {!isDesktop && (
-          <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-            {t('إعدادات المخدم متاحة فقط في نسخة Desktop.')}
-          </div>
-        )}
-
-        {isDesktop && !window.desktopDb?.sqlGetSettings && (
-          <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-            {t('هذه النسخة لا تحتوي بعد على ميزات المخدم.')}
-          </div>
-        )}
-
-        {isDesktop && window.desktopDb?.sqlGetSettings && (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2 flex items-center justify-between bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
-              <div>
-                <div className="font-bold">{t('تفعيل المزامنة مع المخدم')}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {t('سيتم الحفظ محلياً + إرسال نسخة محمية إلى SQL Server')}
+        {/* Action Sections Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          
+          {/* Server Backups Table Section */}
+          <div className="app-card overflow-hidden flex flex-col">
+            <div className="app-card-header flex items-center justify-between !p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-600 dark:bg-blue-500 rounded-2xl text-white shadow-lg shadow-blue-500/20">
+                  <FileArchive size={24} />
+                </div>
+                <div>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-white">{t('أرشيف المخدم')}</h4>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{t('إدارة النسخ الاحتياطية المرفوعة')}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setSqlForm((p) => ({ ...p, enabled: !p.enabled }))}
-                className={`px-4 py-2 rounded-xl text-sm font-black ${sqlForm.enabled ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600'}`}
+              <button 
+                onClick={handleSqlExportServerBackup}
+                className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                title={t('إنشاء نسخة احتياطية جديدة على المخدم')}
                 disabled={sqlBusy}
               >
-                {sqlForm.enabled ? t('مفعل') : t('غير مفعل')}
+                <Plus size={24} />
               </button>
             </div>
-
-            <div>
-              <label
-                className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                htmlFor="settings-sql-server"
-              >
-                {t('الخادم')}
-              </label>
-              <input
-                id="settings-sql-server"
-                className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                placeholder={t('مثال: 192.168.1.10 أو SQLSERVER\\INSTANCE')}
-                value={sqlForm.server}
-                onChange={(e) => setSqlForm((p) => ({ ...p, server: e.target.value }))}
-                disabled={sqlBusy}
-              />
-            </div>
-
-            <div>
-              <label
-                className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                htmlFor="settings-sql-port"
-              >
-                {t('المنفذ')}
-              </label>
-              <input
-                id="settings-sql-port"
-                className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                placeholder="1433"
-                value={String(sqlForm.port ?? 1433)}
-                onChange={(e) =>
-                  setSqlForm((p) => ({ ...p, port: Number(e.target.value || 1433) || 1433 }))
-                }
-                disabled={sqlBusy}
-              />
-            </div>
-
-            <div>
-              <label
-                className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                htmlFor="settings-sql-database"
-              >
-                {t('قاعدة البيانات')}
-              </label>
-              <input
-                id="settings-sql-database"
-                className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                placeholder="AZRAR"
-                value={sqlForm.database}
-                onChange={(e) => setSqlForm((p) => ({ ...p, database: e.target.value }))}
-                disabled={sqlBusy}
-              />
-            </div>
-
-            <div>
-              <label
-                className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                htmlFor="settings-sql-auth-mode"
-              >
-                {t('نوع الدخول')}
-              </label>
-              <select
-                id="settings-sql-auth-mode"
-                className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                value={sqlForm.authMode}
-                onChange={(e) =>
-                  setSqlForm((p) => ({
-                    ...p,
-                    authMode: e.target.value === 'windows' ? 'windows' : 'sql',
-                  }))
-                }
-                disabled={sqlBusy}
-              >
-                <option value="sql">{t('تسجيل دخول SQL')}</option>
-                <option value="windows">{t('مصادقة ويندوز')}</option>
-              </select>
-              {sqlForm.authMode === 'windows' && (
-                <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
-                  {t('مصادقة ويندوز غير مدعومة حالياً داخل التطبيق. استخدم تسجيل دخول SQL.')}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label
-                className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                htmlFor="settings-sql-username"
-              >
-                {t('اسم المستخدم')}
-              </label>
-              <input
-                id="settings-sql-username"
-                className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                placeholder={t('sa أو user')}
-                value={sqlForm.user}
-                onChange={(e) => setSqlForm((p) => ({ ...p, user: e.target.value }))}
-                disabled={sqlBusy || sqlForm.authMode === 'windows'}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label
-                className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                htmlFor="settings-sql-password"
-              >
-                {t('كلمة المرور')}
-              </label>
-              <input
-                id="settings-sql-password"
-                type="password"
-                className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                placeholder={
-                  sqlForm.hasPassword
-                    ? t('•••••• (محفوظة) - اكتب لتغييرها')
-                    : t('ادخل كلمة المرور')
-                }
-                value={sqlForm.password}
-                onChange={(e) => setSqlForm((p) => ({ ...p, password: e.target.value }))}
-                disabled={sqlBusy || sqlForm.authMode === 'windows'}
-              />
-            </div>
-
-            <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={sqlForm.encrypt}
-                  onChange={(e) => setSqlForm((p) => ({ ...p, encrypt: e.target.checked }))}
-                  disabled={sqlBusy}
-                />
-                <span>{t('تشفير الاتصال')}</span>
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={sqlForm.trustServerCertificate}
-                  onChange={(e) =>
-                    setSqlForm((p) => ({ ...p, trustServerCertificate: e.target.checked }))
-                  }
-                  disabled={sqlBusy}
-                />
-                <span>{t('الثقة في شهادة الخادم')}</span>
-              </label>
-            </div>
-
-            <div className="md:col-span-2 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handleSqlTest}
-                className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-5 py-2.5 rounded-xl text-sm font-black flex items-center gap-2"
-                disabled={sqlBusy}
-              >
-                <Check size={16} /> {t('اختبار الاتصال')}
-              </button>
-              <button
-                type="button"
-                onClick={handleSqlSaveAndConnect}
-                className="bg-indigo-600 text-white hover:bg-indigo-700 px-5 py-2.5 rounded-xl text-sm font-black flex items-center gap-2"
-                disabled={sqlBusy}
-              >
-                <ArrowRight size={16} /> {t('حفظ ثم اتصال')}
-              </button>
-              <button
-                type="button"
-                onClick={handleSqlDisconnect}
-                className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-5 py-2.5 rounded-xl text-sm font-black flex items-center gap-2"
-                disabled={sqlBusy}
-              >
-                <X size={16} /> {t('قطع الاتصال')}
-              </button>
-            </div>
-
-            <div className="md:col-span-2 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
-              <div className="text-sm font-black">{t('الحالة')}</div>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs font-black">
-                <span
-                  className={
-                    (sqlStatus?.connected
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200') +
-                    ' px-3 py-1 rounded-full'
-                  }
-                >
-                  {sqlStatus?.connected ? t('متصل بالمخدم') : t('غير متصل')}
-                </span>
-                <span
-                  className={
-                    (sqlStatus?.enabled
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200') +
-                    ' px-3 py-1 rounded-full'
-                  }
-                >
-                  {sqlStatus?.enabled ? t('المزامنة مفعلة') : t('المزامنة غير مفعلة')}
-                </span>
-              </div>
-              {sqlStatus?.lastSyncAt && (
-                <div className="mt-2 text-xs text-slate-500">
-                  {t('آخر مزامنة:')} {new Date(sqlStatus.lastSyncAt).toLocaleString('ar-JO')}
-                </div>
-              )}
-              {sqlStatus?.lastError && (
-                <div className="mt-2 text-xs text-red-600">{sqlStatus.lastError}</div>
-              )}
-
-              {window.desktopDb?.sqlExportBackup && (
-                <div className="mt-4 flex flex-wrap gap-3 items-center">
-                  <button
-                    onClick={handleSqlExportServerBackup}
-                    className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 px-5 py-2.5 rounded-xl text-sm font-black"
-                    disabled={sqlBusy}
-                  >
-                    {t('نسخ احتياطي من المخدم')}
-                  </button>
-
-                  {window.desktopDb?.sqlImportBackup && (
-                    <button
-                      onClick={handleSqlImportServerBackup}
-                      className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 px-5 py-2.5 rounded-xl text-sm font-black"
-                      disabled={sqlBusy}
-                    >
-                      {t('استيراد (دمج)')}
-                    </button>
-                  )}
-
-                  {window.desktopDb?.sqlRestoreBackup && (
-                    <button
-                      onClick={handleSqlRestoreServerBackup}
-                      className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-5 py-2.5 rounded-xl text-sm font-black text-red-700 dark:text-red-300"
-                      disabled={sqlBusy}
-                    >
-                      {t('استعادة كاملة')}
-                    </button>
-                  )}
-
-                  {window.desktopDb?.sqlSyncNow && (
-                    <button
-                      onClick={handleSqlSyncNow}
-                      className="bg-indigo-600 text-white hover:bg-indigo-700 px-5 py-2.5 rounded-xl text-sm font-black"
-                      disabled={sqlBusy}
-                    >
-                      {t('مزامنة الآن')}
-                    </button>
-                  )}
-
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {t('يتم حفظ ملف JSON على هذا الجهاز (لقطة من جدول KvStore).')}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {window.desktopDb?.sqlGetBackupAutomationSettings && (
-              <div className="md:col-span-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl p-4">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <div className="text-sm font-black">{t('النسخ الاحتياطي اليومي على المخدم')}</div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {t(
-                        'يتم إنشاء نسخة واحدة كل يوم على SQL Server (تخزين على المخدم) + حذف الأقدم من مدة الاحتفاظ.'
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => saveSqlBackupAutomation({ enabled: !sqlBackupAuto.enabled })}
-                      className={`px-4 py-2 rounded-xl text-sm font-black ${sqlBackupAuto.enabled ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600'}`}
-                      disabled={sqlBackupAutoBusy}
-                      title={t('تشغيل/إيقاف النسخ اليومي')}
-                    >
-                      {sqlBackupAuto.enabled ? t('مفعل') : t('غير مفعل')}
-                    </button>
-
-                    <button
-                      onClick={handleCreateServerBackupNow}
-                      className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-xl text-sm font-black"
-                      disabled={sqlServerBackupsBusy || sqlBusy}
-                      title={t('رفع نسخة الآن إلى المخدم')}
-                    >
-                      {t('إنشاء نسخة الآن')}
-                    </button>
-
-                    <button
-                      onClick={refreshSqlServerBackups}
-                      className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-black"
-                      disabled={sqlServerBackupsBusy}
-                    >
-                      {t('تحديث القائمة')}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                  <div>
-                    <label
-                      className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                      htmlFor="settings-sql-backup-retention-days"
-                    >
-                      {t('مدة الاحتفاظ (بالأيام)')}
-                    </label>
-                    <input
-                      id="settings-sql-backup-retention-days"
-                      className="w-full mt-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl py-2.5 px-3 text-sm"
-                      type="number"
-                      min={1}
-                      max={3650}
-                      value={String(sqlBackupAuto.retentionDays)}
-                      onChange={(e) =>
-                        setSqlBackupAuto((p) => ({
-                          ...p,
-                          retentionDays: Math.max(
-                            1,
-                            Math.min(3650, Number(e.target.value || 30) || 30)
-                          ),
-                        }))
-                      }
-                      disabled={sqlBackupAutoBusy}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 flex gap-2 flex-wrap">
-                    <button
-                      onClick={() =>
-                        saveSqlBackupAutomation({ retentionDays: sqlBackupAuto.retentionDays })
-                      }
-                      className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-5 py-2.5 rounded-xl text-sm font-black"
-                      disabled={sqlBackupAutoBusy}
-                    >
-                      {t('حفظ مدة الاحتفاظ')}
-                    </button>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
-                      {t('سيتم حذف أي نسخة أقدم من')} {sqlBackupAuto.retentionDays}{' '}
-                      {t('يوم تلقائياً.')}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 app-card">
-                  <div className="max-h-[35vh] overflow-auto custom-scrollbar">
-                    <table className="w-full text-sm table-fixed min-w-[900px]">
-                      <thead className="bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300">
+            
+            <div className="p-6 flex-1">
+              <div className="app-table-wrapper !rounded-3xl border-none shadow-none bg-slate-50/40 dark:bg-slate-800/20">
+                <div className="max-h-[450px] overflow-auto no-scrollbar">
+                  <table className="app-table">
+                    <thead className="app-table-thead !bg-transparent">
+                      <tr>
+                        <th className="app-table-th">{t('التاريخ')}</th>
+                        <th className="app-table-th">{t('السجلات')}</th>
+                        <th className="app-table-th text-center">{t('إجراءات')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                      {sqlServerBackupsBusy ? (
                         <tr>
-                          <th className="text-right px-4 py-3 font-black">{t('التاريخ')}</th>
-                          <th className="text-right px-4 py-3 font-black">{t('المعرف')}</th>
-                          <th className="text-right px-4 py-3 font-black">{t('عدد الصفوف')}</th>
-                          <th className="text-right px-4 py-3 font-black">{t('ملاحظة')}</th>
-                          <th className="text-right px-4 py-3 font-black">{t('إجراءات')}</th>
+                          <td colSpan={3} className="app-table-empty">
+                            <Loader2 className="animate-spin text-indigo-500 mx-auto mb-4" size={40} />
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{t('جاري جلب القائمة...')}</div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                        {sqlServerBackupsBusy && (
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-6 text-center text-slate-500 dark:text-slate-400"
-                            >
-                              {t('جاري التحميل...')}
+                      ) : sqlServerBackups.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="app-table-empty">
+                            <Database className="text-slate-200 dark:text-slate-800/30 mx-auto mb-4" size={56} />
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('لا توجد نسخ على المخدم')}</div>
+                          </td>
+                        </tr>
+                      ) : (
+                        sqlServerBackups.map((b) => (
+                          <tr key={b.id} className="app-table-row group">
+                            <td className="app-table-td">
+                              <div className="flex flex-col gap-1.5">
+                                <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                                  {new Date(b.createdAt).toLocaleDateString('ar-JO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono font-bold tracking-tight">
+                                  {new Date(b.createdAt).toLocaleTimeString('ar-JO', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="app-table-td">
+                              <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.6)]" />
+                                <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-xl border border-indigo-100/50 dark:border-indigo-800/50 shadow-sm">
+                                  {b.rowCount?.toLocaleString() || '0'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="app-table-td">
+                              <div className="flex justify-center gap-2.5 opacity-0 group-hover:opacity-100 transition-all duration-500">
+                                <button
+                                  onClick={() => handleRestoreServerBackup(b.id, 'merge')}
+                                  className="app-table-action-btn-primary !text-[10px] font-black !px-5 !py-2"
+                                >
+                                  {t('دمج')}
+                                </button>
+                                <button
+                                  onClick={() => handleRestoreServerBackup(b.id, 'replace')}
+                                  className="app-table-action-btn-danger !text-[10px] font-black !px-5 !py-2"
+                                >
+                                  {t('استبدال')}
+                                </button>
+                              </div>
                             </td>
                           </tr>
-                        )}
-
-                        {!sqlServerBackupsBusy && sqlServerBackups.length === 0 && (
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-8 text-center text-slate-500 dark:text-slate-400"
-                            >
-                              {t('لا توجد نسخ محفوظة على المخدم بعد.')}
-                            </td>
-                          </tr>
-                        )}
-
-                        {!sqlServerBackupsBusy &&
-                          sqlServerBackups.map((b) => (
-                            <tr key={b.id}>
-                              <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                                {new Date(b.createdAt).toLocaleString('ar-JO')}
-                              </td>
-                              <td
-                                className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-200 whitespace-normal break-all"
-                                dir="ltr"
-                              >
-                                {String(b.id)}
-                              </td>
-                              <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                                {typeof b.rowCount === 'number' ? b.rowCount : '-'}
-                              </td>
-                              <td
-                                className="px-4 py-3 text-slate-500 dark:text-slate-400 whitespace-normal break-words"
-                                dir="auto"
-                              >
-                                {b.note || '-'}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex gap-2 flex-wrap">
-                                  <button
-                                    onClick={() => handleRestoreServerBackup(b.id, 'merge')}
-                                    className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-black"
-                                    disabled={sqlServerBackupsBusy}
-                                    title={t('دمج النسخة مع بيانات المخدم (لا يحذف الموجود)')}
-                                  >
-                                    {t('دمج')}
-                                  </button>
-                                  <button
-                                    onClick={() => handleRestoreServerBackup(b.id, 'replace')}
-                                    className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg text-xs font-black text-red-700 dark:text-red-300"
-                                    disabled={sqlServerBackupsBusy}
-                                    title={t('استعادة كاملة (تحذف بيانات المخدم ثم تستبدلها)')}
-                                  >
-                                    {t('استعادة كاملة')}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            )}
+            </div>
+          </div>
 
-            {window.desktopDb?.sqlGetCoverage && (
-              <div className="md:col-span-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-black">{t('تغطية المزامنة (كل البيانات)')}</div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {t('يعرض كل مفاتيح قاعدة البيانات المحلية (db_*) ويقارنها مع المخدم.')}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    {window.desktopDb?.sqlPullFullNow && (
-                      <button
-                        onClick={pullFullFromServer}
-                        className="bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/10 px-4 py-2 rounded-xl text-sm font-black"
-                        disabled={sqlBusy || sqlCoverageBusy}
-                        title={t('يسحب أحدث بيانات من المخدم (تصحيح حالات: المخدم أحدث)')}
-                      >
-                        {t('سحب من المخدم')}
-                      </button>
-                    )}
-
-                    {window.desktopDb?.sqlMergePublishAdmin && isSuperAdmin(user?.الدور) && (
-                      <button
-                        onClick={mergePublishAdmin}
-                        className="bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-900/40 text-purple-800 dark:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/10 px-4 py-2 rounded-xl text-sm font-black"
-                        disabled={sqlBusy || sqlCoverageBusy}
-                        title={t('يدمج هذه المفاتيح وينشر نسخة موحدة على المخدم لتصل لجميع الأجهزة')}
-                      >
-                        {t('دمج ونشر (SuperAdmin)')}
-                      </button>
-                    )}
-
-                    <button
-                      onClick={refreshSqlCoverage}
-                      className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2"
-                      disabled={sqlBusy || sqlCoverageBusy}
-                    >
-                      <RefreshCcw size={16} className={sqlCoverageBusy ? 'animate-spin' : ''} />{' '}
-                      {t('تحديث التغطية')}
-                    </button>
-                  </div>
+          {/* Sync Coverage & Tools Section */}
+          <div className="space-y-10">
+            <div className="app-card !p-8">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="p-3 bg-emerald-600 dark:bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
+                  <ShieldCheck size={24} />
                 </div>
+                <div>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-white">{t('أدوات التغطية والمزامنة')}</h4>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{t('تحكم كامل في تدفق البيانات')}</p>
+                </div>
+              </div>
 
-                {sqlCoverage && !sqlCoverage.ok && (
-                  <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-                    {sqlCoverage.message || t('فشل فحص تغطية المزامنة')}
+              <div className="grid grid-cols-1 gap-5">
+                <button
+                  onClick={handleSqlSyncNow}
+                  className="w-full flex items-center justify-between p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 transition-all duration-500 group"
+                  disabled={sqlBusy}
+                >
+                  <div className="flex items-center gap-5">
+                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl text-indigo-600 dark:text-indigo-400 shadow-xl group-hover:scale-110 transition-transform duration-500">
+                      <RefreshCcw size={24} />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-base font-black text-slate-800 dark:text-white">{t('مزامنة فورية')}</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">{t('إرسال واستقبال التعديلات المعلقة الآن.')}</div>
+                    </div>
                   </div>
-                )}
+                  <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-400 group-hover:translate-x-[-8px] transition-all">
+                    <ArrowRight size={20} />
+                  </div>
+                </button>
 
-                {sqlCoverage?.ok && (
-                  <div className="mt-4">
-                    <div className="flex flex-wrap gap-2 text-xs font-black">
-                      <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200">
-                        {t('مفاتيح محلية:')} {Number(sqlCoverage.localCount || 0)}
-                      </span>
-                      <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200">
-                        {t('مفاتيح على المخدم:')} {Number(sqlCoverage.remoteCount || 0)}
-                      </span>
-                      {sqlCoverage.remoteOk === false && (
-                        <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                          {sqlCoverage.remoteMessage || t('تعذر قراءة بيانات المخدم')}
-                        </span>
-                      )}
+                <button
+                  onClick={pullFullFromServer}
+                  className="w-full flex items-center justify-between p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-500 group"
+                  disabled={sqlBusy || sqlCoverageBusy}
+                >
+                  <div className="flex items-center gap-5">
+                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl text-blue-600 dark:text-blue-400 shadow-xl group-hover:scale-110 transition-transform duration-500">
+                      <Download size={24} />
                     </div>
-
-                    <div className="relative mt-4">
-                      <Search
-                        size={16}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                      />
-                      <input
-                        value={sqlCoverageQuery}
-                        onChange={(e) => setSqlCoverageQuery(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-sm"
-                        placeholder={t('ابحث بالمفتاح أو الاسم أو الحالة...')}
-                      />
+                    <div className="text-right">
+                      <div className="text-base font-black text-slate-800 dark:text-white">{t('سحب كامل من المخدم')}</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">{t('تحميل كافة البيانات من المخدم للجهاز الحالي.')}</div>
                     </div>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:translate-x-[-8px] transition-all">
+                    <ArrowRight size={20} />
+                  </div>
+                </button>
 
-                    <div className="mt-4 app-card">
-                      <div className="max-h-[45vh] overflow-auto custom-scrollbar">
-                        <table className="w-full text-sm table-fixed min-w-[980px]">
-                          <thead className="bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300">
-                            <tr>
-                              <th className="text-right px-4 py-3 font-black">{t('الكيان')}</th>
-                              <th className="text-right px-4 py-3 font-black">{t('المفتاح')}</th>
-                              <th className="text-right px-4 py-3 font-black">{t('محلي')}</th>
-                              <th className="text-right px-4 py-3 font-black">{t('مخدم')}</th>
-                              <th className="text-right px-4 py-3 font-black">{t('الحالة')}</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                            {(() => {
-                              const items = Array.isArray(sqlCoverage.items)
-                                ? sqlCoverage.items
-                                : [];
-                              const q = sqlCoverageQuery.trim().toLowerCase();
-                              const filtered = !q
-                                ? items
-                                : items.filter((it) => {
-                                    const key = String(it.key || '').toLowerCase();
-                                    const label = String(entityLabel(it.key) || '').toLowerCase();
-                                    const status = String(it.status || '').toLowerCase();
-                                    return (
-                                      key.includes(q) || label.includes(q) || status.includes(q)
-                                    );
-                                  });
-
-                              if (filtered.length === 0) {
-                                return (
-                                  <tr>
-                                    <td
-                                      colSpan={5}
-                                      className="px-4 py-8 text-center text-slate-500 dark:text-slate-400"
-                                    >
-                                      {t('لا توجد نتائج.')}
-                                    </td>
-                                  </tr>
-                                );
-                              }
-
-                              const badge = (status: SqlCoverageItem['status']) => {
-                                const base =
-                                  'inline-flex items-center px-2 py-1 rounded-lg text-xs font-black';
-                                if (status === 'inSync')
-                                  return (
-                                    <span
-                                      className={
-                                        base +
-                                        ' bg-emerald-50 text-emerald-700 dark:bg-emerald-900/10 dark:text-emerald-300'
-                                      }
-                                    >
-                                      {t('متزامن')}
-                                    </span>
-                                  );
-                                if (status === 'localAhead')
-                                  return (
-                                    <span
-                                      className={
-                                        base +
-                                        ' bg-indigo-50 text-indigo-700 dark:bg-indigo-900/10 dark:text-indigo-300'
-                                      }
-                                    >
-                                      {t('محلي أحدث')}
-                                    </span>
-                                  );
-                                if (status === 'remoteAhead')
-                                  return (
-                                    <span
-                                      className={
-                                        base +
-                                        ' bg-amber-50 text-amber-800 dark:bg-amber-900/10 dark:text-amber-300'
-                                      }
-                                    >
-                                      {t('المخدم أحدث')}
-                                    </span>
-                                  );
-                                if (status === 'missingRemote')
-                                  return (
-                                    <span
-                                      className={
-                                        base +
-                                        ' bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-300'
-                                      }
-                                    >
-                                      {t('غير موجود على المخدم')}
-                                    </span>
-                                  );
-                                if (status === 'missingLocal')
-                                  return (
-                                    <span
-                                      className={
-                                        base +
-                                        ' bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
-                                      }
-                                    >
-                                      {t('غير موجود محلياً')}
-                                    </span>
-                                  );
-                                if (status === 'different')
-                                  return (
-                                    <span
-                                      className={
-                                        base +
-                                        ' bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-300'
-                                      }
-                                    >
-                                      {t('اختلاف')}
-                                    </span>
-                                  );
-                                return (
-                                  <span
-                                    className={
-                                      base +
-                                      ' bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
-                                    }
-                                  >
-                                      {t('غير معروف')}
-                                  </span>
-                                );
-                              };
-
-                              const fmt = (iso?: string) => {
-                                const s = String(iso || '').trim();
-                                if (!s) return '-';
-                                try {
-                                  const d = new Date(s);
-                                  if (Number.isNaN(d.getTime())) return s;
-                                  return d.toLocaleString('en-GB');
-                                } catch {
-                                  return s;
-                                }
-                              };
-
-                              return filtered.map((it) => (
-                                <tr key={it.key} className="bg-white dark:bg-slate-900">
-                                  <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-normal break-words leading-snug">
-                                    {entityLabel(it.key)}
-                                  </td>
-                                  <td
-                                    className="px-4 py-3 text-slate-700 dark:text-slate-200 font-mono text-xs whitespace-normal break-all"
-                                    dir="ltr"
-                                  >
-                                    {it.key}
-                                  </td>
-                                  <td
-                                    className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap"
-                                    dir="ltr"
-                                  >
-                                    {fmt(it.localBestTs)}
-                                  </td>
-                                  <td
-                                    className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap"
-                                    dir="ltr"
-                                  >
-                                    {fmt(it.remoteUpdatedAt)}
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap">
-                                    {badge(it.status)}
-                                  </td>
-                                </tr>
-                              ));
-                            })()}
-                          </tbody>
-                        </table>
+                {isSuperAdmin(user?.الدور) && (
+                  <button
+                    onClick={mergePublishAdmin}
+                    className="w-full flex items-center justify-between p-6 rounded-[2rem] bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all duration-500 group"
+                    disabled={sqlBusy || sqlCoverageBusy}
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl text-white group-hover:scale-110 transition-transform duration-500">
+                        <Upload size={24} />
+                      </div>
+                      <div className="text-right">
+                        <div className="text-base font-black text-white">{t('نشر موحد (سوبر أدمن)')}</div>
+                        <div className="text-[11px] text-indigo-100/70 font-bold mt-1">{t('نشر إعدادات الإدارة لجميع الأجهزة.')}</div>
                       </div>
                     </div>
-
-                    <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                      {t(
-                        'ملاحظة: "محلي أحدث" يعني يوجد تغييرات لم تُرفع بعد — اضغط "مزامنة الآن".'
-                      )}
+                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white group-hover:translate-x-[-8px] transition-all">
+                      <ArrowRight size={20} />
                     </div>
-                  </div>
+                  </button>
                 )}
               </div>
-            )}
+            </div>
 
-            {window.desktopDb?.sqlProvision && (
-              <div className="md:col-span-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-black">{t('تهيئة المخدم (للمدير)')}</div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {t(
-                        'ينشئ قاعدة البيانات + جدول التخزين + حساب SQL للموظفين، ثم يحفظه للاستخدام.'
-                      )}
-                    </div>
+            {/* Automation Status Tip */}
+            <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-800 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-500/30 relative overflow-hidden group">
+              <div className="absolute -right-16 -bottom-16 opacity-10 group-hover:scale-110 group-hover:rotate-12 transition-all duration-1000">
+                <ShieldCheck size={240} />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl">
+                    <Clock size={28} />
                   </div>
+                  <h5 className="text-2xl font-black">{t('النسخ التلقائي')}</h5>
                 </div>
-
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label
-                      className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                      htmlFor="settings-sql-provision-admin-user"
-                    >
-                      {t('مدير SQL (اسم المستخدم)')}
-                    </label>
-                    <input
-                      id="settings-sql-provision-admin-user"
-                      className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                      placeholder={t('sa أو admin')}
-                      value={sqlProvision.adminUser}
-                      onChange={(e) =>
-                        setSqlProvision((p) => ({ ...p, adminUser: e.target.value }))
-                      }
-                      disabled={sqlBusy}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                      htmlFor="settings-sql-provision-admin-password"
-                    >
-                      {t('مدير SQL (كلمة المرور)')}
-                    </label>
-                    <input
-                      id="settings-sql-provision-admin-password"
-                      type="password"
-                      className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                      value={sqlProvision.adminPassword}
-                      onChange={(e) =>
-                        setSqlProvision((p) => ({ ...p, adminPassword: e.target.value }))
-                      }
-                      disabled={sqlBusy}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                      htmlFor="settings-sql-provision-manager-user"
-                    >
-                      {t('حساب المدير (اسم المستخدم)')}
-                    </label>
-                    <input
-                      id="settings-sql-provision-manager-user"
-                      className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                      value={sqlProvision.managerUser}
-                      onChange={(e) =>
-                        setSqlProvision((p) => ({ ...p, managerUser: e.target.value }))
-                      }
-                      disabled={sqlBusy}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                      htmlFor="settings-sql-provision-manager-password"
-                    >
-                      {t('حساب المدير (كلمة المرور)')}
-                    </label>
-                    <input
-                      id="settings-sql-provision-manager-password"
-                      type="password"
-                      className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                      value={sqlProvision.managerPassword}
-                      onChange={(e) =>
-                        setSqlProvision((p) => ({ ...p, managerPassword: e.target.value }))
-                      }
-                      disabled={sqlBusy}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                      htmlFor="settings-sql-provision-employee-user"
-                    >
-                      {t('حساب الموظفين (اسم المستخدم)')}
-                    </label>
-                    <input
-                      id="settings-sql-provision-employee-user"
-                      className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                      value={sqlProvision.employeeUser}
-                      onChange={(e) =>
-                        setSqlProvision((p) => ({ ...p, employeeUser: e.target.value }))
-                      }
-                      disabled={sqlBusy}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      className="text-xs font-bold text-slate-600 dark:text-slate-300"
-                      htmlFor="settings-sql-provision-employee-password"
-                    >
-                      {t('حساب الموظفين (كلمة المرور)')}
-                    </label>
-                    <input
-                      id="settings-sql-provision-employee-password"
-                      type="password"
-                      className="w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl py-2.5 px-3 text-sm"
-                      value={sqlProvision.employeePassword}
-                      onChange={(e) =>
-                        setSqlProvision((p) => ({ ...p, employeePassword: e.target.value }))
-                      }
-                      disabled={sqlBusy}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 flex gap-3 flex-wrap">
-                    <button
-                      onClick={handleSqlProvision}
-                      className="bg-emerald-600 text-white hover:bg-emerald-700 px-5 py-2.5 rounded-xl text-sm font-black flex items-center gap-2"
-                      disabled={sqlBusy}
-                    >
-                      <Shield size={16} /> {t('تهيئة المخدم الآن')}
-                    </button>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
-                      {t('بعد التهيئة، يتم حفظ حساب الموظفين داخل النظام.')}
-                    </div>
-                  </div>
+                <p className="text-base text-indigo-50/90 font-medium leading-relaxed max-w-[85%]">
+                  {sqlBackupAuto?.enabled 
+                    ? t('النظام مبرمج ليقوم بعمل نسخة احتياطية يومية من المخدم لضمان أقصى درجات الأمان لبياناتك.')
+                    : t('النسخ التلقائي للمخدم غير مفعل حالياً. نوصي بشدة بتفعيله لتجنب أي فقدان محتمل للبيانات.')}
+                </p>
+                <div className="mt-8">
+                  <span className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${sqlBackupAuto?.enabled ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300' : 'bg-rose-500/20 border border-rose-500/40 text-rose-300'}`}>
+                    {sqlBackupAuto?.enabled ? t('الحالة: مفعل') : t('الحالة: معطل')}
+                  </span>
                 </div>
               </div>
-            )}
+            </div>
+          </div>
+        </div>
+
+        {/* Sync Coverage Table Section (Full Width) */}
+        {sqlCoverage && (
+          <div className="app-card overflow-hidden">
+            <div className="app-card-header flex items-center justify-between">
+              <div className="flex items-center gap-5">
+                <div className="p-4 bg-emerald-600 dark:bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
+                  <Layers size={28} />
+                </div>
+                <div>
+                  <h4 className="text-2xl font-black text-slate-800 dark:text-white">{t('تغطية المزامنة التفصيلية')}</h4>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-2">{t('مقارنة حالة البيانات المحلية مع المخدم لكل جدول.')}</p>
+                </div>
+              </div>
+              <button
+                onClick={refreshSqlCoverage}
+                className="btn-secondary-modern"
+                disabled={sqlCoverageBusy}
+              >
+                <RefreshCcw size={20} className={sqlCoverageBusy ? 'animate-spin text-indigo-500' : 'text-indigo-500'} />
+              </button>
+            </div>
+            
+            <div className="app-card-body">
+              <div className="app-table-wrapper !rounded-3xl border-none shadow-none bg-slate-50/30 dark:bg-slate-800/20">
+                <table className="app-table">
+                  <thead className="app-table-thead !bg-transparent">
+                    <tr>
+                      <th className="app-table-th">{t('الجدول')}</th>
+                      <th className="app-table-th">{t('الحالة')}</th>
+                      <th className="app-table-th">{t('محلي')}</th>
+                      <th className="app-table-th">{t('المخدم')}</th>
+                      <th className="app-table-th text-center">{t('آخر تحديث')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                    {sqlCoverage.items?.map((item: SqlCoverageItem) => (
+                      <tr key={item.key} className="app-table-row group">
+                        <td className="app-table-td">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-base font-black text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{keyLabels[item.key] || item.key}</span>
+                            <span className="text-[10px] text-slate-400 font-mono font-bold tracking-tighter uppercase">{item.key}</span>
+                          </div>
+                        </td>
+                        <td className="app-table-td">
+                          <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm border ${
+                            item.status === 'inSync' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                            item.status === 'localAhead' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
+                            item.status === 'remoteAhead' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                            'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                          }`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${
+                              item.status === 'inSync' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' :
+                              item.status === 'localAhead' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]' :
+                              item.status === 'remoteAhead' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' :
+                              'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'
+                            }`} />
+                            {item.status === 'inSync' ? t('متزامن') : 
+                             item.status === 'localAhead' ? t('محلي أحدث') :
+                             item.status === 'remoteAhead' ? t('مخدم أحدث') : t('غير متطابق')}
+                          </span>
+                        </td>
+                        <td className="app-table-td">
+                          <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">{formatSize(item.localBytes)}</span>
+                        </td>
+                        <td className="app-table-td">
+                          <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">{formatSize(item.remoteBytes || 0)}</span>
+                        </td>
+                        <td className="app-table-td text-center">
+                          <div className="font-mono text-[10px] text-slate-500 font-bold bg-slate-50 dark:bg-slate-900/50 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                            {item.localUpdatedAt ? new Date(item.localUpdatedAt).toLocaleString('ar-JO', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 };
-
-

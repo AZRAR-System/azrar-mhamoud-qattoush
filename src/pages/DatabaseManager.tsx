@@ -1,4 +1,4 @@
-﻿
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { Database, RefreshCw, Trash2, Key, Table, AlertTriangle, ShieldCheck, HardDrive, CheckCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -521,50 +521,70 @@ export const DatabaseManager: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Table Stats */}
-        <div className="app-card">
-          <div className="p-4 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-100 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 leading-snug flex-wrap">
-              <HardDrive size={18} className="text-slate-500" /> جداول النظام (LocalStorage)
-            </h3>
+        <div className="app-table-wrapper">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
+                <HardDrive size={20} />
+              </div>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
+                جداول النظام (LocalStorage)
+              </h3>
+            </div>
             <PaginationControls page={tablesPage} pageCount={tablesPageCount} onPageChange={setTablesPage} />
           </div>
-          <div className="overflow-x-auto relative">
-          <table className="min-w-[720px] w-full text-right text-sm">
-            <thead className="app-table-thead">
-              <tr>
-                <th className="p-4">الجدول</th>
-                <th className="p-4">عدد السجلات</th>
-                <th className="p-4">الحجم</th>
-                <th className="p-4 sticky left-0 bg-slate-50 dark:bg-slate-900 text-center w-16">إجراء</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-              {visibleTables.map(t => (
-                <tr key={t.key} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                  <td className="p-4 font-medium">
-                    <div className="flex items-start gap-2 min-w-0">
-                      <t.icon size={16} className={t.kind === 'db' ? 'text-indigo-500 shrink-0' : 'text-orange-500 shrink-0'} />
-                      <div className="min-w-0">
-                        <div className="whitespace-normal break-words">{t.name}</div>
-                        <span className="block text-xs text-slate-400 font-mono whitespace-normal break-all">({t.key})</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4 font-mono">{getCount(t.key)}</td>
-                  <td className="p-4 font-mono text-slate-500">{getSize(t.key)}</td>
-                  <td className="p-4 sticky left-0 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700/30 text-center">
-                    <button 
-                      onClick={() => handleClearKey(t.key)}
-                      className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition" 
-                      title="مسح البيانات"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
+          
+          <div className="max-h-[600px] overflow-auto no-scrollbar">
+            <table className="app-table">
+              <thead className="app-table-thead">
+                <tr>
+                  <th className="app-table-th">الجدول</th>
+                  <th className="app-table-th text-center">عدد السجلات</th>
+                  <th className="app-table-th text-center">الحجم</th>
+                  <th className="app-table-th text-center">إجراء</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
+                {visibleTables.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="app-table-empty">لا توجد جداول متاحة</td>
+                  </tr>
+                ) : (
+                  visibleTables.map(t => (
+                    <tr key={t.key} className="app-table-row app-table-row-striped group">
+                      <td className="app-table-td">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl transition-transform group-hover:scale-110 ${t.kind === 'db' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
+                            <t.icon size={16} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-black text-slate-700 dark:text-slate-200">{t.name}</span>
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5 tracking-tighter">({t.key})</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="app-table-td text-center font-mono text-xs font-black text-slate-600 dark:text-slate-400">
+                        {getCount(t.key).toLocaleString()}
+                      </td>
+                      <td className="app-table-td text-center font-mono text-xs font-bold text-slate-400">
+                        {getSize(t.key)}
+                      </td>
+                      <td className="app-table-td">
+                        <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => handleClearKey(t.key)}
+                            className="app-table-action-btn-danger" 
+                            title="مسح البيانات"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 

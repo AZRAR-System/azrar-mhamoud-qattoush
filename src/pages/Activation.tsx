@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -10,7 +9,7 @@ import { ROUTE_PATHS } from '@/routes/paths';
 import { safeCopyToClipboard } from '@/utils/clipboard';
 
 export const Activation: React.FC = () => {
-  const { t } = useTranslation();
+  const t = useCallback((s: string) => s, []);
   const {
     isActivated,
     loading,

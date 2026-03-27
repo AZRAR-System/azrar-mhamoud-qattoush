@@ -1,4 +1,4 @@
-﻿# ===========================
+# ===========================
 # AZRAR Desktop - .gitignore
 # ===========================
 
@@ -114,9 +114,6 @@ server/data/
 
 # Generated integrity manifest
 electron/assets/integrity.manifest.json
-
-# Package Managers
-package-lock.json
 
 # TypeScript
 *.tsbuildinfo

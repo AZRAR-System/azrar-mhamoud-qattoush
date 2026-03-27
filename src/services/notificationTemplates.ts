@@ -29,6 +29,21 @@ export interface TemplateContext {
   [key: string]: unknown;
 }
 
+/** نفس التذييل في قوالب التحصيل الثابتة — مصدر واحد لتفادي التباين بين النسخ. */
+const COLLECTION_FIXED_PAYMENT_FOOTER = `طرق الدفع:
+عبر خدمة CliQ (كليك)
+الاسم المستعار: KHABERNI
+البنك: بنك الاتحاد
+
+بعد التحويل يرجى إرسال:
+1- اسم المرسل
+2- سبب التحويل (إيجار / عربون)
+3- صورة إيصال الدفع
+
+على الأرقام التالية:
+0799090170 | 0799090171
+`;
+
 // النماذج الافتراضية
 const DEFAULT_TEMPLATES: NotificationTemplate[] = [
   {
@@ -257,19 +272,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
 ونرجو منكم التكرم بتسديد المبلغ المستحق في أقرب وقت ممكن
 لتفادي أي التزامات إضافية أو إجراءات قد تؤثر على العلاقة الإيجارية الطيبة بيننا.
 
-طرق الدفع:
-عبر خدمة CliQ (كليك)
-الاسم المستعار: KHABERNI
-البنك: بنك الاتحاد
-
-بعد التحويل يرجى إرسال:
-1- اسم المرسل
-2- سبب التحويل (إيجار / عربون)
-3- صورة إيصال الدفع
-
-على الأرقام التالية:
-0799090170 | 0799090171
-`,
+${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -294,19 +297,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
 ويُعتبر هذا تأخيرًا موجبًا لاتخاذ الإجراءات القانونية
 وفقًا للعقد المبرم وقانون المالكين والمستأجرين.
 
-طرق الدفع:
-عبر خدمة CliQ (كليك)
-الاسم المستعار: KHABERNI
-البنك: بنك الاتحاد
-
-بعد التحويل يرجى إرسال:
-1- اسم المرسل
-2- سبب التحويل (إيجار / عربون)
-3- صورة إيصال الدفع
-
-على الأرقام التالية:
-0799090170 | 0799090171
-`,
+${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -332,19 +323,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
 وفي حال عدم السداد، يحتفظ المؤجر بحقه في مباشرة
 الإجراءات القضائية والتنفيذية.
 
-طرق الدفع:
-عبر خدمة CliQ (كليك)
-الاسم المستعار: KHABERNI
-البنك: بنك الاتحاد
-
-بعد التحويل يرجى إرسال:
-1- اسم المرسل
-2- سبب التحويل (إيجار / عربون)
-3- صورة إيصال الدفع
-
-على الأرقام التالية:
-0799090170 | 0799090171
-`,
+${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -371,19 +350,7 @@ const DEFAULT_TEMPLATES: NotificationTemplate[] = [
 بالحالة المتفق عليها.
 ويُعتبر هذا الإشعار إنذارًا رسميًا بالخلاء.
 
-طرق الدفع:
-عبر خدمة CliQ (كليك)
-الاسم المستعار: KHABERNI
-البنك: بنك الاتحاد
-
-بعد التحويل يرجى إرسال:
-1- اسم المرسل
-2- سبب التحويل (إيجار / عربون)
-3- صورة إيصال الدفع
-
-على الأرقام التالية:
-0799090170 | 0799090171
-`,
+${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

@@ -55,6 +55,30 @@ const LiveClock = memo(() => {
   );
 });
 
+// --- Breadcrumbs Component ---
+const Breadcrumbs = memo(({ pathname }: { pathname: string }) => {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+      <a href="#/" className="hover:text-indigo-500 transition-colors">الرئيسية</a>
+      {parts.map((part, idx) => {
+        const isLast = idx === parts.length - 1;
+        const label = ROUTE_TITLES[('/' + parts.slice(0, idx + 1).join('/')) as keyof typeof ROUTE_TITLES] || part;
+        return (
+          <React.Fragment key={idx}>
+            <ChevronRight size={10} className="text-slate-300 dark:text-slate-700" />
+            <span className={isLast ? 'text-indigo-500/80 dark:text-indigo-400/80' : ''}>
+              {label}
+            </span>
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+});
+
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   type SqlStatus = { configured: boolean; enabled: boolean; connected: boolean; lastError?: string; lastSyncAt?: string };
   type DesktopOkMessage = { ok?: boolean; message?: string };
@@ -441,45 +465,45 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300 font-sans">
 
       {/* ================================ */}
       {/* Mobile Overlay */}
       {/* ================================ */}
       {!isDesktop && sidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm layer-sidebar animate-fade-in"
+            className="fixed inset-0 bg-black/60 backdrop-blur-md layer-sidebar animate-fade-in"
             onClick={() => setSidebarOpen(false)}
           />
       )}
 
       {/* ================================ */}
-      {/* Sidebar */}
+      {/* Sidebar - Modern & Sleek */}
       {/* ================================ */}
       <aside
         className={`
           fixed lg:static inset-y-0 right-0 layer-sidebar
-          w-72 bg-white dark:bg-slate-900 
-          text-slate-800 dark:text-slate-100 transition-transform duration-300 ease-out
-          flex flex-col shadow-2xl lg:shadow-none border-l border-gray-100 dark:border-slate-800
-          ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0 lg:w-20'}
+          w-72 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl
+          text-slate-800 dark:text-slate-100 transition-all duration-500 ease-out
+          flex flex-col shadow-2xl lg:shadow-none border-l border-white/20 dark:border-slate-800/50
+          ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0 lg:w-24'}
         `}
       >
-        {/* Logo / Toggle */}
-        <div className="h-20 flex items-center justify-between px-5 border-b border-gray-100 dark:border-slate-800">
+        {/* Modern Logo Header */}
+        <div className="h-24 flex items-center justify-between px-6">
           {(sidebarOpen || !isDesktop) ? (
-            <div className="flex items-center gap-3 animate-fade-in">
-              <div className="w-9 h-9 bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-xl flex items-center justify-center shadow-indigo-500/20 shadow-lg text-white font-bold text-lg">
+            <div className="flex items-center gap-4 animate-fade-in">
+              <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 via-indigo-500 to-indigo-400 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/30 text-white font-black text-xl transform hover:rotate-6 transition-transform">
                 A
               </div>
               <div className="flex flex-col">
-                <span className="text-base font-bold leading-tight">AZRAR</span>
-                <span className="text-[10px] text-slate-400">الإصدار {appVersion || '—'}</span>
+                <span className="text-xl font-black tracking-tight text-gradient">AZRAR</span>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">v{appVersion || '—'} Real Estate</span>
               </div>
             </div>
           ) : (
              <div className="w-full flex justify-center">
-               <div className="w-9 h-9 bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold">A</div>
+               <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20">A</div>
              </div>
           )}
 
@@ -487,36 +511,22 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <button
                 type="button"
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 text-slate-400 hover:text-red-500"
-                aria-label="إغلاق الشريط الجانبي"
-                title="إغلاق الشريط الجانبي"
+                className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all"
+                aria-label="إغلاق"
               >
-                  <X size={20} />
+                  <X size={22} />
               </button>
-          )}
-          
-          {isDesktop && sidebarOpen && (
-             <button
-               type="button"
-               onClick={() => setSidebarOpen(false)}
-               className="p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg text-slate-400 hover:text-indigo-500"
-               aria-label="طي الشريط الجانبي"
-               title="طي الشريط الجانبي"
-             >
-                 <ChevronRight size={16} />
-             </button>
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 custom-scrollbar">
+        {/* Navigation - Glass & Modern Style */}
+        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 no-scrollbar">
           {NAV_ITEMS.map((item: NavItem) => {
             const Icon = item.icon;
             const isOpenState = (sidebarOpen || !isDesktop);
             const hasChildren = item.children && item.children.length > 0;
             const isExpanded = expandedMenus.includes(item.label);
             
-            // Active State Logic
             const isSelfActive = location.pathname === item.path;
             const isChildActive = !!item.children?.some((c) => c.path === location.pathname);
             const isActive = isSelfActive || isChildActive;
@@ -528,36 +538,30 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 });
 
                 return (
-                    <div key={item.label} className="mb-1">
+                    <div key={item.label} className="mb-2">
                         <button
                             onClick={() => {
                                 if (!isOpenState) setSidebarOpen(true);
                                 toggleMenu(item.label);
                             }}
-                            title={!isOpenState ? item.label : ''}
                             className={`
-                                w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative select-none
-                              ${isActive ? 'bg-indigo-50 text-indigo-700 dark:bg-slate-800/60 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/60'}
+                                w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
+                              ${isActive ? 'bg-indigo-50/80 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 shadow-soft' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40'}
                                 ${!isOpenState ? 'justify-center' : ''}
                             `}
                         >
-                            <Icon size={20} strokeWidth={2} className={`relative z-10 ${isActive ? 'text-indigo-600 dark:text-indigo-300' : ''}`} />
+                            <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className={`transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : ''}`} />
                             {isOpenState && (
                                 <>
-                                    <span className="text-sm font-bold relative z-10 flex-1 text-right">{item.label}</span>
-                                    <ChevronDown size={16} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                    <span className="text-sm font-bold flex-1 text-right">{item.label}</span>
+                                    <ChevronDown size={18} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                                 </>
                             )}
-                            
-                            {/* Dot indicator for collapsed view if child active */}
-                            {!isOpenState && isChildActive && (
-                              <div className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full"></div>
-                            )}
+                            {isActive && !isOpenState && <div className="absolute left-0 w-1.5 h-8 bg-indigo-600 rounded-r-full shadow-lg shadow-indigo-600/50" />}
                         </button>
 
-                        {/* Submenu */}
                         {isOpenState && isExpanded && (
-                            <div className="mt-1 mr-4 border-r-2 border-slate-100 dark:border-slate-700/50 pr-2 space-y-1 animate-slide-up">
+                            <div className="mt-2 mr-6 border-r-2 border-indigo-100 dark:border-indigo-900/30 pr-4 space-y-1.5 animate-slide-up">
                                 {visibleChildren.map((child) => {
                                     const ChildIcon = child.icon;
                                     const isChildActive = location.pathname === child.path;
@@ -566,10 +570,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                             key={child.path}
                                             href={`#${child.path}`}
                                             className={`
-                                              flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all
+                                              flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all
                                                 ${isChildActive
-                                              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                                              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50/70 dark:hover:bg-slate-800/60'
+                                              ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/25'
+                                              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/40'
                                                 }
                                             `}
                                         >
@@ -584,74 +588,54 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 );
             }
             
-            // Standard Item
             return (
               <a
                 key={item.path}
                 href={`#${item.path}`}
-                title={!isOpenState ? item.label : ''}
                 className={
                   `
-                  flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative select-none
+                  flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
                   ${isActive
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xl shadow-indigo-600/30'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-white'
                   }
                   ${!isOpenState ? 'justify-center' : ''}
                 `
                 }
               >
-                <Icon size={20} strokeWidth={2} className={`relative z-10 transition-transform group-hover:scale-110`} />
-                {isOpenState && <span className="text-sm font-bold relative z-10">{item.label}</span>}
-                
-                {/* Active Indicator for Collapsed Mode */}
-                {!isOpenState && isActive && (
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-l-full bg-indigo-600 opacity-100 transition-opacity"></div>
-                )}
+                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className="transition-transform group-hover:scale-110" />
+                {isOpenState && <span className="text-sm font-bold">{item.label}</span>}
+                {isActive && !isOpenState && <div className="absolute left-0 w-1.5 h-8 bg-white rounded-r-full" />}
               </a>
             );
           })}
         </nav>
 
-        {/* Desktop Toggle (When collapsed) */}
-        {isDesktop && !sidebarOpen && (
-            <div className="p-3 border-t border-gray-100 dark:border-slate-800 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition"
-            aria-label="فتح الشريط الجانبي"
-            title="فتح الشريط الجانبي"
-          >
-                    <Menu size={20} />
-                </button>
-            </div>
-        )}
-
-        {/* User Block */}
+        {/* User Block - Enhanced Glass Style */}
         {(sidebarOpen || !isDesktop) && (
-            <div className="p-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-              <div className="flex items-start gap-3">
-                  <div className="relative mt-0.5">
-                      <UserCircle size={36} className="text-slate-400" />
-                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
+            <div className="mx-4 mb-6 p-4 rounded-3xl bg-slate-50/50 dark:bg-slate-950/40 border border-white/20 dark:border-slate-800/50 shadow-soft">
+              <div className="flex items-center gap-4">
+                  <div className="relative">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-200 to-white dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border border-white dark:border-slate-800 shadow-inner">
+                        <UserCircle size={32} className="text-slate-400" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-4 border-white dark:border-slate-900 rounded-full shadow-lg"></div>
                   </div>
                   <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200 whitespace-normal break-words leading-snug">
+                      <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate">
                           {user?.اسم_للعرض || user?.اسم_المستخدم || 'مستخدم'}
                       </p>
-                      <p className="text-[10px] text-slate-400 whitespace-normal break-words">
-                        متصل{user?.الدور ? ` • ${user.الدور}` : ''}
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                        {user?.الدور || '—'}
                       </p>
                   </div>
               </div>
 
               <a
                 href="#/logout"
-                className="mt-3 w-full inline-flex items-center justify-center gap-2 text-slate-600 dark:text-slate-200 hover:text-red-700 dark:hover:text-red-400 transition px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-900/10 text-xs font-bold"
-                title="تسجيل الخروج"
+                className="mt-4 w-full inline-flex items-center justify-center gap-3 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-red-100 dark:hover:border-red-900/30 hover:shadow-lg text-xs font-black"
               >
-                <LogOut size={16} />
+                <LogOut size={18} />
                 <span>تسجيل الخروج</span>
               </a>
             </div>
@@ -659,123 +643,116 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       </aside>
 
       {/* ================================ */}
-      {/* Main Content */}
+      {/* Main Content Area */}
       {/* ================================ */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full layer-content">
 
-        {/* Header */}
-        <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between px-4 lg:px-8 shadow-sm layer-header transition-colors py-3">
+        {/* Floating Modern Header */}
+        <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft layer-header transition-all">
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             {!isDesktop && (
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="p-2 -mr-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
-                aria-label="فتح الشريط الجانبي"
-                title="فتح الشريط الجانبي"
+                className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl hover:scale-105 active:scale-95 transition-all"
               >
                     <Menu size={24} />
                 </button>
             )}
             
             <div className="flex flex-col">
-              <h1 className="text-lg lg:text-xl font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
+              <Breadcrumbs pathname={pathname} />
+              <h1 className="text-xl lg:text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+                <span className="w-2 h-8 bg-indigo-500 rounded-full" />
                 {getPageTitle()}
               </h1>
               {getPageSubtitle() ? (
-                <p className="text-[11px] lg:text-xs text-slate-500 dark:text-slate-400 leading-snug mt-0.5 max-w-[48rem]">
+                <p className="text-[11px] lg:text-xs font-bold text-slate-400 dark:text-slate-500 leading-snug mt-1 max-w-[48rem]">
                   {getPageSubtitle()}
                 </p>
               ) : null}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 lg:gap-4">
+          <div className="flex items-center gap-4 lg:gap-6">
             
-            <div className="hidden md:block">
+            <div className="hidden xl:block">
                 <LiveClock />
             </div>
 
-            {/* Mobile Search Trigger */}
-            <div className="md:hidden">
-                 <GlobalSearch /> 
-            </div>
-            
-            {/* Desktop Search */}
-            <div className="hidden md:block">
-                 <GlobalSearch />
+            <div className="flex items-center bg-slate-100/50 dark:bg-slate-800/40 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+              <GlobalSearch />
             </div>
 
-            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+            <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></div>
 
-            {hasDesktopBridge && window.desktopDb?.sqlStatus && (
+            <div className="flex items-center gap-2">
+              {hasDesktopBridge && window.desktopDb?.sqlStatus && (
+                <button
+                  onClick={() => openPanel('SERVER_DRAWER', undefined, { title: 'إعدادات المخدم', initialSection: 'server' })}
+                  className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 transition-all hover:scale-105 active:scale-95 ${
+                    sqlStatus?.enabled
+                      ? (sqlStatus?.connected ? 'text-emerald-600 dark:text-emerald-400 shadow-emerald-500/10' : 'text-red-600 dark:text-red-400 shadow-red-500/10')
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  <Server size={20} />
+                  {sqlStatus?.enabled && (
+                    <span
+                      className={`absolute top-2 right-2 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 animate-pulse ${
+                        sqlStatus?.connected ? 'bg-emerald-500' : 'bg-red-500'
+                      }`}
+                    />
+                  )}
+                </button>
+              )}
+
               <button
-                onClick={() => openPanel('SERVER_DRAWER', undefined, { title: 'إعدادات المخدم', initialSection: 'server' })}
-                className={`relative p-2.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 transition-colors ${
-                  sqlStatus?.enabled
-                    ? (sqlStatus?.connected ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')
-                    : 'text-slate-600 dark:text-slate-300'
-                }`}
-                title={
-                  sqlStatus?.enabled
-                    ? (sqlStatus?.connected ? 'متصل بالمخدم' : 'غير متصل بالمخدم')
-                    : 'المزامنة غير مفعلة'
-                }
+                type="button"
+                onClick={toggleTheme}
+                className="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-yellow-300 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm active:rotate-12"
               >
-                <Server size={18} />
-                {sqlStatus?.enabled && (
-                  <span
-                    className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${
-                      sqlStatus?.connected ? 'bg-emerald-500' : 'bg-red-500'
-                    }`}
-                  />
+                {isDark ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+
+              <button
+                onClick={() => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 })}
+                className="relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm"
+              >
+                <Bell size={20} />
+                {paymentNotifCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-gradient-to-br from-red-600 to-red-500 text-white text-[10px] font-black flex items-center justify-center ring-4 ring-white dark:ring-slate-900 shadow-lg shadow-red-500/30">
+                    {paymentNotifCount > 99 ? '99+' : paymentNotifCount}
+                  </span>
                 )}
               </button>
-            )}
-
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-yellow-300 transition-colors"
-              aria-label={isDark ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
-              title={isDark ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
-            >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-
-            <button
-              onClick={() => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 })}
-              className="relative p-2.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors"
-              title={paymentNotifCount > 0 ? `تنبيهات الدفعات (${paymentNotifCount})` : 'تنبيهات الدفعات'}
-            >
-              <Bell size={18} />
-              {paymentNotifCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
-                  {paymentNotifCount > 99 ? '99+' : paymentNotifCount}
-                </span>
-              )}
-            </button>
+            </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-50/60 dark:bg-slate-950 scroll-smooth">
-          <div className="max-w-7xl mx-auto w-full animate-fade-in-up pb-20 lg:pb-0 min-h-[calc(100vh-8rem)]">
+        {/* Content Container - Modern Layout */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-transparent no-scrollbar scroll-smooth">
+          <div className="max-w-[1600px] mx-auto w-full page-transition pb-24 lg:pb-12 min-h-full">
               {children}
           </div>
           
-          {/* Global Footer */}
-          <footer className="py-6 text-center text-[10px] text-slate-400 dark:text-slate-600">
-            <p dir="ltr">&copy; 2025 — Developed by <span className="font-bold text-slate-500 dark:text-slate-500">Mahmoud Qattoush</span></p>
-            <p dir="ltr">AZRAR Real Estate Management System — All Rights Reserved</p>
+          {/* Elegant Footer */}
+          <footer className="mt-auto py-10 text-center">
+            <div className="inline-flex flex-col items-center gap-2 px-6 py-3 rounded-2xl bg-white/30 dark:bg-slate-900/30 backdrop-blur-sm border border-white/10 dark:border-slate-800/30">
+              <p dir="ltr" className="text-[10px] font-bold text-slate-400 dark:text-slate-600">
+                &copy; 2025 — PRO EDITION — DEVELOPED BY <span className="text-indigo-500/80 dark:text-indigo-400/80">MAHMOUD QATTOUSH</span>
+              </p>
+              <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
+              <p dir="ltr" className="text-[9px] text-slate-300 dark:text-slate-700 tracking-[0.2em] uppercase">
+                AZRAR Real Estate Management
+              </p>
+            </div>
           </footer>
         </main>
 
-        {/* Global Modal Layer */}
+        {/* Engine Layers */}
         <SmartModalEngine />
-        
-        {/* Onboarding Layer (Will only show if needed) */}
         <OnboardingGuide />
       </div>
     </div>

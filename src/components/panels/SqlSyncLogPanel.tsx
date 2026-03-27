@@ -1,5 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Trash2, Search, Server, ArrowDownToLine, ArrowUpToLine, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { 
+  RefreshCcw, 
+  Trash2, 
+  Search, 
+  Server, 
+  ArrowDownToLine, 
+  ArrowUpToLine, 
+  AlertTriangle, 
+  CheckCircle2, 
+  History
+} from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 
 type SyncLogItem = {
@@ -30,13 +40,20 @@ function formatTs(ts: string): string {
   try {
     const d = new Date(ts);
     if (Number.isNaN(d.getTime())) return ts;
-    return d.toLocaleString('en-GB');
+    return d.toLocaleString('ar-JO', { 
+      day: 'numeric', 
+      month: 'short', 
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit'
+    });
   } catch {
     return ts;
   }
 }
 
 export const SqlSyncLogPanel: React.FC = () => {
+  const t = useCallback((s: string) => s, []);
   const toast = useToast();
   const [items, setItems] = useState<SyncLogItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -120,138 +137,186 @@ export const SqlSyncLogPanel: React.FC = () => {
   if (!canUse) {
     return (
       <div className="p-6">
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-          سجل المزامنة متاح فقط في نسخة Desktop.
+        <div className="p-8 rounded-[2rem] bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-400 flex items-center gap-5">
+          <div className="p-3 bg-amber-100 dark:bg-amber-900/40 rounded-xl">
+            <AlertTriangle size={28} />
+          </div>
+          <p className="text-sm font-black">سجل المزامنة متاح فقط في نسخة Desktop.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Server size={18} className="text-indigo-600" />
-            <h3 className="text-lg font-black text-slate-800 dark:text-white">سجل المزامنة (المزامنة/الحذف)</h3>
+    <div className="p-4 md:p-8 h-full page-transition bg-slate-50/50 dark:bg-slate-950/20" dir="rtl">
+      <div className="max-w-6xl mx-auto space-y-10">
+        
+        {/* Header Section */}
+        <div className="app-card overflow-hidden">
+          <div className="app-card-header flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="p-4 bg-indigo-600 dark:bg-indigo-500 rounded-2xl text-white shadow-lg shadow-indigo-600/20 animate-float">
+                <History size={32} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-800 dark:text-white leading-tight">
+                  {t('سجل المزامنة التفصيلي')}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-wider">
+                  {t('تتبع كافة عمليات إرسال واستقبال البيانات مع المخدم (SQL Server).')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={refresh}
+                disabled={busy}
+                className="btn-secondary-modern"
+              >
+                <RefreshCcw size={18} className={busy ? 'animate-spin text-indigo-500' : 'text-indigo-500'} /> 
+                <span>{t('تحديث')}</span>
+              </button>
+              <button
+                onClick={clear}
+                disabled={busy}
+                className="btn-secondary-modern border-rose-200 dark:border-rose-900/30 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10"
+              >
+                <Trash2 size={18} /> 
+                <span>{t('مسح السجل')}</span>
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            يعرض آخر العمليات التي تمت على المخدم أو تم سحبها منه.
-          </p>
-        </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={refresh}
-            disabled={busy}
-            className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
-          >
-            <RefreshCcw size={16} className={busy ? 'animate-spin' : ''} /> تحديث
-          </button>
-          <button
-            onClick={clear}
-            disabled={busy}
-            className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/40 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
-          >
-            <Trash2 size={16} /> مسح
-          </button>
-        </div>
-      </div>
+          <div className="app-card-body">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+              <div className="glass-card p-6 flex items-center gap-5 group hover:scale-[1.02]">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:rotate-12 transition-transform duration-500">
+                  <RefreshCcw size={28} />
+                </div>
+                <div>
+                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{t('مزامنة')}</div>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white">{counts.synced.toLocaleString()}</div>
+                </div>
+              </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">تمت مزامنتها</div>
-          <div className="text-2xl font-black text-slate-800 dark:text-white">{counts.synced}</div>
-        </div>
-        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">تم حذفها</div>
-          <div className="text-2xl font-black text-slate-800 dark:text-white">{counts.deleted}</div>
-        </div>
-        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">أخطاء</div>
-          <div className="text-2xl font-black text-slate-800 dark:text-white">{counts.errors}</div>
-        </div>
-      </div>
+              <div className="glass-card p-6 flex items-center gap-5 group hover:scale-[1.02]">
+                <div className="w-14 h-14 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20 group-hover:rotate-12 transition-transform duration-500">
+                  <Trash2 size={28} />
+                </div>
+                <div>
+                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{t('حذف')}</div>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white">{counts.deleted.toLocaleString()}</div>
+                </div>
+              </div>
 
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-sm"
-          placeholder="ابحث بالمفتاح أو النوع أو الرسالة..."
-        />
-      </div>
+              <div className="glass-card p-6 flex items-center gap-5 group hover:scale-[1.02]">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:rotate-12 transition-transform duration-500">
+                  <AlertTriangle size={28} />
+                </div>
+                <div>
+                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{t('أخطاء')}</div>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white">{counts.errors.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
 
-      <div className="app-card">
-        <div className="max-h-[60vh] overflow-auto custom-scrollbar">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300">
-              <tr>
-                <th className="text-right px-4 py-3 font-black">الوقت</th>
-                <th className="text-right px-4 py-3 font-black">الاتجاه</th>
-                <th className="text-right px-4 py-3 font-black">العملية</th>
-                <th className="text-right px-4 py-3 font-black">المفتاح</th>
-                <th className="text-right px-4 py-3 font-black">الحالة</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                    لا يوجد سجل بعد.
-                  </td>
-                </tr>
-              )}
+            {/* Search Bar */}
+            <div className="relative group max-w-xl mb-10">
+              <Search size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                placeholder={t('ابحث بالمفتاح، النوع أو الرسالة...')}
+              />
+            </div>
 
-              {filtered.map(it => {
-                const isDelete = it.action === 'delete';
-                const isUpsert = it.action === 'upsert';
-                const dirIcon = it.direction === 'pull' ? <ArrowDownToLine size={14} /> : it.direction === 'push' ? <ArrowUpToLine size={14} /> : <Server size={14} />;
-                const statusIcon = it.status === 'ok' ? <CheckCircle2 size={14} className="text-emerald-600" /> : <AlertTriangle size={14} className="text-red-600" />;
+            {/* Table Container */}
+            <div className="app-table-wrapper !rounded-[2.5rem] min-h-[600px] flex flex-col border-none shadow-none bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex-1 overflow-auto no-scrollbar">
+                <table className="app-table">
+                  <thead className="app-table-thead !bg-transparent">
+                    <tr>
+                      <th className="app-table-th">{t('الوقت')}</th>
+                      <th className="app-table-th">{t('الاتجاه')}</th>
+                      <th className="app-table-th">{t('العملية')}</th>
+                      <th className="app-table-th">{t('المفتاح')}</th>
+                      <th className="app-table-th text-center">{t('الحالة')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                    {filtered.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="app-table-empty">
+                          <History className="text-slate-200 dark:text-slate-800/20 mx-auto mb-6" size={80} />
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t('لا يوجد سجل متاح حالياً')}</div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filtered.map(it => {
+                        const isDelete = it.action === 'delete';
+                        const isUpsert = it.action === 'upsert';
+                        const dirIcon = it.direction === 'pull' ? <ArrowDownToLine size={16} /> : it.direction === 'push' ? <ArrowUpToLine size={16} /> : <Server size={16} />;
+                        const statusIcon = it.status === 'ok' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <AlertTriangle size={16} className="text-rose-500" />;
 
-                return (
-                  <tr key={it.id} className="bg-white dark:bg-slate-900">
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap" dir="ltr">
-                      {formatTs(it.ts)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-2">
-                        {dirIcon}
-                        {it.direction === 'pull' ? 'سحب' : it.direction === 'push' ? 'رفع' : 'نظام'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      <span className={
-                        'inline-flex items-center gap-2 px-2 py-1 rounded-lg text-xs font-black ' +
-                        (isDelete
-                          ? 'bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-300'
-                          : isUpsert
-                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/10 dark:text-indigo-300'
-                            : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200')
-                      }>
-                        {isDelete ? 'حذف' : isUpsert ? 'تعديل' : it.action}
-                      </span>
-                      {it.message && (
-                        <div className="text-[11px] text-slate-400 mt-1 whitespace-normal break-words">
-                          {it.message}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200 font-mono text-xs break-all">
-                      {it.key || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-2">
-                        {statusIcon}
-                        {it.status === 'ok' ? 'تم' : 'فشل'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        return (
+                          <tr key={it.id} className="app-table-row group">
+                            <td className="app-table-td">
+                              <div className="font-mono text-[10px] font-black text-slate-500 bg-white/50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700 inline-block" dir="ltr">
+                                {formatTs(it.ts)}
+                              </div>
+                            </td>
+                            <td className="app-table-td">
+                              <span className="inline-flex items-center gap-3 font-black text-slate-700 dark:text-slate-200 text-xs">
+                                <div className={`p-2 rounded-xl shadow-sm transition-colors duration-300 ${it.direction === 'pull' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : it.direction === 'push' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                  {dirIcon}
+                                </div>
+                                {it.direction === 'pull' ? t('سحب') : it.direction === 'push' ? t('رفع') : t('نظام')}
+                              </span>
+                            </td>
+                            <td className="app-table-td">
+                              <div className="flex flex-col gap-2">
+                                <span className={
+                                  'inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm border self-start ' +
+                                  (isDelete
+                                    ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                    : isUpsert
+                                      ? 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'
+                                      : 'bg-slate-500/10 text-slate-600 border-slate-500/20')
+                                }>
+                                  {isDelete ? t('حذف') : isUpsert ? t('تعديل') : it.action}
+                                </span>
+                                {it.message && (
+                                  <div className="text-[10px] text-slate-400 font-bold whitespace-normal break-words max-w-[300px] leading-relaxed group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                                    {it.message}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="app-table-td">
+                              <div className="font-mono text-[10px] text-slate-400 font-bold break-all max-w-[200px] bg-slate-100/50 dark:bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                                {it.key || '-'}
+                              </div>
+                            </td>
+                            <td className="app-table-td">
+                              <div className="flex items-center justify-center">
+                                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border ${it.status === 'ok' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20'}`}>
+                                  {statusIcon}
+                                  {it.status === 'ok' ? t('ناجح') : t('فشل')}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -109,7 +109,7 @@ const ContractCard = React.memo(
     onEdit: (id: string) => void;
     onDelete: (id: string) => void;
   }) => {
-    const { t } = useTranslation();
+    const t = (s: string) => s;
     const contractNumber = formatContractNumberShort(contract.رقم_العقد);
     const opportunityNumberText = String(contract.رقم_الفرصة ?? '').trim();
     const status = contract.حالة_العقد;
@@ -317,8 +317,8 @@ const ContractCard = React.memo(
 );
 
 export const Contracts: React.FC = () => {
-  const pageSize = 9;
   const { t } = useTranslation();
+  const pageSize = 9;
 
   const tr = useCallback(
     (text: unknown) => {

@@ -1,6 +1,8 @@
 ﻿
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
+
+const t = (s: string) => s;
 import { الأشخاص_tbl, العقارات_tbl, عروض_البيع_tbl, اتفاقيات_البيع_tbl, SalesType } from '@/types';
 import { Plus, Briefcase, FileSignature, CheckCircle, Clock, Home, User, BadgeDollarSign, ArrowUpRight, Lock, HandCoins, Edit2, Trash2 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
@@ -31,60 +33,60 @@ const SalesDashboard = () => {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
-            <div className={`${DS.components.card} p-6 flex flex-col justify-between min-h-32`}>
+            <div className="app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-transform cursor-default">
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold">مبيعات مكتملة</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">{t('مبيعات مكتملة')}</p>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">
                           {totalSales.toLocaleString()} <span className="text-sm font-bold text-slate-400">د.أ</span>
                         </h3>
                     </div>
-                    <div className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 rounded-lg border border-emerald-200/60 dark:border-emerald-500/20">
-                      <BadgeDollarSign size={20}/>
+                    <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl border border-emerald-200/50 dark:border-emerald-500/20 shadow-inner">
+                      <BadgeDollarSign size={24}/>
                     </div>
                 </div>
-                <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
-                    <ArrowUpRight size={14} /> إجمالي المبيعات المحققة
+                <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1 mt-4 bg-emerald-50/50 dark:bg-emerald-900/20 w-fit px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/50">
+                    <ArrowUpRight size={12} /> {t('إجمالي المبيعات المحققة')}
                 </div>
             </div>
 
-            <div className={`${DS.components.card} p-6 flex flex-col justify-between min-h-32`}>
+            <div className="app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-transform cursor-default">
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold">عروض نشطة</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">{activeListings.length}</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">{t('عروض نشطة')}</p>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">{activeListings.length}</h3>
                     </div>
-                    <div className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 rounded-lg border border-indigo-200/60 dark:border-indigo-500/20">
-                      <Briefcase size={20}/>
+                    <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-200/50 dark:border-indigo-500/20 shadow-inner">
+                      <Briefcase size={24}/>
                     </div>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">عقارات معروضة حالياً</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-4">{t('عقارات معروضة حالياً')}</p>
             </div>
 
-            <div className={`${DS.components.card} p-6 flex flex-col justify-between min-h-32`}>
+            <div className="app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-transform cursor-default">
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold">عروض الشراء</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">{offers.length}</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">{t('عروض الشراء')}</p>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">{offers.length}</h3>
                     </div>
-                    <div className="p-2 bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded-lg border border-purple-200/60 dark:border-purple-500/20">
-                      <User size={20}/>
+                    <div className="p-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-2xl border border-purple-200/50 dark:border-purple-500/20 shadow-inner">
+                      <User size={24}/>
                     </div>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{offers.filter(o => o.الحالة === 'Pending').length} قيد الانتظار</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-4">{offers.filter(o => o.الحالة === 'Pending').length} {t('قيد الانتظار')}</p>
             </div>
 
-            <div className={`${DS.components.card} p-6 flex flex-col justify-between min-h-32`}>
+            <div className="app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-transform cursor-default">
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold">اتفاقيات موقعة</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">{agreements.length}</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">{t('اتفاقيات موقعة')}</p>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">{agreements.length}</h3>
                     </div>
-                    <div className="p-2 bg-orange-500/10 text-orange-700 dark:text-orange-300 rounded-lg border border-orange-200/60 dark:border-orange-500/20">
-                      <FileSignature size={20}/>
+                    <div className="p-3 bg-orange-500/10 text-orange-700 dark:text-orange-400 rounded-2xl border border-orange-200/50 dark:border-orange-500/20 shadow-inner">
+                      <FileSignature size={24}/>
                     </div>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{agreements.filter(a => !a.isCompleted).length} بانتظار نقل الملكية</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-4">{agreements.filter(a => !a.isCompleted).length} {t('بانتظار نقل الملكية')}</p>
             </div>
         </div>
     );
@@ -301,58 +303,68 @@ export const Sales: React.FC = () => {
       const visible = rows.slice((page - 1) * safePageSize, page * safePageSize);
 
       return (
-          <div className={DS.components.table.wrapper}>
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-                  <h3 className="font-black text-slate-800 dark:text-white">
-                      {listingStatusLabel[status]} <span className="text-slate-400 font-bold">({rows.length})</span>
+          <div className="app-table-wrapper overflow-hidden animate-slide-up">
+              <div className="p-4 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-950/20 border-b border-slate-100 dark:border-slate-800">
+                  <h3 className="font-black text-slate-800 dark:text-white flex items-center gap-2">
+                      <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
+                      {listingStatusLabel[status]} <span className="text-indigo-500 text-xs font-bold px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-full border border-indigo-100 dark:border-indigo-800/50">{rows.length}</span>
                   </h3>
                   <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
               </div>
-              <table className="w-full text-right text-sm">
-                  <thead className={DS.components.table.header + ' text-slate-500 normal-case tracking-normal'}>
-                      <tr>
-                          <th className="p-4">العقار</th>
-                          <th className="p-4">المالك</th>
-                          <th className="p-4">السعر المطلوب</th>
-                          <th className="p-4">تاريخ العرض</th>
-                          <th className="p-4">الحالة</th>
-                          <th className="p-4">إجراء</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                      {visible.map(l => {
-                          const meta = getPropMeta(l.رقم_العقار);
-                          return (
-                              <tr key={l.id} className={DS.components.table.row}>
-                                  <td className="p-4">
-                                      <div className="font-bold">{getPropCode(l.رقم_العقار)}</div>
-                                      {(meta.status || meta.furnishing) && (
-                                          <div className="text-[11px] text-slate-500 mt-1">
-                                              {meta.status}{meta.furnishing ? ` • ${meta.furnishing}` : ''}
-                                          </div>
-                                      )}
-                                  </td>
-                                  <td className="p-4">{getPersonName(l.رقم_المالك)}</td>
-                                  <td className="p-4 text-emerald-600 font-bold">{l.السعر_المطلوب.toLocaleString()}</td>
-                                  <td className="p-4">{l.تاريخ_العرض}</td>
-                                  <td className="p-4">
-                                      <span className={`px-2 py-1 rounded text-xs font-bold ${l.الحالة === 'Active' ? 'bg-green-100 text-green-700' : l.الحالة === 'Sold' ? 'bg-gray-100 text-gray-500' : l.الحالة === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                                          {listingStatusLabel[l.الحالة] || l.الحالة}
-                                      </span>
-                                  </td>
-                                  <td className="p-4">
-                                      <button
-                                          onClick={() => openPanel('SALES_LISTING_DETAILS', l.id)}
-                                          className="text-indigo-600 hover:underline font-bold"
-                                      >
-                                          التفاصيل والعروض
-                                      </button>
-                                  </td>
-                              </tr>
-                          );
-                      })}
-                  </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-sm">
+                    <thead className="app-table-thead">
+                        <tr>
+                            <th className="app-table-th">{t('العقار')}</th>
+                            <th className="app-table-th">{t('المالك')}</th>
+                            <th className="app-table-th">{t('السعر المطلوب')}</th>
+                            <th className="app-table-th">{t('تاريخ العرض')}</th>
+                            <th className="app-table-th">{t('الحالة')}</th>
+                            <th className="app-table-th text-center">{t('إجراء')}</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                        {visible.map(l => {
+                            const meta = getPropMeta(l.رقم_العقار);
+                            return (
+                                <tr key={l.id} className="app-table-row group">
+                                    <td className="app-table-td">
+                                        <div className="font-black text-slate-800 dark:text-slate-200">{getPropCode(l.رقم_العقار)}</div>
+                                        {(meta.status || meta.furnishing) && (
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-bold">
+                                                {meta.status}{meta.furnishing ? ` • ${meta.furnishing}` : ''}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="app-table-td font-bold text-slate-700 dark:text-slate-300">{getPersonName(l.رقم_المالك)}</td>
+                                    <td className="app-table-td">
+                                      <div className="text-emerald-600 dark:text-emerald-400 font-black text-base">
+                                        {l.السعر_المطلوب.toLocaleString()}
+                                        <span className="text-[10px] mr-1">د.أ</span>
+                                      </div>
+                                    </td>
+                                    <td className="app-table-td font-medium text-slate-500">{l.تاريخ_العرض}</td>
+                                    <td className="app-table-td">
+                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${l.الحالة === 'Active' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800/50' : l.الحالة === 'Sold' ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:border-slate-700' : l.الحالة === 'Cancelled' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800/50' : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:border-orange-800/50'}`}>
+                                            {listingStatusLabel[l.الحالة] || l.الحالة}
+                                        </span>
+                                    </td>
+                                    <td className="app-table-td text-center">
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => openPanel('SALES_LISTING_DETAILS', l.id)}
+                                            className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-black text-xs rounded-xl"
+                                        >
+                                            {t('التفاصيل والعروض')}
+                                        </Button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+              </div>
           </div>
       );
   };
@@ -705,20 +717,32 @@ export const Sales: React.FC = () => {
   return (
     <div className="space-y-8 animate-fade-in pb-10">
 
-       <div className={DS.components.pageHeader}>
+       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/20 dark:border-slate-800/50 shadow-xl shadow-slate-200/20 dark:shadow-black/20">
            <div>
-               <h2 className={`${DS.components.pageTitle} flex items-center gap-2`}>
-                   <BadgeDollarSign className="text-indigo-600" /> إدارة المبيعات
+               <h2 className="text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3">
+                   <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20">
+                    <BadgeDollarSign size={28} />
+                   </div>
+                   {t('إدارة المبيعات')}
                </h2>
-               <p className={DS.components.pageSubtitle}>نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية</p>
+               <p className="text-slate-500 dark:text-slate-400 mt-2 font-bold text-sm ml-1">{t('نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية')}</p>
            </div>
 
-           <div className="flex flex-wrap items-center justify-end gap-2">
-               <Button variant="secondary" onClick={openCreateAgreementModal} leftIcon={<FileSignature size={18} />}>
-                   إنشاء اتفاقية
+           <div className="flex flex-wrap items-center gap-3">
+               <Button 
+                variant="secondary" 
+                onClick={openCreateAgreementModal} 
+                className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
+                leftIcon={<FileSignature size={20} />}
+               >
+                   {t('إنشاء اتفاقية')}
                </Button>
-               <Button onClick={() => { setSaleOnly(false); setIsModalOpen(true); }} leftIcon={<Plus size={18} />}>
-                   عرض بيع جديد
+               <Button 
+                onClick={() => { setSaleOnly(false); setIsModalOpen(true); }} 
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-6 py-3 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+                leftIcon={<Plus size={20} />}
+               >
+                   {t('عرض بيع جديد')}
                </Button>
            </div>
        </div>
@@ -726,35 +750,35 @@ export const Sales: React.FC = () => {
        <SalesDashboard />
 
        {/* Tabs */}
-       <div className={DS.components.card}>
-           <div className="flex border-b border-gray-200 dark:border-slate-700">
+       <div className="app-card overflow-hidden">
+           <div className="flex bg-slate-50/50 dark:bg-slate-950/20 p-2 border-b border-slate-100 dark:border-slate-800">
                <button 
                   onClick={() => setActiveTab('listings')}
-                        className={`flex-1 py-4 font-bold text-sm flex items-center justify-center gap-2 ${activeTab === 'listings' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50 dark:bg-slate-700' : 'text-slate-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                        className={`flex-1 py-4 font-black text-sm flex items-center justify-center gap-2 rounded-2xl transition-all duration-300 ${activeTab === 'listings' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft border border-slate-100 dark:border-slate-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                >
-                   <Home size={18} /> عروض البيع
+                   <Home size={20} /> {t('عروض البيع')}
                </button>
                <button 
                   onClick={() => setActiveTab('agreements')}
-                        className={`flex-1 py-4 font-bold text-sm flex items-center justify-center gap-2 ${activeTab === 'agreements' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50 dark:bg-slate-700' : 'text-slate-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                        className={`flex-1 py-4 font-black text-sm flex items-center justify-center gap-2 rounded-2xl transition-all duration-300 ${activeTab === 'agreements' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft border border-slate-100 dark:border-slate-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                >
-                   <FileSignature size={18} /> الاتفاقيات والعقود
+                   <FileSignature size={20} /> {t('الاتفاقيات والعقود')}
                </button>
            </div>
 
-           <div className="p-6">
+           <div className="p-8">
                {activeTab === 'listings' && (
-                   <div className="space-y-6">
-                       <div className="flex flex-wrap items-center justify-between gap-3">
+                   <div className="space-y-8">
+                       <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800">
                            <label
                                htmlFor="listingMarketingFilter"
-                               className="text-xs font-bold text-slate-500 dark:text-slate-400"
+                               className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest"
                            >
-                               تصنيف عروض البيع حسب الإيجار
+                               {t('تصنيف عروض البيع حسب الإيجار')}
                            </label>
                            <select
                                id="listingMarketingFilter"
-                               aria-label="تصنيف عروض البيع حسب الإيجار"
+                               aria-label={t("تصنيف عروض البيع حسب الإيجار")}
                                value={listingMarketingFilter}
                                onChange={(e) => {
                                    const next = String(e.target.value || '').trim();
@@ -762,11 +786,11 @@ export const Sales: React.FC = () => {
                                        setListingMarketingFilter(next);
                                    }
                                }}
-                               className="border p-2 rounded-xl text-sm bg-white dark:bg-slate-800 dark:border-slate-600 outline-none"
+                               className="border-none p-3 px-5 rounded-xl text-xs font-black bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-soft outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                            >
-                               <option value="all">الكل</option>
-                               <option value="also-rentable">معروضة للبيع (قد تكون للإيجار أيضاً)</option>
-                               <option value="sale-only">للبيع فقط (غير متاح للإيجار)</option>
+                               <option value="all">{t('الكل')}</option>
+                               <option value="also-rentable">{t('معروضة للبيع (قد تكون للإيجار أيضاً)')}</option>
+                               <option value="sale-only">{t('للبيع فقط (غير متاح للإيجار)')}</option>
                            </select>
                        </div>
                        {listingStatusOrder.map(status => {
@@ -778,121 +802,116 @@ export const Sales: React.FC = () => {
                )}
 
                              {activeTab === 'agreements' && (
-                                     <div className={DS.components.table.wrapper}>
-                                             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                                                 <div className="text-xs font-bold text-slate-500 dark:text-slate-400">إجمالي الاتفاقيات: {agreements.length}</div>
+                                     <div className="app-table-wrapper animate-slide-up">
+                                             <div className="p-4 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-950/20 border-b border-slate-100 dark:border-slate-800">
+                                                 <div className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('إجمالي الاتفاقيات')}: <span className="text-indigo-600 dark:text-indigo-400">{agreements.length}</span></div>
                                                  <PaginationControls page={agreementsPage} pageCount={agreementsPageCount} onPageChange={setAgreementsPage} />
                                              </div>
-                       <table className="w-full text-right text-sm">
-                           <thead className={DS.components.table.header + ' text-slate-500 normal-case tracking-normal'}>
-                               <tr>
-                                   <th className="p-4">رقم الاتفاقية</th>
-                                   <th className="p-4">العقار</th>
-                                   <th className="p-4">المشتري</th>
-                                   <th className="p-4">السعر النهائي</th>
-                                   <th className="p-4">المدفوع / المتبقي</th>
-                                   <th className="p-4">الحالة</th>
-                                   <th className="p-4">إجراء</th>
-                               </tr>
-                           </thead>
-                           <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                               {visibleAgreements.map(a => {
-                                   const listing = listings.find(l => l.id === a.listingId);
-                                   const propId = a.رقم_العقار || listing?.رقم_العقار;
-                                   const sellerId = a.رقم_البائع || listing?.رقم_المالك;
-                                   return (
-                                       <tr key={a.id} className={DS.components.table.row}>
-                                           <td className="p-4">
-                                               <div className="font-mono">#{a.id.substring(6, 12)}</div>
-                                               {String(a.رقم_الفرصة || '').trim() ? (
-                                                   <div className="text-[11px] text-slate-500 mt-1 dir-ltr">فرصة: <b className="text-slate-700 dark:text-slate-200">{String(a.رقم_الفرصة)}</b></div>
-                                               ) : null}
-                                           </td>
-                                           <td className="p-4 font-bold">{listing ? getPropCode(listing.رقم_العقار) : '-'}</td>
-                                           <td className="p-4">{getPersonName(a.رقم_المشتري)}</td>
-                                           <td className="p-4">
-                                               <div className="font-bold text-emerald-600">{a.السعر_النهائي.toLocaleString()}</div>
-                                               <div className="text-[11px] text-slate-500 mt-1 space-y-0.5">
-                                                   <div>إجمالي المصاريف: <b>{Number(a.إجمالي_المصاريف || 0).toLocaleString()}</b></div>
-                                                   <div>عمولة البائع: <b>{Number(a.عمولة_البائع || 0).toLocaleString()}</b> • عمولة المشتري: <b>{Number(a.عمولة_المشتري || 0).toLocaleString()}</b></div>
-                                                   <div>وسيط خارجي: <b>{Number(a.عمولة_وسيط_خارجي || 0).toLocaleString()}</b> • إجمالي العمولات: <b>{Number(a.إجمالي_العمولات || 0).toLocaleString()}</b></div>
-                                               </div>
-                                           </td>
-                                           <td className="p-4 text-xs">
-                                               <div>دفعة: {a.قيمة_الدفعة_الاولى}</div>
-                                               <div className="text-red-500">متبقي: {a.قيمة_المتبقي}</div>
-                                           </td>
-                                           <td className="p-4">
-                                               {a.isCompleted ? (
-                                                   <span className="flex items-center gap-1 text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded w-fit"><CheckCircle size={14}/> ملكية منقولة</span>
-                                               ) : (
-                                                   <span className="flex items-center gap-1 text-orange-600 text-xs font-bold bg-orange-50 px-2 py-1 rounded w-fit"><Clock size={14}/> قيد الإجراء</span>
-                                               )}
-                                           </td>
-                                           <td className="p-4">
-                                               <div className="flex flex-col gap-1">
-                                                   {listing?.id && (
-                                                       <button
-                                                           onClick={() => openPanel('SALES_LISTING_DETAILS', listing.id)}
-                                                           className="text-indigo-600 hover:underline font-bold text-xs text-right"
-                                                       >
-                                                           تفاصيل العرض
-                                                       </button>
-                                                   )}
-                                                   {propId && (
-                                                       <button
-                                                           onClick={() => openPanel('PROPERTY_DETAILS', propId)}
-                                                           className="text-indigo-600 hover:underline font-bold text-xs text-right"
-                                                       >
-                                                           ملف العقار
-                                                       </button>
-                                                   )}
-                                                   {a.رقم_المشتري && (
-                                                       <button
-                                                           onClick={() => openPanel('PERSON_DETAILS', a.رقم_المشتري)}
-                                                           className="text-indigo-600 hover:underline font-bold text-xs text-right"
-                                                       >
-                                                           ملف المشتري
-                                                       </button>
-                                                   )}
-                                                   {sellerId && (
-                                                       <button
-                                                           onClick={() => openPanel('PERSON_DETAILS', sellerId)}
-                                                           className="text-indigo-600 hover:underline font-bold text-xs text-right"
-                                                       >
-                                                           ملف البائع
-                                                       </button>
-                                                   )}
+                       <div className="overflow-x-auto">
+                        <table className="w-full text-right text-sm">
+                            <thead className="app-table-thead">
+                                <tr>
+                                    <th className="app-table-th">{t('رقم الاتفاقية')}</th>
+                                    <th className="app-table-th">{t('العقار')}</th>
+                                    <th className="app-table-th">{t('المشتري')}</th>
+                                    <th className="app-table-th">{t('السعر النهائي')}</th>
+                                    <th className="app-table-th">{t('المدفوع / المتبقي')}</th>
+                                    <th className="app-table-th">{t('الحالة')}</th>
+                                    <th className="app-table-th text-center">{t('إجراء')}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                {visibleAgreements.map(a => {
+                                    const listing = listings.find(l => l.id === a.listingId);
+                                    const propId = a.رقم_العقار || listing?.رقم_العقار;
+                                    const sellerId = a.رقم_البائع || listing?.رقم_المالك;
+                                    return (
+                                        <tr key={a.id} className="app-table-row group">
+                                            <td className="app-table-td">
+                                                <div className="font-mono font-black text-slate-800 dark:text-slate-200">#{a.id.substring(6, 12)}</div>
+                                                {String(a.رقم_الفرصة || '').trim() ? (
+                                                    <div className="text-[10px] text-slate-500 mt-1 dir-ltr font-bold">{t('فرصة')}: <b className="text-indigo-600 dark:text-indigo-400">{String(a.رقم_الفرصة)}</b></div>
+                                                ) : null}
+                                            </td>
+                                            <td className="app-table-td font-black text-slate-800 dark:text-slate-200">{listing ? getPropCode(listing.رقم_العقار) : '-'}</td>
+                                            <td className="app-table-td font-bold text-slate-700 dark:text-slate-300">{getPersonName(a.رقم_المشتري)}</td>
+                                            <td className="app-table-td">
+                                                <div className="font-black text-emerald-600 dark:text-emerald-400 text-base">{a.السعر_النهائي.toLocaleString()} <span className="text-[10px] mr-0.5">د.أ</span></div>
+                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 space-y-0.5 font-bold">
+                                                    <div>{t('إجمالي المصاريف')}: <b>{Number(a.إجمالي_المصاريف || 0).toLocaleString()}</b></div>
+                                                    <div>{t('إجمالي العمولات')}: <b className="text-indigo-600 dark:text-indigo-400">{Number(a.إجمالي_العمولات || 0).toLocaleString()}</b></div>
+                                                </div>
+                                            </td>
+                                            <td className="app-table-td">
+                                                <div className="flex flex-col gap-1 font-bold text-xs">
+                                                  <div className="text-slate-600 dark:text-slate-400">{t('مدفوع')}: {a.قيمة_الدفعة_الاولى.toLocaleString()}</div>
+                                                  <div className="text-rose-600">{t('متبقي')}: {a.قيمة_المتبقي.toLocaleString()}</div>
+                                                </div>
+                                            </td>
+                                            <td className="app-table-td">
+                                                {a.isCompleted ? (
+                                                    <span className="flex items-center gap-1.5 text-green-600 text-[10px] font-black bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full border border-green-200 dark:border-green-800/50 w-fit shadow-sm"><CheckCircle size={14}/> {t('ملكية منقولة')}</span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1.5 text-orange-600 text-[10px] font-black bg-orange-50 dark:bg-orange-900/20 px-2.5 py-1 rounded-full border border-orange-200 dark:border-orange-800/50 w-fit shadow-sm"><Clock size={14}/> {t('قيد الإجراء')}</span>
+                                                )}
+                                            </td>
+                                            <td className="app-table-td">
+                                                <div className="flex flex-col gap-2">
+                                                   <div className="flex flex-wrap gap-1 justify-end">
+                                                     {listing?.id && (
+                                                         <Button
+                                                             size="sm"
+                                                             variant="ghost"
+                                                             onClick={() => openPanel('SALES_LISTING_DETAILS', listing.id)}
+                                                             className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-black text-[10px] h-7 px-2 rounded-lg"
+                                                         >
+                                                             {t('العرض')}
+                                                         </Button>
+                                                     )}
+                                                     {propId && (
+                                                         <Button
+                                                             size="sm"
+                                                             variant="ghost"
+                                                             onClick={() => openPanel('PROPERTY_DETAILS', propId)}
+                                                             className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-black text-[10px] h-7 px-2 rounded-lg"
+                                                         >
+                                                             {t('العقار')}
+                                                         </Button>
+                                                     )}
+                                                   </div>
 
-                                                   <div className="flex gap-2 justify-end pt-1">
+                                                   <div className="flex gap-2 justify-end pt-1 border-t border-slate-100 dark:border-slate-800">
                                                        <button
                                                            onClick={() => handleEditAgreement(a.id)}
-                                                           className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-700"
+                                                           className="inline-flex items-center gap-1 text-[10px] font-black text-slate-600 dark:text-slate-400 hover:text-indigo-600 transition-colors"
                                                        >
-                                                           <Edit2 size={14} /> تعديل
+                                                           <Edit2 size={12} /> {t('تعديل')}
                                                        </button>
                                                        <button
                                                            onClick={() => handleDeleteAgreement(a.id)}
-                                                           className="inline-flex items-center gap-1 text-xs font-bold text-red-600 hover:text-red-700"
+                                                           className="inline-flex items-center gap-1 text-[10px] font-black text-rose-600 hover:text-rose-700 transition-colors"
                                                        >
-                                                           <Trash2 size={14} /> حذف
+                                                           <Trash2 size={12} /> {t('حذف')}
                                                        </button>
                                                    </div>
-                                               </div>
-                                               {!a.isCompleted && (
-                                                   <button 
-                                                      onClick={() => handleTransfer(a.id)}
-                                                      className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-slate-700"
-                                                   >
-                                                       إتمام النقل
-                                                   </button>
-                                               )}
-                                           </td>
-                                       </tr>
-                                   );
-                               })}
-                           </tbody>
-                       </table>
+
+                                                   {!a.isCompleted && (
+                                                       <Button 
+                                                          size="sm"
+                                                          onClick={() => handleTransfer(a.id)}
+                                                          className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-black py-1.5 h-8 rounded-xl shadow-md transition-all active:scale-95 mt-1"
+                                                       >
+                                                           {t('إتمام النقل')}
+                                                       </Button>
+                                                   )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                       </div>
                    </div>
                )}
            </div>

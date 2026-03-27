@@ -4,8 +4,8 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, MessageCircle, Phone, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Download, MessageCircle, Phone, Users } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
@@ -90,7 +90,7 @@ const ContactsGroupCard: React.FC<{
   onCall: (phone?: string, extraPhone?: string) => void;
   onWhatsApp: (phone?: string, extraPhone?: string) => void;
 }> = ({ title, titleRaw, list, onCall, onWhatsApp }) => {
-  const { t } = useTranslation();
+  const t = (s: string) => s;
   const pageSize = useResponsivePageSize({ base: 8, sm: 10, md: 12, lg: 16, xl: 20, '2xl': 24 });
   const [page, setPage] = useState(1);
 

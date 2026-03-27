@@ -1,19 +1,35 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Lock, User, LogIn, AlertCircle, Info, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, LogIn, AlertCircle, Info, Eye, EyeOff, Database, ShieldCheck, Save, Server, Check, Loader2 } from 'lucide-react';
 import { storage } from '@/services/storage';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useActivation } from '@/context/ActivationContext';
 import { safeJsonParseArray } from '@/utils/json';
+import { AppModal } from '@/components/ui/AppModal';
+import { hashPassword } from '@/services/passwordHash';
+import { DesktopDbBridge } from '@/types/electron.types';
 
 type StoredUser = {
-    id?: unknown;
-    اسم_المستخدم?: unknown;
-    كلمة_المرور?: unknown;
-    الدور?: unknown;
-    isActive?: unknown;
+    id?: string;
+    اسم_المستخدم?: string;
+    كلمة_المرور?: string;
+    الدور?: string;
+    isActive?: boolean;
 };
+
+type DesktopSqlSettings = Partial<{
+    enabled: boolean;
+    server: string;
+    port: number;
+    database: string;
+    authMode: 'sql' | 'windows';
+    user: string;
+    password?: string;
+    encrypt: boolean;
+    trustServerCertificate: boolean;
+    hasPassword?: boolean;
+}>;
 
 const toRecord = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
 
@@ -31,6 +47,28 @@ export const Login = () => {
         const [activationError, setActivationError] = useState('');
         const [activationBusy, setActivationBusy] = useState(false);
         const [deviceId, setDeviceId] = useState<string>('');
+
+        // Registration State
+        const [showRegisterForm, setShowRegisterForm] = useState(false);
+        const [regUsername, setRegUsername] = useState('admin');
+        const [regPassword, setRegPassword] = useState('');
+        const [regConfirmPassword, setRegConfirmPassword] = useState('');
+        const [regLoading, setRegLoading] = useState(false);
+
+        // DB Settings State
+        const [showDbSettings, setShowDbSettings] = useState(false);
+        const [sqlForm, setSqlForm] = useState<DesktopSqlSettings>({
+            enabled: true,
+            server: '',
+            port: 1433,
+            database: 'AZRAR',
+            authMode: 'sql',
+            user: 'sa',
+            password: '',
+            encrypt: true,
+            trustServerCertificate: true
+        });
+        const [sqlBusy, setSqlBusy] = useState(false);
 
         const usernameRef = useRef<HTMLInputElement | null>(null);
         const passwordRef = useRef<HTMLInputElement | null>(null);
@@ -211,68 +249,102 @@ export const Login = () => {
             };
         }, []);
 
-    const handleCreateDefaultAdmin = async () => {
+    const handleRegister = async (e: React.FormEvent) => {
+        e.preventDefault();
         setError('');
         setNotice('');
+
+        if (!regUsername.trim()) {
+            setError('اسم المستخدم مطلوب.');
+            return;
+        }
+        if (regPassword.length < 6) {
+            setError('كلمة المرور يجب أن لا تقل عن 6 أحرف.');
+            return;
+        }
+        if (regPassword !== regConfirmPassword) {
+            setError('كلمات المرور غير متطابقة.');
+            return;
+        }
+
+        setRegLoading(true);
         try {
             const users = await getUsers();
             if (users.length > 0) {
-                setNotice('يوجد مستخدمون بالفعل — لن يتم إنشاء حساب مدير جديد تلقائياً.');
+                setError('يوجد مستخدمون بالفعل في النظام.');
                 return;
             }
 
-                        const adminUsernameRaw = await dialogs.prompt({
-                            title: 'إنشاء حساب المدير',
-                            message: 'أدخل اسم المستخدم لحساب المدير:',
-                            inputType: 'text',
-                            defaultValue: 'admin',
-                            placeholder: 'اسم المستخدم',
-                            required: true,
-                        });
-                        if (adminUsernameRaw === null || adminUsernameRaw === undefined) return;
-
-                        const adminUsername = adminUsernameRaw.trim();
-                        if (!adminUsername) {
-                setError('اسم المستخدم مطلوب لإنشاء حساب المدير.');
-                return;
-            }
-
-                        const adminPasswordRaw = await dialogs.prompt({
-                            title: 'إنشاء حساب المدير',
-                            message: 'أدخل كلمة المرور لحساب المدير (لا تقل عن 6 أحرف):',
-                            inputType: 'password',
-                            placeholder: 'كلمة المرور',
-                            required: true,
-                        });
-                        if (adminPasswordRaw === null || adminPasswordRaw === undefined) return;
-
-                        const adminPassword = adminPasswordRaw.trim();
-                        if (!adminPassword) {
-                setError('كلمة المرور مطلوبة لإنشاء حساب المدير.');
-                return;
-            }
-            if (adminPassword.length < 6) {
-                setError('كلمة المرور قصيرة جداً (الحد الأدنى 6 أحرف).');
-                return;
-            }
-
-            const adminUser = {
+            const hashedPassword = await hashPassword(regPassword);
+            const newUser: StoredUser = {
                 id: '1',
-                اسم_المستخدم: adminUsername,
-                كلمة_المرور: adminPassword,
+                اسم_المستخدم: regUsername.trim(),
+                كلمة_المرور: hashedPassword,
                 الدور: 'SuperAdmin',
                 isActive: true,
             };
 
-            await persistUsers([adminUser]);
+            await persistUsers([newUser]);
             setHasAnyUsers(true);
-            setUsername(adminUsername);
+            setUsername(regUsername.trim());
             setPassword('');
+            setShowRegisterForm(false);
             setNotice('تم إنشاء حساب السوبر أدمن بنجاح. يمكنك تسجيل الدخول الآن.');
-        } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : String(toRecord(e).message || '').trim();
-            setError(msg || 'تعذر إنشاء المستخدم admin');
+        } catch {
+            setError('حدث خطأ أثناء إنشاء الحساب.');
+        } finally {
+            setRegLoading(false);
         }
+    };
+
+    const handleSqlTest = async () => {
+        if (!window.desktopDb?.sqlTestConnection) return;
+        setSqlBusy(true);
+        try {
+            const res = await window.desktopDb.sqlTestConnection(sqlForm as Parameters<NonNullable<DesktopDbBridge['sqlTestConnection']>>[0]);
+            const rec = toRecord(res);
+            if (rec.ok) {
+                setNotice('تم الاتصال بقاعدة البيانات بنجاح.');
+            } else {
+                setError(String(rec.message || 'فشل الاتصال بقاعدة البيانات.'));
+            }
+        } catch {
+            setError('حدث خطأ أثناء اختبار الاتصال.');
+        } finally {
+            setSqlBusy(false);
+        }
+    };
+
+    const handleSqlSave = async () => {
+        if (!window.desktopDb?.sqlSaveSettings) return;
+        setSqlBusy(true);
+        try {
+            const res = await window.desktopDb.sqlSaveSettings(sqlForm as Parameters<NonNullable<DesktopDbBridge['sqlSaveSettings']>>[0]);
+            const rec = toRecord(res);
+            if (rec.success !== false) {
+                setNotice('تم حفظ إعدادات قاعدة البيانات.');
+                setShowDbSettings(false);
+            } else {
+                setError(String(rec.message || 'فشل حفظ الإعدادات.'));
+            }
+        } catch {
+            setError('حدث خطأ أثناء حفظ الإعدادات.');
+        } finally {
+            setSqlBusy(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showDbSettings && window.desktopDb?.sqlGetSettings) {
+            void (async () => {
+                const s = await window.desktopDb?.sqlGetSettings?.();
+                if (s) setSqlForm(s as DesktopSqlSettings);
+            })();
+        }
+    }, [showDbSettings]);
+
+    const handleCreateDefaultAdmin = async () => {
+        setShowRegisterForm(true);
     };
 
     const _handleChangeAdminPassword = async () => {
@@ -420,7 +492,87 @@ export const Login = () => {
 
                     {/* Login panel */}
                     <div>
-                        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+                        {showRegisterForm ? (
+                            <form onSubmit={handleRegister} className="space-y-6 animate-slide-in-right">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                                        <User size={20} />
+                                    </div>
+                                    <h2 className="text-xl font-black text-slate-800 dark:text-white">إنشاء حساب المدير</h2>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest px-1">اسم المستخدم</label>
+                                    <div className="relative group">
+                                        <User size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                                        <input 
+                                            type="text"
+                                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                            value={regUsername}
+                                            onChange={e => setRegUsername(e.target.value)}
+                                            placeholder="admin"
+                                            disabled={regLoading}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest px-1">كلمة المرور</label>
+                                    <div className="relative group">
+                                        <Lock size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                                        <input 
+                                            type="password"
+                                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                            value={regPassword}
+                                            onChange={e => setRegPassword(e.target.value)}
+                                            placeholder="••••••••"
+                                            disabled={regLoading}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest px-1">تأكيد كلمة المرور</label>
+                                    <div className="relative group">
+                                        <ShieldCheck size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                                        <input 
+                                            type="password"
+                                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                            value={regConfirmPassword}
+                                            onChange={e => setRegConfirmPassword(e.target.value)}
+                                            placeholder="••••••••"
+                                            disabled={regLoading}
+                                        />
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 text-xs p-3 rounded-xl flex items-center gap-2 border border-rose-100 dark:border-rose-800 font-bold">
+                                        <AlertCircle size={14} />
+                                        {error}
+                                    </div>
+                                )}
+
+                                <div className="flex gap-3">
+                                    <button 
+                                        type="submit" 
+                                        disabled={regLoading}
+                                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+                                    >
+                                        {regLoading ? <Loader2 className="animate-spin" size={18} /> : <>إنشاء الحساب <Check size={18} /></>}
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowRegisterForm(false)}
+                                        disabled={regLoading}
+                                        className="px-6 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                                    >
+                                        إلغاء
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             
             <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">اسم المستخدم</label>
@@ -518,6 +670,14 @@ export const Login = () => {
                             <button
                                 type="button"
                                 className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline"
+                                onClick={() => setShowDbSettings(true)}
+                            >
+                                إعدادات قاعدة البيانات
+                            </button>
+
+                            <button
+                                type="button"
+                                className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline"
                                 onClick={() => {
                                     setNotice('إذا نسيت كلمة المرور، راجع مسؤول النظام. إذا كانت هذه أول مرة، أنشئ حساب السوبر أدمن من الأسفل.');
                                     setError('');
@@ -581,8 +741,8 @@ export const Login = () => {
                                 تسجيل الدخول معطّل حتى يتم تفعيل النظام.
                             </div>
                         )}
-
-                </form>
+                    </form>
+                )}
 
                     </div>
                 </div>
@@ -593,6 +753,104 @@ export const Login = () => {
         </div>
 
       </div>
+
+      {/* Database Settings Modal */}
+      <AppModal
+        open={showDbSettings}
+        onClose={() => !sqlBusy && setShowDbSettings(false)}
+        title="إعدادات الاتصال بقاعدة البيانات (SQL Server)"
+      >
+        <div className="space-y-8 p-4" dir="rtl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                    <label className="block text-xs font-black text-slate-500 mb-2 uppercase tracking-widest px-1">عنوان الخادم (Server Name)</label>
+                    <div className="relative group">
+                        <Server size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <input
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                            placeholder="127.0.0.1 أو اسم الخادم"
+                            value={sqlForm.server}
+                            onChange={(e) => setSqlForm((p) => ({ ...p, server: e.target.value }))}
+                            disabled={sqlBusy}
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-black text-slate-500 mb-2 uppercase tracking-widest px-1">المنفذ (Port)</label>
+                    <input
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-4 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                        placeholder="1433"
+                        value={String(sqlForm.port ?? 1433)}
+                        onChange={(e) => setSqlForm((p) => ({ ...p, port: Number(e.target.value || 1433) || 1433 }))}
+                        disabled={sqlBusy}
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-xs font-black text-slate-500 mb-2 uppercase tracking-widest px-1">قاعدة البيانات</label>
+                    <div className="relative group">
+                        <Database size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <input
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                            placeholder="AZRAR"
+                            value={sqlForm.database}
+                            onChange={(e) => setSqlForm((p) => ({ ...p, database: e.target.value }))}
+                            disabled={sqlBusy}
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-black text-slate-500 mb-2 uppercase tracking-widest px-1">اسم المستخدم</label>
+                    <div className="relative group">
+                        <User size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <input
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                            placeholder="sa"
+                            value={sqlForm.user}
+                            onChange={(e) => setSqlForm((p) => ({ ...p, user: e.target.value }))}
+                            disabled={sqlBusy}
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-black text-slate-500 mb-2 uppercase tracking-widest px-1">كلمة المرور</label>
+                    <div className="relative group">
+                        <Lock size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <input
+                            type="password"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                            placeholder={sqlForm.hasPassword ? '•••••••• (محفوظة)' : 'أدخل كلمة المرور'}
+                            value={sqlForm.password}
+                            onChange={(e) => setSqlForm((p) => ({ ...p, password: e.target.value }))}
+                            disabled={sqlBusy}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 pt-6">
+                <button
+                    onClick={handleSqlTest}
+                    className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 px-6 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+                    disabled={sqlBusy}
+                >
+                    {sqlBusy ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} className="text-emerald-500" />}
+                    <span>اختبار الاتصال</span>
+                </button>
+                <button
+                    onClick={handleSqlSave}
+                    className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 px-8 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
+                    disabled={sqlBusy}
+                >
+                    {sqlBusy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    <span>حفظ الإعدادات</span>
+                </button>
+            </div>
+        </div>
+      </AppModal>
     </div>
   );
 };

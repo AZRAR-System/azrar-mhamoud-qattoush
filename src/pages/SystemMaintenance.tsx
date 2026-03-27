@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useState,
   useEffect,
   useCallback,
@@ -12,6 +12,7 @@ import { useSmartModal } from '@/context/ModalContext';
 import { SystemHealth, PredictiveInsight } from '@/types';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { isTenancyRelevant } from '@/utils/tenancy';
+import { getErrorMessage } from '@/utils/errors';
 import { validateAllData } from '@/services/dataValidation';
 import { runSystemScenarioTests, UiTestResult } from '@/services/integrationTests';
 import {
@@ -69,18 +70,6 @@ type ViteMeta = {
     VITE_AUTORUN_SYSTEM_TESTS_MUTATION?: unknown;
     VITE_ENABLE_INTEGRATION_TEST_DATA?: unknown;
   };
-};
-
-const hasMessage = (value: unknown): value is { message: string } => {
-  if (typeof value !== 'object' || value === null) return false;
-  return typeof (value as Record<string, unknown>).message === 'string';
-};
-
-const getErrorMessage = (error: unknown): string | undefined => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  if (hasMessage(error)) return error.message;
-  return undefined;
 };
 
 /* ========================= */
@@ -562,49 +551,61 @@ const PerformanceView = memo<PerformanceViewProps>(({ performanceReport }) => {
     </div>
 
     {/* Table Details */}
-    <div className="app-card">
-      <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
+    <div className="app-table-wrapper mt-8">
+      <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between gap-4">
+        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">تفاصيل الأداء المقارن</div>
         <PaginationControls page={page} pageCount={pageCount} onPageChange={setPage} />
       </div>
-      <table className="w-full text-right text-sm">
-        <thead className="bg-gray-50 dark:bg-slate-900/80 text-slate-500 font-bold">
-          <tr>
-            <th className="p-4">نوع العملية</th>
-              <th className="p-4">التشغيل الأول (ms)</th>
-              <th className="p-4">التشغيل الثاني (ms)</th>
-              <th className="p-4">فرق الزمن</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-          {visible.map((res) => {
-              const improvement = res.before > 0 ? ((res.before - res.after) / res.before) * 100 : 0;
-            return (
-              <tr key={res.name} className="bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition">
-                <td className="p-4 font-bold text-slate-700 dark:text-white flex items-center gap-2">
-                  <Calculator size={14} className="text-gray-400" />
-                  {res.name}
-                </td>
-                <td className="p-4 text-red-500 font-mono text-base font-medium">
-                  {res.before.toFixed(2)}
-                </td>
-                <td className="p-4 text-emerald-600 font-mono text-base font-bold">
-                  {res.after.toFixed(4)}
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center gap-2">
-                    <progress
-                      className="flex-1 h-2 max-w-[100px] rounded-full overflow-hidden bg-gray-100 dark:bg-slate-700 accent-emerald-500"
-                      value={Math.min(improvement, 100)}
-                      max={100}
-                    />
-                    <span className="text-xs font-bold text-emerald-600">{improvement.toFixed(1)}%</span>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="overflow-x-auto no-scrollbar">
+        <table className="app-table">
+          <thead className="app-table-thead">
+            <tr>
+              <th className="app-table-th">نوع العملية</th>
+              <th className="app-table-th">التشغيل الأول (ms)</th>
+              <th className="app-table-th">التشغيل الثاني (ms)</th>
+              <th className="app-table-th">فرق الزمن / التحسن</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
+            {visible.map((res) => {
+                const improvement = res.before > 0 ? ((res.before - res.after) / res.before) * 100 : 0;
+              return (
+                <tr key={res.name} className="app-table-row app-table-row-striped group">
+                  <td className="app-table-td font-black text-slate-700 dark:text-slate-200 flex items-center gap-3">
+                    <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-400 group-hover:text-indigo-500 transition-colors">
+                      <Calculator size={14} />
+                    </div>
+                    {res.name}
+                  </td>
+                  <td className="app-table-td">
+                    <span className="text-rose-500 font-mono text-sm font-bold bg-rose-50 dark:bg-rose-900/10 px-2.5 py-1 rounded-lg border border-rose-100 dark:border-rose-900/30">
+                      {res.before.toFixed(2)}
+                    </span>
+                  </td>
+                  <td className="app-table-td">
+                    <span className="text-emerald-600 font-mono text-sm font-black bg-emerald-50 dark:bg-emerald-900/10 px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+                      {res.after.toFixed(4)}
+                    </span>
+                  </td>
+                  <td className="app-table-td">
+                    <div className="flex items-center gap-4 min-w-[120px]">
+                      <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000 ease-out"
+                          style={{ width: `${Math.min(improvement, 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400 w-12 text-left">
+                        {improvement.toFixed(1)}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
   );

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
@@ -16,6 +15,12 @@ import {
   Trash2,
   Printer,
   Briefcase,
+  Home,
+  ArrowRight,
+  ArrowUpToLine,
+  ArrowDownToLine,
+  Calendar,
+  History as HistoryIcon,
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { ROUTE_PATHS } from '@/routes/paths';
@@ -28,6 +33,8 @@ import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { storage } from '@/services/storage';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { safeNumber, safeString } from '@/utils/safe';
 import {
   deletePersonSmart,
   ownershipHistorySmart,
@@ -54,7 +61,7 @@ type FastTenancyItem = {
 };
 
 export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id, onClose }) => {
-  const { t } = useTranslation();
+  const t = useCallback((s: string) => s, []);
   const [profileData, setProfileData] = useState<PersonDetailsResult | null>(null);
   const [fastTenancy, setFastTenancy] = useState<FastTenancyItem[]>([]);
   const [fastOwnershipHistory, setFastOwnershipHistory] = useState<سجل_الملكية_tbl[]>([]);
@@ -334,9 +341,6 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
     .slice()
     .sort((a, b) => String(b.تاريخ_البداية || '').localeCompare(String(a.تاريخ_البداية || '')));
 
-  const safeString = (val: unknown) => (val ? String(val) : '');
-  const safeNum = (val: unknown) => (isNaN(Number(val)) ? 0 : Number(val));
-
      const handlePrint = () => {
        void printCurrentViewUnified({ documentType: 'person', entityId: id });
      };
@@ -426,7 +430,7 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                 <td className="p-3 bg-gray-50 font-bold">{t('التصنيف / التقييم')}</td>
                 <td className="p-3">
                   {safeString(p.تصنيف) || '—'}{' '}
-                  {typeof p.تقييم !== 'undefined' ? `• ${safeNum(p.تقييم)}/5` : ''}
+                  {typeof p.تقييم !== 'undefined' ? `• ${safeNumber(p.تقييم)}/5` : ''}
                 </td>
               </tr>
               {blacklistRecord ? (
@@ -471,97 +475,95 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
         )}
 
         {/* Header */}
-        <div className="app-card p-6">
-          <div
-            className={`absolute top-0 left-0 h-2 w-full ${blacklistRecord ? 'bg-red-600' : 'bg-gradient-to-r from-indigo-500 to-purple-600'}`}
-          ></div>
-          <div className="flex flex-col md:flex-row justify-between gap-6 pt-2">
-            <div className="flex gap-5 items-center">
-              <div
-                className={`w-20 h-20 rounded-full flex items-center justify-center border-4 shadow-lg ${blacklistRecord ? 'bg-red-100 border-red-500 text-red-600' : 'bg-slate-100 dark:bg-slate-700 border-white dark:border-slate-600 text-slate-400 dark:text-slate-500'}`}
-              >
-                {blacklistRecord ? <Ban size={40} /> : <User size={40} />}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                  {safeString(p.الاسم)}
-                  {blacklistRecord && (
-                    <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full">
-                      {t('محظور')}
-                    </span>
-                  )}
-                </h1>
-                <div className="flex gap-2 my-2 flex-wrap">
-                  {roles.map((r: string) => (
-                    <span
-                      key={r}
-                      className="px-3 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-bold border border-indigo-100 dark:border-indigo-800"
-                    >
-                      {r}
-                    </span>
-                  ))}
+        <div className="app-card relative overflow-hidden group">
+          <div className={`absolute inset-0 opacity-10 transition-opacity duration-700 group-hover:opacity-20 ${blacklistRecord ? 'bg-rose-600' : 'bg-gradient-to-br from-indigo-600 to-purple-600'}`} />
+          <div className={`absolute top-0 right-0 left-0 h-1.5 transition-all duration-500 ${blacklistRecord ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-gradient-to-l from-indigo-500 to-purple-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]'}`} />
+          
+          <div className="relative p-8 flex flex-col md:flex-row justify-between gap-10">
+            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-right">
+              <div className="relative">
+                <div className={`w-28 h-28 rounded-[2.5rem] flex items-center justify-center border-4 shadow-2xl transition-transform duration-500 hover:scale-110 ${blacklistRecord ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400' : 'bg-white dark:bg-slate-800 border-white dark:border-slate-700 text-slate-400 dark:text-slate-500'}`}>
+                  {blacklistRecord ? <Ban size={48} /> : <User size={48} />}
                 </div>
-                <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <Activity size={14} /> {safeString(p.الرقم_الوطني)}
+                {blacklistRecord && (
+                  <div className="absolute -bottom-2 -right-2 p-2 bg-rose-600 text-white rounded-xl shadow-lg animate-bounce">
+                    <ShieldAlert size={16} />
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex-1 min-w-0 space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h1 className="text-3xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
+                    {safeString(p.الاسم)}
+                  </h1>
+                  <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                    {roles.map((r: string) => (
+                      <span key={r} className="px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-black border border-indigo-100 dark:border-indigo-800/50 uppercase tracking-widest shadow-sm">
+                        {r}
+                      </span>
+                    ))}
+                    {blacklistRecord && (
+                      <span className="px-3.5 py-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl text-[10px] font-black border border-rose-100 dark:border-rose-800/50 uppercase tracking-widest shadow-sm">
+                        {t('محظور')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap justify-center md:justify-start items-center gap-6 text-xs font-bold text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-2 group/info">
+                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover/info:text-indigo-500 transition-colors"><Activity size={14} /></div>
+                    {safeString(p.الرقم_الوطني)}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin size={14} /> {safeString(p.العنوان) || t('غير محدد')}
+                  <span className="flex items-center gap-2 group/info">
+                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover/info:text-indigo-500 transition-colors"><MapPin size={14} /></div>
+                    {safeString(p.العنوان) || t('غير محدد')}
                   </span>
                 </div>
               </div>
             </div>
-            <div className="flex flex-col gap-2 min-w-[160px]">
-              <div className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-center border border-yellow-100 dark:border-yellow-800">
-                <div className="flex justify-center text-yellow-400 mb-1">
+
+            <div className="flex flex-col gap-3 min-w-[200px] w-full md:w-auto">
+              <div className="bg-white/80 dark:bg-slate-800/60 backdrop-blur-md p-4 rounded-[1.8rem] border border-slate-100 dark:border-slate-700 shadow-sm text-center">
+                <div className="flex justify-center gap-1.5 text-amber-400 mb-2">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={14} fill={i < safeNum(p.تقييم) ? 'currentColor' : 'none'} />
+                    <Star
+                      key={i}
+                      size={16}
+                      fill={i < safeNumber(p.تقييم) ? 'currentColor' : 'none'}
+                      className="transition-transform hover:scale-125"
+                    />
                   ))}
                 </div>
-                <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400">
+                <div className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
                   {safeString(p.تصنيف)}
-                </span>
+                </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <RBACGuard requiredPermission="EDIT_PERSON">
-                  <button
-                    onClick={handleEdit}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition text-xs font-bold"
-                  >
+                  <button onClick={handleEdit} className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl transition-all text-[11px] font-black shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 active:scale-95">
                     <Edit2 size={14} /> {t('تعديل')}
                   </button>
                 </RBACGuard>
                 <RBACGuard requiredPermission="DELETE_PERSON">
-                  <button
-                    onClick={handleDelete}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-xs font-bold"
-                  >
+                  <button onClick={handleDelete} className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-800 border border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl transition-all text-[11px] font-black shadow-sm hover:bg-rose-50 dark:hover:bg-rose-900/20 active:scale-95">
                     <Trash2 size={14} /> {t('حذف')}
                   </button>
                 </RBACGuard>
               </div>
 
-              <RBACGuard requiredPermission="PRINT_EXECUTE">
-                <button
-                  onClick={handlePrint}
-                  className="flex items-center justify-center gap-2 w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition text-xs font-bold"
-                >
-                  <Printer size={14} /> {t('طباعة / PDF')}
+              <div className="grid grid-cols-1 gap-2">
+                <RBACGuard requiredPermission="PRINT_EXECUTE">
+                  <button onClick={handlePrint} className="flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white rounded-2xl transition-all text-[11px] font-black shadow-lg shadow-black/20 hover:bg-black active:scale-95">
+                    <Printer size={14} /> {t('طباعة / PDF')}
+                  </button>
+                </RBACGuard>
+                <button onClick={() => void openWhatsAppForPhones('', [safeString(p.رقم_الهاتف), extraPhone], { defaultCountryCode: getDefaultWhatsAppCountryCodeSync(), delayMs: 10_000 })} className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 text-white rounded-2xl transition-all text-[11px] font-black shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 active:scale-95">
+                  <Phone size={14} /> {t('واتساب')}
                 </button>
-              </RBACGuard>
-
-              <button
-                onClick={() =>
-                  void openWhatsAppForPhones('', [safeString(p.رقم_الهاتف), extraPhone], {
-                    defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
-                    delayMs: 10_000,
-                  })
-                }
-                className="flex items-center justify-center gap-2 w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition text-xs font-bold shadow-md shadow-green-500/20"
-              >
-                <Phone size={14} /> {t('واتساب')}
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -572,31 +574,43 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
         <DynamicFieldsDisplay formId="people" values={pExtra.حقول_ديناميكية} />
 
         {/* Financial Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 text-center">
-            <p className="text-xs text-slate-500 mb-1">{t('إجمالي الكمبيالات')}</p>
-            <p className="text-xl font-bold text-slate-800 dark:text-white">
-              {safeNum(stats.totalInstallments)}
-            </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="app-card p-8 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 group-hover:rotate-12 transition-transform">
+              <FileText size={28} />
+            </div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t('إجمالي الكمبيالات')}</div>
+            <div className="text-3xl font-black text-slate-800 dark:text-white tracking-tighter">{safeNumber(stats.totalInstallments).toLocaleString()}</div>
           </div>
-          <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30 text-center">
-            <p className="text-xs text-red-500 mb-1">{t('متأخرات')}</p>
-            <p className="text-xl font-bold text-red-600">{safeNum(stats.lateInstallments)}</p>
+          
+          <div className="app-card p-8 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-4 group-hover:-rotate-12 transition-transform">
+              <ShieldAlert size={28} />
+            </div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t('متأخرات')}</div>
+            <div className="text-3xl font-black text-rose-600 tracking-tighter">{safeNumber(stats.lateInstallments).toLocaleString()}</div>
           </div>
-          <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-900/30 text-center">
-            <p className="text-xs text-green-500 mb-1">{t('نسبة الالتزام')}</p>
-            <p className="text-xl font-bold text-green-600">{safeNum(stats.commitmentRatio)}%</p>
+          
+          <div className="app-card p-8 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20 flex flex-col items-center text-center group hover:scale-[1.02] transition-transform">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
+              <Activity size={28} />
+            </div>
+            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t('نسبة الالتزام')}</div>
+            <div className="text-3xl font-black text-emerald-600 tracking-tighter">{safeNumber(stats.commitmentRatio)}%</div>
           </div>
         </div>
 
-        {/* Lists */}
-        <div className="app-card overflow-hidden">
+        {/* Lists Container */}
+        <div className="space-y-8">
           {roles.includes('مالك') && ownedProperties.length > 0 && (
-            <div className="p-4 border-b border-gray-100 dark:border-slate-700">
-              <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                <FileText size={16} className="text-indigo-500" /> {t('العقارات المملوكة')}
-              </h4>
-              <div className="space-y-2">
+            <div className="app-card overflow-hidden border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30 flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
+                  <Home size={20} />
+                </div>
+                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{t('العقارات المملوكة')}</h4>
+              </div>
+              <div className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                 {ownedProperties.map((prop) =>
                   (() => {
                     const propId = String(prop.رقم_العقار);
@@ -610,104 +624,43 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                       <div
                         key={prop.رقم_العقار}
                         onClick={() => openPanel('PROPERTY_DETAILS', prop.رقم_العقار)}
-                        className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-700 cursor-pointer transition"
+                        className="p-6 bg-white dark:bg-slate-900 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-all cursor-pointer group flex flex-col md:flex-row md:items-center justify-between gap-6"
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono bg-white dark:bg-slate-800 px-2 py-1 rounded border border-gray-200 dark:border-slate-600 text-xs font-bold">
+                        <div className="flex items-start gap-5">
+                          <div className="mt-1 font-mono bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black text-slate-700 dark:text-slate-200 shadow-sm group-hover:border-indigo-200 transition-colors">
                             {prop.الكود_الداخلي}
-                          </span>
-                          <div className="min-w-0">
-                            <div className="text-sm min-w-0 whitespace-normal break-words">
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">
                               {prop.العنوان}
                             </div>
+                            
                             {best ? (
-                              <div className="text-[11px] mt-0.5 text-indigo-700 dark:text-indigo-200 flex flex-wrap items-center gap-2">
-                                    <span className="font-bold">{t('مرتبط بعقد')}</span>
-                                <span className="font-mono">#{shortContractId}</span>
-                                {tenantName ? (
-                                  <>
-                                    <span>•</span>
-                                    <span className="font-semibold">{tenantName}</span>
-                                  </>
-                                ) : null}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openPanel('CONTRACT_DETAILS', best.رقم_العقد);
-                                  }}
-                                  className="text-[11px] font-bold text-indigo-600 hover:underline"
-                                >
-                                  {t('فتح العقد')}
-                                </button>
+                              <div className="mt-2 flex flex-wrap items-center gap-3">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-lg border border-indigo-100 dark:border-indigo-800/50">
+                                  <FileText size={12} />
+                                  {t('عقد')} #{shortContractId}
+                                </span>
+                                {tenantName && (
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                    {t('المستأجر:')} <span className="text-slate-800 dark:text-slate-200">{tenantName}</span>
+                                  </span>
+                                )}
                               </div>
                             ) : (
-                              <div className="text-[11px] mt-0.5 text-slate-500 dark:text-slate-400">
-                                {t('غير مرتبط بعقد')}
+                              <div className="mt-2 text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                                {t('شاغر حالياً')}
                               </div>
                             )}
-
-                            {propContracts.length > 0 ? (
-                              <div className="mt-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/30 p-2">
-                                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                                  {t('كل العقود')}
-                                </div>
-                                <div className="space-y-1">
-                                  {propContracts.map((c) => {
-                                    const cId = String(c.رقم_العقد || '');
-                                    const tenant = c.رقم_المستاجر
-                                      ? peopleById.get(String(c.رقم_المستاجر))?.الاسم || t('غير معروف')
-                                      : '';
-                                    return (
-                                      <div
-                                        key={cId}
-                                        className="flex items-start justify-between gap-2"
-                                      >
-                                        <div className="min-w-0 text-[11px] text-slate-600 dark:text-slate-300 whitespace-normal break-words">
-                                          <span className="font-bold">
-                                            #{formatContractNumberShort(cId)}
-                                          </span>
-                                          <span className="text-slate-400"> • </span>
-                                          <span className="font-semibold">
-                                            {safeString(c.حالة_العقد)}
-                                          </span>
-                                          {tenant ? (
-                                            <>
-                                              <span className="text-slate-400"> • </span>
-                                              <span>{tenant}</span>
-                                            </>
-                                          ) : null}
-                                          {c.تاريخ_البداية || c.تاريخ_النهاية ? (
-                                            <>
-                                              <span className="text-slate-400"> • </span>
-                                              <span>
-                                                {safeString(c.تاريخ_البداية)} -{' '}
-                                                {safeString(c.تاريخ_النهاية)}
-                                              </span>
-                                            </>
-                                          ) : null}
-                                        </div>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openPanel('CONTRACT_DETAILS', c.رقم_العقد);
-                                          }}
-                                          className="text-[11px] font-bold text-indigo-600 hover:underline flex-shrink-0"
-                                        >
-                                          {t('فتح')}
-                                        </button>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : null}
                           </div>
                         </div>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded ${prop.IsRented ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}
-                        >
-                          {prop.حالة_العقار}
-                        </span>
+
+                        <div className="flex items-center gap-4">
+                          <span className={`px-4 py-1.5 rounded-2xl text-[10px] font-black border uppercase tracking-widest ${prop.IsRented ? 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/40' : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/40'}`}>
+                            {prop.حالة_العقار}
+                          </span>
+                          <ArrowRight size={18} className="text-slate-300 group-hover:translate-x-[-4px] transition-transform" />
+                        </div>
                       </div>
                     );
                   })()
@@ -719,175 +672,155 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
           {(contractsAsTenant.length > 0 ||
             contractsAsGuarantor.length > 0 ||
             contractsAsOwner.length > 0) && (
-            <div className="p-4">
-              <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                <FileText size={16} className="text-purple-500" /> {t('العقود المرتبطة')}
-              </h4>
-
-              {contractsAsTenant.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
-                    {t('كمستأجر')}
-                  </div>
-                  <div className="space-y-2">
-                    {contractsAsTenant.map((c) => (
-                      <div
-                        key={c.رقم_العقد}
-                        onClick={() => openPanel('CONTRACT_DETAILS', c.رقم_العقد)}
-                        className="flex justify-between items-start gap-3 p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg hover:bg-purple-50 dark:hover:bg-slate-700 cursor-pointer transition"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-sm font-bold whitespace-normal break-words">
-                            {t('عقد')} #{formatContractNumberShort(c.رقم_العقد)}
-                          </div>
-                          <div className="text-xs text-slate-500 whitespace-normal break-words">
-                            {t('عقار:')}{' '}
-                            <span className="font-mono">{getPropCode(String(c.رقم_العقار))}</span>
-                            {c.تاريخ_البداية || c.تاريخ_النهاية ? (
-                              <>
-                                {' '}
-                                • {safeString(c.تاريخ_البداية)} - {safeString(c.تاريخ_النهاية)}
-                              </>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className="text-[10px] bg-white dark:bg-slate-800 border px-2 py-0.5 rounded">
-                            {safeString(c.حالة_العقد)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            <div className="app-card overflow-hidden border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30 flex items-center gap-3">
+                <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+                  <FileText size={20} />
                 </div>
-              )}
+                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{t('العقود المرتبطة')}</h4>
+              </div>
 
-              {contractsAsGuarantor.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
-                    {t('ككفيل')}
-                  </div>
-                  <div className="space-y-2">
-                    {contractsAsGuarantor.map((c) => {
-                      const tenantName = isDesktopFast
-                        ? tenantNameByContractId.get(String(c.رقم_العقد)) || ''
-                        : c.رقم_المستاجر
-                          ? peopleById.get(String(c.رقم_المستاجر))?.الاسم || t('غير معروف')
-                          : '';
-                      return (
+              <div className="p-6 space-y-8">
+                {contractsAsTenant.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                      {t('كمستأجر')}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {contractsAsTenant.map((c) => (
                         <div
                           key={c.رقم_العقد}
                           onClick={() => openPanel('CONTRACT_DETAILS', c.رقم_العقد)}
-                          className="flex justify-between items-start gap-3 p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg hover:bg-purple-50 dark:hover:bg-slate-700 cursor-pointer transition"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-sm font-bold whitespace-normal break-words">
-                              {t('عقد')} #{formatContractNumberShort(c.رقم_العقد)}
-                            </div>
-                            <div className="text-xs text-slate-500 whitespace-normal break-words">
-                              {t('عقار:')}{' '}
-                              <span className="font-mono">{getPropCode(String(c.رقم_العقار))}</span>
-                              {tenantName ? (
-                                <>
-                                  {' '}
-                                  • {t('المستأجر:')}{' '}
-                                  <span className="font-semibold">{tenantName}</span>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="text-[10px] bg-white dark:bg-slate-800 border px-2 py-0.5 rounded">
-                              {safeString(c.حالة_العقد)}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {contractsAsOwner.length > 0 && (
-                <div>
-                  <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
-                    {t('عبر العقارات المملوكة')}
-                  </div>
-                  <div className="space-y-2">
-                    {contractsAsOwner.map((c) => {
-                      const tenantName = isDesktopFast
-                        ? tenantNameByContractId.get(String(c.رقم_العقد)) || ''
-                        : c.رقم_المستاجر
-                          ? peopleById.get(String(c.رقم_المستاجر))?.الاسم || t('غير معروف')
-                          : '';
-                      const propAddress = isDesktopFast
-                        ? propertyAddressById.get(String(c.رقم_العقار)) || ''
-                        : propertiesById.get(String(c.رقم_العقار))?.العنوان || '';
-                      return (
-                        <div
-                          key={c.رقم_العقد}
-                          className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-500/30"
+                          className="group p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] hover:border-purple-200 dark:hover:border-purple-800 transition-all cursor-pointer shadow-sm hover:shadow-md"
                         >
                           <div className="flex justify-between items-start gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-bold text-indigo-800 dark:text-indigo-200 whitespace-normal break-words">
-                                {t('عقد')} #{formatContractNumberShort(c.رقم_العقد)} • {t('عقار')}{' '}
-                                <span className="font-mono">
-                                  {getPropCode(String(c.رقم_العقار))}
-                                </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-black text-slate-800 dark:text-white group-hover:text-purple-600 transition-colors">
+                                {t('عقد')} #{formatContractNumberShort(c.رقم_العقد)}
                               </div>
-                              <div className="text-xs text-indigo-700 dark:text-indigo-300 mt-0.5 whitespace-normal break-words">
-                                {propAddress ? <span>{propAddress}</span> : null}
-                                {tenantName ? (
-                                  <>
-                                    {' '}
-                                    {propAddress ? '• ' : ''}
-                                    {t('المستأجر:')}{' '}
-                                    <span className="font-semibold">{tenantName}</span>
-                                  </>
-                                ) : null}
+                              <div className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-2">
+                                <span className="font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">{getPropCode(String(c.رقم_العقار))}</span>
+                                {c.تاريخ_البداية && <span>• {safeString(c.تاريخ_البداية)}</span>}
                               </div>
                             </div>
-                            <div className="flex gap-2 flex-shrink-0">
-                              <button
-                                onClick={() => openPanel('CONTRACT_DETAILS', c.رقم_العقد)}
-                                className="text-xs font-bold text-indigo-700 hover:underline"
-                              >
-                                {t('فتح العقد')}
-                              </button>
-                              <button
-                                onClick={() => openPanel('PROPERTY_DETAILS', String(c.رقم_العقار))}
-                                className="text-xs font-bold text-indigo-700 hover:underline"
-                              >
-                                {t('فتح العقار')}
-                              </button>
-                            </div>
-                          </div>
-                          <div className="mt-1 text-[10px] text-indigo-700 dark:text-indigo-300">
-                            {t('الحالة:')}{' '}
-                            <span className="font-bold">{safeString(c.حالة_العقد)}</span>
-                            {c.تاريخ_البداية || c.تاريخ_النهاية ? (
-                              <>
-                                {' '}
-                                • {safeString(c.تاريخ_البداية)} - {safeString(c.تاريخ_النهاية)}
-                              </>
-                            ) : null}
+                            <StatusBadge status={safeString(c.حالة_العقد)} className="!text-[9px] !px-2 !py-0.5 !rounded-lg" />
                           </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {contractsAsGuarantor.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      {t('ككفيل')}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {contractsAsGuarantor.map((c) => {
+                        const tenantName = isDesktopFast
+                          ? tenantNameByContractId.get(String(c.رقم_العقد)) || ''
+                          : c.رقم_المستاجر
+                            ? peopleById.get(String(c.رقم_المستاجر))?.الاسم || t('غير معروف')
+                            : '';
+                        return (
+                          <div
+                            key={c.رقم_العقد}
+                            onClick={() => openPanel('CONTRACT_DETAILS', c.رقم_العقد)}
+                            className="group p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] hover:border-amber-200 dark:hover:border-amber-800 transition-all cursor-pointer shadow-sm hover:shadow-md"
+                          >
+                            <div className="flex justify-between items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-black text-slate-800 dark:text-white group-hover:text-amber-600 transition-colors">
+                                  {t('عقد')} #{formatContractNumberShort(c.رقم_العقد)}
+                                </div>
+                                <div className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                  {t('عقار:')} <span className="font-mono">{getPropCode(String(c.رقم_العقار))}</span>
+                                  {tenantName && <span className="block mt-1 font-semibold text-slate-700 dark:text-slate-300">{t('المستأجر:')} {tenantName}</span>}
+                                </div>
+                              </div>
+                              <StatusBadge status={safeString(c.حالة_العقد)} className="!text-[9px] !px-2 !py-0.5 !rounded-lg" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {contractsAsOwner.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      {t('عبر العقارات المملوكة')}
+                    </div>
+                    <div className="space-y-4">
+                      {contractsAsOwner.map((c) => {
+                        const tenantName = isDesktopFast
+                          ? tenantNameByContractId.get(String(c.رقم_العقد)) || ''
+                          : c.رقم_المستاجر
+                            ? peopleById.get(String(c.رقم_المستاجر))?.الاسم || t('غير معروف')
+                            : '';
+                        const propAddress = isDesktopFast
+                          ? propertyAddressById.get(String(c.رقم_العقار)) || ''
+                          : propertiesById.get(String(c.رقم_العقار))?.العنوان || '';
+                        return (
+                          <div
+                            key={c.رقم_العقد}
+                            className="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/50 rounded-[2rem] transition-all hover:shadow-lg"
+                          >
+                            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <span className="text-base font-black text-indigo-800 dark:text-indigo-200">
+                                    {t('عقد')} #{formatContractNumberShort(c.رقم_العقد)}
+                                  </span>
+                                  <span className="font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-[10px] font-black text-indigo-600 dark:text-indigo-400 shadow-sm">
+                                    {getPropCode(String(c.رقم_العقار))}
+                                  </span>
+                                  <StatusBadge status={safeString(c.حالة_العقد)} className="!text-[9px] !px-2 !py-0.5 !rounded-lg" />
+                                </div>
+                                <div className="mt-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                  {propAddress && <div className="flex items-center gap-1.5 mb-1"><MapPin size={12} className="text-indigo-400" /> {propAddress}</div>}
+                                  {tenantName && <div className="flex items-center gap-1.5"><User size={12} className="text-indigo-400" /> {t('المستأجر:')} {tenantName}</div>}
+                                </div>
+                              </div>
+                              <div className="flex gap-2 w-full md:w-auto">
+                                <button
+                                  onClick={() => openPanel('CONTRACT_DETAILS', c.رقم_العقد)}
+                                  className="flex-1 md:w-28 py-2.5 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-black hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all shadow-sm active:scale-95"
+                                >
+                                  {t('فتح العقد')}
+                                </button>
+                                <button
+                                  onClick={() => openPanel('PROPERTY_DETAILS', String(c.رقم_العقار))}
+                                  className="flex-1 md:w-28 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
+                                >
+                                  {t('فتح العقار')}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {ownershipHistory.length > 0 && (
-            <div className="p-4 border-t border-gray-100 dark:border-slate-700">
-              <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                <FileText size={16} className="text-emerald-600" /> {t('سجل نقل الملكية')}
-              </h4>
-              <div className="space-y-2">
+            <div className="app-card overflow-hidden border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30 flex items-center gap-3">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400">
+                  <HistoryIcon size={20} />
+                </div>
+                <h4 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{t('سجل نقل الملكية')}</h4>
+              </div>
+              <div className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                 {ownershipHistory
                   .slice()
                   .sort((a, b) =>
@@ -901,27 +834,28 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
                     return (
                       <div
                         key={r.id}
-                        className="p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border border-gray-100 dark:border-slate-700"
+                        className="p-6 bg-white dark:bg-slate-900 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-all group flex flex-col md:flex-row md:items-center justify-between gap-4"
                       >
-                        <div className="flex justify-between items-center">
-                          <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                            {t(directionKey)} {t('عقار')} {getPropCode(r.رقم_العقار)}
+                        <div className="flex items-center gap-5">
+                          <div className={`p-3 rounded-2xl ${directionKey === 'باع' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'}`}>
+                            {directionKey === 'باع' ? <ArrowUpToLine size={20} /> : <ArrowDownToLine size={20} />}
                           </div>
-                          <button
-                            onClick={() => openPanel('PROPERTY_DETAILS', r.رقم_العقار)}
-                            className="text-xs font-bold text-indigo-600 hover:underline"
-                          >
-                            {t('فتح العقار')}
-                          </button>
+                          <div>
+                            <div className="text-base font-black text-slate-800 dark:text-slate-200">
+                              {t(directionKey)} {t('عقار')} <span className="font-mono text-indigo-600 dark:text-indigo-400">{getPropCode(r.رقم_العقار)}</span>
+                            </div>
+                            <div className="mt-1 text-xs font-bold text-slate-500 flex items-center gap-3">
+                              <span className="flex items-center gap-1.5"><Calendar size={12} /> {r.تاريخ_نقل_الملكية}</span>
+                              {r.رقم_المعاملة && <span className="flex items-center gap-1.5"><FileText size={12} /> {t('معاملة:')} {r.رقم_المعاملة}</span>}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          {r.تاريخ_نقل_الملكية}{' '}
-                          {r.رقم_المعاملة ? (
-                            <>
-                              • {t('معاملة:')} {r.رقم_المعاملة}
-                            </>
-                          ) : null}
-                        </div>
+                        <button
+                          onClick={() => openPanel('PROPERTY_DETAILS', r.رقم_العقار)}
+                          className="px-6 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 transition-all active:scale-95"
+                        >
+                          {t('فتح العقار')}
+                        </button>
                       </div>
                     );
                   })}

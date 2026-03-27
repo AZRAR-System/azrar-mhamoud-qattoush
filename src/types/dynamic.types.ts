@@ -6,7 +6,15 @@
  */
 
 export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'select';
-export type ReferenceType = 'Person' | 'Property' | 'Contract' | 'Maintenance' | 'Sales' | 'Inspection';
+export type ReferenceType =
+  | 'Person'
+  | 'Property'
+  | 'Contract'
+  | 'Clearance'
+  | 'Maintenance'
+  | 'Sales'
+  | 'Inspection'
+  | 'LegalNotice';
 
 export interface DynamicFormField {
   id: string;
@@ -42,23 +50,4 @@ export interface Attachment {
   filePath?: string;
   uploadDate: string;
   uploadedBy: string;
-}
-
-export interface ActivityRecord {
-  id: string;
-  referenceType: ReferenceType;
-  referenceId: string;
-  actionType: string;
-  description: string;
-  date: string;
-  employee: string;
-}
-
-export interface NoteRecord {
-  id: string;
-  referenceType: ReferenceType;
-  referenceId: string;
-  content: string;
-  date: string;
-  employee: string;
 }

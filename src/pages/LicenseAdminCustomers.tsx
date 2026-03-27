@@ -11,6 +11,7 @@ import {
   saveLicenseAdminSelectedServer,
   saveLicenseAdminServers,
 } from '@/features/licenseAdmin/settings';
+import { fmtDateTime, getErrorMessage, licenseStatusToArabic } from '@/features/licenseAdmin/utils';
 
 type AdminListItem = {
   licenseKey: string;
@@ -35,28 +36,7 @@ type CustomerGroup = {
   items: AdminListItem[];
 };
 
-const fmt = (iso?: string) => {
-  if (!iso) return '';
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return String(iso);
-  return new Date(t).toLocaleString();
-};
-
-const getErr = (e: unknown): string => {
-  if (e instanceof Error) return e.message;
-  return String(e || '');
-};
-
-const statusToArabic = (s?: string): string => {
-  const v = String(s || '').trim().toLowerCase();
-  if (!v) return '';
-  if (v === 'active') return 'نشط';
-  if (v === 'suspended') return 'معلق';
-  if (v === 'revoked') return 'ملغي';
-  if (v === 'expired') return 'منتهي';
-  if (v === 'mismatch') return 'غير مطابق';
-  return s || '';
-};
+// (shared license admin helpers live in src/features/licenseAdmin/utils.ts)
 
 const normalize = (v: unknown): string => String(v ?? '').trim();
 
@@ -120,7 +100,7 @@ export const LicenseAdminCustomers: React.FC = () => {
       setItems(parsed);
       setInfo(`تم تحميل ${parsed.length} ترخيص`);
     } catch (e: unknown) {
-      const msg = getErr(e) || 'Failed to refresh';
+      const msg = getErrorMessage(e) || 'Failed to refresh';
       setError(msg);
     } finally {
       setBusy(false);
@@ -264,40 +244,52 @@ export const LicenseAdminCustomers: React.FC = () => {
                   <div className="text-xs text-slate-500 dark:text-slate-400">عدد المفاتيح: {g.items.length}</div>
                 </div>
 
-                <div className="overflow-auto border border-slate-200 dark:border-slate-800 rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-900/30">
-                      <tr className="text-right">
-                        <th className="p-2 whitespace-nowrap">المفتاح</th>
-                        <th className="p-2 whitespace-nowrap">الحالة</th>
-                        <th className="p-2 whitespace-nowrap">الانتهاء</th>
-                        <th className="p-2 whitespace-nowrap">الأجهزة</th>
-                        <th className="p-2 whitespace-nowrap">تاريخ الإنشاء</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.items.map((it) => (
-                        <tr key={it.licenseKey} className="border-t border-slate-200 dark:border-slate-800">
-                          <td className="p-2" title={it.licenseKey}>
-                            <div className="font-mono text-xs overflow-x-auto whitespace-nowrap" dir="ltr">
-                              {it.licenseKey}
-                            </div>
-                          </td>
-                          <td className="p-2">{it.status ? <StatusBadge status={statusToArabic(it.status)} /> : ''}</td>
-                          <td className="p-2 whitespace-nowrap">{it.expiresAt ? fmt(it.expiresAt) : ''}</td>
-                          <td className="p-2 whitespace-nowrap">{typeof it.activationsCount === 'number' ? it.activationsCount : ''}</td>
-                          <td className="p-2 whitespace-nowrap">{it.createdAt ? fmt(it.createdAt) : ''}</td>
-                        </tr>
-                      ))}
-                      {g.items.length === 0 ? (
+                <div className="app-table-wrapper">
+                  <div className="max-h-[400px] overflow-auto no-scrollbar">
+                    <table className="app-table">
+                      <thead className="app-table-thead">
                         <tr>
-                          <td className="p-3 text-slate-500" colSpan={5}>
-                            لا توجد بيانات
-                          </td>
+                          <th className="app-table-th">المفتاح</th>
+                          <th className="app-table-th">الحالة</th>
+                          <th className="app-table-th">الانتهاء</th>
+                          <th className="app-table-th text-center">الأجهزة</th>
+                          <th className="app-table-th">تاريخ الإنشاء</th>
                         </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
+                        {g.items.map((it) => (
+                          <tr key={it.licenseKey} className="app-table-row app-table-row-striped group">
+                            <td className="app-table-td" title={it.licenseKey}>
+                              <div className="font-mono text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 px-2 py-1 rounded-lg border border-indigo-100/50 dark:border-indigo-800/50 inline-block" dir="ltr">
+                                {it.licenseKey}
+                              </div>
+                            </td>
+                            <td className="app-table-td">
+                              {it.status ? <StatusBadge status={licenseStatusToArabic(it.status)} className="!text-[10px] !px-2 !py-0.5" /> : ''}
+                            </td>
+                            <td className="app-table-td font-mono text-[10px] text-slate-500 font-bold whitespace-nowrap">
+                              {it.expiresAt ? fmtDateTime(it.expiresAt) : ''}
+                            </td>
+                            <td className="app-table-td text-center">
+                              <span className="text-xs font-black text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                                {typeof it.activationsCount === 'number' ? it.activationsCount : '0'}
+                              </span>
+                            </td>
+                            <td className="app-table-td font-mono text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                              {it.createdAt ? fmtDateTime(it.createdAt) : ''}
+                            </td>
+                          </tr>
+                        ))}
+                        {g.items.length === 0 ? (
+                          <tr>
+                            <td className="app-table-empty" colSpan={5}>
+                              لا توجد بيانات
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </Card>
             ))}

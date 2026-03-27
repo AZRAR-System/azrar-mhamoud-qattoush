@@ -25,6 +25,7 @@ import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { ContractPicker } from '@/components/shared/ContractPicker';
 import { domainGetSmart } from '@/services/domainQueries';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 
 const computeEndDateFromStartAndMonths = (startIso: string, months: number) => {
@@ -636,43 +637,80 @@ export const SmartTools: React.FC = () => {
         </div>
 
         {previewInstallments.length > 0 && (
-          <div className="mt-5 space-y-3">
-            <div className={`p-3 rounded-xl border ${previewTotals.rentDelta === 0 ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'}`}>
-              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">تحقق الحساب</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                إجمالي الإيجار المتوقع: {formatNumber(previewTotals.rentTotalExpected)} د.أ — الإجمالي الفعلي (إيجار + دفعة أولى): {formatNumber(previewTotals.rentTotalActual)} د.أ
+          <div className="mt-8 space-y-6">
+            <div className={`p-5 rounded-[2rem] border transition-all duration-500 ${previewTotals.rentDelta === 0 ? 'bg-emerald-50/30 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30 shadow-lg shadow-emerald-500/5' : 'bg-rose-50/30 border-rose-100 dark:bg-rose-900/10 dark:border-rose-900/30 shadow-lg shadow-rose-500/5'}`}>
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-2xl ${previewTotals.rentDelta === 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400'}`}>
+                  {previewTotals.rentDelta === 0 ? <CheckCircle size={24} /> : <AlertTriangle size={24} />}
+                </div>
+                <div>
+                  <div className="text-lg font-black text-slate-800 dark:text-white">تحقق الحساب</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
+                    الإيجار المتوقع: <span className="font-mono font-bold text-slate-700 dark:text-slate-200">{formatNumber(previewTotals.rentTotalExpected)}</span> د.أ — 
+                    الفعلي: <span className="font-mono font-bold text-slate-700 dark:text-slate-200">{formatNumber(previewTotals.rentTotalActual)}</span> د.أ
+                  </div>
+                  {previewTotals.rentDelta !== 0 && (
+                    <div className="text-xs font-black text-rose-600 dark:text-rose-400 mt-1.5 flex items-center gap-1.5 animate-pulse">
+                      <AlertTriangle size={12} />
+                      فرق الحساب: {formatNumber(previewTotals.rentDelta)} د.أ (يجب أن يكون 0 قبل الاعتماد)
+                    </div>
+                  )}
+                </div>
               </div>
-              {previewTotals.rentDelta !== 0 && (
-                <div className="text-xs font-bold text-red-700 dark:text-red-300 mt-1">فرق الحساب: {formatNumber(previewTotals.rentDelta)} د.أ (يجب أن يكون 0 قبل الاعتماد)</div>
-              )}
             </div>
 
-            <div className="max-h-80 overflow-auto border border-gray-200 dark:border-slate-700 rounded-xl">
-              <div className="p-2 bg-gray-50 dark:bg-slate-900/40 border-b border-gray-200 dark:border-slate-700">
+            <div className="app-table-wrapper">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between gap-4">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">معاينة جدول الدفعات ({previewInstallments.length})</div>
                 <PaginationControls page={previewPage} pageCount={previewPageCount} onPageChange={setPreviewPage} />
               </div>
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-slate-900/40">
-                  <tr>
-                    <th className="p-2 text-right font-bold">#</th>
-                    <th className="p-2 text-right font-bold">النوع</th>
-                    <th className="p-2 text-right font-bold">تاريخ الاستحقاق</th>
-                    <th className="p-2 text-right font-bold">المبلغ</th>
-                    <th className="p-2 text-right font-bold">الحالة</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visiblePreviewInstallments.map((i, idx) => (
-                    <tr key={i.رقم_الكمبيالة || idx} className={idx % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-900/30'}>
-                      <td className="p-2">{i.ترتيب_الكمبيالة ?? idx + 1}</td>
-                      <td className="p-2">{i.نوع_الكمبيالة}</td>
-                      <td className="p-2">{i.تاريخ_استحقاق}</td>
-                      <td className="p-2 font-bold text-slate-800 dark:text-white">{formatNumber(Number(i.القيمة || 0))} د.أ</td>
-                      <td className="p-2">{i.حالة_الكمبيالة}</td>
+              <div className="max-h-[500px] overflow-auto no-scrollbar">
+                <table className="app-table">
+                  <thead className="app-table-thead">
+                    <tr>
+                      <th className="app-table-th w-16 text-center">#</th>
+                      <th className="app-table-th">النوع</th>
+                      <th className="app-table-th">تاريخ الاستحقاق</th>
+                      <th className="app-table-th text-center">المبلغ</th>
+                      <th className="app-table-th text-center">الحالة</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
+                    {visiblePreviewInstallments.map((i, idx) => (
+                      <tr key={i.رقم_الكمبيالة || idx} className="app-table-row app-table-row-striped group">
+                        <td className="app-table-td text-center font-black text-slate-400 group-hover:text-indigo-500 transition-colors">
+                          {i.ترتيب_الكمبيالة ?? (previewPage - 1) * previewPageSize + idx + 1}
+                        </td>
+                        <td className="app-table-td">
+                          <span className={`px-3 py-1 rounded-xl text-[10px] font-black border transition-colors ${
+                            i.نوع_الكمبيالة === 'إيجار' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border-indigo-100 dark:border-indigo-800/50' :
+                            i.نوع_الكمبيالة === 'دفعة أولى' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border-emerald-100 dark:border-emerald-800/50' :
+                            'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-100 dark:border-slate-700'
+                          }`}>
+                            {i.نوع_الكمبيالة}
+                          </span>
+                        </td>
+                        <td className="app-table-td font-mono text-xs font-bold text-slate-500">
+                          {i.تاريخ_استحقاق}
+                        </td>
+                        <td className="app-table-td text-center">
+                          <span className="text-sm font-black text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-900/50 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800 group-hover:border-indigo-200 transition-colors">
+                            {formatNumber(Number(i.القيمة || 0))} د.أ
+                          </span>
+                        </td>
+                        <td className="app-table-td">
+                          <div className="flex justify-center">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+                              <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              {i.حالة_الكمبيالة}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

@@ -197,12 +197,12 @@ export const AppModal: React.FC<AppModalProps> = ({
 
   return createPortal(
     <div
-      className={`modal-overlay app-modal-overlay animate-fade-in items-center p-4 ${className ?? ''}`}
+      className={`modal-overlay app-modal-overlay animate-fade-in items-center p-4 bg-slate-900/40 backdrop-blur-sm ${className ?? ''}`}
       onClick={closeOnBackdrop ? () => onCloseRef.current() : undefined}
     >
       <div
         ref={contentRef}
-        className={`modal-content app-modal-content w-full ${SIZE_CLASS[size]} max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col animate-scale-up rounded-2xl ${contentClassName ?? ''}`}
+        className={`modal-content app-modal-content w-full ${SIZE_CLASS[size]} max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col animate-scale-up rounded-[2rem] bg-white dark:bg-slate-900 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 ${contentClassName ?? ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -215,33 +215,33 @@ export const AppModal: React.FC<AppModalProps> = ({
           </h2>
         ) : (
           <div
-            className={`no-print flex items-start gap-3 p-4 border-b border-slate-200/70 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 ${headerClassName ?? ''}`}
+            className={`no-print flex items-center gap-4 p-6 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30 ${headerClassName ?? ''}`}
           >
             {showCloseButton ? (
               <button
                 type="button"
                 onClick={() => onCloseRef.current()}
-                className="p-2 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-full transition text-slate-600 dark:text-slate-200"
+                className="p-2.5 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-xl transition-all text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 active:scale-90"
                 aria-label="إغلاق"
                 title="إغلاق"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             ) : null}
 
             <h3
               id={titleId}
-              className={`text-base sm:text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2 ${titleClassName ?? ''}`}
+              className={`text-lg sm:text-xl font-black text-slate-800 dark:text-white flex items-center gap-3 ${titleClassName ?? ''}`}
             >
               {title}
             </h3>
           </div>
         )}
 
-        <div className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-6 ${bodyClassName ?? ''}`}>{children}</div>
+        <div className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 sm:p-8 ${bodyClassName ?? ''}`}>{children}</div>
 
         {footer ? (
-          <div className="no-print p-4 border-t border-slate-200/70 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-950/30">{footer}</div>
+          <div className="no-print p-6 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/30 dark:bg-slate-950/20">{footer}</div>
         ) : null}
       </div>
     </div>,

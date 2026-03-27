@@ -17,7 +17,6 @@ export const ROUTE_PATHS = {
   DASHBOARD: '/',
   SALES: '/sales',
   PEOPLE: '/people',
-  COMPANIES: '/companies',
   PROPERTIES: '/properties',
   CONTRACTS: '/contracts',
   INSTALLMENTS: '/installments',
@@ -37,6 +36,7 @@ export const ROUTE_PATHS = {
   // Admin
   ADMIN_PANEL: '/admin',
   SETTINGS: '/settings',
+  BACKUP: '/backup',
   OPERATIONS: '/operations',
   SYS_MAINTENANCE: '/sys-maintenance',
   DATABASE: '/database',

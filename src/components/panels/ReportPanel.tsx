@@ -11,6 +11,7 @@ import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { runReportSmart } from '@/services/reporting';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null;
@@ -262,31 +263,33 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
       </div>
 
       {/* Table Area */}
-      <div className="app-card overflow-hidden flex-1 flex flex-col print:border-none print:shadow-none print:overflow-visible">
-         <div className="overflow-auto custom-scrollbar flex-1 print:overflow-visible">
-            <table className="w-full text-right text-sm">
-               <thead className="bg-gray-50 dark:bg-slate-900 text-gray-500 dark:text-gray-400 font-bold sticky top-0 z-10 print:bg-gray-100 print:static print:top-auto print:z-auto">
+      <div className="app-table-wrapper flex-1 flex flex-col print:border-none print:shadow-none print:overflow-visible bg-white/50 dark:bg-slate-900/50">
+         <div className="overflow-auto no-scrollbar flex-1 print:overflow-visible">
+            <table className="app-table">
+               <thead className="app-table-thead sticky top-0 z-10 print:bg-slate-50 print:static print:top-auto print:z-auto">
                   <tr>
                      {report.columns.map(col => (
-                       <th key={col.key} className="p-4 border-b border-gray-100 dark:border-slate-700 whitespace-normal break-words">{col.header}</th>
+                       <th key={col.key} className="app-table-th whitespace-normal break-words">{col.header}</th>
                      ))}
                   </tr>
                </thead>
-               <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+               <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                   {filteredData.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-indigo-50/50 dark:hover:bg-slate-700/30 transition">
+                      <tr key={idx} className="app-table-row app-table-row-striped group">
                           {report.columns.map(col => (
-                          <td key={col.key} className="p-4 text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
+                          <td key={col.key} className="app-table-td whitespace-pre-wrap break-words">
                             {col.type === 'currency' ? (
-                              <span className="font-bold text-slate-800 dark:text-white">{formatCurrencyJOD(getRowValue(row, col.key), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                              <span className="font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 px-2 py-1 rounded-lg border border-indigo-100/30 dark:border-indigo-800/30">
+                                {formatCurrencyJOD(getRowValue(row, col.key), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </span>
                             ) : col.type === 'date' ? (
-                              <span>{formatDateYMD(getRowValue(row, col.key))}</span>
+                              <span className="font-bold text-slate-600 dark:text-slate-300">{formatDateYMD(getRowValue(row, col.key))}</span>
                             ) : col.type === 'number' ? (
-                              <span>{formatNumber(getRowValue(row, col.key))}</span>
+                              <span className="font-black text-slate-700 dark:text-slate-200">{formatNumber(getRowValue(row, col.key))}</span>
                                   ) : col.type === 'status' ? (
-                                      <span className="bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded text-xs">{renderCellValue(getRowValue(row, col.key))}</span>
+                                      <StatusBadge status={String(renderCellValue(getRowValue(row, col.key)))} className="!text-[10px] !px-2.5 !py-1 !font-black" />
                                   ) : (
-                                  renderCellValue(getRowValue(row, col.key))
+                                  <span className="font-medium">{renderCellValue(getRowValue(row, col.key))}</span>
                                   )}
                               </td>
                           ))}
@@ -294,7 +297,10 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
                   ))}
                   {filteredData.length === 0 && (
                       <tr>
-                          <td colSpan={report.columns.length} className="p-8 text-center text-gray-400">لا توجد نتائج مطابقة</td>
+                          <td colSpan={report.columns.length} className="app-table-empty py-20">
+                              <Search className="mx-auto mb-4 text-slate-200 dark:text-slate-800" size={64} />
+                              <div className="text-slate-400 font-black uppercase tracking-widest">لا توجد نتائج مطابقة</div>
+                          </td>
                       </tr>
                   )}
                </tbody>
@@ -303,11 +309,13 @@ export const ReportPanel: React.FC<{ id: string }> = ({ id }) => {
          
          {/* Footer Summary */}
          {report.summary && report.summary.length > 0 && (
-             <div className="p-4 bg-gray-50 dark:bg-slate-900 border-t border-gray-200 dark:border-slate-700 flex gap-6 overflow-x-auto print:bg-gray-100">
+             <div className="p-8 bg-slate-50/80 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-10 overflow-x-auto print:bg-slate-50">
                  {report.summary.map((stat, idx) => (
-                     <div key={idx} className="flex flex-col">
-                         <span className="text-xs text-gray-500">{stat.label}</span>
-                 <span className="text-lg font-bold text-slate-800 dark:text-white">{typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}</span>
+                     <div key={idx} className="flex flex-col min-w-[120px]">
+                         <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">{stat.label}</span>
+                         <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
+                            {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
+                         </span>
                      </div>
                  ))}
              </div>

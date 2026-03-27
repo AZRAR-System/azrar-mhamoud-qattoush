@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { العمليات_tbl, المستخدمين_tbl, RoleType, الأشخاص_tbl, صلاحيات_المستخدمين_tbl, BlacklistRecord } from '@/types';
 import {
@@ -36,6 +36,7 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
 import { runReportSmart } from '@/services/reporting';
+import { safeNumber } from '@/utils/safe';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { AppModal } from '@/components/ui/AppModal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -512,39 +513,34 @@ export const AdminControlPanel: React.FC = () => {
         { name: 'عقارات شاغرة', value: analytics.vacantProps, color: '#3b82f6' }   // blue
     ];
 
-        const safeNum = (n: unknown): number => {
-            const v = Number(n);
-            return Number.isFinite(v) ? v : 0;
-        };
-
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Top Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard 
                     title="العقود النشطة" 
-                    value={safeNum(analytics.activeContracts)} 
-                    sub={`${safeNum(analytics.expiredContracts)} منتهي`}
+                    value={safeNumber(analytics.activeContracts)} 
+                    sub={`${safeNumber(analytics.expiredContracts)} منتهي`}
                     icon={Shield} 
                     color="bg-indigo-500" 
                 />
                 <StatCard 
                     title="إجمالي التحصيل" 
-                    value={`${safeNum(analytics.totalCollected).toLocaleString()} د.أ`}
-                    sub={`${safeNum(analytics.totalDue).toLocaleString()} د.أ متأخرات`}
+                    value={`${safeNumber(analytics.totalCollected).toLocaleString()} د.أ`}
+                    sub={`${safeNumber(analytics.totalDue).toLocaleString()} د.أ متأخرات`}
                     icon={BarChart3} 
                     color="bg-emerald-500" 
                 />
                 <StatCard 
                     title="المرفقات الشهرية" 
-                    value={safeNum(analytics.monthlyAttachments)}
+                    value={safeNumber(analytics.monthlyAttachments)}
                     sub="ملفات تم رفعها هذا الشهر"
                     icon={Download} 
                     color="bg-indigo-500" 
                 />
                 <StatCard 
                     title="التنبيهات المفتوحة" 
-                    value={safeNum(analytics.openAlerts)}
+                    value={safeNumber(analytics.openAlerts)}
                     sub="تتطلب إجراء"
                     icon={AlertTriangle} 
                     color="bg-amber-500" 
@@ -581,7 +577,7 @@ export const AdminControlPanel: React.FC = () => {
                                     <span className="font-bold text-red-600 w-6">{i + 1}.</span>
                                     <span className="text-slate-700 dark:text-slate-300 font-medium">{d.name}</span>
                                 </div>
-                                <span className="font-bold text-red-600">{safeNum(d.amount).toLocaleString()} د.أ</span>
+                                <span className="font-bold text-red-600">{safeNumber(d.amount).toLocaleString()} د.أ</span>
                             </div>
                         ))}
                     </div>
@@ -620,51 +616,68 @@ export const AdminControlPanel: React.FC = () => {
             </div>
 
             {/* Table */}
-            <div className="app-card">
-                <div className="p-3 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-2">
-                    <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {filteredLogs.length.toLocaleString()} سجل</div>
+            <div className="app-table-wrapper">
+                <div className="p-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/50">
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">
+                        إجمالي السجلات: {filteredLogs.length.toLocaleString()}
+                    </div>
                     <PaginationControls page={logsPage} pageCount={logsPageCount} onPageChange={setLogsPage} />
                 </div>
-                <table className="w-full text-right text-sm">
-                    <thead className="app-table-thead font-bold">
-                        <tr>
-                            <th className="p-4">الموظف</th>
-                            <th className="p-4">الإجراء</th>
-                            <th className="p-4">التفاصيل</th>
-                            <th className="p-4">الجهاز / IP</th>
-                            <th className="p-4">التوقيت</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                        {visibleLogs.map(log => (
-                            <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
-                                <td className="p-4 font-bold text-slate-700 dark:text-white flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">
-                                        {log.اسم_المستخدم.charAt(0)}
-                                    </div>
-                                    {log.اسم_المستخدم}
-                                </td>
-                                <td className="p-4">
-                                    <span className="px-2 py-1 bg-gray-100 dark:bg-slate-700 rounded text-xs font-bold border border-gray-200 dark:border-slate-600">
-                                        {log.نوع_العملية}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-slate-500">
-                                    {log.اسم_الجدول} #{log.رقم_السجل} <span className="text-xs text-gray-400">{log.details}</span>
-                                </td>
-                                <td className="p-4 text-xs text-slate-400">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="flex items-center gap-1"><Globe size={10}/> {log.ipAddress}</span>
-                                        <span className="flex items-center gap-1"><Smartphone size={10}/> {log.deviceInfo}</span>
-                                    </div>
-                                </td>
-                                <td className="p-4 text-slate-500" dir="ltr">
-                                    {new Date(log.تاريخ_العملية).toLocaleString()}
-                                </td>
+                <div className="max-h-[600px] overflow-auto no-scrollbar">
+                    <table className="app-table">
+                        <thead className="app-table-thead">
+                            <tr>
+                                <th className="app-table-th">الموظف</th>
+                                <th className="app-table-th">الإجراء</th>
+                                <th className="app-table-th">التفاصيل</th>
+                                <th className="app-table-th">الجهاز / IP</th>
+                                <th className="app-table-th">التوقيت</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
+                            {visibleLogs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="app-table-empty">
+                                        لا توجد سجلات مطابقة للبحث
+                                    </td>
+                                </tr>
+                            ) : (
+                                visibleLogs.map(log => (
+                                    <tr key={log.id} className="app-table-row app-table-row-striped group">
+                                        <td className="app-table-td font-black">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-black shadow-sm group-hover:scale-110 transition-transform">
+                                                    {log.اسم_المستخدم.charAt(0).toUpperCase()}
+                                                </div>
+                                                <span className="text-slate-700 dark:text-slate-200">{log.اسم_المستخدم}</span>
+                                            </div>
+                                        </td>
+                                        <td className="app-table-td">
+                                            <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-[10px] font-black border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                                                {log.نوع_العملية}
+                                            </span>
+                                        </td>
+                                        <td className="app-table-td">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{log.اسم_الجدول} #{log.رقم_السجل}</span>
+                                                <span className="text-[10px] text-slate-400 font-medium mt-0.5 line-clamp-1">{log.details}</span>
+                                            </div>
+                                        </td>
+                                        <td className="app-table-td">
+                                            <div className="flex flex-col gap-1 text-[10px] font-medium text-slate-400">
+                                                <span className="flex items-center gap-1.5"><Globe size={12} className="text-slate-300"/> {log.ipAddress}</span>
+                                                <span className="flex items-center gap-1.5"><Smartphone size={12} className="text-slate-300"/> {log.deviceInfo}</span>
+                                            </div>
+                                        </td>
+                                        <td className="app-table-td font-mono text-[10px] text-slate-500 font-bold" dir="ltr">
+                                            {new Date(log.تاريخ_العملية).toLocaleString('ar-JO')}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );
@@ -1070,61 +1083,72 @@ export const AdminControlPanel: React.FC = () => {
                   </div>
 
                   {/* List */}
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 gap-6">
                       {filtered.length === 0 ? (
-                          <div className="p-12 text-center text-slate-400 app-card border-dashed">
-                              <ShieldAlert size={48} className="mx-auto mb-4 opacity-20"/>
-                              <p>لا توجد سجلات مطابقة</p>
+                          <div className="app-table-empty border-2 border-dashed border-slate-200 dark:border-slate-800 bg-transparent">
+                              <ShieldAlert size={64} className="mx-auto mb-4 text-slate-200 dark:text-slate-800"/>
+                              <p className="text-slate-400 font-black tracking-wide">لا توجد سجلات مطابقة في القائمة السوداء</p>
                           </div>
                       ) : (
                           filtered.map(rec => {
                               const person = getPersonById(rec.personId);
                               return (
-                                  <div key={rec.id} className={`app-card p-6 border-l-4 flex flex-col md:flex-row gap-6 items-start transition hover:shadow-md
-                                      ${rec.isActive ? 'border-l-red-500' : 'border-l-gray-400 opacity-70'}
+                                  <div key={rec.id} className={`app-card p-8 border-r-8 transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl
+                                      ${rec.isActive ? 'border-r-rose-500 shadow-rose-500/5' : 'border-r-slate-300 dark:border-r-slate-700 opacity-60'}
                                   `}>
-                                      <div className="flex items-start gap-4 flex-1">
-                                          <div className={`p-3 rounded-full flex-shrink-0 ${rec.isActive ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
-                                              {rec.isActive ? <Ban size={24}/> : <CheckCircle size={24}/>}
+                                      <div className="flex flex-col md:flex-row gap-8 items-start">
+                                          <div className={`p-4 rounded-[1.5rem] flex-shrink-0 shadow-lg ${rec.isActive ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 shadow-rose-500/10' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 shadow-none'}`}>
+                                              {rec.isActive ? <Ban size={32}/> : <CheckCircle size={32}/>}
                                           </div>
-                                          <div>
-                                              <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                                  {person?.الاسم || 'شخص محذوف'}
-                                                  {!rec.isActive && <span className="text-xs bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded text-gray-500">تم رفع الحظر</span>}
-                                              </h3>
-                                              <div className="flex items-center gap-2 mt-1">
-                                                  <StatusBadge status={rec.severity} className="!text-[10px] !px-2 !py-0.5" />
-                                                  <span className="text-xs text-slate-400">
-                                                      {new Date(rec.dateAdded).toLocaleDateString()} • بواسطة {rec.addedBy}
-                                                  </span>
+                                          
+                                          <div className="flex-1 min-w-0">
+                                              <div className="flex flex-wrap items-center gap-3 mb-2">
+                                                  <h3 className="text-xl font-black text-slate-800 dark:text-white truncate max-w-[300px]">
+                                                      {person?.الاسم || 'شخص محذوف'}
+                                                  </h3>
+                                                  {!rec.isActive && (
+                                                      <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-black rounded-lg border border-slate-200 dark:border-slate-700 uppercase tracking-tight">
+                                                          تم رفع الحظر
+                                                      </span>
+                                                  )}
+                                                  <StatusBadge status={rec.severity} className="!text-[10px] !px-3 !py-1 !font-black !rounded-xl" />
                                               </div>
-                                              <p className="mt-3 text-sm text-slate-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-900/50 p-3 rounded-xl border border-gray-100 dark:border-slate-700">
-                                                  {rec.reason}
-                                              </p>
+                                              
+                                              <div className="flex items-center gap-4 text-xs font-bold text-slate-400 mb-4">
+                                                  <div className="flex items-center gap-1.5"><Activity size={14} className="text-slate-300"/> {new Date(rec.dateAdded).toLocaleDateString('ar-JO')}</div>
+                                                  <div className="flex items-center gap-1.5"><UserPlus size={14} className="text-slate-300"/> بواسطة {rec.addedBy}</div>
+                                              </div>
+                                              
+                                              <div className="relative group">
+                                                  <div className="absolute -right-3 top-0 bottom-0 w-1 bg-slate-100 dark:bg-slate-800 rounded-full" />
+                                                  <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed pr-4 font-medium italic">
+                                                      "{rec.reason}"
+                                                  </p>
+                                              </div>
                                           </div>
-                                      </div>
 
-                                      {/* Actions */}
-                                      {rec.isActive && (
-                                          <div className="flex flex-col gap-2">
-                                              <RBACGuard requiredPermission="BLACKLIST_REMOVE">
-                                                  <button 
-                                                      onClick={() => handleLiftBan(rec.id)}
-                                                      className="px-4 py-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 rounded-lg text-sm font-bold hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-600 hover:border-green-200 transition"
-                                                  >
-                                                      رفع الحظر
-                                                  </button>
-                                              </RBACGuard>
-                                              <RBACGuard requiredPermission="BLACKLIST_ADD">
-                                                  <button 
-                                                      onClick={() => handleEditBan(rec.id)}
-                                                      className="px-4 py-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 rounded-lg text-sm font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 hover:border-indigo-200 transition"
-                                                  >
-                                                      تعديل
-                                                  </button>
-                                              </RBACGuard>
-                                          </div>
-                                      )}
+                                          {/* Actions */}
+                                          {rec.isActive && (
+                                              <div className="flex md:flex-col gap-3 w-full md:w-auto mt-4 md:mt-0">
+                                                  <RBACGuard requiredPermission="BLACKLIST_REMOVE">
+                                                      <button 
+                                                          onClick={() => handleLiftBan(rec.id)}
+                                                          className="flex-1 md:w-32 py-3 bg-white dark:bg-slate-800 border border-emerald-100 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl text-xs font-black hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-all shadow-sm active:scale-95"
+                                                      >
+                                                          رفع الحظر
+                                                      </button>
+                                                  </RBACGuard>
+                                                  <RBACGuard requiredPermission="BLACKLIST_ADD">
+                                                      <button 
+                                                          onClick={() => handleEditBan(rec.id)}
+                                                          className="flex-1 md:w-32 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 rounded-2xl text-xs font-black hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all shadow-sm active:scale-95"
+                                                      >
+                                                          تعديل
+                                                      </button>
+                                                  </RBACGuard>
+                                              </div>
+                                          )}
+                                      </div>
                                   </div>
                               );
                           })

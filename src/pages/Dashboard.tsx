@@ -8,7 +8,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  BarChart3, TrendingUp, AlertCircle, Calendar, CheckSquare2, DollarSign, RefreshCw, Server, Activity, Search
+  BarChart3, TrendingUp, AlertCircle, Calendar, DollarSign, RefreshCw, Activity, Search
 } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import type { الكمبيالات_tbl } from '@/types';
@@ -29,7 +29,6 @@ import { QuickActionsBar } from '@/components/dashboard/layers/QuickActionsBar';
 import { DailySummaryWidget } from '@/components/dashboard/DailySummaryWidget';
 import { MarqueeWidget } from '@/components/dashboard/MarqueeWidget';
 import { useSmartModal } from '@/context/ModalContext';
-import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 
 // Hooks
@@ -85,10 +84,10 @@ const layerConfigs: LayerConfig[] = [
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const { openPanel } = useSmartModal();
+  const { openPanel: _openPanel } = useSmartModal();
   const toast = useToast();
   const [activeLayer, setActiveLayer] = useState<LayerTab>('overview');
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, _setAutoRefresh] = useState(true);
   const [, setTasksTick] = useState(0);
   const [syncBusy, setSyncBusy] = useState(false);
   const [pagesSearch, setPagesSearch] = useState('');
@@ -134,7 +133,7 @@ export const Dashboard: React.FC = () => {
   const userRecord = useMemo(() => toRecord(user), [user]);
   const currentUsername = useMemo(() => String(userRecord['اسم_المستخدم'] ?? userRecord['name'] ?? '').trim(), [userRecord]);
 
-  const employeeCommissionsThisMonth = useMemo(() => {
+  const _employeeCommissionsThisMonth = useMemo(() => {
     // Preserve original behavior: re-evaluate on dashboard refresh.
     void dashboardData.meta.updatedAt;
     try {
@@ -177,7 +176,7 @@ export const Dashboard: React.FC = () => {
     ...todayFollowUps.map((t) => String(toRecord(t)['task'] ?? '').trim()).filter(Boolean),
     ...todayReminders.map((r) => String(toRecord(r)['title'] ?? '').trim()).filter(Boolean),
   ];
-  const todayTasksCount = todayTaskTitles.length;
+  const _todayTasksCount = todayTaskTitles.length;
 
   const handleManualRefresh = () => {
     refresh();
@@ -185,7 +184,7 @@ export const Dashboard: React.FC = () => {
 
   const lastUpdatedAt = useMemo(() => new Date(dashboardData.meta.updatedAt || Date.now()), [dashboardData.meta.updatedAt]);
 
-  const handleSqlSyncNow = async () => {
+  const _handleSqlSyncNow = async () => {
     if (!window.desktopDb?.sqlSyncNow) {
       toast.error('المزامنة متاحة فقط في نسخة Desktop');
       return;
@@ -204,7 +203,7 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const employeeOps = useMemo(() => {
+  const _employeeOps = useMemo(() => {
     const logs = Array.isArray(dashboardData.logsRaw) ? dashboardData.logsRaw : [];
     const username = currentUsername;
     const userId = String(userRecord['id'] ?? '').trim();
@@ -279,7 +278,7 @@ export const Dashboard: React.FC = () => {
     });
   }, [pagesSearch, userRecord]);
 
-  const runtimeRequirements = useMemo(() => {
+  const _runtimeRequirements = useMemo(() => {
     const isDesktop = !!window.desktopDb;
     const hasSqlSync = !!window.desktopDb?.sqlSyncNow;
     const hasBackup = !!window.desktopDb?.chooseBackupDir;
@@ -288,290 +287,147 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   return (
-    <div className="pb-20 animate-fade-in">
-      {/* Header */}
-      <div className="mb-6">
-        <div className={DS.components.pageHeader}>
-          <div>
-            <h2 className={`${DS.components.pageTitle} flex items-center gap-2`}>
-              <BarChart3 size={22} />
-              لوحة القيادة الاحترافية
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              نظام مراقبة شامل متعدد الطبقات مع تحديثات فورية
+    <div className="pb-20 space-y-10">
+      {/* Dynamic Hero Header */}
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 dark:bg-slate-900 p-8 lg:p-12 shadow-2xl">
+        {/* Abstract Background Elements */}
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-indigo-500/20 to-transparent skew-x-12 transform translate-x-24" />
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl animate-pulse" />
+        
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 text-right" dir="rtl">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md">
+              <Activity size={14} className="text-indigo-400 animate-pulse" />
+              <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">حالة النظام: متصل</span>
+            </div>
+            
+            <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter leading-none">
+              أهلاً بك، <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-indigo-100">{String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}</span>
+            </h1>
+            <p className="text-slate-400 font-bold max-w-xl text-lg leading-relaxed">
+              إليك نظرة سريعة على أداء نظام <span className="text-white">AZRAR</span> لهذا اليوم. كافة البيانات محدثة ولحظية.
             </p>
+
+            <div className="flex items-center gap-4 pt-4">
+              <button 
+                onClick={handleManualRefresh}
+                className="group flex items-center gap-3 bg-white text-slate-900 px-6 py-3 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10"
+              >
+                <RefreshCw size={20} className={`group-hover:rotate-180 transition-transform duration-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                تحديث البيانات
+              </button>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">آخر تحديث</span>
+                <span className="text-xs font-black text-slate-300">{formatTimeHM(lastUpdatedAt)}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-              آخر تحديث: {formatTimeHM(lastUpdatedAt, { locale: 'ar-EG', hour12: true })}{isRefreshing ? ' (جاري التحديث...)' : ''}
-            </div>
-
-            {window.desktopDb?.sqlSyncNow && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleSqlSyncNow}
-                isLoading={syncBusy}
-                title="مزامنة الآن"
-                rightIcon={<Server size={16} />}
-              >
-                مزامنة الآن
-              </Button>
-            )}
-
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={handleManualRefresh}
-              title="تحديث يدوي"
-              aria-label="تحديث يدوي"
-              isLoading={isRefreshing}
-            >
-              <RefreshCw size={18} />
-            </Button>
-
-            <Button
-              variant={autoRefresh ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              title={autoRefresh ? 'إيقاف التحديث التلقائي' : 'تفعيل التحديث التلقائي'}
-            >
-              {autoRefresh ? 'تحديث تلقائي' : 'موقوف'}
-            </Button>
+          {/* Quick Stats Grid inside Hero */}
+          <div className="grid grid-cols-2 gap-4 w-full lg:w-auto">
+             <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
+                <div className="text-indigo-400 mb-2"><DollarSign size={24} /></div>
+                <div className="text-2xl font-black text-white">{formatCurrencyJOD(dashboardData.kpis.totalRevenue)}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase mt-1">إيرادات الشهر</div>
+             </div>
+             <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
+                <div className="text-indigo-400 mb-2"><TrendingUp size={24} /></div>
+                <div className="text-2xl font-black text-white">{dashboardData.kpis.activeContracts}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase mt-1">عقود نشطة</div>
+             </div>
           </div>
         </div>
+      </div>
 
-        {/* Urgent Alerts / Tasks / Reminders Marquee */}
-        <MarqueeWidget />
-
-        {/* KPI Cards - Always Visible */}
+      {/* Main KPI Section */}
+      <section className="px-2">
         <KPICards data={dashboardData} />
+      </section>
 
-      </div>
+      {/* Content Layers with Modern Tabs */}
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4">
+           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2" dir="rtl">
+             {layerConfigs.map((layer) => (
+               <button
+                 key={layer.id}
+                 onClick={() => setActiveLayer(layer.id)}
+                 className={`
+                   flex items-center gap-3 px-6 py-3 rounded-2xl font-black whitespace-nowrap transition-all duration-300
+                   ${activeLayer === layer.id 
+                     ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 scale-105' 
+                     : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}
+                 `}
+               >
+                 {layer.icon}
+                 {layer.label}
+               </button>
+             ))}
+           </div>
 
-      {/* Daily Summary Widget */}
-      <div className="mb-6">
-        <DailySummaryWidget />
-      </div>
-
-      {/* Today Tasks Banner */}
-      <button
-        type="button"
-        onClick={() => openPanel('CALENDAR_EVENTS', todayYMD, { title: 'مهام اليوم' })}
-        className="mb-6 w-full text-right app-card hover:shadow-md transition"
-        title="اضغط لفتح مهام اليوم"
-      >
-        <div className="p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 flex-shrink-0">
-              <CheckSquare2 size={18} />
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-bold text-slate-800 dark:text-white">
-                مهام اليوم ({formatNumber(todayTasksCount)})
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                {todayTasksCount === 0 ? 'لا توجد مهام اليوم — اضغط لإضافة مهمة' : todayTaskTitles.slice(0, 3).join(' • ') + (todayTasksCount > 3 ? ` • +${todayTasksCount - 3}` : '')}
-              </div>
-            </div>
-          </div>
-          <div className="text-xs font-bold text-indigo-700 dark:text-indigo-300 flex-shrink-0">
-            فتح
-          </div>
-        </div>
-      </button>
-
-      {/* Quick Actions Bar */}
-      <QuickActionsBar />
-
-      {/* Employee Operations + Runtime Requirements */}
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 app-card">
-          <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 flex-shrink-0">
-                <Activity size={18} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-slate-900 dark:text-white truncate">عمليات الموظف</div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                  آخر عملياتك المسجلة في النظام ({formatNumber(employeeOps.total)})
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <a href={`#${ROUTE_PATHS.OPERATIONS}`}>
-                <Button variant="secondary" size="sm" title="فتح سجل العمليات">
-                  فتح السجل
-                </Button>
-              </a>
-              <a
-                href={`#${ROUTE_PATHS.COMMISSIONS}?tab=employee&month=${encodeURIComponent(currentMonth)}&user=${encodeURIComponent(currentUsername)}`}
-              >
-                <Button variant="secondary" size="sm" title="فتح تقرير عمولات الموظفين">
-                  العمولات
-                </Button>
-              </a>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => refresh()}
-                title="تحديث البيانات"
-                rightIcon={<RefreshCw size={16} />}
-              >
-                تحديث
-              </Button>
-            </div>
-          </div>
-
-          <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50/40 dark:bg-slate-900/20">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm font-bold text-slate-800 dark:text-white">
-                عمولات الموظف لهذا الشهر ({currentMonth})
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                عدد العمليات: <b className="text-slate-800 dark:text-white">{formatNumber(employeeCommissionsThisMonth.count)}</b>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
-              <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700">
-                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">إجمالي عمولة الموظفين</div>
-                <div className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(employeeCommissionsThisMonth.totalEmployee)}</div>
-              </div>
-              <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700">
-                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">عمولة المكتب (إجمالي العمليات)</div>
-                <div className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(employeeCommissionsThisMonth.totalOffice)}</div>
-              </div>
-              <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700">
-                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">إدخال عقار (5%)</div>
-                <div className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrencyJOD(employeeCommissionsThisMonth.totalIntro)}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4">
-            {employeeOps.recent.length === 0 ? (
-              <div className="text-sm text-slate-500 dark:text-slate-400">لا توجد عمليات مسجلة باسمك حتى الآن.</div>
-            ) : (
-              <div className="space-y-2">
-                {employeeOps.recent.map((l) => {
-                  const rec = toRecord(l);
-                  return (
-                  <div
-                    key={String(rec['id'] ?? `${rec['تاريخ_العملية'] ?? ''}-${rec['نوع_العملية'] ?? ''}-${rec['اسم_الجدول'] ?? ''}`)}
-                    className="p-3 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50/60 dark:bg-slate-900/20"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-slate-800 dark:text-white truncate">
-                          {String(rec['نوع_العملية'] ?? 'عملية')}
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                          {String(rec['اسم_الجدول'] ?? '')}{rec['details'] ? ` • ${String(rec['details'])}` : ''}
-                        </div>
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                        {String(rec['تاريخ_العملية'] ?? '').slice(0, 16).replace('T', ' ')}
-                      </div>
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+           <div className="flex items-center gap-4">
+              <QuickActionsBar />
+           </div>
         </div>
 
-        <div className="app-card">
-          <div className="p-4 border-b border-gray-100 dark:border-slate-700">
-            <div className="text-sm font-bold text-slate-900 dark:text-white">متطلبات التشغيل</div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              ملخص سريع للميزات المتاحة حسب وضع التشغيل
-            </div>
-          </div>
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-300">وضع Desktop (Electron)</span>
-              <span className={runtimeRequirements.isDesktop ? 'text-green-600 dark:text-green-400 font-bold' : 'text-orange-600 dark:text-orange-400 font-bold'}>
-                {runtimeRequirements.isDesktop ? 'متاح' : 'غير متاح'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-300">مزامنة SQL Server</span>
-              <span className={runtimeRequirements.hasSqlSync ? 'text-green-600 dark:text-green-400 font-bold' : 'text-slate-500 dark:text-slate-400 font-bold'}>
-                {runtimeRequirements.hasSqlSync ? 'مدعومة' : 'غير مدعومة'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-300">النسخ الاحتياطي (اختيار مجلد)</span>
-              <span className={runtimeRequirements.hasBackup ? 'text-green-600 dark:text-green-400 font-bold' : 'text-slate-500 dark:text-slate-400 font-bold'}>
-                {runtimeRequirements.hasBackup ? 'مدعومة' : 'غير مدعومة'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-300">التحديثات (Updater)</span>
-              <span className={runtimeRequirements.hasUpdater ? 'text-green-600 dark:text-green-400 font-bold' : 'text-slate-500 dark:text-slate-400 font-bold'}>
-                {runtimeRequirements.hasUpdater ? 'متاح' : 'غير متاح'}
-              </span>
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <a href={`#${ROUTE_PATHS.SETTINGS}`} className="flex-1">
-                <Button variant="secondary" size="sm" className="w-full" title="فتح الإعدادات">
-                  الإعدادات
-                </Button>
-              </a>
-              <a href={`#${ROUTE_PATHS.SYS_MAINTENANCE}`} className="flex-1">
-                <Button variant="secondary" size="sm" className="w-full" title="فتح صيانة النظام">
-                  صيانة النظام
-                </Button>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* All Pages Links */}
-      <div className="mt-6 app-card">
-        <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-bold text-slate-900 dark:text-white">روابط جميع الصفحات</div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">انتقل مباشرة لأي صفحة من مكان واحد</div>
-          </div>
-          <div className="relative w-full max-w-sm">
-            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={pagesSearch}
-              onChange={(e) => setPagesSearch(e.target.value)}
-              placeholder="بحث سريع عن صفحة..."
-              className="w-full pr-9 pl-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-            />
-          </div>
-        </div>
-
-        <div className="p-4">
-          {pagesLinks.length === 0 ? (
-            <div className="text-sm text-slate-500 dark:text-slate-400">لا توجد نتائج.</div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-              {pagesLinks.map((p) => {
-                const Icon = p.icon;
-                return (
-                  <a
-                    key={`${p.path}-${p.label}`}
-                    href={`#${p.path}`}
-                    className="p-3 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50/60 dark:bg-slate-900/20 hover:bg-white dark:hover:bg-slate-900/40 hover:shadow-sm transition flex items-center gap-2"
-                    title={p.group ? `${p.label} • ${p.group}` : p.label}
-                  >
-                    {Icon ? <Icon size={16} className="text-indigo-600 dark:text-indigo-300" /> : <div className="w-4 h-4 rounded bg-indigo-100 dark:bg-indigo-900/30" />}
-                    <span className="text-xs font-bold text-slate-800 dark:text-white truncate">{p.label}</span>
-                  </a>
-                );
-              })}
+        {/* Animated Layer Content */}
+        <div className="page-transition min-h-[500px]">
+          {activeLayer === 'overview' && <OverviewLayer data={dashboardData} />}
+          {activeLayer === 'sales' && <SalesTrackingLayer data={dashboardData} />}
+          {activeLayer === 'calendar' && <CalendarTasksLayer data={dashboardData} />}
+          {activeLayer === 'monitoring' && <MonitoringLayer data={dashboardData} />}
+          {activeLayer === 'performance' && (
+            <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-6">
+              <div className="w-24 h-24 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-600 animate-float">
+                <DollarSign size={48} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white">الأداء المالي المتقدم</h3>
+                <p className="text-slate-500 max-w-md mt-2 font-bold">هذه الطبقة قيد التطوير لتوفير تحليلات مالية أعمق ورسوم بيانية تفاعلية.</p>
+              </div>
+              <Button onClick={() => setActiveLayer('overview')} variant="outline" className="rounded-2xl px-8">العودة للنظرة العامة</Button>
             </div>
           )}
         </div>
+      </div>
+
+      {/* Secondary Widgets Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 px-2">
+         <div className="xl:col-span-2">
+            <DailySummaryWidget />
+         </div>
+         <div className="space-y-8">
+            <MarqueeWidget />
+            {/* System Shortcuts glass card */}
+            <div className="glass-card p-8">
+               <h4 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                 <Search size={20} className="text-indigo-500" />
+                 الوصول السريع للروابط
+               </h4>
+               <div className="relative mb-6">
+                  <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="ابحث عن صفحة..."
+                    value={pagesSearch}
+                    onChange={(e) => setPagesSearch(e.target.value)}
+                    className="w-full bg-slate-100/50 dark:bg-slate-800/50 border-none rounded-2xl py-3 pr-12 pl-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all text-right"
+                    dir="rtl"
+                  />
+               </div>
+               <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto no-scrollbar pr-1" dir="rtl">
+                  {pagesLinks.slice(0, 10).map((link, idx) => (
+                    <a 
+                      key={idx} 
+                      href={`#${link.path}`}
+                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-all text-[11px] font-black border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/50"
+                    >
+                      {link.label}
+                    </a>
+                  ))}
+               </div>
+            </div>
+         </div>
       </div>
 
       {/* Layer Navigation Tabs */}

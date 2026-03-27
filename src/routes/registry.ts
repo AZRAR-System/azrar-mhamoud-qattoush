@@ -18,6 +18,7 @@ import {
   BadgeDollarSign,
   Lock,
   BookOpen,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -56,6 +57,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: 'لوحة التحكم المركزية', path: ROUTE_PATHS.ADMIN_PANEL, icon: Shield },
       { label: 'تفعيل النظام', path: ROUTE_PATHS.ACTIVATION, icon: ShieldCheck },
       { label: 'إعدادات النظام', path: ROUTE_PATHS.SETTINGS, icon: Settings },
+      { label: 'النسخ الاحتياطي', path: ROUTE_PATHS.BACKUP, icon: History },
       { label: 'سجل العمليات', path: ROUTE_PATHS.OPERATIONS, icon: Activity },
       { label: 'صيانة النظام', path: ROUTE_PATHS.SYS_MAINTENANCE, icon: ServerCog },
       { label: 'قواعد البيانات', path: ROUTE_PATHS.DATABASE, icon: Database },
@@ -84,7 +86,6 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
   titles[ROUTE_PATHS.LOGIN] = 'تسجيل الدخول';
   titles[ROUTE_PATHS.LOGOUT] = 'تسجيل الخروج';
   titles[ROUTE_PATHS.SMART_TOOLS] = 'أدوات ذكية';
-  titles[ROUTE_PATHS.COMPANIES] = 'إدارة الأشخاص';
   titles[ROUTE_PATHS.CONTACTS] = 'اتصالات';
   titles[ROUTE_PATHS.BULK_WHATSAPP] = 'إرسال واتساب جماعي';
   titles[ROUTE_PATHS.DOCUMENTS] = 'مستندات';
@@ -98,6 +99,7 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
 // Keep aligned with page headers where available.
 export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.ACTIVATION]: 'إدخال رمز التفعيل لتفعيل النظام',
+  [ROUTE_PATHS.BACKUP]: 'إدارة النسخ الاحتياطية واستعادة البيانات',
   [ROUTE_PATHS.LICENSE_ADMIN]: 'إعداد السيرفر/الدخول ثم إدارة التراخيص والمتابعة',
   [ROUTE_PATHS.LICENSE_ADMIN_LICENSES]: 'إصدار وإدارة مفاتيح الترخيص وربط الأجهزة وتصدير ملفات الترخيص',
   [ROUTE_PATHS.LICENSE_ADMIN_USERS]: 'تعديل اسم المستخدم وكلمة المرور لبرنامج إدارة التفعيل',
@@ -117,7 +119,7 @@ export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.DOCUMENTS]: 'عرض مجمّع للمرفقات حسب الصنف والصفة',
   [ROUTE_PATHS.BULK_WHATSAPP]: 'اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح',
   [ROUTE_PATHS.ADMIN_PANEL]: 'إدارة المستخدمين، الصلاحيات، ومراقبة النظام',
-  [ROUTE_PATHS.SETTINGS]: 'تخصيص البيانات، القوائم، والنسخ الاحتياطي',
+  [ROUTE_PATHS.SETTINGS]: 'تخصيص خيارات النظام والشركة والمستخدمين',
   [ROUTE_PATHS.DATABASE]: 'إدارة الجداول، تحسين الأداء، والتحكم في القيود',
   [ROUTE_PATHS.DOCS]: 'مرجع المطورين، الهيكلية، ودليل التشغيل',
   [ROUTE_PATHS.RESET_DATABASE]: 'حذف البيانات وإعادة تهيئة النظام',

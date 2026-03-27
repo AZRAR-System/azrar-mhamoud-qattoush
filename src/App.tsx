@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
  */
@@ -27,6 +27,7 @@ const DynamicBuilder = React.lazy(() => import('./pages/DynamicBuilder').then(mo
 const Alerts = React.lazy(() => import('./pages/Alerts').then(module => ({ default: module.Alerts })));
 const Operations = React.lazy(() => import('./pages/Operations').then(module => ({ default: module.Operations })));
 const Settings = React.lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
+const BackupManager = React.lazy(() => import('./pages/BackupManager').then(module => ({ default: module.BackupManager })));
 const Maintenance = React.lazy(() => import('./pages/Maintenance').then(module => ({ default: module.Maintenance })));
 const Commissions = React.lazy(() => import('./pages/Commissions').then(module => ({ default: module.Commissions })));
 const Reports = React.lazy(() => import('./pages/Reports').then(module => ({ default: module.Reports })));
@@ -334,7 +335,6 @@ const AppRoutes: React.FC = () => {
 
               <Route path={ROUTE_PATHS.SALES} element={<Sales />} />
               <Route path={ROUTE_PATHS.PEOPLE} element={<People />} />
-              <Route path={ROUTE_PATHS.COMPANIES} element={<Navigate to={ROUTE_PATHS.PEOPLE} replace />} />
               <Route path={ROUTE_PATHS.PROPERTIES} element={<Properties />} />
               <Route path={ROUTE_PATHS.CONTRACTS} element={<Contracts />} />
               <Route path={ROUTE_PATHS.INSTALLMENTS} element={<Installments />} />
@@ -347,6 +347,7 @@ const AppRoutes: React.FC = () => {
               <Route path={ROUTE_PATHS.ALERTS} element={<Alerts />} />
               <Route path={ROUTE_PATHS.OPERATIONS} element={<Operations />} />
               <Route path={ROUTE_PATHS.SETTINGS} element={<Settings />} />
+              <Route path={ROUTE_PATHS.BACKUP} element={<BackupManager />} />
               <Route path={ROUTE_PATHS.REPORTS} element={<Reports />} />
               <Route path={ROUTE_PATHS.LEGAL} element={<LegalHub />} />
               <Route path={ROUTE_PATHS.SMART_TOOLS} element={<SmartTools />} />

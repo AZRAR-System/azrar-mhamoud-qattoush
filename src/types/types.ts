@@ -4,6 +4,8 @@
  * AZRAR Real Estate Management System — All Rights Reserved
  */
 
+import type { ReferenceType } from './dynamic.types';
+
 export type RoleType = 'SuperAdmin' | 'Admin' | 'Employee';
 export type PersonRole = 'مالك' | 'مستأجر' | 'كفيل' | 'مشتري';
 export type SalesType = 'Cash' | 'Installment' | 'Mortgage';
@@ -436,31 +438,7 @@ export interface MarqueeMessage {
     | { kind: 'panel'; panel: string; id?: string; options?: Record<string, unknown> }
     | { kind: 'hash'; hash: string };
 }
-
-export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'select';
-
-export interface DynamicFormField {
-  id: string;
-  formId: string;
-  name: string;
-  label: string;
-  type: FieldType;
-  options?: string[];
-}
-
-export interface DynamicTable {
-  id: string;
-  title: string;
-  fields: { id: string; name: string; label: string; type: FieldType }[];
-}
-
-export interface DynamicRecord {
-  id: string;
-  tableId: string;
-  [key: string]: unknown;
-}
-
-export type ReferenceType = 'Person' | 'Property' | 'Contract' | 'Clearance' | 'Maintenance' | 'Sales' | 'Inspection' | 'LegalNotice';
+export type { FieldType, DynamicFormField, DynamicTable, DynamicRecord, ReferenceType, Attachment } from './dynamic.types';
 
 export interface PropertyInspection {
   id: string;
@@ -473,24 +451,6 @@ export interface PropertyInspection {
   items?: InspectionItem[];
   createdAt: string;
   updatedAt?: string;
-}
-
-export interface Attachment {
-  id: string;
-  referenceType: ReferenceType;
-  referenceId: string;
-  fileName: string;
-  fileSize: number;
-  fileType: string;
-  fileExtension: string;
-  fileData?: string;
-  /**
-   * When running in Desktop (Electron), attachments are saved as real files under userData/attachments.
-   * This is a safe relative path (POSIX-style) from the attachments root.
-   */
-  filePath?: string;
-  uploadDate: string;
-  uploadedBy: string;
 }
 
 export interface ActivityRecord {

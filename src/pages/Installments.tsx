@@ -1,4 +1,4 @@
-﻿import { MergeVariablesCatalog } from '@/components/shared/MergeVariablesCatalog';
+import { MergeVariablesCatalog } from '@/components/shared/MergeVariablesCatalog';
 /**
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
@@ -44,8 +44,32 @@ import {
   MessageSquare,
   Star,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Filter,
+  Search as SearchIcon,
+  FileSpreadsheet,
+  FileText as FilePdf,
+  BarChart3,
+  PieChart as PieChartIcon,
+  X,
+  DollarSign,
+  LayoutDashboard,
+  Printer
 } from "lucide-react";
+import { BadgeDollarSign } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell as RechartsCell
+} from 'recharts';
+import { exportToXlsx } from '@/utils/xlsx';
 import { useSmartModal } from "@/context/ModalContext";
 import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
@@ -60,8 +84,6 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MessageComposer } from "@/components/MessageComposer";
 import { DataGuard } from "@/components/shared/DataGuard";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
-import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import { compareDateOnlySafe, daysBetweenDateOnlySafe, isBeforeTodayDateOnly, parseDateOnly, todayDateOnlyISO, toDateOnlyISO } from '@/utils/dateOnly';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
 import { formatDynamicValue } from '@/components/dynamic/dynamicValue';
@@ -520,22 +542,36 @@ const ContractFinancialCard: React.FC<ContractCardProps> = ({ contract, tenant, 
         <div className="border-t border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-900/50 p-4 animate-slide-up">
 
            {/* Contract Financial Summary */}
-           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
              <div className="app-card text-left p-2 px-4 rounded-xl">
-               <p className="text-[10px] text-slate-400 font-bold uppercase">إجمالي الإيجار</p>
-               <p className="font-black text-base text-slate-800 dark:text-white">{totalAmount.toLocaleString()} د.أ</p>
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">إجمالي الإيجار</p>
+               <p className="font-black text-lg text-slate-800 dark:text-white">{totalAmount.toLocaleString()} <span className="text-[10px]">د.أ</span></p>
              </div>
              <div className="text-left bg-emerald-50 dark:bg-emerald-900/20 p-2 px-4 rounded-xl border border-emerald-100 dark:border-emerald-800 shadow-sm">
-               <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">تم تحصيله</p>
-               <p className="font-black text-base text-emerald-700 dark:text-emerald-300">{paidAmount.toLocaleString()} د.أ</p>
+               <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">تم تحصيله</p>
+               <p className="font-black text-lg text-emerald-700 dark:text-emerald-300">{paidAmount.toLocaleString()} <span className="text-[10px]">د.أ</span></p>
              </div>
              <div className="text-left bg-orange-50 dark:bg-orange-900/20 p-2 px-4 rounded-xl border border-orange-100 dark:border-orange-800 shadow-sm">
-               <p className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase">المتبقي</p>
-               <p className="font-black text-base text-orange-700 dark:text-orange-300">{remainingAmount.toLocaleString()} د.أ</p>
+               <p className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase tracking-widest">المتبقي</p>
+               <p className="font-black text-lg text-orange-700 dark:text-orange-300">{remainingAmount.toLocaleString()} <span className="text-[10px]">د.أ</span></p>
              </div>
              <div className="text-left bg-red-50 dark:bg-red-900/20 p-2 px-4 rounded-xl border border-red-100 dark:border-red-800 shadow-sm">
-               <p className="text-[10px] text-red-600 dark:text-red-400 font-bold uppercase">متأخر</p>
-               <p className="font-black text-base text-red-700 dark:text-red-300">{overdueAmount.toLocaleString()} د.أ</p>
+               <p className="text-[10px] text-red-600 dark:text-red-400 font-bold uppercase tracking-widest">متأخر</p>
+               <p className="font-black text-lg text-red-700 dark:text-red-300">{overdueAmount.toLocaleString()} <span className="text-[10px]">د.أ</span></p>
+             </div>
+             <div className="bg-white dark:bg-slate-800 p-2 px-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center">
+               <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full h-full text-[10px] font-black uppercase text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 gap-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.print();
+                }}
+              >
+                <Printer size={14} />
+                كشف حساب
+              </Button>
              </div>
            </div>
            
@@ -941,12 +977,59 @@ export const Installments: React.FC = () => {
   const [desktopError, setDesktopError] = useState('');
   const warnedDesktopErrorRef = useRef<string>('');
 
-  const [showDynamicColumns, setShowDynamicColumns] = useState(false);
+  const [showDynamicColumns] = useState(false);
   const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
   
   const [filter, setFilter] = useState<"all" | "debt" | "paid" | "due">("all");
   const [search, setSearch] = useState("");
-  const [sortMode, setSortMode] = useState<'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc'>('due-asc');
+  const [sortMode, setSortMode] = useState<'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc' | 'amount-asc' | 'amount-desc'>('due-asc');
+  
+  // Advanced Filters State
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [filterMinAmount, setFilterMinAmount] = useState<number | ''>("");
+  const [filterMaxAmount, setFilterMaxAmount] = useState<number | ''>("");
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
+  const [showCharts, setShowCharts] = useState(false);
+
+  // Favorite Filters logic
+  const [favoriteFilters, setFavoriteFilters] = useState<{ name: string; filters: Record<string, unknown> }[]>(() => {
+    try {
+      const stored = localStorage.getItem('fav_installment_filters');
+      return stored ? (JSON.parse(stored) as { name: string; filters: Record<string, unknown> }[]) : [];
+    } catch { return []; }
+  });
+
+  const saveCurrentFilter = (name: string) => {
+    if (!name.trim()) return;
+    const newFavs = [...favoriteFilters, {
+      name,
+      filters: { filter, search, filterStartDate, filterEndDate, filterMinAmount, filterMaxAmount, filterPaymentMethod }
+    }];
+    setFavoriteFilters(newFavs);
+    localStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
+    toast.success('تم حفظ الفلتر في المفضلة');
+  };
+
+  const applyFavFilter = (fav: { filters: Record<string, unknown>; name: string }) => {
+    const f = fav.filters;
+    setFilter((f.filter as "all" | "debt" | "paid" | "due") || 'all');
+    setSearch((f.search as string) || '');
+    setFilterStartDate((f.filterStartDate as string) || '');
+    setFilterEndDate((f.filterEndDate as string) || '');
+    setFilterMinAmount((f.filterMinAmount as number | '') || '');
+    setFilterMaxAmount((f.filterMaxAmount as number | '') || '');
+    setFilterPaymentMethod((f.filterPaymentMethod as string) || 'all');
+    toast.info(`تم تطبيق الفلتر: ${fav.name}`);
+  };
+
+  const deleteFavFilter = (name: string) => {
+    const newFavs = favoriteFilters.filter(f => f.name !== name);
+    setFavoriteFilters(newFavs);
+    localStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
+  };
+
   const [selectedInstallment, setSelectedInstallment] = useState<الكمبيالات_tbl | null>(null);
   
   // Confirmation Dialog State
@@ -1048,6 +1131,11 @@ export const Installments: React.FC = () => {
       const res = await installmentsContractsPagedSmart({
         query: String(search || ''),
         filter,
+        filterStartDate,
+        filterEndDate,
+        filterMinAmount,
+        filterMaxAmount,
+        filterPaymentMethod,
         sort: sortMode,
         offset: desktopPage * PAGE_SIZE,
         limit: PAGE_SIZE,
@@ -1073,7 +1161,7 @@ export const Installments: React.FC = () => {
     } finally {
       setDesktopLoading(false);
     }
-  }, [desktopPage, filter, search, sortMode, toast]);
+  }, [desktopPage, filter, search, sortMode, toast, filterStartDate, filterEndDate, filterMinAmount, filterMaxAmount, filterPaymentMethod]);
 
   const loadData = useCallback(() => {
     if (isDesktopFast) {
@@ -1134,7 +1222,7 @@ export const Installments: React.FC = () => {
     if (desktopPage !== 0) setDesktopPage(0);
     else void loadDesktopData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, search, sortMode, isDesktopFast]);
+  }, [filter, search, sortMode, filterStartDate, filterEndDate, filterMinAmount, filterMaxAmount, isDesktopFast]);
 
   useEffect(() => {
     if (!isDesktopFast) return;
@@ -1310,8 +1398,8 @@ export const Installments: React.FC = () => {
         if (remaining <= 0) return false;
         const daysUntilDue = daysBetweenDateOnlySafe(todayDateOnlyISO(), i.تاريخ_استحقاق);
         if (typeof daysUntilDue !== 'number') return false;
-        // "مستحق قريباً" = خلال 7 أيام (قبل الاستحقاق فقط)
-        return daysUntilDue > 0 && daysUntilDue <= 7;
+        // "مستحق" = أي شيء متأخر أو يستحق خلال الـ 7 أيام القادمة
+        return daysUntilDue <= 7;
       };
 
       // Map installments to contracts
@@ -1361,25 +1449,61 @@ export const Installments: React.FC = () => {
           data = data.filter(d => 
               (d.tenant?.الاسم.toLowerCase().includes(lower)) ||
               (d.property?.الكود_الداخلي.toLowerCase().includes(lower)) ||
-              (d.contract.رقم_العقد.toLowerCase().includes(lower))
+              (d.contract.رقم_العقد.toLowerCase().includes(lower)) ||
+              (isRecord(d.tenant) && typeof d.tenant['رقم_الهوية'] === 'string' && d.tenant['رقم_الهوية'].toLowerCase().includes(lower))
           );
       }
 
+      // 3. Advanced Date Filter
+      if (filterStartDate) {
+        data = data.filter(d => d.installments.some(i => i.تاريخ_استحقاق >= filterStartDate));
+      }
+      if (filterEndDate) {
+        data = data.filter(d => d.installments.some(i => i.تاريخ_استحقاق <= filterEndDate));
+      }
+
+      // 4. Advanced Amount Filter
+      if (filterMinAmount !== '') {
+        data = data.filter(d => d.installments.some(i => i.القيمة >= (filterMinAmount as number)));
+      }
+      if (filterMaxAmount !== '') {
+        data = data.filter(d => d.installments.some(i => i.القيمة <= (filterMaxAmount as number)));
+      }
+
+      // 5. Payment Method Filter
+      if (filterPaymentMethod !== 'all') {
+        data = data.filter(d => String(d.contract?.طريقة_الدفع || '').toLowerCase() === filterPaymentMethod.toLowerCase());
+      }
+
       const getNextDueISO = (installs: الكمبيالات_tbl[]) => {
-        let best: Date | null = null;
+        let bestUnpaid: Date | null = null;
+        let bestOverall: Date | null = null;
+        let lastPaid: Date | null = null;
+
         for (const i of installs) {
           if (i.نوع_الكمبيالة === 'تأمين') continue;
           const status = String(i.حالة_الكمبيالة ?? '').trim();
           if (status === INSTALLMENT_STATUS.CANCELLED) continue;
-          const { remaining } = getPaidAndRemaining(i);
-          if (remaining <= 0) continue;
+          
           const due = parseDateOnlyLocal(i.تاريخ_استحقاق);
           if (!due) continue;
-          // Keep the earliest due date (including overdue/ today)
-          if (!best || due.getTime() < best.getTime()) best = due;
+
+          // Always track earliest overall for fallback if needed
+          if (!bestOverall || due.getTime() < bestOverall.getTime()) bestOverall = due;
+
+          const { remaining } = getPaidAndRemaining(i);
+          if (remaining > 0) {
+            // First unpaid is the most relevant "due date"
+            if (!bestUnpaid || due.getTime() < bestUnpaid.getTime()) bestUnpaid = due;
+          } else {
+            // Last paid is the second most relevant
+            if (!lastPaid || due.getTime() > lastPaid.getTime()) lastPaid = due;
+          }
         }
-        // If no remaining installments, return null.
-        return best ? best.toISOString() : null;
+        
+        // Priority: First Unpaid > Last Paid > Earliest Overall > null
+        const result = bestUnpaid || lastPaid || bestOverall;
+        return result ? result.toISOString() : null;
       };
 
       data = [...data].sort((a, b) => {
@@ -1390,6 +1514,12 @@ export const Installments: React.FC = () => {
           const bHas = !!bDue;
           if (aHas !== bHas) return aHas ? -1 : 1; // nulls last
           if (aHas && bHas && aDue !== bDue) return sortMode === 'due-asc' ? aDue.localeCompare(bDue) : bDue.localeCompare(aDue);
+        }
+
+        if (sortMode === 'amount-asc' || sortMode === 'amount-desc') {
+          const aVal = Number(a.contract?.القيمة_السنوية || 0);
+          const bVal = Number(b.contract?.القيمة_السنوية || 0);
+          if (aVal !== bVal) return sortMode === 'amount-asc' ? aVal - bVal : bVal - aVal;
         }
 
         const aName = String(a.tenant?.الاسم ?? '').trim();
@@ -1406,10 +1536,83 @@ export const Installments: React.FC = () => {
       });
 
       return data;
-  }, [isDesktopFast, groupedData, filter, search, sortMode]);
+  }, [isDesktopFast, groupedData, filter, search, sortMode, filterStartDate, filterEndDate, filterMinAmount, filterMaxAmount, filterPaymentMethod]);
 
-  // Calculate Global Totals
-  // (Removed) Global financial summary: user requested summary per-contract only.
+  // Financial Stats calculation for the dashboard
+  const financialStats = useMemo(() => {
+    const data = isDesktopFast ? [] : groupedData; // Desktop fast mode stats would come from desktopCounts if available
+    let totalExpected = 0;
+    let totalCollected = 0;
+    let totalOverdue = 0;
+    let overdueCount = 0;
+
+    if (isDesktopFast && desktopCounts) {
+      // For desktop, we use counts if available, but for now we'll just show N/A or placeholders
+      // unless we want to fetch full stats which might be slow.
+      return null; 
+    }
+
+    data.forEach(d => {
+      d.installments.forEach(i => {
+        if (i.نوع_الكمبيالة === 'تأمين') return;
+        const status = String(i.حالة_الكمبيالة ?? '').trim();
+        if (status === INSTALLMENT_STATUS.CANCELLED) return;
+
+        const { paid, remaining } = getPaidAndRemaining(i);
+        totalExpected += i.القيمة;
+        totalCollected += paid;
+
+        const due = parseDateOnlyLocal(i.تاريخ_استحقاق);
+        if (due && due.getTime() < todayDateOnlyLocal().getTime() && remaining > 0) {
+          totalOverdue += remaining;
+          overdueCount++;
+        }
+      });
+    });
+
+    const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
+
+    return { totalExpected, totalCollected, totalOverdue, overdueCount, collectionRate };
+  }, [isDesktopFast, groupedData, desktopCounts]);
+
+  const handleExportExcel = () => {
+    const rows = isDesktopFast ? [] : filteredList; // Basic export for web mode
+    if (rows.length === 0) {
+      toast.error('لا توجد بيانات لتصديرها');
+      return;
+    }
+
+    const exportData = rows.flatMap(d => d.installments.map(i => ({
+      tenantName: d.tenant?.الاسم || 'غير معروف',
+      contractNo: d.contract.رقم_العقد,
+      propertyCode: d.property?.الكود_الداخلي || 'غير معروف',
+      dueDate: i.تاريخ_استحقاق,
+      total: i.القيمة,
+      paid: getPaidAndRemaining(i).paid,
+      remaining: getPaidAndRemaining(i).remaining,
+      status: i.حالة_الكمبيالة
+    })));
+
+    const columns: Array<{ key: string; header: string }> = [
+      { key: 'tenantName', header: 'المستأجر' },
+      { key: 'contractNo', header: 'رقم العقد' },
+      { key: 'propertyCode', header: 'العقار' },
+      { key: 'dueDate', header: 'تاريخ الاستحقاق' },
+      { key: 'total', header: 'القيمة' },
+      { key: 'paid', header: 'المسدد' },
+      { key: 'remaining', header: 'المتبقي' },
+      { key: 'status', header: 'الحالة' },
+    ];
+
+    const dataForExport = exportData.map(row => row as Record<string, unknown>);
+
+    exportToXlsx('Installments', columns, dataForExport, `دفعات_مالية_${new Date().toISOString().split('T')[0]}`);
+    toast.success('تم تصدير ملف Excel بنجاح');
+  };
+
+  const handleExportPdf = () => {
+    window.print();
+  };
 
   return (
     <DataGuard
@@ -1440,47 +1643,395 @@ export const Installments: React.FC = () => {
     >
       <div className="animate-fade-in pb-10">
 
-        <SmartFilterBar
-          title="المالية والتحصيل"
-          subtitle="إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات"
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="بحث: اسم المستأجر، رقم العقد، كود العقار..."
-          onRefresh={loadData}
-          extraActions={
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <SegmentedTabs
-                tabs={[
-                  { id: 'all', label: 'الكل' },
-                  { id: 'due', label: 'مستحق قريباً', icon: Clock },
-                  { id: 'debt', label: 'عليهم ذمم', icon: AlertTriangle },
-                  { id: 'paid', label: 'مسدد بالكامل', icon: Check },
-                ]}
-                activeId={filter}
-                onChange={(id) => setFilter(id)}
-              />
+        {/* --- Header Section --- */}
+        <div className="mb-8 p-8 rounded-[3rem] bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl border border-white/50 dark:border-slate-700/50 shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
+          
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-500/30 text-white">
+                <DollarSign size={28} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
+                  المالية والتحصيل
+                  <span className="text-xs px-2 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-full font-bold">
+                    إدارة الدفعات
+                  </span>
+                </h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  متابعة العقود، السداد، والتحصيل المالي بدقة احترافية
+                </p>
+              </div>
+            </div>
 
-              <Select
-                value={sortMode}
-                onChange={(e) => setSortMode(e.target.value as 'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc')}
-                options={[
-                  { value: 'tenant-asc', label: 'المستأجر: تصاعدي' },
-                  { value: 'tenant-desc', label: 'المستأجر: تنازلي' },
-                  { value: 'due-asc', label: 'الاستحقاق: الأقرب' },
-                  { value: 'due-desc', label: 'الاستحقاق: الأبعد' },
-                ]}
-              />
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative group/search">
+                <SearchIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-indigo-500 transition-colors" size={18} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="بحث سريع: مستأجر، عقد، عقار..."
+                  className="pr-12 pl-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl w-full lg:w-72 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm font-medium"
+                />
+              </div>
+
+              <Button
+                variant={isAdvancedFiltersOpen ? "primary" : "secondary"}
+                onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+                className="gap-2 px-6 rounded-2xl h-[46px]"
+              >
+                <Filter size={18} />
+                تصفية متقدمة
+              </Button>
 
               <Button
                 variant="secondary"
-                size="sm"
-                onClick={() => setShowDynamicColumns((v) => !v)}
+                onClick={loadData}
+                className="p-3 rounded-2xl h-[46px] w-[46px]"
               >
-                {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
+                <Clock size={18} />
+              </Button>
+
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl">
+                <Button variant="ghost" size="sm" onClick={handleExportExcel} className="hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  <FileSpreadsheet size={18} />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleExportPdf} className="hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  <FilePdf size={18} />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* --- Financial Quick Stats --- */}
+          {!isDesktopFast && financialStats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+              <div className="bg-white/50 dark:bg-slate-900/50 p-5 rounded-3xl border border-white dark:border-slate-700/50 hover:shadow-lg transition-all duration-300">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 rounded-xl">
+                    <TrendingUp size={18} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">المحصل فعلياً</span>
+                </div>
+                <div className="text-2xl font-black text-slate-800 dark:text-white tabular-nums">
+                  {financialStats.totalCollected.toLocaleString()} <span className="text-xs font-medium">د.أ</span>
+                </div>
+                <div className="mt-2 text-xs font-bold text-emerald-600 flex items-center gap-1">
+                  نسبة التحصيل: {financialStats.collectionRate.toFixed(1)}%
+                </div>
+              </div>
+
+              <div className="bg-white/50 dark:bg-slate-900/50 p-5 rounded-3xl border border-white dark:border-slate-700/50 hover:shadow-lg transition-all duration-300">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-xl">
+                    <AlertCircle size={18} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">إجمالي المتأخرات</span>
+                </div>
+                <div className="text-2xl font-black text-slate-800 dark:text-white tabular-nums">
+                  {financialStats.totalOverdue.toLocaleString()} <span className="text-xs font-medium">د.أ</span>
+                </div>
+                <div className="mt-2 text-xs font-bold text-rose-600">
+                  {financialStats.overdueCount} دفعة متأخرة حالياً
+                </div>
+              </div>
+
+              <div className="bg-white/50 dark:bg-slate-900/50 p-5 rounded-3xl border border-white dark:border-slate-700/50 hover:shadow-lg transition-all duration-300">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 rounded-xl">
+                    <BarChart3 size={18} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">المتوقع تحصيله</span>
+                </div>
+                <div className="text-2xl font-black text-slate-800 dark:text-white tabular-nums">
+                  {financialStats.totalExpected.toLocaleString()} <span className="text-xs font-medium">د.أ</span>
+                </div>
+                <div className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  إجمالي قيمة الكمبيالات الصادرة
+                </div>
+              </div>
+
+              <div className="bg-white/50 dark:bg-slate-900/50 p-5 rounded-3xl border border-white dark:border-slate-700/50 hover:shadow-lg transition-all duration-300 flex flex-col justify-center">
+                <Button 
+                  variant="primary" 
+                  className="w-full rounded-2xl gap-2 py-4 shadow-xl shadow-indigo-500/20"
+                  onClick={() => setShowCharts(!showCharts)}
+                >
+                  <BarChart3 size={20} />
+                  عرض التحليلات البيانية
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* --- Proactive Alerts for Late Payments --- */}
+        {!isDesktopFast && financialStats && financialStats.overdueCount > 0 && (
+          <div className="mb-8 p-4 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-800/50 rounded-3xl flex items-center justify-between gap-4 animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-rose-600 rounded-xl text-white">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-rose-800 dark:text-rose-300">تنبيه تحصيل: يوجد {financialStats.overdueCount} دفعات متأخرة</h4>
+                <p className="text-xs text-rose-600 dark:text-rose-400">إجمالي المبالغ المتأخرة المستحقة حالياً: {financialStats.totalOverdue.toLocaleString()} د.أ</p>
+              </div>
+            </div>
+            <Button 
+              size="sm" 
+              variant="secondary" 
+              className="bg-rose-600 hover:bg-rose-700 text-white border-none rounded-xl text-xs"
+              onClick={() => setFilter('debt')}
+            >
+              عرض المتأخرات فقط
+            </Button>
+          </div>
+        )}
+
+        {/* --- Advanced Filters Panel --- */}
+        {isAdvancedFiltersOpen && (
+          <div className="mb-6 p-6 rounded-[2.5rem] bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/50 animate-in slide-in-from-top duration-500">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-black text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
+                <Filter size={16} />
+                إعدادات التصفية المتقدمة
+              </h3>
+              <Button variant="ghost" size="sm" onClick={() => setIsAdvancedFiltersOpen(false)} className="rounded-full h-8 w-8 p-0">
+                <X size={16} />
               </Button>
             </div>
-          }
-        />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <Calendar size={14} /> من تاريخ
+                </label>
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <Calendar size={14} /> إلى تاريخ
+                </label>
+                <input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <DollarSign size={14} /> القيمة (د.أ)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="من"
+                    value={filterMinAmount}
+                    onChange={(e) => setFilterMinAmount(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm transition-all"
+                  />
+                  <input
+                    type="number"
+                    placeholder="إلى"
+                    value={filterMaxAmount}
+                    onChange={(e) => setFilterMaxAmount(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <BadgeDollarSign size={14} /> طريقة الدفع
+                </label>
+                <Select
+                  value={filterPaymentMethod}
+                  onChange={(e) => setFilterPaymentMethod(e.target.value)}
+                  className="w-full rounded-2xl text-sm"
+                  options={[
+                    { value: 'all', label: 'جميع الطرق' },
+                    { value: 'Prepaid', label: 'دفع مقدم' },
+                    { value: 'Postpaid', label: 'دفع مؤخر' },
+                  ]}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <LayoutDashboard size={14} /> الترتيب والعرض
+                </label>
+                <div className="flex gap-2">
+                  <Select
+                    value={sortMode}
+                    onChange={(e) => setSortMode(e.target.value as 'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc' | 'amount-asc' | 'amount-desc')}
+                    className="w-full rounded-2xl text-sm"
+                    options={[
+                      { value: 'due-asc', label: 'الاستحقاق: الأقرب' },
+                      { value: 'due-desc', label: 'الاستحقاق: الأبعد' },
+                      { value: 'tenant-asc', label: 'المستأجر: تصاعدي' },
+                      { value: 'tenant-desc', label: 'المستأجر: تنازلي' },
+                      { value: 'amount-asc', label: 'المبلغ: من الأقل' },
+                      { value: 'amount-desc', label: 'المبلغ: من الأعلى' },
+                    ]}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-indigo-100 dark:border-indigo-800/50 pt-6">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-2">حالة الدفع:</span>
+              {[
+                { id: 'all', label: 'الكل' },
+                { id: 'due', label: 'مستحق قريباً', color: 'bg-amber-100 text-amber-700' },
+                { id: 'debt', label: 'عليهم ذمم', color: 'bg-rose-100 text-rose-700' },
+                { id: 'paid', label: 'مسدد بالكامل', color: 'bg-emerald-100 text-emerald-700' },
+              ].map(st => (
+                <button
+                  key={st.id}
+                  onClick={() => setFilter(st.id as "all" | "debt" | "paid" | "due")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                    filter === st.id 
+                    ? (st.color || 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30')
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
+
+              <div className="flex-1"></div>
+              
+                <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  const name = prompt('أدخل اسماً لهذا الفلتر:');
+                  if (name) saveCurrentFilter(name);
+                }}
+                className="text-xs text-indigo-600 hover:bg-indigo-50"
+              >
+                حفظ كفلتر مفضل
+              </Button>
+
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setFilter('all');
+                  setFilterStartDate("");
+                  setFilterEndDate("");
+                  setFilterMinAmount("");
+                  setFilterMaxAmount("");
+                  setSearch("");
+                }}
+                className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+              >
+                مسح جميع الفلاتر
+              </Button>
+            </div>
+
+            {favoriteFilters.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2 items-center">
+                <span className="text-[10px] font-black uppercase text-slate-400">الفلاتر المحفوظة:</span>
+                {favoriteFilters.map((fav) => (
+                  <div key={fav.name} className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1">
+                    <button 
+                      onClick={() => applyFavFilter(fav)}
+                      className="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600"
+                    >
+                      {fav.name}
+                    </button>
+                    <button 
+                      onClick={() => deleteFavFilter(fav.name)}
+                      className="text-slate-400 hover:text-rose-500"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- Charts Section --- */}
+        {showCharts && financialStats && (
+          <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in zoom-in duration-500">
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl">
+              <h3 className="text-sm font-black text-slate-500 mb-6 flex items-center gap-2 uppercase tracking-widest">
+                <PieChartIcon size={16} /> حالة التحصيل المالي
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'محصل', value: financialStats.totalCollected },
+                        { name: 'متبقي', value: financialStats.totalExpected - financialStats.totalCollected }
+                      ]}
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      <RechartsCell fill="#4f46e5" />
+                      <RechartsCell fill="#e2e8f0" />
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-6 mt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-indigo-600"></div>
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">محصل: {financialStats.totalCollected.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-slate-200"></div>
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">متبقي: {(financialStats.totalExpected - financialStats.totalCollected).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl">
+              <h3 className="text-sm font-black text-slate-500 mb-6 flex items-center gap-2 uppercase tracking-widest">
+                <BarChart3 size={16} /> مقارنة القيم المالية
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { name: 'المتوقع', value: financialStats.totalExpected },
+                    { name: 'المحصل', value: financialStats.totalCollected },
+                    { name: 'المتأخر', value: financialStats.totalOverdue }
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} />
+                    <YAxis hide />
+                    <Tooltip cursor={{ fill: '#f8fafc' }} />
+                    <Bar dataKey="value" radius={[10, 10, 0, 0]}>
+                      {[{ name: 'المتوقع', color: '#4f46e5' }, { name: 'المحصل', color: '#10b981' }, { name: 'المتأخر', color: '#ef4444' }].map((entry, index) => (
+                        <RechartsCell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[10px] text-center text-slate-400 mt-4 italic">
+                * تعتمد هذه الإحصائيات على نتائج الفلترة الحالية
+              </p>
+            </div>
+          </div>
+        )}
 
       {/* -------------------------------- */}
       {/*           Contracts List         */}
@@ -1684,7 +2235,7 @@ export const Installments: React.FC = () => {
               <MessageComposer
                 category={messageContext.category}
                 tenantName={messageContext.tenant.الاسم}
-                tenantPhones={[messageContext.tenant.رقم_الهاتف, messageContext.tenant.رقم_هاتف_اضافي].filter(Boolean)}
+                tenantPhones={[messageContext.tenant.رقم_الهاتف, messageContext.tenant.رقم_هاتف_اضافي].filter(Boolean) as string[]}
                 propertyCode={messageContext.property?.الكود_الداخلي}
                 amount={messageContext.installment.القيمة}
                 dueDate={messageContext.installment.تاريخ_استحقاق}
@@ -1708,9 +2259,9 @@ export const Installments: React.FC = () => {
                   setMessageModalOpen(false);
                   setMessageContext(null);
                 }}
-                onSent={(message) => {
+                onSent={(messageText: string) => {
                   // يمكن إضافة تسجيل أو إرسال فعلي هنا
-                  console.warn('Message sent:', message);
+                  console.warn('Message sent:', messageText);
                 }}
               />
         </AppModal>

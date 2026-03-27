@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
  * 
@@ -12,24 +12,16 @@ import {
 } from '@/types';
 import { validateNewPerson } from './dataValidation';
 import { storage } from '@/services/storage';
-import { buildCache } from '@/services/dbCache';
 import { isBeforeTodayDateOnly } from '@/utils/dateOnly';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
+import { dbFail, dbOk, localDbStorage } from '@/services/localDbStorage';
 
 // Storage functions
-const get = <T>(key: string): T[] => {
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
-};
+const get = <T>(key: string): T[] => localDbStorage.getArray<T>(key);
+const save = (key: string, data: unknown) => localDbStorage.saveJson(key, data);
 
-const save = (key: string, data: unknown) => {
-  const serialized = JSON.stringify(data);
-  void storage.setItem(key, serialized);
-  buildCache();
-};
-
-const ok = <T = null>(data?: T, message = 'تمت العملية بنجاح'): DbResult<T> => ({ success: true, message, data });
-const fail = <T = null>(message = 'حدث خطأ'): DbResult<T> => ({ success: false, message });
+const ok = dbOk;
+const fail = dbFail;
 
 const KEYS = {
   PEOPLE: 'db_people',

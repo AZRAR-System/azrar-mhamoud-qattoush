@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   ContractDetailsResult,
   ContractPickerItem,
   DomainEntity,
@@ -30,6 +30,7 @@ export interface DesktopDbBridge {
   getPath(): Promise<string>;
   getBackupDir?: () => Promise<string>;
   chooseBackupDir?: () => Promise<{ success: boolean; message?: string; backupDir?: string } | unknown>;
+  chooseDirectory?: () => Promise<{ success: boolean; path?: string; message?: string } | unknown>;
   getLocalBackupAutomationSettings?: () =>
     Promise<
       | {
@@ -74,6 +75,8 @@ export interface DesktopDbBridge {
         }
       | unknown
     >;
+  deleteLocalBackupFile?: (filePath: string) => Promise<{ success: boolean; message: string }>;
+  restoreLocalBackupFile?: (filePath: string) => Promise<{ success: boolean; message: string }>;
 
   getLocalBackupStats?: () =>
     Promise<

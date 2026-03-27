@@ -20,6 +20,7 @@ import {
   type FingerprintRegistryRecord,
   upsertFingerprintRecord,
 } from '@/features/licenseAdmin/fingerprintRegistry';
+import { fmtDateTime, getErrorMessage, licenseStatusToArabic } from '@/features/licenseAdmin/utils';
 
 type AdminListItem = {
   licenseKey: string;
@@ -61,29 +62,6 @@ type AdminRecord = {
   statusNote?: string;
   afterSales?: AfterSales;
   audit?: AuditEntry[];
-};
-
-const fmt = (iso?: string) => {
-  if (!iso) return '';
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return String(iso);
-  return new Date(t).toLocaleString();
-};
-
-const getErr = (e: unknown): string => {
-  if (e instanceof Error) return e.message;
-  return String(e || '');
-};
-
-const statusToArabic = (s?: string): string => {
-  const v = String(s || '').trim().toLowerCase();
-  if (!v) return '';
-  if (v === 'active') return 'نشط';
-  if (v === 'suspended') return 'معلق';
-  if (v === 'revoked') return 'ملغي';
-  if (v === 'expired') return 'منتهي';
-  if (v === 'mismatch') return 'غير مطابق';
-  return s || '';
 };
 
 const followUpStatusOptions = [
@@ -240,7 +218,7 @@ export const LicenseAdmin: React.FC = () => {
       setItems(parsed);
       setInfo(`تم تحميل ${parsed.length} ترخيص`);
     } catch (e: unknown) {
-      const msg = getErr(e) || 'Failed to refresh';
+      const msg = getErrorMessage(e) || 'Failed to refresh';
       if (/admin token not configured/i.test(msg)) {
         setError('توكن السيرفر غير مُعد. أدخل توكن الأدمن ثم اضغط “حفظ التوكن”.');
       } else {
@@ -337,7 +315,7 @@ export const LicenseAdmin: React.FC = () => {
       setFollowUpLastContactAt(String(fu.lastContactAt || ''));
       setFollowUpNextAt(String(fu.nextAt || ''));
     } catch (e: unknown) {
-      setError(getErr(e) || 'Failed to load record');
+      setError(getErrorMessage(e) || 'Failed to load record');
     } finally {
       setBusy(false);
     }
@@ -366,7 +344,7 @@ export const LicenseAdmin: React.FC = () => {
       await refreshList();
       setInfo('تم حذف الكود');
     } catch (e: unknown) {
-      setError(getErr(e) || 'Failed to delete');
+      setError(getErrorMessage(e) || 'Failed to delete');
     } finally {
       setBusy(false);
     }
@@ -390,7 +368,7 @@ export const LicenseAdmin: React.FC = () => {
       await refreshTokenStatus();
       await refreshList();
     } catch (e: unknown) {
-      setError(getErr(e) || 'Login failed');
+      setError(getErrorMessage(e) || 'Login failed');
       setLoggedIn(false);
     } finally {
       setBusy(false);
@@ -419,7 +397,7 @@ export const LicenseAdmin: React.FC = () => {
       setInfo('تم حفظ توكن السيرفر');
       await refreshTokenStatus();
     } catch (e: unknown) {
-      setError(getErr(e) || 'Failed to save token');
+      setError(getErrorMessage(e) || 'Failed to save token');
     } finally {
       setBusy(false);
     }
@@ -487,7 +465,7 @@ export const LicenseAdmin: React.FC = () => {
         setInfo('تم إصدار ترخيص جديد (وتم نسخ المفتاح)');
       }
     } catch (e: unknown) {
-      setError(getErr(e) || 'Issue failed');
+      setError(getErrorMessage(e) || 'Issue failed');
     } finally {
       setBusy(false);
     }
@@ -518,7 +496,7 @@ export const LicenseAdmin: React.FC = () => {
       await loadRecord(licenseKey);
       setInfo('تم تحديث حالة الترخيص');
     } catch (e: unknown) {
-      setError(getErr(e) || 'Failed to update status');
+      setError(getErrorMessage(e) || 'Failed to update status');
     } finally {
       setBusy(false);
     }
@@ -570,7 +548,7 @@ export const LicenseAdmin: React.FC = () => {
       await loadRecord(licenseKey);
       setInfo('تم إنشاء ملف الترخيص (جاهز للحفظ)');
     } catch (e: unknown) {
-      setError(getErr(e) || 'Activate failed');
+      setError(getErrorMessage(e) || 'Activate failed');
     } finally {
       setBusy(false);
     }
@@ -640,7 +618,7 @@ export const LicenseAdmin: React.FC = () => {
       setInfo('تم حفظ ملف الترخيص');
       setExportConfirmPassword('');
     } catch (e: unknown) {
-      setError(getErr(e) || 'Save failed');
+      setError(getErrorMessage(e) || 'Save failed');
     } finally {
       setBusy(false);
     }
@@ -677,7 +655,7 @@ export const LicenseAdmin: React.FC = () => {
       await loadRecord(licenseKey);
       setInfo('تم فصل الترخيص عن هذا الجهاز. يمكن للعميل التفعيل على جهاز آخر الآن.');
     } catch (e: unknown) {
-      setError(getErr(e) || 'Failed to unbind device');
+      setError(getErrorMessage(e) || 'Failed to unbind device');
     } finally {
       setBusy(false);
     }
@@ -720,7 +698,7 @@ export const LicenseAdmin: React.FC = () => {
       setAfterSalesLogNote('');
       setInfo('تم تحديث بيانات ما بعد البيع');
     } catch (e: unknown) {
-      setError(getErr(e) || 'Failed to update');
+      setError(getErrorMessage(e) || 'Failed to update');
     } finally {
       setBusy(false);
     }
@@ -752,7 +730,7 @@ export const LicenseAdmin: React.FC = () => {
       setStatusCheckResult(JSON.stringify(result, null, 2));
       setInfo('تم جلب حالة الجهاز');
     } catch (e: unknown) {
-      setError(getErr(e) || 'Failed to check status');
+      setError(getErrorMessage(e) || 'Failed to check status');
     } finally {
       setBusy(false);
     }
@@ -992,15 +970,15 @@ export const LicenseAdmin: React.FC = () => {
                                 {it.licenseKey}
                               </div>
                               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
-                                <span className="whitespace-nowrap">الإنشاء: {it.createdAt ? fmt(it.createdAt) : '—'}</span>
-                                <span className="whitespace-nowrap">الانتهاء: {it.expiresAt ? fmt(it.expiresAt) : '—'}</span>
+                                <span className="whitespace-nowrap">الإنشاء: {it.createdAt ? fmtDateTime(it.createdAt) : '—'}</span>
+                                <span className="whitespace-nowrap">الانتهاء: {it.expiresAt ? fmtDateTime(it.expiresAt) : '—'}</span>
                                 <span className="whitespace-nowrap">
                                   الأجهزة: {typeof it.activationsCount === 'number' ? it.activationsCount : '—'}
                                 </span>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
-                              {it.status ? <StatusBadge status={statusToArabic(it.status)} /> : null}
+                              {it.status ? <StatusBadge status={licenseStatusToArabic(it.status)} /> : null}
                               {customerLabel ? (
                                 <div className="text-xs text-slate-600 dark:text-slate-300 max-w-[12rem] truncate" title={customerLabel}>
                                   {customerLabel}
@@ -1055,17 +1033,17 @@ export const LicenseAdmin: React.FC = () => {
                     <div className="text-xs text-slate-500">status</div>
                     <div>
                       {(selectedRecord?.status || selectedItem?.status) ? (
-                        <StatusBadge status={statusToArabic(selectedRecord?.status || selectedItem?.status)} />
+                        <StatusBadge status={licenseStatusToArabic(selectedRecord?.status || selectedItem?.status)} />
                       ) : ''}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">createdAt</div>
-                    <div>{selectedRecord?.createdAt ? fmt(selectedRecord.createdAt) : selectedItem?.createdAt ? fmt(selectedItem.createdAt) : ''}</div>
+                    <div>{selectedRecord?.createdAt ? fmtDateTime(selectedRecord.createdAt) : selectedItem?.createdAt ? fmtDateTime(selectedItem.createdAt) : ''}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">expiresAt</div>
-                    <div>{selectedRecord?.expiresAt ? fmt(selectedRecord.expiresAt) : selectedItem?.expiresAt ? fmt(selectedItem.expiresAt) : ''}</div>
+                    <div>{selectedRecord?.expiresAt ? fmtDateTime(selectedRecord.expiresAt) : selectedItem?.expiresAt ? fmtDateTime(selectedItem.expiresAt) : ''}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">maxActivations</div>
@@ -1077,7 +1055,7 @@ export const LicenseAdmin: React.FC = () => {
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">lastSeenAt</div>
-                    <div>{selectedRecord?.lastSeenAt ? fmt(selectedRecord.lastSeenAt) : ''}</div>
+                    <div>{selectedRecord?.lastSeenAt ? fmtDateTime(selectedRecord.lastSeenAt) : ''}</div>
                   </div>
                 </div>
 
@@ -1118,7 +1096,7 @@ export const LicenseAdmin: React.FC = () => {
                     </Button>
                   </div>
                   <div className="text-xs text-slate-500">
-                    آخر تغيير: {selectedRecord?.statusUpdatedAt ? fmt(selectedRecord.statusUpdatedAt) : selectedItem?.statusUpdatedAt ? fmt(selectedItem.statusUpdatedAt) : ''}
+                    آخر تغيير: {selectedRecord?.statusUpdatedAt ? fmtDateTime(selectedRecord.statusUpdatedAt) : selectedItem?.statusUpdatedAt ? fmtDateTime(selectedItem.statusUpdatedAt) : ''}
                     {selectedRecord?.statusNote || selectedItem?.statusNote ? ` — ${selectedRecord?.statusNote || selectedItem?.statusNote}` : ''}
                   </div>
                 </div>
@@ -1127,7 +1105,7 @@ export const LicenseAdmin: React.FC = () => {
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">ما بعد البيع</div>
                     <div className="text-xs text-slate-500">
-                      آخر تحديث: {selectedRecord?.afterSales?.updatedAt ? fmt(selectedRecord.afterSales.updatedAt) : '—'}
+                      آخر تحديث: {selectedRecord?.afterSales?.updatedAt ? fmtDateTime(selectedRecord.afterSales.updatedAt) : '—'}
                     </div>
                   </div>
 
@@ -1417,7 +1395,7 @@ export const LicenseAdmin: React.FC = () => {
                       {selectedRecord.activations.map((a, idx) => (
                         <div key={idx} className="flex items-center justify-between gap-2">
                           <div className="font-mono break-all">{a.deviceId || ''}</div>
-                          <div className="text-xs text-slate-500">{a.at ? fmt(a.at) : ''}</div>
+                          <div className="text-xs text-slate-500">{a.at ? fmtDateTime(a.at) : ''}</div>
                         </div>
                       ))}
                     </div>
@@ -1436,7 +1414,7 @@ export const LicenseAdmin: React.FC = () => {
                             <div className="font-mono text-xs text-slate-700 dark:text-slate-200 break-all">
                               {a.action || ''}
                             </div>
-                            <div className="text-xs text-slate-500">{a.at ? fmt(a.at) : ''}</div>
+                            <div className="text-xs text-slate-500">{a.at ? fmtDateTime(a.at) : ''}</div>
                           </div>
                           {a.note ? <div className="text-xs text-slate-600 dark:text-slate-300 mt-1">{a.note}</div> : null}
                         </div>

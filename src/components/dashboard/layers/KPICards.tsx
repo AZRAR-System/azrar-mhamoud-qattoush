@@ -139,60 +139,51 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {cards.map((card, index) => {
         const Icon = card.icon;
-        const className = `app-card p-6 overflow-hidden relative group hover:shadow-md transition w-full text-right ${
-          card.onClick ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default'
+        const className = `glass-card p-6 relative group transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 border-white/40 dark:border-slate-800/60 ${
+          card.onClick ? 'cursor-pointer' : 'cursor-default'
         }`;
 
-        const content = (
-          <>
-            {/* Background Gradient */}
-            <div
-              className={`absolute -right-8 -top-8 w-32 h-32 bg-gradient-to-br ${card.color} opacity-5 rounded-full`}
-            ></div>
-
+        return (
+          <div key={index} className={className} onClick={card.onClick}>
+            {/* Background Glow */}
+            <div className={`absolute -right-4 -top-4 w-24 h-24 bg-gradient-to-br ${card.color} opacity-0 group-hover:opacity-10 blur-2xl transition-opacity duration-500 rounded-full`} />
+            
             <div className="relative z-10">
-              {/* Header with Icon */}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400">{card.title}</h3>
-                <div className={`p-3 rounded-xl ${card.bgColor}`}>
-                  <Icon className={`${card.textColor}`} size={20} />
+              <div className="flex items-start justify-between mb-5">
+                <div className={`p-4 rounded-2xl ${card.bgColor} shadow-inner group-hover:scale-110 transition-transform duration-500`}>
+                  <Icon className={`${card.textColor} group-hover:animate-pulse`} size={24} />
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                    {card.title}
+                  </span>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-gradient transition-all">
+                    {card.value}
+                  </div>
                 </div>
               </div>
 
-              {/* Value */}
-              <div className="mb-2">
-                <p className="text-3xl font-bold text-slate-900 dark:text-white">{card.value}</p>
+              <div className="pt-4 border-t border-slate-100/50 dark:border-slate-800/50 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                  <TrendingUp size={12} className={card.textColor} />
+                  <span className="truncate max-w-[150px]">{card.trend}</span>
+                </div>
+                <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${card.color} animate-pulse`} />
               </div>
 
-              {/* Trend */}
-              <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
-                <TrendingUp size={14} className={card.textColor} />
-                {card.trend}
-              </div>
-
-              {/* Progress Bar (Optional) */}
+              {/* Special Progress Bar for Occupancy */}
               {card.title === 'نسبة الإشغال' && (
-                <div className="mt-4 h-2 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className="mt-4 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
                   <div
-                    className={`h-full bg-gradient-to-r ${card.color} transition-all duration-500`}
+                    className={`h-full bg-gradient-to-r ${card.color} shadow-lg shadow-indigo-500/20 transition-all duration-1000 ease-out`}
                     style={{ width: `${data.kpis.occupancyRate}%` }}
-                  ></div>
+                  />
                 </div>
               )}
             </div>
-          </>
-        );
-
-        return card.onClick ? (
-          <button key={index} type="button" onClick={card.onClick} className={className}>
-            {content}
-          </button>
-        ) : (
-          <div key={index} className={className}>
-            {content}
           </div>
         );
       })}

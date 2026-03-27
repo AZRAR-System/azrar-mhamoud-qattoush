@@ -1,5 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect, useId, useMemo, useRef, useState, useCallback } from 'react';
 import { DbService } from '@/services/mockDb';
 import { العقارات_tbl, SmartSuggestion } from '@/types';
 import { useToast } from '@/context/ToastContext';
@@ -30,7 +29,7 @@ interface PropertyFormProps {
 }
 
 export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, onSuccess }) => {
-  const { t } = useTranslation();
+  const t = useCallback((s: string) => s, []);
   const [activeTab, setActiveTab] = useState<'basic' | 'specs' | 'reg' | 'sales' | 'notes'>(
     'basic'
   );

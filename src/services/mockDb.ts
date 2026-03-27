@@ -1,4 +1,4 @@
-﻿import { getMessageGlobalContext } from '@/utils/messageGlobalContext';
+import { getMessageGlobalContext } from '@/utils/messageGlobalContext';
 /**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
@@ -82,6 +82,100 @@ const isUnknownRecord = (value: unknown): value is UnknownRecord => {
 
 const asUnknownRecord = (value: unknown): UnknownRecord => {
   return (isUnknownRecord(value) ? value : Object.create(null)) as UnknownRecord;
+};
+
+/** Shared by addMarqueeAd / updateMarqueeAd / getMarqueeMessages — single implementation. */
+type MarqueePlainJson =
+  | null
+  | string
+  | number
+  | boolean
+  | MarqueePlainJson[]
+  | { [key: string]: MarqueePlainJson };
+
+const sanitizeMarqueeTextForDb = (raw: unknown, maxLen = 300): string => {
+  const s = String(raw ?? '')
+    // Strip bidi controls and other invisible directional markers (spoofing risk)
+    .replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F]/g, '')
+    // Strip ASCII control chars except \n/\t, then normalize whitespace
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return s.length > maxLen ? s.slice(0, maxLen) : s;
+};
+
+const createMarqueeActionSanitizers = (allowedPanels: readonly string[]) => {
+  const isAllowedPanel = (p: unknown): p is string =>
+    typeof p === 'string' && (allowedPanels as readonly string[]).includes(p);
+
+  const toPlainJsonValue = (input: unknown, depth = 0): MarqueePlainJson | undefined => {
+    if (depth > 3) return undefined;
+    if (input === null) return null;
+    if (typeof input === 'string') return sanitizeMarqueeTextForDb(input, 200);
+    if (typeof input === 'number') return Number.isFinite(input) ? input : undefined;
+    if (typeof input === 'boolean') return input;
+    if (Array.isArray(input)) {
+      const out: MarqueePlainJson[] = [];
+      for (const v of input.slice(0, 50)) {
+        const vv = toPlainJsonValue(v, depth + 1);
+        if (typeof vv !== 'undefined') out.push(vv);
+      }
+      return out;
+    }
+    if (typeof input === 'object') {
+      const rec = asUnknownRecord(input);
+      const out: { [key: string]: MarqueePlainJson } = Object.create(null);
+      const keys = Object.keys(rec).slice(0, 50);
+      for (const k of keys) {
+        if (k === '__proto__' || k === 'prototype' || k === 'constructor') continue;
+        const vv = toPlainJsonValue(rec[k], depth + 1);
+        if (typeof vv !== 'undefined') out[k] = vv;
+      }
+      return out;
+    }
+    return undefined;
+  };
+
+  const sanitizeOptions = (v: unknown): Record<string, unknown> | undefined => {
+    const plain = toPlainJsonValue(v, 0);
+    return plain && typeof plain === 'object' && !Array.isArray(plain)
+      ? (plain as Record<string, unknown>)
+      : undefined;
+  };
+
+  const sanitizeHash = (h: unknown): string | null => {
+    const s = sanitizeMarqueeTextForDb(h, 200);
+    if (!s) return null;
+    if (!s.startsWith('/')) return null;
+    if (/\s/.test(s)) return null;
+    return s;
+  };
+
+  const sanitizeAction = (a: unknown): MarqueeMessage['action'] | undefined => {
+    const rec = asUnknownRecord(a);
+    const kind = typeof rec['kind'] === 'string' ? rec['kind'].trim() : '';
+    if (kind === 'hash') {
+      const hash = sanitizeHash(rec['hash']);
+      return hash ? { kind: 'hash', hash } : undefined;
+    }
+    if (kind === 'panel') {
+      const panel = typeof rec['panel'] === 'string' ? rec['panel'].trim() : '';
+      if (!isAllowedPanel(panel)) return undefined;
+      const id = sanitizeMarqueeTextForDb(rec['id'], 80);
+      const options =
+        typeof rec['options'] !== 'undefined' ? sanitizeOptions(rec['options']) : undefined;
+      return {
+        kind: 'panel',
+        panel,
+        ...(id ? { id } : {}),
+        ...(typeof options !== 'undefined' ? { options } : {}),
+      };
+    }
+    return undefined;
+  };
+
+  return { sanitizeMarqueeText: sanitizeMarqueeTextForDb, sanitizeAction };
 };
 
 const normKeySimple = (v: unknown) => String(v ?? '').trim().toLowerCase();
@@ -4464,96 +4558,7 @@ export const DbService = {
     type?: 'alert' | 'info' | 'success';
     action?: MarqueeMessage['action'];
   }): DbResult<string> => {
-    const sanitizeMarqueeText = (raw: unknown, maxLen = 300): string => {
-      const s = String(raw ?? '')
-        // Strip bidi controls and other invisible directional markers (spoofing risk)
-        .replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F]/g, '')
-        // Strip ASCII control chars except \n/\t, then normalize whitespace
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
-        .replace(/[\r\n\t]+/g, ' ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-      return s.length > maxLen ? s.slice(0, maxLen) : s;
-    };
-
-    const allowedPanels = DbService._marqueeAllowedPanels;
-    const isAllowedPanel = (p: unknown): p is (typeof allowedPanels)[number] =>
-      typeof p === 'string' && (allowedPanels as readonly string[]).includes(p);
-
-    type PlainJson =
-      | null
-      | string
-      | number
-      | boolean
-      | PlainJson[]
-      | { [key: string]: PlainJson };
-
-    const toPlainJsonValue = (input: unknown, depth = 0): PlainJson | undefined => {
-      if (depth > 3) return undefined;
-      if (input === null) return null;
-      if (typeof input === 'string') return sanitizeMarqueeText(input, 200);
-      if (typeof input === 'number') return Number.isFinite(input) ? input : undefined;
-      if (typeof input === 'boolean') return input;
-      if (Array.isArray(input)) {
-        const out: PlainJson[] = [];
-        for (const v of input.slice(0, 50)) {
-          const vv = toPlainJsonValue(v, depth + 1);
-          if (typeof vv !== 'undefined') out.push(vv);
-        }
-        return out;
-      }
-      if (typeof input === 'object') {
-        const rec = asUnknownRecord(input);
-        const out: { [key: string]: PlainJson } = Object.create(null);
-        const keys = Object.keys(rec).slice(0, 50);
-        for (const k of keys) {
-          if (k === '__proto__' || k === 'prototype' || k === 'constructor') continue;
-          const vv = toPlainJsonValue(rec[k], depth + 1);
-          if (typeof vv !== 'undefined') out[k] = vv;
-        }
-        return out;
-      }
-      return undefined;
-    };
-
-    const sanitizeOptions = (v: unknown): Record<string, unknown> | undefined => {
-      const plain = toPlainJsonValue(v, 0);
-      return plain && typeof plain === 'object' && !Array.isArray(plain)
-        ? (plain as Record<string, unknown>)
-        : undefined;
-    };
-
-    const sanitizeHash = (h: unknown): string | null => {
-      const s = sanitizeMarqueeText(h, 200);
-      if (!s) return null;
-      // Only allow in-app routes (must start with /). No protocols.
-      if (!s.startsWith('/')) return null;
-      if (/\s/.test(s)) return null;
-      return s;
-    };
-
-    const sanitizeAction = (a: unknown): MarqueeMessage['action'] | undefined => {
-      const rec = asUnknownRecord(a);
-      const kind = typeof rec['kind'] === 'string' ? rec['kind'].trim() : '';
-      if (kind === 'hash') {
-        const hash = sanitizeHash(rec['hash']);
-        return hash ? { kind: 'hash', hash } : undefined;
-      }
-      if (kind === 'panel') {
-        const panel = typeof rec['panel'] === 'string' ? rec['panel'].trim() : '';
-        if (!isAllowedPanel(panel)) return undefined;
-        const id = sanitizeMarqueeText(rec['id'], 80);
-        const options =
-          typeof rec['options'] !== 'undefined' ? sanitizeOptions(rec['options']) : undefined;
-        return {
-          kind: 'panel',
-          panel,
-          ...(id ? { id } : {}),
-          ...(typeof options !== 'undefined' ? { options } : {}),
-        };
-      }
-      return undefined;
-    };
+    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(DbService._marqueeAllowedPanels);
 
     const content = sanitizeMarqueeText(data?.content, 300);
     if (!content) return fail('نص الإعلان مطلوب');
@@ -4598,88 +4603,7 @@ export const DbService = {
 
     const next = { ...all[idx] } as MarqueeAdRecord;
 
-    const sanitizeMarqueeText = (raw: unknown, maxLen = 300): string => {
-      const s = String(raw ?? '')
-        .replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F]/g, '')
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
-        .replace(/[\r\n\t]+/g, ' ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-      return s.length > maxLen ? s.slice(0, maxLen) : s;
-    };
-    const allowedPanels = DbService._marqueeAllowedPanels;
-    const isAllowedPanel = (p: unknown): p is (typeof allowedPanels)[number] =>
-      typeof p === 'string' && (allowedPanels as readonly string[]).includes(p);
-    type PlainJson =
-      | null
-      | string
-      | number
-      | boolean
-      | PlainJson[]
-      | { [key: string]: PlainJson };
-
-    const toPlainJsonValue = (input: unknown, depth = 0): PlainJson | undefined => {
-      if (depth > 3) return undefined;
-      if (input === null) return null;
-      if (typeof input === 'string') return sanitizeMarqueeText(input, 200);
-      if (typeof input === 'number') return Number.isFinite(input) ? input : undefined;
-      if (typeof input === 'boolean') return input;
-      if (Array.isArray(input)) {
-        const out: PlainJson[] = [];
-        for (const v of input.slice(0, 50)) {
-          const vv = toPlainJsonValue(v, depth + 1);
-          if (typeof vv !== 'undefined') out.push(vv);
-        }
-        return out;
-      }
-      if (typeof input === 'object') {
-        const rec = asUnknownRecord(input);
-        const out: { [key: string]: PlainJson } = Object.create(null);
-        const keys = Object.keys(rec).slice(0, 50);
-        for (const k of keys) {
-          if (k === '__proto__' || k === 'prototype' || k === 'constructor') continue;
-          const vv = toPlainJsonValue(rec[k], depth + 1);
-          if (typeof vv !== 'undefined') out[k] = vv;
-        }
-        return out;
-      }
-      return undefined;
-    };
-    const sanitizeOptions = (v: unknown): Record<string, unknown> | undefined => {
-      const plain = toPlainJsonValue(v, 0);
-      return plain && typeof plain === 'object' && !Array.isArray(plain)
-        ? (plain as Record<string, unknown>)
-        : undefined;
-    };
-    const sanitizeHash = (h: unknown): string | null => {
-      const s = sanitizeMarqueeText(h, 200);
-      if (!s) return null;
-      if (!s.startsWith('/')) return null;
-      if (/\s/.test(s)) return null;
-      return s;
-    };
-    const sanitizeAction = (a: unknown): MarqueeMessage['action'] | undefined => {
-      const rec = asUnknownRecord(a);
-      const kind = typeof rec['kind'] === 'string' ? rec['kind'].trim() : '';
-      if (kind === 'hash') {
-        const hash = sanitizeHash(rec['hash']);
-        return hash ? { kind: 'hash', hash } : undefined;
-      }
-      if (kind === 'panel') {
-        const panel = typeof rec['panel'] === 'string' ? rec['panel'].trim() : '';
-        if (!isAllowedPanel(panel)) return undefined;
-        const id = sanitizeMarqueeText(rec['id'], 80);
-        const options =
-          typeof rec['options'] !== 'undefined' ? sanitizeOptions(rec['options']) : undefined;
-        return {
-          kind: 'panel',
-          panel,
-          ...(id ? { id } : {}),
-          ...(typeof options !== 'undefined' ? { options } : {}),
-        };
-      }
-      return undefined;
-    };
+    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(DbService._marqueeAllowedPanels);
 
     if (typeof patch.content === 'string') {
       const content = sanitizeMarqueeText(patch.content, 300);
@@ -4731,88 +4655,7 @@ export const DbService = {
   getMarqueeMessages: (): MarqueeMessage[] => {
     const messages: MarqueeMessage[] = [];
 
-    const sanitizeMarqueeText = (raw: unknown, maxLen = 300): string => {
-      const s = String(raw ?? '')
-        .replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F]/g, '')
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
-        .replace(/[\r\n\t]+/g, ' ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-      return s.length > maxLen ? s.slice(0, maxLen) : s;
-    };
-    const allowedPanels = DbService._marqueeAllowedPanels;
-    const isAllowedPanel = (p: unknown): p is (typeof allowedPanels)[number] =>
-      typeof p === 'string' && (allowedPanels as readonly string[]).includes(p);
-    type PlainJson =
-      | null
-      | string
-      | number
-      | boolean
-      | PlainJson[]
-      | { [key: string]: PlainJson };
-
-    const toPlainJsonValue = (input: unknown, depth = 0): PlainJson | undefined => {
-      if (depth > 3) return undefined;
-      if (input === null) return null;
-      if (typeof input === 'string') return sanitizeMarqueeText(input, 200);
-      if (typeof input === 'number') return Number.isFinite(input) ? input : undefined;
-      if (typeof input === 'boolean') return input;
-      if (Array.isArray(input)) {
-        const out: PlainJson[] = [];
-        for (const v of input.slice(0, 50)) {
-          const vv = toPlainJsonValue(v, depth + 1);
-          if (typeof vv !== 'undefined') out.push(vv);
-        }
-        return out;
-      }
-      if (typeof input === 'object') {
-        const rec = asUnknownRecord(input);
-        const out: { [key: string]: PlainJson } = Object.create(null);
-        const keys = Object.keys(rec).slice(0, 50);
-        for (const k of keys) {
-          if (k === '__proto__' || k === 'prototype' || k === 'constructor') continue;
-          const vv = toPlainJsonValue(rec[k], depth + 1);
-          if (typeof vv !== 'undefined') out[k] = vv;
-        }
-        return out;
-      }
-      return undefined;
-    };
-    const sanitizeOptions = (v: unknown): Record<string, unknown> | undefined => {
-      const plain = toPlainJsonValue(v, 0);
-      return plain && typeof plain === 'object' && !Array.isArray(plain)
-        ? (plain as Record<string, unknown>)
-        : undefined;
-    };
-    const sanitizeHash = (h: unknown): string | null => {
-      const s = sanitizeMarqueeText(h, 200);
-      if (!s) return null;
-      if (!s.startsWith('/')) return null;
-      if (/\s/.test(s)) return null;
-      return s;
-    };
-    const sanitizeAction = (a: unknown): MarqueeMessage['action'] | undefined => {
-      const rec = asUnknownRecord(a);
-      const kind = typeof rec['kind'] === 'string' ? rec['kind'].trim() : '';
-      if (kind === 'hash') {
-        const hash = sanitizeHash(rec['hash']);
-        return hash ? { kind: 'hash', hash } : undefined;
-      }
-      if (kind === 'panel') {
-        const panel = typeof rec['panel'] === 'string' ? rec['panel'].trim() : '';
-        if (!isAllowedPanel(panel)) return undefined;
-        const id = sanitizeMarqueeText(rec['id'], 80);
-        const options =
-          typeof rec['options'] !== 'undefined' ? sanitizeOptions(rec['options']) : undefined;
-        return {
-          kind: 'panel',
-          panel,
-          ...(id ? { id } : {}),
-          ...(typeof options !== 'undefined' ? { options } : {}),
-        };
-      }
-      return undefined;
-    };
+    const { sanitizeMarqueeText, sanitizeAction } = createMarqueeActionSanitizers(DbService._marqueeAllowedPanels);
 
     // 0) Custom ads (user-added, time-bound)
     try {

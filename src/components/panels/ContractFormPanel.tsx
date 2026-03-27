@@ -1,5 +1,4 @@
-﻿import React, { useId, useState, useEffect, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+﻿import React, { useId, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { DbService } from '@/services/mockDb';
 import { الأشخاص_tbl, العقارات_tbl, العقود_tbl, PaymentMethodType, SmartSuggestion } from '@/types';
 import { useToast } from '@/context/ToastContext';
@@ -80,7 +79,7 @@ interface ContractFormProps {
 }
 
 export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, onSuccess }) => {
-  const { t } = useTranslation();
+  const t = useCallback((s: string) => s, []);
   const isEditMode = Boolean(id && id !== 'new');
   const baseId = useId();
   const [step, setStep] = useState(1);

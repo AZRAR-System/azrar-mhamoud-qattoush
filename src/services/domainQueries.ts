@@ -836,6 +836,11 @@ export async function peoplePickerSearchPagedSmart(payload: {
 export async function installmentsContractsPagedSmart(payload: {
   query?: string;
   filter?: 'all' | 'debt' | 'paid' | 'due' | string;
+  filterStartDate?: string;
+  filterEndDate?: string;
+  filterMinAmount?: number | '';
+  filterMaxAmount?: number | '';
+  filterPaymentMethod?: string;
   sort?: string;
   offset?: number;
   limit?: number;
@@ -874,6 +879,11 @@ export async function installmentsContractsPagedSmart(payload: {
   try {
     const q = String(payload?.query || '').trim().toLowerCase();
     const filter = String(payload?.filter || 'all');
+    const filterStartDate = String(payload?.filterStartDate || '').trim();
+    const filterEndDate = String(payload?.filterEndDate || '').trim();
+    const filterMinAmount = payload?.filterMinAmount !== undefined && payload?.filterMinAmount !== '' ? Number(payload?.filterMinAmount) : NaN;
+    const filterMaxAmount = payload?.filterMaxAmount !== undefined && payload?.filterMaxAmount !== '' ? Number(payload?.filterMaxAmount) : NaN;
+    const filterPaymentMethod = String(payload?.filterPaymentMethod || 'all');
     const sort = String(payload?.sort || 'due-asc').trim();
     const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
     const limit = Math.max(1, Math.min(200, Math.trunc(Number(payload?.limit) || 48)));
@@ -897,7 +907,8 @@ export async function installmentsContractsPagedSmart(payload: {
       if (rem <= 0) return false;
       const t = parseDate(inst?.تاريخ_استحقاق);
       if (!Number.isFinite(t)) return false;
-      return t >= now && t <= in7;
+      // "مستحق" = متأخر أو يستحق خلال 7 أيام
+      return t <= in7;
     };
     const isDebt = (inst: الكمبيالات_tbl) => {
       const rem = getRemaining(inst);
@@ -937,20 +948,50 @@ export async function installmentsContractsPagedSmart(payload: {
     if (filter === 'due') rows = rows.filter((r) => r.hasDueSoon);
     if (filter === 'paid') rows = rows.filter((r) => r.isFullyPaid);
 
+    if (filterStartDate) {
+      rows = rows.filter((r) => r.installments.some((i) => String(i?.تاريخ_استحقاق || '') >= filterStartDate));
+    }
+    if (filterEndDate) {
+      rows = rows.filter((r) => r.installments.some((i) => String(i?.تاريخ_استحقاق || '') <= filterEndDate));
+    }
+    if (!Number.isNaN(filterMinAmount)) {
+      rows = rows.filter((r) => r.installments.some((i) => Number(i?.القيمة || 0) >= filterMinAmount));
+    }
+    if (!Number.isNaN(filterMaxAmount)) {
+      rows = rows.filter((r) => r.installments.some((i) => Number(i?.القيمة || 0) <= filterMaxAmount));
+    }
+    if (filterPaymentMethod !== 'all') {
+      rows = rows.filter((r) => String(r.contract?.طريقة_الدفع || '').toLowerCase() === filterPaymentMethod.toLowerCase());
+    }
+
     const getNextDueTs = (installs: unknown[] | undefined) => {
       const list = Array.isArray(installs) ? installs : [];
-      let best = Number.POSITIVE_INFINITY;
+      let bestUnpaid = Number.POSITIVE_INFINITY;
+      let lastPaid = Number.NEGATIVE_INFINITY;
+      let bestOverall = Number.POSITIVE_INFINITY;
+
       for (const it of list) {
         const inst = it as Partial<الكمبيالات_tbl>;
         if (String(inst?.نوع_الكمبيالة ?? '').trim() === 'تأمين') continue;
         if (String(inst?.حالة_الكمبيالة ?? '').trim() === 'ملغي') continue;
-        const remaining = Math.max(0, Number(inst?.القيمة_المتبقية ?? inst?.القيمة ?? 0) || 0);
-        if (remaining <= 0) continue;
+
         const t = parseDate(inst?.تاريخ_استحقاق);
         if (!Number.isFinite(t)) continue;
-        if (t < best) best = t;
+
+        if (t < bestOverall) bestOverall = t;
+
+        const remaining = Math.max(0, Number(inst?.القيمة_المتبقية ?? inst?.القيمة ?? 0) || 0);
+        if (remaining > 0) {
+          if (t < bestUnpaid) bestUnpaid = t;
+        } else {
+          if (t > lastPaid) lastPaid = t;
+        }
       }
-      return Number.isFinite(best) ? best : NaN;
+
+      if (Number.isFinite(bestUnpaid)) return bestUnpaid;
+      if (Number.isFinite(lastPaid)) return lastPaid;
+      if (Number.isFinite(bestOverall)) return bestOverall;
+      return NaN;
     };
 
     rows.sort((a, b) => {
@@ -961,6 +1002,12 @@ export async function installmentsContractsPagedSmart(payload: {
         const bHas = Number.isFinite(bTs);
         if (aHas !== bHas) return aHas ? -1 : 1; // nulls last
         if (aHas && bHas && aTs !== bTs) return sort === 'due-asc' ? aTs - bTs : bTs - aTs;
+      }
+
+      if (sort === 'amount-asc' || sort === 'amount-desc') {
+        const aVal = Number(a.contract?.القيمة_السنوية || 0);
+        const bVal = Number(b.contract?.القيمة_السنوية || 0);
+        if (aVal !== bVal) return sort === 'amount-asc' ? aVal - bVal : bVal - aVal;
       }
 
       const aName = String(a.tenant?.الاسم ?? '').trim();

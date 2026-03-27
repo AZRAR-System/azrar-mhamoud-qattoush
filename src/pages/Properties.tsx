@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
  *
@@ -59,6 +59,8 @@ import { formatDynamicValue, isEmptyDynamicValue } from '@/components/dynamic/dy
 import { getPersonColorClasses } from '@/utils/personColor';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { useClampPage } from '@/hooks/useClampPage';
+import { useResetPageToZero } from '@/hooks/useResetPageToZero';
 import { propertyPickerSearchPagedSmart, domainCountsSmart } from '@/services/domainQueries';
 import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import { normalizeSearchText } from '@/utils/searchNormalize';
@@ -350,10 +352,15 @@ export const Properties: React.FC = () => {
     isDesktopFast,
   ]);
 
-  useEffect(() => {
-    if (isDesktopFast) return;
-    setUiPage(0);
-  }, [searchTerm, filters, occupancy, showAdvanced, advFilters, sortMode, pageSize, isDesktopFast]);
+  useResetPageToZero(!isDesktopFast, (n) => setUiPage(n), [
+    searchTerm,
+    filters,
+    occupancy,
+    showAdvanced,
+    advFilters,
+    sortMode,
+    pageSize,
+  ]);
 
   const peopleMap = useMemo(() => new Map(people.map((p) => [String(p.رقم_الشخص), p])), [people]);
   const getOwnerName = (id: string) => peopleMap.get(String(id))?.الاسم || t('غير معروف');
@@ -571,17 +578,19 @@ export const Properties: React.FC = () => {
     return filteredProperties.slice(start, start + pageSize);
   }, [filteredProperties, uiPage, pageSize]);
 
-  useEffect(() => {
-    if (!isDesktopFast) return;
-    const maxPage = Math.max(0, desktopPageCount - 1);
-    if (desktopPage > maxPage) setDesktopPage(maxPage);
-  }, [desktopPage, desktopPageCount, isDesktopFast]);
+  useClampPage({
+    enabled: isDesktopFast,
+    page: desktopPage,
+    pageCount: desktopPageCount,
+    setPage: (n) => setDesktopPage(n),
+  });
 
-  useEffect(() => {
-    if (isDesktopFast) return;
-    const maxPage = Math.max(0, uiPageCount - 1);
-    if (uiPage > maxPage) setUiPage(maxPage);
-  }, [isDesktopFast, uiPage, uiPageCount]);
+  useClampPage({
+    enabled: !isDesktopFast,
+    page: uiPage,
+    pageCount: uiPageCount,
+    setPage: (n) => setUiPage(n),
+  });
 
   const uniqueStrings = (values: unknown[]) => {
     const s = new Set<string>();
