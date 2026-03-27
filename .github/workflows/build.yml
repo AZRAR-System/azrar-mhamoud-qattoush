@@ -43,7 +43,10 @@ jobs:
       run: npm test
       continue-on-error: true
 
-    - name: Desktop E2E (autorun)
+    - name: Build Vite
+      run: npm run build
+
+    - name: Run Desktop E2E
       run: npm run desktop:e2e
       env:
         DESKTOP_DEV_TESTS_TIMEOUT_MS: '180000'

@@ -4,8 +4,6 @@ import { getMessageGlobalContext } from '@/utils/messageGlobalContext';
  * AZRAR Real Estate Management System — All Rights Reserved
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion, no-control-regex, no-useless-escape */
-
 import {
   الأشخاص_tbl,
   العقارات_tbl,
@@ -21,11 +19,9 @@ import {
   اتفاقيات_البيع_tbl,
   العمليات_tbl,
   tbl_Alerts,
-  BlacklistRecord,
   DynamicTable,
   DynamicRecord,
   DynamicFormField,
-  ReportDefinition,
   LegalNoticeTemplate,
   LegalNoticeRecord,
   ActivityRecord,
@@ -40,8 +36,6 @@ import {
   العمولات_الخارجية_tbl,
   MarqueeMessage,
   DbResult,
-  ContractDetailsResult,
-  SystemSettings,
   DashboardNote,
   SystemReminder,
   ClientInteraction,
@@ -49,7 +43,6 @@ import {
   PropertyInspection,
   ReferenceType,
   سجل_الملكية_tbl,
-  المنشآت_tbl,
 } from '../types';
 import { storage } from '@/services/storage';
 import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
@@ -92,7 +85,7 @@ import {
   getNonExpiredMarqueeAdsInternal,
   type MarqueeAdRecord,
 } from './db/marqueeInternal';
-import { buildAttachmentEntityFolder, toDateOnlySafe } from './db/attachmentPaths';
+import { buildAttachmentEntityFolder } from './db/attachmentPaths';
 import {
   stableAlertId,
   buildContractAlertContext,
