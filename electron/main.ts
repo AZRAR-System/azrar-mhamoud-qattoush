@@ -1,8 +1,9 @@
-﻿import logger from './logger';
+import logger from './logger';
 import { app, BrowserWindow, shell, session, type Event } from 'electron';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { registerIpcHandlers } from './ipc';
 import { startAutoMaintenance } from './autoMaintenance';
@@ -356,10 +357,13 @@ async function createMainWindow() {
   logger.info('[Electron] Preload path:', preloadPath);
   logger.info('[Electron] isDev:', isDev);
 
+  const buildIcon = path.join(__dirname, '..', 'build', 'icon.png');
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     show: false,
+    ...(existsSync(buildIcon) ? { icon: buildIcon } : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

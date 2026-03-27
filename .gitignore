@@ -14,6 +14,7 @@ dist-ssr/
 build/*
 !build/installer.nsh
 !build/TERMS_AND_PRIVACY.txt
+!build/icon.png
 out/
 release*/
 release2_build/
