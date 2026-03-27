@@ -55,6 +55,9 @@ const requestDomainMigrate = (opts?: { retries?: number; delayMs?: number }) => 
 
 export const getPeople = (): الأشخاص_tbl[] => get<الأشخاص_tbl>(KEYS.PEOPLE);
 
+export const getPersonById = (id: string): الأشخاص_tbl | undefined =>
+  get<الأشخاص_tbl>(KEYS.PEOPLE).find((p) => p.رقم_الشخص === id);
+
 export const getPersonRoles = (id: string): string[] =>
   get<شخص_دور_tbl>(KEYS.ROLES)
     .filter((r) => r.رقم_الشخص === id)

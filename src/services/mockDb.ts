@@ -129,6 +129,7 @@ import {
   getContactsDirectoryInternal,
   getContactsBook,
   getPeople,
+  getPersonById,
   getPersonRoles,
   updatePersonRoles,
   getPersonDetails,
@@ -143,6 +144,7 @@ import {
 
 export {
   getPeople,
+  getPersonById,
   getPersonRoles,
   updatePersonRoles,
   addPerson,
@@ -357,6 +359,7 @@ export const DbService = {
 
   // People domain: ./db/people (+ cascade delete stays here)
   getPeople,
+  getPersonById,
   getPersonRoles,
   updatePersonRoles,
   addPerson: (data: Omit<الأشخاص_tbl, 'رقم_الشخص'>, roles: string[]) =>
