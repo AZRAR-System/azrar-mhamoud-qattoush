@@ -71,6 +71,7 @@ export const INSTALLMENT_STATUS = {
 export type InstallmentStatusType = (typeof INSTALLMENT_STATUS)[keyof typeof INSTALLMENT_STATUS];
 import { buildCache, DbCache } from './dbCache';
 import { KEYS } from './db/keys';
+import { get, save } from './db/kv';
 import { SmartEngine } from './smartEngine';
 import { validateAllData } from '@/services/dataValidation';
 import type { DesktopDbBridge } from '@/types/electron.types';
@@ -428,47 +429,6 @@ const getNonExpiredMarqueeAdsInternal = (): MarqueeAdRecord[] => {
 
 const getActiveMarqueeAdsInternal = (): MarqueeAdRecord[] => {
   return getNonExpiredMarqueeAdsInternal().filter((a) => asUnknownRecord(a)['enabled'] !== false);
-};
-
-// --- DATA ACCESS LAYER ---
-
-const get = <T>(key: string): T[] => {
-  if (DbCache.isInitialized && DbCache.arrays[key]) {
-    return DbCache.arrays[key] as T[];
-  }
-  try {
-    // NOTE: In desktop mode, SQLite access is async via IPC.
-    // For now we keep sync behavior: if running in desktop mode, rely on DbCache after initial hydration.
-    const str = localStorage.getItem(key);
-    const data = str ? JSON.parse(str) : [];
-    if (DbCache.isInitialized) {
-      DbCache.arrays[key] = data;
-    }
-    return data;
-  } catch {
-    return [];
-  }
-};
-
-const save = <T>(key: string, data: T[]) => {
-  const serialized = JSON.stringify(data);
-  // Ensure sync readers see the latest value immediately.
-  localStorage.setItem(key, serialized);
-  if (DbCache.isInitialized) {
-    DbCache.arrays[key] = data;
-  }
-
-  // Persist (desktop will also write to SQLite)
-  void storage.setItem(key, serialized);
-
-  // Notify same-tab listeners (storage event won't fire in the same window).
-  try {
-    window.dispatchEvent(new CustomEvent('azrar:db-changed', { detail: { key } }));
-  } catch {
-    // ignore
-  }
-
-  buildCache();
 };
 
 const isDesktop = () =>

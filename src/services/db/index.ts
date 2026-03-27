@@ -4,3 +4,4 @@
  */
 
 export { KEYS, type DbStorageKey } from './keys';
+export { get, save } from './kv';
