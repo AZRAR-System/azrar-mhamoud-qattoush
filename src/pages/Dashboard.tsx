@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
  *
@@ -27,6 +27,7 @@ import { isRole } from '@/utils/roles';
 
 // Components
 import { KPICards } from '@/components/dashboard/layers/KPICards';
+import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
 import { OverviewLayer } from '@/components/dashboard/layers/OverviewLayer';
 import { SalesTrackingLayer } from '@/components/dashboard/layers/SalesTrackingLayer';
 import { CalendarTasksLayer } from '@/components/dashboard/layers/CalendarTasksLayer';
@@ -104,6 +105,7 @@ export const Dashboard: React.FC = () => {
   const {
     data: dashboardData,
     isRefreshing,
+    kpiLoading,
     refresh,
   } = useDashboardData({
     autoRefresh,
@@ -413,7 +415,11 @@ export const Dashboard: React.FC = () => {
 
       {/* Main KPI Section */}
       <section className="px-2">
-        <KPICards data={dashboardData} />
+        {kpiLoading ? (
+          <SkeletonCardGrid variant="kpi" count={8} />
+        ) : (
+          <KPICards data={dashboardData} />
+        )}
       </section>
 
       {/* Content Layers with Modern Tabs */}

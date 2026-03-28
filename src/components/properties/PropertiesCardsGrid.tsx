@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { PropertyListingCard } from '@/components/properties/PropertyListingCard';
 import { getPersonColorClasses } from '@/utils/personColor';
 import type { DesktopPropertyPickerItem, PropertyExtras } from '@/components/properties/propertiesTypes';
+import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
 import type { PropertiesPageModel } from '@/hooks/useProperties';
 
 type Props = { page: PropertiesPageModel };
@@ -90,6 +91,7 @@ export function PropertiesCardsGrid({ page }: Props) {
   const {
     t,
     tr,
+    loading,
     isDesktopFast,
     desktopRows,
     uiRows,
@@ -107,8 +109,11 @@ export function PropertiesCardsGrid({ page }: Props) {
   return (
     <>
       <PropertiesResultsToolbar page={page} />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(360px,1fr))]">
-        {(isDesktopFast ? desktopRows : uiRows).map(
+      {loading ? (
+        <SkeletonCardGrid count={6} variant="listing" />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(360px,1fr))]">
+          {(isDesktopFast ? desktopRows : uiRows).map(
           (rowOrProperty: DesktopPropertyPickerItem | العقارات_tbl, idx: number) => {
             const desktopItem = isDesktopFast ? (rowOrProperty as DesktopPropertyPickerItem) : null;
             const p = isDesktopFast ? desktopItem?.property : (rowOrProperty as العقارات_tbl);
@@ -219,7 +224,8 @@ export function PropertiesCardsGrid({ page }: Props) {
             );
           }
         )}
-      </div>
+        </div>
+      )}
     </>
   );
 }

@@ -69,6 +69,7 @@ export function useContracts() {
   const [fastRows, setFastRows] = useState<ContractPickerItem[]>([]);
   const [fastTotal, setFastTotal] = useState(0);
   const [fastLoading, setFastLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
   const [fastError, setFastError] = useState<string>('');
   const [fastPage, setFastPage] = useState(1);
   // Desktop fast paging uses a stable SQL page size (do not tie to responsive UI sizing).
@@ -195,6 +196,7 @@ export function useContracts() {
       setPeople([]);
       setInstallments([]);
       setFastReload((n) => n + 1);
+      setListLoading(false);
       return;
     }
 
@@ -202,6 +204,7 @@ export function useContracts() {
     setProperties(DbService.getProperties() || []);
     setPeople(DbService.getPeople() || []);
     setInstallments(DbService.getInstallments() || []);
+    setListLoading(false);
   }, [isDesktopFast]);
 
   useEffect(() => {
@@ -1091,6 +1094,8 @@ export function useContracts() {
   const desktopNoContractsKnown = desktopCountsKnown && Number(desktopCounts?.contracts || 0) <= 0;
 
   // Empty-state decisions (desktop fast mode can operate even if domainCounts is missing).
+  const loading = isDesktopFast ? fastLoading : listLoading;
+
   const showEmptyNoContracts = isDesktopFast
     ? !fastLoading &&
       (desktopNoContractsKnown ||
@@ -1099,11 +1104,11 @@ export function useContracts() {
           fastRows.length === 0 &&
           fastTotal === 0 &&
           !fastError))
-    : contracts.length === 0;
+    : contracts.length === 0 && !listLoading;
 
   const showEmptyNoResults =
     !showEmptyNoContracts &&
-    (isDesktopFast ? !fastLoading && fastRows.length === 0 : filteredContracts.length === 0);
+    (isDesktopFast ? !fastLoading && fastRows.length === 0 : filteredContracts.length === 0 && !listLoading);
   return {
     t,
     tr,
@@ -1125,6 +1130,7 @@ export function useContracts() {
     fastRows,
     fastTotal,
     fastLoading,
+    loading,
     fastError,
     fastPage,
     setFastPage,

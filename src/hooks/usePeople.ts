@@ -36,6 +36,8 @@ export function usePeople() {
   const [desktopTotal, setDesktopTotal] = useState(0);
   const [desktopPage, setDesktopPage] = useState(0);
   const [desktopLoading, setDesktopLoading] = useState(false);
+  /** Web: أول تحميل للقوائم من DbService (يُعرض عليه Skeleton) */
+  const [listLoading, setListLoading] = useState(true);
   const [desktopCounts, setDesktopCounts] = useState<{
     people: number;
     properties: number;
@@ -162,6 +164,7 @@ export function usePeople() {
         setContracts([]);
       } finally {
         setDesktopLoading(false);
+        setListLoading(false);
       }
       return;
     }
@@ -185,6 +188,7 @@ export function usePeople() {
       } catch {
         setDynamicFields([]);
       }
+      setListLoading(false);
       return;
     }
 
@@ -198,6 +202,7 @@ export function usePeople() {
     } catch {
       setDynamicFields([]);
     }
+    setListLoading(false);
   }, [isDesktopFast, desktopUnsupported, t, toast]);
 
   useEffect(() => {
@@ -774,15 +779,19 @@ export function usePeople() {
     pageSize,
   ]);
 
+  const loading = isDesktopFast ? desktopLoading : listLoading;
+
   const showEmptyNoPeople = isDesktopFast
     ? (desktopCounts?.people ?? desktopTotal) === 0 &&
       !desktopLoading &&
       !searchTerm.trim() &&
       (activeRoleTab === 'all' || !activeRoleTab)
-    : people.length === 0;
+    : people.length === 0 && !listLoading;
   const showEmptyNoResults =
     !showEmptyNoPeople &&
-    (isDesktopFast ? !desktopLoading && desktopTotal === 0 : filtered.length === 0);
+    (isDesktopFast
+      ? !desktopLoading && desktopTotal === 0
+      : filtered.length === 0 && !listLoading);
   const listVisible = !showEmptyNoPeople && !showEmptyNoResults;
 
   return {
@@ -800,6 +809,7 @@ export function usePeople() {
     desktopPage,
     setDesktopPage,
     desktopLoading,
+    loading,
     desktopCounts,
     uiPage,
     setUiPage,

@@ -3,6 +3,7 @@ import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
 import { ContractFinancialCard } from '@/components/installments/ContractFinancialCard';
 
 type Props = { page: InstallmentsPageModel };
@@ -17,6 +18,7 @@ export function InstallmentsContractsList({ page }: Props) {
     setSearch,
     desktopTotal,
     desktopLoading,
+    loading,
     desktopRows,
     desktopPage,
     setDesktopPage,
@@ -51,7 +53,37 @@ export function InstallmentsContractsList({ page }: Props) {
         </div>
       )}
       {isDesktopFast ? (
-        !desktopLoading && filter === 'all' && !search.trim() && desktopTotal === 0 ? (
+        desktopLoading ? (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-slate-500 dark:text-slate-400">...</div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled
+                  onClick={() => setDesktopPage((p) => Math.max(0, p - 1))}
+                >
+                  السابق
+                </Button>
+                <div className="text-sm text-slate-600 dark:text-slate-300">
+                  {desktopPage + 1} / {desktopPageCount}
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled
+                  onClick={() =>
+                    setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))
+                  }
+                >
+                  التالي
+                </Button>
+              </div>
+            </div>
+            <SkeletonCardGrid count={6} variant="listing" />
+          </>
+        ) : !desktopLoading && filter === 'all' && !search.trim() && desktopTotal === 0 ? (
           <EmptyState
             type="installments"
             message="لا توجد أقساط حالياً. سيتم إنشاء الأقساط تلقائياً عند إضافة عقود جديدة."
@@ -77,7 +109,7 @@ export function InstallmentsContractsList({ page }: Props) {
           <>
             <div className="flex items-center justify-between">
               <div className="text-sm text-slate-500 dark:text-slate-400">
-                {desktopLoading ? '...' : desktopTotal.toLocaleString()} عقد
+                {desktopTotal.toLocaleString()} عقد
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -134,6 +166,8 @@ export function InstallmentsContractsList({ page }: Props) {
             ))}
           </>
         )
+      ) : loading ? (
+        <SkeletonCardGrid count={6} variant="listing" />
       ) : installments.length === 0 ? (
         // حالة: لا توجد أقساط في النظام
         <EmptyState

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/Button';
 import { ContractCard } from '@/components/contracts/ContractCard';
+import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
 import type { ContractsPageModel } from '@/hooks/useContracts';
 
 type Props = { page: ContractsPageModel };
@@ -40,7 +41,7 @@ export function ContractsCardsGrid({ page }: Props) {
   const {
     t,
     isDesktopFast,
-    fastLoading,
+    loading,
     fastRows,
     uiRows,
     peopleMap,
@@ -54,14 +55,12 @@ export function ContractsCardsGrid({ page }: Props) {
     handleDelete,
   } = page;
 
+  if (loading) {
+    return <SkeletonCardGrid count={6} variant="listing" />;
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(360px,1fr))]">
-      {isDesktopFast && fastLoading ? (
-        <div className="col-span-full text-center text-slate-500 text-sm p-6">
-          {t('جاري التحميل...')}
-        </div>
-      ) : null}
-
       {isDesktopFast
         ? fastRows.map((item) => {
             const c = item.contract;

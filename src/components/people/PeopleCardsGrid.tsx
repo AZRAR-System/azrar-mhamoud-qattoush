@@ -7,6 +7,7 @@ import {
   PersonListingCardDesktop,
 } from '@/components/people/PersonListingCard';
 import { getPersonColorClasses, getPersonSeedFromPerson } from '@/utils/personColor';
+import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
 import type { PeoplePageModel } from '@/hooks/usePeople';
 
 type Props = { page: PeoplePageModel };
@@ -93,6 +94,7 @@ export function PeopleCardsGrid({ page }: Props) {
   const {
     t,
     tr,
+    loading,
     isDesktopFast,
     desktopRows,
     uiRows,
@@ -209,27 +211,31 @@ export function PeopleCardsGrid({ page }: Props) {
   return (
     <>
       <PeopleResultsToolbar page={page} />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(360px,1fr))]">
-        {isDesktopFast
-          ? desktopRows.map((r) => (
-              <PersonListingCardDesktop
-                key={r.person.رقم_الشخص}
-                row={r}
-                getPrimaryRole={getPrimaryRole}
-                getRoleClasses={getRoleClasses}
-                showDynamicColumns={showDynamicColumns}
-                dynamicFields={dynamicFields}
-                tr={tr}
-                t={t}
-                openPanel={openPanel}
-                handleOpenForm={handleOpenForm}
-                handleDelete={handleDelete}
-                handleBlacklist={handleBlacklist}
-                handleQuickReminderForPerson={handleQuickReminderForPerson}
-              />
-            ))
-          : uiRows.map((person) => renderWebCard(person))}
-      </div>
+      {loading ? (
+        <SkeletonCardGrid count={6} variant="listing" />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(360px,1fr))]">
+          {isDesktopFast
+            ? desktopRows.map((r) => (
+                <PersonListingCardDesktop
+                  key={r.person.رقم_الشخص}
+                  row={r}
+                  getPrimaryRole={getPrimaryRole}
+                  getRoleClasses={getRoleClasses}
+                  showDynamicColumns={showDynamicColumns}
+                  dynamicFields={dynamicFields}
+                  tr={tr}
+                  t={t}
+                  openPanel={openPanel}
+                  handleOpenForm={handleOpenForm}
+                  handleDelete={handleDelete}
+                  handleBlacklist={handleBlacklist}
+                  handleQuickReminderForPerson={handleQuickReminderForPerson}
+                />
+              ))
+            : uiRows.map((person) => renderWebCard(person))}
+        </div>
+      )}
     </>
   );
 }

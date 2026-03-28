@@ -49,6 +49,7 @@ export function useProperties() {
   const [desktopTotal, setDesktopTotal] = useState(0);
   const [desktopPage, setDesktopPage] = useState(0);
   const [desktopLoading, setDesktopLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
   const [desktopCounts, setDesktopCounts] = useState<{
     people: number;
     properties: number;
@@ -182,6 +183,7 @@ export function useProperties() {
           }
         } finally {
           setDesktopLoading(false);
+          setListLoading(false);
         }
         return;
       }
@@ -204,6 +206,7 @@ export function useProperties() {
         } catch {
           setDynamicFields([]);
         }
+        setListLoading(false);
         return;
       }
 
@@ -216,6 +219,7 @@ export function useProperties() {
       } catch {
         setDynamicFields([]);
       }
+      setListLoading(false);
     },
     [
       advFilters.floor,
@@ -960,12 +964,14 @@ export function useProperties() {
     window.location.hash = '#' + ROUTE_PATHS.SALES;
   };
 
+  const loading = isDesktopFast ? desktopLoading : listLoading;
+
   const showEmptyNoProperties = isDesktopFast
     ? desktopCounts?.properties === 0 && !desktopLoading
-    : properties.length === 0;
+    : properties.length === 0 && !listLoading;
   const noResultsRaw = isDesktopFast
     ? !desktopLoading && desktopTotal === 0
-    : filteredProperties.length === 0;
+    : filteredProperties.length === 0 && !listLoading;
   const showEmptyNoResults = !showEmptyNoProperties && noResultsRaw;
   const listVisible = !showEmptyNoProperties && !showEmptyNoResults;
 
@@ -984,6 +990,7 @@ export function useProperties() {
     desktopPage,
     setDesktopPage,
     desktopLoading,
+    loading,
     desktopCounts,
     uiPage,
     setUiPage,

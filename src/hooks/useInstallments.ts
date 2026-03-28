@@ -57,6 +57,7 @@ export function useInstallments() {
   const [desktopTotal, setDesktopTotal] = useState(0);
   const [desktopPage, setDesktopPage] = useState(0);
   const [desktopLoading, setDesktopLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
   const [desktopCounts, setDesktopCounts] = useState<{
     people: number;
     properties: number;
@@ -308,9 +309,11 @@ export function useInstallments() {
       } catch {
         setDynamicFields([]);
       }
+      setListLoading(false);
       return;
     }
     legacyLoadData();
+    setListLoading(false);
   }, [isDesktop, isDesktopFast, legacyLoadData, loadDesktopData]);
 
   useEffect(() => {
@@ -822,6 +825,7 @@ export function useInstallments() {
     desktopPage,
     setDesktopPage,
     desktopLoading,
+    loading: isDesktopFast ? desktopLoading : listLoading,
     setDesktopLoading,
     desktopCounts,
     setDesktopCounts,

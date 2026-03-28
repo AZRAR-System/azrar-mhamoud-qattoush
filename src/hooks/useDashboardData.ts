@@ -34,6 +34,8 @@ export interface UseDashboardDataOptions {
 export interface UseDashboardDataResult {
   data: DashboardData;
   isRefreshing: boolean;
+  /** true حتى اكتمال أول تحميل للـ KPIs والبيانات */
+  kpiLoading: boolean;
   refresh: () => void;
 }
 
@@ -193,6 +195,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const refreshData = useCallback(() => {
     void (async () => {
@@ -486,5 +489,10 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
     };
   }, [options?.autoRefresh, options?.refreshIntervalMs, refreshData]);
 
-  return { data, isRefreshing, refresh: refreshData };
+  return {
+    data,
+    isRefreshing,
+    kpiLoading: !initialLoadDone,
+    refresh: refreshData,
+  };
 };
