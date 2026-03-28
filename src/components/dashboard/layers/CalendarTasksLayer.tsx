@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 - Developed by Mahmoud Qattoush
  * Calendar & Tasks Layer - Events and task management
  */
@@ -6,46 +6,33 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Calendar,
-  Clock,
-  CheckCircle,
   AlertCircle,
   FileText,
   Zap,
-  Plus,
   Trash2,
-  Edit2,
 } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { useSmartModal } from '@/context/ModalContext';
-import { formatDateYMD, formatMonthYear, formatNumber, formatTimeFromHM } from '@/utils/format';
+import { formatDateYMD, formatMonthYear, formatNumber } from '@/utils/format';
 import { parseDateOnly, daysBetweenDateOnly, toDateOnly } from '@/utils/dateOnly';
 import { useToast } from '@/context/ToastContext';
 import { storage } from '@/services/storage';
 import type { FollowUpTask, الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types';
 import { AppModal } from '@/components/ui/AppModal';
 import { Button } from '@/components/ui/Button';
+import {
+  type KanbanTask,
+  type TaskKindFilter,
+  filterTasksByKind,
+  buildKanbanColumns,
+} from './taskBuckets';
+import { TaskTypeFilterChips } from './TaskTypeFilterChips';
+import { InlineTaskForm } from './InlineTaskForm';
+import { TasksKanbanBoard } from './TasksKanbanBoard';
 
-interface Task {
-  id: string;
-  title: string;
-  dueDate: string;
-  dueTime?: string;
-  priority: 'عالية' | 'متوسطة' | 'منخفضة';
-  status: 'pending' | 'completed';
-  category: string;
-  description?: string;
-
-  // Linked entities (optional)
-  personId?: string;
-  contractId?: string;
-  propertyId?: string;
-
-  // Cached person info (optional)
-  clientName?: string;
-  phone?: string;
-}
+type Task = KanbanTask;
 
 interface CalendarTasksLayerProps {
   data: DashboardData;
@@ -60,37 +47,21 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
   const toast = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [newTask, setNewTask] = useState<Partial<Task>>({
-    title: '',
-    dueDate: formatDateYMD(new Date()),
-    dueTime: '',
-    priority: 'متوسطة',
-    status: 'pending',
-    category: 'عام',
-    description: '',
-    personId: '',
-    contractId: '',
-    propertyId: '',
-    clientName: '',
-    phone: '',
-  });
+  const [taskKindFilter, setTaskKindFilter] = useState<TaskKindFilter>('all');
+  const [now, setNow] = useState(() => new Date());
 
   const todayStr = formatDateYMD(new Date());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const dataRef = useRef(_data);
   useEffect(() => {
     dataRef.current = _data;
   }, [_data]);
-
-  const toMinutes = (hm?: string): number | null => {
-    const raw = String(hm || '').trim();
-    if (!raw) return null;
-    const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-    if (!m) return null;
-    return Number(m[1]) * 60 + Number(m[2]);
-  };
 
   const people = useMemo(() => {
     try {
@@ -315,24 +286,15 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
     [contracts]
   );
 
-  const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a, b) => {
-      // Pending first
-      if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
+  const filteredTasks = useMemo(
+    () => filterTasksByKind(tasks, taskKindFilter),
+    [tasks, taskKindFilter]
+  );
 
-      // Then by due date
-      if (a.dueDate !== b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-
-      // Then by time within the day
-      const am = toMinutes(a.dueTime);
-      const bm = toMinutes(b.dueTime);
-      const av = am === null ? Number.POSITIVE_INFINITY : am;
-      const bv = bm === null ? Number.POSITIVE_INFINITY : bm;
-      if (av !== bv) return av - bv;
-
-      return String(a.title || '').localeCompare(String(b.title || ''));
-    });
-  }, [tasks]);
+  const kanbanColumns = useMemo(
+    () => buildKanbanColumns(filteredTasks, todayStr, now),
+    [filteredTasks, todayStr, now]
+  );
 
   const loadTasks = useCallback(() => {
     try {
@@ -434,55 +396,6 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
     window.addEventListener('azrar:tasks-changed', handler);
     return () => window.removeEventListener('azrar:tasks-changed', handler);
   }, [loadTasks]);
-
-  const handleAddTask = () => {
-    if (!newTask.title?.trim()) {
-      toast.warning('يرجى إدخال عنوان المهمة');
-      return;
-    }
-
-    const pr = String(newTask.priority || 'متوسطة');
-    const priorityKey: FollowUpTask['priority'] =
-      pr === 'عالية' ? 'High' : pr === 'منخفضة' ? 'Low' : 'Medium';
-
-    const selectedContractId = String(newTask.contractId || '').trim() || undefined;
-    const selectedPropertyId = String(newTask.propertyId || '').trim() || undefined;
-
-    const selectedPersonId = String(newTask.personId || '').trim() || undefined;
-    const personInfo = resolvePersonInfo(selectedPersonId);
-
-    DbService.addFollowUp({
-      task: newTask.title,
-      type: 'Task',
-      dueDate: newTask.dueDate || formatDateYMD(new Date()),
-      dueTime: String(newTask.dueTime || '').trim() || undefined,
-      priority: priorityKey,
-      category: newTask.category || 'عام',
-      note: newTask.description || '',
-      personId: selectedPersonId,
-      contractId: selectedContractId,
-      propertyId: selectedPropertyId,
-      clientName: personInfo.clientName,
-      phone: personInfo.phone,
-    });
-
-    loadTasks();
-    setNewTask({
-      title: '',
-      dueDate: formatDateYMD(new Date()),
-      dueTime: '',
-      priority: 'متوسطة',
-      status: 'pending',
-      category: 'عام',
-      description: '',
-      personId: '',
-      contractId: '',
-      propertyId: '',
-      clientName: '',
-      phone: '',
-    });
-    setShowAddModal(false);
-  };
 
   const handleUpdateTask = () => {
     if (!editingTask || !editingTask.title?.trim()) {
@@ -852,20 +765,23 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
         </div>
       </div>
 
-      {/* Tasks by Priority */}
+      {/* Tasks Kanban */}
       <div className="app-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-            <Zap className="text-yellow-500" />
-            قائمة المهام
-          </h3>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition shadow"
-          >
-            <Plus size={18} />
-            مهمة جديدة
-          </button>
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <Zap className="text-yellow-500" />
+              قائمة المهام
+            </h3>
+            <TaskTypeFilterChips value={taskKindFilter} onChange={setTaskKindFilter} />
+          </div>
+          <InlineTaskForm
+            defaultDueDate={todayStr}
+            onSaved={loadTasks}
+            onOpenFullPanel={(dueDateYMD) =>
+              openPanel('CALENDAR_EVENTS', dueDateYMD, { title: `مهام يوم ${dueDateYMD}` })
+            }
+          />
         </div>
 
         {tasks.length === 0 ? (
@@ -873,177 +789,24 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-2" />
             <p className="text-slate-600 dark:text-slate-400">لا توجد مهام</p>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {sortedTasks.map((task) => {
-              const now = new Date();
-              const nowMinutes = now.getHours() * 60 + now.getMinutes();
-              const taskMinutes = toMinutes(task.dueTime);
-              const isOverdueNow =
-                task.status === 'pending' &&
-                task.dueDate === todayStr &&
-                taskMinutes !== null &&
-                nowMinutes >= taskMinutes;
-
-              return (
-                <div
-                  key={task.id}
-                  className={`flex items-start gap-3 p-4 rounded-lg border transition ${
-                    task.status === 'completed'
-                      ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 opacity-60'
-                      : task.priority === 'عالية'
-                        ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
-                        : task.priority === 'متوسطة'
-                          ? 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800'
-                          : 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
-                  }`}
-                >
-                  <button
-                    onClick={() => handleToggleTask(task.id)}
-                    className="mt-1 p-1 hover:bg-white dark:hover:bg-slate-700 rounded transition flex-shrink-0"
-                    title={task.status === 'completed' ? 'تحويل إلى معلقة' : 'تحديد كمكتملة'}
-                  >
-                    <CheckCircle
-                      size={18}
-                      className={
-                        task.status === 'completed'
-                          ? 'text-green-500 fill-green-500'
-                          : 'text-gray-400'
-                      }
-                    />
-                  </button>
-
-                  <div className="flex-1">
-                    <p
-                      className={`font-medium ${task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-900 dark:text-white'}`}
-                    >
-                      {task.title}
-                    </p>
-                    {task.description && (
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                        {task.description}
-                      </p>
-                    )}
-
-                    {(() => {
-                      const personId = String(task.personId || '').trim();
-                      const contractId = String(task.contractId || '').trim();
-                      const propertyId = String(task.propertyId || '').trim();
-                      if (!personId && !contractId && !propertyId) return null;
-
-                      const person = personId ? peopleById.get(personId) : undefined;
-                      const contract = contractId ? contractsById.get(contractId) : undefined;
-                      const derivedPropertyId =
-                        propertyId || String(contract?.رقم_العقار || '').trim();
-                      const property = derivedPropertyId
-                        ? propertiesById.get(derivedPropertyId)
-                        : undefined;
-
-                      const personName = String(person?.الاسم || task.clientName || '').trim();
-                      const phone = String(task.phone || person?.رقم_الهاتف || '').trim();
-                      const propertyCode = String(property?.الكود_الداخلي || '').trim();
-
-                      const address = String(property?.العنوان || '').trim();
-                      const contractStart = contract?.تاريخ_البداية
-                        ? formatDateYMD(contract.تاريخ_البداية)
-                        : '';
-                      const contractEnd = contract?.تاريخ_النهاية
-                        ? formatDateYMD(contract.تاريخ_النهاية)
-                        : '';
-                      const contractRange =
-                        contractStart && contractEnd ? `${contractStart} → ${contractEnd}` : '';
-
-                      const ownedProperties = personId
-                        ? properties.filter((p) => String(p?.رقم_المالك || '').trim() === personId)
-                        : [];
-                      const ownedSummary = ownedProperties.length
-                        ? ownedProperties
-                            .slice()
-                            .sort((a, b) =>
-                              String(a?.الكود_الداخلي || '').localeCompare(
-                                String(b?.الكود_الداخلي || '')
-                              )
-                            )
-                            .slice(0, 3)
-                            .map((p) => String(p?.الكود_الداخلي || p?.رقم_العقار || '').trim())
-                            .filter(Boolean)
-                        : [];
-
-                      return (
-                        <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                          {personName ? <span>الشخص: {personName}</span> : null}
-                          {phone ? <span dir="ltr">{phone}</span> : null}
-                          {contractId ? <span dir="ltr">العقد: {contractId}</span> : null}
-                          {propertyCode ? (
-                            <span>العقار: {propertyCode}</span>
-                          ) : derivedPropertyId ? (
-                            <span dir="ltr">العقار: {derivedPropertyId}</span>
-                          ) : null}
-                          {contractRange ? <span dir="ltr">{contractRange}</span> : null}
-                          {address ? <span>العنوان: {address}</span> : null}
-                          {ownedProperties.length > 0 ? (
-                            <span>
-                              عقارات يملكها: {formatNumber(ownedProperties.length)}
-                              {ownedSummary.length ? ` (${ownedSummary.join('، ')})` : ''}
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })()}
-
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className="text-xs bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded">
-                        {task.category}
-                      </span>
-                      <span
-                        className={`text-xs px-2 py-1 rounded font-medium ${
-                          task.priority === 'عالية'
-                            ? 'bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200'
-                            : task.priority === 'متوسطة'
-                              ? 'bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-200'
-                              : 'bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200'
-                        }`}
-                      >
-                        {task.priority}
-                      </span>
-                      <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                        <Clock size={12} />
-                        <span dir="ltr">
-                          {task.dueDate}
-                          {task.dueTime
-                            ? ` • ${formatTimeFromHM(task.dueTime, { locale: 'en-US', hour12: true })}`
-                            : ''}
-                        </span>
-                      </span>
-
-                      {isOverdueNow && (
-                        <span className="text-xs bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded font-bold">
-                          متأخرة الآن
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => setEditingTask(task)}
-                      className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
-                      title="تعديل المهمة"
-                    >
-                      <Edit2 size={16} className="text-indigo-500" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
-                      title="حذف المهمة"
-                    >
-                      <Trash2 size={16} className="text-red-500" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+        ) : filteredTasks.length === 0 ? (
+          <div className="text-center py-8">
+            <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+            <p className="text-slate-600 dark:text-slate-400">لا توجد مهام ضمن الفلتر الحالي</p>
           </div>
+        ) : (
+          <TasksKanbanBoard
+            columns={kanbanColumns}
+            todayStr={todayStr}
+            now={now}
+            peopleById={peopleById}
+            contractsById={contractsById}
+            propertiesById={propertiesById}
+            properties={properties}
+            onToggle={handleToggleTask}
+            onEdit={setEditingTask}
+            onDelete={handleDeleteTask}
+          />
         )}
       </div>
 
@@ -1097,79 +860,32 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
         )}
       </div>
 
-      {/* Add/Edit Task Modal */}
-      {(showAddModal || editingTask) && (
+      {/* Edit Task Modal (تفاصيل كاملة) */}
+      {editingTask && (
         <AppModal
-          open={showAddModal || !!editingTask}
-          onClose={() => {
-            setShowAddModal(false);
-            setEditingTask(null);
-            setNewTask({
-              title: '',
-              dueDate: formatDateYMD(new Date()),
-              dueTime: '',
-              priority: 'متوسطة',
-              status: 'pending',
-              category: 'عام',
-              description: '',
-              personId: '',
-              contractId: '',
-              propertyId: '',
-              clientName: '',
-              phone: '',
-            });
-          }}
+          open
+          onClose={() => setEditingTask(null)}
           size="md"
           headerClassName="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white border-b border-indigo-400"
           titleClassName="text-white"
           title={
             <div className="flex flex-col">
-              <span className="text-xl font-bold leading-tight">
-                {editingTask ? 'تعديل المهمة' : 'مهمة جديدة'}
-              </span>
+              <span className="text-xl font-bold leading-tight">تعديل المهمة</span>
               <span className="text-indigo-100 text-sm font-medium mt-1">
-                إضافة أو تعديل المهام بسهولة
+                تفاصيل كاملة وربط بالكيانات
               </span>
             </div>
           }
           footer={
             <div className="flex gap-3">
-              <Button
-                type="button"
-                variant="primary"
-                className="flex-1"
-                onClick={() => {
-                  if (editingTask) {
-                    handleUpdateTask();
-                  } else {
-                    handleAddTask();
-                  }
-                }}
-              >
-                {editingTask ? 'تحديث' : 'إضافة'}
+              <Button type="button" variant="primary" className="flex-1" onClick={handleUpdateTask}>
+                تحديث
               </Button>
               <Button
                 type="button"
                 variant="secondary"
                 className="flex-1"
-                onClick={() => {
-                  setShowAddModal(false);
-                  setEditingTask(null);
-                  setNewTask({
-                    title: '',
-                    dueDate: formatDateYMD(new Date()),
-                    dueTime: '',
-                    priority: 'متوسطة',
-                    status: 'pending',
-                    category: 'عام',
-                    description: '',
-                    personId: '',
-                    contractId: '',
-                    propertyId: '',
-                    clientName: '',
-                    phone: '',
-                  });
-                }}
+                onClick={() => setEditingTask(null)}
               >
                 إلغاء
               </Button>
@@ -1185,14 +901,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
               </label>
               <input
                 type="text"
-                value={editingTask ? editingTask.title : newTask.title}
-                onChange={(e) => {
-                  if (editingTask) {
-                    setEditingTask({ ...editingTask, title: e.target.value });
-                  } else {
-                    setNewTask({ ...newTask, title: e.target.value });
-                  }
-                }}
+                value={editingTask.title}
+                onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
                 placeholder="أدخل عنوان المهمة"
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
@@ -1204,14 +914,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                 الوصف
               </label>
               <textarea
-                value={editingTask ? editingTask.description || '' : newTask.description || ''}
-                onChange={(e) => {
-                  if (editingTask) {
-                    setEditingTask({ ...editingTask, description: e.target.value });
-                  } else {
-                    setNewTask({ ...newTask, description: e.target.value });
-                  }
-                }}
+                value={editingTask.description || ''}
+                onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
                 placeholder="أدخل وصف المهمة"
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 h-20 resize-none"
               />
@@ -1223,14 +927,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                 الفئة
               </label>
               <select
-                value={editingTask ? editingTask.category : newTask.category}
-                onChange={(e) => {
-                  if (editingTask) {
-                    setEditingTask({ ...editingTask, category: e.target.value });
-                  } else {
-                    setNewTask({ ...newTask, category: e.target.value });
-                  }
-                }}
+                value={editingTask.category}
+                onChange={(e) => setEditingTask({ ...editingTask, category: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="عام">عام</option>
@@ -1249,28 +947,18 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                 الشخص (أساس المتابعة)
               </label>
               <select
-                value={editingTask ? editingTask.personId || '' : String(newTask.personId || '')}
+                value={editingTask.personId || ''}
                 onChange={(e) => {
                   const personId = String(e.target.value || '').trim();
                   const best = pickBestContractForPerson(personId);
                   const contractId = String(best?.رقم_العقد || '').trim();
                   const propertyId = String(best?.رقم_العقار || '').trim();
-
-                  if (editingTask) {
-                    setEditingTask({
-                      ...editingTask,
-                      personId: personId || undefined,
-                      contractId: contractId || undefined,
-                      propertyId: propertyId || undefined,
-                    });
-                  } else {
-                    setNewTask({
-                      ...newTask,
-                      personId: personId || undefined,
-                      contractId: contractId || undefined,
-                      propertyId: propertyId || undefined,
-                    });
-                  }
+                  setEditingTask({
+                    ...editingTask,
+                    personId: personId || undefined,
+                    contractId: contractId || undefined,
+                    propertyId: propertyId || undefined,
+                  });
                 }}
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
@@ -1299,35 +987,22 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                 العقد (اختياري)
               </label>
               <select
-                value={
-                  editingTask ? editingTask.contractId || '' : String(newTask.contractId || '')
-                }
+                value={editingTask.contractId || ''}
                 onChange={(e) => {
                   const contractId = String(e.target.value || '').trim();
                   const contract = contractId ? contractsById.get(contractId) : undefined;
                   const propertyId = String(contract?.رقم_العقار || '').trim();
-
-                  if (editingTask) {
-                    setEditingTask({
-                      ...editingTask,
-                      contractId: contractId || undefined,
-                      propertyId: propertyId || undefined,
-                    });
-                  } else {
-                    setNewTask({
-                      ...newTask,
-                      contractId: contractId || undefined,
-                      propertyId: propertyId || undefined,
-                    });
-                  }
+                  setEditingTask({
+                    ...editingTask,
+                    contractId: contractId || undefined,
+                    propertyId: propertyId || undefined,
+                  });
                 }}
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">— بدون —</option>
                 {(() => {
-                  const currentPersonId = String(
-                    editingTask ? editingTask.personId : newTask.personId || ''
-                  ).trim();
+                  const currentPersonId = String(editingTask.personId || '').trim();
                   const list = currentPersonId
                     ? contracts.filter(
                         (c) =>
@@ -1363,35 +1038,22 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                 العقار
               </label>
               <select
-                value={
-                  editingTask ? editingTask.propertyId || '' : String(newTask.propertyId || '')
-                }
+                value={editingTask.propertyId || ''}
                 onChange={(e) => {
                   const propertyId = String(e.target.value || '').trim();
                   const best = pickBestContractForProperty(propertyId);
                   const contractId = String(best?.رقم_العقد || '').trim();
-
-                  if (editingTask) {
-                    setEditingTask({
-                      ...editingTask,
-                      propertyId: propertyId || undefined,
-                      contractId: contractId || undefined,
-                    });
-                  } else {
-                    setNewTask({
-                      ...newTask,
-                      propertyId: propertyId || undefined,
-                      contractId: contractId || undefined,
-                    });
-                  }
+                  setEditingTask({
+                    ...editingTask,
+                    propertyId: propertyId || undefined,
+                    contractId: contractId || undefined,
+                  });
                 }}
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
               >
                 <option value="">— بدون —</option>
                 {(() => {
-                  const currentContractId = String(
-                    editingTask ? editingTask.contractId : newTask.contractId || ''
-                  ).trim();
+                  const currentContractId = String(editingTask.contractId || '').trim();
                   if (currentContractId) {
                     const contract = contractsById.get(currentContractId);
                     const pid = String(contract?.رقم_العقار || '').trim();
@@ -1405,9 +1067,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                     ) : null;
                   }
 
-                  const currentPersonId = String(
-                    editingTask ? editingTask.personId : newTask.personId || ''
-                  ).trim();
+                  const currentPersonId = String(editingTask.personId || '').trim();
                   const list = currentPersonId
                     ? properties.filter(
                         (p) => String(p?.رقم_المالك || '').trim() === currentPersonId
@@ -1432,7 +1092,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                     });
                 })()}
               </select>
-              {!!String(editingTask ? editingTask.contractId : newTask.contractId || '').trim() && (
+              {!!String(editingTask.contractId || '').trim() && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   يتم تعبئة العقار تلقائياً من العقد عند اختيار العقد.
                 </p>
@@ -1445,17 +1105,13 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
                 الأولوية
               </label>
               <select
-                value={editingTask ? editingTask.priority : newTask.priority}
-                onChange={(e) => {
-                  if (editingTask) {
-                    setEditingTask({
-                      ...editingTask,
-                      priority: e.target.value as Task['priority'],
-                    });
-                  } else {
-                    setNewTask({ ...newTask, priority: e.target.value as Task['priority'] });
-                  }
-                }}
+                value={editingTask.priority}
+                onChange={(e) =>
+                  setEditingTask({
+                    ...editingTask,
+                    priority: e.target.value as Task['priority'],
+                  })
+                }
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="منخفضة">منخفضة</option>
@@ -1471,14 +1127,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
               </label>
               <input
                 type="date"
-                value={editingTask ? editingTask.dueDate : newTask.dueDate || ''}
-                onChange={(e) => {
-                  if (editingTask) {
-                    setEditingTask({ ...editingTask, dueDate: e.target.value });
-                  } else {
-                    setNewTask({ ...newTask, dueDate: e.target.value });
-                  }
-                }}
+                value={editingTask.dueDate}
+                onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -1490,14 +1140,8 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
               </label>
               <input
                 type="time"
-                value={editingTask ? editingTask.dueTime || '' : String(newTask.dueTime || '')}
-                onChange={(e) => {
-                  if (editingTask) {
-                    setEditingTask({ ...editingTask, dueTime: e.target.value });
-                  } else {
-                    setNewTask({ ...newTask, dueTime: e.target.value });
-                  }
-                }}
+                value={editingTask.dueTime || ''}
+                onChange={(e) => setEditingTask({ ...editingTask, dueTime: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
