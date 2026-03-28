@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 - Developed by Mahmoud Qattoush
  * Overview Layer - Financial and system overview
  */
@@ -18,7 +18,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, Building2, Users, DollarSign } from 'lucide-react';
+import { TrendingUp, Building2, Users, DollarSign, PieChart as PieChartIcon, History } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import type { العمليات_tbl } from '@/types';
 import { formatCurrencyJOD } from '@/utils/format';
@@ -58,7 +58,15 @@ interface OverviewLayerProps {
 }
 
 export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
-  const { commissionsAll, properties, contracts, desktopAggregations, logsRaw } = data;
+  const {
+    commissionsAll,
+    properties,
+    contracts,
+    desktopAggregations,
+    logsRaw,
+    installmentStatusDonut,
+    recentOperations,
+  } = data;
 
   // ✅ Generate revenue trend data from real commissions
   const revenueTrendData = useMemo(() => {
@@ -186,6 +194,20 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
   ];
 
   const systemHealth = data.systemHealth || null;
+
+  const installmentDonutData = useMemo(() => {
+    const d = installmentStatusDonut || { paid: 0, overdue: 0, upcoming: 0 };
+    return [
+      { name: 'مدفوع', value: d.paid, color: '#10b981' },
+      { name: 'متأخر', value: d.overdue, color: '#ef4444' },
+      { name: 'قادم', value: d.upcoming, color: '#3b82f6' },
+    ];
+  }, [installmentStatusDonut]);
+
+  const installmentDonutTotal = useMemo(() => {
+    const d = installmentStatusDonut || { paid: 0, overdue: 0, upcoming: 0 };
+    return d.paid + d.overdue + d.upcoming;
+  }, [installmentStatusDonut]);
 
   const recentActivities = useMemo(() => {
     try {
@@ -411,6 +433,101 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
                   {systemHealth.status}
                 </p>
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Installment status donut + latest operations */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="app-card p-6 overflow-visible">
+          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <PieChartIcon className="text-indigo-500" />
+            حالات الأقساط (مدفوع / متأخر / قادم)
+          </h3>
+          {installmentDonutTotal === 0 ? (
+            <div className="text-center py-10 text-slate-500 dark:text-slate-400 text-sm">
+              لا توجد أقساط كافية لعرض التوزيع
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={installmentDonutData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={68}
+                  outerRadius={100}
+                  paddingAngle={2}
+                  dataKey="value"
+                  nameKey="name"
+                  label={({ name, value }) => `${name}: ${value}`}
+                >
+                  {installmentDonutData.map((entry, index) => (
+                    <Cell key={`donut-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => [value, 'العدد']}
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: '8px',
+                    color: '#e2e8f0',
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="app-card p-6 overflow-visible">
+          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <History className="text-emerald-500" />
+            أحدث 5 عمليات (مدفوعات / عقود)
+          </h3>
+          {!recentOperations?.length ? (
+            <div className="text-center py-10 text-slate-500 dark:text-slate-400 text-sm">
+              لا توجد عمليات حديثة
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-600">
+                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">النوع</th>
+                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">التفاصيل</th>
+                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">التاريخ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentOperations.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="border-b border-slate-100 dark:border-slate-700/80 last:border-0"
+                    >
+                      <td className="py-2.5 px-2">
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-black ${
+                            row.kind === 'payment'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                              : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200'
+                          }`}
+                        >
+                          {row.kind === 'payment' ? 'دفعة' : 'عقد'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2 text-slate-700 dark:text-slate-200">
+                        <div className="font-bold">{row.title}</div>
+                        <div className="text-xs text-slate-500">{row.detail}</div>
+                      </td>
+                      <td className="py-2.5 px-2 whitespace-nowrap text-slate-600 dark:text-slate-400 font-mono text-xs">
+                        {row.at}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

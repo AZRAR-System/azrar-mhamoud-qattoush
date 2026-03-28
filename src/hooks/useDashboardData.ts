@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/context/ToastContext';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant } from '@/utils/tenancy';
+import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import type { PaymentNotificationTarget } from '@/services/mockDb';
 import type {
   FollowUpTask,
@@ -63,6 +64,12 @@ export interface DashboardData {
     totalProperties: number;
     totalContracts: number;
     occupiedProperties: number;
+    /** أقساط مستحقة اليوم (متبقٍ > 0) */
+    dueTodayInstallmentsCount: number;
+    /** عقود سارية تنتهي خلال 30 يوماً */
+    expiringContracts30dCount: number;
+    /** مجموع المتبقي للأقساط المتأخرة (غير مدفوعة بعد تاريخ الاستحقاق) */
+    overdueCollectionAmount: number;
   };
 
   performance?: {
@@ -138,6 +145,22 @@ export interface DashboardData {
   salesAgreements: اتفاقيات_البيع_tbl[];
   followUps: FollowUpTask[];
   alertsRaw: tbl_Alerts[];
+
+  /** توزيع أقساط للمخطط الدائري: مدفوع / متأخر / قادم */
+  installmentStatusDonut: {
+    paid: number;
+    overdue: number;
+    upcoming: number;
+  };
+
+  /** آخر عمليات للواجهة: مدفوعات أو عقود */
+  recentOperations: Array<{
+    id: string;
+    kind: 'payment' | 'contract';
+    title: string;
+    detail: string;
+    at: string;
+  }>;
 }
 
 export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboardDataResult => {
@@ -164,6 +187,9 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
       totalProperties: 0,
       totalContracts: 0,
       occupiedProperties: 0,
+      dueTodayInstallmentsCount: 0,
+      expiringContracts30dCount: 0,
+      overdueCollectionAmount: 0,
     },
     sales: {
       newOffers: 0,
@@ -192,6 +218,8 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
     salesAgreements: [],
     followUps: [],
     alertsRaw: [],
+    installmentStatusDonut: { paid: 0, overdue: 0, upcoming: 0 },
+    recentOperations: [],
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -351,6 +379,102 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           ? await dashboardHighlightsSmart({ todayYMD })
           : null;
 
+        const installmentsForStats = DbService.getInstallments();
+        const contractsForKpi =
+          !isDesktopFast && contracts.length > 0 ? contracts : DbService.getContracts();
+
+        const limit30d = toYMD(
+          new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30)
+        );
+
+        let dueTodayInstallmentsCount = 0;
+        let overdueCollectionAmount = 0;
+        let donutPaid = 0;
+        let donutOverdue = 0;
+        let donutUpcoming = 0;
+
+        for (const inst of installmentsForStats) {
+          if (String(inst?.نوع_الكمبيالة || '').trim() === 'تأمين') continue;
+          const due = String(inst.تاريخ_استحقاق || '').slice(0, 10);
+          const { remaining } = getInstallmentPaidAndRemaining(inst);
+          const isPaid =
+            remaining <= 0 || String(inst?.حالة_الكمبيالة || '').trim() === 'مدفوع';
+          if (isPaid) {
+            donutPaid++;
+            continue;
+          }
+          if (due < todayYMD) {
+            donutOverdue++;
+            overdueCollectionAmount += Math.max(0, remaining);
+          } else {
+            donutUpcoming++;
+          }
+          if (due === todayYMD && remaining > 0) dueTodayInstallmentsCount++;
+        }
+
+        if (isDesktopFast && desktopHighlights?.dueInstallmentsToday?.length) {
+          dueTodayInstallmentsCount = desktopHighlights.dueInstallmentsToday.filter(
+            (r) => Number(r.remaining ?? 0) > 0
+          ).length;
+        }
+
+        let expiringContracts30dCount = 0;
+        for (const c of contractsForKpi) {
+          if (!isTenancyRelevant(c)) continue;
+          const end = String(c.تاريخ_النهاية || '').slice(0, 10);
+          if (!end || end < todayYMD || end > limit30d) continue;
+          expiringContracts30dCount++;
+        }
+        if (isDesktopFast && Array.isArray(desktopHighlights?.expiringContracts)) {
+          expiringContracts30dCount = desktopHighlights.expiringContracts.filter((row) => {
+            const end = String(row.endDate || '').slice(0, 10);
+            return end >= todayYMD && end <= limit30d;
+          }).length;
+        }
+
+        const recentOperations: DashboardData['recentOperations'] = (() => {
+          type Row = DashboardData['recentOperations'][number] & { ts: number };
+          const rows: Row[] = [];
+          for (const i of installmentsForStats) {
+            if (String(i?.حالة_الكمبيالة || '').trim() !== 'مدفوع') continue;
+            const paidAt = toRecord(i as unknown)['تاريخ_الدفع'];
+            const at =
+              typeof paidAt === 'string' && paidAt.trim()
+                ? paidAt.slice(0, 10)
+                : String(i.تاريخ_استحقاق || '').slice(0, 10);
+            const ts = new Date(at).getTime();
+            if (!Number.isFinite(ts)) continue;
+            rows.push({
+              id: `pay-${i.رقم_الكمبيالة}`,
+              kind: 'payment',
+              title: 'سداد قسط',
+              detail: `عقد ${i.رقم_العقد}`,
+              at,
+              ts,
+            });
+          }
+          for (const c of contractsForKpi) {
+            const cr = c as unknown as Record<string, unknown>;
+            const raw = cr['تاريخ_الانشاء'] ?? cr['تاريخ_الإنشاء'];
+            const created = typeof raw === 'string' && raw.trim() ? raw.slice(0, 10) : '';
+            if (!created) continue;
+            const ts = new Date(created).getTime();
+            if (!Number.isFinite(ts)) continue;
+            rows.push({
+              id: `ctr-${c.رقم_العقد}`,
+              kind: 'contract',
+              title: 'تسجيل عقد',
+              detail: String(c.رقم_العقد),
+              at: created,
+              ts,
+            });
+          }
+          return rows
+            .sort((a, b) => b.ts - a.ts)
+            .slice(0, 5)
+            .map(({ ts: _t, ...rest }) => rest);
+        })();
+
         setData({
           meta: {
             updatedAt: Date.now(),
@@ -378,6 +502,9 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
               ? Number(desktopSummary?.totalContracts || 0) || 0
               : contracts.length,
             occupiedProperties,
+            dueTodayInstallmentsCount,
+            expiringContracts30dCount,
+            overdueCollectionAmount,
           },
 
           performance: desktopPerf
@@ -443,6 +570,12 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           salesAgreements,
           followUps,
           alertsRaw: alerts,
+          installmentStatusDonut: {
+            paid: donutPaid,
+            overdue: donutOverdue,
+            upcoming: donutUpcoming,
+          },
+          recentOperations,
         });
       } catch (error: unknown) {
         console.error('Error refreshing dashboard data:', error);
@@ -453,6 +586,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         toast.error(detail, 'فشل تحميل لوحة التحكم');
       } finally {
         setIsRefreshing(false);
+        setInitialLoadDone(true);
       }
     })();
   }, [toast]);

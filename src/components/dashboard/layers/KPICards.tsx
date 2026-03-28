@@ -4,7 +4,19 @@
  */
 
 import React from 'react';
-import { TrendingUp, DollarSign, Briefcase, Home, AlertTriangle, Bell, Users } from 'lucide-react';
+import {
+  TrendingUp,
+  DollarSign,
+  Briefcase,
+  Home,
+  AlertTriangle,
+  Bell,
+  Users,
+  CalendarDays,
+  Timer,
+  Wallet,
+  ListTodo,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { DashboardData } from '@/hooks/useDashboardData';
 import { useSmartModal } from '@/context/ModalContext';
@@ -44,6 +56,19 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     window.location.hash = `${path}${suffix}`;
   };
 
+  const goInstallments = () => navigateTo(ROUTE_PATHS.INSTALLMENTS);
+  const goInstallmentsDebt = () => navigateToWithQuery(ROUTE_PATHS.INSTALLMENTS, { filter: 'debt' });
+  const goContractsExpiring = () =>
+    navigateToWithQuery(ROUTE_PATHS.CONTRACTS, { status: 'expiring' });
+  const goDashboardCalendar = () => {
+    try {
+      localStorage.setItem('dashboard_active_layer', 'calendar');
+    } catch {
+      void 0;
+    }
+    navigateTo(ROUTE_PATHS.DASHBOARD);
+  };
+
   const totalProperties = Number(data.kpis.totalProperties || 0) || 0;
   const occupiedCount =
     Number(
@@ -54,6 +79,46 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     (data.alerts?.critical || 0) + (data.alerts?.warning || 0) + (data.alerts?.info || 0);
 
   const cards: KPICard[] = [
+    {
+      title: 'أقساط اليوم',
+      value: formatNumber(data.kpis.dueTodayInstallmentsCount ?? 0),
+      icon: CalendarDays,
+      color: 'from-sky-500 to-blue-600',
+      textColor: 'text-sky-600',
+      bgColor: 'bg-sky-50 dark:bg-sky-900/20',
+      trend: 'قسط مستحق اليوم (متبقي) — اضغط للانتقال إلى الأقساط',
+      onClick: goInstallments,
+    },
+    {
+      title: 'عقود تنتهي قريباً (30 يوماً)',
+      value: formatNumber(data.kpis.expiringContracts30dCount ?? 0),
+      icon: Timer,
+      color: 'from-rose-500 to-orange-500',
+      textColor: 'text-rose-600',
+      bgColor: 'bg-rose-50 dark:bg-rose-900/20',
+      trend: 'عقود سارية تنتهي خلال 30 يوماً',
+      onClick: goContractsExpiring,
+    },
+    {
+      title: 'متأخرات التحصيل',
+      value: formatCurrencyJOD(data.kpis.overdueCollectionAmount ?? 0),
+      icon: Wallet,
+      color: 'from-red-600 to-rose-700',
+      textColor: 'text-red-600',
+      bgColor: 'bg-red-50 dark:bg-red-900/20',
+      trend: 'مجموع المتبقي للأقساط المتأخرة',
+      onClick: goInstallmentsDebt,
+    },
+    {
+      title: 'مهام متأخرة',
+      value: formatNumber(data.tasks?.overdue ?? 0),
+      icon: ListTodo,
+      color: 'from-violet-500 to-purple-600',
+      textColor: 'text-violet-600',
+      bgColor: 'bg-violet-50 dark:bg-violet-900/20',
+      trend: 'متابعات معلّقة بتاريخ مرّ — طبقة التقويم',
+      onClick: goDashboardCalendar,
+    },
     {
       title: 'إيرادات الشهر الحالي',
       value: formatCurrencyJOD(data.kpis.totalRevenue),
@@ -126,7 +191,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
       {cards.map((card, index) => {
         const Icon = card.icon;
         const className = `glass-card p-6 relative group transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 border-white/40 dark:border-slate-800/60 ${
