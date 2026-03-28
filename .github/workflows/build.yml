@@ -25,12 +25,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: '22'
         cache: 'npm'
@@ -52,7 +52,7 @@ jobs:
     # Desktop E2E omitted: needs a real Electron/desktop environment; run locally: npm run desktop:e2e
 
     - name: Upload coverage
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         files: ./coverage/lcov.info
         flags: unittests
@@ -70,10 +70,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: '22'
         cache: 'npm'
@@ -101,10 +101,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: '22'
         cache: 'npm'
@@ -135,7 +135,7 @@ jobs:
         CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: azrar-desktop-windows
         path: |
@@ -154,7 +154,7 @@ jobs:
         }
 
     - name: Upload Checksums
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: checksums
         path: release2_build/checksums.txt
@@ -173,16 +173,16 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Download Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: azrar-desktop-windows
         path: ./artifacts
 
     - name: Download Checksums
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: checksums
         path: ./artifacts
