@@ -11,7 +11,9 @@ import { getTenancyStatusScore, isTenancyRelevant } from '@/utils/tenancy';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useClampPage } from '@/hooks/useClampPage';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useResetPageToZero } from '@/hooks/useResetPageToZero';
+import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
 import { propertyPickerSearchPagedSmart, domainCountsSmart } from '@/services/domainQueries';
 import { normalizeSearchText } from '@/utils/searchNormalize';
 import {
@@ -44,6 +46,7 @@ export function useProperties() {
 
   const warnedUnsupportedRef = useRef(false);
   const desktopRequestIdRef = useRef(0);
+  const desktopPageRef = useRef(0);
 
   const [desktopRows, setDesktopRows] = useState<DesktopPropertyPickerItem[]>([]);
   const [desktopTotal, setDesktopTotal] = useState(0);
@@ -63,29 +66,56 @@ export function useProperties() {
 
   const tr = useCallback((text: string) => (/[\u0600-\u06FF]/.test(text) ? t(text) : text), [t]);
 
+  type PropertiesFiltersSaved = {
+    searchTerm?: string;
+    filters?: {
+      status: string;
+      type: string;
+      furnishing: string;
+      sale: SaleFilter;
+      rent: RentFilter;
+    };
+    sortMode?: 'code-asc' | 'code-desc' | 'updated-desc' | 'updated-asc';
+    occupancy?: 'all' | 'rented' | 'vacant';
+    showAdvanced?: boolean;
+    advFilters?: {
+      minArea: string;
+      maxArea: string;
+      minPrice: string;
+      maxPrice: string;
+      floor: string;
+      contractLink: ContractLinkFilter;
+    };
+  };
+
+  const savedPropFilters = readSessionFilterJson<PropertiesFiltersSaved>('properties');
+
   const [showDynamicColumns, setShowDynamicColumns] = useState(false);
   const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => savedPropFilters?.searchTerm ?? '');
   const [filters, setFilters] = useState<{
     status: string;
     type: string;
     furnishing: string;
     sale: SaleFilter;
     rent: RentFilter;
-  }>({
+  }>(() => ({
     status: '',
     type: '',
     furnishing: '',
     sale: '',
     rent: '',
-  });
+    ...(savedPropFilters?.filters || {}),
+  }));
   const [sortMode, setSortMode] = useState<
     'code-asc' | 'code-desc' | 'updated-desc' | 'updated-asc'
-  >('code-asc');
-  const [occupancy, setOccupancy] = useState<'all' | 'rented' | 'vacant'>('all');
+  >(() => savedPropFilters?.sortMode ?? 'code-asc');
+  const [occupancy, setOccupancy] = useState<'all' | 'rented' | 'vacant'>(
+    () => savedPropFilters?.occupancy ?? 'all'
+  );
 
   // Advanced Filters
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(() => savedPropFilters?.showAdvanced ?? false);
   const [advFilters, setAdvFilters] = useState({
     minArea: '',
     maxArea: '',
@@ -93,12 +123,28 @@ export function useProperties() {
     maxPrice: '',
     floor: '',
     contractLink: 'all' as ContractLinkFilter,
+    ...(savedPropFilters?.advFilters || {}),
   });
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  desktopPageRef.current = desktopPage;
 
   const { openPanel } = useSmartModal();
   const toast = useToast();
 
   const dbSignal = useDbSignal();
+
+  useEffect(() => {
+    writeSessionFilterJson('properties', {
+      searchTerm,
+      filters,
+      sortMode,
+      occupancy,
+      showAdvanced,
+      advFilters,
+    });
+  }, [searchTerm, filters, sortMode, occupancy, showAdvanced, advFilters]);
 
   // Support deep links: #/properties?occupancy=rented|vacant&q=...
   useEffect(() => {
@@ -151,7 +197,7 @@ export function useProperties() {
           const contractLink = showAdvanced ? advFilters.contractLink || 'all' : 'all';
 
           const res = await propertyPickerSearchPagedSmart({
-            query: String(searchTerm || ''),
+            query: String(debouncedSearchTerm || ''),
             status: String(filters.status || ''),
             type: String(filters.type || ''),
             furnishing: String(filters.furnishing || ''),
@@ -229,7 +275,6 @@ export function useProperties() {
       advFilters.minArea,
       advFilters.minPrice,
       advFilters.contractLink,
-      desktopPage,
       desktopUnsupported,
       filters.furnishing,
       filters.rent,
@@ -238,7 +283,7 @@ export function useProperties() {
       filters.type,
       isDesktopFast,
       occupancy,
-      searchTerm,
+      debouncedSearchTerm,
       showAdvanced,
       sortMode,
       t,
@@ -247,9 +292,7 @@ export function useProperties() {
   );
 
   const loadDataRef = useRef(loadData);
-  useEffect(() => {
-    loadDataRef.current = loadData;
-  }, [loadData]);
+  loadDataRef.current = loadData;
 
   useEffect(() => {
     void loadDataRef.current();
@@ -257,17 +300,15 @@ export function useProperties() {
 
   useEffect(() => {
     if (!isDesktopFast) return;
-
-    // Debounce SQL-backed search/filter fetches for a more instant feel while typing.
-    const handle = window.setTimeout(() => {
-      setDesktopPage(0);
-      void loadData(0);
-    }, 180);
-
-    return () => window.clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setDesktopPage((prev) => {
+      if (prev === 0) {
+        void loadDataRef.current(0);
+        return prev;
+      }
+      return 0;
+    });
   }, [
-    searchTerm,
+    debouncedSearchTerm,
     filters.status,
     filters.type,
     filters.sale,
@@ -284,6 +325,11 @@ export function useProperties() {
     advFilters.contractLink,
     isDesktopFast,
   ]);
+
+  useEffect(() => {
+    if (!isDesktopFast) return;
+    void loadDataRef.current();
+  }, [desktopPage, isDesktopFast]);
 
   useResetPageToZero(!isDesktopFast, (n) => setUiPage(n), [
     searchTerm,
@@ -791,7 +837,7 @@ export function useProperties() {
       const limit = 500;
       while (true) {
         const res = await propertyPickerSearchPagedSmart({
-          query: String(searchTerm || ''),
+          query: String(debouncedSearchTerm || ''),
           status: String(filters.status || ''),
           type: String(filters.type || ''),
           furnishing: String(filters.furnishing || ''),
@@ -910,6 +956,24 @@ export function useProperties() {
     );
     toast.success(t('تم التصدير بنجاح'));
   };
+
+  const clearFilters = useCallback(() => {
+    setSearchTerm('');
+    setFilters({ status: '', type: '', furnishing: '', sale: '', rent: '' });
+    setSortMode('code-asc');
+    setOccupancy('all');
+    setShowAdvanced(false);
+    setAdvFilters({
+      minArea: '',
+      maxArea: '',
+      minPrice: '',
+      maxPrice: '',
+      floor: '',
+      contractLink: 'all',
+    });
+    setUiPage(0);
+    setDesktopPage(0);
+  }, []);
 
   const filterOptions = useMemo(() => {
     // Auto-generate from Lookups (Settings -> جداول البيانات) so any added item appears automatically.
@@ -1037,6 +1101,7 @@ export function useProperties() {
     showEmptyNoProperties,
     showEmptyNoResults,
     listVisible,
+    clearFilters,
   };
 
 }

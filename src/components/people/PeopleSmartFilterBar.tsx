@@ -39,6 +39,7 @@ export function PeopleSmartFilterBar({ page }: Props) {
     handleExport,
     handleOpenForm,
     handleOpenCompanyForm,
+    clearFilters,
   } = page;
 
   return (
@@ -48,6 +49,7 @@ export function PeopleSmartFilterBar({ page }: Props) {
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
       searchPlaceholder={t('بحث: الاسم، الهاتف، الرقم الوطني...')}
+      onClearFilters={clearFilters}
       onRefresh={() => void loadData()}
       extraActions={
         <div className="flex flex-wrap items-center justify-end gap-2">

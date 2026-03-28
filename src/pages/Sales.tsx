@@ -34,6 +34,7 @@ import { DS } from '@/constants/designSystem';
 import { computeEmployeeCommission } from '@/utils/employeeCommission';
 import { formatCurrencyJOD } from '@/utils/format';
 import { getErrorMessage } from '@/utils/errors';
+import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
 
 // --- SUB-COMPONENT: SALES DASHBOARD ---
 const SalesDashboard = () => {
@@ -161,9 +162,14 @@ export const Sales: React.FC = () => {
   const [agreements, setAgreements] = useState<اتفاقيات_البيع_tbl[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saleOnly, setSaleOnly] = useState(false);
+  type SalesFiltersSaved = { listingMarketingFilter?: 'all' | 'sale-only' | 'also-rentable' };
+  const savedSalesFilters = readSessionFilterJson<SalesFiltersSaved>('sales');
   const [listingMarketingFilter, setListingMarketingFilter] = useState<
     'all' | 'sale-only' | 'also-rentable'
-  >('all');
+  >(() => {
+    const v = savedSalesFilters?.listingMarketingFilter;
+    return v === 'sale-only' || v === 'also-rentable' || v === 'all' ? v : 'all';
+  });
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
   const [editingAgreementId, setEditingAgreementId] = useState<string | null>(null);
 
@@ -228,6 +234,10 @@ export const Sales: React.FC = () => {
     window.addEventListener('resize', compute);
     return () => window.removeEventListener('resize', compute);
   }, []);
+
+  useEffect(() => {
+    writeSessionFilterJson('sales', { listingMarketingFilter });
+  }, [listingMarketingFilter]);
 
   useEffect(() => {
     if (activeTab === 'agreements') setAgreementsPage(1);
@@ -860,22 +870,32 @@ export const Sales: React.FC = () => {
                 >
                   {t('تصنيف عروض البيع حسب الإيجار')}
                 </label>
-                <select
-                  id="listingMarketingFilter"
-                  aria-label={t('تصنيف عروض البيع حسب الإيجار')}
-                  value={listingMarketingFilter}
-                  onChange={(e) => {
-                    const next = String(e.target.value || '').trim();
-                    if (next === 'all' || next === 'sale-only' || next === 'also-rentable') {
-                      setListingMarketingFilter(next);
-                    }
-                  }}
-                  className="border-none p-3 px-5 rounded-xl text-xs font-black bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-soft outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all"
-                >
-                  <option value="all">{t('الكل')}</option>
-                  <option value="also-rentable">{t('معروضة للبيع (قد تكون للإيجار أيضاً)')}</option>
-                  <option value="sale-only">{t('للبيع فقط (غير متاح للإيجار)')}</option>
-                </select>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    id="listingMarketingFilter"
+                    aria-label={t('تصنيف عروض البيع حسب الإيجار')}
+                    value={listingMarketingFilter}
+                    onChange={(e) => {
+                      const next = String(e.target.value || '').trim();
+                      if (next === 'all' || next === 'sale-only' || next === 'also-rentable') {
+                        setListingMarketingFilter(next);
+                      }
+                    }}
+                    className="border-none p-3 px-5 rounded-xl text-xs font-black bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-soft outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  >
+                    <option value="all">{t('الكل')}</option>
+                    <option value="also-rentable">{t('معروضة للبيع (قد تكون للإيجار أيضاً)')}</option>
+                    <option value="sale-only">{t('للبيع فقط (غير متاح للإيجار)')}</option>
+                  </select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl text-xs font-black"
+                    onClick={() => setListingMarketingFilter('all')}
+                  >
+                    {t('مسح الفلاتر')}
+                  </Button>
+                </div>
               </div>
               {listingStatusOrder.map((status) => {
                 const rows = listings

@@ -19,6 +19,8 @@ import {
   todayDateOnlyISO,
 } from '@/utils/dateOnly';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { useDebounce } from '@/hooks/useDebounce';
+import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
 import {
   domainCountsSmart,
   domainGetSmart,
@@ -65,24 +67,62 @@ export function useInstallments() {
   } | null>(null);
   const [desktopError, setDesktopError] = useState('');
   const warnedDesktopErrorRef = useRef<string>('');
+  const desktopPageRef = useRef(0);
 
   const [showDynamicColumns] = useState(false);
   const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
 
-  const [filter, setFilter] = useState<'all' | 'debt' | 'paid' | 'due'>('all');
-  const [search, setSearch] = useState('');
+  type InstallmentsFiltersSaved = {
+    filter?: 'all' | 'debt' | 'paid' | 'due';
+    search?: string;
+    sortMode?:
+      | 'tenant-asc'
+      | 'tenant-desc'
+      | 'due-asc'
+      | 'due-desc'
+      | 'amount-asc'
+      | 'amount-desc';
+    isAdvancedFiltersOpen?: boolean;
+    filterStartDate?: string;
+    filterEndDate?: string;
+    filterMinAmount?: number | '';
+    filterMaxAmount?: number | '';
+    filterPaymentMethod?: string;
+    showCharts?: boolean;
+  };
+
+  const savedInstFilters = readSessionFilterJson<InstallmentsFiltersSaved>('installments');
+
+  const [filter, setFilter] = useState<'all' | 'debt' | 'paid' | 'due'>(
+    () => savedInstFilters?.filter ?? 'all'
+  );
+  const [search, setSearch] = useState(() => savedInstFilters?.search ?? '');
   const [sortMode, setSortMode] = useState<
     'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc' | 'amount-asc' | 'amount-desc'
-  >('due-asc');
+  >(() => savedInstFilters?.sortMode ?? 'due-asc');
+
+  const debouncedSearch = useDebounce(search, 300);
+
+  desktopPageRef.current = desktopPage;
 
   // Advanced Filters State
-  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
-  const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate, setFilterEndDate] = useState('');
-  const [filterMinAmount, setFilterMinAmount] = useState<number | ''>('');
-  const [filterMaxAmount, setFilterMaxAmount] = useState<number | ''>('');
-  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>('all');
-  const [showCharts, setShowCharts] = useState(false);
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(
+    () => savedInstFilters?.isAdvancedFiltersOpen ?? false
+  );
+  const [filterStartDate, setFilterStartDate] = useState(
+    () => savedInstFilters?.filterStartDate ?? ''
+  );
+  const [filterEndDate, setFilterEndDate] = useState(() => savedInstFilters?.filterEndDate ?? '');
+  const [filterMinAmount, setFilterMinAmount] = useState<number | ''>(
+    () => savedInstFilters?.filterMinAmount ?? ''
+  );
+  const [filterMaxAmount, setFilterMaxAmount] = useState<number | ''>(
+    () => savedInstFilters?.filterMaxAmount ?? ''
+  );
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>(
+    () => savedInstFilters?.filterPaymentMethod ?? 'all'
+  );
+  const [showCharts, setShowCharts] = useState(() => savedInstFilters?.showCharts ?? false);
 
   // Favorite Filters logic
   const [favoriteFilters, setFavoriteFilters] = useState<
@@ -175,6 +215,32 @@ export function useInstallments() {
 
   const dbSignal = useDbSignal();
 
+  useEffect(() => {
+    writeSessionFilterJson('installments', {
+      filter,
+      search,
+      sortMode,
+      isAdvancedFiltersOpen,
+      filterStartDate,
+      filterEndDate,
+      filterMinAmount,
+      filterMaxAmount,
+      filterPaymentMethod,
+      showCharts,
+    });
+  }, [
+    filter,
+    search,
+    sortMode,
+    isAdvancedFiltersOpen,
+    filterStartDate,
+    filterEndDate,
+    filterMinAmount,
+    filterMaxAmount,
+    filterPaymentMethod,
+    showCharts,
+  ]);
+
   // Support deep links: #/installments?filter=due|debt|paid|all&q=...
   useEffect(() => {
     const applyFromHash = () => {
@@ -244,7 +310,7 @@ export function useInstallments() {
       }
 
       const res = await installmentsContractsPagedSmart({
-        query: String(search || ''),
+        query: String(debouncedSearch || ''),
         filter,
         filterStartDate,
         filterEndDate,
@@ -252,7 +318,7 @@ export function useInstallments() {
         filterMaxAmount,
         filterPaymentMethod,
         sort: sortMode,
-        offset: desktopPage * PAGE_SIZE,
+        offset: desktopPageRef.current * PAGE_SIZE,
         limit: PAGE_SIZE,
       });
 
@@ -277,9 +343,8 @@ export function useInstallments() {
       setDesktopLoading(false);
     }
   }, [
-    desktopPage,
+    debouncedSearch,
     filter,
-    search,
     sortMode,
     toast,
     filterStartDate,
@@ -288,6 +353,9 @@ export function useInstallments() {
     filterMaxAmount,
     filterPaymentMethod,
   ]);
+
+  const loadDesktopDataRef = useRef(loadDesktopData);
+  loadDesktopDataRef.current = loadDesktopData;
 
   const loadData = useCallback(() => {
     if (isDesktopFast) {
@@ -347,24 +415,23 @@ export function useInstallments() {
   useEffect(() => {
     if (!isDesktopFast) return;
     // Reset to first page on filter/search changes.
-    if (desktopPage !== 0) setDesktopPage(0);
-    else void loadDesktopData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (desktopPageRef.current !== 0) setDesktopPage(0);
+    else void loadDesktopDataRef.current();
   }, [
     filter,
-    search,
+    debouncedSearch,
     sortMode,
     filterStartDate,
     filterEndDate,
     filterMinAmount,
     filterMaxAmount,
+    filterPaymentMethod,
     isDesktopFast,
   ]);
 
   useEffect(() => {
     if (!isDesktopFast) return;
-    void loadDesktopData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void loadDesktopDataRef.current();
   }, [desktopPage, isDesktopFast]);
 
   const resolveTenantNameForInstallment = async (installment: الكمبيالات_tbl): Promise<string> => {
@@ -783,6 +850,21 @@ export function useInstallments() {
   const handleExportPdf = () => {
     window.print();
   };
+
+  const clearFilters = useCallback(() => {
+    setFilter('all');
+    setSearch('');
+    setSortMode('due-asc');
+    setIsAdvancedFiltersOpen(false);
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setFilterMinAmount('');
+    setFilterMaxAmount('');
+    setFilterPaymentMethod('all');
+    setShowCharts(false);
+    setDesktopPage(0);
+  }, []);
+
   return {
     isAdmin,
     userId,
@@ -810,6 +892,7 @@ export function useInstallments() {
     financialStats,
     handleExportExcel,
     handleExportPdf,
+    clearFilters,
     contracts,
     setContracts,
     people,

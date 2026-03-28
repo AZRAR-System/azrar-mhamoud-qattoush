@@ -40,6 +40,7 @@ export function ContractsSmartFilterBar({ page }: Props) {
     handleDownloadTemplate,
     handlePickImportFile,
     handleExport,
+    clearFilters,
   } = page;
 
   return (
@@ -48,6 +49,7 @@ export function ContractsSmartFilterBar({ page }: Props) {
       subtitle={t('دورة حياة كاملة للعقود: إنشاء، تجديد، مخالصات، وأرشفة.')}
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
+      onClearFilters={clearFilters}
       onAddClick={handleCreate}
       addLabel={t('عقد جديد')}
       onRefresh={loadData}

@@ -37,6 +37,7 @@ export function PropertiesSmartFilterBar({ page }: Props) {
     handleDownloadTemplate,
     handlePickImportFile,
     handleExport,
+    clearFilters,
   } = page;
 
   return (
@@ -45,6 +46,7 @@ export function PropertiesSmartFilterBar({ page }: Props) {
       subtitle={t('سجل الوحدات السكنية والتجارية المفصل')}
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
+      onClearFilters={clearFilters}
       filters={filterOptions}
       activeFilters={filters}
       onFilterChange={(key, val) => setFilters((prev) => ({ ...prev, [key]: val }))}

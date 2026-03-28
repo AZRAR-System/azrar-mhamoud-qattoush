@@ -24,6 +24,9 @@ interface SmartFilterBarProps {
   onAddClick?: () => void;
   addLabel?: string;
   onRefresh?: () => void;
+  /** When set, shows a secondary control to reset search + list filters */
+  onClearFilters?: () => void;
+  clearFiltersLabel?: string;
   extraActions?: React.ReactNode;
 }
 
@@ -40,6 +43,8 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
   onAddClick,
   addLabel = 'جديد',
   onRefresh,
+  onClearFilters,
+  clearFiltersLabel = 'مسح الفلاتر',
   extraActions,
 }) => {
   const shouldShowSearch = showSearch && typeof onSearchChange === 'function';
@@ -108,6 +113,14 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
                   />
                 </div>
               ))}
+
+              {typeof onClearFilters === 'function' ? (
+                <div className="flex items-center shrink-0">
+                  <Button type="button" variant="outline" size="md" onClick={onClearFilters}>
+                    {clearFiltersLabel}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         )}

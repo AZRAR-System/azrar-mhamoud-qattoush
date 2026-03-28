@@ -21,6 +21,7 @@ export function InstallmentsPageHeader({ page }: Props) {
     loadData,
     handleExportExcel,
     handleExportPdf,
+    clearFilters,
   } = page;
 
   return (
@@ -64,6 +65,15 @@ export function InstallmentsPageHeader({ page }: Props) {
         >
           <Filter size={18} />
           تصفية متقدمة
+        </Button>
+
+        <Button
+          variant="outline"
+          type="button"
+          onClick={clearFilters}
+          className="rounded-2xl h-[46px] px-4 font-black border-slate-200 dark:border-slate-600"
+        >
+          مسح الفلاتر
         </Button>
 
         <Button

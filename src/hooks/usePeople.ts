@@ -8,7 +8,9 @@ import { useToast } from '@/context/ToastContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useClampPage } from '@/hooks/useClampPage';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useResetPageToZero } from '@/hooks/useResetPageToZero';
+import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
 import { SearchEngine, FilterRule } from '@/services/searchEngine';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { exportToXlsx, readSpreadsheet } from '@/utils/xlsx';
@@ -50,24 +52,42 @@ export function usePeople() {
   const [showDynamicColumns, setShowDynamicColumns] = useState(false);
   const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
 
+  type PeopleFiltersSaved = {
+    searchTerm?: string;
+    activeRoleTab?: string;
+    showOnlyIdleOwners?: boolean;
+    sortMode?: 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc';
+    showAdvanced?: boolean;
+    advFilters?: { address: string; nationalId: string; classification: string; minRating: number };
+  };
+
+  const savedPeopleFilters = readSessionFilterJson<PeopleFiltersSaved>('people');
+
   // Search State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeRoleTab, setActiveRoleTab] = useState<string>('all');
-  const [showOnlyIdleOwners, setShowOnlyIdleOwners] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(() => savedPeopleFilters?.searchTerm ?? '');
+  const [activeRoleTab, setActiveRoleTab] = useState<string>(
+    () => savedPeopleFilters?.activeRoleTab ?? 'all'
+  );
+  const [showOnlyIdleOwners, setShowOnlyIdleOwners] = useState(
+    () => savedPeopleFilters?.showOnlyIdleOwners ?? false
+  );
   const [sortMode, setSortMode] = useState<
     'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc'
-  >('name-asc');
+  >(() => savedPeopleFilters?.sortMode ?? 'name-asc');
 
   const [uiPage, setUiPage] = useState(0);
 
   // Advanced Search
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(() => savedPeopleFilters?.showAdvanced ?? false);
   const [advFilters, setAdvFilters] = useState({
     address: '',
     nationalId: '',
     classification: 'All',
     minRating: 0,
+    ...(savedPeopleFilters?.advFilters || {}),
   });
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   const [availableRoles, setAvailableRoles] = useState<SystemLookup[]>([]);
 
@@ -98,6 +118,17 @@ export function usePeople() {
 
   const dbSignal = useDbSignal();
 
+  useEffect(() => {
+    writeSessionFilterJson('people', {
+      searchTerm,
+      activeRoleTab,
+      showOnlyIdleOwners,
+      sortMode,
+      showAdvanced,
+      advFilters,
+    });
+  }, [searchTerm, activeRoleTab, showOnlyIdleOwners, sortMode, showAdvanced, advFilters]);
+
   const queryRef = useRef({
     searchTerm,
     activeRoleTab,
@@ -109,7 +140,7 @@ export function usePeople() {
   });
 
   queryRef.current = {
-    searchTerm,
+    searchTerm: debouncedSearchTerm,
     activeRoleTab,
     showOnlyIdleOwners,
     sortMode,
@@ -317,6 +348,17 @@ export function usePeople() {
       }
     }, 1000);
   };
+
+  const clearFilters = useCallback(() => {
+    setSearchTerm('');
+    setActiveRoleTab('all');
+    setShowOnlyIdleOwners(false);
+    setSortMode('name-asc');
+    setShowAdvanced(false);
+    setAdvFilters({ address: '', nationalId: '', classification: 'All', minRating: 0 });
+    setUiPage(0);
+    setDesktopPage(0);
+  }, []);
 
   const handleBlacklist = (id: string) => {
     openPanel('BLACKLIST_FORM', id, {
@@ -740,7 +782,7 @@ export function usePeople() {
       return 0;
     });
   }, [
-    searchTerm,
+    debouncedSearchTerm,
     activeRoleTab,
     showOnlyIdleOwners,
     sortMode,
@@ -860,6 +902,7 @@ export function usePeople() {
     showEmptyNoPeople,
     showEmptyNoResults,
     listVisible,
+    clearFilters,
   };
 
 }

@@ -17,6 +17,8 @@ import { SearchEngine, FilterRule } from '@/services/searchEngine';
 import { normalizeDigitsLoose, normalizeSearchTextStrict } from '@/utils/searchNormalize';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { useDbSignal } from '@/hooks/useDbSignal';
+import { useDebounce } from '@/hooks/useDebounce';
+import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
 import {
   contractPickerSearchPagedSmart,
   domainCountsSmart,
@@ -45,17 +47,29 @@ export function useContracts() {
     [t]
   );
 
+  type ContractsFiltersSaved = {
+    searchTerm?: string;
+    activeStatus?: 'active' | 'expiring' | 'expired' | 'terminated' | 'archived';
+    sortMode?: 'created-desc' | 'created-asc' | 'end-desc' | 'end-asc';
+    showAdvanced?: boolean;
+    advFilters?: ContractsAdvFiltersState;
+  };
+
+  const savedContractFilters = readSessionFilterJson<ContractsFiltersSaved>('contracts');
+
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
   const [installments, setInstallments] = useState<الكمبيالات_tbl[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => savedContractFilters?.searchTerm ?? '');
   const [activeStatus, setActiveStatus] = useState<
     'active' | 'expiring' | 'expired' | 'terminated' | 'archived'
-  >('active');
+  >(() => savedContractFilters?.activeStatus ?? 'active');
   const [sortMode, setSortMode] = useState<'created-desc' | 'created-asc' | 'end-desc' | 'end-asc'>(
-    'created-desc'
+    () => savedContractFilters?.sortMode ?? 'created-desc'
   );
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   const [uiPage, setUiPage] = useState(0);
 
@@ -146,8 +160,8 @@ export function useContracts() {
   const importRef = useRef<HTMLInputElement>(null);
 
   // Advanced
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [advFilters, setAdvFilters] = useState<ContractsAdvFiltersState>({
+  const [showAdvanced, setShowAdvanced] = useState(() => savedContractFilters?.showAdvanced ?? false);
+  const [advFilters, setAdvFilters] = useState<ContractsAdvFiltersState>(() => ({
     startDateFrom: '',
     startDateTo: '',
     endDateFrom: '',
@@ -155,7 +169,18 @@ export function useContracts() {
     minValue: '',
     maxValue: '',
     createdMonth: '',
-  });
+    ...(savedContractFilters?.advFilters || {}),
+  }));
+
+  useEffect(() => {
+    writeSessionFilterJson('contracts', {
+      searchTerm,
+      activeStatus,
+      sortMode,
+      showAdvanced,
+      advFilters,
+    });
+  }, [searchTerm, activeStatus, sortMode, showAdvanced, advFilters]);
 
   const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), []);
   const createdMonthApplied = useMemo(
@@ -244,7 +269,7 @@ export function useContracts() {
         const maxValue = showAdvanced ? String(advFilters.maxValue || '').trim() : '';
 
         const res = await contractPickerSearchPagedSmart({
-          query: searchTerm,
+          query: debouncedSearchTerm,
           tab: activeStatus,
           sort: sortMode,
           createdMonth: createdMonthApplied ? String(advFilters.createdMonth || '').trim() : '',
@@ -278,7 +303,7 @@ export function useContracts() {
     };
   }, [
     isDesktopFast,
-    searchTerm,
+    debouncedSearchTerm,
     activeStatus,
     sortMode,
     fastPage,
@@ -294,7 +319,14 @@ export function useContracts() {
   useEffect(() => {
     if (!isDesktopFast) return;
     setFastPage(1);
-  }, [isDesktopFast, searchTerm, activeStatus, sortMode, advFilters.createdMonth, fastPageSize]);
+  }, [
+    isDesktopFast,
+    debouncedSearchTerm,
+    activeStatus,
+    sortMode,
+    advFilters.createdMonth,
+    fastPageSize,
+  ]);
 
   useEffect(() => {
     if (!isDesktopFast) return;
@@ -967,7 +999,7 @@ export function useContracts() {
       const batch = 500;
       for (let off = 0; off < fastTotal; off += batch) {
         const res = await contractPickerSearchPagedSmart({
-          query: searchTerm,
+          query: debouncedSearchTerm,
           tab: activeStatus,
           sort: sortMode,
           createdMonth,
@@ -1102,6 +1134,24 @@ export function useContracts() {
   // Empty-state decisions (desktop fast mode can operate even if domainCounts is missing).
   const loading = isDesktopFast ? fastLoading : listLoading;
 
+  const clearFilters = useCallback(() => {
+    setSearchTerm('');
+    setActiveStatus('active');
+    setSortMode('created-desc');
+    setShowAdvanced(false);
+    setAdvFilters({
+      startDateFrom: '',
+      startDateTo: '',
+      endDateFrom: '',
+      endDateTo: '',
+      minValue: '',
+      maxValue: '',
+      createdMonth: '',
+    });
+    setUiPage(0);
+    setFastPage(1);
+  }, []);
+
   const showEmptyNoContracts = isDesktopFast
     ? !fastLoading &&
       (desktopNoContractsKnown ||
@@ -1172,6 +1222,7 @@ export function useContracts() {
     desktopFiltersApplied,
     showEmptyNoContracts,
     showEmptyNoResults,
+    clearFilters,
   };
 }
 
