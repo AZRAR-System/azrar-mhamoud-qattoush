@@ -17,6 +17,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from 'recharts';
 import { TrendingUp, Building2, Users, DollarSign, PieChart as PieChartIcon, History } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
@@ -227,10 +228,17 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
     }
   }, [logsRaw]);
 
+  const pieLegendFormatter = (value: string, entry: unknown) => {
+    const p = entry as { payload?: { name?: string; value?: number } };
+    const pl = p.payload;
+    if (pl && typeof pl.value === 'number') return `${pl.name ?? value}: ${pl.value}`;
+    return String(value);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8 min-w-0">
       {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {overviewStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
@@ -341,31 +349,54 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
           </ResponsiveContainer>
         </div>
 
-        {/* Property Distribution */}
-        <div className="app-card p-6 overflow-visible">
-          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-            <Building2 className="text-green-500" />
+        {/* Property Distribution — بدون تسميات على القطاع لتفادي التداخل */}
+        <div className="app-card p-5 sm:p-6 overflow-hidden">
+          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-2">
+            <Building2 className="text-green-500 shrink-0" />
             توزيع العقارات
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={propertyDistribution}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, value }) => `${name}: ${value}`}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {propertyDistribution.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => value.toString()} />
-            </PieChart>
-          </ResponsiveContainer>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+            مرر المؤشر فوق القطاعات، أو راجع المفتاح أدناه
+          </p>
+          {propertyDistribution.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 dark:text-slate-400 text-sm">لا بيانات</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                <Pie
+                  data={propertyDistribution}
+                  cx="50%"
+                  cy="42%"
+                  labelLine={false}
+                  isAnimationActive={false}
+                  label={false}
+                  outerRadius={88}
+                  fill="#8884d8"
+                  dataKey="value"
+                  nameKey="name"
+                >
+                  {propertyDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => [value, 'العدد']}
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: '8px',
+                    color: '#e2e8f0',
+                  }}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  align="center"
+                  wrapperStyle={{ direction: 'rtl', fontSize: 12, paddingTop: 4 }}
+                  formatter={pieLegendFormatter}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Contract Status */}
@@ -440,28 +471,33 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
 
       {/* Installment status donut + latest operations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="app-card p-6 overflow-visible">
-          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-            <PieChartIcon className="text-indigo-500" />
+        <div className="app-card p-5 sm:p-6 overflow-hidden">
+          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-2">
+            <PieChartIcon className="text-indigo-500 shrink-0" />
             حالات الأقساط (مدفوع / متأخر / قادم)
           </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+            إجمالي الأقساط في التوزيع:{' '}
+            <span className="font-black text-slate-700 dark:text-slate-200">{installmentDonutTotal}</span>
+          </p>
           {installmentDonutTotal === 0 ? (
             <div className="text-center py-10 text-slate-500 dark:text-slate-400 text-sm">
               لا توجد أقساط كافية لعرض التوزيع
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                 <Pie
                   data={installmentDonutData}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={68}
-                  outerRadius={100}
+                  cy="45%"
+                  innerRadius={62}
+                  outerRadius={92}
                   paddingAngle={2}
                   dataKey="value"
                   nameKey="name"
-                  label={({ name, value }) => `${name}: ${value}`}
+                  isAnimationActive={false}
+                  label={false}
                 >
                   {installmentDonutData.map((entry, index) => (
                     <Cell key={`donut-${index}`} fill={entry.color} />
@@ -475,6 +511,12 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
                     borderRadius: '8px',
                     color: '#e2e8f0',
                   }}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  align="center"
+                  wrapperStyle={{ direction: 'rtl', fontSize: 12, paddingTop: 4 }}
+                  formatter={pieLegendFormatter}
                 />
               </PieChart>
             </ResponsiveContainer>

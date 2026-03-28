@@ -1,4 +1,3 @@
-import React from 'react';
 import { ContractsImportInput } from '@/components/contracts/ContractsImportInput';
 import { ContractsSmartFilterBar } from '@/components/contracts/ContractsSmartFilterBar';
 import { ContractsAdvancedFiltersCard } from '@/components/contracts/ContractsAdvancedFiltersCard';

@@ -391,8 +391,8 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Main KPI Section */}
-      <section className="px-2">
+      {/* Main KPI Section — نفس هوامش الصفحة دون px إضافي */}
+      <section>
         {kpiLoading ? (
           <SkeletonCardGrid variant="kpi" count={6} />
         ) : (
@@ -400,31 +400,33 @@ export const Dashboard: React.FC = () => {
         )}
       </section>
 
-      {/* Content Layers with Modern Tabs */}
-      <div className="space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2" dir="rtl">
-            {layerConfigs.map((layer) => (
-              <button
-                key={layer.id}
-                onClick={() => setActiveLayer(layer.id)}
-                className={`
-                   flex items-center gap-3 px-6 py-3 rounded-2xl font-black whitespace-nowrap transition-all duration-300
+      {/* Content Layers: تبويبات + اختصارات داخل إطار واحد */}
+      <div className="space-y-6">
+        <div className="app-card p-4 sm:p-5 rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-700/80 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-stretch gap-4 lg:gap-0" dir="rtl">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 lg:pb-0 lg:flex-1 lg:min-w-0 lg:pl-3">
+              {layerConfigs.map((layer) => (
+                <button
+                  key={layer.id}
+                  onClick={() => setActiveLayer(layer.id)}
+                  className={`
+                   flex items-center gap-3 px-5 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-black whitespace-nowrap transition-all duration-300
                    ${
                      activeLayer === layer.id
-                       ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 scale-105'
-                       : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                       ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 scale-[1.02]'
+                       : 'bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                    }
                  `}
-              >
-                {layer.icon}
-                {layer.label}
-              </button>
-            ))}
-          </div>
+                >
+                  {layer.icon}
+                  {layer.label}
+                </button>
+              ))}
+            </div>
 
-          <div className="flex items-center justify-end lg:justify-start shrink-0">
-            <QuickActionsBar />
+            <div className="border-t border-slate-200/80 dark:border-slate-700/80 pt-4 lg:border-t-0 lg:border-s lg:pt-0 lg:pr-4 lg:min-w-0 lg:max-w-[min(100%,420px)] xl:max-w-[min(100%,520px)]">
+              <QuickActionsBar variant="inline" />
+            </div>
           </div>
         </div>
 

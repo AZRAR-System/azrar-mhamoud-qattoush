@@ -263,6 +263,7 @@ jobs:
       if: success()
       uses: sarisia/actions-status-discord@v1
       with:
+        ack_no_webhook: true
         webhook: ${{ secrets.DISCORD_WEBHOOK }}
         title: "✅ AZRAR Build Success"
         description: "تم بناء وإصدار AZRAR بنجاح!"
@@ -273,6 +274,7 @@ jobs:
       if: failure()
       uses: sarisia/actions-status-discord@v1
       with:
+        ack_no_webhook: true
         webhook: ${{ secrets.DISCORD_WEBHOOK }}
         title: "❌ AZRAR Build Failed"
         description: "فشل بناء AZRAR!"

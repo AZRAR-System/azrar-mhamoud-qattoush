@@ -10,7 +10,12 @@ import { useToast } from '@/context/ToastContext';
 import { GLOBAL_SEARCH_OPEN_EVENT } from '@/components/shared/GlobalSearch';
 import { ROUTE_PATHS } from '@/routes/paths';
 
-export const QuickActionsBar: React.FC = () => {
+export interface QuickActionsBarProps {
+  /** card = إطار مستقل؛ inline = بدون إطار إضافي (للاستخدام داخل بطاقة أب مع التبويبات) */
+  variant?: 'card' | 'inline';
+}
+
+export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ variant = 'card' }) => {
   const { openPanel } = useSmartModal();
   const toast = useToast();
 
@@ -105,16 +110,20 @@ export const QuickActionsBar: React.FC = () => {
     },
   ];
 
-  return (
-    <div className="mb-6 p-4 app-card">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-full"></div>
+  const isInline = variant === 'inline';
+
+  const inner = (
+    <>
+      <div className={`flex items-center gap-2 ${isInline ? 'mb-3' : 'mb-4'}`}>
+        <div className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-full shrink-0" />
         <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">
-          ⚡ اختصارات سريعة مرتبطة بالأقسام الرئيسية
+          اختصارات سريعة مرتبطة بالأقسام الرئيسية
         </h3>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+      <div
+        className={`grid grid-cols-2 sm:grid-cols-4 ${isInline ? 'lg:grid-cols-4 xl:grid-cols-8' : 'lg:grid-cols-8'} gap-2`}
+      >
         {actions.map((action, index) => {
           const Icon = action.icon;
           return (
@@ -125,18 +134,34 @@ export const QuickActionsBar: React.FC = () => {
               title={action.desc}
             >
               <Icon size={18} className="group-hover:scale-110 transition" />
-              <span className="text-xs font-bold text-center">{action.label}</span>
+              <span className="text-xs font-bold text-center leading-tight">{action.label}</span>
             </button>
           );
         })}
       </div>
 
-      <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg">
-        <p className="text-xs text-indigo-700 dark:text-indigo-300">
-          💡 <strong>ملاحظة:</strong> بعض الاختصارات تفتح طبقة عرض داخلية، بينما (اتصالات/مستندات)
-          تفتح صفحات كاملة.
+      <div
+        className={`${isInline ? 'mt-3 p-2.5' : 'mt-4 p-3'} bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg`}
+      >
+        <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
+          <strong>ملاحظة:</strong> بعض الاختصارات تفتح طبقة عرض داخلية، بينما (اتصالات/مستندات) تفتح
+          صفحات كاملة.
         </p>
       </div>
+    </>
+  );
+
+  if (isInline) {
+    return (
+      <div className="w-full min-w-0" dir="rtl">
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6 p-4 app-card" dir="rtl">
+      {inner}
     </div>
   );
 };

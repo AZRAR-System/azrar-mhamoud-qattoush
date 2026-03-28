@@ -1,4 +1,3 @@
-import React from 'react';
 import type { ContractsPageModel } from '@/hooks/useContracts';
 
 type Props = { page: ContractsPageModel };

@@ -1,4 +1,3 @@
-import React from 'react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import type { ContractsPageModel } from '@/hooks/useContracts';
 

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { BadgeDollarSign, Calendar, DollarSign, Filter, LayoutDashboard, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -24,7 +23,6 @@ export function InstallmentsAdvancedFilters({ page }: Props) {
     setSortMode,
     filter,
     setFilter,
-    search,
     setSearch,
     favoriteFilters,
     saveCurrentFilter,

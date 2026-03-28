@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from '@/components/ui/Button';
 import { ContractCard } from '@/components/contracts/ContractCard';
 import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
@@ -39,7 +38,6 @@ export function ContractsFastPaginationFooter({ page }: Props) {
 
 export function ContractsCardsGrid({ page }: Props) {
   const {
-    t,
     isDesktopFast,
     loading,
     fastRows,

@@ -3,13 +3,12 @@
  * Calendar & Tasks Layer - Events and task management
  */
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Calendar,
   AlertCircle,
   FileText,
   Zap,
-  Trash2,
 } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import { DbService } from '@/services/mockDb';
@@ -42,7 +41,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> => {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 };
 
-export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _data }) => {
+export function CalendarTasksLayer({ data: _data }: CalendarTasksLayerProps) {
   const { openPanel } = useSmartModal();
   const toast = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -1153,4 +1152,4 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
       )}
     </div>
   );
-};
+}

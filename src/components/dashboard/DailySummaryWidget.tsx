@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
  *
@@ -221,12 +221,12 @@ export const DailySummaryWidget: React.FC = () => {
       </div>
 
       {/* Summary Grid */}
-      <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="p-3 sm:p-4 grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
         {summaryItems.map((item, index) => (
           <button
             key={index}
             onClick={item.action}
-            className="p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:shadow-md transition group text-right"
+            className="p-2.5 sm:p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:shadow-md transition group text-right"
           >
             <div className="flex items-start justify-between mb-2">
               <div className={`p-2 rounded-lg ${item.bgColor}`}>
