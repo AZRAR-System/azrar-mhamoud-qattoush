@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 - Developed by Mahmoud Qattoush
  * Sales Tracking Layer - Pipeline and transaction tracking
  */
@@ -354,7 +354,8 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
               <XAxis dataKey="day" stroke="#64748b" />
-              <YAxis stroke="#64748b" />
+              <YAxis yAxisId="left" stroke="#64748b" />
+              <YAxis yAxisId="right" orientation="right" stroke="#64748b" />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#1e293b',
@@ -366,6 +367,7 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
               />
               <Legend />
               <Line
+                yAxisId="left"
                 type="monotone"
                 dataKey="sales"
                 stroke="#10b981"
@@ -374,13 +376,13 @@ export const SalesTrackingLayer: React.FC<SalesTrackingLayerProps> = ({ data }) 
                 name="عدد المبيعات"
               />
               <Line
+                yAxisId="right"
                 type="monotone"
                 dataKey="value"
                 stroke="#3b82f6"
                 strokeWidth={2}
                 dot={{ fill: '#3b82f6', r: 5 }}
-                name="القيمة (ر.س)"
-                yAxisId="right"
+                name="القيمة (د.أ)"
               />
             </LineChart>
           </ResponsiveContainer>

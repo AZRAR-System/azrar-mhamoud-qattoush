@@ -37,8 +37,6 @@ import { QuickActionsBar } from '@/components/dashboard/layers/QuickActionsBar';
 import { DailySummaryWidget } from '@/components/dashboard/DailySummaryWidget';
 import { MarqueeWidget } from '@/components/dashboard/MarqueeWidget';
 import { useSmartModal } from '@/context/ModalContext';
-import { Button } from '@/components/ui/Button';
-
 // Hooks
 import { useDashboardData } from '@/hooks/useDashboardData';
 
@@ -386,37 +384,13 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Quick Stats Grid inside Hero */}
-          <div className="grid grid-cols-2 gap-4 w-full lg:w-auto">
-            <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
-              <div className="text-indigo-400 mb-2">
-                <DollarSign size={24} />
-              </div>
-              <div className="text-2xl font-black text-white">
-                {formatCurrencyJOD(dashboardData.kpis.totalRevenue)}
-              </div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase mt-1">
-                إيرادات الشهر
-              </div>
-            </div>
-            <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors">
-              <div className="text-indigo-400 mb-2">
-                <TrendingUp size={24} />
-              </div>
-              <div className="text-2xl font-black text-white">
-                {dashboardData.kpis.activeContracts}
-              </div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase mt-1">عقود نشطة</div>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Main KPI Section */}
       <section className="px-2">
         {kpiLoading ? (
-          <SkeletonCardGrid variant="kpi" count={8} />
+          <SkeletonCardGrid variant="kpi" count={6} />
         ) : (
           <KPICards data={dashboardData} />
         )}
@@ -457,25 +431,102 @@ export const Dashboard: React.FC = () => {
           {activeLayer === 'calendar' && <CalendarTasksLayer data={dashboardData} />}
           {activeLayer === 'monitoring' && <MonitoringLayer data={dashboardData} />}
           {activeLayer === 'performance' && (
-            <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-6">
-              <div className="w-24 h-24 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-600 animate-float">
-                <DollarSign size={48} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-                  الأداء المالي المتقدم
-                </h3>
-                <p className="text-slate-500 max-w-md mt-2 font-bold">
-                  هذه الطبقة قيد التطوير لتوفير تحليلات مالية أعمق ورسوم بيانية تفاعلية.
-                </p>
-              </div>
-              <Button
-                onClick={() => setActiveLayer('overview')}
-                variant="outline"
-                className="rounded-2xl px-8"
-              >
-                العودة للنظرة العامة
-              </Button>
+            <div className="app-card p-6">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">الأداء المالي</h2>
+              {(() => {
+                const now = new Date();
+                const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+                const perf = dashboardData.performance;
+                const isPerfReady =
+                  !!perf && perf.monthKey === monthKey && perf.prevMonthKey === prevMonthKey;
+
+                let currentMonthCollections = 0;
+                let previousMonthCollections = 0;
+                let paidCountThisMonth = 0;
+                let dueUnpaidThisMonth = 0;
+
+                if (isPerfReady) {
+                  currentMonthCollections = Number(perf?.currentMonthCollections || 0) || 0;
+                  previousMonthCollections = Number(perf?.previousMonthCollections || 0) || 0;
+                  paidCountThisMonth = Number(perf?.paidCountThisMonth || 0) || 0;
+                  dueUnpaidThisMonth = Number(perf?.dueUnpaidThisMonth || 0) || 0;
+                } else {
+                  const dashRec = toRecord(dashboardData);
+                  const wnd = window as unknown as {
+                    desktopDb?: { domainDashboardPerformance?: unknown };
+                  };
+                  const isDesktopFast =
+                    !!dashRec['desktopAggregations'] ||
+                    !!dashRec['desktopHighlights'] ||
+                    !!wnd.desktopDb?.domainDashboardPerformance;
+                  if (!isDesktopFast) {
+                    const installments = DbService.getInstallments();
+                    const isPaid = (i: الكمبيالات_tbl) => String(i?.حالة_الكمبيالة) === 'مدفوع';
+                    const getMonth = (d?: string) => String(d || '').slice(0, 7);
+                    const paidMonthSum = (m: string) =>
+                      installments
+                        .filter((i) => isPaid(i) && getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === m)
+                        .reduce((s, i) => s + Number(i.القيمة || 0), 0);
+
+                    currentMonthCollections = paidMonthSum(monthKey);
+                    previousMonthCollections = paidMonthSum(prevMonthKey);
+                    paidCountThisMonth = installments.filter(
+                      (i) => isPaid(i) && getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === monthKey
+                    ).length;
+                    dueUnpaidThisMonth = installments
+                      .filter((i) => !isPaid(i) && getMonth(i.تاريخ_استحقاق) === monthKey)
+                      .reduce((s, i) => s + Number(i.القيمة_المتبقية ?? i.القيمة ?? 0), 0);
+                  }
+                }
+
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                        <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+                          تحصيلات الشهر الحالي
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                          {formatCurrencyJOD(currentMonthCollections)}
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-900/20 border border-gray-200 dark:border-slate-700">
+                        <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+                          تحصيلات الشهر السابق
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                          {formatCurrencyJOD(previousMonthCollections)}
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+                        <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+                          إيرادات العمولات (الشهر الحالي)
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                          {formatCurrencyJOD(dashboardData.kpis.totalRevenue || 0)}
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                        <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+                          غير مدفوع مستحق هذا الشهر
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                          {formatCurrencyJOD(dueUnpaidThisMonth)}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          مدفوع هذا الشهر: {formatNumber(paidCountThisMonth)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      جميع القيم بالدينار الأردني (JOD) والأرقام باللغة الإنجليزية.
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -524,131 +575,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Layer Navigation Tabs */}
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-2 app-card p-4">
-        {layerConfigs.map((layer) => (
-          <Button
-            key={layer.id}
-            onClick={() => setActiveLayer(layer.id)}
-            variant={activeLayer === layer.id ? 'primary' : 'secondary'}
-            size="sm"
-            className="flex-shrink-0 whitespace-nowrap"
-            title={layer.description}
-            rightIcon={layer.icon}
-          >
-            {layer.label}
-          </Button>
-        ))}
-      </div>
-
-      {/* Layer Content */}
-      <div className="transition-all duration-300">
-        {activeLayer === 'overview' && <OverviewLayer data={dashboardData} />}
-        {activeLayer === 'sales' && <SalesTrackingLayer data={dashboardData} />}
-        {activeLayer === 'calendar' && <CalendarTasksLayer data={dashboardData} />}
-        {activeLayer === 'monitoring' && <MonitoringLayer data={dashboardData} />}
-        {activeLayer === 'performance' && (
-          <div className="app-card p-6">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">الأداء المالي</h2>
-            {(() => {
-              const now = new Date();
-              const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-              const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-              const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-
-              const perf = dashboardData.performance;
-              const isPerfReady =
-                !!perf && perf.monthKey === monthKey && perf.prevMonthKey === prevMonthKey;
-
-              let currentMonthCollections = 0;
-              let previousMonthCollections = 0;
-              let paidCountThisMonth = 0;
-              let dueUnpaidThisMonth = 0;
-
-              if (isPerfReady) {
-                currentMonthCollections = Number(perf?.currentMonthCollections || 0) || 0;
-                previousMonthCollections = Number(perf?.previousMonthCollections || 0) || 0;
-                paidCountThisMonth = Number(perf?.paidCountThisMonth || 0) || 0;
-                dueUnpaidThisMonth = Number(perf?.dueUnpaidThisMonth || 0) || 0;
-              } else {
-                const dashRec = toRecord(dashboardData);
-                const wnd = window as unknown as {
-                  desktopDb?: { domainDashboardPerformance?: unknown };
-                };
-                const isDesktopFast =
-                  !!dashRec['desktopAggregations'] ||
-                  !!dashRec['desktopHighlights'] ||
-                  !!wnd.desktopDb?.domainDashboardPerformance;
-                if (!isDesktopFast) {
-                  // Web / legacy fallback
-                  const installments = DbService.getInstallments();
-                  const isPaid = (i: الكمبيالات_tbl) => String(i?.حالة_الكمبيالة) === 'مدفوع';
-                  const getMonth = (d?: string) => String(d || '').slice(0, 7);
-                  const paidMonthSum = (m: string) =>
-                    installments
-                      .filter((i) => isPaid(i) && getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === m)
-                      .reduce((s, i) => s + Number(i.القيمة || 0), 0);
-
-                  currentMonthCollections = paidMonthSum(monthKey);
-                  previousMonthCollections = paidMonthSum(prevMonthKey);
-                  paidCountThisMonth = installments.filter(
-                    (i) => isPaid(i) && getMonth(i.تاريخ_الدفع || i.تاريخ_استحقاق) === monthKey
-                  ).length;
-                  dueUnpaidThisMonth = installments
-                    .filter((i) => !isPaid(i) && getMonth(i.تاريخ_استحقاق) === monthKey)
-                    .reduce((s, i) => s + Number(i.القيمة_المتبقية ?? i.القيمة ?? 0), 0);
-                }
-              }
-
-              return (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        تحصيلات الشهر الحالي
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {formatCurrencyJOD(currentMonthCollections)}
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-900/20 border border-gray-200 dark:border-slate-700">
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        تحصيلات الشهر السابق
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {formatCurrencyJOD(previousMonthCollections)}
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        إيرادات العمولات (الشهر الحالي)
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {formatCurrencyJOD(dashboardData.kpis.totalRevenue || 0)}
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        غير مدفوع مستحق هذا الشهر
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {formatCurrencyJOD(dueUnpaidThisMonth)}
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        مدفوع هذا الشهر: {formatNumber(paidCountThisMonth)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    جميع القيم بالدينار الأردني (JOD) والأرقام باللغة الإنجليزية.
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
       </div>
 
       {/* Footer Info */}

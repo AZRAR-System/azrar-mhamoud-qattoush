@@ -24,6 +24,8 @@ interface KPICard {
   bgColor: string;
   trend: React.ReactNode;
   onClick?: () => void;
+  /** يعرض شريط تقدّم نسبة الإشغال (بطاقة العقارات الموحّدة) */
+  showOccupancyBar?: boolean;
 }
 
 export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
@@ -42,7 +44,6 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     window.location.hash = `${path}${suffix}`;
   };
 
-  // ✅ Calculate real trends
   const totalProperties = Number(data.kpis.totalProperties || 0) || 0;
   const occupiedCount =
     Number(
@@ -82,24 +83,15 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       onClick: () => navigateToWithQuery(ROUTE_PATHS.CONTRACTS, { status: 'active' }),
     },
     {
-      title: 'نسبة الإشغال',
+      title: 'العقارات والإشغال',
       value: `${data.kpis.occupancyRate}%`,
       icon: Home,
       color: 'from-purple-500 to-pink-600',
       textColor: 'text-purple-600',
       bgColor: 'bg-purple-50 dark:bg-purple-900/20',
-      trend: `${occupiedCount} من ${totalProperties} عقار`,
-      onClick: () => navigateToWithQuery(ROUTE_PATHS.PROPERTIES, { occupancy: 'rented' }),
-    },
-    {
-      title: 'عقارات شاغرة',
-      value: formatNumber(vacantCount),
-      icon: Home,
-      color: 'from-amber-500 to-yellow-600',
-      textColor: 'text-amber-700 dark:text-amber-300',
-      bgColor: 'bg-amber-50 dark:bg-amber-900/20',
-      trend: 'عرض العقارات الشاغرة',
-      onClick: () => navigateToWithQuery(ROUTE_PATHS.PROPERTIES, { occupancy: 'vacant' }),
+      trend: `إجمالي ${formatNumber(totalProperties)} عقار • مؤجر ${formatNumber(occupiedCount)} • شاغر ${formatNumber(vacantCount)}`,
+      onClick: () => navigateTo(ROUTE_PATHS.PROPERTIES),
+      showOccupancyBar: true,
     },
     {
       title: 'تنبيهات قبل الاستحقاق',
@@ -108,7 +100,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       color: 'from-red-500 to-orange-600',
       textColor: 'text-red-600',
       bgColor: 'bg-red-50 dark:bg-red-900/20',
-      trend: `خلال 7 أيام: ${data.kpis.dueNext7Payments}`,
+      trend: 'دفعات مستحقة خلال 7 أيام — اضغط للتفاصيل',
       onClick: () => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 }),
     },
     {
@@ -131,16 +123,6 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       trend: 'ملاك ومستأجرين ووكلاء',
       onClick: () => navigateTo(ROUTE_PATHS.PEOPLE),
     },
-    {
-      title: 'العقارات',
-      value: data.kpis.totalProperties,
-      icon: Home,
-      color: 'from-yellow-500 to-orange-600',
-      textColor: 'text-yellow-600',
-      bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
-      trend: `${occupiedCount} مؤجر، ${totalProperties - occupiedCount} شاغر`,
-      onClick: () => navigateTo(ROUTE_PATHS.PROPERTIES),
-    },
   ];
 
   return (
@@ -153,7 +135,6 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
 
         return (
           <div key={index} className={className} onClick={card.onClick}>
-            {/* Background Glow */}
             <div
               className={`absolute -right-4 -top-4 w-24 h-24 bg-gradient-to-br ${card.color} opacity-0 group-hover:opacity-10 blur-2xl transition-opacity duration-500 rounded-full`}
             />
@@ -175,18 +156,17 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100/50 dark:border-slate-800/50 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                  <TrendingUp size={12} className={card.textColor} />
-                  <span className="truncate max-w-[150px]">{card.trend}</span>
+              <div className="pt-4 border-t border-slate-100/50 dark:border-slate-800/50 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 min-w-0">
+                  <TrendingUp size={12} className={`${card.textColor} shrink-0`} />
+                  <span className="leading-snug">{card.trend}</span>
                 </div>
                 <div
-                  className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${card.color} animate-pulse`}
+                  className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${card.color} animate-pulse shrink-0`}
                 />
               </div>
 
-              {/* Special Progress Bar for Occupancy */}
-              {card.title === 'نسبة الإشغال' && (
+              {card.showOccupancyBar && (
                 <div className="mt-4 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
                   <div
                     className={`h-full bg-gradient-to-r ${card.color} shadow-lg shadow-indigo-500/20 transition-all duration-1000 ease-out`}
