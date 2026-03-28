@@ -490,7 +490,7 @@ type ReportRunResult = {
   message?: string;
 };
 
-const DOMAIN_SCHEMA_VERSION = 6;
+const DOMAIN_SCHEMA_VERSION = 7;
 
 function metaGet(dbh: SqliteDb, key: string): string | null {
   const row = dbh.prepare('SELECT v FROM domain_meta WHERE k = ?').get(key) as
@@ -505,6 +505,128 @@ function metaSet(dbh: SqliteDb, key: string, value: string): void {
       'INSERT INTO domain_meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v'
     )
     .run(key, value);
+}
+
+/** Rebuild domain tables to attach SQLite FK constraints (SQLite cannot ADD FK via ALTER). */
+function migrateDomainSchemaV7(dbh: SqliteDb): void {
+  dbh.pragma('foreign_keys = OFF');
+  try {
+    // Children before parents: installments → contracts; then person_roles; maintenance_tickets.
+    dbh.exec(`
+      CREATE TABLE installments_v7_new (
+        id TEXT PRIMARY KEY,
+        contractId TEXT,
+        dueDate TEXT,
+        amount REAL,
+        paid REAL,
+        remaining REAL,
+        status TEXT,
+        type TEXT,
+        isArchived INTEGER,
+        paidAt TEXT,
+        data TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (contractId) REFERENCES contracts(id) ON DELETE CASCADE
+      );
+      INSERT INTO installments_v7_new
+        SELECT id, contractId, dueDate, amount, paid, remaining, status, type, isArchived, paidAt, data, updatedAt
+      FROM installments;
+      DROP TABLE installments;
+      ALTER TABLE installments_v7_new RENAME TO installments;
+    `);
+    dbh.exec(`
+      CREATE INDEX IF NOT EXISTS idx_installments_contractId ON installments(contractId);
+      CREATE INDEX IF NOT EXISTS idx_installments_dueDate ON installments(dueDate);
+      CREATE INDEX IF NOT EXISTS idx_installments_remaining ON installments(remaining);
+      CREATE INDEX IF NOT EXISTS idx_installments_status ON installments(status);
+      CREATE INDEX IF NOT EXISTS idx_installments_type ON installments(type);
+      CREATE INDEX IF NOT EXISTS idx_installments_isArchived ON installments(isArchived);
+      CREATE INDEX IF NOT EXISTS idx_installments_contractId_dueDate ON installments(contractId, dueDate);
+      CREATE INDEX IF NOT EXISTS idx_installments_contractId_status ON installments(contractId, status);
+    `);
+
+    dbh.exec(`
+      CREATE TABLE contracts_v7_new (
+        id TEXT PRIMARY KEY,
+        propertyId TEXT,
+        tenantId TEXT,
+        guarantorId TEXT,
+        status TEXT,
+        startDate TEXT,
+        endDate TEXT,
+        annualValue REAL,
+        paymentFrequency INTEGER,
+        paymentMethod TEXT,
+        isArchived INTEGER,
+        data TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (propertyId) REFERENCES properties(id),
+        FOREIGN KEY (tenantId) REFERENCES people(id),
+        FOREIGN KEY (guarantorId) REFERENCES people(id)
+      );
+      INSERT INTO contracts_v7_new
+        SELECT id, propertyId, tenantId, guarantorId, status, startDate, endDate, annualValue,
+               paymentFrequency, paymentMethod, isArchived, data, updatedAt
+      FROM contracts;
+      DROP TABLE contracts;
+      ALTER TABLE contracts_v7_new RENAME TO contracts;
+    `);
+    dbh.exec(`
+      CREATE INDEX IF NOT EXISTS idx_contracts_propertyId ON contracts(propertyId);
+      CREATE INDEX IF NOT EXISTS idx_contracts_tenantId ON contracts(tenantId);
+      CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status);
+      CREATE INDEX IF NOT EXISTS idx_contracts_endDate ON contracts(endDate);
+      CREATE INDEX IF NOT EXISTS idx_contracts_isArchived ON contracts(isArchived);
+      CREATE INDEX IF NOT EXISTS idx_contracts_propertyId_isArchived ON contracts(propertyId, isArchived);
+      CREATE INDEX IF NOT EXISTS idx_contracts_tenantId_status ON contracts(tenantId, status);
+    `);
+
+    dbh.exec(`
+      CREATE TABLE person_roles_v7_new (
+        personId TEXT NOT NULL,
+        role TEXT NOT NULL,
+        FOREIGN KEY (personId) REFERENCES people(id) ON DELETE CASCADE
+      );
+      INSERT INTO person_roles_v7_new SELECT personId, role FROM person_roles;
+      DROP TABLE person_roles;
+      ALTER TABLE person_roles_v7_new RENAME TO person_roles;
+    `);
+    dbh.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_person_roles_person_role ON person_roles(personId, role);
+      CREATE INDEX IF NOT EXISTS idx_person_roles_personId ON person_roles(personId);
+      CREATE INDEX IF NOT EXISTS idx_person_roles_role ON person_roles(role);
+    `);
+
+    dbh.exec(`
+      CREATE TABLE maintenance_tickets_v7_new (
+        id TEXT PRIMARY KEY,
+        propertyId TEXT,
+        tenantId TEXT,
+        createdDate TEXT,
+        status TEXT,
+        priority TEXT,
+        issue TEXT,
+        closedDate TEXT,
+        data TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (propertyId) REFERENCES properties(id)
+      );
+      INSERT INTO maintenance_tickets_v7_new
+        SELECT id, propertyId, tenantId, createdDate, status, priority, issue, closedDate, data, updatedAt
+      FROM maintenance_tickets;
+      DROP TABLE maintenance_tickets;
+      ALTER TABLE maintenance_tickets_v7_new RENAME TO maintenance_tickets;
+    `);
+    dbh.exec(`
+      CREATE INDEX IF NOT EXISTS idx_maint_propertyId ON maintenance_tickets(propertyId);
+      CREATE INDEX IF NOT EXISTS idx_maint_status ON maintenance_tickets(status);
+      CREATE INDEX IF NOT EXISTS idx_maint_priority ON maintenance_tickets(priority);
+      CREATE INDEX IF NOT EXISTS idx_maint_createdDate ON maintenance_tickets(createdDate);
+      CREATE INDEX IF NOT EXISTS idx_maintenance_propertyId_status ON maintenance_tickets(propertyId, status);
+    `);
+  } finally {
+    dbh.pragma('foreign_keys = ON');
+  }
 }
 
 function ensureDomainSchema(dbh: SqliteDb): void {
@@ -534,7 +656,8 @@ function ensureDomainSchema(dbh: SqliteDb): void {
 
     CREATE TABLE IF NOT EXISTS person_roles (
       personId TEXT NOT NULL,
-      role TEXT NOT NULL
+      role TEXT NOT NULL,
+      FOREIGN KEY (personId) REFERENCES people(id) ON DELETE CASCADE
     );
     CREATE UNIQUE INDEX IF NOT EXISTS uq_person_roles_person_role ON person_roles(personId, role);
     CREATE INDEX IF NOT EXISTS idx_person_roles_personId ON person_roles(personId);
@@ -583,7 +706,10 @@ function ensureDomainSchema(dbh: SqliteDb): void {
       paymentMethod TEXT,
       isArchived INTEGER,
       data TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (propertyId) REFERENCES properties(id),
+      FOREIGN KEY (tenantId) REFERENCES people(id),
+      FOREIGN KEY (guarantorId) REFERENCES people(id)
     );
     CREATE INDEX IF NOT EXISTS idx_contracts_propertyId ON contracts(propertyId);
     CREATE INDEX IF NOT EXISTS idx_contracts_tenantId ON contracts(tenantId);
@@ -603,7 +729,8 @@ function ensureDomainSchema(dbh: SqliteDb): void {
       isArchived INTEGER,
       paidAt TEXT,
       data TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (contractId) REFERENCES contracts(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_installments_contractId ON installments(contractId);
     CREATE INDEX IF NOT EXISTS idx_installments_dueDate ON installments(dueDate);
@@ -622,7 +749,8 @@ function ensureDomainSchema(dbh: SqliteDb): void {
       issue TEXT,
       closedDate TEXT,
       data TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (propertyId) REFERENCES properties(id)
     );
     CREATE INDEX IF NOT EXISTS idx_maint_propertyId ON maintenance_tickets(propertyId);
     CREATE INDEX IF NOT EXISTS idx_maint_status ON maintenance_tickets(status);
@@ -727,6 +855,10 @@ function ensureDomainSchema(dbh: SqliteDb): void {
       CREATE INDEX IF NOT EXISTS idx_properties_ownerId_status ON properties(ownerId, status);
       CREATE INDEX IF NOT EXISTS idx_maintenance_propertyId_status ON maintenance_tickets(propertyId, status);
     `);
+  }
+
+  if (current < 7) {
+    migrateDomainSchemaV7(dbh);
   }
 
   metaSet(dbh, 'domain_schema_version', String(DOMAIN_SCHEMA_VERSION));
