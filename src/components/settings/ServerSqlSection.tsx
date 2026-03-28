@@ -726,7 +726,8 @@ export const ServerSqlSection: React.FC = () => {
                       />
                       <input
                         id="settings-sql-server"
-                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                        dir="ltr"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold text-left outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                         placeholder={t('127.0.0.1 أو اسم الخادم')}
                         value={sqlForm.server}
                         onChange={(e) => setSqlForm((p) => ({ ...p, server: e.target.value }))}
@@ -744,7 +745,8 @@ export const ServerSqlSection: React.FC = () => {
                     </label>
                     <input
                       id="settings-sql-port"
-                      className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 px-5 text-sm font-mono font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                      dir="ltr"
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 px-5 text-sm font-mono font-bold text-left outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                       placeholder="1433"
                       value={String(sqlForm.port ?? 1433)}
                       onChange={(e) =>
@@ -768,7 +770,8 @@ export const ServerSqlSection: React.FC = () => {
                       />
                       <input
                         id="settings-sql-database"
-                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                        dir="ltr"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold text-left outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                         placeholder="AZRAR_DB"
                         value={sqlForm.database}
                         onChange={(e) => setSqlForm((p) => ({ ...p, database: e.target.value }))}
@@ -817,7 +820,8 @@ export const ServerSqlSection: React.FC = () => {
                       />
                       <input
                         id="settings-sql-username"
-                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                        dir="ltr"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold text-left outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                         placeholder="sa"
                         value={sqlForm.user}
                         onChange={(e) => setSqlForm((p) => ({ ...p, user: e.target.value }))}
@@ -841,7 +845,8 @@ export const ServerSqlSection: React.FC = () => {
                       <input
                         id="settings-sql-password"
                         type="password"
-                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                        dir="ltr"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pr-14 pl-5 text-sm font-bold text-left outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                         placeholder={
                           sqlForm.hasPassword ? t('•••••••• (محفوظة)') : t('أدخل كلمة المرور')
                         }

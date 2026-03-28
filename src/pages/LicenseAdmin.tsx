@@ -844,6 +844,8 @@ export const LicenseAdmin: React.FC = () => {
                 رابط سيرفر التفعيل
               </div>
               <Input
+                dir="ltr"
+                className="font-mono text-sm"
                 value={serverUrl}
                 onChange={(e) => {
                   const nextRaw = e.target.value;
@@ -874,6 +876,7 @@ export const LicenseAdmin: React.FC = () => {
                 كلمة مرور الأدمن
               </div>
               <Input
+                dir="ltr"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
@@ -886,6 +889,8 @@ export const LicenseAdmin: React.FC = () => {
                 توكن السيرفر
               </div>
               <Input
+                dir="ltr"
+                className="font-mono text-xs"
                 value={serverAdminToken}
                 onChange={(e) => setServerAdminToken(e.target.value)}
                 placeholder="X-Admin-Token"
