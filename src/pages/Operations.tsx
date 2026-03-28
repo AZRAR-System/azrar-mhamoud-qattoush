@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type FC, type ReactNode } from 'react';
 import { DbService } from '@/services/mockDb';
 import { الكمبيالات_tbl, العقود_tbl, الأشخاص_tbl, العقارات_tbl, RoleType } from '@/types';
 import { formatContractNumberShort } from '@/utils/contractNumber';
@@ -38,11 +38,11 @@ interface PaymentStepProps {
   status: 'pending' | 'current' | 'completed';
   title: string;
   description: string;
-  icon: React.ReactNode;
-  children?: React.ReactNode;
+  icon: ReactNode;
+  children?: ReactNode;
 }
 
-const PaymentStep: React.FC<PaymentStepProps> = ({
+const PaymentStep: FC<PaymentStepProps> = ({
   step,
   totalSteps,
   status,
@@ -100,7 +100,7 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
 };
 
 // --- Main Operations/Procedures Page ---
-export const Operations: React.FC = () => {
+export const Operations: FC = () => {
   const dbSignal = useDbSignal();
   const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb;
   const isDesktopFast = isDesktop && !!window.desktopDb?.domainInstallmentsContractsSearch;

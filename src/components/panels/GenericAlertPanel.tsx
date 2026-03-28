@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle, Info, Phone } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import type { tbl_Alerts } from '@/types/types';

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { PeoplePageModel } from '@/hooks/usePeople';
 
 type Props = { page: PeoplePageModel };

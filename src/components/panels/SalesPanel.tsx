@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
 import { الأشخاص_tbl, العقارات_tbl, العقود_tbl, عروض_البيع_tbl, عروض_الشراء_tbl } from '@/types';

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';

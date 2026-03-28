@@ -1,6 +1,5 @@
 import './Installments.css';
 
-import React from 'react';
 import { MergeVariablesCatalog } from '@/components/shared/MergeVariablesCatalog';
 import { DataGuard } from '@/components/shared/DataGuard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';

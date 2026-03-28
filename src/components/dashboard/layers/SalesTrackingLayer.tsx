@@ -3,7 +3,7 @@
  * Sales Tracking Layer - Pipeline and transaction tracking
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   LineChart,
   Line,

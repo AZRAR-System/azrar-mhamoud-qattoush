@@ -6,7 +6,7 @@
  * Integration Tests UI Component
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Play, RotateCw, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { IntegrationTestSuite, type TestResult } from '../services/integrationTests';
 

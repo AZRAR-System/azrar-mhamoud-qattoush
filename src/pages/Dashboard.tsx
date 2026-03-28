@@ -6,7 +6,7 @@
  * Multi-layer, Real-time Dashboard with Advanced Analytics
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -339,6 +339,11 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="pb-16 md:pb-20">
+      {/* شريط التنبيهات/الإعلان — أعلى الصفحة وبعرض منطقة المحتوى */}
+      <div className="-mx-4 lg:-mx-8 mb-6 md:mb-8 w-[calc(100%+2rem)] lg:w-[calc(100%+4rem)] max-w-none shrink-0">
+        <MarqueeWidget edgeToEdge />
+      </div>
+
       <div className={`${DASHBOARD_PAGE_WRAP} space-y-8 md:space-y-10`}>
       {/* Dynamic Hero Header */}
       <div className="relative overflow-hidden rounded-2xl md:rounded-[2.5rem] bg-slate-900 dark:bg-slate-900 p-6 sm:p-8 lg:p-12 shadow-2xl">
@@ -544,7 +549,6 @@ export const Dashboard: React.FC = () => {
           <DailySummaryWidget />
         </div>
         <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6 min-w-0 order-2">
-          <MarqueeWidget />
           <div className="glass-card p-6 sm:p-8">
             <h4 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
               <Search size={20} className="text-indigo-500" />

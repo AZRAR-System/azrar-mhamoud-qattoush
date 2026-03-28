@@ -1,4 +1,3 @@
-import React from 'react';
 import type { PropertiesPageModel } from '@/hooks/useProperties';
 
 type Props = { page: PropertiesPageModel };

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';

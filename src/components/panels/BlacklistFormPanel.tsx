@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { useToast } from '@/context/ToastContext';
 import { ShieldAlert, AlertTriangle, Save } from 'lucide-react';

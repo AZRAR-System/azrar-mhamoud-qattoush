@@ -3,7 +3,7 @@
  * Documents - aggregated attachments view
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   FileText,

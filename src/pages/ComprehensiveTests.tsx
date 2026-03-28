@@ -1,7 +1,7 @@
-import React from 'react';
+import type { FC } from 'react';
 import ComprehensiveTestPanel from '../components/ComprehensiveTestPanel';
 
-export const ComprehensiveTests: React.FC = () => {
+export const ComprehensiveTests: FC = () => {
   return <ComprehensiveTestPanel />;
 };
 

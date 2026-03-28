@@ -1,4 +1,3 @@
-import React from 'react';
 import { PeopleImportInput } from '@/components/people/PeopleImportInput';
 import { PeopleSmartFilterBar } from '@/components/people/PeopleSmartFilterBar';
 import { PeopleAdvancedFiltersCard } from '@/components/people/PeopleAdvancedFiltersCard';

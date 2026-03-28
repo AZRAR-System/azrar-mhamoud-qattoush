@@ -1,4 +1,4 @@
-import React, { useEffect, useState, memo, useRef } from 'react';
+import { useEffect, useState, memo, useRef, Fragment, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants';
 import {
@@ -88,19 +88,19 @@ const Breadcrumbs = memo(({ pathname }: { pathname: string }) => {
           ROUTE_TITLES[('/' + parts.slice(0, idx + 1).join('/')) as keyof typeof ROUTE_TITLES] ||
           part;
         return (
-          <React.Fragment key={idx}>
+          <Fragment key={idx}>
             <ChevronRight size={10} className="text-slate-300 dark:text-slate-700" />
             <span className={isLast ? 'text-indigo-500/80 dark:text-indigo-400/80' : ''}>
               {label}
             </span>
-          </React.Fragment>
+          </Fragment>
         );
       })}
     </div>
   );
 });
 
-export const Layout = ({ children }: { children: React.ReactNode }) => {
+export const Layout = ({ children }: { children: ReactNode }) => {
   type SqlStatus = {
     configured: boolean;
     enabled: boolean;

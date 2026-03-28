@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';

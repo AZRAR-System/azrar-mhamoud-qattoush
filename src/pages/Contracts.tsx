@@ -23,11 +23,11 @@
  * - يظهر رسالة تنبيه إذا لم تكن البيانات المطلوبة موجودة
  */
 
-import React from 'react';
+import type { FC } from 'react';
 import { useContracts } from '@/hooks/useContracts';
 import { ContractsPageView } from '@/components/contracts/ContractsPageView';
 
-export const Contracts: React.FC = () => {
+export const Contracts: FC = () => {
   const page = useContracts();
   return <ContractsPageView page={page} />;
 };

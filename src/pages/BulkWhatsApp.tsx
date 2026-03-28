@@ -3,7 +3,7 @@
  * Bulk WhatsApp - open multiple chats with a custom message
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageCircle, PauseCircle, PlayCircle, Users } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { DS } from '@/constants/designSystem';

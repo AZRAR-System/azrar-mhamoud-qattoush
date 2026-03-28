@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 import { DbService } from '@/services/mockDb';

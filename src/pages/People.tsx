@@ -22,11 +22,11 @@
  * - غير مستخدم في هذه الصفحة (لا توجد بيانات مطلوبة مسبقاً)
  */
 
-import React from 'react';
+import type { FC } from 'react';
 import { usePeople } from '@/hooks/usePeople';
 import { PeoplePageView } from '@/components/people/PeoplePageView';
 
-export const People: React.FC = () => {
+export const People: FC = () => {
   const page = usePeople();
   return <PeoplePageView page={page} />;
 };

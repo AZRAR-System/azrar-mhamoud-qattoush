@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { ReportResult } from '@/types';
 import { Printer, Download, Search, FileText, Filter, FileSpreadsheet } from 'lucide-react';

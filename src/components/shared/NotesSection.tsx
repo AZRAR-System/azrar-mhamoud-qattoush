@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NoteRecord, ReferenceType } from '@/types';
 import { addNoteSmart, listNotesSmart } from '@/services/refsDataSmart';
 import { MessageSquare, Send, User } from 'lucide-react';

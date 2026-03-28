@@ -5,7 +5,7 @@
  * Daily Summary Widget - ملخص يومي للإشعارات والأحداث
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Bell,
   Calendar,

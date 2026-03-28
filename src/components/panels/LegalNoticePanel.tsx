@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import { LegalNoticeTemplate } from '@/types';
 import { Printer, MessageCircle, ChevronDown, PenTool } from 'lucide-react';

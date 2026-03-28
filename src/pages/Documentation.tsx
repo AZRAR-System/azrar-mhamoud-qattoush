@@ -1,11 +1,11 @@
-﻿import React from 'react';
+import type { FC } from 'react';
 import { Printer, BookOpen, Code, Layers, Database, Server } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { printCurrentViewUnified } from '@/services/printing/unifiedPrint';
 
-export const Documentation: React.FC = () => {
+export const Documentation: FC = () => {
   const handlePrint = () => {
     void printCurrentViewUnified({ documentType: 'documentation' });
   };

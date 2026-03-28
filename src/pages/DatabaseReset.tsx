@@ -6,7 +6,7 @@
  * صفحة حذف البيانات وإعادة تهيئة النظام
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Trash2, RefreshCw, Database, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';

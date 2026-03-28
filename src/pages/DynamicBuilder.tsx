@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, type FC } from 'react';
 import { DbService } from '@/services/mockDb';
 import { useToast } from '@/context/ToastContext';
 import { DS } from '@/constants/designSystem';
@@ -33,7 +33,7 @@ const getErrorMessage = (error: unknown): string | undefined => {
   return undefined;
 };
 
-export const DynamicBuilder: React.FC = () => {
+export const DynamicBuilder: FC = () => {
   const toast = useToast();
   const dbSignal = useDbSignal();
   // Dynamic Tables

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 import { AppModal } from '@/components/ui/AppModal';

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Search, Home, MapPin, Plus, ChevronDown, Check, Building2, Filter } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { العقارات_tbl, الأشخاص_tbl, العقود_tbl, تذاكر_الصيانة_tbl, سجل_الملكية_tbl } from '@/types';

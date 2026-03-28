@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type FC, type FormEvent } from 'react';
 import { DbService } from '@/services/mockDb';
 import {
   تذاكر_الصيانة_tbl,
@@ -40,7 +40,7 @@ import { domainGetSmart, propertyContractsSmart } from '@/services/domainQueries
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 
-export const Maintenance: React.FC = () => {
+export const Maintenance: FC = () => {
   const [tickets, setTickets] = useState<تذاكر_الصيانة_tbl[]>([]);
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
@@ -208,7 +208,7 @@ export const Maintenance: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!formData.رقم_العقار || !formData.الوصف) {
       toast.warning('يرجى تعبئة الحقول الإجبارية');

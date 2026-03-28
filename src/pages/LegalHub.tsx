@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FC, type FormEvent } from 'react';
 import { DbService } from '@/services/mockDb';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
@@ -517,7 +517,7 @@ export const LegalHub: React.FC = () => {
     refreshData();
   };
 
-  const handleAddTemplate = (e: React.FormEvent) => {
+  const handleAddTemplate = (e: FormEvent) => {
     e.preventDefault();
     if (!newTemplateForm.title || !newTemplateForm.content) {
       toast.warning('العنوان والنص مطلوبان');

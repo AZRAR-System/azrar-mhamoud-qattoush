@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Calendar, MessageSquare } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import type { RoleType, الأشخاص_tbl, الكمبيالات_tbl } from '@/types';

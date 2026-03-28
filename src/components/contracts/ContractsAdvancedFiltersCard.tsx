@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card } from '@/components/ui/Card';
 import { CurrencySuffix } from '@/components/ui/CurrencySuffix';
 import type { ContractsPageModel } from '@/hooks/useContracts';

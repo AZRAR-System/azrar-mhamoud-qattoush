@@ -1,6 +1,6 @@
-import React, { Suspense } from 'react';
+import { Suspense, lazy, type FC } from 'react';
 
-const BulkWhatsApp = React.lazy(() =>
+const BulkWhatsApp = lazy(() =>
   import('@/pages/BulkWhatsApp').then((module) => ({ default: module.BulkWhatsApp }))
 );
 
@@ -10,7 +10,7 @@ const PanelLoader = () => (
   </div>
 );
 
-export const BulkWhatsAppPanel: React.FC = () => {
+export const BulkWhatsAppPanel: FC = () => {
   return (
     <Suspense fallback={<PanelLoader />}>
       <BulkWhatsApp />

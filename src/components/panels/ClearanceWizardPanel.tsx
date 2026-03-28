@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { ClearanceWizard } from '@/components/ClearanceWizard';
 import { useSmartModal } from '@/context/ModalContext';

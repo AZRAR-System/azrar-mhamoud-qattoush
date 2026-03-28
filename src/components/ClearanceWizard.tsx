@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { DbService } from '@/services/mockDb';
 import {
   InspectionItem,

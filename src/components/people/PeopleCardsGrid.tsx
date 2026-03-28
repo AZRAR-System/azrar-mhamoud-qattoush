@@ -1,4 +1,3 @@
-import React from 'react';
 import { DbService } from '@/services/mockDb';
 import type { الأشخاص_tbl, العقود_tbl } from '@/types';
 import { Button } from '@/components/ui/Button';

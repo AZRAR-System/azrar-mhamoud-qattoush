@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import type { الأشخاص_tbl, SystemLookup, SmartSuggestion } from '@/types';
 import { useToast } from '@/context/ToastContext';

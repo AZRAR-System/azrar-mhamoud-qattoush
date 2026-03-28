@@ -21,11 +21,11 @@
  * - غير مستخدم في هذه الصفحة (لا توجد بيانات مطلوبة مسبقاً)
  */
 
-import React from 'react';
+import type { FC } from 'react';
 import { useProperties } from '@/hooks/useProperties';
 import { PropertiesPageView } from '@/components/properties/PropertiesPageView';
 
-export const Properties: React.FC = () => {
+export const Properties: FC = () => {
   const page = useProperties();
   return <PropertiesPageView page={page} />;
 };

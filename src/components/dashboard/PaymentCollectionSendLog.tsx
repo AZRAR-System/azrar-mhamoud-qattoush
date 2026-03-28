@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DbService, type NotificationSendLogRecord } from '@/services/mockDb';
 import { useSmartModal } from '@/context/ModalContext';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';

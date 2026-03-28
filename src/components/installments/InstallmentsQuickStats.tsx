@@ -1,4 +1,3 @@
-import React from 'react';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { AlertCircle, BarChart3, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/Button';

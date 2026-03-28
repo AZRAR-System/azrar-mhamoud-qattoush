@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { PersonPicker } from '@/components/shared/PersonPicker';

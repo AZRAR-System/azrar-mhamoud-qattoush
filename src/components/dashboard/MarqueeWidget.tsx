@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FC } from 'react';
 import { DbService } from '@/services/mockDb';
 import { MarqueeMessage } from '@/types';
 import { Megaphone, X, AlertTriangle, CheckCircle, Info, Plus, Settings2 } from 'lucide-react';
@@ -7,10 +7,12 @@ import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { Button } from '@/components/ui/Button';
 import type { PanelType } from '@/context/ModalContext';
 
-export const MarqueeWidget: React.FC<{ isCustomizing?: boolean; onRemove?: () => void }> = ({
-  isCustomizing,
-  onRemove,
-}) => {
+export const MarqueeWidget: FC<{
+  isCustomizing?: boolean;
+  onRemove?: () => void;
+  /** شريط علوي بعرض كامل (بدون استدارة أعلى، مناسب لأعلى الصفحة) */
+  edgeToEdge?: boolean;
+}> = ({ isCustomizing, onRemove, edgeToEdge }) => {
   const [messages, setMessages] = useState<MarqueeMessage[]>([]);
   const [repeatFactor, setRepeatFactor] = useState<number>(1);
   const [marqueeShiftPx, setMarqueeShiftPx] = useState<number>(0);
@@ -225,7 +227,7 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean; onRemove?: () =>
     return () => ro.disconnect();
   }, [hasMessages, repeatedMessages.length]);
 
-  const marqueeDurationSec = React.useMemo(() => {
+  const marqueeDurationSec = useMemo(() => {
     if (!hasMessages) return 80;
     const itemCount = displayMessages.length;
     const totalChars = displayMessages.reduce((sum, m) => sum + String(m.content || '').length, 0);
@@ -265,7 +267,13 @@ export const MarqueeWidget: React.FC<{ isCustomizing?: boolean; onRemove?: () =>
   };
 
   return (
-    <div className="app-card dark:bg-slate-800 relative mb-6 flex items-center h-12 rounded-2xl overflow-hidden">
+    <div
+      className={`app-card dark:bg-slate-800 relative flex items-center h-12 overflow-hidden ${
+        edgeToEdge
+          ? 'w-full mb-0 rounded-none rounded-b-2xl border-x-0 border-t-0 shadow-sm'
+          : 'mb-6 rounded-2xl'
+      }`}
+    >
       {/* Inject Keyframes Locally to ensure it works */}
       <style>{`
         @keyframes marquee-continuous-rtl {

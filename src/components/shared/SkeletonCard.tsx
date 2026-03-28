@@ -1,4 +1,3 @@
-import React from 'react';
 
 const bar = (extra: string) =>
   `rounded-lg bg-slate-200/90 dark:bg-slate-700/80 ${extra}`;

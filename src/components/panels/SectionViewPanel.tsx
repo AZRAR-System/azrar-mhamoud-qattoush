@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import { Suspense, lazy, type FC } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
 
@@ -12,26 +12,26 @@ type SectionPath =
   | typeof ROUTE_PATHS.OPERATIONS
   | typeof ROUTE_PATHS.SETTINGS;
 
-const People = React.lazy(() => import('@/pages/People').then((m) => ({ default: m.People })));
-const Properties = React.lazy(() =>
+const People = lazy(() => import('@/pages/People').then((m) => ({ default: m.People })));
+const Properties = lazy(() =>
   import('@/pages/Properties').then((m) => ({ default: m.Properties }))
 );
-const Contracts = React.lazy(() =>
+const Contracts = lazy(() =>
   import('@/pages/Contracts').then((m) => ({ default: m.Contracts }))
 );
-const Installments = React.lazy(() =>
+const Installments = lazy(() =>
   import('@/pages/Installments').then((m) => ({ default: m.Installments }))
 );
-const Reports = React.lazy(() => import('@/pages/Reports').then((m) => ({ default: m.Reports })));
-const Alerts = React.lazy(() => import('@/pages/Alerts').then((m) => ({ default: m.Alerts })));
-const Operations = React.lazy(() =>
+const Reports = lazy(() => import('@/pages/Reports').then((m) => ({ default: m.Reports })));
+const Alerts = lazy(() => import('@/pages/Alerts').then((m) => ({ default: m.Alerts })));
+const Operations = lazy(() =>
   import('@/pages/Operations').then((m) => ({ default: m.Operations }))
 );
-const Settings = React.lazy(() =>
+const Settings = lazy(() =>
   import('@/pages/Settings').then((m) => ({ default: m.Settings }))
 );
 
-const PageLoader: React.FC = () => (
+const PageLoader: FC = () => (
   <div className="flex h-full w-full items-center justify-center min-h-[240px]">
     <div className="flex flex-col items-center gap-3">
       <Loader2 size={32} className="text-indigo-600 animate-spin" />
@@ -40,7 +40,7 @@ const PageLoader: React.FC = () => (
   </div>
 );
 
-export const SectionViewPanel: React.FC<{ id?: SectionPath; title?: string }> = ({ id }) => {
+export const SectionViewPanel: FC<{ id?: SectionPath; title?: string }> = ({ id }) => {
   const section = id;
 
   const Component = (() => {

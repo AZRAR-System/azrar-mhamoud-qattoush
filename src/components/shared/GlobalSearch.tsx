@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useId } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Search, User, Home, FileText, ChevronLeft, ArrowRight } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatContractNumberShort } from '@/utils/contractNumber';

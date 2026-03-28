@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Attachment, ReferenceType } from '@/types';
 import { FileText, Trash2, Upload, HardDrive, Image as ImageIcon, Eye } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';

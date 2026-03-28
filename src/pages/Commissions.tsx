@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FC, type FormEvent } from 'react';
 import { DbService } from '@/services/mockDb';
 import {
   ReportResult,
@@ -68,7 +68,7 @@ const asNumber = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-export const Commissions: React.FC = () => {
+export const Commissions: FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('contracts');
 
   const listPageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 14, '2xl': 18 });
@@ -213,7 +213,7 @@ export const Commissions: React.FC = () => {
     setFilterType('All');
   }, [activeTab]);
 
-  const handleAddExternal = (e: React.FormEvent) => {
+  const handleAddExternal = (e: FormEvent) => {
     e.preventDefault();
     if (!newExtComm.العنوان || !newExtComm.القيمة || !newExtComm.النوع) {
       toast.warning('يرجى تعبئة الحقول المطلوبة (العنوان، القيمة، النوع)');
@@ -335,7 +335,7 @@ export const Commissions: React.FC = () => {
     setEditingContractComm(null);
   };
 
-  const handleSaveContractEdit = (e: React.FormEvent) => {
+  const handleSaveContractEdit = (e: FormEvent) => {
     e.preventDefault();
     if (!editingContractComm?.رقم_العمولة) {
       toast.error('تعذر تحديد العمولة المراد تعديلها');

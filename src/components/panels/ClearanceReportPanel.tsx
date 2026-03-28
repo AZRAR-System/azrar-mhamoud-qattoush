@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 import { ClearanceRecord, ContractDetailsResult } from '@/types';
 import { Printer, CheckCircle, XCircle } from 'lucide-react';

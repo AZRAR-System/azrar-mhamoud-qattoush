@@ -1,4 +1,3 @@
-import React from 'react';
 import { PropertiesImportInput } from '@/components/properties/PropertiesImportInput';
 import { PropertiesSmartFilterBar } from '@/components/properties/PropertiesSmartFilterBar';
 import { PropertiesAdvancedFiltersCard } from '@/components/properties/PropertiesAdvancedFiltersCard';

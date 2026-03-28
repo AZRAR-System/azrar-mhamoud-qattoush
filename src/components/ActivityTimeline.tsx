@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ActivityRecord, ReferenceType } from '@/types';
 import { listActivitiesSmart } from '@/services/refsDataSmart';
 import {

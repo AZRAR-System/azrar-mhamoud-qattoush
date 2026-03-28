@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { normalizeDigitsToLatin } from '@/utils/numberInput';
 
 type UiSize = 'sm' | 'md' | 'lg';

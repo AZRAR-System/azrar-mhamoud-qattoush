@@ -1,4 +1,3 @@
-import React from 'react';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { Bar, BarChart, CartesianGrid, Cell as RechartsCell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';

@@ -3,7 +3,7 @@
  * Overview Layer - Financial and system overview
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   AreaChart,
   Area,

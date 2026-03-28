@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { MessageCircle, Copy, X, Send } from 'lucide-react';
 import {

@@ -3,7 +3,7 @@
  * Contacts - phonebook-like view powered by People
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, MessageCircle, Phone, Users } from 'lucide-react';
 import { DbService } from '@/services/mockDb';

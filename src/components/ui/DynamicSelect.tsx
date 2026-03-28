@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Plus, X, Check, Loader2, ChevronDown } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { SystemLookup } from '@/types';
