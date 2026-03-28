@@ -267,6 +267,12 @@ body,
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .page-transition {
+    animation: none;
+  }
+}
+
 @keyframes float {
   0% {
     transform: translateY(0px);

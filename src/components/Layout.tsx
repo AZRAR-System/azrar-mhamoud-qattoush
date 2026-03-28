@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, memo, useRef } from 'react';
+import React, { useEffect, useState, memo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants';
 import {
@@ -811,7 +811,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
         {/* Content Container - Modern Layout */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-transparent no-scrollbar scroll-smooth">
-          <div className="max-w-[1600px] mx-auto w-full page-transition pb-24 lg:pb-12 min-h-full">
+          <div
+            key={pathname}
+            className="max-w-[1600px] mx-auto w-full page-transition pb-24 lg:pb-12 min-h-full"
+          >
             {children}
           </div>
 
