@@ -78,6 +78,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   const unreadAlertsTotal =
     (data.alerts?.critical || 0) + (data.alerts?.warning || 0) + (data.alerts?.info || 0);
 
+  /** ترتيب: إجراءات عاجلة → مالية → محفظة العقود والعقارات */
   const cards: KPICard[] = [
     {
       title: 'أقساط اليوم',
@@ -88,16 +89,6 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       bgColor: 'bg-sky-50 dark:bg-sky-900/20',
       trend: 'قسط مستحق اليوم (متبقي) — اضغط للانتقال إلى الأقساط',
       onClick: goInstallments,
-    },
-    {
-      title: 'عقود تنتهي قريباً (30 يوماً)',
-      value: formatNumber(data.kpis.expiringContracts30dCount ?? 0),
-      icon: Timer,
-      color: 'from-rose-500 to-orange-500',
-      textColor: 'text-rose-600',
-      bgColor: 'bg-rose-50 dark:bg-rose-900/20',
-      trend: 'عقود سارية تنتهي خلال 30 يوماً',
-      onClick: goContractsExpiring,
     },
     {
       title: 'متأخرات التحصيل',
@@ -118,6 +109,26 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       bgColor: 'bg-violet-50 dark:bg-violet-900/20',
       trend: 'متابعات معلّقة بتاريخ مرّ — طبقة التقويم',
       onClick: goDashboardCalendar,
+    },
+    {
+      title: 'عقود تنتهي قريباً (30 يوماً)',
+      value: formatNumber(data.kpis.expiringContracts30dCount ?? 0),
+      icon: Timer,
+      color: 'from-rose-500 to-orange-500',
+      textColor: 'text-rose-600',
+      bgColor: 'bg-rose-50 dark:bg-rose-900/20',
+      trend: 'عقود سارية تنتهي خلال 30 يوماً',
+      onClick: goContractsExpiring,
+    },
+    {
+      title: 'تنبيهات قبل الاستحقاق',
+      value: data.kpis.dueNext7Payments,
+      icon: AlertTriangle,
+      color: 'from-red-500 to-orange-600',
+      textColor: 'text-red-600',
+      bgColor: 'bg-red-50 dark:bg-red-900/20',
+      trend: 'دفعات مستحقة خلال 7 أيام — اضغط للتفاصيل',
+      onClick: () => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 }),
     },
     {
       title: 'إيرادات الشهر الحالي',
@@ -159,16 +170,6 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       showOccupancyBar: true,
     },
     {
-      title: 'تنبيهات قبل الاستحقاق',
-      value: data.kpis.dueNext7Payments,
-      icon: AlertTriangle,
-      color: 'from-red-500 to-orange-600',
-      textColor: 'text-red-600',
-      bgColor: 'bg-red-50 dark:bg-red-900/20',
-      trend: 'دفعات مستحقة خلال 7 أيام — اضغط للتفاصيل',
-      onClick: () => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 }),
-    },
-    {
       title: 'تنبيهات غير مقروءة',
       value: formatNumber(unreadAlertsTotal),
       icon: Bell,
@@ -191,20 +192,23 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+    <div
+      className="grid gap-4 sm:gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr))]"
+      dir="rtl"
+    >
       {cards.map((card, index) => {
         const Icon = card.icon;
-        const className = `glass-card p-6 relative group transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 border-white/40 dark:border-slate-800/60 ${
+        const className = `glass-card p-5 sm:p-6 relative group h-full flex flex-col transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1 border-white/40 dark:border-slate-800/60 ${
           card.onClick ? 'cursor-pointer' : 'cursor-default'
         }`;
 
         return (
           <div key={index} className={className} onClick={card.onClick}>
             <div
-              className={`absolute -right-4 -top-4 w-24 h-24 bg-gradient-to-br ${card.color} opacity-0 group-hover:opacity-10 blur-2xl transition-opacity duration-500 rounded-full`}
+              className={`absolute -right-4 -top-4 w-24 h-24 bg-gradient-to-br ${card.color} opacity-0 group-hover:opacity-10 blur-2xl transition-opacity duration-500 rounded-full pointer-events-none`}
             />
 
-            <div className="relative z-10">
+            <div className="relative z-10 flex flex-col flex-1 min-h-0">
               <div className="flex items-start justify-between mb-5">
                 <div
                   className={`p-4 rounded-2xl ${card.bgColor} shadow-inner group-hover:scale-110 transition-transform duration-500`}
@@ -221,7 +225,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100/50 dark:border-slate-800/50 flex items-center justify-between gap-2">
+              <div className="mt-auto pt-4 border-t border-slate-100/50 dark:border-slate-800/50 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 min-w-0">
                   <TrendingUp size={12} className={`${card.textColor} shrink-0`} />
                   <span className="leading-snug">{card.trend}</span>

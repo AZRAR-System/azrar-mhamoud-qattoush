@@ -49,6 +49,9 @@ interface LayerConfig {
   description: string;
 }
 
+/** محاذاة موحّدة مع بقية الصفحات — مرنة على كل العرض */
+const DASHBOARD_PAGE_WRAP = 'max-w-[1600px] mx-auto w-full px-4 sm:px-6';
+
 const toRecord = (v: unknown): Record<string, unknown> =>
   typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 const toNumber = (v: unknown): number => {
@@ -335,9 +338,10 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   return (
-    <div className="pb-20 space-y-10">
+    <div className="pb-16 md:pb-20">
+      <div className={`${DASHBOARD_PAGE_WRAP} space-y-8 md:space-y-10`}>
       {/* Dynamic Hero Header */}
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 dark:bg-slate-900 p-8 lg:p-12 shadow-2xl">
+      <div className="relative overflow-hidden rounded-2xl md:rounded-[2.5rem] bg-slate-900 dark:bg-slate-900 p-6 sm:p-8 lg:p-12 shadow-2xl">
         {/* Abstract Background Elements */}
         <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-indigo-500/20 to-transparent skew-x-12 transform translate-x-24" />
         <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl animate-pulse" />
@@ -419,13 +423,13 @@ export const Dashboard: React.FC = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-end lg:justify-start shrink-0">
             <QuickActionsBar />
           </div>
         </div>
 
         {/* Animated Layer Content */}
-        <div className="page-transition min-h-[500px]">
+        <div className="page-transition min-h-[min(500px,70vh)] md:min-h-[520px]">
           {activeLayer === 'overview' && <OverviewLayer data={dashboardData} />}
           {activeLayer === 'sales' && <SalesTrackingLayer data={dashboardData} />}
           {activeLayer === 'calendar' && <CalendarTasksLayer data={dashboardData} />}
@@ -532,15 +536,14 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Secondary Widgets Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 px-2">
-        <div className="xl:col-span-2">
+      {/* Secondary Widgets: ملخص يومي واسع + عمود جانبي مرن */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        <div className="lg:col-span-7 xl:col-span-8 min-w-0 order-1">
           <DailySummaryWidget />
         </div>
-        <div className="space-y-8">
+        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6 min-w-0 order-2">
           <MarqueeWidget />
-          {/* System Shortcuts glass card */}
-          <div className="glass-card p-8">
+          <div className="glass-card p-6 sm:p-8">
             <h4 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
               <Search size={20} className="text-indigo-500" />
               الوصول السريع للروابط
@@ -560,7 +563,7 @@ export const Dashboard: React.FC = () => {
               />
             </div>
             <div
-              className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto no-scrollbar pr-1"
+              className="grid grid-cols-2 gap-3 max-h-[min(320px,50vh)] overflow-y-auto no-scrollbar pr-1"
               dir="rtl"
             >
               {pagesLinks.slice(0, 10).map((link, idx) => (
@@ -578,8 +581,9 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Footer Info */}
-      <div className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
+      <div className="mt-6 md:mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
         <p>نظام AZRAR لإدارة العقارات © 2025 - جميع الحقوق محفوظة</p>
+      </div>
       </div>
     </div>
   );

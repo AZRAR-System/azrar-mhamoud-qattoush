@@ -606,10 +606,13 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
   })();
 
   return (
-    <div className="space-y-6">
-      {/* Key Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition group">
+    <div className="space-y-6 md:space-y-8 min-w-0">
+      {/* Key Stats — شبكة مرنة مثل بطاقات KPI */}
+      <div
+        className="grid gap-4 sm:gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))]"
+        dir="rtl"
+      >
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-5 sm:p-6 rounded-2xl shadow-lg hover:shadow-xl transition group min-h-[140px] flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium opacity-90">المهام المعلقة</p>
@@ -622,7 +625,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition group">
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-5 sm:p-6 rounded-2xl shadow-lg hover:shadow-xl transition group min-h-[140px] flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium opacity-90">الأحداث هذا الأسبوع</p>
@@ -633,7 +636,7 @@ export const CalendarTasksLayer: React.FC<CalendarTasksLayerProps> = ({ data: _d
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition group">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 sm:p-6 rounded-2xl shadow-lg hover:shadow-xl transition group min-h-[140px] flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium opacity-90">عقود منتهية قريبا</p>
