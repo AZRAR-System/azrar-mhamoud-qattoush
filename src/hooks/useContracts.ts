@@ -70,6 +70,7 @@ export function useContracts() {
   const [fastTotal, setFastTotal] = useState(0);
   const [fastLoading, setFastLoading] = useState(false);
   const [listLoading, setListLoading] = useState(true);
+  const [deletingContractId, setDeletingContractId] = useState<string | null>(null);
   const [fastError, setFastError] = useState<string>('');
   const [fastPage, setFastPage] = useState(1);
   // Desktop fast paging uses a stable SQL page size (do not tie to responsive UI sizing).
@@ -521,13 +522,18 @@ export function useContracts() {
       });
       if (!okConfirm) return;
 
-      const res = DbService.deleteContract(id);
-      if (res.success) {
-        toast.success(t('تم حذف العقد'));
-        loadData();
-      } else {
-        toast.error(tr(res.message) || t('فشل حذف العقد'));
-      }
+      const sid = String(id);
+      setDeletingContractId(sid);
+      window.setTimeout(() => {
+        const res = DbService.deleteContract(sid);
+        setDeletingContractId(null);
+        if (res.success) {
+          toast.success(t('تم حذف العقد'));
+          loadData();
+        } else {
+          toast.error(tr(res.message) || t('فشل حذف العقد'));
+        }
+      }, 1000);
     },
     [contracts, toast, loadData, t, tr]
   );
@@ -1131,6 +1137,7 @@ export function useContracts() {
     fastTotal,
     fastLoading,
     loading,
+    deletingContractId,
     fastError,
     fastPage,
     setFastPage,

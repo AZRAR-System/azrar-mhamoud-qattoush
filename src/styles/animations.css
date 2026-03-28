@@ -116,9 +116,16 @@
   animation: glow 2s infinite;
 }
 
-/* Toast-specific animations */
+/* Toast-specific animations — دخول سلس (fade + slide) */
 .toast-enter {
-  animation: slide-up 0.3s ease-out forwards;
+  animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter {
+    animation: fade-in 0.2s ease-out forwards;
+  }
 }
 
 .toast-exit {

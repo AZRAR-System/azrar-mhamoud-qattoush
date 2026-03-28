@@ -64,6 +64,16 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Micro-interaction: جميع الأزرار */
+@layer base {
+  button {
+    transition: transform 0.1s ease;
+  }
+  button:active {
+    transform: scale(0.97);
+  }
+}
+
 /* Typography Polish */
 body {
   -webkit-font-smoothing: antialiased;

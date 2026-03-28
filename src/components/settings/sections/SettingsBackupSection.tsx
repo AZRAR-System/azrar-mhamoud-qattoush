@@ -28,6 +28,7 @@ import {
   Copy,
   MessageCircle,
   FileText,
+  Loader2,
 } from 'lucide-react';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import type { SettingsPageModel } from '@/hooks/useSettingsPage';
@@ -226,8 +227,11 @@ export function SettingsBackupSection({ page }: Props) {
                     type="button"
                     onClick={() => saveBackupEncryption({ password: backupEncPassword })}
                     disabled={backupEncBusy || !backupEncPassword}
-                    className={`flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl text-sm font-black hover:bg-indigo-700 ${backupEncBusy || !backupEncPassword ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    className={`flex-1 inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-3 rounded-xl text-sm font-black hover:bg-indigo-700 ${backupEncBusy || !backupEncPassword ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
+                    {backupEncBusy ? (
+                      <Loader2 className="animate-spin shrink-0" size={18} aria-hidden />
+                    ) : null}
                     حفظ كلمة المرور
                   </button>
                   <button
@@ -389,8 +393,11 @@ export function SettingsBackupSection({ page }: Props) {
                     })
                   }
                   disabled={localBackupBusy}
-                  className={`bg-indigo-600 text-white px-4 py-3 rounded-xl text-sm font-black hover:bg-indigo-700 ${localBackupBusy ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  className={`inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-3 rounded-xl text-sm font-black hover:bg-indigo-700 ${localBackupBusy ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
+                  {localBackupBusy ? (
+                    <Loader2 className="animate-spin shrink-0" size={18} aria-hidden />
+                  ) : null}
                   حفظ الإعدادات
                 </button>
                 <button

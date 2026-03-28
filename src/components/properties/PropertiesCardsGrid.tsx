@@ -104,6 +104,7 @@ export function PropertiesCardsGrid({ page }: Props) {
     handleOpenForm,
     handleDelete,
     quickListForSale,
+    deletingPropertyId,
   } = page;
 
   return (
@@ -220,6 +221,7 @@ export function PropertiesCardsGrid({ page }: Props) {
                 handleOpenForm={handleOpenForm}
                 handleDelete={handleDelete}
                 quickListForSale={quickListForSale}
+                isDeleting={deletingPropertyId === String(p.رقم_العقار)}
               />
             );
           }

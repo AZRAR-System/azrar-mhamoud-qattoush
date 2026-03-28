@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, RefreshCcw } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 import { AppModal } from '@/components/ui/AppModal';
 import type { SettingsPageModel } from '@/hooks/useSettingsPage';
@@ -60,7 +60,7 @@ export function SettingsPageView({ page }: Props) {
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${saveStatus === 'saving' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}
                 >
                   {saveStatus === 'saving' ? (
-                    <RefreshCcw size={12} className="animate-spin" />
+                    <Loader2 size={12} className="animate-spin" />
                   ) : (
                     <Check size={12} />
                   )}

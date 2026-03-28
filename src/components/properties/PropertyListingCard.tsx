@@ -44,6 +44,7 @@ export type PropertyListingCardProps = {
   handleOpenForm: (id?: string) => void;
   handleDelete: (id: string) => void;
   quickListForSale: (propertyId: string) => void;
+  isDeleting?: boolean;
 };
 
 export const PropertyListingCard = React.memo(
@@ -71,9 +72,12 @@ export const PropertyListingCard = React.memo(
     handleOpenForm,
     handleDelete,
     quickListForSale,
+    isDeleting,
   }: PropertyListingCardProps) => {
     return (
-      <Card className={`group w-full animate-slide-up ${visualRingClass}`}>
+      <Card
+        className={`group w-full animate-slide-up ${visualRingClass} ${isDeleting ? 'animate-pulse' : ''}`}
+      >
         <div className={`h-1 w-full ${visualStripeClass}`}></div>
         <div className="p-5 flex flex-col h-full">
           <div className="flex justify-between items-start mb-4">

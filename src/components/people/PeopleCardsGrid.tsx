@@ -112,6 +112,7 @@ export function PeopleCardsGrid({ page }: Props) {
     handleDelete,
     handleBlacklist,
     handleQuickReminderForPerson,
+    deletingPersonId,
   } = page;
 
   const renderWebCard = (person: الأشخاص_tbl) => {
@@ -204,6 +205,7 @@ export function PeopleCardsGrid({ page }: Props) {
         handleDelete={handleDelete}
         handleBlacklist={handleBlacklist}
         handleQuickReminderForPerson={handleQuickReminderForPerson}
+        isDeleting={deletingPersonId === String(person.رقم_الشخص)}
       />
     );
   };
@@ -231,6 +233,7 @@ export function PeopleCardsGrid({ page }: Props) {
                   handleDelete={handleDelete}
                   handleBlacklist={handleBlacklist}
                   handleQuickReminderForPerson={handleQuickReminderForPerson}
+                  isDeleting={deletingPersonId === String(r.person.رقم_الشخص)}
                 />
               ))
             : uiRows.map((person) => renderWebCard(person))}

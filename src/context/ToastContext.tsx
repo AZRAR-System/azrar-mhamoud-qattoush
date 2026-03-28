@@ -230,7 +230,7 @@ const ToastContainer: React.FC<{ toasts: Toast[]; removeToast: (id: string) => v
 const Toast: React.FC<{ toast: Toast; onClose: () => void }> = ({ toast, onClose }) => {
   const getStyles = (type: ToastType) => {
     const baseStyles =
-      'pointer-events-auto w-full max-w-sm rounded-xl shadow-2xl border p-4 flex items-start gap-3 animate-slide-up';
+      'pointer-events-auto w-full max-w-sm rounded-xl shadow-2xl border p-4 flex items-start gap-3 toast-enter';
     const styles: Record<ToastType, string> = {
       success: `${baseStyles} bg-gradient-to-r from-green-50 to-white dark:from-green-900/30 dark:to-slate-800 border-green-500`,
       error: `${baseStyles} bg-gradient-to-r from-red-50 to-white dark:from-red-900/30 dark:to-slate-800 border-red-500`,

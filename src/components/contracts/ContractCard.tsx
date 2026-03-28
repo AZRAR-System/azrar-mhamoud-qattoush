@@ -20,6 +20,7 @@ export const ContractCard = React.memo(
     onArchive,
     onEdit,
     onDelete,
+    isDeleting,
   }: {
     contract: العقود_tbl;
     propCode: string;
@@ -31,6 +32,7 @@ export const ContractCard = React.memo(
     onArchive: (id: string) => void;
     onEdit: (id: string) => void;
     onDelete: (id: string) => void;
+    isDeleting?: boolean;
   }) => {
     const t = (s: string) => s;
     const contractNumber = formatContractNumberShort(contract.رقم_العقد);
@@ -70,7 +72,9 @@ export const ContractCard = React.memo(
               : 'bg-slate-400/20 dark:bg-slate-300/10';
 
     return (
-      <Card className={`group w-full overflow-hidden animate-slide-up ${accentRing}`}>
+      <Card
+        className={`group w-full overflow-hidden animate-slide-up ${accentRing} ${isDeleting ? 'animate-pulse' : ''}`}
+      >
         <div className={`h-1 w-full ${accentStripe}`} />
         <div className="p-5 flex flex-col h-full">
           <div className="flex justify-between items-start gap-3 mb-4">

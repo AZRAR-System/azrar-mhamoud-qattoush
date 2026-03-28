@@ -50,6 +50,7 @@ export function useProperties() {
   const [desktopPage, setDesktopPage] = useState(0);
   const [desktopLoading, setDesktopLoading] = useState(false);
   const [listLoading, setListLoading] = useState(true);
+  const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
   const [desktopCounts, setDesktopCounts] = useState<{
     people: number;
     properties: number;
@@ -560,13 +561,18 @@ export function useProperties() {
       message: t('هل أنت متأكد من حذف هذا العقار؟ سيتم منع الحذف إذا كان العقار مؤجراً.'),
       confirmText: t('نعم، احذف'),
       onConfirm: () => {
-        const res = DbService.deleteProperty(id);
-        if (res.success) {
-          toast.success(tr(String(res.message || '')) || t('تم حذف العقار'));
-          loadData();
-        } else {
-          toast.error(tr(String(res.message || '')) || t('فشل حذف العقار'));
-        }
+        const sid = String(id);
+        setDeletingPropertyId(sid);
+        window.setTimeout(() => {
+          const res = DbService.deleteProperty(sid);
+          setDeletingPropertyId(null);
+          if (res.success) {
+            toast.success(tr(String(res.message || '')) || t('تم حذف العقار'));
+            loadData();
+          } else {
+            toast.error(tr(String(res.message || '')) || t('فشل حذف العقار'));
+          }
+        }, 1000);
       },
     });
   };
@@ -991,6 +997,7 @@ export function useProperties() {
     setDesktopPage,
     desktopLoading,
     loading,
+    deletingPropertyId,
     desktopCounts,
     uiPage,
     setUiPage,

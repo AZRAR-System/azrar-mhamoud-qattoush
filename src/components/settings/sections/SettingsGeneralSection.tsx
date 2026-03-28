@@ -357,6 +357,7 @@ export function SettingsGeneralSection({ page }: Props) {
                     variant="secondary"
                     onClick={refreshDocxTemplates}
                     disabled={docxTemplatesBusy}
+                    isLoading={docxTemplatesBusy}
                   >
                     تحديث
                   </Button>
@@ -367,6 +368,7 @@ export function SettingsGeneralSection({ page }: Props) {
                       variant="secondary"
                       onClick={importDocxTemplate}
                       disabled={docxTemplatesBusy}
+                      isLoading={docxTemplatesBusy}
                     >
                       استيراد قالب
                     </Button>
@@ -385,6 +387,7 @@ export function SettingsGeneralSection({ page }: Props) {
                       variant="secondary"
                       onClick={generateSampleLeaseTempDocx}
                       disabled={docxTemplatesBusy}
+                      isLoading={docxTemplatesBusy}
                     >
                       توليد مؤقت (مرحلة 5)
                     </Button>
@@ -394,6 +397,7 @@ export function SettingsGeneralSection({ page }: Props) {
                       variant="secondary"
                       onClick={generateSampleLeaseTempPdf}
                       disabled={docxTemplatesBusy}
+                      isLoading={docxTemplatesBusy}
                     >
                       توليد PDF مؤقت (مرحلة 6)
                     </Button>
@@ -403,12 +407,17 @@ export function SettingsGeneralSection({ page }: Props) {
                       variant="secondary"
                       onClick={openPrintPreviewWindow}
                       disabled={docxTemplatesBusy}
+                      isLoading={docxTemplatesBusy}
                     >
                       معاينة (مرحلة 7)
                     </Button>
                   </RBACGuard>
                   <RBACGuard requiredPermissionsAny={['PRINT_EXPORT', 'SETTINGS_ADMIN']}>
-                    <Button onClick={generateSampleLeaseDocx} disabled={docxTemplatesBusy}>
+                    <Button
+                      onClick={generateSampleLeaseDocx}
+                      disabled={docxTemplatesBusy}
+                      isLoading={docxTemplatesBusy}
+                    >
                       توليد عقد تجريبي (Word)
                     </Button>
                   </RBACGuard>
@@ -653,13 +662,14 @@ export function SettingsGeneralSection({ page }: Props) {
                     variant="secondary"
                     onClick={loadPrintSettings}
                     disabled={printSettingsBusy}
+                    isLoading={printSettingsBusy}
                   >
                     إعادة تحميل
                   </Button>
                   <RBACGuard
                     requiredPermissionsAny={['PRINT_SETTINGS_EDIT', 'SETTINGS_ADMIN']}
                   >
-                    <Button onClick={savePrintSettings} disabled={printSettingsBusy}>
+                    <Button onClick={savePrintSettings} disabled={printSettingsBusy} isLoading={printSettingsBusy}>
                       حفظ
                     </Button>
                   </RBACGuard>

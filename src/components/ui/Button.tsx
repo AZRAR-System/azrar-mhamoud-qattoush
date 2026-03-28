@@ -25,11 +25,11 @@ export const Button: React.FC<ButtonProps> = ({
     'font-bold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950';
 
   const variants = {
-    primary: `bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all duration-300`,
-    secondary: `bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all duration-300`,
-    danger: `bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20 active:scale-95 transition-all duration-300`,
-    ghost: `bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 active:scale-95 transition-all duration-300`,
-    outline: `bg-transparent border-2 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-indigo-600 hover:text-indigo-600 active:scale-95 transition-all duration-300`,
+    primary: `bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 transition-all duration-300`,
+    secondary: `bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-300`,
+    danger: `bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20 transition-all duration-300`,
+    ghost: `bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-all duration-300`,
+    outline: `bg-transparent border-2 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-indigo-600 hover:text-indigo-600 transition-all duration-300`,
   };
 
   const sizes = {

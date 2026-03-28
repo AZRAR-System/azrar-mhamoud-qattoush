@@ -53,6 +53,7 @@ export function ContractsCardsGrid({ page }: Props) {
     handleArchive,
     handleEdit,
     handleDelete,
+    deletingContractId,
   } = page;
 
   if (loading) {
@@ -77,6 +78,7 @@ export function ContractsCardsGrid({ page }: Props) {
                 onArchive={handleArchive}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                isDeleting={deletingContractId === String(c.رقم_العقد)}
               />
             );
           })
@@ -99,6 +101,7 @@ export function ContractsCardsGrid({ page }: Props) {
                 onArchive={handleArchive}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                isDeleting={deletingContractId === String(c.رقم_العقد)}
               />
             );
           })}

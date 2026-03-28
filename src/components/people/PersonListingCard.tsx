@@ -47,6 +47,7 @@ export type PersonListingCardWebProps = {
   handleDelete: (id: string) => void;
   handleBlacklist: (id: string) => void;
   handleQuickReminderForPerson: (person: الأشخاص_tbl) => void | Promise<void>;
+  isDeleting?: boolean;
 };
 
 export function PersonListingCardWeb({
@@ -73,6 +74,7 @@ export function PersonListingCardWeb({
   handleDelete,
   handleBlacklist,
   handleQuickReminderForPerson,
+  isDeleting,
 }: PersonListingCardWebProps) {
   const isLinkedToContract = Boolean(pick);
   const contractBoxClass = isLinkedToContract
@@ -84,7 +86,7 @@ export function PersonListingCardWeb({
 
   return (
     <Card
-      className={`group w-full animate-slide-up ${roleRing} ${isBlacklisted ? 'ring-2 ring-red-500/20 border-red-500/30' : ''}`}
+      className={`group w-full animate-slide-up ${roleRing} ${isBlacklisted ? 'ring-2 ring-red-500/20 border-red-500/30' : ''} ${isDeleting ? 'animate-pulse' : ''}`}
     >
       <div className={`h-1 w-full ${roleVisual.stripe}`}></div>
       <div className="p-5 flex flex-col h-full">
@@ -323,6 +325,7 @@ export type PersonListingCardDesktopProps = {
   handleDelete: (id: string) => void;
   handleBlacklist: (id: string) => void;
   handleQuickReminderForPerson: (person: الأشخاص_tbl) => void | Promise<void>;
+  isDeleting?: boolean;
 };
 
 export function PersonListingCardDesktop({
@@ -338,6 +341,7 @@ export function PersonListingCardDesktop({
   handleDelete,
   handleBlacklist,
   handleQuickReminderForPerson,
+  isDeleting,
 }: PersonListingCardDesktopProps) {
   const person = row.person;
   const roles = Array.isArray(row?.roles) ? row.roles : [];
@@ -388,7 +392,7 @@ export function PersonListingCardDesktop({
 
   return (
     <Card
-      className={`group w-full animate-slide-up ${roleRing} ${isBlacklisted ? 'ring-2 ring-red-500/20 border-red-500/30' : ''}`}
+      className={`group w-full animate-slide-up ${roleRing} ${isBlacklisted ? 'ring-2 ring-red-500/20 border-red-500/30' : ''} ${isDeleting ? 'animate-pulse' : ''}`}
     >
       <div className={`h-1 w-full ${roleVisual.stripe}`}></div>
       <div className="p-5 flex flex-col h-full">

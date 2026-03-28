@@ -898,6 +898,7 @@ export const LicenseAdmin: React.FC = () => {
                     variant="secondary"
                     onClick={() => void doSaveAdminToken()}
                     disabled={busy}
+                    isLoading={busy}
                   >
                     حفظ التوكن
                   </Button>
@@ -1368,6 +1369,7 @@ export const LicenseAdmin: React.FC = () => {
                         variant="secondary"
                         onClick={() => void doUpdateAfterSales()}
                         disabled={busy}
+                        isLoading={busy}
                       >
                         حفظ بيانات ما بعد البيع
                       </Button>
@@ -1426,6 +1428,7 @@ export const LicenseAdmin: React.FC = () => {
                         variant="secondary"
                         onClick={() => doSaveFingerprint()}
                         disabled={busy}
+                        isLoading={busy}
                       >
                         حفظ البصمة
                       </Button>
@@ -1558,6 +1561,7 @@ export const LicenseAdmin: React.FC = () => {
                             variant="secondary"
                             onClick={() => void doSaveLicenseFile()}
                             disabled={busy}
+                            isLoading={busy}
                           >
                             حفظ الملف
                           </Button>

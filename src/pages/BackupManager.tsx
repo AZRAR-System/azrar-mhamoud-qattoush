@@ -711,7 +711,11 @@ export const BackupManager: React.FC = () => {
                           onClick={() => handleSaveEncryption('password')}
                           disabled={savingEnc || !encPassword}
                         >
-                          <Save size={16} />
+                          {savingEnc ? (
+                            <Loader2 className="animate-spin" size={16} aria-hidden />
+                          ) : (
+                            <Save size={16} />
+                          )}
                           <span>حفظ الباسورد</span>
                         </button>
                         <button
@@ -719,7 +723,9 @@ export const BackupManager: React.FC = () => {
                           onClick={() => handleSaveEncryption('toggle')}
                           disabled={savingEnc}
                         >
-                          {encryption?.enabled ? (
+                          {savingEnc ? (
+                            <Loader2 className="animate-spin" size={16} aria-hidden />
+                          ) : encryption?.enabled ? (
                             <ShieldAlert size={16} />
                           ) : (
                             <ShieldCheck size={16} />

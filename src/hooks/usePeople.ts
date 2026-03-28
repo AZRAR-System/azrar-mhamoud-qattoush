@@ -38,6 +38,7 @@ export function usePeople() {
   const [desktopLoading, setDesktopLoading] = useState(false);
   /** Web: أول تحميل للقوائم من DbService (يُعرض عليه Skeleton) */
   const [listLoading, setListLoading] = useState(true);
+  const [deletingPersonId, setDeletingPersonId] = useState<string | null>(null);
   const [desktopCounts, setDesktopCounts] = useState<{
     people: number;
     properties: number;
@@ -303,13 +304,18 @@ export function usePeople() {
     });
     if (!ok) return;
 
-    const res = DbService.deletePerson(id);
-    if (res.success) {
-      toast.success(res.message);
-      void loadData();
-    } else {
-      toast.error(res.message);
-    }
+    const sid = String(id);
+    setDeletingPersonId(sid);
+    window.setTimeout(() => {
+      const res = DbService.deletePerson(sid);
+      setDeletingPersonId(null);
+      if (res.success) {
+        toast.success(res.message);
+        void loadData();
+      } else {
+        toast.error(res.message);
+      }
+    }, 1000);
   };
 
   const handleBlacklist = (id: string) => {
@@ -810,6 +816,7 @@ export function usePeople() {
     setDesktopPage,
     desktopLoading,
     loading,
+    deletingPersonId,
     desktopCounts,
     uiPage,
     setUiPage,
