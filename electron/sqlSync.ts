@@ -493,11 +493,17 @@ export async function pullAttachmentFilesForAttachmentsJson(
   let skipped = 0;
   let missingRemote = 0;
 
-  for (const it of paths) {
-    const r = await downloadAttachmentFileIfNeeded(p, it.relPath);
-    if (r === 'downloaded') downloaded += 1;
-    else if (r === 'skipped') skipped += 1;
-    else missingRemote += 1;
+  const CONCURRENCY = 5;
+  for (let i = 0; i < paths.length; i += CONCURRENCY) {
+    const chunk = paths.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      chunk.map((it) => downloadAttachmentFileIfNeeded(p, it.relPath))
+    );
+    for (const r of results) {
+      if (r === 'downloaded') downloaded += 1;
+      else if (r === 'skipped') skipped += 1;
+      else missingRemote += 1;
+    }
   }
 
   return { downloaded, skipped, missingRemote };
@@ -2134,7 +2140,9 @@ export async function pullKvStoreOnce(
       `SELECT k, v, updatedAt, isDeleted
        FROM dbo.KvStore
        WHERE updatedAt > @since
-       ORDER BY updatedAt ASC;`
+         AND k LIKE N'db\\_%' ESCAPE '\\'
+       ORDER BY updatedAt ASC, k ASC
+       OFFSET 0 ROWS FETCH NEXT 500 ROWS ONLY;`
     );
 
   const rows = (result.recordset || []) as Array<{

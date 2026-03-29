@@ -791,8 +791,8 @@ function startAutoSyncPushLoop() {
             message: `مزامنة تلقائية (رفع): ${parts.join(' / ')}`,
           });
         }
-      } catch {
-        // ignore
+      } catch (err: unknown) {
+        logSyncError('autoSync:push', err);
       } finally {
         autoSyncInFlight = false;
       }
