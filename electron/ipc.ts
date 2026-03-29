@@ -78,6 +78,11 @@ import {
   savePrintSettings,
 } from './printing/settings/store';
 import { desktopUserHasPermission, getDesktopUserById } from './printing/permissions';
+import {
+  htmlToPdfFromHtml,
+  parsePrintingHtmlPayload,
+  printHtmlInHiddenWindow,
+} from './printing/htmlDocumentWindow';
 
 import logger from './logger';
 
@@ -6878,10 +6883,63 @@ export function registerIpcHandlers() {
         return await printEngine.run(job, { webContents: e.sender });
       }
 
+      if (action === 'printHtml') {
+        const allowed = desktopUserHasPermission(userId, 'PRINT_EXECUTE');
+        if (!allowed)
+          return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
+
+        const parsed = parsePrintingHtmlPayload(request);
+        if (!parsed.ok) return { ok: false, code: 'INVALID', message: parsed.message };
+
+        void documentType;
+        void entityId;
+        void r.data;
+
+        return printHtmlInHiddenWindow(parsed.value.html, {
+          orientation: parsed.value.orientation,
+          marginsMm: parsed.value.marginsMm,
+          pageRanges: parsed.value.pageRanges,
+          copies: parsed.value.copies,
+          defaultFileName: parsed.value.defaultFileName,
+        });
+      }
+
       return { ok: false, code: 'INVALID', message: 'إجراء الطباعة غير معروف' };
     } catch (err: unknown) {
       return { ok: false, code: 'FAILED', message: toErrorMessage(err, 'فشل تنفيذ طلب الطباعة') };
     }
+  });
+
+  ipcMain.handle('printing:printHtml', async (e, payload: unknown) => {
+    const parsed = parsePrintingHtmlPayload(payload);
+    if (!parsed.ok) return { ok: false, code: 'INVALID', message: parsed.message };
+    const userId = getSessionUserId(e.sender);
+    if (!desktopUserHasPermission(userId, 'PRINT_EXECUTE')) {
+      return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
+    }
+    return printHtmlInHiddenWindow(parsed.value.html, {
+      orientation: parsed.value.orientation,
+      marginsMm: parsed.value.marginsMm,
+      pageRanges: parsed.value.pageRanges,
+      copies: parsed.value.copies,
+      defaultFileName: parsed.value.defaultFileName,
+    });
+  });
+
+  ipcMain.handle('printing:htmlToPdf', async (e, payload: unknown) => {
+    const parsed = parsePrintingHtmlPayload(payload);
+    if (!parsed.ok) return { ok: false, code: 'INVALID', message: parsed.message };
+    const userId = getSessionUserId(e.sender);
+    if (!desktopUserHasPermission(userId, 'PRINT_EXECUTE')) {
+      return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
+    }
+    return htmlToPdfFromHtml(parsed.value.html, {
+      orientation: parsed.value.orientation,
+      marginsMm: parsed.value.marginsMm,
+      pageRanges: parsed.value.pageRanges,
+      copies: parsed.value.copies,
+      defaultFileName: parsed.value.defaultFileName,
+    });
   });
 
   ipcMain.handle('print:preview:open', async (e, payload: unknown) => {

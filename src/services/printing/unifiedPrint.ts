@@ -119,6 +119,36 @@ export const generateTemplateUnified = async (
   return undefined;
 };
 
+export const printHtmlUnified = async (
+  ctx: UnifiedPrintContext & {
+    html: string;
+    orientation?: 'portrait' | 'landscape';
+    marginsMm?: { top: number; right: number; bottom: number; left: number };
+    pageRanges?: string;
+    copies?: number;
+    defaultFileName?: string;
+  }
+): Promise<DesktopPrintDispatchResult | undefined> => {
+  const request: DesktopPrintDispatchRequest = {
+    action: 'printHtml',
+    documentType: String(ctx.documentType || '').trim() || 'unknown',
+    entityId: ctx.entityId ? String(ctx.entityId).trim() : undefined,
+    html: String(ctx.html ?? ''),
+    orientation: ctx.orientation,
+    marginsMm: ctx.marginsMm,
+    pageRanges: ctx.pageRanges,
+    copies: ctx.copies,
+    defaultFileName: ctx.defaultFileName,
+    data: ctx.data,
+  };
+
+  if (window.desktopPrintDispatch?.run) {
+    return window.desktopPrintDispatch.run(request);
+  }
+
+  return undefined;
+};
+
 export const exportDocxUnified = async (
   ctx: UnifiedPrintContext & {
     templateName?: string;

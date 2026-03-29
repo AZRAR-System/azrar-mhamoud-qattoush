@@ -326,6 +326,11 @@ contextBridge.exposeInMainWorld('desktopPrintDispatch', {
     ipcRenderer.invoke('print:dispatch' as PrintDispatchChannel, request),
 });
 
+contextBridge.exposeInMainWorld('desktopPrinting', {
+  printHtml: (payload: Record<string, unknown>) => ipcRenderer.invoke('printing:printHtml', payload),
+  htmlToPdf: (payload: Record<string, unknown>) => ipcRenderer.invoke('printing:htmlToPdf', payload),
+});
+
 contextBridge.exposeInMainWorld('desktopPrintSettings', {
   get: () => ipcRenderer.invoke('print:settings:get' as PrintSettingsChannel),
   save: (settings: Record<string, unknown>) =>

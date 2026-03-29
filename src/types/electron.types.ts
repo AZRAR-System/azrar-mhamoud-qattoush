@@ -839,6 +839,18 @@ export type DesktopPrintDispatchRequest =
         dateIso?: string;
       };
       data: Record<string, unknown>;
+    }
+  | {
+      action: 'printHtml';
+      documentType: string;
+      entityId?: string;
+      html: string;
+      orientation?: 'portrait' | 'landscape';
+      marginsMm?: { top: number; right: number; bottom: number; left: number };
+      pageRanges?: string;
+      copies?: number;
+      defaultFileName?: string;
+      data?: Record<string, unknown>;
     };
 
 export type DesktopPrintDispatchResult =
@@ -853,6 +865,20 @@ export type DesktopPrintDispatchResult =
 
 export interface DesktopPrintDispatchBridge {
   run(request: DesktopPrintDispatchRequest): Promise<DesktopPrintDispatchResult>;
+}
+
+export type DesktopPrintingHtmlPayload = {
+  html: string;
+  orientation?: 'portrait' | 'landscape';
+  marginsMm?: { top: number; right: number; bottom: number; left: number };
+  pageRanges?: string;
+  copies?: number;
+  defaultFileName?: string;
+};
+
+export interface DesktopPrintingBridge {
+  printHtml(payload: DesktopPrintingHtmlPayload): Promise<DesktopPrintDispatchResult>;
+  htmlToPdf(payload: DesktopPrintingHtmlPayload): Promise<DesktopPrintDispatchResult>;
 }
 
 export type DesktopPrintSettings = {
@@ -1004,6 +1030,7 @@ declare global {
     desktopUpdater?: DesktopUpdaterBridge;
     desktopPrintEngine?: DesktopPrintEngineBridge;
     desktopPrintDispatch?: DesktopPrintDispatchBridge;
+    desktopPrinting?: DesktopPrintingBridge;
     desktopPrintSettings?: DesktopPrintSettingsBridge;
     desktopPrintPreview?: DesktopPrintPreviewBridge;
     desktopAuth?: DesktopAuthBridge;
