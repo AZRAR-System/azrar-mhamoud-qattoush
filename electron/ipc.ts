@@ -151,6 +151,7 @@ const requiredPrintPermissionForJob = (job: PrintEngineJob): string => {
   switch (job.type) {
     case 'currentView':
     case 'text':
+    case 'printHtml':
       return 'PRINT_EXECUTE';
     case 'docx':
     case 'generate':
@@ -6895,13 +6896,20 @@ export function registerIpcHandlers() {
         void entityId;
         void r.data;
 
-        return printHtmlInHiddenWindow(parsed.value.html, {
-          orientation: parsed.value.orientation,
-          marginsMm: parsed.value.marginsMm,
-          pageRanges: parsed.value.pageRanges,
-          copies: parsed.value.copies,
-          defaultFileName: parsed.value.defaultFileName,
-        });
+        const job: PrintEngineJob = {
+          type: 'printHtml',
+          mode: 'print',
+          payload: {
+            html: parsed.value.html,
+            orientation: parsed.value.orientation,
+            marginsMm: parsed.value.marginsMm,
+            pageRanges: parsed.value.pageRanges,
+            copies: parsed.value.copies,
+            defaultFileName: parsed.value.defaultFileName,
+          },
+        };
+
+        return await printEngine.run(job, { webContents: e.sender });
       }
 
       return { ok: false, code: 'INVALID', message: 'إجراء الطباعة غير معروف' };

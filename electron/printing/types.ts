@@ -1,6 +1,7 @@
 import type { PrintMode, ReportPrintPayload } from '../../print/engine/printEngine';
 import type { HeaderFooterInput } from './headerFooter/types';
 import type { OutputType } from './generation/types';
+import type { HtmlDocMarginsMm } from './htmlDocumentWindow';
 
 export type PrintEngineJob =
   | {
@@ -40,6 +41,18 @@ export type PrintEngineJob =
       type: 'report';
       mode: PrintMode;
       payload: ReportPrintPayload;
+    }
+  | {
+      type: 'printHtml';
+      mode: 'print';
+      payload: {
+        html: string;
+        orientation?: 'portrait' | 'landscape';
+        marginsMm: HtmlDocMarginsMm;
+        pageRanges?: string;
+        copies: number;
+        defaultFileName?: string;
+      };
     };
 
 export type PrintEngineResult =

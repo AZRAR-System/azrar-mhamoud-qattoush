@@ -770,6 +770,18 @@ export type DesktopPrintEngineJob =
       type: 'report';
       mode: 'print' | 'pdf';
       payload: unknown;
+    }
+  | {
+      type: 'printHtml';
+      mode: 'print';
+      payload: {
+        html: string;
+        orientation?: 'portrait' | 'landscape';
+        marginsMm: { top: number; right: number; bottom: number; left: number };
+        pageRanges?: string;
+        copies: number;
+        defaultFileName?: string;
+      };
     };
 
 export type DesktopPrintEngineResult =

@@ -146,6 +146,38 @@ export const printHtmlUnified = async (
     return window.desktopPrintDispatch.run(request);
   }
 
+  const defaultMm = { top: 20, right: 20, bottom: 20, left: 20 };
+  const copies =
+    typeof ctx.copies === 'number' && Number.isFinite(ctx.copies)
+      ? Math.max(1, Math.min(99, Math.floor(ctx.copies)))
+      : 1;
+
+  if (window.desktopPrintEngine?.run) {
+    return (await window.desktopPrintEngine.run({
+      type: 'printHtml',
+      mode: 'print',
+      payload: {
+        html: String(ctx.html ?? ''),
+        orientation: ctx.orientation,
+        marginsMm: ctx.marginsMm ?? defaultMm,
+        pageRanges: ctx.pageRanges,
+        copies,
+        defaultFileName: ctx.defaultFileName,
+      },
+    })) as DesktopPrintDispatchResult;
+  }
+
+  if (window.desktopPrinting?.printHtml) {
+    return window.desktopPrinting.printHtml({
+      html: String(ctx.html ?? ''),
+      orientation: ctx.orientation,
+      marginsMm: ctx.marginsMm ?? defaultMm,
+      pageRanges: ctx.pageRanges,
+      copies,
+      defaultFileName: ctx.defaultFileName,
+    });
+  }
+
   return undefined;
 };
 

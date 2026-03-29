@@ -5,6 +5,7 @@ import type { PrintEngineJob, PrintEngineResult } from './types';
 import { generateDocxFromTemplate } from './docx/docxTemplateEngine';
 import { buildCssMargins, buildCssPageSize, loadPrintSettings } from './settings/store';
 import { generateDocument } from './generation/generationEngine';
+import { printHtmlInHiddenWindow } from './htmlDocumentWindow';
 
 export class PrintEngine {
   private buildTextHtml(
@@ -132,6 +133,23 @@ export class PrintEngine {
 
     if (job.type === 'report') {
       return runReportPrintJob(job.mode, job.payload, { settings });
+    }
+
+    if (job.type === 'printHtml') {
+      const p = job.payload;
+      const html = String(p.html ?? '');
+      if (!html.trim()) return { ok: false, code: 'INVALID', message: 'HTML فارغ' };
+
+      return printHtmlInHiddenWindow(html, {
+        orientation: p.orientation === 'landscape' ? 'landscape' : 'portrait',
+        marginsMm: p.marginsMm,
+        pageRanges: p.pageRanges,
+        copies:
+          typeof p.copies === 'number' && Number.isFinite(p.copies)
+            ? Math.max(1, Math.min(99, Math.floor(p.copies)))
+            : 1,
+        defaultFileName: p.defaultFileName,
+      });
     }
 
     return { ok: false, code: 'INVALID', message: 'نوع طلب الطباعة غير مدعوم' };
