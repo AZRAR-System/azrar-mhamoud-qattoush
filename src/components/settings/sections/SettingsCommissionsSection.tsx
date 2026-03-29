@@ -6,8 +6,6 @@ import {
   Globe,
   Phone,
   Bell,
-  Image as ImageIcon,
-  Plus,
   Trash2,
   Download,
   Search,
