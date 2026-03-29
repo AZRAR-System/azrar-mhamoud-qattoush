@@ -5,8 +5,7 @@ import type { SettingsPageModel } from '@/hooks/useSettingsPage';
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar';
 import { SettingsLoadErrorPanel } from '@/components/settings/SettingsLoadErrorPanel';
 import { SettingsGeneralSection } from '@/components/settings/sections/SettingsGeneralSection';
-import { SettingsTemplatesSection } from '@/components/settings/sections/SettingsTemplatesSection';
-import { SettingsContractWordSection } from '@/components/settings/sections/SettingsContractWordSection';
+import { SettingsPrintingHubSection } from '@/components/settings/sections/SettingsPrintingHubSection';
 import { SettingsMessagesSection } from '@/components/settings/sections/SettingsMessagesSection';
 import { SettingsCommissionsSection } from '@/components/settings/sections/SettingsCommissionsSection';
 import { SettingsLookupsSection } from '@/components/settings/sections/SettingsLookupsSection';
@@ -50,7 +49,9 @@ export function SettingsPageView({ page }: Props) {
           </div>
 
           <div className="flex items-center gap-2">
-            {(activeSection === 'general' || activeSection === 'messages') &&
+            {(activeSection === 'general' ||
+              activeSection === 'messages' ||
+              activeSection === 'printingHub') &&
               settings &&
               !settingsLoading && (
                 <div
@@ -83,11 +84,8 @@ export function SettingsPageView({ page }: Props) {
             {!settingsLoading && activeSection === 'general' && settings && (
               <SettingsGeneralSection page={page} />
             )}
-            {!settingsLoading && activeSection === 'templates' && settings && (
-              <SettingsTemplatesSection page={page} />
-            )}
-            {!settingsLoading && activeSection === 'contractWord' && (
-              <SettingsContractWordSection page={page} />
+            {!settingsLoading && activeSection === 'printingHub' && settings && (
+              <SettingsPrintingHubSection page={page} />
             )}
             {!settingsLoading && activeSection === 'messages' && settings && (
               <SettingsMessagesSection page={page} />

@@ -33,13 +33,12 @@ import {
   History,
   FileJson,
   Shield,
-  FileSpreadsheet,
   Info,
   PlayCircle,
   AlertTriangle,
   Copy,
   MessageCircle,
-  FileText,
+  Printer,
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { RBACGuard } from '@/components/shared/RBACGuard';
@@ -80,9 +79,12 @@ export type UseSettingsPageProps = {
 
 export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSettingsPageProps) {
   const { t } = useTranslation();
-  const [activeSection, setActiveSection] = useState<string>(
-    serverOnly ? 'server' : initialSection || 'general'
-  );
+  const [activeSection, setActiveSection] = useState<string>(() => {
+    if (serverOnly) return 'server';
+    const s = initialSection || 'general';
+    if (s === 'templates' || s === 'contractWord') return 'printingHub';
+    return s;
+  });
   const toast = useToast();
   const { openPanel } = useSmartModal();
   const { user } = useAuth();
@@ -511,7 +513,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
 
   useEffect(() => {
     if (!isDesktop) return;
-    if (activeSection !== 'general') return;
+    if (activeSection !== 'general' && activeSection !== 'printingHub') return;
     void refreshDocxTemplates();
     void loadPrintSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1063,17 +1065,10 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
         permission: 'SETTINGS_ADMIN' as PermissionCode,
       },
       {
-        id: 'templates',
-        label: 'قوالب Word',
-        icon: FileText,
-        desc: 'إدارة القوالب',
-        permission: 'SETTINGS_ADMIN' as PermissionCode,
-      },
-      {
-        id: 'contractWord',
-        label: 'متغيرات قالب العقد',
-        icon: FileSpreadsheet,
-        desc: 'تصدير Excel + شرح',
+        id: 'printingHub',
+        label: 'الطباعة والقوالب',
+        icon: Printer,
+        desc: 'قوالب ومعاينة فورية',
         permission: 'SETTINGS_ADMIN' as PermissionCode,
       },
       {
@@ -1265,7 +1260,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
 
   useEffect(() => {
     if (!isDesktop) return;
-    if (activeSection !== 'templates') return;
+    if (activeSection !== 'printingHub') return;
     void refreshWordTemplates(activeWordTemplateType);
   }, [activeSection, activeWordTemplateType, isDesktop, refreshWordTemplates]);
 

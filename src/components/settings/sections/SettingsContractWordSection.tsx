@@ -1,41 +1,12 @@
-import {
-  Database,
-  Building,
-  List,
-  Upload,
-  Globe,
-  Phone,
-  Bell,
-  Image as ImageIcon,
-  Plus,
-  Trash2,
-  Download,
-  Search,
-  Check,
-  FolderOpen,
-  ArrowRight,
-  RefreshCcw,
-  Edit2,
-  BadgeDollarSign,
-  History,
-  FileJson,
-  Shield,
-  FileSpreadsheet,
-  Info,
-  PlayCircle,
-  AlertTriangle,
-  Copy,
-  MessageCircle,
-  FileText,
-} from 'lucide-react';
+import { Download, ArrowRight, Copy, FileText } from 'lucide-react';
 import { CONTRACT_WORD_TEMPLATE_VARIABLES } from '@/constants/contractWordTemplateVariables';
 import { Button } from '@/components/ui/Button';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import type { SettingsPageModel } from '@/hooks/useSettingsPage';
 
-type Props = { page: SettingsPageModel };
+type Props = { page: SettingsPageModel; embedded?: boolean };
 
-export function SettingsContractWordSection({ page }: Props) {
+export function SettingsContractWordSection({ page, embedded }: Props) {
   const {
     copyToClipboard,
     exportContractWordVariablesExcel,
@@ -45,46 +16,79 @@ export function SettingsContractWordSection({ page }: Props) {
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
-      <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-6 animate-fade-in">
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+      <div
+        className={
+          embedded
+            ? 'space-y-4'
+            : 'p-8 overflow-y-auto custom-scrollbar h-full space-y-6 animate-fade-in'
+        }
+      >
+        <section
+          className={
+            embedded
+              ? 'rounded-2xl p-5 border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-950/30'
+              : 'bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700'
+          }
+        >
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
             <FileText className="text-indigo-500" size={20} /> متغيرات قالب العقد (Word)
           </h3>
-    
-          <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            هذه الصفحة مخصصة لمتغيرات قالب العقد داخل ملف Word. استخدم صيغة المتغيرات مثل{' '}
-            <span className="font-mono" dir="ltr">
-              {'{{ownerName}}'}
-            </span>{' '}
-            داخل ملف Word، ثم عند إنشاء/طباعة عقد سيقوم النظام بتعبئة القيم تلقائياً.
-          </div>
-    
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => void exportContractWordVariablesExcel()}
-            >
-              <Download size={16} /> تنزيل المتغيرات (Excel)
-            </Button>
-            <Button variant="secondary" onClick={() => setActiveSection('templates')}>
-              <ArrowRight size={16} /> الذهاب لإدارة القوالب
-            </Button>
-          </div>
-    
-          <div className="mt-4 text-[12px] text-slate-500 dark:text-slate-400">
-            أمثلة سريعة:{' '}
-            <span className="font-mono" dir="ltr">
-              {'اسم المؤجر: {{ownerName}}'}
-            </span>{' '}
-            •{' '}
-            <span className="font-mono" dir="ltr">
-              {'مدة الإيجار: {{contractDurationText}}'}
-            </span>{' '}
-            •{' '}
-            <span className="font-mono" dir="ltr">
-              {'كيفية أداء البدل: {{contractRentPaymentText}}'}
-            </span>
-          </div>
+
+          {!embedded ? (
+            <>
+              <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                هذه الصفحة مخصصة لمتغيرات قالب العقد داخل ملف Word. استخدم صيغة المتغيرات مثل{' '}
+                <span className="font-mono" dir="ltr">
+                  {'{{ownerName}}'}
+                </span>{' '}
+                داخل ملف Word، ثم عند إنشاء/طباعة عقد سيقوم النظام بتعبئة القيم تلقائياً.
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => void exportContractWordVariablesExcel()}
+                >
+                  <Download size={16} /> تنزيل المتغيرات (Excel)
+                </Button>
+                <Button variant="secondary" onClick={() => setActiveSection('printingHub')}>
+                  <ArrowRight size={16} /> مركز الطباعة والقوالب
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
+                انسخ المتغيرات إلى Word. المعاينة الحية للترويسة تظهر في العمود المجاور.
+              </p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void exportContractWordVariablesExcel()}
+                >
+                  <Download size={16} /> تنزيل Excel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {!embedded ? (
+            <div className="mt-4 text-[12px] text-slate-500 dark:text-slate-400">
+              أمثلة سريعة:{' '}
+              <span className="font-mono" dir="ltr">
+                {'اسم المؤجر: {{ownerName}}'}
+              </span>{' '}
+              •{' '}
+              <span className="font-mono" dir="ltr">
+                {'مدة الإيجار: {{contractDurationText}}'}
+              </span>{' '}
+              •{' '}
+              <span className="font-mono" dir="ltr">
+                {'كيفية أداء البدل: {{contractRentPaymentText}}'}
+              </span>
+            </div>
+          ) : null}
         </section>
     
         <section className="bg-white/60 dark:bg-slate-950/20 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
