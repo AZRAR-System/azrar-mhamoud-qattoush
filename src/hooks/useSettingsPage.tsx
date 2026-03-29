@@ -50,7 +50,6 @@ import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { getErrorMessage } from '@/utils/errors';
-import { sanitizeDocxHtml } from '@/utils/sanitizeHtml';
 import { exportToXlsx } from '@/utils/xlsx';
 import { CONTRACT_WORD_TEMPLATE_VARIABLES } from '@/constants/contractWordTemplateVariables';
 import { getPrintingQaSampleData } from '@/services/printing/qaSamples';
@@ -67,9 +66,12 @@ import {
   type LocalBackupLogEntry,
   type LocalBackupStats,
   type WordTemplateType,
-  isMammothConverter,
-  isRecord,
 } from '@/components/settings/settingsTypes';
+import { getWordTemplatePreviewBodyHtml } from '@/components/settings/wordTemplatePrintPreviewBody';
+import {
+  applyPlaceholderGuideToDocx,
+  getPlaceholderGuideLines,
+} from '@/utils/wordTemplatePlaceholderDocx';
 export type UseSettingsPageProps = {
   initialSection?: string;
   serverOnly?: boolean;
@@ -177,9 +179,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
   const [wordTemplatesDir, setWordTemplatesDir] = useState<string>('');
 
   const [isWordTemplatePreviewOpen, setIsWordTemplatePreviewOpen] = useState(false);
-  const [wordTemplatePreviewTitle, setWordTemplatePreviewTitle] = useState<string>('');
-  const [wordTemplatePreviewHtml, setWordTemplatePreviewHtml] = useState<string>('');
-  const [wordTemplatePreviewBusy, setWordTemplatePreviewBusy] = useState(false);
+  const [wordTemplateExportBusyName, setWordTemplateExportBusyName] = useState<string | null>(null);
 
   const copyToClipboard = useCallback(
     async (
@@ -1290,6 +1290,11 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
     });
   }, []);
 
+  const wordTemplatePrintPreviewBodyHtml = useMemo(() => {
+    if (!settings) return '';
+    return getWordTemplatePreviewBodyHtml(activeWordTemplateType, settings);
+  }, [activeWordTemplateType, settings]);
+
   const templateTypeLabel = useCallback((t: WordTemplateType) => {
     if (t === 'contracts') return 'قالب العقد';
     if (t === 'installments') return 'قالب الكمبيالات';
@@ -1327,40 +1332,51 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
     toast,
   ]);
 
-  const handlePreviewSelectedWordTemplate = useCallback(async () => {
-    const tplName = getSelectedWordTemplateName(settings, activeWordTemplateType).trim();
-    if (!tplName) {
-      toast.warning('يرجى اختيار قالب أولاً');
+  /** معاينة PrintPreviewModal ببيانات تجريبية حسب نوع القالب (لا تعتمد على ملف DOCX). */
+  const handlePreviewSelectedWordTemplate = useCallback(() => {
+    if (!settings) {
+      toast.warning('يرجى انتظار تحميل الإعدادات');
       return;
     }
-    if (!DbService.readWordTemplate) {
-      toast.warning('المعاينة متاحة في نسخة سطح المكتب فقط');
-      return;
-    }
+    setIsWordTemplatePreviewOpen(true);
+  }, [settings, toast]);
 
-    setWordTemplatePreviewBusy(true);
-    try {
-      const tpl = await DbService.readWordTemplate(tplName, activeWordTemplateType);
-      if (!tpl?.success || !tpl.data) {
-        toast.error(tpl?.message || 'تعذر تحميل قالب Word');
+  const handleExportWordTemplateByName = useCallback(
+    async (templateName: string) => {
+      const name = String(templateName || '').trim();
+      if (!name) return;
+      if (!DbService.readWordTemplate) {
+        toast.warning('التصدير متاح في نسخة سطح المكتب فقط');
         return;
       }
-
-      const mammothMod: unknown = await import('mammoth/mammoth.browser');
-      const mammothCandidate: unknown =
-        isRecord(mammothMod) && 'default' in mammothMod ? mammothMod.default : mammothMod;
-      if (!isMammothConverter(mammothCandidate)) throw new Error('تعذر تحميل محول DOCX');
-      const result = await mammothCandidate.convertToHtml({ arrayBuffer: tpl.data });
-
-      setWordTemplatePreviewTitle(tplName);
-      setWordTemplatePreviewHtml(sanitizeDocxHtml(String(result?.value || '')));
-      setIsWordTemplatePreviewOpen(true);
-    } catch (e: unknown) {
-      toast.error(getErrorMessage(e) || 'تعذر معاينة قالب Word');
-    } finally {
-      setWordTemplatePreviewBusy(false);
-    }
-  }, [activeWordTemplateType, getSelectedWordTemplateName, settings, toast]);
+      setWordTemplateExportBusyName(name);
+      try {
+        const tpl = await DbService.readWordTemplate(name, activeWordTemplateType);
+        if (!tpl?.success || !tpl.data) {
+          toast.error(tpl?.message || 'تعذر تحميل قالب Word');
+          return;
+        }
+        const lines = getPlaceholderGuideLines(activeWordTemplateType);
+        const bytes = applyPlaceholderGuideToDocx(tpl.data, lines);
+        const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        const blob = new Blob([bytes], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name.toLowerCase().endsWith('.docx') ? name : `${name}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast.success('تم تنزيل القالب');
+      } catch (e: unknown) {
+        toast.error(getErrorMessage(e) || 'تعذر تصدير القالب');
+      } finally {
+        setWordTemplateExportBusyName(null);
+      }
+    },
+    [activeWordTemplateType, toast]
+  );
 
   const handleDownloadSelectedWordTemplate = useCallback(async () => {
     const tplName = getSelectedWordTemplateName(settings, activeWordTemplateType).trim();
@@ -1845,6 +1861,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
     templateTypeLabel,
     handleImportWordTemplate,
     handlePreviewSelectedWordTemplate,
+    handleExportWordTemplateByName,
     handleDownloadSelectedWordTemplate,
     handleDeleteSelectedWordTemplate,
     handleLogoUpload,
@@ -1914,12 +1931,8 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
     setWordTemplatesDir,
     isWordTemplatePreviewOpen,
     setIsWordTemplatePreviewOpen,
-    wordTemplatePreviewTitle,
-    setWordTemplatePreviewTitle,
-    wordTemplatePreviewHtml,
-    setWordTemplatePreviewHtml,
-    wordTemplatePreviewBusy,
-    setWordTemplatePreviewBusy,
+    wordTemplatePrintPreviewBodyHtml,
+    wordTemplateExportBusyName,
     docxTemplates,
     setDocxTemplates,
     docxTemplatesBusy,

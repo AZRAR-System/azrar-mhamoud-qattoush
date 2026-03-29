@@ -15,6 +15,7 @@ import { SettingsServerSection } from '@/components/settings/sections/SettingsSe
 import { SettingsAuditSection } from '@/components/settings/sections/SettingsAuditSection';
 import { SettingsDiagnosticsSection } from '@/components/settings/sections/SettingsDiagnosticsSection';
 import { SettingsAboutSection } from '@/components/settings/sections/SettingsAboutSection';
+import { PrintPreviewModal } from '@/components/printing/PrintPreviewModal';
 
 type Props = { page: SettingsPageModel };
 
@@ -33,11 +34,8 @@ export function SettingsPageView({ page }: Props) {
     setTableForm,
     isWordTemplatePreviewOpen,
     setIsWordTemplatePreviewOpen,
-    wordTemplatePreviewTitle,
-    setWordTemplatePreviewTitle,
-    wordTemplatePreviewHtml,
-    setWordTemplatePreviewHtml,
-    wordTemplatePreviewBusy,
+    wordTemplatePrintPreviewBodyHtml,
+    activeWordTemplateType,
   } = page;
 
   return (
@@ -174,50 +172,22 @@ export function SettingsPageView({ page }: Props) {
         </AppModal>
       )}
 
-      {isWordTemplatePreviewOpen && (
-        <AppModal
+      {isWordTemplatePreviewOpen && settings && (
+        <PrintPreviewModal
           open={isWordTemplatePreviewOpen}
+          onClose={() => setIsWordTemplatePreviewOpen(false)}
           title={
-            wordTemplatePreviewTitle ? `معاينة: ${wordTemplatePreviewTitle}` : 'معاينة قالب Word'
+            activeWordTemplateType === 'contracts'
+              ? 'معاينة — قالب العقد (بيانات تجريبية)'
+              : activeWordTemplateType === 'installments'
+                ? 'معاينة — قالب الكمبيالات (بيانات تجريبية)'
+                : 'معاينة — محضر التسليم (بيانات تجريبية)'
           }
-          onClose={() => {
-            setIsWordTemplatePreviewOpen(false);
-            setWordTemplatePreviewHtml('');
-            setWordTemplatePreviewTitle('');
-          }}
-          size="lg"
-          footer={
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsWordTemplatePreviewOpen(false);
-                  setWordTemplatePreviewHtml('');
-                  setWordTemplatePreviewTitle('');
-                }}
-                className="px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition font-bold"
-              >
-                إغلاق
-              </button>
-            </div>
-          }
-        >
-          <div className="text-sm text-slate-700 dark:text-slate-200">
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40 p-4 max-h-[70vh] overflow-auto">
-              {wordTemplatePreviewBusy ? (
-                <div className="text-slate-500">جاري التحويل...</div>
-              ) : (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: wordTemplatePreviewHtml }}
-                />
-              )}
-            </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-3">
-              ملاحظة: المعاينة تقريبية (تحويل DOCX إلى HTML) وقد تختلف عن التنسيق النهائي داخل Word.
-            </div>
-          </div>
-        </AppModal>
+          settings={settings}
+          bodyHtml={wordTemplatePrintPreviewBodyHtml}
+          documentType={`settings_word_template_${activeWordTemplateType}`}
+          defaultFileName={`معاينة_قالب_${activeWordTemplateType}`}
+        />
       )}
     </div>
   );
