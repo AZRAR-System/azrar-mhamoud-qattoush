@@ -1,13 +1,25 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SystemSettings } from '@/types';
 import { AppModal } from '@/components/ui/AppModal';
 import { PrintLetterhead } from '@/components/print/PrintLetterhead';
 import { useToast } from '@/context/ToastContext';
 import { exportDocxUnified, printHtmlUnified } from '@/services/printing/unifiedPrint';
 import type { DesktopPrintDispatchResult } from '@/types/electron.types';
-import { buildFullPrintHtmlDocument, type PrintPreviewDocxContext } from './printPreviewTypes';
+import {
+  buildFullPrintHtmlDocument,
+  escapeHtml,
+  type PrintPreviewDocxContext,
+} from './printPreviewTypes';
 import { usePrintPreviewState } from './hooks/usePrintPreviewState';
 import { PrintPreviewToolbar } from './PrintPreviewToolbar';
+
+function todayYmdLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export type PrintPreviewModalProps = {
   open: boolean;
@@ -43,15 +55,52 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const [busyPdf, setBusyPdf] = useState(false);
   const [busyWord, setBusyWord] = useState(false);
 
+  const [notes, setNotes] = useState('');
+  const [documentDate, setDocumentDate] = useState(todayYmdLocal);
+  const [referenceNumber, setReferenceNumber] = useState('');
+
+  useEffect(() => {
+    if (open) setDocumentDate(todayYmdLocal());
+  }, [open]);
+
   const docxAvailable = !!docxContext;
+
+  const augmentedBodyHtml = useMemo(() => {
+    const blocks: string[] = [];
+    const meta: string[] = [];
+    const ref = referenceNumber.trim();
+    if (ref) {
+      meta.push(
+        `<div style="margin-bottom:6px;"><strong>رقم المرجع:</strong> ${escapeHtml(ref)}</div>`
+      );
+    }
+    if (documentDate) {
+      meta.push(
+        `<div style="margin-bottom:6px;"><strong>تاريخ المستند:</strong> ${escapeHtml(documentDate)}</div>`
+      );
+    }
+    const n = notes.trim();
+    if (n) {
+      meta.push(
+        `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;"><strong>ملاحظات:</strong><div style="margin-top:4px;white-space:pre-wrap;">${escapeHtml(n)}</div></div>`
+      );
+    }
+    if (meta.length) {
+      blocks.push(
+        `<div class="print-doc-meta" style="margin-bottom:14px;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa;font-size:12px;line-height:1.65;color:#0f172a;text-align:right;direction:rtl;">${meta.join('')}</div>`
+      );
+    }
+    blocks.push(bodyHtml);
+    return blocks.join('');
+  }, [bodyHtml, notes, documentDate, referenceNumber]);
 
   const fullHtml = useMemo(
     () =>
-      buildFullPrintHtmlDocument(settings, bodyHtml, {
+      buildFullPrintHtmlDocument(settings, augmentedBodyHtml, {
         orientation: st.orientation,
         marginsMm: st.marginsMm,
       }),
-    [settings, bodyHtml, st.orientation, st.marginsMm]
+    [settings, augmentedBodyHtml, st.orientation, st.marginsMm]
   );
 
   const dispatchPayload = useMemo(
@@ -166,22 +215,61 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         busyWord={busyWord}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto bg-slate-100/80 p-4 dark:bg-slate-950/40">
-        <div
-          className="mx-auto bg-white shadow-xl ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-800"
-          style={{
-            width: '210mm',
-            minHeight: '297mm',
-            transform: `scale(${st.zoom})`,
-            transformOrigin: 'top center',
-            padding: '12mm',
-          }}
+      <div className="flex min-h-0 flex-1 flex-row-reverse gap-0 border-t border-slate-200 dark:border-slate-800">
+        <aside
+          className="w-[min(100%,280px)] shrink-0 border-l border-slate-200 bg-slate-50/90 p-3 dark:border-slate-800 dark:bg-slate-900/50"
+          dir="rtl"
         >
-          <PrintLetterhead className="mb-4" />
+          <div className="mb-3 text-xs font-extrabold text-slate-500">بيانات المستند</div>
+          <label className="mb-3 flex flex-col gap-1">
+            <span className="text-[11px] font-bold text-slate-600">رقم المرجع</span>
+            <input
+              type="text"
+              value={referenceNumber}
+              onChange={(e) => setReferenceNumber(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-950"
+              placeholder="اختياري"
+              autoComplete="off"
+            />
+          </label>
+          <label className="mb-3 flex flex-col gap-1">
+            <span className="text-[11px] font-bold text-slate-600">تاريخ المستند</span>
+            <input
+              type="date"
+              value={documentDate}
+              onChange={(e) => setDocumentDate(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-bold text-slate-600">ملاحظات</span>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={4}
+              className="min-h-[88px] resize-y rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm leading-relaxed dark:border-slate-700 dark:bg-slate-950"
+              placeholder="اختياري"
+            />
+          </label>
+        </aside>
+
+        <div className="min-h-0 flex-1 overflow-auto bg-slate-100/80 p-4 dark:bg-slate-950/40">
           <div
-            className="prose prose-sm max-w-none text-slate-900 dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: bodyHtml }}
-          />
+            className="mx-auto bg-white shadow-xl ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-800"
+            style={{
+              width: '210mm',
+              minHeight: '297mm',
+              transform: `scale(${st.zoom})`,
+              transformOrigin: 'top center',
+              padding: '12mm',
+            }}
+          >
+            <PrintLetterhead className="mb-4" />
+            <div
+              className="prose prose-sm max-w-none text-slate-900 dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: augmentedBodyHtml }}
+            />
+          </div>
         </div>
       </div>
     </AppModal>
