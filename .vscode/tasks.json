@@ -1,17 +1,107 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "LicenseGen: dev",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"licensegen:dev"
-			],
-			"isBackground": true,
-			"problemMatcher": [],
-			"group": "build"
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AZRAR: Desktop dev (Vite + Electron)",
+      "type": "npm",
+      "script": "desktop:dev",
+      "problemMatcher": [],
+      "isBackground": true,
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "AZRAR: Web dev (Vite only)",
+      "type": "npm",
+      "script": "dev:web",
+      "problemMatcher": [],
+      "isBackground": true,
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "AZRAR: Build app (Vite desktop + Electron bundles)",
+      "type": "npm",
+      "script": "build:app",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "AZRAR: Electron bundles only",
+      "type": "npm",
+      "script": "electron:build",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "AZRAR: Run built desktop (no installer)",
+      "type": "npm",
+      "script": "run:built",
+      "problemMatcher": []
+    },
+    {
+      "label": "AZRAR: Pack installer (desktop:dist)",
+      "type": "npm",
+      "script": "dist",
+      "problemMatcher": [],
+      "group": "none"
+    },
+    {
+      "label": "AZRAR: Pack installer quick (skip win-unpacked)",
+      "type": "npm",
+      "script": "dist:quick",
+      "problemMatcher": [],
+      "group": "none"
+    },
+    {
+      "label": "AZRAR: Pack signed installer",
+      "type": "npm",
+      "script": "dist:signed",
+      "problemMatcher": [],
+      "group": "none"
+    },
+    {
+      "label": "AZRAR: Typecheck",
+      "type": "npm",
+      "script": "check",
+      "problemMatcher": []
+    },
+    {
+      "label": "AZRAR: Lint",
+      "type": "npm",
+      "script": "lint",
+      "problemMatcher": []
+    },
+    {
+      "label": "AZRAR: Tests",
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "AZRAR: CI verify (typecheck + routes + build + electron)",
+      "type": "npm",
+      "script": "ci",
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "LicenseGen: dev",
+      "type": "npm",
+      "script": "licensegen:dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "License admin: pack",
+      "type": "npm",
+      "script": "license:pack",
+      "problemMatcher": [],
+      "group": "none"
+    }
+  ]
 }

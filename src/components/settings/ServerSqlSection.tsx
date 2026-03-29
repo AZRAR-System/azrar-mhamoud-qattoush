@@ -611,11 +611,7 @@ export const ServerSqlSection: React.FC = () => {
   }, [isDesktop, refreshSqlBackupAutomation, refreshSqlServerBackups, refreshSqlCoverage]);
 
   return (
-    <div
-      className="p-4 md:p-8 h-full page-transition bg-slate-50/50 dark:bg-slate-950/20"
-      dir="rtl"
-    >
-      <div className="max-w-6xl mx-auto space-y-10">
+    <div className="w-full max-w-6xl mx-auto space-y-10 page-transition" dir="rtl">
         {/* Main Settings Card */}
         <div className="app-card overflow-hidden">
           <div className="app-card-header flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -1295,7 +1291,6 @@ export const ServerSqlSection: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 };

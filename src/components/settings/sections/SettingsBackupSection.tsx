@@ -46,8 +46,8 @@ export function SettingsBackupSection({ page }: Props) {
 
   return (
     <RBACGuard requiredRole="SuperAdmin" fallback={settingsNoAccessFallback}>
-      <div className="flex items-center justify-center h-full p-8 animate-fade-in bg-gray-50 dark:bg-slate-900/50">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
+      <div className="w-full animate-fade-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-5xl w-full mx-auto">
           <div
             className="app-card p-8 rounded-3xl flex flex-col items-center text-center cursor-pointer hover:shadow-lg"
             onClick={handleBackup}

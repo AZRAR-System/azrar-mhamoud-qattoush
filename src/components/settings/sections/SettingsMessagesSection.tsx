@@ -48,8 +48,8 @@ export function SettingsMessagesSection({ page }: Props) {
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
-      <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-8 animate-fade-in">
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+      <div className="space-y-8 animate-fade-in">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
             <Bell className="text-indigo-500" size={20} /> إعدادات الرسائل والإشعارات
           </h3>
@@ -90,7 +90,7 @@ export function SettingsMessagesSection({ page }: Props) {
           </div>
         </section>
     
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <MessageCircle className="text-indigo-500" size={20} /> طريقة الإرسال (واتساب)
           </h3>
@@ -143,7 +143,7 @@ export function SettingsMessagesSection({ page }: Props) {
           </div>
         </section>
     
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <FileText className="text-slate-700 dark:text-slate-200" size={20} /> النماذج
             (القوالب)
@@ -173,7 +173,7 @@ export function SettingsMessagesSection({ page }: Props) {
           </div>
         </section>
     
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <Phone className="text-green-500" size={20} /> أرقام هواتف إضافية
           </h3>
@@ -196,7 +196,7 @@ export function SettingsMessagesSection({ page }: Props) {
           </div>
         </section>
     
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <BadgeDollarSign className="text-amber-500" size={20} /> طرق الدفع
           </h3>

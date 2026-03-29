@@ -43,8 +43,8 @@ export function SettingsPageView({ page }: Props) {
         <div className={`${DS.components.pageHeader} mb-6`}>
           <div>
             <h2 className={DS.components.pageTitle}>إعدادات النظام</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              تخصيص البيانات، القوائم، والنسخ الاحتياطي
+            <p className={DS.components.pageSubtitleUppercase}>
+              تخصيص البيانات، القوائم، الطباعة، والنسخ الاحتياطي
             </p>
           </div>
 
@@ -72,38 +72,37 @@ export function SettingsPageView({ page }: Props) {
       <div className={`flex flex-1 overflow-hidden h-full ${embedded ? '' : 'gap-6'}`}>
         {!embedded && <SettingsSidebar page={page} />}
 
-        <div className="flex-1 app-card flex flex-col relative">
-          {settingsLoading && (
-            <div className="flex-1 flex items-center justify-center text-slate-400">
+        <div className={DS.settingsLayout.shell}>
+          {settingsLoading ? (
+            <div className="flex-1 flex items-center justify-center text-slate-400 p-8">
               جاري تحميل الإعدادات...
             </div>
+          ) : (
+            <div className={DS.settingsLayout.scroll}>
+              <div className={DS.settingsLayout.inner}>
+                <SettingsLoadErrorPanel page={page} />
+
+                {activeSection === 'general' && settings && (
+                  <SettingsGeneralSection page={page} />
+                )}
+                {activeSection === 'printingHub' && settings && (
+                  <SettingsPrintingHubSection page={page} />
+                )}
+                {activeSection === 'messages' && settings && (
+                  <SettingsMessagesSection page={page} />
+                )}
+                {activeSection === 'commissions' && settings && (
+                  <SettingsCommissionsSection page={page} />
+                )}
+                {activeSection === 'lookups' && <SettingsLookupsSection page={page} />}
+                {activeSection === 'backup' && <SettingsBackupSection page={page} />}
+                {activeSection === 'server' && <SettingsServerSection page={page} />}
+                {activeSection === 'audit' && <SettingsAuditSection page={page} />}
+                {activeSection === 'diagnostics' && <SettingsDiagnosticsSection page={page} />}
+                {activeSection === 'about' && <SettingsAboutSection page={page} />}
+              </div>
+            </div>
           )}
-
-            <SettingsLoadErrorPanel page={page} />
-
-            {!settingsLoading && activeSection === 'general' && settings && (
-              <SettingsGeneralSection page={page} />
-            )}
-            {!settingsLoading && activeSection === 'printingHub' && settings && (
-              <SettingsPrintingHubSection page={page} />
-            )}
-            {!settingsLoading && activeSection === 'messages' && settings && (
-              <SettingsMessagesSection page={page} />
-            )}
-            {!settingsLoading && activeSection === 'commissions' && settings && (
-              <SettingsCommissionsSection page={page} />
-            )}
-            {activeSection === 'lookups' && <SettingsLookupsSection page={page} />}
-            {!settingsLoading && activeSection === 'backup' && (
-              <SettingsBackupSection page={page} />
-            )}
-            {!settingsLoading && activeSection === 'server' && <SettingsServerSection page={page} />}
-            {!settingsLoading && activeSection === 'audit' && <SettingsAuditSection page={page} />}
-            {!settingsLoading && activeSection === 'diagnostics' && (
-              <SettingsDiagnosticsSection page={page} />
-            )}
-            {!settingsLoading && activeSection === 'about' && <SettingsAboutSection page={page} />}
-
         </div>
       </div>
 

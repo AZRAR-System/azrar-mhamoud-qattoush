@@ -35,8 +35,11 @@ export function SettingsTemplatesSection({ page }: Props) {
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
-      <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-6 animate-fade-in">
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+      <div
+        id="printing-hub-word-templates"
+        className="space-y-6 animate-fade-in scroll-mt-28"
+      >
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
             <FileText className="text-indigo-500" size={20} /> قوالب Word
           </h3>
@@ -47,7 +50,7 @@ export function SettingsTemplatesSection({ page }: Props) {
           </div>
         </section>
 
-        <section className="bg-white/60 dark:bg-slate-950/20 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+        <section className="settings-section-panel">
           {!isDesktop && (
             <div className="text-sm text-slate-600 dark:text-slate-300">
               إدارة قوالب Word متاحة في نسخة سطح المكتب فقط.

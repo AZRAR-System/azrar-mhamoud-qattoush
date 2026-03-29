@@ -50,7 +50,11 @@ import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { getErrorMessage } from '@/utils/errors';
 import { exportToXlsx } from '@/utils/xlsx';
-import { CONTRACT_WORD_TEMPLATE_VARIABLES } from '@/constants/contractWordTemplateVariables';
+import {
+  CONTRACT_WORD_CATEGORY_META,
+  CONTRACT_WORD_DYNAMIC_PREFIXES,
+  CONTRACT_WORD_TEMPLATE_VARIABLES,
+} from '@/constants/contractWordTemplateVariables';
 import { getPrintingQaSampleData } from '@/services/printing/qaSamples';
 import { exportDocxUnified, generateTemplateUnified } from '@/services/printing/unifiedPrint';
 import { Select } from '@/components/ui/Select';
@@ -1757,21 +1761,41 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
     'block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-2';
 
   const exportContractWordVariablesExcel = async () => {
-    type Row = { placeholder: string; key: string; label: string; example: string };
+    type Row = {
+      category: string;
+      placeholder: string;
+      key: string;
+      label: string;
+      example: string;
+      note: string;
+    };
     const rows: Row[] = CONTRACT_WORD_TEMPLATE_VARIABLES.map((v) => ({
+      category: CONTRACT_WORD_CATEGORY_META[v.category]?.title ?? v.category,
       placeholder: `{{${v.key}}}`,
       key: v.key,
       label: v.label,
       example: v.example || '',
+      note: v.note || '',
     }));
+
+    const dynamicSheetRows: unknown[][] = [
+      ['البادئة / الوصف', 'مثال للنسخ في Word', 'صيغة بديلة (إن وُجدت)'],
+      ...CONTRACT_WORD_DYNAMIC_PREFIXES.map((p) => [
+        `${p.label} (${p.prefix})`,
+        `{{${p.prefix}${p.exampleKey}}}`,
+        p.altPrefix ? `{{${p.altPrefix}${p.exampleKey}}}` : '',
+      ]),
+    ];
 
     await exportToXlsx<Row>(
       'قالب العقد (Word)',
       [
+        { key: 'category', header: 'الفئة' },
         { key: 'placeholder', header: 'المتغير (للنسخ)' },
         { key: 'key', header: 'المفتاح' },
         { key: 'label', header: 'الوصف' },
         { key: 'example', header: 'مثال' },
+        { key: 'note', header: 'ملاحظة' },
       ],
       rows,
       'متغيرات-قالب-العقد-Word.xlsx',
@@ -1781,13 +1805,20 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
             name: 'شرح',
             rows: [
               ['طريقة الاستخدام'],
-              ['انسخ من عمود "المتغير (للنسخ)" والصق داخل ملف Word. مثال:'],
+              ['انسخ من عمود "المتغير (للنسخ)" والصق داخل ملف Word.'],
+              [''],
+              ['أمثلة سريعة'],
               ['اسم المؤجر: {{ownerName}}'],
               ['مدة الإيجار: {{contractDurationText}}'],
-              ['كيفية أداء البدل: {{contractRentPaymentText}}'],
+              ['حقل من سجل العقد (ديناميكي): {{العقد_رقم_العقد}}'],
+              [''],
               ['ملاحظة'],
-              ['القوالب القديمة التي تعتمد على نجوم (****) ما زالت تعمل تلقائياً.'],
+              ['القوالب التي تعتمد على نجوم (****) ما زالت تُعرَض تلقائياً عند الطباعة من النظام.'],
             ],
+          },
+          {
+            name: 'صيغ ديناميكية',
+            rows: dynamicSheetRows,
           },
         ],
       }

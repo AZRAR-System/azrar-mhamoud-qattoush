@@ -9,8 +9,8 @@ export function SettingsAboutSection({ page }: Props) {
   } = page;
 
   return (
-    <div className="flex items-center justify-center h-full p-8 animate-fade-in bg-gray-50 dark:bg-slate-900/50">
-      <div className="app-card p-8 rounded-3xl text-center max-w-md border-gray-100 dark:border-slate-700">
+    <div className="flex items-center justify-center min-h-[50vh] animate-fade-in py-4">
+      <div className="glass-card p-8 md:p-10 text-center max-w-md w-full">
         <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30 mx-auto mb-6 text-white text-3xl font-bold">
           خ
         </div>

@@ -13,7 +13,7 @@ export function SettingsAuditSection({ page }: Props) {
 
   return (
     <RBACGuard requiredPermission="SETTINGS_AUDIT" fallback={settingsNoAccessFallback}>
-      <div className="p-8 h-full flex flex-col animate-fade-in">
+      <div className="flex flex-col animate-fade-in min-h-[min(70vh,720px)]">
         <div className="app-card flex-1 flex flex-col">
           <div className="p-4 border-b font-bold bg-gray-50 dark:bg-slate-900 flex justify-between items-center">
             <span>سجل تغييرات الإعدادات (آخر 20 عملية)</span>

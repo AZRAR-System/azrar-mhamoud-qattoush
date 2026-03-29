@@ -32,7 +32,7 @@ export function PrintingHubKpiCards({
       icon: Braces,
       label: 'متغيرات قالب العقد',
       value: String(contractVariablesCount),
-      hint: 'جاهزة للنسخ في Word',
+      hint: 'مفاتيح موثّقة + صيغ ديناميكية',
       tone: 'from-amber-500/15 to-orange-500/10',
     },
     {

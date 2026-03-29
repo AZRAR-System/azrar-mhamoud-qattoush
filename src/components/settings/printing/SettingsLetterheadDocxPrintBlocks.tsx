@@ -33,8 +33,11 @@ export function SettingsLetterheadDocxPrintBlocks({ page }: Props) {
   } = page;
 
   return (
-    <div className="space-y-6">
-      <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+    <div
+      id="printing-hub-letterhead-docx-print"
+      className="space-y-6 scroll-mt-28"
+    >
+      <section className="settings-section-panel">
         <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
           <Building className="text-indigo-500" size={20} /> الترويسة (الطباعة/التصدير)
         </h3>
@@ -100,7 +103,7 @@ export function SettingsLetterheadDocxPrintBlocks({ page }: Props) {
         </div>
       </section>
 
-      <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+      <section className="settings-section-panel">
         <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
           <Building className="text-indigo-500" size={20} /> قوالب Word (DOCX)
         </h3>
@@ -214,7 +217,7 @@ export function SettingsLetterheadDocxPrintBlocks({ page }: Props) {
         )}
       </section>
 
-      <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+      <section className="settings-section-panel">
         <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
           <FileJson className="text-indigo-500" size={20} /> إعدادات الطباعة (print.settings.json)
         </h3>

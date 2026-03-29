@@ -7,7 +7,7 @@ export function SettingsSidebar({ page }: Props) {
   const { visibleTabs, activeSection, setActiveSection } = page;
 
   return (
-    <div className="w-64 flex-shrink-0 app-card p-2 h-fit">
+    <div className="w-64 flex-shrink-0 glass-card p-2 h-fit">
       {visibleTabs.length > 0 ? (
         visibleTabs.map((tab) => (
           <button

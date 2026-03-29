@@ -43,6 +43,16 @@ export const DS = {
       'text-2xl lg:text-3xl font-black text-slate-800 dark:text-white tracking-tighter leading-tight',
     pageSubtitle:
       'text-xs lg:text-sm font-bold text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-2xl',
+    /** نفس خط صفحة النسخ الاحتياطي تحت العنوان */
+    pageSubtitleUppercase:
+      'text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-2 uppercase tracking-wider',
+  },
+  /** تخطيط صفحة الإعدادات (محتوى يمين الشريط الجانبي) */
+  settingsLayout: {
+    shell: 'settings-main-shell',
+    scroll: 'settings-main-scroll',
+    inner: 'settings-main-inner page-transition',
+    sectionPanel: 'settings-section-panel',
   },
   durations: {
     fast: '150ms',

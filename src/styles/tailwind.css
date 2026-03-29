@@ -222,6 +222,24 @@ body,
     @apply bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/30 dark:border-slate-800/40 shadow-xl rounded-3xl transition-all duration-300;
   }
 
+  /** لوحات داخل صفحات الإعدادات (نفس أسلوب إدارة النسخ الاحتياطي) */
+  .settings-section-panel {
+    @apply glass-card p-6 md:p-8;
+  }
+
+  /** حاوية المحتوى الرئيسية للإعدادات */
+  .settings-main-shell {
+    @apply flex flex-col min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-950/30 shadow-inner;
+  }
+
+  .settings-main-scroll {
+    @apply flex-1 min-h-0 overflow-y-auto custom-scrollbar;
+  }
+
+  .settings-main-inner {
+    @apply max-w-[1600px] mx-auto w-full px-6 lg:px-8 py-6 pb-10 space-y-8;
+  }
+
   /* Interactive Elements */
   .btn-modern {
     @apply relative overflow-hidden transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;

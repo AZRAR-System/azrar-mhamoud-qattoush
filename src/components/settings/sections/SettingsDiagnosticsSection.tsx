@@ -51,9 +51,9 @@ export function SettingsDiagnosticsSection({ page }: Props) {
 
   return (
     <RBACGuard requiredRole="SuperAdmin" fallback={settingsNoAccessFallback}>
-      <div className="p-8 h-full flex flex-col animate-fade-in">
+      <div className="flex flex-col animate-fade-in">
         <div className="max-w-4xl mx-auto w-full">
-          <div className="app-card p-6 rounded-3xl">
+          <div className="settings-section-panel">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-xl font-black text-slate-800 dark:text-white">

@@ -29,14 +29,20 @@ export function PrintingLivePreviewPanel({ page }: Props) {
 
   if (!settings) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 p-6 text-sm text-slate-500">
+      <div
+        id="printing-hub-live-preview"
+        className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 p-6 text-sm text-slate-500 scroll-mt-28"
+      >
         جاري تحميل الإعدادات…
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/50 bg-white dark:bg-slate-950 shadow-lg shadow-indigo-500/5 overflow-hidden">
+    <div
+      id="printing-hub-live-preview"
+      className="flex flex-col gap-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/50 bg-white dark:bg-slate-950 shadow-lg shadow-indigo-500/5 overflow-hidden scroll-mt-28"
+    >
       <div className="flex items-center justify-between gap-2 px-4 py-3 bg-gradient-to-l from-indigo-600 to-violet-600 text-white">
         <div className="flex items-center gap-2 font-black text-sm">
           <Eye size={18} />

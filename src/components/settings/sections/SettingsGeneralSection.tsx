@@ -50,9 +50,9 @@ export function SettingsGeneralSection({ page }: Props) {
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
-      <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-8 animate-fade-in">
+      <div className="space-y-8 animate-fade-in">
         {/* Branding */}
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <Building className="text-indigo-500" size={20} /> الهوية التجارية
           </h3>
@@ -111,7 +111,7 @@ export function SettingsGeneralSection({ page }: Props) {
             </div>
           </div>
         </section>
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <Phone className="text-green-500" size={20} /> معلومات الاتصال
           </h3>
@@ -165,7 +165,7 @@ export function SettingsGeneralSection({ page }: Props) {
           </div>
         </section>
     
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <Globe className="text-sky-500" size={20} /> البلد والعملة
           </h3>

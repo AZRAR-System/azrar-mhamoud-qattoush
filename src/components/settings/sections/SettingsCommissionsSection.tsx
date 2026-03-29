@@ -42,8 +42,8 @@ export function SettingsCommissionsSection({ page }: Props) {
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
-      <div className="p-8 overflow-y-auto custom-scrollbar h-full space-y-8 animate-fade-in">
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+      <div className="space-y-8 animate-fade-in">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">
             عمولات البيع
           </h3>
@@ -62,7 +62,7 @@ export function SettingsCommissionsSection({ page }: Props) {
             />
           </div>
         </section>
-        <section className="bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">
             عمولات الإيجار
           </h3>

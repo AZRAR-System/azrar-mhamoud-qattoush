@@ -54,8 +54,8 @@ export function SettingsLookupsSection({ page }: Props) {
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
-      <div className="flex h-full animate-fade-in">
-        <div className="w-80 border-l border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/30 flex flex-col">
+      <div className="flex min-h-[min(75vh,900px)] animate-fade-in rounded-[1.5rem] overflow-hidden border border-slate-200/60 dark:border-slate-800/60 glass-card">
+        <div className="w-80 border-l border-white/30 dark:border-slate-800/50 bg-white/40 dark:bg-slate-900/40 flex flex-col">
           <div className="p-4 border-b border-gray-100 dark:border-slate-700">
             <input
               placeholder="بحث في القوائم..."
@@ -113,7 +113,7 @@ export function SettingsLookupsSection({ page }: Props) {
             ))}
           </div>
         </div>
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-slate-800">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white/70 dark:bg-slate-900/50">
           {activeCategory ? (
             <>
               <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50/50 dark:bg-slate-900/20">
