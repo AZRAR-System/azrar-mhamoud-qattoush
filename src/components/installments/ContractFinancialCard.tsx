@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -32,6 +32,19 @@ import {
   getPaidAndRemaining,
   isRecord,
 } from '@/components/installments/installmentsUtils';
+import {
+  InvoicePrintPreview,
+  type InvoiceTemplateData,
+} from '@/components/printing/templates/InvoiceTemplate';
+
+function formatPropertyLabelForInvoice(p: العقارات_tbl | undefined): string {
+  if (!p) return '—';
+  const parts = [
+    p.الكود_الداخلي,
+    p.العنوان || p.المنطقة || p.المدينة,
+  ].filter((x) => String(x || '').trim());
+  return parts.length ? parts.join(' — ') : '—';
+}
 
 export interface ContractCardProps {
   contract: العقود_tbl;
@@ -83,8 +96,30 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
   void _onPay;
   void _onSelectInstallment;
   const [isExpanded, setIsExpanded] = useState(false);
+  const [invoicePrintCtx, setInvoicePrintCtx] = useState<{
+    inst: الكمبيالات_tbl;
+    installmentIndex: number;
+  } | null>(null);
   const toast = useToast();
   const dialogs = useAppDialogs();
+
+  const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
+
+  const invoicePrintData: InvoiceTemplateData | null = useMemo(() => {
+    if (!invoicePrintCtx) return null;
+    const inst = invoicePrintCtx.inst;
+    const pr = getPaidAndRemaining(inst);
+    return {
+      contractNumber: formatContractNumberShort(contract.رقم_العقد),
+      tenantName: String(tenant?.الاسم || '—'),
+      propertyLabel: formatPropertyLabelForInvoice(property),
+      installmentAmount: inst.القيمة,
+      dueDate: inst.تاريخ_استحقاق,
+      paidAmount: pr.paid,
+      remainingAmount: pr.remaining,
+      installmentLabel: `القسط ${invoicePrintCtx.installmentIndex + 1}`,
+    };
+  }, [invoicePrintCtx, contract.رقم_العقد, tenant, property]);
 
   // Stats Calculation
   const visibleInstallments = installments.filter((i) => !i.isArchived);
@@ -147,6 +182,7 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
     : '';
 
   return (
+    <>
     <Card
       className={`transition-all duration-300 ${isExpanded ? 'ring-2 ring-indigo-500/20 border-indigo-500/50' : 'hover:shadow-md'}`}
     >
@@ -292,6 +328,9 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
                   <th className="p-3">المتبقي</th>
                   <th className="p-3">تاريخ الدفع</th>
                   <th className="p-3">الحالة</th>
+                  {isDesktop ? (
+                    <th className="p-3 whitespace-nowrap text-center">طباعة فاتورة</th>
+                  ) : null}
                   {showDynamicColumns && dynamicFields.length > 0
                     ? dynamicFields.map((f) => (
                         <th key={f.id} className="p-3">
@@ -388,6 +427,25 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
                             )}
                           </div>
                         </td>
+
+                        {isDesktop ? (
+                          <td className="p-3 text-center">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setInvoicePrintCtx({ inst, installmentIndex: idx });
+                              }}
+                              title="طباعة فاتورة"
+                            >
+                              <Printer size={14} />
+                              فاتورة
+                            </Button>
+                          </td>
+                        ) : null}
 
                         {showDynamicColumns && dynamicFields.length > 0
                           ? dynamicFields.map((f) => {
@@ -691,5 +749,19 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
         </div>
       )}
     </Card>
+
+    {invoicePrintCtx && invoicePrintData ? (
+      <InvoicePrintPreview
+        open
+        onClose={() => setInvoicePrintCtx(null)}
+        title="فاتورة قسط"
+        settings={DbService.getSettings()}
+        data={invoicePrintData}
+        documentType="installment_invoice"
+        entityId={String(contract.رقم_العقد)}
+        defaultFileName={`فاتورة_قسط_${invoicePrintCtx.inst.رقم_الكمبيالة}`}
+      />
+    ) : null}
+    </>
   );
 };
