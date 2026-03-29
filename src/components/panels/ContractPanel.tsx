@@ -44,11 +44,52 @@ import type {
   FollowUpTask,
   الأشخاص_tbl,
   العقارات_tbl,
+  العقود_tbl,
   العمولات_tbl,
   الكمبيالات_tbl,
 } from '@/types';
+import {
+  ContractPrintPreview,
+  type ContractTemplateData,
+} from '@/components/printing/templates/ContractTemplate';
 
 const EMPTY_INSTALLMENTS: الكمبيالات_tbl[] = [];
+
+function formatPropertyForContractPrint(p: العقارات_tbl | undefined): string {
+  if (!p) return '—';
+  const parts = [p.الكود_الداخلي, p.العنوان || p.المنطقة || p.المدينة].filter((x) =>
+    String(x || '').trim()
+  );
+  return parts.length ? parts.join(' — ') : '—';
+}
+
+function buildContractTemplateDataFromDetails(
+  c: العقود_tbl,
+  tenant: الأشخاص_tbl | undefined,
+  property: العقارات_tbl | undefined,
+  owner: الأشخاص_tbl | null | undefined,
+  contractId: string
+): ContractTemplateData {
+  const lessorName = String(owner?.الاسم || '').trim() || '—';
+  const tenantName = String(tenant?.الاسم || '').trim() || '—';
+  const propertyDetails = formatPropertyForContractPrint(property);
+  const durationText =
+    String(c.نص_مدة_العقد || '').trim() ||
+    `${safeString(c.تاريخ_البداية)} — ${safeString(c.تاريخ_النهاية)} (${c.مدة_العقد_بالاشهر} شهراً)`;
+  const terms =
+    [c.نص_كيفية_أداء_البدل && `كيفية أداء البدل:\n${c.نص_كيفية_أداء_البدل}`]
+      .filter(Boolean)
+      .join('\n\n') || '—';
+  return {
+    lessorName,
+    tenantName,
+    propertyDetails,
+    durationText,
+    rentAmount: c.القيمة_السنوية,
+    terms,
+    contractTitle: `عقد إيجار #${formatContractNumberShort(contractId)}`,
+  };
+}
 
 export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id, onClose }) => {
   const t = useCallback((s: string) => s, []);
@@ -57,6 +98,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
   const [activeTab, setActiveTab] = useState<'details' | 'timeline'>('details');
   const [isOpeningWhatsAppPanel, setIsOpeningWhatsAppPanel] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [contractPrintOpen, setContractPrintOpen] = useState(false);
 
   // Desktop fast mode may return partial joins; also guard against stale join ids.
   // Resolve tenant/property (and owner) directly from the contract ids when needed.
@@ -300,6 +342,18 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
     };
   }, [id, installments, contractCommission]);
 
+  const contractPrintData: ContractTemplateData | null = useMemo(() => {
+    if (!data) return null;
+    const c = data.contract;
+    return buildContractTemplateDataFromDetails(
+      c,
+      tenantResolved ?? data.tenant,
+      propertyResolved ?? data.property,
+      resolvedOwner,
+      String(c?.رقم_العقد || id)
+    );
+  }, [data, tenantResolved, propertyResolved, resolvedOwner, id]);
+
   if (desktopUnsupported) {
     return (
       <div className="p-10 text-center text-slate-600 dark:text-slate-300">
@@ -513,6 +567,7 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
   };
 
   return (
+    <>
     <div className="space-y-8 pb-10">
       {/* Header Card */}
       <div className="app-card relative overflow-hidden group">
@@ -579,6 +634,15 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             </div>
             <div className="flex-1 grid grid-cols-1 gap-2">
               <RBACGuard requiredPermission="PRINT_EXECUTE">
+                {isDesktop && contractPrintData ? (
+                  <button
+                    type="button"
+                    onClick={() => setContractPrintOpen(true)}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-indigo-700 text-white rounded-xl transition-all text-[11px] font-black shadow-lg shadow-indigo-500/20 hover:bg-indigo-800 active:scale-95"
+                  >
+                    <Printer size={14} /> {t('طباعة العقد')}
+                  </button>
+                ) : null}
                 <button
                   onClick={handlePrint}
                   className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-xl transition-all text-[11px] font-black shadow-lg shadow-black/20 hover:bg-black active:scale-95"
@@ -873,5 +937,19 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
         <DynamicFieldsDisplay formId="contracts" values={c.حقول_ديناميكية} />
       </div>
     </div>
+
+    {isDesktop && contractPrintOpen && contractPrintData ? (
+      <ContractPrintPreview
+        open
+        onClose={() => setContractPrintOpen(false)}
+        title="طباعة العقد"
+        settings={DbService.getSettings()}
+        data={contractPrintData}
+        documentType="contract_template"
+        entityId={String(id)}
+        defaultFileName={`عقد_${formatContractNumberShort(id)}`}
+      />
+    ) : null}
+    </>
   );
 };

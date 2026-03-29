@@ -5,9 +5,14 @@ import {
   FileSpreadsheet,
   FileText as FilePdf,
   Filter,
+  Printer,
   Search as SearchIcon,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { DbService } from '@/services/mockDb';
+import type { StatementTemplateData } from '@/components/printing/templates/StatementTemplate';
+import { StatementPrintPreview } from '@/components/printing/templates/StatementTemplate';
 
 type Props = { page: InstallmentsPageModel };
 
@@ -21,9 +26,31 @@ export function InstallmentsPageHeader({ page }: Props) {
     handleExportExcel,
     handleExportPdf,
     clearFilters,
+    isDesktop,
+    statementMonth,
+    setStatementMonth,
+    prepareStatementPrintData,
   } = page;
 
+  const [statementOpen, setStatementOpen] = useState(false);
+  const [statementBusy, setStatementBusy] = useState(false);
+  const [statementData, setStatementData] = useState<StatementTemplateData | null>(null);
+
+  const openStatement = async () => {
+    setStatementBusy(true);
+    try {
+      const data = await prepareStatementPrintData();
+      if (data) {
+        setStatementData(data);
+        setStatementOpen(true);
+      }
+    } finally {
+      setStatementBusy(false);
+    }
+  };
+
   return (
+    <>
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
       <div className="flex items-center gap-4">
         <div className="p-4 bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-500/30 text-white">
@@ -43,6 +70,31 @@ export function InstallmentsPageHeader({ page }: Props) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        {isDesktop ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="installments-stmt-month" className="sr-only">
+              شهر كشف الحساب
+            </label>
+            <input
+              id="installments-stmt-month"
+              type="month"
+              value={statementMonth}
+              onChange={(e) => setStatementMonth(e.target.value)}
+              className="h-[46px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm font-bold text-slate-800 dark:text-white"
+            />
+            <Button
+              variant="secondary"
+              type="button"
+              disabled={statementBusy}
+              onClick={() => void openStatement()}
+              className="gap-2 rounded-2xl h-[46px] px-4 font-black"
+            >
+              <Printer size={18} />
+              كشف حساب
+            </Button>
+          </div>
+        ) : null}
+
         <div className="relative group/search">
           <SearchIcon
             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-indigo-500 transition-colors"
@@ -103,5 +155,22 @@ export function InstallmentsPageHeader({ page }: Props) {
         </div>
       </div>
     </div>
+
+    {statementOpen && statementData ? (
+      <StatementPrintPreview
+        open
+        onClose={() => {
+          setStatementOpen(false);
+          setStatementData(null);
+        }}
+        title="كشف حساب"
+        settings={DbService.getSettings()}
+        data={statementData}
+        documentType="installments_statement"
+        entityId={`statement_${statementMonth}`}
+        defaultFileName={`كشف_حساب_${statementMonth}`}
+      />
+    ) : null}
+    </>
   );
 }

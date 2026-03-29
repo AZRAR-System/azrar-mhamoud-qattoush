@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Search,
   AlertCircle,
+  Printer,
   type LucideIcon,
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
@@ -21,6 +22,11 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { runReportSmart } from '@/services/reporting';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { getErrorMessage } from '@/utils/errors';
+import { Button } from '@/components/ui/Button';
+import {
+  FinancialReportPrintPreview,
+  type FinancialReportTemplateData,
+} from '@/components/printing/templates/FinancialReportTemplate';
 
 const CATEGORIES: { id: ReportCategory; label: string; icon: LucideIcon; color: string }[] = [
   { id: 'Financial', label: 'التقارير المالية', icon: Wallet, color: 'bg-emerald-500' },
@@ -112,8 +118,10 @@ const CategorySection: React.FC<{
 };
 
 export const Reports: React.FC = () => {
+  const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
   const [reports, setReports] = useState<ReportDefinition[]>([]);
   const [search, setSearch] = useState('');
+  const [financialPrintOpen, setFinancialPrintOpen] = useState(false);
   const [kpis, setKpis] = useState<{
     totalExpected: number;
     totalPaid: number;
@@ -197,6 +205,23 @@ export const Reports: React.FC = () => {
 
   const reportsCount = filteredReports.length;
 
+  const financialPrintData: FinancialReportTemplateData | null = useMemo(() => {
+    if (!kpis) return null;
+    return {
+      periodLabel: kpis.generatedAt ? formatDateYMD(kpis.generatedAt) : undefined,
+      totalRevenue: kpis.totalExpected,
+      contractsCount: kpis.activeContracts,
+      collections: kpis.totalPaid,
+      arrears: kpis.totalLate,
+      documentTitle: 'تقرير مالي سريع',
+      footerNote: [
+        `المتبقي الإجمالي: ${formatCurrencyJOD(kpis.remaining, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+        `القادم: ${formatCurrencyJOD(kpis.totalUpcoming, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+        `عدد الكمبيالات المتأخرة: ${formatNumber(kpis.lateCount)}`,
+      ].join('\n'),
+    };
+  }, [kpis]);
+
   return (
     <div className="animate-fade-in space-y-8 pb-10">
       <div className={DS.components.pageHeader}>
@@ -225,13 +250,26 @@ export const Reports: React.FC = () => {
               مُحتسب مباشرة من محرك التقارير
             </p>
           </div>
-          <div className="w-full max-w-md">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="ابحث عن تقرير..."
-              icon={<Search size={16} />}
-            />
+          <div className="flex flex-wrap items-center gap-2 w-full max-w-2xl justify-end">
+            {isDesktop && financialPrintData && !kpisError ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2 shrink-0 h-10 font-black"
+                onClick={() => setFinancialPrintOpen(true)}
+              >
+                <Printer size={16} />
+                تصدير تقرير مالي
+              </Button>
+            ) : null}
+            <div className="flex-1 min-w-[200px] max-w-md">
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="ابحث عن تقرير..."
+                icon={<Search size={16} />}
+              />
+            </div>
           </div>
         </div>
 
@@ -341,6 +379,19 @@ export const Reports: React.FC = () => {
           })
         )}
       </div>
+
+      {isDesktop && financialPrintOpen && financialPrintData ? (
+        <FinancialReportPrintPreview
+          open
+          onClose={() => setFinancialPrintOpen(false)}
+          title="تقرير مالي سريع"
+          settings={DbService.getSettings()}
+          data={financialPrintData}
+          documentType="financial_report_summary"
+          entityId="reports_kpis"
+          defaultFileName={`تقرير_مالي_${new Date().toISOString().slice(0, 10)}`}
+        />
+      ) : null}
     </div>
   );
 };

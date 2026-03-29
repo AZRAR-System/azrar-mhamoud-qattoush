@@ -36,6 +36,26 @@ import {
   todayDateOnlyLocal,
 } from '@/components/installments/installmentsUtils';
 import type { DesktopInstallmentsRow } from '@/components/installments/installmentsTypes';
+import type { StatementTemplateData } from '@/components/printing/templates/StatementTemplate';
+
+function lastDayOfMonthStr(ym: string): string {
+  const [yS, mS] = ym.split('-');
+  const y = Number(yS);
+  const m = Number(mS);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return `${ym}-28`;
+  const d = new Date(y, m, 0);
+  return `${y}-${String(m).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function monthLabelAr(ym: string): string {
+  try {
+    const [y, mo] = ym.split('-').map(Number);
+    const dt = new Date(y, mo - 1, 15);
+    return new Intl.DateTimeFormat('ar', { month: 'long', year: 'numeric' }).format(dt);
+  } catch {
+    return ym;
+  }
+}
 
 export function useInstallments() {
   // Auth Hook for role checking
@@ -122,6 +142,10 @@ export function useInstallments() {
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>(
     () => savedInstFilters?.filterPaymentMethod ?? 'all'
   );
+  const [statementMonth, setStatementMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [showCharts, setShowCharts] = useState(() => savedInstFilters?.showCharts ?? false);
 
   // Favorite Filters logic
@@ -768,6 +792,102 @@ export function useInstallments() {
     filterPaymentMethod,
   ]);
 
+  const prepareStatementPrintData = useCallback(async (): Promise<StatementTemplateData | null> => {
+    const ym = statementMonth.trim();
+    if (!/^\d{4}-\d{2}$/.test(ym)) {
+      toast.error('الشهر غير صالح');
+      return null;
+    }
+
+    const monthLabel = monthLabelAr(ym);
+    const rows: StatementTemplateData['rows'] = [];
+    let totalPaid = 0;
+    let totalRemaining = 0;
+
+    const consume = (
+      d: {
+        tenant?: الأشخاص_tbl;
+        contract: العقود_tbl;
+        property?: العقارات_tbl;
+      },
+      inst: الكمبيالات_tbl
+    ) => {
+      if (inst.نوع_الكمبيالة === 'تأمين') return;
+      if (String(inst.حالة_الكمبيالة ?? '').trim() === INSTALLMENT_STATUS.CANCELLED) return;
+      const due = String(inst.تاريخ_استحقاق || '').trim();
+      if (!due.startsWith(ym)) return;
+      const { paid, remaining } = getPaidAndRemaining(inst);
+      totalPaid += paid;
+      totalRemaining += remaining;
+      const tenantName = String(d.tenant?.الاسم || '').trim() || '—';
+      const code = String(d.property?.الكود_الداخلي || '').trim() || '—';
+      rows.push({
+        description: `${tenantName} — ${code} — عقد ${d.contract.رقم_العقد}`,
+        dueDate: due,
+        paid,
+        remaining,
+      });
+    };
+
+    if (isDesktopFast) {
+      const first = `${ym}-01`;
+      const last = lastDayOfMonthStr(ym);
+      const res = await installmentsContractsPagedSmart({
+        query: debouncedSearch,
+        filter,
+        filterStartDate: first,
+        filterEndDate: last,
+        filterMinAmount,
+        filterMaxAmount,
+        filterPaymentMethod,
+        sort: sortMode,
+        offset: 0,
+        limit: 20000,
+      });
+      if (res.error) {
+        toast.error(res.error);
+        return null;
+      }
+      for (const item of res.items || []) {
+        for (const inst of item.installments || []) {
+          consume(item, inst);
+        }
+      }
+    } else {
+      for (const d of filteredList) {
+        for (const inst of d.installments || []) {
+          consume(d, inst);
+        }
+      }
+    }
+
+    rows.sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')));
+
+    if (rows.length === 0) {
+      toast.warning('لا توجد أقساط في الشهر المحدد ضمن الفلاتر الحالية');
+      return null;
+    }
+
+    return {
+      monthLabel,
+      rows,
+      totalPaid,
+      totalRemaining,
+      documentTitle: 'كشف حساب شهري',
+    };
+  }, [
+    statementMonth,
+    isDesktopFast,
+    filteredList,
+    debouncedSearch,
+    filter,
+    filterMinAmount,
+    filterMaxAmount,
+    filterPaymentMethod,
+    sortMode,
+    toast,
+  ]);
+
   // Financial Stats calculation for the dashboard
   const financialStats = useMemo(() => {
     const data = isDesktopFast ? [] : groupedData; // Desktop fast mode stats would come from desktopCounts if available
@@ -935,6 +1055,9 @@ export function useInstallments() {
     setFilterMaxAmount,
     filterPaymentMethod,
     setFilterPaymentMethod,
+    statementMonth,
+    setStatementMonth,
+    prepareStatementPrintData,
     showCharts,
     setShowCharts,
     favoriteFilters,
