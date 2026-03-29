@@ -8,6 +8,7 @@ import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
 import { getDbPath } from './db';
+import logger from './logger';
 
 export type SqlAuthMode = 'sql' | 'windows';
 
@@ -304,6 +305,17 @@ const toDate = (value: unknown): Date =>
         ? value
         : String(value)
   );
+
+/** Log SQL sync failures and surface lastError for sql:status. */
+export function logSyncError(context: string, err: unknown): void {
+  const msg = formatSqlErrorMessage(err, context);
+  try {
+    logger.error(`[SQL sync] ${context}: ${msg}`, err);
+  } catch {
+    // ignore logger failures
+  }
+  currentStatus = { ...currentStatus, lastError: msg };
+}
 
 function formatSqlErrorMessage(e: unknown, fallback: string): string {
   const msg1 = getRecordProp(e, 'message');
@@ -2076,7 +2088,7 @@ export async function startBackgroundPull(
 
   if (opts?.runImmediately !== false) {
     try {
-      await pullOnce(applyRemoteChange, opts?.forceFullPull ? new Date(0) : undefined);
+      await pullKvStoreOnce(applyRemoteChange, opts?.forceFullPull ? new Date(0) : undefined);
     } catch (e: unknown) {
       currentStatus = { ...currentStatus, lastError: formatSqlErrorMessage(e, 'فشل المزامنة') };
     }
@@ -2085,7 +2097,7 @@ export async function startBackgroundPull(
   syncTimer = setInterval(() => {
     if (syncInProgress) return;
     syncInProgress = true;
-    void pullOnce(applyRemoteChange)
+    void pullKvStoreOnce(applyRemoteChange)
       .catch((e: unknown) => {
         currentStatus = { ...currentStatus, lastError: formatSqlErrorMessage(e, 'فشل المزامنة') };
       })
@@ -2095,13 +2107,16 @@ export async function startBackgroundPull(
   }, 5000);
 }
 
-async function pullOnce(
-  applyRemoteChange: (row: {
-    k: string;
-    v: string;
-    updatedAt: string;
-    isDeleted: boolean;
-  }) => Promise<void>,
+export type SqlKvPullRow = {
+  k: string;
+  v: string;
+  updatedAt: string;
+  isDeleted: boolean;
+};
+
+/** One incremental pull from dbo.KvStore (used by background loop and sql:syncNow). */
+export async function pullKvStoreOnce(
+  applyRemoteChange: (row: SqlKvPullRow) => Promise<void>,
   sinceOverride?: Date
 ): Promise<void> {
   const settings = await loadSqlSettings();

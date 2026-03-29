@@ -1,4 +1,4 @@
-﻿import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
+import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
 import {
   kvApplyRemoteDelete,
   kvDelete,
@@ -57,8 +57,10 @@ import {
   loadSqlBackupAutomationSettings,
   loadSqlSettings,
   loadSqlSettingsRedacted,
+  logSyncError,
   provisionSqlServer,
   pullAttachmentFilesForAttachmentsJson,
+  pullKvStoreOnce,
   pushKvDelete,
   pushKvUpsert,
   resetSqlPullState,
@@ -495,77 +497,87 @@ function addSqlSyncLogEntry(
 let dbMaintenanceMode = false;
 let restoreInProgress = false;
 
-async function startSqlPullLoop(): Promise<void> {
-  await startBackgroundPull(
-    async (row) => {
-      const localMeta = kvGetMeta(row.k);
-      const localDeletedAt = kvGetDeletedAt(row.k);
-      const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
+type SqlPullApplyResult = 'upsert' | 'delete' | 'skipped';
 
-      const remoteTs = row.updatedAt;
-      const isRemoteNewer =
-        !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
-      if (!isRemoteNewer) return;
+async function applySqlRemoteKvRow(row: {
+  k: string;
+  v: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}): Promise<SqlPullApplyResult> {
+  const localMeta = kvGetMeta(row.k);
+  const localDeletedAt = kvGetDeletedAt(row.k);
+  const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
 
-      if (row.isDeleted) {
-        kvApplyRemoteDelete(row.k, remoteTs);
-        broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+  const remoteTs = row.updatedAt;
+  const isRemoteNewer =
+    !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
+  if (!isRemoteNewer) return 'skipped';
+
+  if (row.isDeleted) {
+    kvApplyRemoteDelete(row.k, remoteTs);
+    broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+    addSqlSyncLogEntry({
+      direction: 'pull',
+      action: 'delete',
+      key: row.k,
+      status: 'ok',
+      ts: remoteTs,
+    });
+    return 'delete';
+  }
+
+  kvSetWithUpdatedAt(row.k, row.v, remoteTs);
+  broadcastDbRemoteUpdate({
+    key: row.k,
+    value: row.v,
+    isDeleted: false,
+    updatedAt: remoteTs,
+  });
+  addSqlSyncLogEntry({
+    direction: 'pull',
+    action: 'upsert',
+    key: row.k,
+    status: 'ok',
+    ts: remoteTs,
+  });
+
+  if (row.k === 'db_attachments') {
+    try {
+      const res = await pullAttachmentFilesForAttachmentsJson(row.v);
+      if (res.downloaded > 0) {
         addSqlSyncLogEntry({
-          direction: 'pull',
-          action: 'delete',
-          key: row.k,
+          direction: 'system',
+          action: 'attachments:pull',
           status: 'ok',
-          ts: remoteTs,
+          message: `تم تنزيل ${res.downloaded} مرفق/مرفقات`,
         });
-      } else {
-        kvSetWithUpdatedAt(row.k, row.v, remoteTs);
-        broadcastDbRemoteUpdate({
-          key: row.k,
-          value: row.v,
-          isDeleted: false,
-          updatedAt: remoteTs,
-        });
-        addSqlSyncLogEntry({
-          direction: 'pull',
-          action: 'upsert',
-          key: row.k,
-          status: 'ok',
-          ts: remoteTs,
-        });
-
-        // Attachments: ensure the actual files exist locally after syncing metadata.
-        if (row.k === 'db_attachments') {
-          try {
-            const res = await pullAttachmentFilesForAttachmentsJson(row.v);
-            if (res.downloaded > 0) {
-              addSqlSyncLogEntry({
-                direction: 'system',
-                action: 'attachments:pull',
-                status: 'ok',
-                message: `تم تنزيل ${res.downloaded} مرفق/مرفقات`,
-              });
-            }
-            if (res.missingRemote > 0) {
-              addSqlSyncLogEntry({
-                direction: 'system',
-                action: 'attachments:pull',
-                status: 'error',
-                message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}`,
-              });
-            }
-          } catch (e: unknown) {
-            addSqlSyncLogEntry({
-              direction: 'system',
-              action: 'attachments:pull',
-              status: 'error',
-              message: toErrorMessage(e, 'فشل تنزيل المرفقات'),
-            });
-          }
-        }
       }
-    },
-    { runImmediately: true }
-  );
+      if (res.missingRemote > 0) {
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'attachments:pull',
+          status: 'error',
+          message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}`,
+        });
+      }
+    } catch (e: unknown) {
+      addSqlSyncLogEntry({
+        direction: 'system',
+        action: 'attachments:pull',
+        status: 'error',
+        message: toErrorMessage(e, 'فشل تنزيل المرفقات'),
+      });
+    }
+  }
+
+  return 'upsert';
+}
+
+async function startSqlPullLoop(): Promise<void> {
+  await startBackgroundPull(async (row) => {
+    await applySqlRemoteKvRow(row);
+  }, { runImmediately: true });
 }
 
 async function pushAllLocalToRemote(): Promise<{
@@ -3039,7 +3051,9 @@ export function registerIpcHandlers() {
     try {
       const meta = kvGetMeta(k);
       const updatedAt = meta?.updatedAt || new Date().toISOString();
-      void pushKvUpsert({ key: k, value, updatedAt }).catch(() => void 0);
+      void pushKvUpsert({ key: k, value, updatedAt }).catch((err: unknown) => {
+        logSyncError('push:set', err);
+      });
     } catch {
       // ignore
     }
@@ -3058,7 +3072,9 @@ export function registerIpcHandlers() {
     }
     try {
       const deletedAt = kvGetDeletedAt(k) || new Date().toISOString();
-      void pushKvDelete({ key: k, deletedAt }).catch(() => void 0);
+      void pushKvDelete({ key: k, deletedAt }).catch((err: unknown) => {
+        logSyncError('push:delete', err);
+      });
     } catch {
       // ignore
     }
@@ -4413,78 +4429,22 @@ export function registerIpcHandlers() {
       let pullUpserts = 0;
       let pullDeletes = 0;
 
-      await startBackgroundPull(
-        async (row) => {
-          const localMeta = kvGetMeta(row.k);
-          const localDeletedAt = kvGetDeletedAt(row.k);
-          const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
-
-          const remoteTs = row.updatedAt;
-          const isRemoteNewer =
-            !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
-          if (!isRemoteNewer) return;
-
-          if (row.isDeleted) {
-            kvApplyRemoteDelete(row.k, remoteTs);
-            broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
-            addSqlSyncLogEntry({
-              direction: 'pull',
-              action: 'delete',
-              key: row.k,
-              status: 'ok',
-              ts: remoteTs,
-            });
-            pullDeletes += 1;
-          } else {
-            kvSetWithUpdatedAt(row.k, row.v, remoteTs);
-            broadcastDbRemoteUpdate({
-              key: row.k,
-              value: row.v,
-              isDeleted: false,
-              updatedAt: remoteTs,
-            });
-            addSqlSyncLogEntry({
-              direction: 'pull',
-              action: 'upsert',
-              key: row.k,
-              status: 'ok',
-              ts: remoteTs,
-            });
-            pullUpserts += 1;
-
-            // Attachments: ensure the actual files exist locally after syncing metadata.
-            if (row.k === 'db_attachments') {
-              try {
-                const res = await pullAttachmentFilesForAttachmentsJson(row.v);
-                if (res.downloaded > 0) {
-                  addSqlSyncLogEntry({
-                    direction: 'system',
-                    action: 'attachments:pull',
-                    status: 'ok',
-                    message: `تم تنزيل ${res.downloaded} مرفق/مرفقات`,
-                  });
-                }
-                if (res.missingRemote > 0) {
-                  addSqlSyncLogEntry({
-                    direction: 'system',
-                    action: 'attachments:pull',
-                    status: 'error',
-                    message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}`,
-                  });
-                }
-              } catch (e: unknown) {
-                addSqlSyncLogEntry({
-                  direction: 'system',
-                  action: 'attachments:pull',
-                  status: 'error',
-                  message: toErrorMessage(e, 'فشل تنزيل المرفقات'),
-                });
-              }
-            }
-          }
-        },
-        { runImmediately: true }
-      );
+      try {
+        await pullKvStoreOnce(async (row) => {
+          const r = await applySqlRemoteKvRow(row);
+          if (r === 'upsert') pullUpserts += 1;
+          else if (r === 'delete') pullDeletes += 1;
+        });
+      } catch (e: unknown) {
+        logSyncError('syncNow:pull', e);
+        addSqlSyncLogEntry({
+          direction: 'system',
+          action: 'syncNow',
+          status: 'error',
+          message: toErrorMessage(e, 'فشل السحب أثناء المزامنة الآن'),
+        });
+        return { ok: false, message: toErrorMessage(e, 'فشل السحب أثناء المزامنة الآن') };
+      }
 
       // Push local changes
       const pushStats = await pushAllLocalToRemote();
@@ -6363,13 +6323,17 @@ export function registerIpcHandlers() {
 
   const setKvAndPushUpsert = (k: string, v: string, updatedAt: string) => {
     kvSetWithUpdatedAt(k, v, updatedAt);
-    void pushKvUpsert({ key: k, value: v, updatedAt }).catch(() => void 0);
+    void pushKvUpsert({ key: k, value: v, updatedAt }).catch((err: unknown) => {
+      logSyncError('push:wordTemplate:set', err);
+    });
   };
 
   const deleteKvAndPushDelete = (k: string) => {
     kvDelete(k);
     const deletedAt = kvGetDeletedAt(k) || new Date().toISOString();
-    void pushKvDelete({ key: k, deletedAt }).catch(() => void 0);
+    void pushKvDelete({ key: k, deletedAt }).catch((err: unknown) => {
+      logSyncError('push:wordTemplate:delete', err);
+    });
   };
 
   const sha256Hex = (buf: Buffer): string => crypto.createHash('sha256').update(buf).digest('hex');
