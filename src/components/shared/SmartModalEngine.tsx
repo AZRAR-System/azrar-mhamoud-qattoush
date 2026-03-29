@@ -1,34 +1,94 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSmartModal, type PanelType } from '@/context/ModalContext';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, X } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 
-// Panels
-import { PersonPanel } from '@/components/panels/PersonPanel';
-import { PropertyPanel } from '@/components/panels/PropertyPanel';
-import { ContractPanel } from '@/components/panels/ContractPanel';
-import { ReportPanel } from '@/components/panels/ReportPanel';
-import { LegalNoticePanel } from '@/components/panels/LegalNoticePanel';
-import { SalesPanel } from '@/components/panels/SalesPanel';
-import { ClearanceReportPanel } from '@/components/panels/ClearanceReportPanel';
-import { ClearanceWizardPanel } from '@/components/panels/ClearanceWizardPanel';
-import { PersonFormPanel } from '@/components/panels/PersonFormPanel';
-import { PropertyFormPanel } from '@/components/panels/PropertyFormPanel';
-import { ContractFormPanel } from '@/components/panels/ContractFormPanel';
-import { BlacklistFormPanel } from '@/components/panels/BlacklistFormPanel';
-import { SmartPromptPanel } from '@/components/panels/SmartPromptPanel';
-import { CalendarEventsPanel } from '@/components/panels/CalendarEventsPanel';
-import { PaymentNotificationsPanel } from '@/components/panels/PaymentNotificationsPanel';
-import { GenericAlertPanel } from '@/components/panels/GenericAlertPanel';
-import { SectionViewPanel } from '@/components/panels/SectionViewPanel';
-import { ServerDrawerPanel } from '@/components/panels/ServerDrawerPanel';
-import { SqlSyncLogPanel } from '@/components/panels/SqlSyncLogPanel';
-import { InspectionFormPanel } from '@/components/panels/InspectionFormPanel';
-import { BulkWhatsAppPanel } from '@/components/panels/BulkWhatsAppPanel';
-import { MarqueeAdsPanel } from '@/components/panels/MarqueeAdsPanel';
-import { NotificationTemplatesPanel } from '@/components/panels/NotificationTemplatesPanel';
-import { ContractWhatsAppSendPanel } from '@/components/panels/ContractWhatsAppSendPanel';
+/** Lazy panels keep mockDb and heavy UI out of the initial bundle (Layout shell). */
+const PersonPanel = React.lazy(() =>
+  import('@/components/panels/PersonPanel').then((m) => ({ default: m.PersonPanel }))
+);
+const PropertyPanel = React.lazy(() =>
+  import('@/components/panels/PropertyPanel').then((m) => ({ default: m.PropertyPanel }))
+);
+const ContractPanel = React.lazy(() =>
+  import('@/components/panels/ContractPanel').then((m) => ({ default: m.ContractPanel }))
+);
+const ReportPanel = React.lazy(() =>
+  import('@/components/panels/ReportPanel').then((m) => ({ default: m.ReportPanel }))
+);
+const LegalNoticePanel = React.lazy(() =>
+  import('@/components/panels/LegalNoticePanel').then((m) => ({ default: m.LegalNoticePanel }))
+);
+const SalesPanel = React.lazy(() =>
+  import('@/components/panels/SalesPanel').then((m) => ({ default: m.SalesPanel }))
+);
+const ClearanceReportPanel = React.lazy(() =>
+  import('@/components/panels/ClearanceReportPanel').then((m) => ({ default: m.ClearanceReportPanel }))
+);
+const ClearanceWizardPanel = React.lazy(() =>
+  import('@/components/panels/ClearanceWizardPanel').then((m) => ({ default: m.ClearanceWizardPanel }))
+);
+const PersonFormPanel = React.lazy(() =>
+  import('@/components/panels/PersonFormPanel').then((m) => ({ default: m.PersonFormPanel }))
+);
+const PropertyFormPanel = React.lazy(() =>
+  import('@/components/panels/PropertyFormPanel').then((m) => ({ default: m.PropertyFormPanel }))
+);
+const ContractFormPanel = React.lazy(() =>
+  import('@/components/panels/ContractFormPanel').then((m) => ({ default: m.ContractFormPanel }))
+);
+const BlacklistFormPanel = React.lazy(() =>
+  import('@/components/panels/BlacklistFormPanel').then((m) => ({ default: m.BlacklistFormPanel }))
+);
+const SmartPromptPanel = React.lazy(() =>
+  import('@/components/panels/SmartPromptPanel').then((m) => ({ default: m.SmartPromptPanel }))
+);
+const CalendarEventsPanel = React.lazy(() =>
+  import('@/components/panels/CalendarEventsPanel').then((m) => ({ default: m.CalendarEventsPanel }))
+);
+const PaymentNotificationsPanel = React.lazy(() =>
+  import('@/components/panels/PaymentNotificationsPanel').then((m) => ({
+    default: m.PaymentNotificationsPanel,
+  }))
+);
+const GenericAlertPanel = React.lazy(() =>
+  import('@/components/panels/GenericAlertPanel').then((m) => ({ default: m.GenericAlertPanel }))
+);
+const SectionViewPanel = React.lazy(() =>
+  import('@/components/panels/SectionViewPanel').then((m) => ({ default: m.SectionViewPanel }))
+);
+const ServerDrawerPanel = React.lazy(() =>
+  import('@/components/panels/ServerDrawerPanel').then((m) => ({ default: m.ServerDrawerPanel }))
+);
+const SqlSyncLogPanel = React.lazy(() =>
+  import('@/components/panels/SqlSyncLogPanel').then((m) => ({ default: m.SqlSyncLogPanel }))
+);
+const InspectionFormPanel = React.lazy(() =>
+  import('@/components/panels/InspectionFormPanel').then((m) => ({ default: m.InspectionFormPanel }))
+);
+const BulkWhatsAppPanel = React.lazy(() =>
+  import('@/components/panels/BulkWhatsAppPanel').then((m) => ({ default: m.BulkWhatsAppPanel }))
+);
+const MarqueeAdsPanel = React.lazy(() =>
+  import('@/components/panels/MarqueeAdsPanel').then((m) => ({ default: m.MarqueeAdsPanel }))
+);
+const NotificationTemplatesPanel = React.lazy(() =>
+  import('@/components/panels/NotificationTemplatesPanel').then((m) => ({
+    default: m.NotificationTemplatesPanel,
+  }))
+);
+const ContractWhatsAppSendPanel = React.lazy(() =>
+  import('@/components/panels/ContractWhatsAppSendPanel').then((m) => ({
+    default: m.ContractWhatsAppSendPanel,
+  }))
+);
+
+const panelChunkFallback = (
+  <div className="flex items-center justify-center min-h-[200px] p-8">
+    <Loader2 className="animate-spin text-indigo-600" size={32} aria-hidden />
+  </div>
+);
 
 type PanelComponentProps = { id?: string; onClose: () => void } & Record<string, unknown>;
 type PanelComponent = React.ComponentType<PanelComponentProps>;
@@ -251,7 +311,9 @@ export const SmartModalEngine: React.FC = () => {
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
-                  <Component id={panel.dataId} {...panel.props} onClose={doClose} />
+                  <Suspense fallback={panelChunkFallback}>
+                    <Component id={panel.dataId} {...panel.props} onClose={doClose} />
+                  </Suspense>
                 </div>
               </div>
             </div>
@@ -272,7 +334,9 @@ export const SmartModalEngine: React.FC = () => {
               contentClassName="app-surface-pulse-primary dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"
               bodyClassName="p-0"
             >
-              <Component {...panel.props} onClose={handleClose} />
+              <Suspense fallback={panelChunkFallback}>
+                <Component {...panel.props} onClose={handleClose} />
+              </Suspense>
             </AppModal>
           );
         }
@@ -356,7 +420,9 @@ export const SmartModalEngine: React.FC = () => {
                 <h3 id={titleId} className="sr-only">
                   {title}
                 </h3>
-                <Component {...panel.props} onClose={handleClose} />
+                <Suspense fallback={panelChunkFallback}>
+                  <Component {...panel.props} onClose={handleClose} />
+                </Suspense>
               </div>
             </div>
           );
@@ -382,7 +448,9 @@ export const SmartModalEngine: React.FC = () => {
             bodyClassName="p-0"
           >
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
-              <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
+              <Suspense fallback={panelChunkFallback}>
+                <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
+              </Suspense>
             </div>
           </AppModal>
         );

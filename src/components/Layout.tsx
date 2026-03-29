@@ -19,7 +19,6 @@ import { SmartModalEngine } from '@/components/shared/SmartModalEngine';
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
 import { OnboardingGuide } from '@/components/shared/OnboardingGuide';
 import { useSmartModal } from '@/context/ModalContext';
-import { DbService } from '@/services/mockDb';
 import { useAuth } from '@/context/AuthContext';
 import { ROUTE_SUBTITLES, ROUTE_TITLES, type NavItem } from '@/routes/registry';
 import { storage } from '@/services/storage';
@@ -461,13 +460,16 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let cancelled = false;
     const refresh = () => {
-      try {
-        const targets = DbService.getPaymentNotificationTargets(7);
-        const count = targets.reduce((sum, t) => sum + (t.items?.length || 0), 0);
-        if (!cancelled) setPaymentNotifCount(count);
-      } catch {
-        if (!cancelled) setPaymentNotifCount(0);
-      }
+      void (async () => {
+        try {
+          const { DbService } = await import('@/services/mockDb');
+          const targets = DbService.getPaymentNotificationTargets(7);
+          const count = targets.reduce((sum, t) => sum + (t.items?.length || 0), 0);
+          if (!cancelled) setPaymentNotifCount(count);
+        } catch {
+          if (!cancelled) setPaymentNotifCount(0);
+        }
+      })();
     };
 
     refresh();

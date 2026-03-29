@@ -8,7 +8,6 @@ import React, {
   useCallback,
 } from 'react';
 import { المستخدمين_tbl } from '@/types';
-import { DbService } from '@/services';
 import { notificationService } from '@/services/notificationService';
 
 interface AuthContextType {
@@ -64,6 +63,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string) => {
     try {
+      const { DbService } = await import('@/services/mockDb');
       const response = await DbService.authenticateUser(username, password);
       if (response && response.success && response.data) {
         setUser(response.data);

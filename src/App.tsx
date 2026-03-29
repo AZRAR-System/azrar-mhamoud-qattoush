@@ -14,7 +14,6 @@ import { ActivationProvider, useActivation } from './context/ActivationContext';
 import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { validateRoutes } from '@/routes/validate';
-import { DbService } from './services/mockDb';
 import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
 
 // Lazy Load Pages
@@ -171,11 +170,14 @@ const DailyAutomation: React.FC = () => {
     if (!isAuthenticated) return;
 
     const timer = window.setTimeout(() => {
-      try {
-        DbService.runDailyScheduler();
-      } catch (err) {
-        console.warn('Failed to run daily scheduler:', err);
-      }
+      void (async () => {
+        try {
+          const { DbService } = await import('./services/mockDb');
+          DbService.runDailyScheduler();
+        } catch (err) {
+          console.warn('Failed to run daily scheduler:', err);
+        }
+      })();
     }, 2000);
 
     return () => window.clearTimeout(timer);

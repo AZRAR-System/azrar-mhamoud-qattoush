@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { DbService } from '@/services/mockDb';
 import { notificationService } from '@/services/notificationService';
 import { formatDateOnly } from '@/utils/dateOnly';
 
@@ -54,11 +53,19 @@ export const useInAppReminderNotifier = () => {
       return Number(m[1]) * 60 + Number(m[2]);
     };
 
-    const scan = () => {
+    const scan = async () => {
+      let reminders: ReminderLike[];
+      try {
+        const { DbService } = await import('@/services/mockDb');
+        reminders = (DbService.getReminders?.() || []).filter((r: unknown): r is ReminderLike => {
+          if (!isReminderLike(r)) return false;
+          return !r.isDone;
+        });
+      } catch {
+        return;
+      }
+
       const today = formatDateOnly(new Date());
-      const reminders = (DbService.getReminders?.() || []).filter(
-        (r: unknown) => isReminderLike(r) && !r.isDone
-      );
 
       const now = new Date();
       const nowMinutes = now.getHours() * 60 + now.getMinutes();

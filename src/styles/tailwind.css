@@ -55,6 +55,17 @@
   background: #94a3b8;
 }
 
+/* صنف اختياري للمناطق القابلة للتمرير (لا يُستخدم مع @apply إلا بعد تعريفه هنا) */
+@layer utilities {
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .dark .custom-scrollbar {
+    scrollbar-color: #475569 transparent;
+  }
+}
+
 /* Mobile Optimization */
 * {
   -webkit-tap-highlight-color: transparent;
@@ -233,7 +244,7 @@ body,
   }
 
   .settings-main-scroll {
-    @apply flex-1 min-h-0 overflow-y-auto custom-scrollbar;
+    @apply flex-1 min-h-0 overflow-y-auto;
   }
 
   .settings-main-inner {
