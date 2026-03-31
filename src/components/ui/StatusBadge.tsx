@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-type StatusType = 'success' | 'warning' | 'caution' | 'danger' | 'neutral' | 'info';
+export type StatusType = 'success' | 'warning' | 'caution' | 'danger' | 'neutral' | 'info';
 
 const STATUS_MAP: Record<string, { type: StatusType; icon: LucideIcon | null }> = {
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -93,6 +93,11 @@ const STATUS_MAP: Record<string, { type: StatusType; icon: LucideIcon | null }> 
   'تم تخطيه': { type: 'neutral', icon: Info },
   Low: { type: 'neutral', icon: Info },
 };
+
+/** لربط التصنيف بألوان المؤشرات (بطاقات الأشخاص وغيرها) */
+export function resolveStatusType(status: string): StatusType {
+  return (STATUS_MAP[status]?.type ?? 'neutral') as StatusType;
+}
 
 export const StatusBadge: React.FC<{ status: string; className?: string; showIcon?: boolean }> = ({
   status,

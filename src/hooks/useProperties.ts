@@ -1103,7 +1103,6 @@ export function useProperties() {
     listVisible,
     clearFilters,
   };
-
 }
 
 export type PropertiesPageModel = ReturnType<typeof useProperties>;

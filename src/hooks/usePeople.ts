@@ -31,8 +31,7 @@ export function usePeople() {
       ? (window as unknown as { desktopDb?: DesktopDbPeopleBridge }).desktopDb
       : undefined;
   const isDesktop = typeof window !== 'undefined' && !!desktopDb;
-  const isDesktopFast =
-    isDesktop && typeof desktopDb?.domainPeoplePickerSearch === 'function';
+  const isDesktopFast = isDesktop && typeof desktopDb?.domainPeoplePickerSearch === 'function';
   const desktopUnsupported = isDesktop && !isDesktopFast;
   const [desktopRows, setDesktopRows] = useState<PeoplePickerItem[]>([]);
   const [desktopTotal, setDesktopTotal] = useState(0);
@@ -759,8 +758,7 @@ export function usePeople() {
     if (total > 0) return Math.max(1, Math.ceil(total / PEOPLE_FAST_PAGE_SIZE));
 
     // Fallback when total isn't available: infer if next page exists.
-    const hasMaybeNext =
-      Array.isArray(desktopRows) && desktopRows.length === PEOPLE_FAST_PAGE_SIZE;
+    const hasMaybeNext = Array.isArray(desktopRows) && desktopRows.length === PEOPLE_FAST_PAGE_SIZE;
     return Math.max(1, hasMaybeNext ? desktopPage + 2 : desktopPage + 1);
   }, [desktopPage, desktopRows, desktopTotal, isDesktopFast]);
 
@@ -837,9 +835,7 @@ export function usePeople() {
     : people.length === 0 && !listLoading;
   const showEmptyNoResults =
     !showEmptyNoPeople &&
-    (isDesktopFast
-      ? !desktopLoading && desktopTotal === 0
-      : filtered.length === 0 && !listLoading);
+    (isDesktopFast ? !desktopLoading && desktopTotal === 0 : filtered.length === 0 && !listLoading);
   const listVisible = !showEmptyNoPeople && !showEmptyNoResults;
 
   return {
@@ -904,7 +900,6 @@ export function usePeople() {
     listVisible,
     clearFilters,
   };
-
 }
 
 export type PeoplePageModel = ReturnType<typeof usePeople>;

@@ -10,7 +10,6 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { MoneyInput } from '@/components/ui/MoneyInput';
 import { Select } from '@/components/ui/Select';
-import { DS } from '@/constants/designSystem';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
@@ -25,8 +24,9 @@ import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { ContractPicker } from '@/components/shared/ContractPicker';
 import { domainGetSmart } from '@/services/domainQueries';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, ServerCog } from 'lucide-react';
 import { PaginationControls } from '@/components/shared/PaginationControls';
+import { PageHero } from '@/components/shared/PageHero';
 
 const computeEndDateFromStartAndMonths = (startIso: string, months: number) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(startIso))) return '';
@@ -464,14 +464,12 @@ export const SmartTools: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className={DS.components.pageHeader}>
-        <div>
-          <h2 className={DS.components.pageTitle}>أدوات ذكية</h2>
-          <p className={DS.components.pageSubtitle}>
-            أدوات مساعدة للعمل. لا يتم حفظ أي نتيجة داخل النظام إلا بعد الضغط على "اعتماد".
-          </p>
-        </div>
-      </div>
+      <PageHero
+        icon={<ServerCog size={26} className="text-indigo-600 dark:text-indigo-400" />}
+        iconVariant="inline"
+        title="أدوات ذكية"
+        subtitle='أدوات مساعدة للعمل. لا يتم حفظ أي نتيجة داخل النظام إلا بعد الضغط على "اعتماد".'
+      />
 
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">

@@ -28,9 +28,10 @@ function PeopleResultsToolbar({ page }: Props) {
 
   if (isDesktopFast) {
     return (
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm text-slate-500 dark:text-slate-400">
-          {desktopLoading ? '...' : desktopTotal.toLocaleString()} {t('نتيجة')}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-4 py-3 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/60 shadow-sm backdrop-blur-sm">
+        <div className="text-sm font-bold text-slate-600 dark:text-slate-300">
+          {desktopLoading ? '...' : desktopTotal.toLocaleString()}{' '}
+          <span className="font-medium text-slate-500 dark:text-slate-400">{t('نتيجة')}</span>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -60,9 +61,10 @@ function PeopleResultsToolbar({ page }: Props) {
   }
 
   return (
-    <div className="flex items-center justify-between mb-3">
-      <div className="text-sm text-slate-500 dark:text-slate-400">
-        {filtered.length.toLocaleString()} {t('نتيجة')}
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-4 py-3 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/60 shadow-sm backdrop-blur-sm">
+      <div className="text-sm font-bold text-slate-600 dark:text-slate-300">
+        {filtered.length.toLocaleString()}{' '}
+        <span className="font-medium text-slate-500 dark:text-slate-400">{t('نتيجة')}</span>
       </div>
       <div className="flex items-center gap-2">
         <Button
@@ -166,8 +168,7 @@ export function PeopleCardsGrid({ page }: Props) {
         String(b.تاريخ_البداية || '').localeCompare(String(a.تاريخ_البداية || ''))
       )[0];
 
-    const pick: العقود_tbl | null =
-      (tenantContract || guarantorContract || ownerContract) ?? null;
+    const pick: العقود_tbl | null = (tenantContract || guarantorContract || ownerContract) ?? null;
     const linkedProperty = pick
       ? properties.find((p) => p.رقم_العقار === pick.رقم_العقار)
       : undefined;
@@ -215,7 +216,7 @@ export function PeopleCardsGrid({ page }: Props) {
       {loading ? (
         <SkeletonCardGrid count={6} variant="listing" />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(360px,1fr))]">
+        <div className="grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
           {isDesktopFast
             ? desktopRows.map((r) => (
                 <PersonListingCardDesktop

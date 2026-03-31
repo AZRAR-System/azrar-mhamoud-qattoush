@@ -86,7 +86,13 @@ export const PrintPreviewToolbar: React.FC<PrintPreviewToolbarProps> = ({
           أفقي
         </Button>
 
-        <Button type="button" size="sm" variant="ghost" onClick={onResetMargins} className="mr-auto">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={onResetMargins}
+          className="mr-auto"
+        >
           هوامش 20مم
         </Button>
       </div>

@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { useSmartModal, type PanelType } from '@/context/ModalContext';
-import { ChevronDown, ChevronUp, Loader2, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, ServerCog, X } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 
@@ -24,10 +24,14 @@ const SalesPanel = React.lazy(() =>
   import('@/components/panels/SalesPanel').then((m) => ({ default: m.SalesPanel }))
 );
 const ClearanceReportPanel = React.lazy(() =>
-  import('@/components/panels/ClearanceReportPanel').then((m) => ({ default: m.ClearanceReportPanel }))
+  import('@/components/panels/ClearanceReportPanel').then((m) => ({
+    default: m.ClearanceReportPanel,
+  }))
 );
 const ClearanceWizardPanel = React.lazy(() =>
-  import('@/components/panels/ClearanceWizardPanel').then((m) => ({ default: m.ClearanceWizardPanel }))
+  import('@/components/panels/ClearanceWizardPanel').then((m) => ({
+    default: m.ClearanceWizardPanel,
+  }))
 );
 const PersonFormPanel = React.lazy(() =>
   import('@/components/panels/PersonFormPanel').then((m) => ({ default: m.PersonFormPanel }))
@@ -45,7 +49,9 @@ const SmartPromptPanel = React.lazy(() =>
   import('@/components/panels/SmartPromptPanel').then((m) => ({ default: m.SmartPromptPanel }))
 );
 const CalendarEventsPanel = React.lazy(() =>
-  import('@/components/panels/CalendarEventsPanel').then((m) => ({ default: m.CalendarEventsPanel }))
+  import('@/components/panels/CalendarEventsPanel').then((m) => ({
+    default: m.CalendarEventsPanel,
+  }))
 );
 const PaymentNotificationsPanel = React.lazy(() =>
   import('@/components/panels/PaymentNotificationsPanel').then((m) => ({
@@ -65,7 +71,9 @@ const SqlSyncLogPanel = React.lazy(() =>
   import('@/components/panels/SqlSyncLogPanel').then((m) => ({ default: m.SqlSyncLogPanel }))
 );
 const InspectionFormPanel = React.lazy(() =>
-  import('@/components/panels/InspectionFormPanel').then((m) => ({ default: m.InspectionFormPanel }))
+  import('@/components/panels/InspectionFormPanel').then((m) => ({
+    default: m.InspectionFormPanel,
+  }))
 );
 const BulkWhatsAppPanel = React.lazy(() =>
   import('@/components/panels/BulkWhatsAppPanel').then((m) => ({ default: m.BulkWhatsAppPanel }))
@@ -328,7 +336,19 @@ export const SmartModalEngine: React.FC = () => {
               key={panel.id}
               open
               onClose={handleClose}
-              title={panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
+              title={
+                <span className="flex items-center gap-3">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-slate-700 text-white shadow-md shadow-indigo-500/25 ring-1 ring-white/10"
+                    aria-hidden
+                  >
+                    <ServerCog size={22} strokeWidth={2} />
+                  </span>
+                  <span className="font-black text-slate-800 dark:text-white">
+                    {panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
+                  </span>
+                </span>
+              }
               size="6xl"
               className="items-center p-4 bg-black/20 backdrop-blur-[1px]"
               contentClassName="app-surface-pulse-primary dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"

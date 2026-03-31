@@ -25,7 +25,11 @@ export const TaskTypeFilterChips: React.FC<TaskTypeFilterChipsProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${className}`} role="group" aria-label="فلتر نوع المهمة">
+    <div
+      className={`flex flex-wrap items-center gap-2 ${className}`}
+      role="group"
+      aria-label="فلتر نوع المهمة"
+    >
       {OPTIONS.map((opt) => {
         const active = value === opt.id;
         return (

@@ -90,9 +90,7 @@ export function SettingsGeneralSection({ page }: Props) {
                   id="settings-company-name"
                   className={inputClass}
                   value={settings.companyName}
-                  onChange={(e) =>
-                    setSettings({ ...settings, companyName: e.target.value })
-                  }
+                  onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
                 />
               </div>
               <div>
@@ -103,9 +101,7 @@ export function SettingsGeneralSection({ page }: Props) {
                   id="settings-company-slogan"
                   className={inputClass}
                   value={settings.companySlogan || ''}
-                  onChange={(e) =>
-                    setSettings({ ...settings, companySlogan: e.target.value })
-                  }
+                  onChange={(e) => setSettings({ ...settings, companySlogan: e.target.value })}
                 />
               </div>
             </div>
@@ -146,9 +142,7 @@ export function SettingsGeneralSection({ page }: Props) {
                 id="settings-company-website"
                 className={inputClass}
                 value={settings.companyWebsite}
-                onChange={(e) =>
-                  setSettings({ ...settings, companyWebsite: e.target.value })
-                }
+                onChange={(e) => setSettings({ ...settings, companyWebsite: e.target.value })}
               />
             </div>
           </div>
@@ -164,12 +158,12 @@ export function SettingsGeneralSection({ page }: Props) {
             />
           </div>
         </section>
-    
+
         <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <Globe className="text-sky-500" size={20} /> البلد والعملة
           </h3>
-    
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className={labelClass}>البلد (مع العلم)</label>
@@ -194,7 +188,7 @@ export function SettingsGeneralSection({ page }: Props) {
                 يُستخدم كود البلد تلقائياً لتطبيع أرقام WhatsApp المكتوبة بصيغة محلية.
               </div>
             </div>
-    
+
             <div>
               <label className={labelClass}>العملة (تصنيف/اختيار)</label>
               <Select
@@ -218,9 +212,9 @@ export function SettingsGeneralSection({ page }: Props) {
             </div>
           </div>
         </section>
-    
+
         {/* الترويسة وقوالب DOCX وإعدادات الطباعة: راجع «الطباعة والقوالب» في الشريط الجانبي */}
-    
+
         {/* Advanced Reset Section */}
         <section className="bg-red-50 dark:bg-red-900/10 rounded-2xl p-6 border border-red-100 dark:border-red-800/30">
           <h3 className="text-lg font-bold text-red-800 dark:text-red-400 mb-4 flex items-center gap-2">
@@ -228,8 +222,8 @@ export function SettingsGeneralSection({ page }: Props) {
           </h3>
           <div className="flex items-center justify-between">
             <p className="text-sm text-red-600/80 dark:text-red-400/80 max-w-lg">
-              في حال واجهت مشاكل في تحميل البيانات أو عرض الصفحات، يمكنك مسح الذاكرة المؤقتة
-              وإعادة بناء الفهارس. لن يتم حذف البيانات الأساسية.
+              في حال واجهت مشاكل في تحميل البيانات أو عرض الصفحات، يمكنك مسح الذاكرة المؤقتة وإعادة
+              بناء الفهارس. لن يتم حذف البيانات الأساسية.
             </p>
             <button
               onClick={clearSystemCache}

@@ -100,16 +100,27 @@ export const StatementTemplate: React.FC<{
         <table className="w-full min-w-[480px] border-collapse border border-slate-200 text-xs">
           <thead>
             <tr className="bg-slate-100">
-              <th className="border border-slate-200 px-2 py-2 text-right font-extrabold">البند / الوصف</th>
-              <th className="border border-slate-200 px-2 py-2 text-right font-extrabold">الاستحقاق</th>
-              <th className="border border-slate-200 px-2 py-2 text-right font-extrabold">المدفوع</th>
-              <th className="border border-slate-200 px-2 py-2 text-right font-extrabold">المتبقي</th>
+              <th className="border border-slate-200 px-2 py-2 text-right font-extrabold">
+                البند / الوصف
+              </th>
+              <th className="border border-slate-200 px-2 py-2 text-right font-extrabold">
+                الاستحقاق
+              </th>
+              <th className="border border-slate-200 px-2 py-2 text-right font-extrabold">
+                المدفوع
+              </th>
+              <th className="border border-slate-200 px-2 py-2 text-right font-extrabold">
+                المتبقي
+              </th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="border border-slate-200 px-2 py-4 text-center text-slate-500">
+                <td
+                  colSpan={4}
+                  className="border border-slate-200 px-2 py-4 text-center text-slate-500"
+                >
                   لا توجد أقساط للعرض
                 </td>
               </tr>

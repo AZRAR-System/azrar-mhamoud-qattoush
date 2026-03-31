@@ -1,6 +1,4 @@
-
-const bar = (extra: string) =>
-  `rounded-lg bg-slate-200/90 dark:bg-slate-700/80 ${extra}`;
+const bar = (extra: string) => `rounded-lg bg-slate-200/90 dark:bg-slate-700/80 ${extra}`;
 
 export type SkeletonCardVariant = 'listing' | 'kpi';
 
@@ -29,7 +27,10 @@ export function SkeletonCard({ className = '', variant = 'listing' }: SkeletonCa
   }
 
   return (
-    <div className={`app-card flex flex-col overflow-hidden animate-pulse ${className}`} aria-hidden>
+    <div
+      className={`app-card flex flex-col overflow-hidden animate-pulse ${className}`}
+      aria-hidden
+    >
       <div className="h-1 w-full bg-slate-300/60 dark:bg-slate-600/50" />
       <div className="flex flex-1 flex-col gap-4 p-5">
         <div className="flex items-start gap-3">

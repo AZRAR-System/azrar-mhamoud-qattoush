@@ -125,8 +125,7 @@ export function ContractsSmartFilterBar({ page }: Props) {
             variant={advFilters.createdMonth === currentMonthKey ? 'secondary' : 'ghost'}
             leftIcon={<CalendarDays size={16} />}
             onClick={() => {
-              const isThisMonth =
-                String(advFilters.createdMonth || '').trim() === currentMonthKey;
+              const isThisMonth = String(advFilters.createdMonth || '').trim() === currentMonthKey;
               setAdvFilters({ ...advFilters, createdMonth: isThisMonth ? '' : currentMonthKey });
             }}
             title={

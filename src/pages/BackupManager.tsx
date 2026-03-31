@@ -27,6 +27,8 @@ import { useSmartModal } from '@/context/ModalContext';
 import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { getErrorMessage } from '@/utils/errors';
+import { PageHero } from '@/components/shared/PageHero';
+import { DS } from '@/constants/designSystem';
 
 // --- Types ---
 type BackupFile = {
@@ -330,36 +332,33 @@ export const BackupManager: React.FC = () => {
       className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden font-sans page-transition"
       dir="rtl"
     >
-      {/* Header Section */}
-      <header className="flex-shrink-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border-b border-slate-200 dark:border-slate-800 px-8 py-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 max-w-[1600px] mx-auto w-full">
-          <div className="flex items-center gap-6">
-            <div className="p-4 bg-indigo-600 dark:bg-indigo-500 rounded-2xl text-white shadow-lg shadow-indigo-600/20 animate-float">
-              <History size={32} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black text-slate-800 dark:text-white leading-tight">
-                إدارة النسخ الاحتياطي
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-wider">
-                تأمين بياناتك، استعادة اللحظات السابقة، والتحكم الكامل في الأرشيف.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="btn-secondary-modern" onClick={fetchData} disabled={loading}>
-              <RefreshCcw
-                size={18}
-                className={loading ? 'animate-spin text-indigo-500' : 'text-indigo-500'}
-              />
-              <span>تحديث البيانات</span>
-            </button>
-            <button className="btn-primary-modern" onClick={() => setShowCreateModal(true)}>
-              <Plus size={20} />
-              <span>نسخة احتياطية جديدة</span>
-            </button>
-          </div>
+      {/* Header — نفس نمط PageHero الموحّد */}
+      <header className="flex-shrink-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border-b border-slate-200 dark:border-slate-800 px-6 md:px-8 py-6">
+        <div className="max-w-[1600px] mx-auto w-full">
+          <PageHero
+            embed
+            className="!mb-0"
+            icon={<History size={28} />}
+            iconVariant="featured"
+            title="إدارة النسخ الاحتياطي"
+            subtitle="تأمين بياناتك، استعادة اللحظات السابقة، والتحكم الكامل في الأرشيف."
+            subtitleClassName={DS.components.pageSubtitleUppercase}
+            actions={
+              <div className="flex items-center gap-3">
+                <button className="btn-secondary-modern" onClick={fetchData} disabled={loading}>
+                  <RefreshCcw
+                    size={18}
+                    className={loading ? 'animate-spin text-indigo-500' : 'text-indigo-500'}
+                  />
+                  <span>تحديث البيانات</span>
+                </button>
+                <button className="btn-primary-modern" onClick={() => setShowCreateModal(true)}>
+                  <Plus size={20} />
+                  <span>نسخة احتياطية جديدة</span>
+                </button>
+              </div>
+            }
+          />
         </div>
       </header>
 

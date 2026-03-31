@@ -1,11 +1,4 @@
-import {
-  Home,
-  Briefcase,
-  Zap,
-  SlidersHorizontal,
-  Download,
-  Upload,
-} from 'lucide-react';
+import { Home, Briefcase, Zap, SlidersHorizontal, Download, Upload } from 'lucide-react';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -69,9 +62,7 @@ export function PropertiesSmartFilterBar({ page }: Props) {
                 setFilters((prev) => (prev.status ? prev : { ...prev, status: 'شاغر' }));
               if (id === 'all') {
                 setFilters((prev) =>
-                  prev.status === 'مؤجر' || prev.status === 'شاغر'
-                    ? { ...prev, status: '' }
-                    : prev
+                  prev.status === 'مؤجر' || prev.status === 'شاغر' ? { ...prev, status: '' } : prev
                 );
               }
             }}

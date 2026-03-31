@@ -1,23 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
-import {
-  DynamicFormField,
-  الأشخاص_tbl,
-  العقارات_tbl,
-  العقود_tbl,
-  الكمبيالات_tbl,
-} from '@/types';
+import { DynamicFormField, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types';
 import { can } from '@/utils/permissions';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { exportToXlsx } from '@/utils/xlsx';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
-import {
-  compareDateOnlySafe,
-  daysBetweenDateOnlySafe,
-  todayDateOnlyISO,
-} from '@/utils/dateOnly';
+import { compareDateOnlySafe, daysBetweenDateOnlySafe, todayDateOnlyISO } from '@/utils/dateOnly';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useDebounce } from '@/hooks/useDebounce';
 import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
@@ -74,7 +64,6 @@ export function useInstallments() {
   const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
   const isDesktopFast = isDesktop && !!window.desktopDb?.domainInstallmentsContractsSearch;
 
-
   const [desktopRows, setDesktopRows] = useState<DesktopInstallmentsRow[]>([]);
   const [desktopTotal, setDesktopTotal] = useState(0);
   const [desktopPage, setDesktopPage] = useState(0);
@@ -95,13 +84,7 @@ export function useInstallments() {
   type InstallmentsFiltersSaved = {
     filter?: 'all' | 'debt' | 'paid' | 'due';
     search?: string;
-    sortMode?:
-      | 'tenant-asc'
-      | 'tenant-desc'
-      | 'due-asc'
-      | 'due-desc'
-      | 'amount-asc'
-      | 'amount-desc';
+    sortMode?: 'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc' | 'amount-asc' | 'amount-desc';
     isAdvancedFiltersOpen?: boolean;
     filterStartDate?: string;
     filterEndDate?: string;

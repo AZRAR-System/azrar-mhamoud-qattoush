@@ -70,7 +70,8 @@ export type LocalBackupLogEntry = {
   attachmentsArchivePath?: string;
 };
 
-export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+export const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null;
 
 export const isMammothConverter = (v: unknown): v is MammothConverter => {
   return isRecord(v) && typeof (v as MammothConverter).convertToHtml === 'function';

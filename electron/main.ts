@@ -1,5 +1,5 @@
 import logger from './logger';
-import { app, BrowserWindow, shell, session, type Event } from 'electron';
+import { app, BrowserWindow, dialog, shell, session, type Event } from 'electron';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -356,6 +356,28 @@ async function createMainWindow() {
 
   logger.info('[Electron] Preload path:', preloadPath);
   logger.info('[Electron] isDev:', isDev);
+
+  if (!existsSync(preloadPath)) {
+    const detail = [
+      preloadPath,
+      '',
+      'Generate it from the project root:',
+      '  npm run electron:preload',
+      'Or full Electron dev bundles:',
+      '  npm run electron:build:dev',
+      'Then start desktop again:',
+      '  npm run desktop:dev',
+    ].join('\n');
+    logger.error('[Electron] Missing preload bundle.\n', detail);
+    if (isDev) {
+      void dialog.showErrorBox(
+        'AZRAR — preload missing',
+        `electron/preload.cjs was not found.\n\n${detail}`
+      );
+    }
+    app.quit();
+    return;
+  }
 
   const buildIcon = path.join(__dirname, '..', 'build', 'icon.png');
 

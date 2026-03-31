@@ -19,7 +19,8 @@ const MOCK_CONTRACT: ContractTemplateData = {
   propertyDetails: 'شقة — عمان — منطقة تجريبية',
   durationText: '12 شهراً',
   rentAmount: 350,
-  terms: 'يجب دفع الإيجار في موعد أقصاه اليوم الخامس من كل شهر.\nيمنع التأجير من الباطن دون موافقة خطية.',
+  terms:
+    'يجب دفع الإيجار في موعد أقصاه اليوم الخامس من كل شهر.\nيمنع التأجير من الباطن دون موافقة خطية.',
   contractTitle: 'معاينة — عقد إيجار',
 };
 
@@ -41,8 +42,7 @@ const MOCK_HANDOVER: ReceiptTemplateData = {
   date: '2026-03-29',
   documentTitle: 'معاينة — محضر تسليم',
   officialLetterTitle: 'تأكيد استلام',
-  officialLetterBody:
-    'نؤكد استلام المفتاح والعقار بحالة جيدة، وأي ملاحظات تُسجّل هنا للمرجعية.',
+  officialLetterBody: 'نؤكد استلام المفتاح والعقار بحالة جيدة، وأي ملاحظات تُسجّل هنا للمرجعية.',
 };
 
 /** HTML body (under letterhead) for PrintPreviewModal — mock data per Word template category. */

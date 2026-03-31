@@ -56,15 +56,7 @@ export const CONTRACT_WORD_CATEGORY_META: Record<
 export const CONTRACT_WORD_FLAT_CATEGORY_ORDER: readonly Exclude<
   ContractWordVariableCategory,
   'dynamic'
->[] = [
-  'parties',
-  'property',
-  'contract',
-  'installment',
-  'company',
-  'docx_engine',
-  'header_footer',
-];
+>[] = ['parties', 'property', 'contract', 'installment', 'company', 'docx_engine', 'header_footer'];
 
 export const CONTRACT_WORD_DYNAMIC_PREFIXES: {
   prefix: string;
@@ -120,7 +112,12 @@ export const CONTRACT_WORD_TEMPLATE_VARIABLES: ContractWordTemplateVariable[] = 
 
   // —— العقار ——
   { key: 'propertyCode', label: 'كود العقار', category: 'property', example: 'A-102' },
-  { key: 'propertyAddress', label: 'عنوان العقار', category: 'property', example: 'عمّان — تلاع العلي' },
+  {
+    key: 'propertyAddress',
+    label: 'عنوان العقار',
+    category: 'property',
+    example: 'عمّان — تلاع العلي',
+  },
   {
     key: 'propertyType',
     label: 'نوع / وصف العقار (نص حر)',
@@ -339,7 +336,12 @@ export const CONTRACT_WORD_TEMPLATE_VARIABLES: ContractWordTemplateVariable[] = 
   // —— الشركة (من الإعدادات) ——
   { key: 'companyName', label: 'اسم الشركة', category: 'company', example: 'مكتب عقاري' },
   { key: 'companyPhone', label: 'هاتف الشركة', category: 'company', example: '0799999999' },
-  { key: 'companyEmail', label: 'البريد الإلكتروني', category: 'company', example: 'info@example.com' },
+  {
+    key: 'companyEmail',
+    label: 'البريد الإلكتروني',
+    category: 'company',
+    example: 'info@example.com',
+  },
   { key: 'companyAddress', label: 'عنوان الشركة', category: 'company', example: 'عمّان' },
   { key: 'companyWebsite', label: 'الموقع الإلكتروني', category: 'company', example: 'https://' },
   { key: 'taxNumber', label: 'الرقم الضريبي', category: 'company', example: '12345678' },
@@ -405,7 +407,12 @@ export const CONTRACT_WORD_TEMPLATE_VARIABLES: ContractWordTemplateVariable[] = 
     example: 'سطر1\nسطر2',
   },
   { key: 'date', label: 'التاريخ (ذيل الصفحة)', category: 'header_footer', example: '2026-03-29' },
-  { key: 'user_name', label: 'اسم المستخدم (ذيل)', category: 'header_footer', example: 'مدير النظام' },
+  {
+    key: 'user_name',
+    label: 'اسم المستخدم (ذيل)',
+    category: 'header_footer',
+    example: 'مدير النظام',
+  },
   { key: 'page_number', label: 'رقم الصفحة (ذيل)', category: 'header_footer', example: '1' },
 ];
 

@@ -27,6 +27,9 @@ jobs:
       
       - name: TypeScript Check
         run: npm run typecheck
+
+      - name: Routes consistency
+        run: npm run routes:check
       
       - name: Check formatting
         run: npm run format:check
@@ -73,8 +76,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Build project
-        run: npm run build
+      - name: Desktop build (Vite + Electron bundles)
+        run: npm run desktop:build
       
       - name: Check build artifacts
         run: |

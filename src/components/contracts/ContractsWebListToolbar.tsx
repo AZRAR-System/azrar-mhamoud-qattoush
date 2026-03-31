@@ -4,14 +4,7 @@ import type { ContractsPageModel } from '@/hooks/useContracts';
 type Props = { page: ContractsPageModel };
 
 export function ContractsWebListToolbar({ page }: Props) {
-  const {
-    t,
-    isDesktopFast,
-    filteredContracts,
-    uiPage,
-    setUiPage,
-    uiPageCount,
-  } = page;
+  const { t, isDesktopFast, filteredContracts, uiPage, setUiPage, uiPageCount } = page;
 
   if (isDesktopFast) return null;
 

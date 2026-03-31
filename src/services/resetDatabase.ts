@@ -7,6 +7,7 @@
  */
 
 import { storage } from '@/services/storage';
+import { hashPassword } from '@/services/passwordHash';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -230,11 +231,14 @@ export const resetToFreshState = async (): Promise<{ success: boolean; message: 
       return clearResult;
     }
 
-    // 2. إنشاء مستخدم admin فقط
+    // 2. إنشاء مستخدم admin فقط (نفس بيانات الزرع الافتراضية من env)
+    const adminName = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_USERNAME || 'admin').trim();
+    const plain = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_PASSWORD || '7Bibi@_@_0788');
+    const hashed = await hashPassword(plain);
     const adminUser = {
       id: '1',
-      اسم_المستخدم: 'admin',
-      كلمة_المرور: '123456',
+      اسم_المستخدم: adminName,
+      كلمة_المرور: hashed,
       الدور: 'SuperAdmin',
       isActive: true,
     };

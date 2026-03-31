@@ -42,9 +42,7 @@ function parseMarginsMm(input: unknown): HtmlDocMarginsMm {
   };
 }
 
-function parsePageRangesList(
-  s: string | undefined
-): { from: number; to: number }[] | undefined {
+function parsePageRangesList(s: string | undefined): { from: number; to: number }[] | undefined {
   if (!s?.trim()) return undefined;
   const parts = s
     .split(',')
@@ -71,13 +69,16 @@ export function parsePrintingHtmlPayload(payload: unknown): ParsePrintingHtmlRes
 
   const orientation = r.orientation === 'landscape' ? 'landscape' : 'portrait';
   const marginsMm = parseMarginsMm(r.marginsMm);
-  const pageRanges = typeof r.pageRanges === 'string' ? r.pageRanges.trim() || undefined : undefined;
+  const pageRanges =
+    typeof r.pageRanges === 'string' ? r.pageRanges.trim() || undefined : undefined;
   let copies = 1;
   if (typeof r.copies === 'number' && Number.isFinite(r.copies)) {
     copies = Math.max(1, Math.min(99, Math.floor(r.copies)));
   }
   const defaultFileName =
-    typeof r.defaultFileName === 'string' ? String(r.defaultFileName).trim() || undefined : undefined;
+    typeof r.defaultFileName === 'string'
+      ? String(r.defaultFileName).trim() || undefined
+      : undefined;
 
   return {
     ok: true,
@@ -175,9 +176,7 @@ export async function printHtmlInHiddenWindow(
 export async function htmlToPdfFromHtml(
   html: string,
   options: HtmlDocPrintOptions
-): Promise<
-  { ok: true; savedPath: string } | { ok: false; code: string; message: string }
-> {
+): Promise<{ ok: true; savedPath: string } | { ok: false; code: string; message: string }> {
   try {
     const pdfBuffer = await withHiddenHtmlWindow(html, async (wc) => {
       const buf = await wc.printToPDF({

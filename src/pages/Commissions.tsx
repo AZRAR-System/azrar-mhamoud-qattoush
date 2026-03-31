@@ -29,7 +29,6 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { DynamicSelect } from '@/components/ui/DynamicSelect';
 import { AppModal } from '@/components/ui/AppModal';
-import { DS } from '@/constants/designSystem';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { formatCurrencyJOD } from '@/utils/format';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
@@ -39,6 +38,7 @@ import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
+import { PageHero } from '@/components/shared/PageHero';
 import { Input } from '@/components/ui/Input';
 import { MoneyInput } from '@/components/ui/MoneyInput';
 
@@ -834,53 +834,50 @@ export const Commissions: FC = () => {
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Header & Tabs */}
-      <div className={DS.components.pageHeader}>
-        <div>
-          <h2 className={`${DS.components.pageTitle} flex items-center gap-2`}>
-            <HandCoins className="text-indigo-600" /> إدارة العمولات والإيرادات
-          </h2>
-          <p className={DS.components.pageSubtitle}>
-            تتبع صافي العمولات من العقود والعمليات الخارجية الشهرية
-          </p>
-        </div>
+      {/* Header & Tabs — موحّد مع PageHero */}
+      <PageHero
+        icon={<HandCoins size={26} className="text-indigo-600 dark:text-indigo-400" />}
+        iconVariant="inline"
+        title="إدارة العمولات والإيرادات"
+        subtitle="تتبع صافي العمولات من العقود والعمليات الخارجية الشهرية"
+        actions={
+          <>
+            <div className="inline-flex items-center gap-1 bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800 p-1 rounded-2xl">
+              <Button
+                size="sm"
+                variant={activeTab === 'contracts' ? 'secondary' : 'ghost'}
+                onClick={() => setActiveTab('contracts')}
+              >
+                عمولات العقود
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'external' ? 'secondary' : 'ghost'}
+                onClick={() => setActiveTab('external')}
+              >
+                عمولات خارجية
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'employee' ? 'secondary' : 'ghost'}
+                onClick={() => setActiveTab('employee')}
+              >
+                عمولات الموظفين
+              </Button>
+            </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="inline-flex items-center gap-1 bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800 p-1 rounded-2xl">
-            <Button
-              size="sm"
-              variant={activeTab === 'contracts' ? 'secondary' : 'ghost'}
-              onClick={() => setActiveTab('contracts')}
-            >
-              عمولات العقود
-            </Button>
-            <Button
-              size="sm"
-              variant={activeTab === 'external' ? 'secondary' : 'ghost'}
-              onClick={() => setActiveTab('external')}
-            >
-              عمولات خارجية
-            </Button>
-            <Button
-              size="sm"
-              variant={activeTab === 'employee' ? 'secondary' : 'ghost'}
-              onClick={() => setActiveTab('employee')}
-            >
-              عمولات الموظفين
-            </Button>
-          </div>
-
-          <div className="app-card px-3 py-2 flex items-center gap-2">
-            <Filter size={16} className="text-gray-400" />
-            <input
-              type="month"
-              className="bg-transparent text-slate-700 dark:text-white outline-none text-sm font-bold"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+            <div className="app-card px-3 py-2 flex items-center gap-2">
+              <Filter size={16} className="text-gray-400" />
+              <input
+                type="month"
+                className="bg-transparent text-slate-700 dark:text-white outline-none text-sm font-bold"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              />
+            </div>
+          </>
+        }
+      />
 
       {/* View 3: Employee Commissions */}
       {activeTab === 'employee' && (

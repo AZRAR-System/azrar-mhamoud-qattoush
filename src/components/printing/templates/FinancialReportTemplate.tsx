@@ -139,6 +139,9 @@ export type FinancialReportPrintPreviewProps = Omit<PrintPreviewModalProps, 'bod
 
 export const FinancialReportPrintPreview: React.FC<FinancialReportPrintPreviewProps> = (props) => {
   const { data, settings, ...rest } = props;
-  const bodyHtml = useMemo(() => buildFinancialReportTemplateBodyHtml(data, settings), [data, settings]);
+  const bodyHtml = useMemo(
+    () => buildFinancialReportTemplateBodyHtml(data, settings),
+    [data, settings]
+  );
   return <PrintPreviewModal {...rest} settings={settings} bodyHtml={bodyHtml} />;
 };

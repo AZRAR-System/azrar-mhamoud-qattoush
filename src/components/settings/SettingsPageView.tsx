@@ -82,9 +82,7 @@ export function SettingsPageView({ page }: Props) {
               <div className={DS.settingsLayout.inner}>
                 <SettingsLoadErrorPanel page={page} />
 
-                {activeSection === 'general' && settings && (
-                  <SettingsGeneralSection page={page} />
-                )}
+                {activeSection === 'general' && settings && <SettingsGeneralSection page={page} />}
                 {activeSection === 'printingHub' && settings && (
                   <SettingsPrintingHubSection page={page} />
                 )}

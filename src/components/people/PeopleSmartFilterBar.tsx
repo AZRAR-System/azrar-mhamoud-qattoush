@@ -1,11 +1,4 @@
-import {
-  Plus,
-  Users,
-  ShieldAlert,
-  Download,
-  SlidersHorizontal,
-  Filter,
-} from 'lucide-react';
+import { Plus, Users, ShieldAlert, Download, SlidersHorizontal, Filter } from 'lucide-react';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -43,6 +36,7 @@ export function PeopleSmartFilterBar({ page }: Props) {
 
   return (
     <SmartFilterBar
+      omitTitle
       title={t('إدارة الأشخاص')}
       subtitle={t('سجل العملاء، الملاك، والمستأجرين')}
       searchValue={searchTerm}

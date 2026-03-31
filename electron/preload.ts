@@ -327,8 +327,10 @@ contextBridge.exposeInMainWorld('desktopPrintDispatch', {
 });
 
 contextBridge.exposeInMainWorld('desktopPrinting', {
-  printHtml: (payload: Record<string, unknown>) => ipcRenderer.invoke('printing:printHtml', payload),
-  htmlToPdf: (payload: Record<string, unknown>) => ipcRenderer.invoke('printing:htmlToPdf', payload),
+  printHtml: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('printing:printHtml', payload),
+  htmlToPdf: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('printing:htmlToPdf', payload),
 });
 
 contextBridge.exposeInMainWorld('desktopPrintSettings', {

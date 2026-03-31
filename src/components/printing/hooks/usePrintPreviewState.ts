@@ -8,7 +8,9 @@ import {
 export function usePrintPreviewState() {
   const [zoom, setZoom] = useState<PrintPreviewZoom>(1);
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
-  const [marginsMm, setMarginsMm] = useState<PrintMarginsMm>(() => ({ ...DEFAULT_PRINT_MARGINS_MM }));
+  const [marginsMm, setMarginsMm] = useState<PrintMarginsMm>(() => ({
+    ...DEFAULT_PRINT_MARGINS_MM,
+  }));
   const [pageRange, setPageRange] = useState('');
   const [copies, setCopies] = useState(1);
 

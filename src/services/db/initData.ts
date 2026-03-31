@@ -45,8 +45,10 @@ export async function runInitData(deps: InitDataDeps): Promise<void> {
   try {
     const env = import.meta.env;
     const isDev = !!env?.DEV;
+    const isDesktopMode = String(env?.MODE || '') === 'desktop';
     const seedEnabled = String(env?.VITE_SEED_DEFAULT_ADMIN || '').toLowerCase() === 'true';
-    if (isDev && seedEnabled) {
+    // تطوير ويب، أو بناء الديسكتوب: زرع المشرف الافتراضي عند غياب المستخدمين
+    if (seedEnabled && (isDev || isDesktopMode)) {
       const usersFromStorage = await storage.getItem(KEYS.USERS).catch(() => null);
       const usersFromLocalStorage = localStorage.getItem(KEYS.USERS);
       const usersSerialized = usersFromStorage ?? usersFromLocalStorage;
@@ -65,7 +67,7 @@ export async function runInitData(deps: InitDataDeps): Promise<void> {
 
       if (shouldSeedAdmin) {
         const username = String(env?.VITE_SEED_DEFAULT_ADMIN_USERNAME || 'admin');
-        const passwordPlain = String(env?.VITE_SEED_DEFAULT_ADMIN_PASSWORD || '123456');
+        const passwordPlain = String(env?.VITE_SEED_DEFAULT_ADMIN_PASSWORD || '7Bibi@_@_0788');
         const passwordStored = await hashPassword(passwordPlain);
         save(KEYS.USERS, [
           {

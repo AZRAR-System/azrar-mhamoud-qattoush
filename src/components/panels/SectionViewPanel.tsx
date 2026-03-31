@@ -16,9 +16,7 @@ const People = lazy(() => import('@/pages/People').then((m) => ({ default: m.Peo
 const Properties = lazy(() =>
   import('@/pages/Properties').then((m) => ({ default: m.Properties }))
 );
-const Contracts = lazy(() =>
-  import('@/pages/Contracts').then((m) => ({ default: m.Contracts }))
-);
+const Contracts = lazy(() => import('@/pages/Contracts').then((m) => ({ default: m.Contracts })));
 const Installments = lazy(() =>
   import('@/pages/Installments').then((m) => ({ default: m.Installments }))
 );
@@ -27,9 +25,7 @@ const Alerts = lazy(() => import('@/pages/Alerts').then((m) => ({ default: m.Ale
 const Operations = lazy(() =>
   import('@/pages/Operations').then((m) => ({ default: m.Operations }))
 );
-const Settings = lazy(() =>
-  import('@/pages/Settings').then((m) => ({ default: m.Settings }))
-);
+const Settings = lazy(() => import('@/pages/Settings').then((m) => ({ default: m.Settings })));
 
 const PageLoader: FC = () => (
   <div className="flex h-full w-full items-center justify-center min-h-[240px]">

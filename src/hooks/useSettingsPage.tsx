@@ -16,7 +16,7 @@ import {
   Building,
   List,
   Upload,
-  Globe,
+  Server,
   Phone,
   Bell,
   Image as ImageIcon,
@@ -1099,8 +1099,8 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
       {
         id: 'server',
         label: 'إعدادات المخدم',
-        icon: Globe,
-        desc: 'SQL Server والمزامنة',
+        icon: Server,
+        desc: 'اتصال SQL Server والمزامنة',
         role: 'SuperAdmin',
       },
       {

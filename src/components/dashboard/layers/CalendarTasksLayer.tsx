@@ -4,12 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {
-  Calendar,
-  AlertCircle,
-  FileText,
-  Zap,
-} from 'lucide-react';
+import { Calendar, AlertCircle, FileText, Zap } from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant } from '@/utils/tenancy';

@@ -19,7 +19,14 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { TrendingUp, Building2, Users, DollarSign, PieChart as PieChartIcon, History } from 'lucide-react';
+import {
+  TrendingUp,
+  Building2,
+  Users,
+  DollarSign,
+  PieChart as PieChartIcon,
+  History,
+} from 'lucide-react';
 import { DashboardData } from '@/hooks/useDashboardData';
 import type { العمليات_tbl } from '@/types';
 import { formatCurrencyJOD } from '@/utils/format';
@@ -359,7 +366,9 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
             مرر المؤشر فوق القطاعات، أو راجع المفتاح أدناه
           </p>
           {propertyDistribution.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 dark:text-slate-400 text-sm">لا بيانات</div>
+            <div className="text-center py-12 text-slate-500 dark:text-slate-400 text-sm">
+              لا بيانات
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
@@ -478,7 +487,9 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
             إجمالي الأقساط في التوزيع:{' '}
-            <span className="font-black text-slate-700 dark:text-slate-200">{installmentDonutTotal}</span>
+            <span className="font-black text-slate-700 dark:text-slate-200">
+              {installmentDonutTotal}
+            </span>
           </p>
           {installmentDonutTotal === 0 ? (
             <div className="text-center py-10 text-slate-500 dark:text-slate-400 text-sm">
@@ -537,9 +548,15 @@ export const OverviewLayer: React.FC<OverviewLayerProps> = ({ data }) => {
               <table className="w-full text-right text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-600">
-                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">النوع</th>
-                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">التفاصيل</th>
-                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">التاريخ</th>
+                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">
+                      النوع
+                    </th>
+                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">
+                      التفاصيل
+                    </th>
+                    <th className="py-2 px-2 font-bold text-slate-600 dark:text-slate-400">
+                      التاريخ
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

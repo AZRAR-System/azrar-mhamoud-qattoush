@@ -58,13 +58,9 @@ export function SettingsContractWordSection({ page, embedded }: Props) {
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
       <div
         id="printing-hub-contract-vars"
-        className={
-          embedded ? 'space-y-4 scroll-mt-24' : 'space-y-6 animate-fade-in scroll-mt-24'
-        }
+        className={embedded ? 'space-y-4 scroll-mt-24' : 'space-y-6 animate-fade-in scroll-mt-24'}
       >
-        <section
-          className="settings-section-panel"
-        >
+        <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
             <FileText className="text-indigo-500" size={20} /> متغيرات قالب العقد (Word)
           </h3>
@@ -81,10 +77,7 @@ export function SettingsContractWordSection({ page, embedded }: Props) {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => void exportContractWordVariablesExcel()}
-                >
+                <Button variant="secondary" onClick={() => void exportContractWordVariablesExcel()}>
                   <Download size={16} /> تنزيل المتغيرات (Excel)
                 </Button>
                 <Button variant="secondary" onClick={() => setActiveSection('printingHub')}>
@@ -232,14 +225,13 @@ export function SettingsContractWordSection({ page, embedded }: Props) {
               <div className="px-4 pb-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
                 <p className="text-[12px] leading-relaxed">
                   لربط أي حقل من سجلات النظام، استخدم البادئة المناسبة ثم اسم الحقل كما في قاعدة
-                  البيانات (يمكن أن يحتوي الاسم على شرطة سفلية). انسخ المثال وعدّل جزء اسم الحقل
-                  حسب الحاجة.
+                  البيانات (يمكن أن يحتوي الاسم على شرطة سفلية). انسخ المثال وعدّل جزء اسم الحقل حسب
+                  الحاجة.
                 </p>
                 <div className="space-y-2">
                   {CONTRACT_WORD_DYNAMIC_PREFIXES.map((p) => {
                     const main = `{{${p.prefix}${p.exampleKey}}}`;
-                    const alt =
-                      p.altPrefix != null ? `{{${p.altPrefix}${p.exampleKey}}}` : null;
+                    const alt = p.altPrefix != null ? `{{${p.altPrefix}${p.exampleKey}}}` : null;
                     return (
                       <div
                         key={p.prefix}

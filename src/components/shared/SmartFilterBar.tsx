@@ -28,6 +28,8 @@ interface SmartFilterBarProps {
   onClearFilters?: () => void;
   clearFiltersLabel?: string;
   extraActions?: React.ReactNode;
+  /** إخفاء صف العنوان/الوصف عند استخدام `PageHero` فوق الشريط */
+  omitTitle?: boolean;
 }
 
 export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
@@ -46,6 +48,7 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
   onClearFilters,
   clearFiltersLabel = 'مسح الفلاتر',
   extraActions,
+  omitTitle = false,
 }) => {
   const shouldShowSearch = showSearch && typeof onSearchChange === 'function';
   const shouldShowBar = shouldShowSearch || (Array.isArray(filters) && filters.length > 0);
@@ -54,19 +57,29 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
     <div className="mb-6">
       <div className="bg-white/90 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5 relative p-4 lg:p-6">
         {/* Header Section */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="min-w-0 text-right">
-            <h2 className="text-xl lg:text-2xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">
-              {title}
-            </h2>
-            {subtitle && (
-              <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                {subtitle}
-              </p>
-            )}
-          </div>
+        <div
+          className={`flex flex-col lg:flex-row lg:items-center gap-4 ${omitTitle ? '' : 'justify-between'}`}
+        >
+          {!omitTitle ? (
+            <div className="min-w-0 text-right">
+              <h2 className="text-xl lg:text-2xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">
+                {title}
+              </h2>
+              {subtitle && (
+                <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          ) : null}
 
-          <div className="flex items-center justify-end gap-2 overflow-x-auto no-scrollbar flex-nowrap w-full lg:w-auto lg:flex-wrap lg:overflow-visible">
+          <div
+            className={
+              omitTitle
+                ? 'flex flex-wrap items-center justify-end gap-2 w-full'
+                : 'flex items-center justify-end gap-2 overflow-x-auto no-scrollbar flex-nowrap w-full lg:w-auto lg:flex-wrap lg:overflow-visible'
+            }
+          >
             {extraActions}
 
             {onRefresh && (

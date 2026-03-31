@@ -144,9 +144,7 @@ export const PropertyListingCard = React.memo(
 
                 {hasActive && (tenantPhone || contractId) ? (
                   <div className="col-span-2 text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-2">
-                    {tenantPhone ? (
-                      <span className="font-mono dir-ltr">{tenantPhone}</span>
-                    ) : null}
+                    {tenantPhone ? <span className="font-mono dir-ltr">{tenantPhone}</span> : null}
                     {tenantPhone && contractId ? <span>•</span> : null}
                     {contractId ? (
                       <span>
@@ -207,8 +205,7 @@ export const PropertyListingCard = React.memo(
 
             {showDynamicColumns && dynamicFields.length > 0
               ? (() => {
-                  const values =
-                    (p as العقارات_tbl & PropertyExtras)?.حقول_ديناميكية || {};
+                  const values = (p as العقارات_tbl & PropertyExtras)?.حقول_ديناميكية || {};
                   const visible = dynamicFields
                     .map((f) => ({ f, v: values?.[f.name] }))
                     .filter(({ v }) => !isEmptyDynamicValue(v));
@@ -222,10 +219,7 @@ export const PropertyListingCard = React.memo(
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {visible.map(({ f, v }) => (
-                          <div
-                            key={f.id}
-                            className="text-xs text-slate-600 dark:text-slate-300"
-                          >
+                          <div key={f.id} className="text-xs text-slate-600 dark:text-slate-300">
                             <span className="font-bold text-slate-500 dark:text-slate-400">
                               {f.label}:
                             </span>{' '}
@@ -270,11 +264,7 @@ export const PropertyListingCard = React.memo(
               >
                 <Briefcase size={16} />
               </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => handleOpenForm(p.رقم_العقار)}
-              >
+              <Button size="icon" variant="ghost" onClick={() => handleOpenForm(p.رقم_العقار)}>
                 <Edit2 size={16} />
               </Button>
             </RBACGuard>

@@ -5,11 +5,7 @@ import type { SettingsPageModel } from '@/hooks/useSettingsPage';
 type Props = { page: SettingsPageModel };
 
 export function SettingsAuditSection({ page }: Props) {
-  const {
-    auditLogs,
-    handleExportAuditCSV,
-    settingsNoAccessFallback,
-  } = page;
+  const { auditLogs, handleExportAuditCSV, settingsNoAccessFallback } = page;
 
   return (
     <RBACGuard requiredPermission="SETTINGS_AUDIT" fallback={settingsNoAccessFallback}>

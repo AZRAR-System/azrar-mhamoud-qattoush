@@ -22,7 +22,10 @@ import type { DashboardData } from '@/hooks/useDashboardData';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatCurrencyJOD, formatNumber } from '@/utils/format';
 import { ROUTE_PATHS } from '@/routes/paths';
-import { KpiCalculatorCard, KpiQuickCommissionCard } from '@/components/dashboard/layers/KpiQuickTools';
+import {
+  KpiCalculatorCard,
+  KpiQuickCommissionCard,
+} from '@/components/dashboard/layers/KpiQuickTools';
 
 interface KPICardsProps {
   data: DashboardData;
@@ -58,7 +61,8 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   };
 
   const goInstallments = () => navigateTo(ROUTE_PATHS.INSTALLMENTS);
-  const goInstallmentsDebt = () => navigateToWithQuery(ROUTE_PATHS.INSTALLMENTS, { filter: 'debt' });
+  const goInstallmentsDebt = () =>
+    navigateToWithQuery(ROUTE_PATHS.INSTALLMENTS, { filter: 'debt' });
   const goContractsExpiring = () =>
     navigateToWithQuery(ROUTE_PATHS.CONTRACTS, { status: 'expiring' });
   const goDashboardCalendar = () => {

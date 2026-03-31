@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { DS } from '@/constants/designSystem';
+import { PageHero } from '@/components/shared/PageHero';
 import { computeEmployeeCommission } from '@/utils/employeeCommission';
 import { formatCurrencyJOD } from '@/utils/format';
 import { getErrorMessage } from '@/utils/errors';
@@ -806,40 +807,34 @@ export const Sales: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/20 dark:border-slate-800/50 shadow-xl shadow-slate-200/20 dark:shadow-black/20">
-        <div>
-          <h2 className="text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3">
-            <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20">
-              <BadgeDollarSign size={28} />
-            </div>
-            {t('إدارة المبيعات')}
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 font-bold text-sm ml-1">
-            {t('نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية')}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={openCreateAgreementModal}
-            className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
-            leftIcon={<FileSignature size={20} />}
-          >
-            {t('إنشاء اتفاقية')}
-          </Button>
-          <Button
-            onClick={() => {
-              setSaleOnly(false);
-              setIsModalOpen(true);
-            }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-6 py-3 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
-            leftIcon={<Plus size={20} />}
-          >
-            {t('عرض بيع جديد')}
-          </Button>
-        </div>
-      </div>
+      <PageHero
+        icon={<BadgeDollarSign size={28} />}
+        iconVariant="featured"
+        title={t('إدارة المبيعات')}
+        subtitle={t('نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية')}
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              onClick={openCreateAgreementModal}
+              className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
+              leftIcon={<FileSignature size={20} />}
+            >
+              {t('إنشاء اتفاقية')}
+            </Button>
+            <Button
+              onClick={() => {
+                setSaleOnly(false);
+                setIsModalOpen(true);
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-6 py-3 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+              leftIcon={<Plus size={20} />}
+            >
+              {t('عرض بيع جديد')}
+            </Button>
+          </>
+        }
+      />
 
       <SalesDashboard />
 
@@ -884,7 +879,9 @@ export const Sales: React.FC = () => {
                     className="border-none p-3 px-5 rounded-xl text-xs font-black bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-soft outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                   >
                     <option value="all">{t('الكل')}</option>
-                    <option value="also-rentable">{t('معروضة للبيع (قد تكون للإيجار أيضاً)')}</option>
+                    <option value="also-rentable">
+                      {t('معروضة للبيع (قد تكون للإيجار أيضاً)')}
+                    </option>
                     <option value="sale-only">{t('للبيع فقط (غير متاح للإيجار)')}</option>
                   </select>
                   <Button

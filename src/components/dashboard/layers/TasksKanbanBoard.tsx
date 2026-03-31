@@ -68,7 +68,9 @@ export const TasksKanbanBoard: React.FC<TasksKanbanBoardProps> = ({
             </div>
             <div className="p-2 flex-1 max-h-[min(70vh,520px)] overflow-y-auto space-y-2">
               {list.length === 0 ? (
-                <p className="text-center text-xs text-slate-500 dark:text-slate-400 py-6">لا يوجد</p>
+                <p className="text-center text-xs text-slate-500 dark:text-slate-400 py-6">
+                  لا يوجد
+                </p>
               ) : (
                 list.map((task) => (
                   <KanbanTaskCard
@@ -161,7 +163,9 @@ const KanbanTaskCard: React.FC<CardProps> = ({
         <div className="flex-1 min-w-0">
           <p
             className={`text-sm font-bold leading-snug ${
-              task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-900 dark:text-white'
+              task.status === 'completed'
+                ? 'line-through text-slate-500'
+                : 'text-slate-900 dark:text-white'
             }`}
           >
             {task.title}

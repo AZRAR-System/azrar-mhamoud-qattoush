@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Edit2, Eye, EyeOff, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Edit2, Eye, EyeOff, Megaphone, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { DS } from '@/constants/designSystem';
+import { PageHero } from '@/components/shared/PageHero';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { DbService } from '@/services/mockDb';
 import type { MarqueeMessage } from '@/types';
@@ -364,22 +364,28 @@ export const MarqueeAdsPanel: React.FC = () => {
 
   return (
     <div className="animate-fade-in space-y-4 pb-10">
-      <div className={DS.components.pageHeader}>
-        <div>
-          <h2 className={DS.components.pageTitle}>إعلانات الشريط</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            إضافة/حذف إعلانات الشريط (تُحفظ في نسخة Desktop وتُزامَن مع SQL عند تفعيل المزامنة).
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="icon" onClick={refresh} title="تحديث" isLoading={busy}>
-            <RefreshCw size={18} />
-          </Button>
-          <Button variant="primary" onClick={handleAdd} className="gap-2" isLoading={busy}>
-            <Plus size={18} /> إضافة إعلان
-          </Button>
-        </div>
-      </div>
+      <PageHero
+        icon={<Megaphone size={26} className="text-indigo-600 dark:text-indigo-400" />}
+        iconVariant="inline"
+        title="إعلانات الشريط"
+        subtitle="إضافة/حذف إعلانات الشريط (تُحفظ في نسخة Desktop وتُزامَن مع SQL عند تفعيل المزامنة)."
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={refresh}
+              title="تحديث"
+              isLoading={busy}
+            >
+              <RefreshCw size={18} />
+            </Button>
+            <Button variant="primary" onClick={handleAdd} className="gap-2" isLoading={busy}>
+              <Plus size={18} /> إضافة إعلان
+            </Button>
+          </div>
+        }
+      />
 
       <div className="space-y-3">
         {localItems.length === 0 ? (

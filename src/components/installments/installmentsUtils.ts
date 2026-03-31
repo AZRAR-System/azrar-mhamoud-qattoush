@@ -1,9 +1,5 @@
 import type { RoleType, الكمبيالات_tbl } from '@/types';
-import {
-  parseDateOnly,
-  todayDateOnlyISO,
-  toDateOnlyISO,
-} from '@/utils/dateOnly';
+import { parseDateOnly, todayDateOnlyISO, toDateOnlyISO } from '@/utils/dateOnly';
 import { INSTALLMENT_STATUS } from '@/components/installments/installmentsConstants';
 
 export const parseDateOnlyLocal = (iso: string | undefined | null): Date | null => {

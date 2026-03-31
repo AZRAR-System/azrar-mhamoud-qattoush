@@ -100,7 +100,9 @@ export const ContractTemplate: React.FC<{
               <th className="w-[28%] border border-slate-200 bg-slate-50 px-2 py-2 align-top font-bold">
                 {k}
               </th>
-              <td className="border border-slate-200 px-2 py-2 align-top whitespace-pre-wrap">{v}</td>
+              <td className="border border-slate-200 px-2 py-2 align-top whitespace-pre-wrap">
+                {v}
+              </td>
             </tr>
           ))}
         </tbody>

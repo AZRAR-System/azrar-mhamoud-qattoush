@@ -56,12 +56,10 @@ export function SettingsDiagnosticsSection({ page }: Props) {
           <div className="settings-section-panel">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-xl font-black text-slate-800 dark:text-white">
-                  التشخيص
-                </div>
+                <div className="text-xl font-black text-slate-800 dark:text-white">التشخيص</div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  يعرض آخر خطأ وسجل مختصر لآخر الأخطاء التي تم التقاطها من الواجهة
-                  (Unhandled error / unhandled promise rejection).
+                  يعرض آخر خطأ وسجل مختصر لآخر الأخطاء التي تم التقاطها من الواجهة (Unhandled error
+                  / unhandled promise rejection).
                 </div>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -82,14 +80,11 @@ export function SettingsDiagnosticsSection({ page }: Props) {
                 </Button>
               </div>
             </div>
-    
+
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-slate-500 dark:text-slate-400">
                 معرّف الجلسة (Session ID):
-                <span
-                  className="mx-2 font-mono text-slate-700 dark:text-slate-200"
-                  dir="ltr"
-                >
+                <span className="mx-2 font-mono text-slate-700 dark:text-slate-200" dir="ltr">
                   {diagnosticsSessionId || '—'}
                 </span>
                 {!!diagnosticsSessionId && (
@@ -102,14 +97,14 @@ export function SettingsDiagnosticsSection({ page }: Props) {
                 <Copy size={14} /> نسخ المعرّف
               </Button>
             </div>
-    
+
             <div className="mt-5 grid grid-cols-1 gap-4">
               {!appLastErrorRaw.trim() && appErrorLog.length === 0 && (
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300">
                   لا يوجد سجل أخطاء محفوظ حالياً.
                 </div>
               )}
-    
+
               {appLastErrorRaw.trim() && (
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
                   <div className="flex flex-col gap-2">
@@ -142,7 +137,7 @@ export function SettingsDiagnosticsSection({ page }: Props) {
                   </div>
                 </div>
               )}
-    
+
               {appErrorLog.length > 0 && (
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center justify-between gap-3">

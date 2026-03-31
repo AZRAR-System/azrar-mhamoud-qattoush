@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 
 const t = (s: string) => s;
@@ -32,6 +32,7 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { NotificationTemplates } from '@/services/notificationTemplates';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
+import { PageHero } from '@/components/shared/PageHero';
 
 const isExpiryKind = (value: string): value is 'pre_notice' | 'approved' | 'rejected' | 'auto' => {
   return value === 'pre_notice' || value === 'approved' || value === 'rejected' || value === 'auto';
@@ -508,30 +509,24 @@ export const Alerts = () => {
 
   return (
     <div className="animate-fade-in pb-10 space-y-8">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/20 dark:border-slate-800/50 shadow-xl shadow-slate-200/20 dark:shadow-black/20">
-        <div>
-          <h2 className="text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3">
-            <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20">
-              <Bell size={28} />
-            </div>
-            {t('التنبيهات والإشعارات')}
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 font-bold text-sm ml-1">
-            {t('مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر')}
-          </p>
-        </div>
-
-        {alerts.length > 0 && (
-          <Button
-            variant="secondary"
-            onClick={handleMarkAllRead}
-            className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
-            rightIcon={<CheckCheck size={20} />}
-          >
-            {t('تعليم الكل كمقروء')}
-          </Button>
-        )}
-      </div>
+      <PageHero
+        icon={<Bell size={28} />}
+        iconVariant="featured"
+        title={t('التنبيهات والإشعارات')}
+        subtitle={t('مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر')}
+        actions={
+          alerts.length > 0 ? (
+            <Button
+              variant="secondary"
+              onClick={handleMarkAllRead}
+              className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
+              rightIcon={<CheckCheck size={20} />}
+            >
+              {t('تعليم الكل كمقروء')}
+            </Button>
+          ) : null
+        }
+      />
 
       <div className="app-card p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">

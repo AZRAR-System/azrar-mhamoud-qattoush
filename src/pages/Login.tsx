@@ -14,10 +14,15 @@ import {
   Server,
   Check,
   Loader2,
+  CheckCircle2,
+  ServerCog,
+  Sparkles,
+  KeyRound,
 } from 'lucide-react';
 import { storage } from '@/services/storage';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
+import { useToast } from '@/context/ToastContext';
 import { useActivation } from '@/context/ActivationContext';
 import { safeJsonParseArray } from '@/utils/json';
 import { AppModal } from '@/components/ui/AppModal';
@@ -48,9 +53,15 @@ type DesktopSqlSettings = Partial<{
 const toRecord = (v: unknown): Record<string, unknown> =>
   typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 
+const SEED_ADMIN_USER = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_USERNAME || 'admin').trim();
+const SEED_ADMIN_PASS = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_PASSWORD || '');
+const LOGIN_PREFILL = String(import.meta.env.VITE_LOGIN_PREFILL || '').toLowerCase() === 'true';
+
 export const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState(SEED_ADMIN_USER);
+  const [password, setPassword] = useState(() =>
+    LOGIN_PREFILL && SEED_ADMIN_PASS.length > 0 ? SEED_ADMIN_PASS : ''
+  );
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
@@ -84,6 +95,7 @@ export const Login = () => {
     trustServerCertificate: true,
   });
   const [sqlBusy, setSqlBusy] = useState(false);
+  const [sqlFeedback, setSqlFeedback] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const usernameRef = useRef<HTMLInputElement | null>(null);
   const passwordRef = useRef<HTMLInputElement | null>(null);
@@ -98,6 +110,7 @@ export const Login = () => {
     refresh,
   } = useActivation();
   const dialogs = useAppDialogs();
+  const toast = useToast();
 
   const REMEMBER_KEY = 'azrar_login_remember_username';
   const LAST_USERNAME_KEY = 'azrar_login_last_username';
@@ -316,41 +329,62 @@ export const Login = () => {
   };
 
   const handleSqlTest = async () => {
-    if (!window.desktopDb?.sqlTestConnection) return;
+    if (!window.desktopDb?.sqlTestConnection) {
+      toast.warning('ميزة الاتصال متاحة في نسخة سطح المكتب فقط.', 'غير متاح');
+      return;
+    }
     setSqlBusy(true);
+    setSqlFeedback(null);
     try {
       const res = await window.desktopDb.sqlTestConnection(
         sqlForm as Parameters<NonNullable<DesktopDbBridge['sqlTestConnection']>>[0]
       );
       const rec = toRecord(res);
       if (rec.ok) {
-        setNotice('تم الاتصال بقاعدة البيانات بنجاح.');
+        const msg = String(rec.message || 'تم التحقق من الاتصال بـ SQL Server بنجاح.');
+        toast.success(msg, 'اتصال ناجح');
+        setSqlFeedback({ kind: 'ok', text: msg });
       } else {
-        setError(String(rec.message || 'فشل الاتصال بقاعدة البيانات.'));
+        const msg = String(
+          rec.message || 'تعذر الاتصال بالخادم. تحقق من العنوان والمنفذ والصلاحيات.'
+        );
+        toast.error(msg, 'فشل اختبار الاتصال');
+        setSqlFeedback({ kind: 'err', text: msg });
       }
-    } catch {
-      setError('حدث خطأ أثناء اختبار الاتصال.');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'حدث خطأ غير متوقع أثناء اختبار الاتصال.';
+      toast.error(msg, 'خطأ');
+      setSqlFeedback({ kind: 'err', text: msg });
     } finally {
       setSqlBusy(false);
     }
   };
 
   const handleSqlSave = async () => {
-    if (!window.desktopDb?.sqlSaveSettings) return;
+    if (!window.desktopDb?.sqlSaveSettings) {
+      toast.warning('حفظ الإعدادات متاح في نسخة سطح المكتب فقط.', 'غير متاح');
+      return;
+    }
     setSqlBusy(true);
+    setSqlFeedback(null);
     try {
       const res = await window.desktopDb.sqlSaveSettings(
         sqlForm as Parameters<NonNullable<DesktopDbBridge['sqlSaveSettings']>>[0]
       );
       const rec = toRecord(res);
       if (rec.success !== false) {
-        setNotice('تم حفظ إعدادات قاعدة البيانات.');
+        const msg = String(rec.message || 'تم حفظ إعدادات الاتصال بنجاح.');
+        toast.success(msg, 'تم الحفظ');
         setShowDbSettings(false);
       } else {
-        setError(String(rec.message || 'فشل حفظ الإعدادات.'));
+        const msg = String(rec.message || 'تعذر حفظ الإعدادات. راجع الاتصال أو الصلاحيات.');
+        toast.error(msg, 'فشل الحفظ');
+        setSqlFeedback({ kind: 'err', text: msg });
       }
-    } catch {
-      setError('حدث خطأ أثناء حفظ الإعدادات.');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'حدث خطأ غير متوقع أثناء حفظ الإعدادات.';
+      toast.error(msg, 'خطأ');
+      setSqlFeedback({ kind: 'err', text: msg });
     } finally {
       setSqlBusy(false);
     }
@@ -358,6 +392,7 @@ export const Login = () => {
 
   useEffect(() => {
     if (showDbSettings && window.desktopDb?.sqlGetSettings) {
+      setSqlFeedback(null);
       void (async () => {
         const s = await window.desktopDb?.sqlGetSettings?.();
         if (s) setSqlForm(s as DesktopSqlSettings);
@@ -417,71 +452,81 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-300 relative overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute -top-20 -left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors duration-300 relative overflow-x-hidden overflow-y-auto py-8 px-4">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+        <div className="absolute -top-32 -right-32 h-[28rem] w-[28rem] rounded-full bg-indigo-400/15 blur-3xl dark:bg-indigo-500/10" />
+        <div className="absolute -bottom-24 -left-24 h-[24rem] w-[24rem] rounded-full bg-violet-400/12 blur-3xl dark:bg-violet-600/10" />
+        <div className="absolute top-1/2 left-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-200/20 blur-3xl dark:bg-slate-800/20" />
       </div>
 
-      <div className="app-card p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-5xl border-gray-100 dark:border-slate-700 relative z-10 animate-scale-up">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30">
-            <span className="text-3xl font-bold text-white">A</span>
+      <div className="relative z-10 w-full max-w-5xl rounded-[2rem] border border-slate-200/80 bg-white/85 shadow-2xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/75 dark:shadow-black/40 md:max-w-6xl animate-scale-up">
+        <div className="border-b border-slate-200/80 bg-gradient-to-l from-indigo-50/90 to-white px-6 py-8 text-center dark:border-slate-700/80 dark:from-indigo-950/40 dark:to-slate-900/90 md:px-10 md:py-10 rounded-t-[2rem]">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 text-white shadow-xl shadow-indigo-900/30 ring-4 ring-white/50 dark:ring-slate-800/80">
+            <Sparkles size={36} strokeWidth={1.5} className="opacity-95" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">
             نظام AZRAR لإدارة العقارات
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">
-            يرجى تفعيل النظام ثم تسجيل الدخول للمتابعة
+          <p className="mx-auto mt-2 max-w-lg text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
+            فعّل الترخيص ثم سجّل الدخول للوصول إلى لوحة التحكم بأمان.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 gap-6 p-6 md:p-8 lg:grid-cols-2 lg:gap-10">
           {/* Activation panel */}
-          <div className="rounded-2xl border border-slate-100 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-5 md:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-sm font-bold text-slate-800 dark:text-white">التفعيل</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  تفعيل البرنامج قبل استخدامه
+          <div className="flex flex-col rounded-2xl border border-slate-200/90 bg-slate-50/50 p-5 shadow-inner dark:border-slate-700/80 dark:bg-slate-950/40 md:p-6">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 pb-4 dark:border-slate-700/60">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                  <KeyRound size={20} />
+                </span>
+                <div>
+                  <div className="text-base font-black text-slate-900 dark:text-white">
+                    ترخيص النظام
+                  </div>
+                  <div className="mt-1 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                    ربط التثبيت بجهازك عبر ملف تفعيل صالح
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
-                className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline"
+                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
                 onClick={() => void refresh()}
                 disabled={activationBusy}
               >
-                تحديث الحالة
+                تحديث
               </button>
             </div>
 
-            <div className="mt-4 space-y-4">
-              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3">
-                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+            <div className="mt-5 flex flex-1 flex-col space-y-4">
+              <div className="rounded-xl border border-slate-200/90 bg-white/80 p-3 dark:border-slate-600/60 dark:bg-slate-900/50">
+                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   بصمة الجهاز
                 </div>
                 <div
-                  className="mt-1 text-[11px] text-slate-700 dark:text-slate-200 break-all"
+                  className="mt-2 font-mono text-[11px] leading-relaxed text-slate-800 dark:text-slate-200 break-all"
                   dir="ltr"
                 >
                   {deviceId || 'غير متاح'}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-bold text-slate-700 dark:text-slate-200">الحالة:</div>
-                <div
-                  className={
-                    'text-xs font-bold ' +
-                    (isActivated
-                      ? 'text-emerald-700 dark:text-emerald-300'
-                      : 'text-rose-700 dark:text-rose-300')
-                  }
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-white/60 px-3 py-2.5 dark:bg-slate-900/40">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                  حالة التفعيل
+                </span>
+                <span
+                  className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                    activationLoading
+                      ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                      : isActivated
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200'
+                  }`}
                 >
-                  {activationLoading ? '...' : isActivated ? 'مُفعّل' : 'غير مُفعّل'}
-                </div>
+                  {activationLoading ? 'جاري التحقق…' : isActivated ? 'مُفعّل' : 'غير مُفعّل'}
+                </span>
               </div>
 
               {isActivated && activatedAt && (
@@ -530,15 +575,16 @@ export const Login = () => {
               )}
 
               {isActivated && (
-                <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200 text-xs font-semibold p-3">
-                  النظام مُفعّل ويمكنك تسجيل الدخول.
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-3 py-3 text-xs font-bold text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+                  <CheckCircle2 className="shrink-0" size={18} />
+                  النظام مُفعّل — يمكنك المتابعة إلى تسجيل الدخول.
                 </div>
               )}
             </div>
           </div>
 
           {/* Login panel */}
-          <div>
+          <div className="flex flex-col rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm dark:border-slate-700/80 dark:bg-slate-950/30 md:p-6">
             {showRegisterForm ? (
               <form onSubmit={handleRegister} className="space-y-6 animate-slide-in-right">
                 <div className="flex items-center gap-3 mb-6">
@@ -645,11 +691,25 @@ export const Login = () => {
               </form>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-700/60">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                    <LogIn size={22} strokeWidth={2} />
+                  </span>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                      تسجيل الدخول
+                    </h2>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      أدخل بيانات المستخدم النشط لديك
+                    </p>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-300">
                     اسم المستخدم
                   </label>
-                  <div className="relative">
+                  <div className="group relative">
                     <input
                       type="text"
                       required
@@ -657,15 +717,18 @@ export const Login = () => {
                       autoComplete="username"
                       autoCapitalize="none"
                       autoCorrect="off"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-xl py-3 pr-10 pl-4 focus:ring-2 focus:ring-indigo-500 outline-none transition text-slate-800 dark:text-white"
-                      placeholder="أدخل اسم المستخدم"
+                      className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50/90 py-3.5 pl-4 pr-12 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-slate-600 dark:bg-slate-900/80 dark:text-white"
+                      placeholder="مثال: admin"
                       value={username}
                       onChange={(e) => {
                         setUsername(e.target.value);
                         if (error) setError('');
                       }}
                     />
-                    <User className="absolute top-3.5 right-3 text-slate-400" size={18} />
+                    <User
+                      className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition group-focus-within:text-indigo-500"
+                      size={18}
+                    />
                   </div>
                   {usernameError && (
                     <div className="mt-2 text-xs text-rose-600 dark:text-rose-300 font-semibold">
@@ -675,7 +738,7 @@ export const Login = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-300">
                     كلمة المرور
                   </label>
                   <div className="relative">
@@ -685,7 +748,7 @@ export const Login = () => {
                       ref={passwordRef}
                       autoComplete="current-password"
                       dir="ltr"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-xl py-3 pr-20 pl-4 text-left focus:ring-2 focus:ring-indigo-500 outline-none transition text-slate-800 dark:text-white"
+                      className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50/90 py-3.5 pl-4 pr-[4.5rem] text-left text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-slate-600 dark:bg-slate-900/80 dark:text-white"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => {
@@ -708,12 +771,12 @@ export const Login = () => {
                       }}
                     />
                     <Lock
-                      className="absolute top-1/2 -translate-y-1/2 right-3 text-slate-400 pointer-events-none"
+                      className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
                       size={18}
                     />
                     <button
                       type="button"
-                      className="absolute top-1/2 -translate-y-1/2 right-11 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                      className="absolute right-12 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700 dark:hover:text-slate-200"
                       onClick={() => setShowPassword((v) => !v)}
                       title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
                       aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
@@ -733,10 +796,11 @@ export const Login = () => {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-3">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 select-none">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 select-none">
                     <input
                       type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                       checked={rememberUsername}
                       onChange={(e) => {
                         const next = e.target.checked;
@@ -750,46 +814,59 @@ export const Login = () => {
                     تذكّر اسم المستخدم
                   </label>
 
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline"
-                    onClick={() => setShowDbSettings(true)}
-                  >
-                    إعدادات قاعدة البيانات
-                  </button>
-
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline"
-                    onClick={() => {
-                      setNotice(
-                        'إذا نسيت كلمة المرور، راجع مسؤول النظام. إذا كانت هذه أول مرة، أنشئ حساب السوبر أدمن من الأسفل.'
-                      );
-                      setError('');
-                    }}
-                  >
-                    مساعدة تسجيل الدخول
-                  </button>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold">
+                    <button
+                      type="button"
+                      className="text-indigo-700 transition hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-100"
+                      onClick={() => {
+                        setSqlFeedback(null);
+                        setShowDbSettings(true);
+                      }}
+                    >
+                      إعدادات قاعدة البيانات
+                    </button>
+                    <button
+                      type="button"
+                      className="text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                      onClick={() => {
+                        setNotice(
+                          'إذا نسيت كلمة المرور، راجع مسؤول النظام. في أول تشغيل، أنشئ حساب المدير من الخيار أسفل النموذج.'
+                        );
+                        setError('');
+                      }}
+                    >
+                      مساعدة
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
-                  <div className="bg-red-50 dark:bg-red-900/20 text-red-600 text-sm p-3 rounded-xl flex items-center gap-2 border border-red-100 dark:border-red-800">
-                    <AlertCircle size={16} />
-                    {error}
+                  <div
+                    role="alert"
+                    className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/95 p-4 text-sm font-semibold text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+                  >
+                    <AlertCircle className="mt-0.5 shrink-0" size={18} />
+                    <span>{error}</span>
                   </div>
                 )}
 
                 {notice && (
-                  <div className="bg-slate-50 dark:bg-slate-700/30 text-slate-700 dark:text-slate-200 text-sm p-3 rounded-xl flex items-center gap-2 border border-slate-100 dark:border-slate-700">
-                    <Info size={16} />
-                    {notice}
+                  <div
+                    role="status"
+                    className="flex items-start gap-3 rounded-2xl border border-indigo-200/80 bg-indigo-50/90 p-4 text-sm font-semibold text-indigo-950 dark:border-indigo-800/40 dark:bg-indigo-950/35 dark:text-indigo-100"
+                  >
+                    <CheckCircle2
+                      className="mt-0.5 shrink-0 text-indigo-600 dark:text-indigo-400"
+                      size={18}
+                    />
+                    <span>{notice}</span>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading || activationLoading || !isActivated}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-indigo-600 to-indigo-700 py-3.5 text-sm font-black text-white shadow-lg shadow-indigo-600/25 transition hover:from-indigo-500 hover:to-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -831,11 +908,14 @@ export const Login = () => {
           </div>
         </div>
 
-        <div className="mt-8 text-center border-t border-gray-100 dark:border-slate-700 pt-4 text-[10px] text-slate-400 dark:text-slate-500">
-          <p dir="ltr">
-            &copy; 2025 — Developed by <span className="font-bold">Mahmoud Qattoush</span>
+        <div className="border-t border-slate-200/80 px-6 py-5 text-center dark:border-slate-700/80 md:px-8">
+          <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500" dir="ltr">
+            &copy; {new Date().getFullYear()} — Developed by{' '}
+            <span className="font-bold text-slate-500 dark:text-slate-400">Mahmoud Qattoush</span>
           </p>
-          <p dir="ltr">AZRAR Real Estate Management System — All Rights Reserved</p>
+          <p className="mt-1 text-[10px] text-slate-400/90 dark:text-slate-600" dir="ltr">
+            AZRAR Real Estate Management System — All Rights Reserved
+          </p>
         </div>
       </div>
 
@@ -843,10 +923,65 @@ export const Login = () => {
       <AppModal
         open={showDbSettings}
         onClose={() => !sqlBusy && setShowDbSettings(false)}
-        title="إعدادات الاتصال بقاعدة البيانات (SQL Server)"
+        size="3xl"
+        title={
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-slate-800 text-white shadow-md">
+              <ServerCog size={20} strokeWidth={2} />
+            </span>
+            <span className="text-base font-black text-slate-900 dark:text-white">
+              اتصال SQL Server
+            </span>
+          </span>
+        }
+        titleClassName="!flex-1 !min-w-0"
+        headerClassName="border-b border-slate-200/80 bg-slate-50/40 dark:border-slate-700/80 dark:bg-slate-900/40"
+        bodyClassName="!p-4 sm:!p-6"
       >
-        <div className="space-y-8 p-4" dir="rtl">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-6" dir="rtl">
+          {typeof window !== 'undefined' && !window.desktopDb?.sqlGetSettings ? (
+            <div
+              role="status"
+              className="flex gap-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 p-4 text-sm font-semibold text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/25 dark:text-amber-100"
+            >
+              <Info className="mt-0.5 shrink-0" size={18} />
+              <span>
+                إعدادات الخادم متاحة في <strong>نسخة سطح المكتب (Electron)</strong> فقط. في المتصفح
+                يعمل النظام محلياً دون هذا الاتصال.
+              </span>
+            </div>
+          ) : null}
+
+          {sqlFeedback && (
+            <div
+              role={sqlFeedback.kind === 'err' ? 'alert' : 'status'}
+              className={`flex items-start gap-3 rounded-2xl border p-4 text-sm font-semibold ${
+                sqlFeedback.kind === 'ok'
+                  ? 'border-emerald-200/90 bg-emerald-50/95 text-emerald-950 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-100'
+                  : 'border-rose-200/90 bg-rose-50/95 text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/35 dark:text-rose-100'
+              }`}
+            >
+              {sqlFeedback.kind === 'ok' ? (
+                <CheckCircle2
+                  className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                  size={18}
+                />
+              ) : (
+                <AlertCircle
+                  className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400"
+                  size={18}
+                />
+              )}
+              <span className="leading-relaxed">{sqlFeedback.text}</span>
+            </div>
+          )}
+
+          <p className="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+            يُستخدم للمزامنة مع SQL Server. تأكد من تشغيل الخادم، فتح المنفذ، ومنح حساب تسجيل الدخول
+            صلاحية الوصول إلى قاعدة البيانات المحددة.
+          </p>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
             <div className="md:col-span-2">
               <label className="block text-xs font-black text-slate-500 mb-2 uppercase tracking-widest px-1">
                 عنوان الخادم (Server Name)
@@ -945,26 +1080,28 @@ export const Login = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4 pt-6">
+          <div className="flex flex-col gap-3 border-t border-slate-200/80 pt-6 dark:border-slate-700/60 sm:flex-row sm:gap-4">
             <button
-              onClick={handleSqlTest}
-              className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 px-6 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+              type="button"
+              onClick={() => void handleSqlTest()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-6 py-3.5 text-sm font-black text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-[0.99] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
               disabled={sqlBusy}
             >
               {sqlBusy ? (
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 size={18} className="animate-spin text-indigo-500" />
               ) : (
-                <ShieldCheck size={18} className="text-emerald-500" />
+                <ShieldCheck size={18} className="text-emerald-600 dark:text-emerald-400" />
               )}
-              <span>اختبار الاتصال</span>
+              اختبار الاتصال
             </button>
             <button
-              onClick={handleSqlSave}
-              className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 px-8 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
+              type="button"
+              onClick={() => void handleSqlSave()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-indigo-600 to-indigo-700 px-8 py-3.5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 transition hover:from-indigo-500 hover:to-indigo-600 active:scale-[0.99] disabled:opacity-50"
               disabled={sqlBusy}
             >
               {sqlBusy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-              <span>حفظ الإعدادات</span>
+              حفظ الإعدادات
             </button>
           </div>
         </div>

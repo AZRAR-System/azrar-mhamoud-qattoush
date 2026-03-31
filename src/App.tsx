@@ -300,10 +300,12 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
 
         // Retry activation/login for up to ~60s (desktop cache hydration can be slow on first load).
         while (!cancelled && Date.now() - startedAt < 60_000) {
-          // 1) Ensure login. Default super admin exists on clean DB (admin / 123456).
+          // 1) Ensure login. Default super admin matches VITE_SEED_DEFAULT_ADMIN_* (see .env.desktop).
           if (!isAuthenticated) {
             try {
-              await login('admin', '123456');
+              const u = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_USERNAME || 'admin').trim();
+              const p = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_PASSWORD || '7Bibi@_@_0788');
+              await login(u, p);
               try {
                 console.warn('[autorun] logged in');
               } catch {

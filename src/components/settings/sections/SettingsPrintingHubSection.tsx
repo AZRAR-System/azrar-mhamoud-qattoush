@@ -21,8 +21,7 @@ export function SettingsPrintingHubSection({ page }: Props) {
     wordTemplates,
   } = page;
 
-  const printStatusLabel =
-    !isDesktop ? 'الويب' : printSettingsPath?.trim() ? 'جاهز' : 'لم يُحمّل';
+  const printStatusLabel = !isDesktop ? 'الويب' : printSettingsPath?.trim() ? 'جاهز' : 'لم يُحمّل';
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
@@ -37,8 +36,8 @@ export function SettingsPrintingHubSection({ page }: Props) {
                 الطباعة والقوالب
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
-                مركز واحد للترويسة، قوالب DOCX وWord، إعدادات الطباعة، ومتغيرات العقد مع بحث
-                وتصنيف؛ المعاينة الحية تعرض شكل المستند أثناء التعديل.
+                مركز واحد للترويسة، قوالب DOCX وWord، إعدادات الطباعة، ومتغيرات العقد مع بحث وتصنيف؛
+                المعاينة الحية تعرض شكل المستند أثناء التعديل.
               </p>
             </div>
           </div>

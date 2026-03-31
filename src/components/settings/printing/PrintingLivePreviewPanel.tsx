@@ -48,7 +48,9 @@ export function PrintingLivePreviewPanel({ page }: Props) {
           <Eye size={18} />
           معاينة حية
         </div>
-        <span className="text-[10px] font-bold opacity-90">A4 · {printSettingsForm.orientation}</span>
+        <span className="text-[10px] font-bold opacity-90">
+          A4 · {printSettingsForm.orientation}
+        </span>
       </div>
 
       <div className="px-3">
@@ -63,7 +65,8 @@ export function PrintingLivePreviewPanel({ page }: Props) {
           dir="rtl"
         />
         <p className="text-[10px] text-slate-500 mt-1">
-          الترويسة والشعار يأتيان من «الهوية» و«الترويسة» في العمود المجاور؛ الهوامش من إعدادات الطباعة.
+          الترويسة والشعار يأتيان من «الهوية» و«الترويسة» في العمود المجاور؛ الهوامش من إعدادات
+          الطباعة.
         </p>
       </div>
 
@@ -72,10 +75,7 @@ export function PrintingLivePreviewPanel({ page }: Props) {
           <Maximize2 size={12} />
           معاينة الصفحة
         </div>
-        <div
-          className="overflow-auto max-h-[min(52vh,480px)] p-3"
-          style={{ contain: 'strict' }}
-        >
+        <div className="overflow-auto max-h-[min(52vh,480px)] p-3" style={{ contain: 'strict' }}>
           <iframe
             title="معاينة الطباعة"
             className="w-full bg-white shadow-md rounded border border-slate-200"

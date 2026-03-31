@@ -42,9 +42,8 @@ export const Input: React.FC<InputProps> = ({
   /** افتراضي RTL؛ استخدم dir="ltr" للحقول التقنية (IP، توكن، …). */
   const resolvedDir: React.HTMLAttributes<HTMLInputElement>['dir'] = shouldCoerceType
     ? 'ltr'
-    : dirProp ?? 'rtl';
-  const textAlignClass =
-    shouldCoerceType || dirProp === 'ltr' ? 'text-left' : 'text-right';
+    : (dirProp ?? 'rtl');
+  const textAlignClass = shouldCoerceType || dirProp === 'ltr' ? 'text-left' : 'text-right';
   const effectiveLang = shouldCoerceType ? 'en' : (props as Record<string, unknown>)?.lang;
 
   const effectiveInputMode: React.InputHTMLAttributes<HTMLInputElement>['inputMode'] = (() => {

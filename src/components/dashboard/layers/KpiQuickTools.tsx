@@ -39,16 +39,19 @@ export const KpiCalculatorCard: FC = () => {
   const [pending, setPending] = useState<Op | null>(null);
   const [fresh, setFresh] = useState(false);
 
-  const inputNum = useCallback((d: string) => {
-    if (d === '.' && display.includes('.')) return;
-    if (fresh) {
-      setDisplay(d === '.' ? '0.' : d);
-      setFresh(false);
-      return;
-    }
-    if (display === '0' && d !== '.') setDisplay(d);
-    else setDisplay((prev) => prev + d);
-  }, [display, fresh]);
+  const inputNum = useCallback(
+    (d: string) => {
+      if (d === '.' && display.includes('.')) return;
+      if (fresh) {
+        setDisplay(d === '.' ? '0.' : d);
+        setFresh(false);
+        return;
+      }
+      if (display === '0' && d !== '.') setDisplay(d);
+      else setDisplay((prev) => prev + d);
+    },
+    [display, fresh]
+  );
 
   const clearAll = useCallback(() => {
     setDisplay('0');
@@ -166,7 +169,9 @@ export const KpiCalculatorCard: FC = () => {
             <TrendingUp size={12} className={`${CALC_TEXT} shrink-0`} />
             <span className="leading-snug">عمليات أساسية — لا تُحفظ</span>
           </div>
-          <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${CALC_GRADIENT} animate-pulse shrink-0`} />
+          <div
+            className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${CALC_GRADIENT} animate-pulse shrink-0`}
+          />
         </div>
       </div>
     </div>
@@ -232,7 +237,9 @@ export const KpiQuickCommissionCard: FC = () => {
 
         <div className="space-y-3 flex-1">
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 mb-1">قيمة الصفقة (د.أ.)</label>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+              قيمة الصفقة (د.أ.)
+            </label>
             <input
               type="text"
               inputMode="decimal"
@@ -244,7 +251,9 @@ export const KpiQuickCommissionCard: FC = () => {
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 mb-1">نسبة العمولة (%)</label>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+              نسبة العمولة (%)
+            </label>
             <input
               type="text"
               inputMode="decimal"
@@ -268,7 +277,9 @@ export const KpiQuickCommissionCard: FC = () => {
               فتح سجل العمولات
             </button>
           </div>
-          <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${COMM_GRADIENT} animate-pulse shrink-0`} />
+          <div
+            className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${COMM_GRADIENT} animate-pulse shrink-0`}
+          />
         </div>
       </div>
     </div>

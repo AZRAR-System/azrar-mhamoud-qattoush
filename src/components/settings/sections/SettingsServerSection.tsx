@@ -35,9 +35,7 @@ import type { SettingsPageModel } from '@/hooks/useSettingsPage';
 type Props = { page: SettingsPageModel };
 
 export function SettingsServerSection({ page }: Props) {
-  const {
-    settingsNoAccessFallback,
-  } = page;
+  const { settingsNoAccessFallback } = page;
 
   return (
     <RBACGuard requiredRole="SuperAdmin" fallback={settingsNoAccessFallback}>

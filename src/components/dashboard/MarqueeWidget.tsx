@@ -19,6 +19,7 @@ export const MarqueeWidget: FC<{
   const { openPanel } = useSmartModal();
   const dialogs = useAppDialogs();
   const lastMessagesSignatureRef = useRef<string>('');
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const marqueeViewportRef = useRef<HTMLDivElement | null>(null);
   const marqueeMeasureRef = useRef<HTMLDivElement | null>(null);
   const marqueeFirstGroupRef = useRef<HTMLDivElement | null>(null);
@@ -95,6 +96,15 @@ export const MarqueeWidget: FC<{
       window.removeEventListener('focus', handler);
       window.removeEventListener('storage', storageHandler);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const apply = () => setPrefersReducedMotion(!!mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, []);
 
   const handleAddAd = async () => {
@@ -268,6 +278,8 @@ export const MarqueeWidget: FC<{
 
   return (
     <div
+      role="region"
+      aria-label="شريط الإعلانات والتنبيهات"
       className={`app-card dark:bg-slate-800 relative flex items-center h-12 overflow-hidden ${
         edgeToEdge
           ? 'w-full mb-0 rounded-none rounded-b-2xl border-x-0 border-t-0 shadow-sm'
@@ -315,6 +327,10 @@ export const MarqueeWidget: FC<{
             animation: none !important;
             transform: none !important;
           }
+        }
+
+        .marquee-static-scroll {
+          scrollbar-width: thin;
         }
       `}</style>
 
@@ -378,6 +394,22 @@ export const MarqueeWidget: FC<{
             className="px-4 py-1 rounded-xl bg-gray-50 dark:bg-slate-900/30 border border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold"
           >
             لا توجد تنبيهات/مهام عاجلة حالياً — يمكنك إضافة إعلان من زر +
+          </div>
+        ) : prefersReducedMotion ? (
+          <div className="flex items-center gap-6 min-h-full py-1 pe-2" role="list">
+            {displayMessages.map((msg) => (
+              <button
+                type="button"
+                key={`static-${String(msg.id)}`}
+                role="listitem"
+                onClick={() => handleClick(msg)}
+                className={`text-sm font-bold flex items-center gap-2 px-4 py-1 rounded-xl border shrink-0 ${msg.priority === 'High' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-200' : 'bg-gray-50 dark:bg-slate-900/30 border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'} ${msg.action ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+                title={msg.action ? 'اضغط لفتح التفاصيل' : undefined}
+              >
+                {getIcon(msg.type)}
+                <span dir="rtl">{msg.content}</span>
+              </button>
+            ))}
           </div>
         ) : (
           <div ref={marqueeTrackRef} className="marquee-track animate-marquee-continuous">

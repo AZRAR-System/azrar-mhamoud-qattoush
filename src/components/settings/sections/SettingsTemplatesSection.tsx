@@ -35,18 +35,15 @@ export function SettingsTemplatesSection({ page }: Props) {
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
-      <div
-        id="printing-hub-word-templates"
-        className="space-y-6 animate-fade-in scroll-mt-28"
-      >
+      <div id="printing-hub-word-templates" className="space-y-6 animate-fade-in scroll-mt-28">
         <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
             <FileText className="text-indigo-500" size={20} /> قوالب Word
           </h3>
           <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             يمكنك حفظ أكثر من قالب لكل نوع (العقد/الكمبيالات/محضر التسليم)، ثم اختيار القالب
-            الافتراضي لكل نوع. يدعم النظام ملفات Word بصيغة{' '}
-            <span className="font-mono">.docx</span> فقط.
+            الافتراضي لكل نوع. يدعم النظام ملفات Word بصيغة <span className="font-mono">.docx</span>{' '}
+            فقط.
           </div>
         </section>
 
@@ -68,9 +65,7 @@ export function SettingsTemplatesSection({ page }: Props) {
                     id="settings-word-template-type"
                     className={inputClass}
                     value={activeWordTemplateType}
-                    onChange={(e) =>
-                      setActiveWordTemplateType(e.target.value as WordTemplateType)
-                    }
+                    onChange={(e) => setActiveWordTemplateType(e.target.value as WordTemplateType)}
                   >
                     <option value="contracts">العقد</option>
                     <option value="installments">الكمبيالات</option>
@@ -165,9 +160,7 @@ export function SettingsTemplatesSection({ page }: Props) {
                 <Button
                   variant="secondary"
                   onClick={handleDownloadSelectedWordTemplate}
-                  disabled={
-                    !getSelectedWordTemplateName(settings, activeWordTemplateType).trim()
-                  }
+                  disabled={!getSelectedWordTemplateName(settings, activeWordTemplateType).trim()}
                 >
                   <Download size={16} /> تنزيل القالب
                 </Button>

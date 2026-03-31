@@ -100,7 +100,9 @@ export const ReceiptTemplate: React.FC<{
         <tbody>
           {rows.map(([k, v]) => (
             <tr key={k}>
-              <th className="w-[30%] border border-slate-200 bg-slate-50 px-2 py-2 font-bold">{k}</th>
+              <th className="w-[30%] border border-slate-200 bg-slate-50 px-2 py-2 font-bold">
+                {k}
+              </th>
               <td className="border border-slate-200 px-2 py-2">{v}</td>
             </tr>
           ))}
@@ -109,9 +111,7 @@ export const ReceiptTemplate: React.FC<{
 
       {data.officialLetterBody?.trim() ? (
         <section className="mt-6 border-t border-slate-200 pt-4">
-          <h3 className="mb-2 text-sm font-extrabold">
-            {data.officialLetterTitle || 'خطاب رسمي'}
-          </h3>
+          <h3 className="mb-2 text-sm font-extrabold">{data.officialLetterTitle || 'خطاب رسمي'}</h3>
           <div className="text-xs leading-relaxed text-slate-700 whitespace-pre-wrap">
             {data.officialLetterBody}
           </div>

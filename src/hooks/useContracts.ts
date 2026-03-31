@@ -31,7 +31,10 @@ import type {
   PeoplePickerItem,
   PropertyPickerItem,
 } from '@/types/domain.types';
-import { CONTRACTS_FAST_PAGE_SIZE, CONTRACTS_PAGE_SIZE } from '@/components/contracts/contractsConstants';
+import {
+  CONTRACTS_FAST_PAGE_SIZE,
+  CONTRACTS_PAGE_SIZE,
+} from '@/components/contracts/contractsConstants';
 import type { ContractsAdvFiltersState } from '@/components/contracts/contractsTypes';
 
 export function useContracts() {
@@ -160,7 +163,9 @@ export function useContracts() {
   const importRef = useRef<HTMLInputElement>(null);
 
   // Advanced
-  const [showAdvanced, setShowAdvanced] = useState(() => savedContractFilters?.showAdvanced ?? false);
+  const [showAdvanced, setShowAdvanced] = useState(
+    () => savedContractFilters?.showAdvanced ?? false
+  );
   const [advFilters, setAdvFilters] = useState<ContractsAdvFiltersState>(() => ({
     startDateFrom: '',
     startDateTo: '',
@@ -1164,7 +1169,9 @@ export function useContracts() {
 
   const showEmptyNoResults =
     !showEmptyNoContracts &&
-    (isDesktopFast ? !fastLoading && fastRows.length === 0 : filteredContracts.length === 0 && !listLoading);
+    (isDesktopFast
+      ? !fastLoading && fastRows.length === 0
+      : filteredContracts.length === 0 && !listLoading);
   return {
     t,
     tr,

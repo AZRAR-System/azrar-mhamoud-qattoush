@@ -33,10 +33,7 @@ export function SettingsLetterheadDocxPrintBlocks({ page }: Props) {
   } = page;
 
   return (
-    <div
-      id="printing-hub-letterhead-docx-print"
-      className="space-y-6 scroll-mt-28"
-    >
+    <div id="printing-hub-letterhead-docx-print" className="space-y-6 scroll-mt-28">
       <section className="settings-section-panel">
         <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
           <Building className="text-indigo-500" size={20} /> الترويسة (الطباعة/التصدير)
@@ -80,9 +77,7 @@ export function SettingsLetterheadDocxPrintBlocks({ page }: Props) {
               id="hub-letterhead-cr"
               className={inputClass}
               value={settings.commercialRegister || ''}
-              onChange={(e) =>
-                setSettings({ ...settings, commercialRegister: e.target.value })
-              }
+              onChange={(e) => setSettings({ ...settings, commercialRegister: e.target.value })}
             />
           </div>
         </div>
@@ -92,9 +87,7 @@ export function SettingsLetterheadDocxPrintBlocks({ page }: Props) {
           <textarea
             className={inputClass + ' min-h-[120px]'}
             value={settings.companyIdentityText || ''}
-            onChange={(e) =>
-              setSettings({ ...settings, companyIdentityText: e.target.value })
-            }
+            onChange={(e) => setSettings({ ...settings, companyIdentityText: e.target.value })}
             placeholder={'مثال:\nالمالك: ...\nالرقم الوطني/الهوية: ...\nالترخيص: ...'}
           />
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">

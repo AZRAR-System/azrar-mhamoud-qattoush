@@ -581,9 +581,12 @@ async function applySqlRemoteKvRow(row: {
 }
 
 async function startSqlPullLoop(): Promise<void> {
-  await startBackgroundPull(async (row) => {
-    await applySqlRemoteKvRow(row);
-  }, { runImmediately: true });
+  await startBackgroundPull(
+    async (row) => {
+      await applySqlRemoteKvRow(row);
+    },
+    { runImmediately: true }
+  );
 }
 
 async function pushAllLocalToRemote(): Promise<{

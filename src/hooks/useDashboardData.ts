@@ -3,7 +3,7 @@
  * Hook for gathering all dashboard data from various services
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/context/ToastContext';
 import { DbService } from '@/services/mockDb';
 import { isTenancyRelevant } from '@/utils/tenancy';
@@ -32,11 +32,22 @@ export interface UseDashboardDataOptions {
   refreshIntervalMs?: number;
 }
 
+/** لقطة تشغيل يومية من مسار الـ cache السريع — أنواع مستقلة عن طبقة الخدمات */
+export interface DailyOperationalSnapshot {
+  paymentsToday: number;
+  revenueToday: number;
+  contractsExpiring30: number;
+  maintenanceOpen: number;
+  dueNext7Payments: number;
+}
+
 export interface UseDashboardDataResult {
   data: DashboardData;
   isRefreshing: boolean;
   /** true حتى اكتمال أول تحميل للـ KPIs والبيانات */
   kpiLoading: boolean;
+  /** مصدر واحد: نجاح dashboardSummarySmart في آخر دورة تحديث */
+  isDesktopFast: boolean;
   refresh: () => void;
 }
 
@@ -161,10 +172,15 @@ export interface DashboardData {
     detail: string;
     at: string;
   }>;
+
+  /** لقطة يومية من الـ cache عند المسار السريع — للملخص اليومي وغيره */
+  dailyOperationalSnapshot?: DailyOperationalSnapshot;
 }
 
 export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboardDataResult => {
   const toast = useToast();
+  const isRunningRef = useRef(false);
+  const [isDesktopFast, setIsDesktopFast] = useState(false);
   const [data, setData] = useState<DashboardData>({
     meta: {
       updatedAt: Date.now(),
@@ -226,6 +242,8 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const refreshData = useCallback(() => {
+    if (isRunningRef.current) return;
+    isRunningRef.current = true;
     void (async () => {
       try {
         setIsRefreshing(true);
@@ -254,13 +272,14 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         const weekYMD = toYMD(weekFromNow);
 
         const desktopSummary = await dashboardSummarySmart({ todayYMD, weekYMD });
-        const isDesktopFast = !!desktopSummary;
+        const fastPath = !!desktopSummary;
+        setIsDesktopFast(fastPath);
 
         // Raw datasets (keep heavy ones empty in Desktop fast mode)
-        const people: الأشخاص_tbl[] = isDesktopFast ? [] : DbService.getPeople();
-        const properties: العقارات_tbl[] = isDesktopFast ? [] : DbService.getProperties();
-        const contracts: العقود_tbl[] = isDesktopFast ? [] : DbService.getContracts();
-        const installments: الكمبيالات_tbl[] = isDesktopFast ? [] : DbService.getInstallments();
+        const people: الأشخاص_tbl[] = fastPath ? [] : DbService.getPeople();
+        const properties: العقارات_tbl[] = fastPath ? [] : DbService.getProperties();
+        const contracts: العقود_tbl[] = fastPath ? [] : DbService.getContracts();
+        const installments: الكمبيالات_tbl[] = fastPath ? [] : DbService.getInstallments();
 
         // Smaller datasets / services (still used by charts/panels)
         const commissionsAll: العمولات_tbl[] = DbService.getCommissions();
@@ -313,15 +332,15 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         // ✅ Calculate KPIs from real data (current month for revenue)
         const totalRevenue = commissions.reduce((sum, c) => sum + (c.المجموع || 0), 0);
 
-        const activeContracts = isDesktopFast
+        const activeContracts = fastPath
           ? Number(desktopSummary?.activeContracts || 0) || 0
           : contracts.filter((c) => isTenancyRelevant(c)).length;
 
-        const totalProperties = isDesktopFast
+        const totalProperties = fastPath
           ? Number(desktopSummary?.totalProperties || 0) || 0
           : properties.length;
 
-        const occupiedProperties = isDesktopFast
+        const occupiedProperties = fastPath
           ? Number(desktopSummary?.occupiedProperties || 0) || 0
           : properties.filter((p) => p.IsRented === true).length;
 
@@ -330,7 +349,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
 
         // ✅ Payment notifications policy: pre-due reminders only
         // Align KPI counts with PaymentNotificationsPanel (no due-today / overdue reminders).
-        const dueNext7Payments = isDesktopFast
+        const dueNext7Payments = fastPath
           ? Number(desktopSummary?.dueNext7Payments || 0) || 0
           : (() => {
               const targets: PaymentNotificationTarget[] =
@@ -372,16 +391,14 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           (a) => String(a.category) === 'Info' || a.نوع_التنبيه === 'معلومة'
         ).length;
 
-        const desktopPerf = isDesktopFast
+        const desktopPerf = fastPath
           ? await dashboardPerformanceSmart({ monthKey: currentMonth, prevMonthKey: previousMonth })
           : null;
-        const desktopHighlights = isDesktopFast
-          ? await dashboardHighlightsSmart({ todayYMD })
-          : null;
+        const desktopHighlights = fastPath ? await dashboardHighlightsSmart({ todayYMD }) : null;
 
         const installmentsForStats = DbService.getInstallments();
         const contractsForKpi =
-          !isDesktopFast && contracts.length > 0 ? contracts : DbService.getContracts();
+          !fastPath && contracts.length > 0 ? contracts : DbService.getContracts();
 
         const limit30d = toYMD(
           new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30)
@@ -397,8 +414,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           if (String(inst?.نوع_الكمبيالة || '').trim() === 'تأمين') continue;
           const due = String(inst.تاريخ_استحقاق || '').slice(0, 10);
           const { remaining } = getInstallmentPaidAndRemaining(inst);
-          const isPaid =
-            remaining <= 0 || String(inst?.حالة_الكمبيالة || '').trim() === 'مدفوع';
+          const isPaid = remaining <= 0 || String(inst?.حالة_الكمبيالة || '').trim() === 'مدفوع';
           if (isPaid) {
             donutPaid++;
             continue;
@@ -412,7 +428,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           if (due === todayYMD && remaining > 0) dueTodayInstallmentsCount++;
         }
 
-        if (isDesktopFast && desktopHighlights?.dueInstallmentsToday?.length) {
+        if (fastPath && desktopHighlights?.dueInstallmentsToday?.length) {
           dueTodayInstallmentsCount = desktopHighlights.dueInstallmentsToday.filter(
             (r) => Number(r.remaining ?? 0) > 0
           ).length;
@@ -425,7 +441,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           if (!end || end < todayYMD || end > limit30d) continue;
           expiringContracts30dCount++;
         }
-        if (isDesktopFast && Array.isArray(desktopHighlights?.expiringContracts)) {
+        if (fastPath && Array.isArray(desktopHighlights?.expiringContracts)) {
           expiringContracts30dCount = desktopHighlights.expiringContracts.filter((row) => {
             const end = String(row.endDate || '').slice(0, 10);
             return end >= todayYMD && end <= limit30d;
@@ -475,6 +491,17 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
             .map(({ ts: _t, ...rest }) => rest);
         })();
 
+        const dailyOperationalSnapshot: DailyOperationalSnapshot | undefined =
+          fastPath && desktopSummary
+            ? {
+                paymentsToday: Number(desktopSummary.paymentsToday) || 0,
+                revenueToday: Number(desktopSummary.revenueToday) || 0,
+                contractsExpiring30: Number(desktopSummary.contractsExpiring30) || 0,
+                maintenanceOpen: Number(desktopSummary.maintenanceOpen) || 0,
+                dueNext7Payments: Number(desktopSummary.dueNext7Payments) || 0,
+              }
+            : undefined;
+
         setData({
           meta: {
             updatedAt: Date.now(),
@@ -494,11 +521,9 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
             dueTodayPayments,
             dueNext7Payments,
             dueTotalPayments,
-            totalPeople: isDesktopFast
-              ? Number(desktopSummary?.totalPeople || 0) || 0
-              : people.length,
+            totalPeople: fastPath ? Number(desktopSummary?.totalPeople || 0) || 0 : people.length,
             totalProperties,
-            totalContracts: isDesktopFast
+            totalContracts: fastPath
               ? Number(desktopSummary?.totalContracts || 0) || 0
               : contracts.length,
             occupiedProperties,
@@ -518,7 +543,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
               }
             : undefined,
 
-          desktopAggregations: isDesktopFast
+          desktopAggregations: fastPath
             ? {
                 propertyTypeCounts: Array.isArray(desktopSummary?.propertyTypeCounts)
                   ? desktopSummary.propertyTypeCounts
@@ -530,7 +555,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
             : undefined,
 
           desktopHighlights:
-            isDesktopFast && desktopHighlights
+            fastPath && desktopHighlights
               ? {
                   dueInstallmentsToday: Array.isArray(desktopHighlights?.dueInstallmentsToday)
                     ? desktopHighlights.dueInstallmentsToday
@@ -576,6 +601,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
             upcoming: donutUpcoming,
           },
           recentOperations,
+          dailyOperationalSnapshot,
         });
       } catch (error: unknown) {
         console.error('Error refreshing dashboard data:', error);
@@ -587,6 +613,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
       } finally {
         setIsRefreshing(false);
         setInitialLoadDone(true);
+        isRunningRef.current = false;
       }
     })();
   }, [toast]);
@@ -627,6 +654,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
     data,
     isRefreshing,
     kpiLoading: !initialLoadDone,
+    isDesktopFast,
     refresh: refreshData,
   };
 };
