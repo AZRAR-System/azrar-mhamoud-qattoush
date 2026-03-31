@@ -42,6 +42,13 @@ export const KEYS = {
   FOLLOW_UPS: 'db_followups',
   NOTIFICATION_SEND_LOGS: 'db_notification_send_logs',
   INSPECTIONS: 'db_property_inspections',
+  /** أنماط الإدخال / الأدوات الذكية (انظر smartEngine) */
+  SMART_BEHAVIOR: 'db_smart_behavior',
 } as const;
 
 export type DbStorageKey = (typeof KEYS)[keyof typeof KEYS];
+
+/** كل مفاتيح KV المعرفة للمزامنة مع SQL (نفس سلسلة `k` في الرفع/السحب). */
+export const ALL_KV_DATA_KEYS: readonly string[] = Object.freeze(
+  Array.from(new Set(Object.values(KEYS))).sort()
+);

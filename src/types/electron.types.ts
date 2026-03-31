@@ -168,6 +168,9 @@ export interface DesktopDbBridge {
   domainMigrate?: () => Promise<
     { ok: boolean; message?: string; migrated?: boolean; counts?: Record<string, number> } | unknown
   >;
+  domainRebuildFromKv?: () => Promise<
+    { ok: boolean; message?: string; migrated?: boolean; counts?: Record<string, number> } | unknown
+  >;
   runReport?: (
     id: string
   ) => Promise<{ ok: boolean; result?: unknown; message?: string } | unknown>;
@@ -456,6 +459,23 @@ export interface DesktopDbBridge {
       }
     | unknown
   >;
+  /** ProgramData\\AZRAR\\sql-local-credentials.json (optional SQL Express installer) */
+  sqlReadLocalBootstrapCredentials?: () => Promise<
+    | {
+        ok: true;
+        filePath: string;
+        credentials: {
+          server: string;
+          port: number;
+          database: string;
+          authMode: 'sql' | 'windows';
+          user: string;
+          password: string;
+        };
+      }
+    | { ok: false; reason: 'missing' | 'invalid' | 'error' }
+    | unknown
+  >;
   sqlSaveSettings?: (settings: {
     enabled: boolean;
     server: string;
@@ -486,6 +506,9 @@ export interface DesktopDbBridge {
         connected: boolean;
         lastError?: string;
         lastSyncAt?: string;
+        clockSkewMs?: number;
+        clockSkewWarning?: boolean;
+        serverTimeIso?: string;
       }
     | unknown
   >;

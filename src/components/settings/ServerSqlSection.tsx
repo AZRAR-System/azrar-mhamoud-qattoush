@@ -22,6 +22,9 @@ import {
   Info,
   ShieldAlert,
   Loader2,
+  Power,
+  PowerOff,
+  FileInput,
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
@@ -35,6 +38,9 @@ type SqlStatus = {
   connected: boolean;
   lastError?: string;
   lastSyncAt?: string;
+  clockSkewMs?: number;
+  clockSkewWarning?: boolean;
+  serverTimeIso?: string;
 };
 
 type DesktopOkMessage = { ok?: boolean; message?: string; code?: string };
@@ -186,8 +192,8 @@ export const ServerSqlSection: React.FC = () => {
       db_contacts: 'جهات الاتصال',
       db_properties: 'العقارات',
       db_contracts: 'العقود',
-      db_installments: 'الأقساط',
-      db_payments: 'الدفعات',
+      /** الكمبيالات وجدول الدفعات — مفتاح KV واحد: db_installments */
+      db_installments: 'الكمبيالات / الدفعات',
       db_commissions: 'العمولات',
       db_alerts: 'التنبيهات',
       db_attachments: 'المرفقات',
@@ -237,6 +243,41 @@ export const ServerSqlSection: React.FC = () => {
     });
   }, [runGuarded]);
 
+  const mergeBootstrapIntoForm = useCallback(
+    (
+      base: {
+        enabled: boolean;
+        server: string;
+        port: number;
+        database: string;
+        authMode: 'sql' | 'windows';
+        user: string;
+        encrypt: boolean;
+        trustServerCertificate: boolean;
+        hasPassword: boolean;
+        password: string;
+      },
+      bootstrap: {
+        server: string;
+        port: number;
+        database: string;
+        authMode: 'sql' | 'windows';
+        user: string;
+        password: string;
+      }
+    ) => ({
+      ...base,
+      server: bootstrap.server,
+      port: bootstrap.port || 1433,
+      database: bootstrap.database || 'AZRAR',
+      authMode: bootstrap.authMode,
+      user: bootstrap.user,
+      password: String(bootstrap.password || ''),
+      hasPassword: !!String(bootstrap.password || '').trim(),
+    }),
+    []
+  );
+
   const loadSqlSection = useCallback(async () => {
     if (!window.desktopDb?.sqlGetSettings) {
       setSqlStatus(null);
@@ -245,18 +286,54 @@ export const ServerSqlSection: React.FC = () => {
     await runGuarded('sql:loadSection', async () => {
       try {
         const s = (await window.desktopDb.sqlGetSettings()) as unknown as DesktopSqlSettings | null;
-        setSqlForm((prev) => ({
-          ...prev,
+        let form = {
           enabled: !!s?.enabled,
           server: String(s?.server || ''),
           port: Number(s?.port || 1433) || 1433,
           database: String(s?.database || 'AZRAR'),
-          authMode: s?.authMode === 'windows' ? 'windows' : 'sql',
+          authMode: (s?.authMode === 'windows' ? 'windows' : 'sql') as 'sql' | 'windows',
           user: String(s?.user || ''),
           encrypt: s?.encrypt !== false,
           trustServerCertificate: s?.trustServerCertificate !== false,
           hasPassword: !!s?.hasPassword,
           password: '',
+        };
+
+        const boot = await window.desktopDb.sqlReadLocalBootstrapCredentials?.();
+        const emptyServer = !String(form.server || '').trim();
+        if (
+          emptyServer &&
+          boot &&
+          typeof boot === 'object' &&
+          'ok' in boot &&
+          (boot as { ok?: boolean }).ok === true &&
+          'credentials' in boot
+        ) {
+          const cred = (boot as { credentials: Record<string, unknown> }).credentials;
+          const server = String(cred.server || '').trim();
+          const port = Number(cred.port || 1433) || 1433;
+          const database = String(cred.database || 'AZRAR').trim();
+          const user = String(cred.user || '').trim();
+          const password = String(cred.password || '');
+          const authMode = cred.authMode === 'windows' ? 'windows' : 'sql';
+          if (server && database) {
+            form = mergeBootstrapIntoForm(form, {
+              server,
+              port,
+              database,
+              authMode,
+              user,
+              password,
+            });
+            toastSuccess(
+              'تم استيراد إعدادات الاتصال من ملف التثبيت المحلي (ProgramData\\AZRAR). راجع الحقول ثم احفظ واتصل.'
+            );
+          }
+        }
+
+        setSqlForm((prev) => ({
+          ...prev,
+          ...form,
         }));
         const st = (await window.desktopDb.sqlStatus?.()) as unknown as SqlStatus | null;
         setSqlStatus(st || null);
@@ -264,7 +341,57 @@ export const ServerSqlSection: React.FC = () => {
         toastError(getErrorMessage(e) || 'فشل تحميل إعدادات المخدم');
       }
     });
-  }, [toastError, runGuarded]);
+  }, [toastError, runGuarded, mergeBootstrapIntoForm, toastSuccess]);
+
+  const handleImportFromBootstrapFile = async () => {
+    if (!window.desktopDb?.sqlReadLocalBootstrapCredentials) {
+      toastWarning('غير متاح في هذه النسخة.');
+      return;
+    }
+    await runGuarded('sql:bootstrapImport', async () => {
+      try {
+        const boot = await window.desktopDb.sqlReadLocalBootstrapCredentials();
+        if (
+          !boot ||
+          typeof boot !== 'object' ||
+          !('ok' in boot) ||
+          !(boot as { ok?: boolean }).ok ||
+          !('credentials' in boot)
+        ) {
+          toastWarning('لم يُعثر على ملف sql-local-credentials.json أو المحتوى غير صالح.');
+          return;
+        }
+        const cred = (boot as { credentials: Record<string, unknown> }).credentials;
+        setSqlForm((prev) =>
+          mergeBootstrapIntoForm(
+            {
+              enabled: prev.enabled,
+              server: prev.server,
+              port: prev.port,
+              database: prev.database,
+              authMode: prev.authMode,
+              user: prev.user,
+              encrypt: prev.encrypt,
+              trustServerCertificate: prev.trustServerCertificate,
+              hasPassword: prev.hasPassword,
+              password: prev.password,
+            },
+            {
+              server: String(cred.server || '').trim(),
+              port: Number(cred.port || 1433) || 1433,
+              database: String(cred.database || 'AZRAR').trim(),
+              authMode: cred.authMode === 'windows' ? 'windows' : 'sql',
+              user: String(cred.user || '').trim(),
+              password: String(cred.password || ''),
+            }
+          )
+        );
+        toastSuccess('تم استيراد الحقول من ملف sql-local-credentials.json. احفظ واتصل عند الجاهزية.');
+      } catch (e: unknown) {
+        toastError(getErrorMessage(e) || 'فشل الاستيراد');
+      }
+    });
+  };
 
   const handleSqlTest = async () => {
     if (!window.desktopDb?.sqlTestConnection) {
@@ -675,37 +802,145 @@ export const ServerSqlSection: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-10">
-              {/* Connection Status Toggle */}
+              {/* توعية: LWW + أمان الشبكة + النسخ الاحتياطي */}
+              <div className="rounded-[2rem] border border-slate-200/90 dark:border-slate-600/70 bg-gradient-to-br from-slate-50/95 via-white to-indigo-50/40 dark:from-slate-900/60 dark:via-slate-950 dark:to-indigo-950/20 p-7 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="shrink-0 p-3 rounded-2xl bg-indigo-100/90 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300">
+                    <Info size={26} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 space-y-3">
+                    <h4 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+                      {t('مزامنة متعددة الأجهزة — مهم تفهمه')}
+                    </h4>
+                    <ul className="text-sm font-semibold text-slate-600 dark:text-slate-400 space-y-2.5 leading-relaxed [&>li]:pr-1">
+                      <li>
+                        {t(
+                          'البيانات تُجمَّع في قاعدة SQL Server مركزية؛ كل جهاز يدفع التغييرات ويسحب التحديثات من المخدم.'
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          'حل التعارض الحالي: يُفضَّل «آخر تعديل» حسب الطابع الزمني. تعديل نفس السجل من جهازين دون اتصال قد يؤدي لاستبدال أحد التعديلين — راقب سجل المزامنة والنسخ الاحتياطي.'
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          'فعّل مزامنة الوقت التلقائية (NTP) على Windows لكل الأجهزة والخادم؛ انحراف الساعة يضر دقة المزامنة.'
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          'للوصول من خارج المكتب يُفضَّل VPN أو اتصال آمن؛ تجنّب تعريض منفذ SQL مباشرة على الإنترنت.'
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          'احتفظ بنسخ احتياطية منتظمة لقاعدة SQL وللبيانات المحلية حسب سياسة مؤسستك.'
+                        )}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {sqlStatus?.clockSkewWarning && sqlForm.enabled && sqlStatus?.connected ? (
+                <div
+                  className="rounded-[2rem] border-2 border-amber-400/70 dark:border-amber-600/50 bg-amber-50/95 dark:bg-amber-950/35 p-6 flex flex-col sm:flex-row gap-4 items-start"
+                  role="alert"
+                >
+                  <div className="shrink-0 p-3 rounded-2xl bg-amber-200/80 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200">
+                    <Clock size={26} strokeWidth={2.25} />
+                  </div>
+                  <div className="min-w-0 space-y-2">
+                    <p className="text-base font-black text-amber-950 dark:text-amber-100">
+                      {t('انحراف كبير بين ساعة هذا الجهاز ووقت خادم SQL')}
+                    </p>
+                    <p className="text-sm font-bold text-amber-900/95 dark:text-amber-200/95 leading-relaxed">
+                      {t('الفرق حوالي')}{' '}
+                      <span className="tabular-nums font-black">
+                        {Math.round((sqlStatus.clockSkewMs ?? 0) / 1000)}
+                      </span>{' '}
+                      {t(
+                        'ثانية. المزامنة تعتمد على الطوابع الزمنية — صحّح تاريخ ووقت Windows (إعدادات الوقت ← مزامنة الآن) أو خادم NTP على الشبكة.'
+                      )}
+                    </p>
+                    {sqlStatus.serverTimeIso ? (
+                      <p className="text-xs font-mono font-bold text-amber-800/90 dark:text-amber-300/90" dir="ltr">
+                        SQL UTC: {sqlStatus.serverTimeIso}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Connection Status — sync enable (replaces raw toggle) */}
               <div
-                className={`p-8 rounded-[2.5rem] border-2 transition-all duration-700 ${sqlForm.enabled ? 'bg-emerald-50/40 border-emerald-500/20 dark:bg-emerald-900/10 dark:border-emerald-500/10 shadow-xl shadow-emerald-500/5' : 'bg-slate-50/50 border-slate-200 dark:bg-slate-800/30 dark:border-slate-800'}`}
+                className={`p-8 rounded-[2.5rem] border-2 transition-all duration-700 ${sqlForm.enabled ? 'bg-emerald-50/40 border-emerald-500/25 dark:bg-emerald-950/25 dark:border-emerald-500/20 shadow-xl shadow-emerald-500/10' : 'bg-slate-50/50 border-slate-200/90 dark:bg-slate-900/40 dark:border-slate-700/80'}`}
               >
-                <div className="flex items-center justify-between gap-6">
-                  <div className="flex items-center gap-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                  <div className="flex items-start gap-5 min-w-0">
                     <div
-                      className={`p-4 rounded-2xl shadow-inner transition-colors duration-500 ${sqlForm.enabled ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}
+                      className={`shrink-0 p-4 rounded-2xl shadow-inner transition-colors duration-500 ${sqlForm.enabled ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-600/30' : 'bg-slate-200/90 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}
                     >
                       <RefreshCw size={28} strokeWidth={2} />
                     </div>
-                    <div>
-                      <div className="text-xl font-black text-slate-800 dark:text-white">
+                    <div className="min-w-0">
+                      <div className="text-xl font-black text-slate-800 dark:text-white tracking-tight">
                         {t('حالة المزامنة')}
                       </div>
-                      <div className="text-sm text-slate-500 dark:text-slate-400 font-bold mt-1">
+                      <p className="text-sm text-slate-500 dark:text-slate-400 font-semibold mt-2 leading-relaxed">
                         {sqlForm.enabled
                           ? t('النظام يقوم بمزامنة البيانات محلياً ومع المخدم بشكل آمن.')
                           : t('المزامنة مع المخدم معطلة حالياً.')}
-                      </div>
+                      </p>
+                      {sqlStatus?.connected && sqlForm.enabled ? (
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-2" dir="ltr">
+                          {sqlStatus.lastSyncAt
+                            ? `${t('آخر مزامنة')}: ${sqlStatus.lastSyncAt}`
+                            : t('متصل بالمخدم')}
+                        </p>
+                      ) : null}
+                      {sqlForm.enabled && sqlStatus?.lastError ? (
+                        <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-2 break-words">
+                          {sqlStatus.lastError}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
-                  <button
-                    onClick={() => setSqlForm((p) => ({ ...p, enabled: !p.enabled }))}
-                    className={`relative inline-flex h-10 w-18 items-center rounded-full transition-all duration-500 focus:outline-none ${sqlForm.enabled ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-300 dark:bg-slate-700'}`}
-                    disabled={sqlBusy}
-                  >
-                    <span
-                      className={`inline-block h-8 w-8 transform rounded-full bg-white shadow-md transition-transform duration-500 ${sqlForm.enabled ? '-translate-x-1.5' : '-translate-x-8.5'}`}
-                    />
-                  </button>
+
+                  <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 shrink-0">
+                    {!sqlForm.enabled ? (
+                      <button
+                        type="button"
+                        onClick={() => setSqlForm((p) => ({ ...p, enabled: true }))}
+                        disabled={sqlBusy}
+                        className="inline-flex items-center justify-center gap-2.5 rounded-2xl px-7 py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-600/25 bg-gradient-to-l from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:via-emerald-500 hover:to-teal-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none transition-all"
+                      >
+                        <Power size={19} strokeWidth={2.5} className="shrink-0 opacity-95" />
+                        <span>{t('تفعيل المزامنة مع المخدم')}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSqlForm((p) => ({ ...p, enabled: false }))}
+                        disabled={sqlBusy}
+                        className="inline-flex items-center justify-center gap-2.5 rounded-2xl px-7 py-3.5 text-sm font-black border-2 border-slate-300/90 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700/90 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-400/25 disabled:opacity-50 transition-all"
+                      >
+                        <PowerOff size={19} strokeWidth={2.5} className="shrink-0 text-slate-500 dark:text-slate-400" />
+                        <span>{t('إيقاف المزامنة')}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handleImportFromBootstrapFile()}
+                      disabled={sqlBusy}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-xs font-black text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/80 dark:border-indigo-800/60 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/30 disabled:opacity-50 transition-all"
+                      title={t('استيراد من ProgramData\\AZRAR\\sql-local-credentials.json')}
+                    >
+                      <FileInput size={17} className="shrink-0" />
+                      <span>{t('استيراد من ملف التثبيت')}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 

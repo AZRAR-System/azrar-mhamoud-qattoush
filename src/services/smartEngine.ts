@@ -8,8 +8,9 @@
 import { SmartBehaviorPattern, SmartSuggestion, SmartCategory } from '../types';
 import { FIELD_RULES } from './smartRules';
 import { storage } from '@/services/storage';
+import { KEYS } from '@/services/db/keys';
 
-const KEY_SMART_BEHAVIOR = 'db_smart_behavior';
+const KEY_SMART_BEHAVIOR = KEYS.SMART_BEHAVIOR;
 const LIMIT = 100; // Track last 100 inputs per category
 
 export const SmartEngine = {

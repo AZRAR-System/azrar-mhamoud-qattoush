@@ -15,6 +15,7 @@ import {
   exportDatabaseToMany,
   importDatabase,
   domainMigrateFromKvIfNeeded,
+  domainRebuildFromKv,
   domainStatus,
   domainCounts,
   runSqlReport,
@@ -298,6 +299,9 @@ const DB_KEYS = {
   ROLES: 'db_roles',
   PROPERTIES: 'db_properties',
   CONTRACTS: 'db_contracts',
+  /** كمبيالات / جدول الدفعات — يجب أن يطابق KEYS.INSTALLMENTS ومسار المزامنة */
+  INSTALLMENTS: 'db_installments',
+  MAINTENANCE: 'db_maintenance_tickets',
   BLACKLIST: 'db_blacklist',
   OWNERSHIP_HISTORY: 'db_ownership_history',
   INSPECTIONS: 'db_property_inspections',
@@ -3121,6 +3125,14 @@ export function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('domain:rebuildFromKv', () => {
+    try {
+      return domainRebuildFromKv();
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل إعادة بناء الجداول من التخزين المحلي') };
+    }
+  });
+
   ipcMain.handle('reports:run', (_e, payload: unknown) => {
     try {
       const id = getStringField(payload, 'id').trim();
@@ -3734,6 +3746,44 @@ export function registerIpcHandlers() {
   // SQL Server Sync
   ipcMain.handle('sql:getSettings', async () => {
     return loadSqlSettingsRedacted();
+  });
+
+  /** Installer / sql-express-install.ps1 writes ProgramData\\AZRAR\\sql-local-credentials.json */
+  ipcMain.handle('sql:readLocalBootstrapCredentials', async () => {
+    try {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const base = process.env.ProgramData || path.join(process.env.SystemDrive || 'C:', 'ProgramData');
+      const filePath = path.join(base, 'AZRAR', 'sql-local-credentials.json');
+      if (!fs.existsSync(filePath)) {
+        return { ok: false as const, reason: 'missing' as const };
+      }
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const j = JSON.parse(raw) as Record<string, unknown>;
+      const server = typeof j.server === 'string' ? j.server.trim() : '';
+      const port = Number(j.port || 1433) || 1433;
+      const database = typeof j.database === 'string' ? j.database.trim() : 'AZRAR';
+      const user = typeof j.user === 'string' ? j.user.trim() : '';
+      const password = typeof j.password === 'string' ? j.password : '';
+      const authMode = j.authMode === 'windows' ? 'windows' : 'sql';
+      if (!server || !database) {
+        return { ok: false as const, reason: 'invalid' as const };
+      }
+      return {
+        ok: true as const,
+        filePath,
+        credentials: {
+          server,
+          port,
+          database: database || 'AZRAR',
+          authMode: authMode as 'sql' | 'windows',
+          user,
+          password,
+        },
+      };
+    } catch {
+      return { ok: false as const, reason: 'error' as const };
+    }
   });
 
   ipcMain.handle('sql:saveSettings', async (_e, settings: unknown) => {

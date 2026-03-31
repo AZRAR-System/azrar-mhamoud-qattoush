@@ -40,13 +40,21 @@ export type SqlProvisionRequest = {
 
 type StoredSqlSettings = Omit<SqlSettings, 'password'> & { passwordEnc?: string };
 
-type SqlStatus = {
+export type SqlStatus = {
   configured: boolean;
   enabled: boolean;
   connected: boolean;
   lastError?: string;
   lastSyncAt?: string;
+  /** |عميل − وقت SQL| بالمللي ثانية عند الاتصال (للمزامنة LWW) */
+  clockSkewMs?: number;
+  /** true إذا تجاوز الانحراف عتبة آمنة للمزامنة */
+  clockSkewWarning?: boolean;
+  serverTimeIso?: string;
 };
+
+/** انحراف مقبول بين ساعة الجهاز ووقت SQL؛ أعلى من ذلك يُنذر المستخدم (LWW يعتمد على الطوابع) */
+const SQL_CLOCK_SKEW_WARN_MS = 120_000;
 
 const SETTINGS_FILE = 'sql-settings.json';
 const STATE_FILE = 'sql-state.json';
@@ -1621,7 +1629,38 @@ export async function getSqlStatus(): Promise<SqlStatus> {
     configured: !!redacted.server && !!redacted.database,
     enabled: !!redacted.enabled,
   };
-  return currentStatus;
+
+  const base: SqlStatus = { ...currentStatus };
+
+  if (!redacted.enabled || !currentStatus.connected) {
+    return {
+      ...base,
+      clockSkewMs: undefined,
+      clockSkewWarning: false,
+      serverTimeIso: undefined,
+    };
+  }
+
+  try {
+    const settings = await loadSqlSettings();
+    const p = await ensureConnected(settings);
+    const r = await p.request().query(`SELECT SYSUTCDATETIME() AS serverUtc;`);
+    const row = (r.recordset || [])[0] as { serverUtc?: Date } | undefined;
+    const t = row?.serverUtc ? new Date(row.serverUtc).getTime() : NaN;
+    const clientMs = Date.now();
+    if (!Number.isFinite(t)) {
+      return { ...base, clockSkewWarning: false };
+    }
+    const skew = Math.abs(clientMs - t);
+    return {
+      ...base,
+      clockSkewMs: skew,
+      clockSkewWarning: skew > SQL_CLOCK_SKEW_WARN_MS,
+      serverTimeIso: new Date(t).toISOString(),
+    };
+  } catch {
+    return { ...base, clockSkewWarning: false };
+  }
 }
 
 export async function getRemoteKvStoreMeta(): Promise<{

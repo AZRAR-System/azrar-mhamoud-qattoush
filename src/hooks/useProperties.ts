@@ -45,6 +45,7 @@ export function useProperties() {
   const desktopUnsupported = isDesktop && !isDesktopFast;
 
   const warnedUnsupportedRef = useRef(false);
+  const desktopListErrorToastRef = useRef<string | null>(null);
   const desktopRequestIdRef = useRef(0);
   const desktopPageRef = useRef(0);
 
@@ -217,6 +218,16 @@ export function useProperties() {
 
           // Ignore stale responses (typing / rapid filter changes).
           if (requestId !== desktopRequestIdRef.current) return;
+
+          if (res.error) {
+            if (desktopListErrorToastRef.current !== res.error) {
+              desktopListErrorToastRef.current = res.error;
+              toast.error(res.error);
+            }
+          } else {
+            desktopListErrorToastRef.current = null;
+          }
+
           setDesktopRows(
             Array.isArray(res.items) ? (res.items as DesktopPropertyPickerItem[]) : []
           );

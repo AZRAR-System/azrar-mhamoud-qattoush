@@ -95,13 +95,12 @@ src/
 
 ### الجداول الرئيسية (33+ جدول)
 
-#### 1. الجداول الأساسية (9 جداول)
+#### 1. الجداول الأساسية (8 جداول)
 ```typescript
 db_people              // الأشخاص
 db_properties          // العقارات
 db_contracts           // العقود
-db_installments        // الكمبيالات
-db_payments            // الدفعات
+db_installments        // الكمبيالات وجدول الدفعات (سجل الدفعات داخل كل عنصر؛ لا مفتاح db_payments)
 db_roles               // أدوار الأشخاص
 db_commissions         // العمولات
 db_users               // المستخدمين

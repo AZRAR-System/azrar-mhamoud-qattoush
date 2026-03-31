@@ -3323,14 +3323,26 @@ function safeJsonParseArray(value: string | null): unknown[] {
 function kvUpdatedAtIso(key: string): string {
   const meta = kvGetMeta(key);
   const ts = meta?.updatedAt ? String(meta.updatedAt) : '';
-  return ts && ts.trim() ? ts.trim() : new Date().toISOString();
+  return ts && ts.trim() ? ts.trim() : '';
 }
 
 function isKvNewerThanDomain(dbh: SqliteDb, key: string): boolean {
   const kvTs = kvUpdatedAtIso(key);
-  const stored = metaGet(dbh, `domain_src_updatedAt:${key}`) || '';
+  const storedRaw = metaGet(dbh, `domain_src_updatedAt:${key}`);
+  const stored = typeof storedRaw === 'string' ? storedRaw.trim() : String(storedRaw ?? '').trim();
+
   if (!stored) return true;
-  return new Date(kvTs).getTime() > new Date(stored).getTime();
+
+  // When KV has no updatedAt metadata, comparing timestamps is meaningless. Treating KV as
+  // "always newer" (old behavior used Date.now() as a fake kvTs) forced a full domain rebuild
+  // on almost every query and could leave lists empty or starve the DB. Assume not stale here;
+  // domainEnsureReady() still repairs empty domain tables when KV JSON is non-empty.
+  if (!kvTs) return false;
+
+  const tKv = new Date(kvTs).getTime();
+  const tSt = new Date(stored).getTime();
+  if (!Number.isFinite(tKv) || !Number.isFinite(tSt)) return false;
+  return tKv > tSt;
 }
 
 function toIsoDateOnly(d: Date): string {
@@ -3716,20 +3728,28 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
   try {
     tx();
     metaSet(dbh, 'domain_migrated_at', nowIso);
-    // Record KV updatedAt so we can detect staleness.
-    metaSet(dbh, `domain_src_updatedAt:${keys.people}`, kvUpdatedAtIso(keys.people));
-    metaSet(dbh, `domain_src_updatedAt:${keys.properties}`, kvUpdatedAtIso(keys.properties));
-    metaSet(dbh, `domain_src_updatedAt:${keys.contracts}`, kvUpdatedAtIso(keys.contracts));
-    metaSet(dbh, `domain_src_updatedAt:${keys.installments}`, kvUpdatedAtIso(keys.installments));
-    metaSet(dbh, `domain_src_updatedAt:${keys.maintenance}`, kvUpdatedAtIso(keys.maintenance));
-    metaSet(dbh, `domain_src_updatedAt:${keys.roles}`, kvUpdatedAtIso(keys.roles));
-    metaSet(dbh, `domain_src_updatedAt:${keys.blacklist}`, kvUpdatedAtIso(keys.blacklist));
+    // Record KV updatedAt so we can detect staleness (fallback to migration time when KV has no meta).
+    metaSet(dbh, `domain_src_updatedAt:${keys.people}`, kvUpdatedAtIso(keys.people) || nowIso);
+    metaSet(dbh, `domain_src_updatedAt:${keys.properties}`, kvUpdatedAtIso(keys.properties) || nowIso);
+    metaSet(dbh, `domain_src_updatedAt:${keys.contracts}`, kvUpdatedAtIso(keys.contracts) || nowIso);
+    metaSet(dbh, `domain_src_updatedAt:${keys.installments}`, kvUpdatedAtIso(keys.installments) || nowIso);
+    metaSet(dbh, `domain_src_updatedAt:${keys.maintenance}`, kvUpdatedAtIso(keys.maintenance) || nowIso);
+    metaSet(dbh, `domain_src_updatedAt:${keys.roles}`, kvUpdatedAtIso(keys.roles) || nowIso);
+    metaSet(dbh, `domain_src_updatedAt:${keys.blacklist}`, kvUpdatedAtIso(keys.blacklist) || nowIso);
     return { ok: true, message: 'تمت تهيئة جداول التقارير بنجاح', migrated: true, counts };
   } catch (e: unknown) {
     const message =
       e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل ترحيل البيانات إلى الجداول';
     return { ok: false, message, migrated: false };
   }
+}
+
+/** Full rebuild of domain SQLite tables from KV (forces migrate; use when tables are empty or inconsistent). */
+export function domainRebuildFromKv(): DomainMigrationResult {
+  const dbh = getDb();
+  ensureDomainSchema(dbh);
+  metaSet(dbh, 'domain_migrated_at', '');
+  return domainMigrateFromKvIfNeeded();
 }
 
 function domainRefreshFromKvIfStale(): DomainMigrationResult {

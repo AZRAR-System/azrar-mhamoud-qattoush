@@ -62,6 +62,7 @@ export type DbChannel =
   | 'domain:installments:contracts'
   | 'reports:run'
   | 'sql:getSettings'
+  | 'sql:readLocalBootstrapCredentials'
   | 'sql:saveSettings'
   | 'sql:test'
   | 'sql:connect'
@@ -136,6 +137,7 @@ contextBridge.exposeInMainWorld('desktopDb', {
   // Domain schema + SQL reports (Desktop)
   domainStatus: () => ipcRenderer.invoke('domain:status'),
   domainMigrate: () => ipcRenderer.invoke('domain:migrate'),
+  domainRebuildFromKv: () => ipcRenderer.invoke('domain:rebuildFromKv'),
   runReport: (id: string) => ipcRenderer.invoke('reports:run', { id }),
 
   // Domain queries (Desktop)
@@ -251,6 +253,7 @@ contextBridge.exposeInMainWorld('desktopDb', {
 
   // SQL Server Sync (Desktop only)
   sqlGetSettings: () => ipcRenderer.invoke('sql:getSettings'),
+  sqlReadLocalBootstrapCredentials: () => ipcRenderer.invoke('sql:readLocalBootstrapCredentials'),
   sqlSaveSettings: (settings: SqlSettings) => ipcRenderer.invoke('sql:saveSettings', settings),
   sqlTestConnection: (settings: SqlSettings) => ipcRenderer.invoke('sql:test', settings),
   sqlConnect: () => ipcRenderer.invoke('sql:connect'),

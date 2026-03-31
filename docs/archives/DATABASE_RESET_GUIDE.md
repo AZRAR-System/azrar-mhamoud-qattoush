@@ -88,7 +88,6 @@ db_people
 db_properties
 db_contracts
 db_installments
-db_payments
 db_roles
 db_commissions
 db_users
@@ -126,12 +125,11 @@ db_initialized
 
 ## 📊 البيانات التي سيتم حذفها
 
-### الجداول الأساسية (9 جداول)
+### الجداول الأساسية (8 جداول)
 - ✅ `db_people` - الأشخاص
 - ✅ `db_properties` - العقارات
 - ✅ `db_contracts` - العقود
-- ✅ `db_installments` - الكمبيالات
-- ✅ `db_payments` - الدفعات
+- ✅ `db_installments` - الكمبيالات وجدول الدفعات (مصدر واحد؛ لا يوجد `db_payments` في التطبيق)
 - ✅ `db_roles` - أدوار الأشخاص
 - ✅ `db_commissions` - العمولات
 - ✅ `db_users` - المستخدمين

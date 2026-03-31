@@ -47,6 +47,7 @@ export function usePeople() {
   } | null>(null);
 
   const warnedUnsupportedRef = useRef(false);
+  const desktopListErrorToastRef = useRef<string | null>(null);
 
   const [showDynamicColumns, setShowDynamicColumns] = useState(false);
   const [dynamicFields, setDynamicFields] = useState<DynamicFormField[]>([]);
@@ -185,6 +186,15 @@ export function usePeople() {
           offset: qDesktopPage * PEOPLE_FAST_PAGE_SIZE,
           limit: PEOPLE_FAST_PAGE_SIZE,
         });
+
+        if (res.error) {
+          if (desktopListErrorToastRef.current !== res.error) {
+            desktopListErrorToastRef.current = res.error;
+            toast.error(res.error);
+          }
+        } else {
+          desktopListErrorToastRef.current = null;
+        }
 
         setDesktopRows(Array.isArray(res.items) ? res.items : []);
         setDesktopTotal(Number(res.total || 0) || 0);

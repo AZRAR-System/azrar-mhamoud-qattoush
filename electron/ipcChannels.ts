@@ -56,6 +56,7 @@ export type IpcInvokeChannel =
 
   // SQL sync/settings
   | 'sql:getSettings'
+  | 'sql:readLocalBootstrapCredentials'
   | 'sql:saveSettings'
   | 'sql:test'
   | 'sql:connect'
