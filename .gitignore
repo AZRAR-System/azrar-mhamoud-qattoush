@@ -13,6 +13,7 @@ dist-ssr/
 # Ignore build artifacts but keep installer resources tracked (see electron-builder.config.cjs)
 build/*
 !build/installer.nsh
+!build/sql-express-install.ps1
 !build/TERMS_AND_PRIVACY.txt
 !build/icon.png
 out/

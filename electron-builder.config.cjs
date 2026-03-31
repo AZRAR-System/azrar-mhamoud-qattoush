@@ -28,6 +28,13 @@ module.exports = {
     buildResources: 'build'
   },
 
+  extraFiles: [
+    {
+      from: 'build/sql-express-install.ps1',
+      to: 'sql-express-install.ps1',
+    },
+  ],
+
   files: [
     'dist/**',
     'electron/**',
