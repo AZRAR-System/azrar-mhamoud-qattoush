@@ -1,5 +1,6 @@
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
@@ -37,10 +38,11 @@ export function InstallmentsContractsList({ page }: Props) {
     setMessageContext,
     setMessageModalOpen,
     openPanel,
+    clearFilters,
   } = page;
 
   return (
-    <div className="space-y-4">
+    <section className="space-y-4" aria-busy={isDesktopFast ? desktopLoading : loading}>
       {isDesktopFast && desktopError && (
         <div className="app-card p-4 border border-rose-200/80 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20">
           <div className="text-sm font-bold text-rose-800 dark:text-rose-200">
@@ -54,8 +56,11 @@ export function InstallmentsContractsList({ page }: Props) {
       {isDesktopFast ? (
         desktopLoading ? (
           <>
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-500 dark:text-slate-400">...</div>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-600" aria-hidden />
+                جاري تحميل القائمة وتطبيق الفلاتر…
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
@@ -98,11 +103,8 @@ export function InstallmentsContractsList({ page }: Props) {
                 ? `لم يتم العثور على عقود تطابق "${search}"`
                 : `لا توجد عقود تطابق الفلاتر المحددة`
             }
-            actionLabel={search.trim() ? 'مسح البحث' : 'مسح الفلاتر'}
-            onAction={() => {
-              setSearch('');
-              setFilter('all');
-            }}
+            actionLabel={search.trim() ? 'مسح البحث' : 'مسح جميع الفلاتر'}
+            onAction={() => clearFilters()}
           />
         ) : (
           <>
@@ -135,13 +137,15 @@ export function InstallmentsContractsList({ page }: Props) {
               </div>
             </div>
 
-            {desktopRows.map((item) => (
+            {desktopRows.map((item, idx) => {
+              const contractId = String(
+                item?.contract?.رقم_العقد ?? item?.contract?.id ?? ''
+              ).trim();
+              const rowKey =
+                contractId || `installments-desktop-p${desktopPage}-i${idx}`;
+              return (
               <ContractFinancialCard
-                key={
-                  item?.contract?.رقم_العقد ||
-                  item?.contract?.id ||
-                  Math.random().toString(16).slice(2)
-                }
+                key={rowKey}
                 contract={item.contract}
                 tenant={item.tenant}
                 property={item.property}
@@ -162,11 +166,18 @@ export function InstallmentsContractsList({ page }: Props) {
                 }}
                 openPanel={openPanel}
               />
-            ))}
+            );
+            })}
           </>
         )
       ) : loading ? (
-        <SkeletonCardGrid count={6} variant="listing" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+            <Loader2 className="h-4 w-4 animate-spin text-indigo-600" aria-hidden />
+            جاري تحميل الأقساط…
+          </div>
+          <SkeletonCardGrid count={6} variant="listing" />
+        </div>
       ) : installments.length === 0 ? (
         // حالة: لا توجد أقساط في النظام
         <EmptyState
@@ -218,6 +229,6 @@ export function InstallmentsContractsList({ page }: Props) {
           />
         ))
       )}
-    </div>
+    </section>
   );
 }

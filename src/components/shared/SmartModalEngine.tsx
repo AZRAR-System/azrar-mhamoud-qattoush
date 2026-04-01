@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useSmartModal, type PanelType } from '@/context/ModalContext';
 import { ChevronDown, ChevronUp, Loader2, ServerCog, X } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
@@ -127,6 +128,25 @@ const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   SQL_SYNC_LOG: SqlSyncLogPanel as unknown as PanelComponent,
   MARQUEE_ADS: MarqueeAdsPanel as unknown as PanelComponent,
 };
+
+/** لوحات عرض تفاصيل (ليست نماذج إدخال) — تُعرض كمنزلق جانبي بدل النافذة المنبثقة المركزية */
+const SLIDE_OVER_DETAIL_PANELS = new Set<PanelType>([
+  'PERSON_DETAILS',
+  'PROPERTY_DETAILS',
+  'CONTRACT_DETAILS',
+  'SALES_LISTING_DETAILS',
+  'REPORT_VIEWER',
+  'LEGAL_NOTICE_GENERATOR',
+  'CLEARANCE_REPORT',
+  'CLEARANCE_WIZARD',
+  'PAYMENT_NOTIFICATIONS',
+  'NOTIFICATION_TEMPLATES',
+  'SECTION_VIEW',
+  'CONTRACT_WHATSAPP_SEND',
+  'MARQUEE_ADS',
+  'CALENDAR_EVENTS',
+  'SQL_SYNC_LOG',
+]);
 
 const PANEL_TITLES: Partial<Record<PanelType, string>> = {
   PERSON_DETAILS: 'تفاصيل الملف',
@@ -448,13 +468,65 @@ export const SmartModalEngine: React.FC = () => {
           );
         }
 
-        // Standard Slide-over Panels (Right-side drawer)
-        // Note: keep these *below* AppModal by using `.panel-*` z-index classes.
+        // عرض التفاصيل: منزلق من بداية السطر (في RTL من اليمين) — وليس نافذة منبثقة وسط الشاشة
         const isTop = index === activePanels.length - 1;
         const isSectionView = panel.type === 'SECTION_VIEW';
         const isWidePanel = panel.type === 'CALENDAR_EVENTS' || panel.type === 'SQL_SYNC_LOG';
         const size = isSectionView ? '6xl' : isWidePanel ? '5xl' : '3xl';
         const handleClose = () => closePanel(panel.id);
+        const titleStr = String(panel.props?.title ?? PANEL_TITLES[panel.type] ?? '');
+        const titleId = `panel-drawer-title-${panel.id}`;
+
+        const useSlideOver = Component && SLIDE_OVER_DETAIL_PANELS.has(panel.type);
+        const drawerMaxClass = isSectionView
+          ? 'max-w-6xl'
+          : isWidePanel
+            ? 'max-w-5xl'
+            : 'max-w-3xl';
+
+        if (useSlideOver && typeof document !== 'undefined') {
+          return createPortal(
+            <div
+              key={panel.id}
+              className={`panel-overlay app-panel-overlay fixed inset-0 flex animate-fade-in ${isTop ? '' : 'hidden'}`}
+              onClick={handleClose}
+              role="presentation"
+            >
+              <aside
+                className={`panel-content app-surface-pulse-primary relative flex h-full w-full flex-col overflow-hidden border border-slate-200/80 bg-white shadow-2xl ring-1 ring-black/5 animate-slide-left dark:border-slate-800 dark:bg-slate-900 dark:ring-white/10 ${drawerMaxClass}`}
+                style={{ zIndex: 'var(--z-panel-content)' }}
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+              >
+                <div className="no-print flex shrink-0 items-center gap-3 border-b border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="shrink-0 rounded-xl p-2.5 text-slate-400 transition-all hover:bg-slate-200/60 hover:text-slate-600 active:scale-90 dark:hover:bg-slate-700/60 dark:hover:text-slate-300"
+                    aria-label="إغلاق"
+                    title="إغلاق"
+                  >
+                    <X size={20} />
+                  </button>
+                  <h2
+                    id={titleId}
+                    className="min-w-0 flex-1 text-base font-black leading-snug text-slate-800 dark:text-white sm:text-lg"
+                  >
+                    {titleStr}
+                  </h2>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar relative">
+                  <Suspense fallback={panelChunkFallback}>
+                    <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
+                  </Suspense>
+                </div>
+              </aside>
+            </div>,
+            document.body
+          );
+        }
 
         return (
           <AppModal

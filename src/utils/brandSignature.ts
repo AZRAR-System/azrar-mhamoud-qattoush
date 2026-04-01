@@ -9,7 +9,7 @@ export function getBrandYears(now: Date = new Date()): number {
 
 export function getOfficialBrandSignature(now: Date = new Date()): string {
   const years = getBrandYears(now);
-  return `خبرني للخدمات العقارية – ${years} سنة تفوّق وثقة\nلأن الثقة لا تُشترى… تُبنى.`;
+  return `أزرار للخدمات العقارية – ${years} سنة تفوّق وثقة\nلأن الثقة لا تُشترى… تُبنى.`;
 }
 
 function stripKnownBrandLinesFromEnd(message: string): string {
@@ -20,8 +20,8 @@ function stripKnownBrandLinesFromEnd(message: string): string {
     const t = line.trim();
     if (!t) return true;
 
-    if (/^صادر\s+عن\s+خبرني\s+للخدمات\s+العقارية\b/.test(t)) return true;
-    if (/^خبرني\s+للخدمات\s+العقارية\b/.test(t)) return true;
+    if (/^صادر\s+عن\s+(أزرار|خبرني)\s+للخدمات\s+العقارية\b/.test(t)) return true;
+    if (/^(أزرار|خبرني)\s+للخدمات\s+العقارية\b/.test(t)) return true;
 
     // Other legacy sign-offs we want to replace with the official signature.
     if (/^(?:إدارة|ادارة)\s+(?:الأملاك|الاملاك)\b/.test(t)) return true;

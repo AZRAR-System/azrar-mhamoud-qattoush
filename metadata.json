@@ -1,5 +1,5 @@
 {
-  "name": "Copy of Khaberni Real Estate System mastar1",
-  "description": "Legacy migration of Khaberni Real Estate System to modern web technologies with strict Arabic schema and automated workflows.",
+  "name": "AZRAR Real Estate Management System",
+  "description": "Arabic-first real estate management (desktop + web) with structured workflows.",
   "requestFramePermissions": []
 }

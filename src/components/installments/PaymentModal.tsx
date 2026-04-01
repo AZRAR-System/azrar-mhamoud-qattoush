@@ -10,6 +10,7 @@ import { MoneyInput } from '@/components/ui/MoneyInput';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
 import { formatNumber } from '@/utils/format';
 import { isRecord } from '@/components/installments/installmentsUtils';
+import { notifyInstallmentsDataChanged } from '@/utils/installmentsRefresh';
 
 export interface PaymentModalProps {
   installment: الكمبيالات_tbl;
@@ -104,6 +105,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       toast.info(`ملاحظة: ${notes}`);
     }
 
+    notifyInstallmentsDataChanged();
     onSuccess();
     onClose();
   };

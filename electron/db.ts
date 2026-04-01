@@ -490,7 +490,7 @@ type ReportRunResult = {
   message?: string;
 };
 
-const DOMAIN_SCHEMA_VERSION = 7;
+const DOMAIN_SCHEMA_VERSION = 9;
 
 function metaGet(dbh: SqliteDb, key: string): string | null {
   const row = dbh.prepare('SELECT v FROM domain_meta WHERE k = ?').get(key) as
@@ -629,6 +629,51 @@ function migrateDomainSchemaV7(dbh: SqliteDb): void {
   }
 }
 
+/** Drop overly strict UNIQUE on plot/plate/apt — duplicates can exist after sync/legacy KV. */
+function migrateDomainSchemaV8(dbh: SqliteDb): void {
+  try {
+    dbh.exec('DROP INDEX IF EXISTS uq_properties_plot_plate_apt');
+  } catch {
+    // ignore
+  }
+  try {
+    dbh.exec(`
+      CREATE INDEX IF NOT EXISTS idx_properties_plot_plate_apt
+      ON properties(
+        TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_قطعة"'), '')),
+        TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_لوحة"'), '')),
+        TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_شقة"'), ''))
+      )
+      WHERE TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_قطعة"'), '')) <> ''
+        AND TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_لوحة"'), '')) <> ''
+        AND TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_شقة"'), '')) <> ''
+    `);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Drop UNIQUE partial indexes on derived domain columns — they conflict with real KV/sync data
+ * (duplicate names, shared phones, reused internal codes, etc.). Search still uses idx_people_* /
+ * idx_properties_internalCode on the scalar columns.
+ */
+function migrateDomainSchemaV9(dbh: SqliteDb): void {
+  const drops = [
+    'uq_people_nationalId',
+    'uq_people_phone',
+    'uq_people_name',
+    'uq_properties_internalCode',
+  ];
+  for (const name of drops) {
+    try {
+      dbh.exec(`DROP INDEX IF EXISTS ${name}`);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 function ensureDomainSchema(dbh: SqliteDb): void {
   dbh.exec(`
     CREATE TABLE IF NOT EXISTS domain_meta (
@@ -758,44 +803,16 @@ function ensureDomainSchema(dbh: SqliteDb): void {
     CREATE INDEX IF NOT EXISTS idx_maint_createdDate ON maintenance_tickets(createdDate);
   `);
 
-  // Best-effort UNIQUE constraints (avoid duplicates).
-  // IMPORTANT: Domain tables are derived from KV snapshots; duplicates may already exist in legacy datasets.
-  // Creating a UNIQUE index would fail in that case and must not crash the app.
-  try {
-    dbh.exec(
-      "CREATE UNIQUE INDEX IF NOT EXISTS uq_people_nationalId ON people(nationalId) WHERE TRIM(COALESCE(nationalId,'')) <> ''"
-    );
-  } catch {
-    // ignore
-  }
-  try {
-    dbh.exec(
-      "CREATE UNIQUE INDEX IF NOT EXISTS uq_people_phone ON people(phone) WHERE TRIM(COALESCE(phone,'')) <> ''"
-    );
-  } catch {
-    // ignore
-  }
-  try {
-    dbh.exec(
-      "CREATE UNIQUE INDEX IF NOT EXISTS uq_people_name ON people(name) WHERE TRIM(COALESCE(name,'')) <> ''"
-    );
-  } catch {
-    // ignore
-  }
+  // Do NOT add UNIQUE indexes on derived people/properties columns: KV pull and legacy imports may
+  // contain duplicate phones, names, internal codes, or plot/plate/apt triples. Uniqueness belongs
+  // in app validation, not SQLite, or migration will throw UNIQUE constraint failed.
+  // person_roles keeps UNIQUE(personId, role) + INSERT OR IGNORE — duplicates in source are skipped.
 
-  try {
-    dbh.exec(
-      "CREATE UNIQUE INDEX IF NOT EXISTS uq_properties_internalCode ON properties(internalCode) WHERE TRIM(COALESCE(internalCode,'')) <> ''"
-    );
-  } catch {
-    // ignore
-  }
-
-  // Composite uniqueness for land identifiers (plot/plate/apartment) stored inside JSON snapshot.
-  // Only enforce when all 3 are present.
+  // Composite index for land identifiers (plot/plate/apartment) — NOT UNIQUE: KV/sync may contain
+  // multiple property rows with the same triple (different رقم_عقار) or legacy duplicates.
   try {
     dbh.exec(`
-      CREATE UNIQUE INDEX IF NOT EXISTS uq_properties_plot_plate_apt
+      CREATE INDEX IF NOT EXISTS idx_properties_plot_plate_apt
       ON properties(
         TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_قطعة"'), '')),
         TRIM(COALESCE(JSON_EXTRACT(data, '$."رقم_لوحة"'), '')),
@@ -859,6 +876,14 @@ function ensureDomainSchema(dbh: SqliteDb): void {
 
   if (current < 7) {
     migrateDomainSchemaV7(dbh);
+  }
+
+  if (current < 8) {
+    migrateDomainSchemaV8(dbh);
+  }
+
+  if (current < 9) {
+    migrateDomainSchemaV9(dbh);
   }
 
   metaSet(dbh, 'domain_schema_version', String(DOMAIN_SCHEMA_VERSION));
@@ -2388,6 +2413,11 @@ export function domainInstallmentsContractsSearch(payload: {
   sort?: string;
   offset?: number;
   limit?: number;
+  filterStartDate?: string;
+  filterEndDate?: string;
+  filterMinAmount?: number;
+  filterMaxAmount?: number;
+  filterPaymentMethod?: string;
 }): { ok: boolean; items?: unknown[]; total?: number; message?: string } {
   const dbh = getDb();
   ensureDomainSchema(dbh);
@@ -2407,11 +2437,31 @@ export function domainInstallmentsContractsSearch(payload: {
   const offset = Math.max(0, Math.trunc(Number(payload?.offset) || 0));
   const cap = Math.max(1, Math.min(100, Math.trunc(Number(payload?.limit) || 20)));
 
+  const filterStartDate = String(payload?.filterStartDate || '').trim().slice(0, 32);
+  const filterEndDate = String(payload?.filterEndDate || '').trim().slice(0, 32);
+  const rawMin = payload?.filterMinAmount;
+  const rawMax = payload?.filterMaxAmount;
+  const filterMinNum =
+    rawMin !== undefined && rawMin !== null && rawMin !== '' && Number.isFinite(Number(rawMin))
+      ? Number(rawMin)
+      : NaN;
+  const filterMaxNum =
+    rawMax !== undefined && rawMax !== null && rawMax !== '' && Number.isFinite(Number(rawMax))
+      ? Number(rawMax)
+      : NaN;
+  const filterPaymentMethod = String(payload?.filterPaymentMethod || 'all').trim().toLowerCase();
+
   const today = toIsoDateOnly(new Date());
   const like = `%${qLower}%`;
   const likeDigits = qDigits ? `%${qDigits}%` : '';
 
   try {
+    // Prefer JSON snapshot (i.data) over indexed columns — same as debt/due expressions below.
+    const instTypeSql = `trim(COALESCE(NULLIF(json_extract(i.data, '$.نوع_الكمبيالة'), ''), NULLIF(i.type, ''), ''))`;
+    const instStatusSql = `trim(COALESCE(NULLIF(json_extract(i.data, '$.حالة_الكمبيالة'), ''), NULLIF(i.status, ''), ''))`;
+    const instDueYmdSql = `substr(trim(COALESCE(NULLIF(json_extract(i.data, '$.تاريخ_استحقاق'), ''), NULLIF(i.dueDate, ''))), 1, 10)`;
+    const instRemainingSql = `CASE WHEN ${instStatusSql} = 'مدفوع' THEN 0 ELSE COALESCE(CAST(json_extract(i.data, '$.القيمة_المتبقية') AS REAL), i.remaining, 0) END`;
+
     const whereParts: string[] = [];
     const args: unknown[] = [];
 
@@ -2424,8 +2474,8 @@ export function domainInstallmentsContractsSearch(payload: {
           SELECT 1 FROM installments i
           WHERE i.contractId = c.id
             AND (i.isArchived IS NULL OR i.isArchived = 0)
-            AND COALESCE(i.type,'') <> 'تأمين'
-            AND COALESCE(i.status,'') <> 'ملغي'
+            AND ${instTypeSql} <> 'تأمين'
+            AND ${instStatusSql} <> 'ملغي'
         )
       )`
     );
@@ -2461,20 +2511,20 @@ export function domainInstallmentsContractsSearch(payload: {
       SELECT 1 FROM installments i
       WHERE i.contractId = c.id
         AND (i.isArchived IS NULL OR i.isArchived = 0)
-        AND COALESCE(i.type,'') <> 'تأمين'
-        AND COALESCE(i.status,'') <> 'ملغي'
-        AND COALESCE(i.remaining,0) > 0
-        AND i.dueDate IS NOT NULL
-        AND date(i.dueDate) IS NOT NULL
-        AND date(i.dueDate) <= date(?)
+        AND ${instTypeSql} <> 'تأمين'
+        AND ${instStatusSql} <> 'ملغي'
+        AND (${instRemainingSql}) > 0
+        AND ${instDueYmdSql} IS NOT NULL AND ${instDueYmdSql} != ''
+        AND date(${instDueYmdSql}) IS NOT NULL
+        AND date(${instDueYmdSql}) <= date(?)
     )`;
 
     const postponedExpr = `EXISTS (
       SELECT 1 FROM installments i
       WHERE i.contractId = c.id
         AND (i.isArchived IS NULL OR i.isArchived = 0)
-        AND COALESCE(i.type,'') <> 'تأمين'
-        AND COALESCE(i.status,'') <> 'ملغي'
+        AND ${instTypeSql} <> 'تأمين'
+        AND ${instStatusSql} <> 'ملغي'
         AND TRIM(COALESCE(JSON_EXTRACT(i.data, '$.تاريخ_التأجيل'), '')) <> ''
     )`;
 
@@ -2482,21 +2532,21 @@ export function domainInstallmentsContractsSearch(payload: {
       SELECT 1 FROM installments i
       WHERE i.contractId = c.id
         AND (i.isArchived IS NULL OR i.isArchived = 0)
-        AND COALESCE(i.type,'') <> 'تأمين'
-        AND COALESCE(i.status,'') <> 'ملغي'
-        AND COALESCE(i.remaining,0) > 0
-        AND i.dueDate IS NOT NULL
-        AND date(i.dueDate) IS NOT NULL
-        AND date(i.dueDate) > date(?)
-        AND date(i.dueDate) <= date(?, '+7 day')
+        AND ${instTypeSql} <> 'تأمين'
+        AND ${instStatusSql} <> 'ملغي'
+        AND (${instRemainingSql}) > 0
+        AND ${instDueYmdSql} IS NOT NULL AND ${instDueYmdSql} != ''
+        AND date(${instDueYmdSql}) IS NOT NULL
+        AND date(${instDueYmdSql}) > date(?)
+        AND date(${instDueYmdSql}) <= date(?, '+7 day')
     )`;
 
     const anyRelevantExpr = `EXISTS (
       SELECT 1 FROM installments i
       WHERE i.contractId = c.id
         AND (i.isArchived IS NULL OR i.isArchived = 0)
-        AND COALESCE(i.type,'') <> 'تأمين'
-        AND COALESCE(i.status,'') <> 'ملغي'
+        AND ${instTypeSql} <> 'تأمين'
+        AND ${instStatusSql} <> 'ملغي'
     )`;
 
     const fullyPaidExpr = `(
@@ -2505,22 +2555,22 @@ export function domainInstallmentsContractsSearch(payload: {
         SELECT 1 FROM installments i
         WHERE i.contractId = c.id
           AND (i.isArchived IS NULL OR i.isArchived = 0)
-          AND COALESCE(i.type,'') <> 'تأمين'
-          AND COALESCE(i.status,'') <> 'ملغي'
-          AND COALESCE(i.remaining,0) > 0
+          AND ${instTypeSql} <> 'تأمين'
+          AND ${instStatusSql} <> 'ملغي'
+          AND (${instRemainingSql}) > 0
       )
     )`;
 
     const nextDueDateExpr = `(
-      SELECT MIN(date(i.dueDate))
+      SELECT MIN(date(${instDueYmdSql}))
       FROM installments i
       WHERE i.contractId = c.id
         AND (i.isArchived IS NULL OR i.isArchived = 0)
-        AND COALESCE(i.type,'') <> 'تأمين'
-        AND COALESCE(i.status,'') <> 'ملغي'
-        AND COALESCE(i.remaining,0) > 0
-        AND i.dueDate IS NOT NULL
-        AND date(i.dueDate) IS NOT NULL
+        AND ${instTypeSql} <> 'تأمين'
+        AND ${instStatusSql} <> 'ملغي'
+        AND (${instRemainingSql}) > 0
+        AND ${instDueYmdSql} IS NOT NULL AND ${instDueYmdSql} != ''
+        AND date(${instDueYmdSql}) IS NOT NULL
     )`;
 
     const lastPostponeDateExpr = `(
@@ -2541,15 +2591,68 @@ export function domainInstallmentsContractsSearch(payload: {
       filterWhereParts.push('hasDueSoon = 1');
     } else if (filter === 'paid') {
       filterWhereParts.push('isFullyPaid = 1');
-    } else if (filter === 'postponed') {
+    } else     if (filter === 'postponed') {
       filterWhereParts.push('hasPostponed = 1');
     }
+
+    const instScope = `
+      SELECT 1 FROM installments i
+      WHERE i.contractId = base.contractId
+        AND (i.isArchived IS NULL OR i.isArchived = 0)
+        AND ${instTypeSql} <> 'تأمين'
+        AND ${instStatusSql} <> 'ملغي'
+    `;
+
+    if (filterStartDate) {
+      filterWhereParts.push(`EXISTS (
+      ${instScope}
+        AND ${instDueYmdSql} IS NOT NULL AND ${instDueYmdSql} != ''
+        AND date(${instDueYmdSql}) IS NOT NULL
+        AND date(${instDueYmdSql}) >= date(?)
+    )`);
+      filterArgs.push(filterStartDate);
+    }
+    if (filterEndDate) {
+      filterWhereParts.push(`EXISTS (
+      ${instScope}
+        AND ${instDueYmdSql} IS NOT NULL AND ${instDueYmdSql} != ''
+        AND date(${instDueYmdSql}) IS NOT NULL
+        AND date(${instDueYmdSql}) <= date(?)
+    )`);
+      filterArgs.push(filterEndDate);
+    }
+    if (Number.isFinite(filterMinNum)) {
+      filterWhereParts.push(`EXISTS (
+      ${instScope}
+        AND COALESCE(i.amount, 0) >= ?
+    )`);
+      filterArgs.push(filterMinNum);
+    }
+    if (Number.isFinite(filterMaxNum)) {
+      filterWhereParts.push(`EXISTS (
+      ${instScope}
+        AND COALESCE(i.amount, 0) <= ?
+    )`);
+      filterArgs.push(filterMaxNum);
+    }
+    if (filterPaymentMethod && filterPaymentMethod !== 'all') {
+      filterWhereParts.push(`(
+        lower(trim(COALESCE(
+          NULLIF(trim(COALESCE(base.contractPaymentMethod, '')), ''),
+          JSON_EXTRACT(base.contractData, '$.طريقة_الدفع'),
+          ''
+        ))) = ?
+      )`);
+      filterArgs.push(filterPaymentMethod);
+    }
+
     const filterWhereSql = filterWhereParts.length ? `WHERE ${filterWhereParts.join(' AND ')}` : '';
 
     const cteSql = `
       WITH base AS (
         SELECT
           c.id AS contractId,
+          TRIM(COALESCE(c.paymentMethod, '')) AS contractPaymentMethod,
           c.data AS contractData,
           t.data AS tenantData,
           p.data AS propertyData,
@@ -2576,6 +2679,8 @@ export function domainInstallmentsContractsSearch(payload: {
         const tenantNameExpr = "lower(COALESCE(JSON_EXTRACT(tenantData, '$.الاسم'), ''))";
         const nullsLast =
           "CASE WHEN nextDueDate IS NULL OR TRIM(COALESCE(nextDueDate,'')) = '' THEN 1 ELSE 0 END";
+        const overdueFirst =
+          'CASE WHEN hasDebt = 1 THEN 0 ELSE 1 END';
         const postponeNullsLast =
           "CASE WHEN lastPostponeDate IS NULL OR TRIM(COALESCE(lastPostponeDate,'')) = '' THEN 1 ELSE 0 END";
         switch (sort) {
@@ -2584,9 +2689,9 @@ export function domainInstallmentsContractsSearch(payload: {
           case 'postpone-desc':
             return `${postponeNullsLast} ASC, COALESCE(lastPostponeDate,'') DESC, contractId DESC`;
           case 'due-asc':
-            return `${nullsLast} ASC, COALESCE(nextDueDate,'') ASC, contractId ASC`;
+            return `${overdueFirst} ASC, ${nullsLast} ASC, COALESCE(nextDueDate,'') ASC, contractId ASC`;
           case 'due-desc':
-            return `${nullsLast} ASC, COALESCE(nextDueDate,'') DESC, contractId DESC`;
+            return `${overdueFirst} ASC, ${nullsLast} ASC, COALESCE(nextDueDate,'') DESC, contractId DESC`;
           case 'tenant-desc':
             return `${tenantNameExpr} DESC, contractId DESC`;
           case 'tenant-asc':
@@ -3726,7 +3831,15 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
   });
 
   try {
-    tx();
+    // Bulk load from KV can contain orphan links (installment→contract, contract→property, etc.)
+    // after partial sync or legacy data. FK enforcement would abort the whole migration with
+    // FOREIGN KEY constraint failed — disable only for this transaction, then restore.
+    dbh.pragma('foreign_keys = OFF');
+    try {
+      tx();
+    } finally {
+      dbh.pragma('foreign_keys = ON');
+    }
     metaSet(dbh, 'domain_migrated_at', nowIso);
     // Record KV updatedAt so we can detect staleness (fallback to migration time when KV has no meta).
     metaSet(dbh, `domain_src_updatedAt:${keys.people}`, kvUpdatedAtIso(keys.people) || nowIso);
@@ -3742,6 +3855,253 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
       e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل ترحيل البيانات إلى الجداول';
     return { ok: false, message, migrated: false };
   }
+}
+
+/**
+ * After every KV write, refresh denormalized SQLite columns from the same JSON the renderer saved.
+ * Without this, indexed columns (dueDate, remaining, …) lag behind `data` until a full rebuild.
+ */
+export function domainSyncAfterKvSet(key: string, value: string): { ok: boolean; message?: string } {
+  const dbh = getDb();
+  ensureDomainSchema(dbh);
+  const k = String(key || '').trim();
+  if (!k.startsWith('db_')) return { ok: true };
+
+  try {
+    if (!metaGet(dbh, 'domain_migrated_at')) {
+      const r = domainMigrateFromKvIfNeeded();
+      return r.ok ? { ok: true } : { ok: false, message: r.message };
+    }
+
+    const nowIso = new Date().toISOString();
+
+    if (k === 'db_installments') {
+      syncInstallmentsKvPayload(dbh, value, nowIso);
+    } else if (k === 'db_contracts') {
+      syncContractsKvPayload(dbh, value, nowIso);
+    } else if (k === 'db_people') {
+      syncPeopleKvPayload(dbh, value, nowIso);
+    } else if (k === 'db_properties') {
+      syncPropertiesKvPayload(dbh, value, nowIso);
+    } else if (k === 'db_maintenance_tickets') {
+      syncMaintenanceKvPayload(dbh, value, nowIso);
+    } else if (k === 'db_roles') {
+      syncRolesKvPayload(dbh, value, nowIso);
+    } else if (k === 'db_blacklist') {
+      syncBlacklistKvPayload(dbh, value, nowIso);
+    } else {
+      return { ok: true };
+    }
+
+    const ts = kvUpdatedAtIso(k) || nowIso;
+    metaSet(dbh, `domain_src_updatedAt:${k}`, ts);
+    return { ok: true };
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل مزامنة جداول التقارير مع التخزين';
+    return { ok: false, message };
+  }
+}
+
+function syncInstallmentsKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
+  const installments = safeJsonParseArray(value);
+  const upsertInstallment = dbh.prepare(
+    'INSERT INTO installments (id, contractId, dueDate, amount, paid, remaining, status, type, isArchived, paidAt, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET contractId=excluded.contractId, dueDate=excluded.dueDate, amount=excluded.amount, paid=excluded.paid, remaining=excluded.remaining, status=excluded.status, type=excluded.type, isArchived=excluded.isArchived, paidAt=excluded.paidAt, data=excluded.data, updatedAt=excluded.updatedAt'
+  );
+  const tx = dbh.transaction(() => {
+    dbh.exec('DELETE FROM installments');
+    for (const inst of installments) {
+      const instRec = toRecord(inst);
+      const id = String(
+        instRec['رقم_الكمبيالة'] ?? instRec.id ?? instRec.installmentId ?? ''
+      ).trim();
+      if (!id) continue;
+      const { amount, paid, remaining } = computeInstallmentAmounts(inst);
+
+      const contractId = String(
+        instRec['رقم_العقد'] ?? instRec.contractId ?? instRec.contract_id ?? ''
+      ).trim();
+      const dueDate = String(
+        instRec['تاريخ_استحقاق'] ?? instRec.dueDate ?? instRec.due_date ?? ''
+      ).trim();
+      const status = String(instRec['حالة_الكمبيالة'] ?? instRec.status ?? '').trim();
+      const type = String(instRec['نوع_الكمبيالة'] ?? instRec.type ?? '').trim();
+      const paidAt = String(
+        instRec['تاريخ_الدفع'] ?? instRec.paidAt ?? instRec.paid_at ?? ''
+      ).trim();
+
+      upsertInstallment.run(
+        id,
+        contractId ? contractId : null,
+        dueDate ? dueDate : null,
+        amount,
+        paid,
+        remaining,
+        status ? status : null,
+        type ? type : null,
+        instRec.isArchived ? 1 : 0,
+        paidAt ? paidAt : null,
+        JSON.stringify(inst),
+        nowIso
+      );
+    }
+  });
+  dbh.pragma('foreign_keys = OFF');
+  try {
+    tx();
+  } finally {
+    dbh.pragma('foreign_keys = ON');
+  }
+}
+
+function syncContractsKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
+  const contracts = safeJsonParseArray(value);
+  const upsertContract = dbh.prepare(
+    'INSERT INTO contracts (id, propertyId, tenantId, guarantorId, status, startDate, endDate, annualValue, paymentFrequency, paymentMethod, isArchived, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET propertyId=excluded.propertyId, tenantId=excluded.tenantId, guarantorId=excluded.guarantorId, status=excluded.status, startDate=excluded.startDate, endDate=excluded.endDate, annualValue=excluded.annualValue, paymentFrequency=excluded.paymentFrequency, paymentMethod=excluded.paymentMethod, isArchived=excluded.isArchived, data=excluded.data, updatedAt=excluded.updatedAt'
+  );
+  const tx = dbh.transaction(() => {
+    for (const c of contracts) {
+      const cRec = toRecord(c);
+      const id = String(cRec['رقم_العقد'] ?? '').trim();
+      if (!id) continue;
+      upsertContract.run(
+        id,
+        cRec['رقم_العقار'] ? String(cRec['رقم_العقار']) : null,
+        cRec['رقم_المستاجر'] ? String(cRec['رقم_المستاجر']) : null,
+        cRec['رقم_الكفيل'] ? String(cRec['رقم_الكفيل']) : null,
+        cRec['حالة_العقد'] ? String(cRec['حالة_العقد']) : null,
+        cRec['تاريخ_البداية'] ? String(cRec['تاريخ_البداية']) : null,
+        cRec['تاريخ_النهاية'] ? String(cRec['تاريخ_النهاية']) : null,
+        toNumber(cRec['القيمة_السنوية']),
+        toNumber(cRec['تكرار_الدفع']),
+        cRec['طريقة_الدفع'] ? String(cRec['طريقة_الدفع']) : null,
+        cRec.isArchived ? 1 : 0,
+        JSON.stringify(c),
+        nowIso
+      );
+    }
+  });
+  tx();
+}
+
+function syncPeopleKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
+  const people = safeJsonParseArray(value);
+  const upsertPeople = dbh.prepare(
+    'INSERT INTO people (id, name, nationalId, phone, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, nationalId=excluded.nationalId, phone=excluded.phone, data=excluded.data, updatedAt=excluded.updatedAt'
+  );
+  const tx = dbh.transaction(() => {
+    for (const p of people) {
+      const pRec = toRecord(p);
+      const id = String(pRec['رقم_الشخص'] ?? '').trim();
+      if (!id) continue;
+
+      const nationalId = pRec['الرقم_الوطني'] ? String(pRec['الرقم_الوطني']) : null;
+      const phone = pRec['رقم_الهاتف'] ? String(pRec['رقم_الهاتف']) : null;
+
+      upsertPeople.run(
+        id,
+        String(pRec['الاسم'] ?? ''),
+        nationalId,
+        phone,
+        JSON.stringify(p),
+        nowIso
+      );
+    }
+  });
+  tx();
+}
+
+function syncPropertiesKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
+  const properties = safeJsonParseArray(value);
+  const upsertProperty = dbh.prepare(
+    'INSERT INTO properties (id, internalCode, ownerId, type, status, address, city, area, isRented, isForSale, isForRent, salePrice, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET internalCode=excluded.internalCode, ownerId=excluded.ownerId, type=excluded.type, status=excluded.status, address=excluded.address, city=excluded.city, area=excluded.area, isRented=excluded.isRented, isForSale=excluded.isForSale, isForRent=excluded.isForRent, salePrice=excluded.salePrice, data=excluded.data, updatedAt=excluded.updatedAt'
+  );
+  const tx = dbh.transaction(() => {
+    for (const pr of properties) {
+      const prRec = toRecord(pr);
+      const id = String(prRec['رقم_العقار'] ?? '').trim();
+      if (!id) continue;
+
+      const salePriceNum = toNumber(prRec.salePrice);
+      upsertProperty.run(
+        id,
+        prRec['الكود_الداخلي'] ? String(prRec['الكود_الداخلي']) : null,
+        prRec['رقم_المالك'] ? String(prRec['رقم_المالك']) : null,
+        prRec['النوع'] ? String(prRec['النوع']) : null,
+        prRec['حالة_العقار'] ? String(prRec['حالة_العقار']) : null,
+        prRec['العنوان'] ? String(prRec['العنوان']) : null,
+        prRec['المدينة'] ? String(prRec['المدينة']) : null,
+        prRec['المنطقة'] ? String(prRec['المنطقة']) : null,
+        prRec.IsRented ? 1 : 0,
+        prRec.isForSale ? 1 : 0,
+        prRec.isForRent === false ? 0 : 1,
+        salePriceNum || null,
+        JSON.stringify(pr),
+        nowIso
+      );
+    }
+  });
+  tx();
+}
+
+function syncMaintenanceKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
+  const maintenance = safeJsonParseArray(value);
+  const upsertTicket = dbh.prepare(
+    'INSERT INTO maintenance_tickets (id, propertyId, tenantId, createdDate, status, priority, issue, closedDate, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET propertyId=excluded.propertyId, tenantId=excluded.tenantId, createdDate=excluded.createdDate, status=excluded.status, priority=excluded.priority, issue=excluded.issue, closedDate=excluded.closedDate, data=excluded.data, updatedAt=excluded.updatedAt'
+  );
+  const tx = dbh.transaction(() => {
+    for (const t of maintenance) {
+      const tRec = toRecord(t);
+      const id = String(tRec['رقم_التذكرة'] ?? '').trim();
+      if (!id) continue;
+      upsertTicket.run(
+        id,
+        tRec['رقم_العقار'] ? String(tRec['رقم_العقار']) : null,
+        tRec['رقم_المستاجر'] ? String(tRec['رقم_المستاجر']) : null,
+        tRec['تاريخ_الطلب'] ? String(tRec['تاريخ_الطلب']) : null,
+        tRec['الحالة'] ? String(tRec['الحالة']) : null,
+        tRec['الأولوية'] ? String(tRec['الأولوية']) : null,
+        tRec['الوصف'] ? String(tRec['الوصف']) : null,
+        tRec['تاريخ_الإغلاق'] ? String(tRec['تاريخ_الإغلاق']) : null,
+        JSON.stringify(t),
+        nowIso
+      );
+    }
+  });
+  tx();
+}
+
+function syncRolesKvPayload(dbh: SqliteDb, value: string, _nowIso: string): void {
+  const roles = safeJsonParseArray(value);
+  const insertRole = dbh.prepare('INSERT OR IGNORE INTO person_roles (personId, role) VALUES (?, ?)');
+  const tx = dbh.transaction(() => {
+    dbh.exec('DELETE FROM person_roles');
+    for (const r of roles) {
+      const rRec = toRecord(r);
+      const personId = String(rRec['رقم_الشخص'] ?? '').trim();
+      const role = String(rRec['الدور'] ?? '').trim();
+      if (!personId || !role) continue;
+      insertRole.run(personId, role);
+    }
+  });
+  tx();
+}
+
+function syncBlacklistKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
+  const blacklist = safeJsonParseArray(value);
+  const upsertBlacklist = dbh.prepare(
+    'INSERT INTO blacklist (personId, isActive, data, updatedAt) VALUES (?, ?, ?, ?) ON CONFLICT(personId) DO UPDATE SET isActive=excluded.isActive, data=excluded.data, updatedAt=excluded.updatedAt'
+  );
+  const tx = dbh.transaction(() => {
+    for (const b of blacklist) {
+      const bRec = toRecord(b);
+      const personId = String(bRec.personId ?? '').trim();
+      if (!personId) continue;
+      const isActive = bRec.isActive === false ? 0 : 1;
+      upsertBlacklist.run(personId, isActive, JSON.stringify(b), nowIso);
+    }
+  });
+  tx();
 }
 
 /** Full rebuild of domain SQLite tables from KV (forces migrate; use when tables are empty or inconsistent). */

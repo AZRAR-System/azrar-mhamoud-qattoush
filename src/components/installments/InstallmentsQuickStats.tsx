@@ -10,8 +10,8 @@ export function InstallmentsQuickStats({ page }: Props) {
   return (
     <>
       {!isDesktopFast && financialStats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
-          <div className="bg-white/50 dark:bg-slate-900/50 p-5 rounded-3xl border border-white dark:border-slate-700/50 hover:shadow-lg transition-all duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="app-card p-5 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 rounded-xl">
                 <TrendingUp size={18} />
@@ -29,7 +29,7 @@ export function InstallmentsQuickStats({ page }: Props) {
             </div>
           </div>
 
-          <div className="bg-white/50 dark:bg-slate-900/50 p-5 rounded-3xl border border-white dark:border-slate-700/50 hover:shadow-lg transition-all duration-300">
+          <div className="app-card p-5 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-xl">
                 <AlertCircle size={18} />
@@ -47,7 +47,7 @@ export function InstallmentsQuickStats({ page }: Props) {
             </div>
           </div>
 
-          <div className="bg-white/50 dark:bg-slate-900/50 p-5 rounded-3xl border border-white dark:border-slate-700/50 hover:shadow-lg transition-all duration-300">
+          <div className="app-card p-5 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 rounded-xl">
                 <BarChart3 size={18} />
@@ -65,7 +65,7 @@ export function InstallmentsQuickStats({ page }: Props) {
             </div>
           </div>
 
-          <div className="bg-white/50 dark:bg-slate-900/50 p-5 rounded-3xl border border-white dark:border-slate-700/50 hover:shadow-lg transition-all duration-300 flex flex-col justify-center">
+          <div className="app-card p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-center">
             <Button
               variant="primary"
               className="w-full rounded-2xl gap-2 py-4 shadow-xl shadow-indigo-500/20"

@@ -28,6 +28,7 @@ import { useInAppReminderNotifier } from '@/hooks/useInAppReminderNotifier';
 import { getDatabaseStats } from '@/services/resetDatabase';
 import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
+import { runWithSqlSyncBlocking } from '@/utils/sqlSyncBlockingUi';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 const getUnknownMessage = (v: unknown): string | undefined =>
@@ -280,14 +281,16 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           const st = (await window.desktopDb?.sqlStatus?.()) as unknown as SqlStatus | null;
           if (cancelled) return;
           if (st?.configured && st?.enabled) {
-            await window.desktopDb?.sqlConnect?.();
-            const syncRes =
-              (await window.desktopDb?.sqlSyncNow?.()) as unknown as DesktopOkMessage | null;
-            if (cancelled) return;
-            if (syncRes?.ok) {
-              // Reload to rebuild in-memory indexes/caches and ensure relationships are consistent
-              window.location.reload();
-            }
+            await runWithSqlSyncBlocking(async () => {
+              await window.desktopDb?.sqlConnect?.();
+              const syncRes =
+                (await window.desktopDb?.sqlSyncNow?.()) as unknown as DesktopOkMessage | null;
+              if (cancelled) return;
+              if (syncRes?.ok) {
+                // Reload to rebuild in-memory indexes/caches and ensure relationships are consistent
+                window.location.reload();
+              }
+            });
           }
         }
       } catch {
@@ -508,7 +511,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       const child = item.children?.find((c) => c.path === location.pathname);
       if (child) return child.label;
     }
-    return 'نظام AZRAR';
+    return 'نظام أزرار العقاري';
   };
 
   const getPageSubtitle = () => {

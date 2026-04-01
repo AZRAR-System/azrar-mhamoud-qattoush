@@ -31,7 +31,7 @@ export const Documentation: FC = () => {
       <div className="app-card p-12 rounded-3xl text-slate-800 dark:text-slate-200 print:shadow-none print:border-none print:p-0 print:text-black">
         {/* Doc Header */}
         <div className="border-b-2 border-gray-100 dark:border-slate-700 pb-8 mb-8 text-center print:border-black">
-          <h1 className="text-4xl font-black mb-2">نظام خبرني العقاري</h1>
+          <h1 className="text-4xl font-black mb-2">نظام أزرار العقاري</h1>
           <h2 className="text-xl text-slate-500 dark:text-slate-400 print:text-gray-600">
             التوثيق التقني الشامل (Technical Documentation)
           </h2>
@@ -44,7 +44,7 @@ export const Documentation: FC = () => {
             1. مقدمة عن النظام
           </h3>
           <p className="leading-loose text-justify mb-4">
-            **نظام خبرني العقاري** هو منصة ويب حديثة (SPA - Single Page Application) مصممة لإدارة
+            **نظام أزرار العقاري** هو منصة ويب حديثة (SPA - Single Page Application) مصممة لإدارة
             المحافظ العقارية بشكل متكامل. يهدف النظام إلى أتمتة العمليات اليومية للشركات العقارية،
             بدءاً من إدارة الملاك والمستأجرين، مروراً بإنشاء العقود وتحصيل الدفعات، وصولاً إلى
             الصيانة والتقارير المالية.

@@ -44,6 +44,11 @@ function Save-ResizedPngIcon([string]$srcPath, [string]$dstPath, [int]$size = 51
 if (Test-Path $customSource) {
 	Save-ResizedPngIcon -srcPath $customSource -dstPath $outPath -size 512
 	Write-Host "Generated icon from custom source: $customSource -> $outPath" -ForegroundColor Green
+	$publicDir = Join-Path $PSScriptRoot '..\public'
+	$publicFav = Join-Path $publicDir 'favicon.png'
+	New-Item -ItemType Directory -Force -Path $publicDir | Out-Null
+	Copy-Item -Path $outPath -Destination $publicFav -Force
+	Write-Host "Synced web favicon: $publicFav" -ForegroundColor Green
 	exit 0
 }
 
@@ -85,3 +90,10 @@ $gfx.Dispose()
 $bmp.Dispose()
 
 Write-Host "Generated icon: $outPath" -ForegroundColor Green
+
+# Same file as web tab icon (index.html /favicon.png) — keeps branding unified.
+$publicDir = Join-Path $PSScriptRoot '..\public'
+$publicFav = Join-Path $publicDir 'favicon.png'
+New-Item -ItemType Directory -Force -Path $publicDir | Out-Null
+Copy-Item -Path $outPath -Destination $publicFav -Force
+Write-Host "Synced web favicon: $publicFav" -ForegroundColor Green

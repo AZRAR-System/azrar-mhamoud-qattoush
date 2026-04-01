@@ -1,4 +1,4 @@
-﻿/* global beforeAll, afterAll */
+/* global beforeAll, afterAll */
 /**
  * Jest Setup File
  * ملف إعداد بيئة الاختبار
@@ -7,6 +7,14 @@
 // إضافة matchers من testing-library
 import '@testing-library/jest-dom';
 import { jest } from '@jest/globals';
+import { TextDecoder, TextEncoder } from 'util';
+
+if (typeof globalThis.TextEncoder === 'undefined') {
+  globalThis.TextEncoder = TextEncoder;
+}
+if (typeof globalThis.TextDecoder === 'undefined') {
+  globalThis.TextDecoder = TextDecoder;
+}
 
 // Mock window.matchMedia
 if (typeof globalThis.window === 'undefined') {

@@ -1,5 +1,11 @@
 import type { RoleType, الكمبيالات_tbl } from '@/types';
-import { parseDateOnly, todayDateOnlyISO, toDateOnlyISO } from '@/utils/dateOnly';
+import {
+  compareDateOnlySafe,
+  daysBetweenDateOnlySafe,
+  parseDateOnly,
+  todayDateOnlyISO,
+  toDateOnlyISO,
+} from '@/utils/dateOnly';
 import { INSTALLMENT_STATUS } from '@/components/installments/installmentsConstants';
 
 export const parseDateOnlyLocal = (iso: string | undefined | null): Date | null => {
@@ -53,3 +59,42 @@ export const getLastPositivePaymentAmount = (inst: الكمبيالات_tbl): nu
   }
   return null;
 };
+
+/** ملخص أقرب دفعة إيجار غير مسددة بالكامل (حسب تاريخ الاستحقاق). */
+export type NextUnpaidDueSummary = {
+  dueDate: string | null;
+  /** من `todayIso` إلى تاريخ الاستحقاق: موجب = مستقبل، سالب = متأخر، 0 = اليوم */
+  daysFromToday: number | null;
+};
+
+export function getNextUnpaidDueSummary(
+  rentInstallments: الكمبيالات_tbl[],
+  todayIso: string
+): NextUnpaidDueSummary {
+  const candidates = rentInstallments
+    .filter((i) => {
+      if (String(i.حالة_الكمبيالة ?? '').trim() === INSTALLMENT_STATUS.CANCELLED) return false;
+      return getPaidAndRemaining(i).remaining > 0;
+    })
+    .sort((a, b) => compareDateOnlySafe(a.تاريخ_استحقاق, b.تاريخ_استحقاق));
+  const next = candidates[0];
+  const dueRaw = next?.تاريخ_استحقاق;
+  if (!next || !dueRaw) return { dueDate: null, daysFromToday: null };
+  const dueDate = String(dueRaw).slice(0, 10);
+  const days = daysBetweenDateOnlySafe(todayIso, dueDate);
+  return { dueDate, daysFromToday: days };
+}
+
+/** نص عربي موحّد لعرض البطاقة (يمكن اختباره عبر `getNextUnpaidDueSummary`). */
+export function formatNextDuePaymentLabel(
+  summary: NextUnpaidDueSummary,
+  opts?: { contractFullyPaid?: boolean }
+): string | null {
+  if (opts?.contractFullyPaid) return 'العقد مسدد — لا دفعة قادمة';
+  if (!summary.dueDate || summary.daysFromToday === null) return null;
+  const d = summary.dueDate;
+  const days = summary.daysFromToday;
+  if (days > 0) return `باقٍ ${days} يوم للدفعة القادمة (${d})`;
+  if (days === 0) return `الدفعة القادمة مستحقة اليوم (${d})`;
+  return `متأخر ${Math.abs(days)} يوم — أقرب دفعة (${d})`;
+}

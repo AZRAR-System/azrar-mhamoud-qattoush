@@ -6,7 +6,7 @@
  * Multi-layer, Real-time Dashboard with Advanced Analytics
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -39,6 +39,7 @@ import { MarqueeWidget } from '@/components/dashboard/MarqueeWidget';
 import { useSmartModal } from '@/context/ModalContext';
 // Hooks
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { runWithSqlSyncBlocking } from '@/utils/sqlSyncBlockingUi';
 
 type LayerTab = 'overview' | 'sales' | 'calendar' | 'monitoring' | 'performance';
 
@@ -103,7 +104,7 @@ export const Dashboard: React.FC = () => {
   const [activeLayer, setActiveLayer] = useState<LayerTab>('overview');
   const [autoRefresh, _setAutoRefresh] = useState(true);
   const [, setTasksTick] = useState(0);
-  const [syncBusy, setSyncBusy] = useState(false);
+  const sqlSyncInFlightRef = useRef(false);
   const [pagesSearch, setPagesSearch] = useState('');
 
   // Get dashboard data
@@ -233,20 +234,22 @@ export const Dashboard: React.FC = () => {
       toast.error('المزامنة متاحة فقط في نسخة Desktop');
       return;
     }
-    if (syncBusy) return;
-    setSyncBusy(true);
+    if (sqlSyncInFlightRef.current) return;
+    sqlSyncInFlightRef.current = true;
     try {
-      const res = (await window.desktopDb.sqlSyncNow()) as unknown as {
-        ok?: boolean;
-        message?: string;
-      } | null;
-      if (res?.ok) toast.success(res?.message || 'تمت المزامنة');
-      else toast.error(res?.message || 'فشل المزامنة');
+      await runWithSqlSyncBlocking(async () => {
+        const res = (await window.desktopDb.sqlSyncNow()) as unknown as {
+          ok?: boolean;
+          message?: string;
+        } | null;
+        if (res?.ok) toast.success(res?.message || 'تمت المزامنة');
+        else toast.error(res?.message || 'فشل المزامنة');
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'فشل المزامنة';
       toast.error(msg);
     } finally {
-      setSyncBusy(false);
+      sqlSyncInFlightRef.current = false;
     }
   };
 
@@ -586,7 +589,7 @@ export const Dashboard: React.FC = () => {
 
         {/* Footer Info */}
         <div className="mt-6 md:mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          <p>نظام AZRAR لإدارة العقارات © 2025 - جميع الحقوق محفوظة</p>
+          <p>نظام أزرار العقاري © 2025 - جميع الحقوق محفوظة</p>
         </div>
       </div>
     </div>

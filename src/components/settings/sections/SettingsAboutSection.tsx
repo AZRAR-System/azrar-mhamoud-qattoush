@@ -10,10 +10,10 @@ export function SettingsAboutSection({ page }: Props) {
     <div className="flex items-center justify-center min-h-[50vh] animate-fade-in py-4">
       <div className="glass-card p-8 md:p-10 text-center max-w-md w-full">
         <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30 mx-auto mb-6 text-white text-3xl font-bold">
-          خ
+          أ
         </div>
         <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
-          نظام خبرني العقاري
+          نظام أزرار العقاري
         </h3>
         <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">الإصدار 3.0</p>
 

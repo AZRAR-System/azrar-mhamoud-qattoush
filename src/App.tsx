@@ -15,6 +15,7 @@ import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { validateRoutes } from '@/routes/validate';
 import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
+import { SqlSyncBlockingOverlay } from '@/components/shared/SqlSyncBlockingOverlay';
 
 // Lazy Load Pages
 const Dashboard = React.lazy(() =>
@@ -451,6 +452,7 @@ function App() {
           <AutorunDesktopTestBootstrap />
           <ToastProvider>
             <ModalProvider>
+              <SqlSyncBlockingOverlay />
               <Suspense fallback={<PageLoader />}>
                 <AppRoutes />
               </Suspense>

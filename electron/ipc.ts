@@ -16,6 +16,7 @@ import {
   importDatabase,
   domainMigrateFromKvIfNeeded,
   domainRebuildFromKv,
+  domainSyncAfterKvSet,
   domainStatus,
   domainCounts,
   runSqlReport,
@@ -3062,6 +3063,22 @@ export function registerIpcHandlers() {
       throw new Error(hint ? `${base}\n\n${hint}` : base);
     }
     try {
+      const sync = domainSyncAfterKvSet(k, value);
+      if (!sync.ok) {
+        try {
+          console.warn('[db:set] domainSyncAfterKvSet:', sync.message || 'unknown');
+        } catch {
+          // ignore
+        }
+      }
+    } catch (e: unknown) {
+      try {
+        console.warn('[db:set] domainSyncAfterKvSet threw:', e);
+      } catch {
+        // ignore
+      }
+    }
+    try {
       const meta = kvGetMeta(k);
       const updatedAt = meta?.updatedAt || new Date().toISOString();
       void pushKvUpsert({ key: k, value, updatedAt }).catch((err: unknown) => {
@@ -3737,7 +3754,28 @@ export function registerIpcHandlers() {
         1,
         Math.min(100, Math.trunc(Number(getField(payload, 'limit')) || 20))
       );
-      return domainInstallmentsContractsSearch({ query: q, filter, sort, offset, limit });
+      const filterStartDate = String(getField(payload, 'filterStartDate') ?? '')
+        .trim()
+        .slice(0, 32);
+      const filterEndDate = String(getField(payload, 'filterEndDate') ?? '')
+        .trim()
+        .slice(0, 32);
+      const filterMinAmount = getOptionalNumberField(payload, 'filterMinAmount');
+      const filterMaxAmount = getOptionalNumberField(payload, 'filterMaxAmount');
+      const filterPaymentMethodRaw = getStringField(payload, 'filterPaymentMethod').trim().slice(0, 24);
+      const filterPaymentMethod = filterPaymentMethodRaw || 'all';
+      return domainInstallmentsContractsSearch({
+        query: q,
+        filter,
+        sort,
+        offset,
+        limit,
+        filterStartDate,
+        filterEndDate,
+        filterMinAmount,
+        filterMaxAmount,
+        filterPaymentMethod,
+      });
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل الأقساط') };
     }

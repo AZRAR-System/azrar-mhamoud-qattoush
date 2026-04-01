@@ -465,7 +465,7 @@ export const Login = () => {
             <Sparkles size={36} strokeWidth={1.5} className="opacity-95" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">
-            نظام AZRAR لإدارة العقارات
+            نظام أزرار العقاري
           </h1>
           <p className="mx-auto mt-2 max-w-lg text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
             فعّل الترخيص ثم سجّل الدخول للوصول إلى لوحة التحكم بأمان.

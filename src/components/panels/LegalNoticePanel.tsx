@@ -135,7 +135,7 @@ export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
             </div>
           </div>
           <p className="text-center text-xs mt-4">
-            تم إنشاء هذا المستند إلكترونياً عبر نظام خبرني للخدمات العقارية
+            تم إنشاء هذا المستند إلكترونياً عبر نظام أزرار للخدمات العقارية
           </p>
           <p className="text-center text-xs mt-2 whitespace-pre-line">
             {getOfficialBrandSignature()}

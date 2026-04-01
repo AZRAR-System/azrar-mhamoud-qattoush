@@ -39,7 +39,6 @@ export function SettingsBackupSection({ page }: Props) {
     setBackupEncPassword,
     setLocalBackupRetentionDays,
     setLocalBackupTime,
-    settings,
     settingsNoAccessFallback,
     t,
   } = page;

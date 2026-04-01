@@ -21,8 +21,8 @@ export function InstallmentsChartsPanel({ page }: Props) {
   return (
     <>
       {showCharts && financialStats && (
-        <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in zoom-in duration-500">
-          <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in zoom-in duration-500">
+          <div className="app-card p-6 lg:p-8">
             <h3 className="text-sm font-black text-slate-500 mb-6 flex items-center gap-2 uppercase tracking-widest">
               <PieChartIcon size={16} /> حالة التحصيل المالي
             </h3>
@@ -66,7 +66,7 @@ export function InstallmentsChartsPanel({ page }: Props) {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-xl">
+          <div className="app-card p-6 lg:p-8">
             <h3 className="text-sm font-black text-slate-500 mb-6 flex items-center gap-2 uppercase tracking-widest">
               <BarChart3 size={16} /> مقارنة القيم المالية
             </h3>

@@ -1433,6 +1433,9 @@ export async function installmentsContractsPagedSmart(payload: {
 
     rows.sort((a, b) => {
       if (sort === 'due-asc' || sort === 'due-desc') {
+        const aDebt = a.hasDebt ? 1 : 0;
+        const bDebt = b.hasDebt ? 1 : 0;
+        if (aDebt !== bDebt) return bDebt - aDebt;
         const aTs = getNextDueTs(a.installments);
         const bTs = getNextDueTs(b.installments);
         const aHas = Number.isFinite(aTs);

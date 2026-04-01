@@ -1,12 +1,10 @@
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import {
   Clock,
-  DollarSign,
+  CreditCard,
   FileSpreadsheet,
   FileText as FilePdf,
-  Filter,
   Printer,
-  Search as SearchIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -17,21 +15,13 @@ import { PageHero } from '@/components/shared/PageHero';
 
 type Props = { page: InstallmentsPageModel };
 
+/**
+ * رأس صفحة الدفعات — موحّد مع العمولات والصفحات التقريرية:
+ * عنوان + إجراءات ثانوية (كشف حساب، تحديث، تصدير) فقط.
+ * البحث والتصفية في `InstallmentsFiltersPanel`.
+ */
 export function InstallmentsPageHeader({ page }: Props) {
-  const {
-    search,
-    setSearch,
-    isAdvancedFiltersOpen,
-    setIsAdvancedFiltersOpen,
-    loadData,
-    handleExportExcel,
-    handleExportPdf,
-    clearFilters,
-    isDesktop,
-    statementMonth,
-    setStatementMonth,
-    prepareStatementPrintData,
-  } = page;
+  const { loadData, handleExportExcel, handleExportPdf, isDesktop, statementMonth, setStatementMonth, prepareStatementPrintData } = page;
 
   const [statementOpen, setStatementOpen] = useState(false);
   const [statementBusy, setStatementBusy] = useState(false);
@@ -53,22 +43,14 @@ export function InstallmentsPageHeader({ page }: Props) {
   return (
     <>
       <PageHero
-        embed
-        icon={<DollarSign size={28} />}
-        iconVariant="featured"
-        title={
-          <span className="inline-flex flex-wrap items-center gap-2">
-            المالية والتحصيل
-            <span className="text-xs px-2 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-full font-bold">
-              إدارة الدفعات
-            </span>
-          </span>
-        }
-        subtitle="متابعة العقود، السداد، والتحصيل المالي بدقة احترافية"
+        icon={<CreditCard size={26} className="text-indigo-600 dark:text-indigo-400" />}
+        iconVariant="inline"
+        title="الدفعات المالية"
+        subtitle="إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات"
         actions={
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-3">
             {isDesktop ? (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="app-card px-3 py-2 flex flex-wrap items-center gap-2">
                 <label htmlFor="installments-stmt-month" className="sr-only">
                   شهر كشف الحساب
                 </label>
@@ -77,75 +59,45 @@ export function InstallmentsPageHeader({ page }: Props) {
                   type="month"
                   value={statementMonth}
                   onChange={(e) => setStatementMonth(e.target.value)}
-                  className="h-[46px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm font-bold text-slate-800 dark:text-white"
+                  className="bg-transparent text-slate-700 dark:text-white outline-none text-sm font-bold min-w-[9rem]"
                 />
                 <Button
                   variant="secondary"
                   type="button"
+                  size="sm"
                   disabled={statementBusy}
                   onClick={() => void openStatement()}
-                  className="gap-2 rounded-2xl h-[46px] px-4 font-black"
+                  className="gap-2 rounded-xl font-black"
                 >
-                  <Printer size={18} />
+                  <Printer size={16} />
                   كشف حساب
                 </Button>
               </div>
             ) : null}
 
-            <div className="relative group/search">
-              <SearchIcon
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-indigo-500 transition-colors"
-                size={18}
-              />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="بحث سريع: مستأجر، عقد، عقار..."
-                className="pr-12 pl-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl w-full lg:w-72 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm font-medium"
-              />
-            </div>
-
-            <Button
-              variant={isAdvancedFiltersOpen ? 'primary' : 'secondary'}
-              onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
-              className="gap-2 px-6 rounded-2xl h-[46px]"
-            >
-              <Filter size={18} />
-              تصفية متقدمة
-            </Button>
-
-            <Button
-              variant="outline"
-              type="button"
-              onClick={clearFilters}
-              className="rounded-2xl h-[46px] px-4 font-black border-slate-200 dark:border-slate-600"
-            >
-              مسح الفلاتر
-            </Button>
-
-            <Button
-              variant="secondary"
-              onClick={loadData}
-              className="p-3 rounded-2xl h-[46px] w-[46px]"
-            >
+            <Button variant="secondary" type="button" onClick={loadData} className="gap-2 rounded-2xl h-[46px] px-4 font-black" title="تحديث البيانات">
               <Clock size={18} />
+              تحديث
             </Button>
 
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl">
+            <div className="inline-flex items-center gap-1 bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800 p-1.5 rounded-2xl">
               <Button
                 variant="ghost"
                 size="sm"
+                type="button"
                 onClick={handleExportExcel}
-                className="hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+                className="rounded-xl hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+                title="تصدير Excel"
               >
                 <FileSpreadsheet size={18} />
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
+                type="button"
                 onClick={handleExportPdf}
-                className="hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+                className="rounded-xl hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+                title="طباعة / PDF"
               >
                 <FilePdf size={18} />
               </Button>

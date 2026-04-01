@@ -505,7 +505,6 @@ export function useInstallments() {
         // Show success toast message
         toast.success(`تم سداد الدفعة بنجاح للمستأجر: ${tenantNameForDialog}`);
 
-        // تحديث state مباشرة من قاعدة البيانات (بدون تأخير)
         loadData();
       },
     });
@@ -553,7 +552,6 @@ export function useInstallments() {
         // Show info toast message
         toast.info(`تم إلغاء سداد الدفعة بنجاح - السبب: ${reason}`);
 
-        // Reload data immediately (no setTimeout)
         loadData();
       },
     });
@@ -733,6 +731,9 @@ export function useInstallments() {
 
     data = [...data].sort((a, b) => {
       if (sortMode === 'due-asc' || sortMode === 'due-desc') {
+        const aDebt = a.hasDebt ? 1 : 0;
+        const bDebt = b.hasDebt ? 1 : 0;
+        if (aDebt !== bDebt) return bDebt - aDebt;
         const aDue = getNextDueISO(Array.isArray(a.installments) ? a.installments : []);
         const bDue = getNextDueISO(Array.isArray(b.installments) ? b.installments : []);
         const aHas = !!aDue;

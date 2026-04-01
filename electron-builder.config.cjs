@@ -25,6 +25,7 @@ module.exports = {
 
   directories: {
     output: 'release2_build',
+    // App icons, NSIS license, installer.nsh — see build/README.md
     buildResources: 'build'
   },
 
@@ -81,6 +82,7 @@ module.exports = {
         arch: ['x64', 'ia32']
       }
     ],
+    // Primary app icon (exe + shortcuts). Same file as Electron BrowserWindow in main.ts (build/icon.png).
     icon: 'build/icon.png',
 
     // إعدادات التوقيع الرقمي (فعّلها فقط عند توفر الشهادة/صلاحيات symlink)

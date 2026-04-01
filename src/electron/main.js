@@ -1,17 +1,19 @@
 const { app, BrowserWindow, shell } = require('electron');
+const fs = require('fs');
 const path = require('path');
 
 // Prevent garbage collection
 let mainWindow;
 
 function createWindow() {
+  const buildIcon = path.join(__dirname, '..', '..', 'build', 'icon.png');
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 768,
-    title: 'نظام خبرني العقاري',
-    icon: path.join(__dirname, '../public/favicon.ico'), // Ensure you have an icon
+    title: 'نظام أزرار العقاري',
+    ...(fs.existsSync(buildIcon) ? { icon: buildIcon } : {}),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false, // For simple migration. Use preload in production for security.

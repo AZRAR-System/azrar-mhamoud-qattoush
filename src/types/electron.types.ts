@@ -434,6 +434,11 @@ export interface DesktopDbBridge {
     sort?: string;
     offset?: number;
     limit?: number;
+    filterStartDate?: string;
+    filterEndDate?: string;
+    filterMinAmount?: number | '';
+    filterMaxAmount?: number | '';
+    filterPaymentMethod?: string;
   }) => Promise<
     | {
         ok: boolean;

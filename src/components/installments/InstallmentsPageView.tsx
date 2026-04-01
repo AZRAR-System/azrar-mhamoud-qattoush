@@ -9,10 +9,13 @@ import { PaymentModal } from '@/components/installments/PaymentModal';
 import { InstallmentsPageHeader } from '@/components/installments/InstallmentsPageHeader';
 import { InstallmentsQuickStats } from '@/components/installments/InstallmentsQuickStats';
 import { InstallmentsOverdueBanner } from '@/components/installments/InstallmentsOverdueBanner';
-import { InstallmentsAdvancedFilters } from '@/components/installments/InstallmentsAdvancedFilters';
+import { InstallmentsFiltersPanel } from '@/components/installments/InstallmentsFiltersPanel';
 import { InstallmentsChartsPanel } from '@/components/installments/InstallmentsChartsPanel';
 import { InstallmentsContractsList } from '@/components/installments/InstallmentsContractsList';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
+
+/** موحّد مع Dashboard / Commissions — عرض مريح على الشاشات الواسعة */
+const INSTALLMENTS_PAGE_WRAP = 'max-w-[1600px] mx-auto w-full px-4 sm:px-6';
 
 type Props = { page: InstallmentsPageModel };
 
@@ -70,16 +73,11 @@ export function InstallmentsPageView({ page }: Props) {
       actionLabel="إنشاء عقد"
       actionLink="#/contracts"
     >
-      <div className="animate-fade-in pb-10">
-        <div className="mb-8 p-8 rounded-[3rem] bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl border border-white/50 dark:border-slate-700/50 shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
-
-          <InstallmentsPageHeader page={page} />
-          <InstallmentsQuickStats page={page} />
-        </div>
-
+      <div className={`${INSTALLMENTS_PAGE_WRAP} animate-fade-in space-y-6 pb-10`}>
+        <InstallmentsPageHeader page={page} />
+        <InstallmentsQuickStats page={page} />
         <InstallmentsOverdueBanner page={page} />
-        <InstallmentsAdvancedFilters page={page} />
+        <InstallmentsFiltersPanel page={page} />
         <InstallmentsChartsPanel page={page} />
         <InstallmentsContractsList page={page} />
 
@@ -102,7 +100,6 @@ export function InstallmentsPageView({ page }: Props) {
             }
             onClose={() => setSelectedInstallment(null)}
             onSuccess={() => {
-              loadData();
               setSelectedInstallment(null);
             }}
             userId={userId}

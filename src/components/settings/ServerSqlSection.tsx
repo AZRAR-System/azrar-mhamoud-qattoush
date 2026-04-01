@@ -31,6 +31,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useSmartModal } from '@/context/ModalContext';
 import { isSuperAdmin } from '@/utils/roles';
 import { resolveDesktopError, resolveDesktopMessage } from '@/utils/desktopMessages';
+import { runWithSqlSyncBlocking } from '@/utils/sqlSyncBlockingUi';
 
 type SqlStatus = {
   configured: boolean;
@@ -358,7 +359,9 @@ export const ServerSqlSection: React.FC = () => {
           !(boot as { ok?: boolean }).ok ||
           !('credentials' in boot)
         ) {
-          toastWarning('لم يُعثر على ملف sql-local-credentials.json أو المحتوى غير صالح.');
+          toastWarning(
+            'لم يُعثر على ProgramData\\AZRAR\\sql-local-credentials.json (يُنشأ بعد تثبيت SQL Express الاختياري). يمكنك إدخال بيانات الاتصال يدوياً أو تخطي المزامنة مع المخدم.'
+          );
           return;
         }
         const cred = (boot as { credentials: Record<string, unknown> }).credentials;
@@ -610,15 +613,12 @@ export const ServerSqlSection: React.FC = () => {
     }
 
     await runGuarded('sql:syncNow', async () => {
-      setSqlBusy(true);
-      try {
+      await runWithSqlSyncBlocking(async () => {
         const res = (await window.desktopDb.sqlSyncNow()) as unknown as DesktopOkMessage | null;
         if (res?.ok) toastSuccess(getDesktopMessage(res, 'تمت المزامنة بنجاح'));
         else toastError(getDesktopMessage(res, 'فشل المزامنة'));
         void refreshSqlStatus();
-      } finally {
-        setSqlBusy(false);
-      }
+      });
     });
   };
 

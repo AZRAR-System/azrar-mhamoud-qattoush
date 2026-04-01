@@ -12,6 +12,10 @@ on:
       - main
       - develop
 
+# Quiets Node 20 deprecation warnings for JS action runtimes (upload-artifact, codecov, etc.)
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # =====================================
   # Job 1: Test and Lint
@@ -19,9 +23,6 @@ jobs:
   test:
     name: Test and Lint
     runs-on: windows-latest
-    env:
-      # Reduces Node 20 deprecation warnings for the JS action runtime (checkout, setup-node, …)
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
     - name: Checkout code
@@ -103,7 +104,7 @@ jobs:
     name: Build AZRAR Desktop
     runs-on: windows-latest
     needs: [test, security]
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
@@ -137,7 +138,17 @@ jobs:
         CSC_LINK: ${{ secrets.CSC_LINK }}
         CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
+    - name: Note — no GitHub artifact on branch/PR
+      if: success() && !startsWith(github.ref, 'refs/tags/v')
+      shell: pwsh
+      run: |
+        Write-Host "Skipping actions/upload-artifact on non-tag builds (saves org storage quota). Installer was still built under release2_build on this runner."
+
+    # GitHub Actions artifact storage is limited per org/account. Do NOT upload on every push/PR —
+    # only on version tags (releases). Skipped steps = no quota use + green CI on main/develop.
     - name: Upload Artifacts
+      if: success() && startsWith(github.ref, 'refs/tags/v')
+      continue-on-error: true
       uses: actions/upload-artifact@v5
       with:
         name: azrar-desktop-windows
@@ -145,9 +156,10 @@ jobs:
           release2_build/*.exe
           release2_build/*.blockmap
           release2_build/latest.yml
-        retention-days: 30
+        retention-days: 3
 
     - name: Calculate File Hashes
+      if: success() && startsWith(github.ref, 'refs/tags/v')
       shell: pwsh
       run: |
         $files = Get-ChildItem release2_build -Filter "*.exe"
@@ -157,10 +169,13 @@ jobs:
         }
 
     - name: Upload Checksums
+      if: success() && startsWith(github.ref, 'refs/tags/v')
+      continue-on-error: true
       uses: actions/upload-artifact@v5
       with:
         name: checksums
         path: release2_build/checksums.txt
+        retention-days: 3
 
   # =====================================
   # Job 4: Create Release (Tags only)

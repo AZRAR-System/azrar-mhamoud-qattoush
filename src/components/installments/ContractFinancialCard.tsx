@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
+  CalendarClock,
   Check,
   ChevronDown,
   FileText,
@@ -30,12 +31,19 @@ import {
 import { useToast } from '@/context/ToastContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { Card } from '@/components/ui/Card';
+import { AppModal } from '@/components/ui/AppModal';
 import { Button } from '@/components/ui/Button';
 import { DS } from '@/constants/designSystem';
 import { formatDynamicValue } from '@/components/dynamic/dynamicValue';
 import { TenantRatingStrip } from '@/components/installments/TenantRatingStrip';
 import { INSTALLMENT_STATUS } from '@/components/installments/installmentsConstants';
-import { getPaidAndRemaining, isRecord } from '@/components/installments/installmentsUtils';
+import {
+  formatNextDuePaymentLabel,
+  getNextUnpaidDueSummary,
+  getPaidAndRemaining,
+  isRecord,
+} from '@/components/installments/installmentsUtils';
+import { notifyInstallmentsDataChanged } from '@/utils/installmentsRefresh';
 import {
   InvoicePrintPreview,
   type InvoiceTemplateData,
@@ -184,13 +192,35 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
         .join('\n')
     : '';
 
+  const nextDuePaymentLabel = useMemo(() => {
+    if (totalAmount <= 0) return null;
+    if (remainingAmount <= 0) {
+      return formatNextDuePaymentLabel({ dueDate: null, daysFromToday: null }, { contractFullyPaid: true });
+    }
+    const summary = getNextUnpaidDueSummary(rentInstallments, todayDateOnlyISO());
+    return formatNextDuePaymentLabel(summary);
+  }, [rentInstallments, remainingAmount, totalAmount]);
+
+  const detailsModalTitle = `${tenant?.الاسم || 'مستأجر'} — عقد ${formatContractNumberShort(contract.رقم_العقد)}`;
+
   return (
     <>
-      <Card
-        className={`transition-all duration-300 ${isExpanded ? 'ring-2 ring-indigo-500/20 border-indigo-500/50' : 'hover:shadow-md'}`}
-      >
-        {/* Card Header (Summary) */}
-        <div className="p-5 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+      <Card className="transition-all duration-300 hover:shadow-md">
+        <div
+          className="p-5 cursor-pointer"
+          role="button"
+          tabIndex={0}
+          aria-haspopup="dialog"
+          aria-expanded={isExpanded}
+          aria-label="عرض جدول الأقساط في نافذة"
+          onClick={() => setIsExpanded(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsExpanded(true);
+            }
+          }}
+        >
           <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
             {/* Left: Info */}
             <div className="flex items-start gap-4">
@@ -239,22 +269,38 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
                   </span>
                 </span>
               </div>
+              {nextDuePaymentLabel ? (
+                <div className="text-right mt-2 flex items-center justify-end gap-1.5 flex-wrap">
+                  <CalendarClock size={12} className="text-indigo-500 shrink-0" aria-hidden />
+                  <span className="text-[10px] font-bold text-indigo-800 dark:text-indigo-200 leading-snug">
+                    {nextDuePaymentLabel}
+                  </span>
+                </div>
+              ) : null}
             </div>
 
-            {/* Right: Expand Trigger */}
-            <div className="flex items-center justify-between lg:justify-end gap-4 min-w-[120px]">
-              <div
-                className={`p-2 rounded-full transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-gray-100 dark:bg-slate-700' : ''}`}
-              >
-                <ChevronDown size={20} className="text-slate-400" />
+            <div className="flex min-w-[120px] items-center justify-between gap-4 lg:justify-end">
+              <div className="flex flex-col items-center gap-1">
+                <div className="rounded-full bg-indigo-50 p-2 dark:bg-indigo-900/40">
+                  <ChevronDown size={20} className="text-indigo-600 dark:text-indigo-300" aria-hidden />
+                </div>
+                <span className="hidden text-[10px] font-bold text-indigo-600/90 dark:text-indigo-300/90 sm:block">
+                  التفاصيل
+                </span>
               </div>
             </div>
           </div>
         </div>
+      </Card>
 
-        {/* Expanded Details (Installments List) */}
-        {isExpanded && (
-          <div className="border-t border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-900/50 p-4 animate-slide-up">
+      <AppModal
+        open={isExpanded}
+        onClose={() => setIsExpanded(false)}
+        title={detailsModalTitle}
+        size="6xl"
+        bodyClassName="p-4 sm:p-5 max-h-[min(85vh,900px)] overflow-y-auto custom-scrollbar"
+      >
+        <div className="rounded-xl bg-gray-50/50 dark:bg-slate-900/50">
             {/* Contract Financial Summary */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
               <div className="app-card text-left p-2 px-4 rounded-xl">
@@ -709,13 +755,7 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
                                         return;
                                       }
                                       toast.success('تم حفظ غرامة التأخير');
-                                      try {
-                                        window.dispatchEvent(
-                                          new Event('azrar:installments-changed')
-                                        );
-                                      } catch {
-                                        // ignore
-                                      }
+                                      notifyInstallmentsDataChanged();
                                     }}
                                   >
                                     غرامة تأخير

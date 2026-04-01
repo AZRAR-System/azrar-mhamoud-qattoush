@@ -14,7 +14,7 @@ import { AppModal } from '@/components/ui/AppModal';
 
 const STEPS = [
   {
-    title: 'مرحباً بك في نظام خبرني العقاري',
+    title: 'مرحباً بك في نظام أزرار العقاري',
     description: 'نظام إدارة عقارات متكامل يعتمد على الذكاء والأتمتة لتسهيل أعمالك اليومية.',
     icon: Info,
     color: 'bg-indigo-600',

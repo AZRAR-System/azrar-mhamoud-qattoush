@@ -249,6 +249,11 @@ contextBridge.exposeInMainWorld('desktopDb', {
     sort?: string;
     offset?: number;
     limit?: number;
+    filterStartDate?: string;
+    filterEndDate?: string;
+    filterMinAmount?: number | '';
+    filterMaxAmount?: number | '';
+    filterPaymentMethod?: string;
   }) => ipcRenderer.invoke('domain:installments:contracts', payload),
 
   // SQL Server Sync (Desktop only)

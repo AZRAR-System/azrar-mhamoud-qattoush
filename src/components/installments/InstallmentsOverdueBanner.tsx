@@ -10,7 +10,7 @@ export function InstallmentsOverdueBanner({ page }: Props) {
   return (
     <>
       {!isDesktopFast && financialStats && financialStats.overdueCount > 0 && (
-        <div className="mb-8 p-4 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-800/50 rounded-3xl flex items-center justify-between gap-4 animate-pulse">
+        <div className="app-card p-4 md:p-5 bg-rose-50/90 dark:bg-rose-950/30 border-rose-200/80 dark:border-rose-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-rose-600 rounded-xl text-white">
               <AlertTriangle size={20} />

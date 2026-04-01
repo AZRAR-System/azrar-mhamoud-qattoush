@@ -1,6 +1,12 @@
 -- Read-only audit recommendation: UNIQUE policies via partial indexes
 -- NOTE: This file is NOT executed automatically.
--- Apply only after a backup.
+--
+-- Deprecation (app 2026-03): The desktop app intentionally does NOT keep these UNIQUE indexes
+-- (see migrateDomainSchemaV8/V9 in electron/db.ts) — they cause UNIQUE constraint failures during
+-- KV pull / domain rebuild when real data has duplicate names, phones, or internal codes.
+-- Use app-level validation instead. Do not re-apply this script on synced databases.
+--
+-- Apply only after a backup, for offline experiments.
 -- These statements can FAIL if duplicates already exist.
 
 BEGIN;
