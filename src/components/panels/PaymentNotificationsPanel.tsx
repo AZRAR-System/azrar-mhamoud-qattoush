@@ -5,7 +5,12 @@ import { formatDateOnly, parseDateOnly, toDateOnly, daysBetweenDateOnly } from '
 import { notificationService } from '@/services/notificationService';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
-import { COLLECTION_FIXED_PAYMENT_FOOTER, NotificationTemplates } from '@/services/notificationTemplates';
+import {
+  COLLECTION_FIXED_PAYMENT_FOOTER,
+  fillTemplate,
+  NotificationTemplates,
+} from '@/services/notificationTemplates';
+import { getTemplate } from '@/services/db/messageTemplates';
 import { paymentNotificationTargetsSmart } from '@/services/domainQueries';
 
 interface PaymentNotificationsPanelProps {
@@ -89,7 +94,8 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
 
   const fixed = NotificationTemplates.getById('installment_reminder_upcoming_summary_fixed');
   if (fixed && fixed.enabled) {
-    const base = NotificationTemplates.fill(fixed, {
+    const bodyFromStore = getTemplate('installment_reminder_upcoming_summary_fixed');
+    const base = fillTemplate(bodyFromStore, {
       اسم_المستأجر: t.tenantName,
       جزء_العقار: t.propertyCode ? ` للعقار (${t.propertyCode})` : '',
       المستحقات_القريبة: lines,

@@ -14,6 +14,8 @@ import {
 import { get } from '@/services/db/kv';
 import { KEYS } from '@/services/db/keys';
 import { getInstallmentPaidAndRemaining } from '@/services/db/installments';
+import { getTemplate } from '@/services/db/messageTemplates';
+import { fillTemplate } from '@/services/notificationTemplates';
 
 const LATE_DAYS_AFTER_DUE = 3;
 
@@ -67,6 +69,27 @@ function buildMessage(
 ): string {
   const prop = ctx.propertyCode ? ` — العقار: ${ctx.propertyCode}` : '';
   const amt = formatCurrencyJOD(ctx.amount);
+  const templateId =
+    kind === 'before_due'
+      ? 'pre_due_reminder'
+      : kind === 'due_today'
+        ? 'due_day_reminder'
+        : 'post_late_reminder';
+
+  const raw = getTemplate(templateId);
+  if (raw.trim().length > 0) {
+    const filled = fillTemplate(raw, {
+      tenantName: ctx.tenantName,
+      amount: ctx.amount,
+      dueDate: ctx.dueDate,
+      contractNumber: ctx.contractId,
+      propertyCode: ctx.propertyCode ?? '',
+      remainingAmount: ctx.amount,
+      daysLate: LATE_DAYS_AFTER_DUE,
+    });
+    if (filled.trim().length > 0) return filled;
+  }
+
   switch (kind) {
     case 'before_due':
       return `مرحباً ${ctx.tenantName}،\nتذكير ودي: لديك دفعة مستحقة خلال ${ctx.delayDays} أيام بقيمة ${amt} د.أ — تاريخ الاستحقاق ${ctx.dueDate} — عقد ${ctx.contractId}${prop}\nشكراً لتعاونكم.`;
