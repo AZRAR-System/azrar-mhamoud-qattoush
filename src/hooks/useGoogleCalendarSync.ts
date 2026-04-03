@@ -74,7 +74,12 @@ export function useGoogleCalendarSync() {
     }
     setStatus((s) => ({ ...s, loading: true }));
     try {
-      const res = (await window.desktopGoogleCalendar!.getStatus()) as {
+      const cal = window.desktopGoogleCalendar;
+      if (!cal?.getStatus) {
+        setStatus((s) => ({ ...s, loading: false, available: false }));
+        return;
+      }
+      const res = (await cal.getStatus()) as {
         ok?: boolean;
         enabled?: boolean;
         connected?: boolean;
@@ -144,7 +149,7 @@ export function useGoogleCalendarSync() {
       deleted?: number;
     };
     const msg =
-      res?.ok && res.message == null
+      res?.ok && (res.message === undefined || res.message === null)
         ? `تم: +${res.created ?? 0} ~${res.updated ?? 0} −${res.deleted ?? 0}`
         : res?.message;
     setStatus((s) => ({

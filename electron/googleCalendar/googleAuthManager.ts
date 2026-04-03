@@ -1,5 +1,5 @@
 import { app, safeStorage, shell } from 'electron';
-import { createServer, type IncomingMessage, type Server } from 'node:http';
+import { createServer, type IncomingMessage } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -110,7 +110,7 @@ async function postForm(url: string, body: Record<string, string>): Promise<Reco
 }
 
 export async function refreshAccessTokenIfNeeded(): Promise<StoredGoogleTokens | null> {
-  let t = loadTokensFromSafeStorage();
+  const t = loadTokensFromSafeStorage();
   if (!t?.refreshToken && !t?.accessToken) return null;
 
   const now = Date.now();
@@ -185,26 +185,7 @@ export async function startAuthorizationCodeFlowPkce(): Promise<StoredGoogleToke
   const authUrl = `${GOOGLE_OAUTH_AUTH}?${authParams.toString()}`;
 
   return await new Promise<StoredGoogleTokens>((resolve, reject) => {
-    let server: Server | undefined;
-    const timer = setTimeout(() => {
-      try {
-        server?.close();
-      } catch {
-        // ignore
-      }
-      reject(new Error('انتهت مهلة تسجيل الدخول في Google.'));
-    }, 300_000);
-
-    const cleanup = () => {
-      clearTimeout(timer);
-      try {
-        server?.close();
-      } catch {
-        // ignore
-      }
-    };
-
-    server = createServer((req: IncomingMessage, res) => {
+    const server = createServer((req: IncomingMessage, res) => {
       try {
         const url = String(req.url || '');
         if (!url.startsWith(GOOGLE_OAUTH_REDIRECT_PATH)) {
@@ -285,6 +266,24 @@ export async function startAuthorizationCodeFlowPkce(): Promise<StoredGoogleToke
         reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
+
+    const timer = setTimeout(() => {
+      try {
+        server.close();
+      } catch {
+        // ignore
+      }
+      reject(new Error('انتهت مهلة تسجيل الدخول في Google.'));
+    }, 300_000);
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      try {
+        server.close();
+      } catch {
+        // ignore
+      }
+    };
 
     server.listen(GOOGLE_OAUTH_REDIRECT_PORT, '127.0.0.1', () => {
       try {
