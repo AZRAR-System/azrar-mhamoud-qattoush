@@ -32,8 +32,22 @@ import { useInAppReminderNotifier } from '@/hooks/useInAppReminderNotifier';
 import { getDatabaseStats } from '@/services/resetDatabase';
 import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
+import { useNotificationCenter } from '@/hooks/useNotificationCenter';
+import type { NotificationCenterItem } from '@/services/notificationCenter';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+function isCollectionCategory(cat: string): boolean {
+  const c = String(cat || '').toLowerCase();
+  return c === 'payments' || c === 'collection' || c.includes('payment');
+}
+
+/** أولوية الشارة: عاجل (أحمر) ثم تحصيل (أزرق) ثم عادي (رمادي) */
+function headerUnreadBadgeVariant(unread: NotificationCenterItem[]): 'urgent' | 'collection' | 'default' {
+  if (unread.some((i) => i.urgent)) return 'urgent';
+  if (unread.some((i) => isCollectionCategory(i.category))) return 'collection';
+  return 'default';
+}
 const getUnknownMessage = (v: unknown): string | undefined =>
   isRecord(v) && typeof v.message === 'string' ? v.message : undefined;
 const getUnknownSuccess = (v: unknown): boolean | undefined =>
@@ -413,7 +427,10 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [isDark, setIsDark] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['المشرفين']); // Default expand admins
-  const [paymentNotifCount, setPaymentNotifCount] = useState<number>(0);
+
+  const { items: notificationItems, unreadCount, hasUnreadUrgent } = useNotificationCenter();
+  const unreadItems = notificationItems.filter((i) => !i.read);
+  const headerBadgeVariant = headerUnreadBadgeVariant(unreadItems);
 
   // ================================
   //  Responsiveness & Theme
@@ -470,33 +487,6 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       unlockBodyScroll();
     };
   }, [isDesktop, sidebarOpen]);
-
-  // Header notification badge (real data)
-  useEffect(() => {
-    let cancelled = false;
-    const refresh = () => {
-      void (async () => {
-        try {
-          const { DbService } = await import('@/services/mockDb');
-          const targets = DbService.getPaymentNotificationTargets(7);
-          const count = targets.reduce((sum, t) => sum + (t.items?.length || 0), 0);
-          if (!cancelled) setPaymentNotifCount(count);
-        } catch {
-          if (!cancelled) setPaymentNotifCount(0);
-        }
-      })();
-    };
-
-    refresh();
-    const interval = setInterval(refresh, 60_000);
-    const onFocus = () => refresh();
-    window.addEventListener('focus', onFocus);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, []);
 
   const toggleTheme = () => {
     const newMode = !isDark;
@@ -812,15 +802,48 @@ export const Layout = ({ children }: { children: ReactNode }) => {
               </button>
 
               <button
-                onClick={() => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 })}
-                className="relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm"
+                type="button"
+                onClick={() => openPanel('NOTIFICATION_CENTER')}
+                title={
+                  unreadCount > 0
+                    ? `${unreadCount} إشعار غير مقروء`
+                    : 'مركز الإشعارات — لا توجد غير مقروءة'
+                }
+                aria-label={
+                  unreadCount > 0
+                    ? `${unreadCount} إشعار غير مقروء، فتح مركز الإشعارات`
+                    : 'فتح مركز الإشعارات'
+                }
+                className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm ${
+                  unreadCount === 0
+                    ? 'text-slate-500 dark:text-slate-400 hover:text-indigo-600'
+                    : headerBadgeVariant === 'urgent'
+                      ? 'text-red-600 dark:text-red-400 hover:text-red-700'
+                      : headerBadgeVariant === 'collection'
+                        ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+                }`}
               >
-                <Bell size={20} />
-                {paymentNotifCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-gradient-to-br from-red-600 to-red-500 text-white text-[10px] font-black flex items-center justify-center ring-4 ring-white dark:ring-slate-900 shadow-lg shadow-red-500/30">
-                    {paymentNotifCount > 99 ? '99+' : paymentNotifCount}
+                <Bell size={20} aria-hidden />
+                <span className="pointer-events-none absolute -top-1 -right-1 flex h-[26px] min-w-[26px] items-center justify-center">
+                  {hasUnreadUrgent && unreadCount > 0 && (
+                    <span
+                      className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"
+                      aria-hidden
+                    />
+                  )}
+                  <span
+                    className={`relative flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white shadow-lg ring-4 ring-white transition-all duration-300 ease-out dark:ring-slate-900 ${
+                      headerBadgeVariant === 'urgent'
+                        ? 'bg-red-600 shadow-red-500/35'
+                        : headerBadgeVariant === 'collection'
+                          ? 'bg-blue-600 shadow-blue-500/30'
+                          : 'bg-slate-500 shadow-slate-500/25 dark:bg-slate-600'
+                    } ${unreadCount > 0 ? 'scale-100 opacity-100' : 'pointer-events-none scale-0 opacity-0'}`}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount > 0 ? unreadCount : ''}
                   </span>
-                )}
+                </span>
               </button>
             </div>
           </div>
