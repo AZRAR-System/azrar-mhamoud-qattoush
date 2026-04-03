@@ -34,6 +34,8 @@ const skipPrefixNames = new Set([
   'currentFeedUrl',
   'lastUpdaterEvent',
   'ensureWritableDir',
+  // Substring of channel name db:clearLocalBackupLog — do not rewrite inside string literals
+  'clearLocalBackupLog',
 ]);
 
 function stripTwoSpaces(chunk) {

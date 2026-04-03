@@ -303,7 +303,7 @@ export function registerDb(deps: IpcDeps): void {
     return await ipc.readLocalBackupLogEntries(typeof limit === 'number' ? limit : 200);
   });
   
-  ipcMain.handle('db:ipc.clearLocalBackupLog', async () => {
+  ipcMain.handle('db:clearLocalBackupLog', async () => {
     await ipc.clearLocalBackupLog();
     return { ok: true };
   });
