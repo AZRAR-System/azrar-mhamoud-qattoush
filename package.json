@@ -99,8 +99,8 @@
   "dependencies": {
     "@fontsource/tajawal": "^5.2.7",
     "@noble/ed25519": "^3.0.0",
-    "better-sqlite3": "^12.5.0",
-    "better-sqlite3-multiple-ciphers": "^12.5.0",
+    "better-sqlite3": "^12.8.0",
+    "better-sqlite3-multiple-ciphers": "^12.8.0",
     "docxtemplater": "^3.67.6",
     "dompurify": "^3.3.1",
     "electron-log": "^5.4.3",
