@@ -7,6 +7,7 @@ import { registerDb } from './db.js';
 import { registerDomain } from './domain.js';
 import { registerSql } from './sql.js';
 import { registerAttachments } from './attachments.js';
+import { registerGoogleCalendar } from './googleCalendar.js';
 
 export function registerIpcHandlers(): void {
   const deps = createIpcDeps();
@@ -18,6 +19,7 @@ export function registerIpcHandlers(): void {
   registerDomain(deps);
   registerSql(deps);
   registerAttachments(deps);
+  registerGoogleCalendar(deps);
 }
 
 export type { IpcDeps } from './deps.js';

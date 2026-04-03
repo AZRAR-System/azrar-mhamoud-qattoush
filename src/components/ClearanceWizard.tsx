@@ -537,6 +537,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({
                   <div className="flex justify-between items-center pb-2">
                     <span>رسوم تنظيف / أخرى</span>
                     <MoneyInput
+                      showCurrency={false}
                       className="w-24 border p-1 rounded text-center"
                       value={cleaningFee}
                       onValueChange={(v) => setCleaningFee(v ?? 0)}

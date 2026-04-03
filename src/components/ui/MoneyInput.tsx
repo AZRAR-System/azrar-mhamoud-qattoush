@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { CurrencySuffix } from '@/components/ui/CurrencySuffix';
 import { Input } from '@/components/ui/Input';
+import { getCurrencySuffix, getMoneySettingsSync } from '@/services/moneySettings';
 import { normalizeDigitsToLatin, parseNumberOrUndefined } from '@/utils/numberInput';
 
 export type MoneyInputValue = number | undefined;
@@ -13,6 +15,8 @@ export interface MoneyInputProps extends Omit<
   defaultValue?: MoneyInputValue;
   onValueChange?: (value: MoneyInputValue) => void;
   decimals?: number;
+  /** When false, hides the currency suffix (e.g. very narrow inputs). Default true. */
+  showCurrency?: boolean;
 }
 
 function roundToDecimals(value: number, decimals: number): number {
@@ -31,9 +35,22 @@ export function MoneyInput({
   onValueChange,
   decimals = 2,
   normalizeDigits = true,
+  showCurrency = true,
+  icon,
+  iconSide = 'left',
   ...props
 }: MoneyInputProps) {
   const isControlled = typeof value !== 'undefined';
+
+  const currencyCode = getMoneySettingsSync().currencyCode || 'JOD';
+  const currencySuffixText = getCurrencySuffix(currencyCode);
+  const currencyIcon =
+    showCurrency && currencySuffixText ? (
+      <CurrencySuffix
+        code={currencyCode}
+        className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tabular-nums"
+      />
+    ) : undefined;
 
   const initial = useMemo(() => {
     const v = isControlled ? value : defaultValue;
@@ -51,6 +68,9 @@ export function MoneyInput({
   return (
     <Input
       {...props}
+      icon={icon ?? currencyIcon}
+      iconSide={iconSide}
+      textAlign="right"
       type="text"
       inputMode="decimal"
       dir="ltr"

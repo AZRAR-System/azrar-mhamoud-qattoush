@@ -402,6 +402,14 @@ contextBridge.exposeInMainWorld('desktopLicense', {
   deactivate: () => ipcRenderer.invoke('license:deactivate'),
 });
 
+contextBridge.exposeInMainWorld('desktopGoogleCalendar', {
+  getStatus: () => ipcRenderer.invoke('googleCalendar:getStatus'),
+  setEnabled: (enabled: boolean) => ipcRenderer.invoke('googleCalendar:setEnabled', enabled),
+  auth: (op: 'start' | 'signOut') => ipcRenderer.invoke('googleCalendar:auth', { op }),
+  syncTasks: (payload: { tasks: unknown[] }) =>
+    ipcRenderer.invoke('googleCalendar:syncTasks', payload),
+});
+
 contextBridge.exposeInMainWorld('desktopLicenseAdmin', {
   login: (payload: Record<string, unknown>) => ipcRenderer.invoke('licenseAdmin:login', payload),
   logout: () => ipcRenderer.invoke('licenseAdmin:logout'),

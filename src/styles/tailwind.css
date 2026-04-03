@@ -106,6 +106,14 @@ body,
   word-break: normal;
 }
 
+#root {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: right;
+}
+
 /* Never truncate text (no ellipsis / no line clamping) */
 .truncate,
 .text-ellipsis {

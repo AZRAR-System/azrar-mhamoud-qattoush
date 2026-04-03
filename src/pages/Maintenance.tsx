@@ -15,7 +15,6 @@ import {
   User,
   Home,
   ChevronDown,
-  DollarSign,
   Key,
   Trash2,
 } from 'lucide-react';
@@ -802,20 +801,17 @@ export const Maintenance: FC = () => {
               </div>
               <div className="col-span-2">
                 <label className="block text-xs font-bold text-slate-500 mb-1">
-                  التكلفة الفعلية (د.أ)
+                  التكلفة الفعلية
                 </label>
-                <div className="relative">
-                  <MoneyInput
-                    className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
-                    value={formData.التكلفة_الفعلية || undefined}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, التكلفة_الفعلية: Number(v ?? 0) })
-                    }
-                    placeholder="0.00"
-                    disabled={!canEdit && !canClose}
-                  />
-                  <DollarSign className="absolute left-3 top-3 text-gray-400" size={16} />
-                </div>
+                <MoneyInput
+                  className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                  value={formData.التكلفة_الفعلية || undefined}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, التكلفة_الفعلية: Number(v ?? 0) })
+                  }
+                  placeholder="0.00"
+                  disabled={!canEdit && !canClose}
+                />
               </div>
             </div>
 

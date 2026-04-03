@@ -3769,6 +3769,8 @@ export const DbService = {
   },
 
   getReminders: () => get<SystemReminder>(KEYS.REMINDERS).filter((r) => !r.isDone),
+  /** Includes completed — used for external calendar sync (remove done events remotely). */
+  getAllReminders: () => get<SystemReminder>(KEYS.REMINDERS),
   addReminder: (reminder: Omit<SystemReminder, 'id' | 'isDone'>) => {
     const all = get<SystemReminder>(KEYS.REMINDERS);
     const id = `REM-${Date.now()}`;

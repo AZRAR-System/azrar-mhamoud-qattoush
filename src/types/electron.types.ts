@@ -1040,6 +1040,13 @@ export interface DesktopLicenseBridge {
   deactivate: () => Promise<unknown>;
 }
 
+export interface DesktopGoogleCalendarBridge {
+  getStatus: () => Promise<unknown>;
+  setEnabled: (enabled: boolean) => Promise<unknown>;
+  auth: (op: 'start' | 'signOut') => Promise<unknown>;
+  syncTasks: (payload: { tasks: unknown[] }) => Promise<unknown>;
+}
+
 export interface DesktopLicenseAdminBridge {
   login: (payload: { username: string; password: string }) => Promise<unknown>;
   logout: () => Promise<unknown>;
@@ -1083,6 +1090,7 @@ declare global {
     desktopAuth?: DesktopAuthBridge;
     desktopLicense?: DesktopLicenseBridge;
     desktopLicenseAdmin?: DesktopLicenseAdminBridge;
+    desktopGoogleCalendar?: DesktopGoogleCalendarBridge;
   }
 }
 

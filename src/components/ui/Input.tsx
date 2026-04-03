@@ -5,21 +5,27 @@ type UiSize = 'sm' | 'md' | 'lg';
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   icon?: React.ReactNode;
+  /** Physical side for `icon` (defaults: RTL → right, LTR → left). */
+  iconSide?: 'left' | 'right';
   error?: string;
   wrapperClassName?: string;
   uiSize?: UiSize;
   normalizeDigits?: boolean;
   coerceLocalizedTypes?: boolean;
+  /** Override automatic alignment (e.g. right-align LTR money fields). */
+  textAlign?: 'left' | 'right';
 }
 
 export const Input: React.FC<InputProps> = ({
   icon,
+  iconSide,
   error,
   className = '',
   wrapperClassName = '',
   uiSize = 'md',
   normalizeDigits = true,
   coerceLocalizedTypes = true,
+  textAlign: textAlignProp,
   dir: dirProp,
   ...props
 }) => {
@@ -31,8 +37,9 @@ export const Input: React.FC<InputProps> = ({
         ? 'px-5 py-3 text-base'
         : 'px-4 py-2.5 text-sm';
 
-  const iconPaddingClass = icon ? (isRtl ? 'pr-10' : 'pl-10') : '';
-  const iconPositionClass = isRtl ? 'right-3' : 'left-3';
+  const resolvedIconSide: 'left' | 'right' = iconSide ?? (isRtl ? 'right' : 'left');
+  const iconPaddingClass = icon ? (resolvedIconSide === 'right' ? 'pr-10' : 'pl-10') : '';
+  const iconPositionClass = resolvedIconSide === 'right' ? 'right-3' : 'left-3';
 
   const requestedType = String(props.type || 'text');
   const shouldCoerceType =
@@ -43,7 +50,13 @@ export const Input: React.FC<InputProps> = ({
   const resolvedDir: React.HTMLAttributes<HTMLInputElement>['dir'] = shouldCoerceType
     ? 'ltr'
     : (dirProp ?? 'rtl');
-  const textAlignClass = shouldCoerceType || dirProp === 'ltr' ? 'text-left' : 'text-right';
+  const textAlignClass = textAlignProp
+    ? textAlignProp === 'left'
+      ? 'text-left'
+      : 'text-right'
+    : shouldCoerceType || dirProp === 'ltr'
+      ? 'text-left'
+      : 'text-right';
   const effectiveLang = shouldCoerceType ? 'en' : (props as Record<string, unknown>)?.lang;
 
   const effectiveInputMode: React.InputHTMLAttributes<HTMLInputElement>['inputMode'] = (() => {
@@ -102,7 +115,7 @@ export const Input: React.FC<InputProps> = ({
         />
         {icon && (
           <div
-            className={`absolute ${iconPositionClass} top-2.5 text-gray-400 pointer-events-none`}
+            className={`absolute ${iconPositionClass} top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none select-none`}
           >
             {icon}
           </div>

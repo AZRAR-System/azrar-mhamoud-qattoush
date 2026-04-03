@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Building,
+  CalendarDays,
   Globe,
   Image as ImageIcon,
   Phone,
@@ -11,10 +12,16 @@ import { getCurrencySuffix } from '@/services/moneySettings';
 import { Select } from '@/components/ui/Select';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import type { SettingsPageModel } from '@/hooks/useSettingsPage';
+import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
+import { useToast } from '@/context/ToastContext';
+import { getErrorMessage } from '@/utils/errors';
 
 type Props = { page: SettingsPageModel };
 
 export function SettingsGeneralSection({ page }: Props) {
+  const toast = useToast();
+  const googleCal = useGoogleCalendarSync();
+
   const {
     clearSystemCache,
     handleLogoUpload,
@@ -195,6 +202,96 @@ export function SettingsGeneralSection({ page }: Props) {
             </div>
           </div>
         </section>
+
+        {!googleCal.status.loading && googleCal.status.available ? (
+          <section className="settings-section-panel">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
+              <CalendarDays className="text-blue-500" size={20} /> التكامل الخارجي — Google Calendar
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-3xl leading-relaxed">
+              تصدير أحادي الاتجاه: المهام والمتابعات من AZRAR إلى تقويم Google الافتراضي. رموز OAuth تُخزَّن
+              مشفّرة عبر النظام فقط (ليست في قاعدة البيانات العادية). معطّل افتراضياً — فعّل ثم اربط حساب
+              Google من المتصفح.
+            </p>
+            <div className="flex flex-col gap-4 max-w-xl">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded border-slate-300 dark:border-slate-600"
+                  checked={googleCal.status.enabled}
+                  onChange={async (e) => {
+                    const r = await googleCal.setEnabled(e.target.checked);
+                    if (!r.ok) toast.error('تعذر حفظ إعداد التكامل');
+                  }}
+                />
+                <span className={labelClass}>تفعيل المزامنة مع Google Calendar</span>
+              </label>
+
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  type="button"
+                  disabled={!googleCal.status.enabled || googleCal.status.connected}
+                  className="px-4 py-2 rounded-lg text-sm font-bold bg-blue-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700"
+                  onClick={async () => {
+                    try {
+                      const r = await googleCal.startAuth();
+                      if (r.ok) toast.success('تم الربط مع Google');
+                      else toast.error(r.message || 'فشل الربط');
+                    } catch (err: unknown) {
+                      toast.error(getErrorMessage(err) || 'فشل الربط');
+                    }
+                  }}
+                >
+                  ربط حساب Google
+                </button>
+                <button
+                  type="button"
+                  disabled={!googleCal.status.connected}
+                  className="px-4 py-2 rounded-lg text-sm font-bold border border-slate-300 dark:border-slate-600 disabled:opacity-40"
+                  onClick={async () => {
+                    await googleCal.signOut();
+                    toast.info('تم قطع الاتصال بحساب Google');
+                  }}
+                >
+                  قطع الاتصال
+                </button>
+                <button
+                  type="button"
+                  disabled={!googleCal.canSync}
+                  className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 disabled:opacity-40"
+                  onClick={async () => {
+                    try {
+                      const r = await googleCal.syncNow();
+                      if (r.ok) toast.success('تمت المزامنة مع التقويم');
+                      else toast.error((r as { message?: string }).message || 'فشل المزامنة');
+                    } catch (err: unknown) {
+                      toast.error(getErrorMessage(err) || 'فشل المزامنة');
+                    }
+                  }}
+                >
+                  مزامنة الآن
+                </button>
+              </div>
+
+              <div className="text-[12px] text-slate-500 dark:text-slate-400 space-y-1">
+                <div>
+                  الحالة:{' '}
+                  {googleCal.status.connected ? (
+                    <span className="text-emerald-600 dark:text-emerald-400">متصل</span>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400">غير متصل</span>
+                  )}
+                </div>
+                {googleCal.status.lastSyncAt ? (
+                  <div>آخر مزامنة: {new Date(googleCal.status.lastSyncAt).toLocaleString('ar-JO')}</div>
+                ) : null}
+                {googleCal.status.lastMessage ? (
+                  <div className="text-slate-600 dark:text-slate-300">{googleCal.status.lastMessage}</div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
