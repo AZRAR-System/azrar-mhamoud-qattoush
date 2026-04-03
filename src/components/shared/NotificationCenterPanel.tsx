@@ -9,6 +9,7 @@ import {
   CheckCheck,
   Bell,
   CreditCard,
+  MessageCircle,
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { ROUTE_PATHS } from '@/routes/paths';
@@ -17,6 +18,10 @@ import { getLastScheduledReportSnapshot } from '@/services/scheduledReports';
 import type { NotificationCenterItem, NotificationCenterType } from '@/services/notificationCenter';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
 import { Button } from '@/components/ui/Button';
+import { openWhatsAppForPhones } from '@/utils/whatsapp';
+import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
+import { applyOfficialBrandSignature } from '@/utils/brandSignature';
+import { openExternalUrl } from '@/utils/externalLink';
 
 type FilterTab = 'all' | 'unread' | 'urgent' | 'reminders' | 'collection';
 
@@ -65,6 +70,31 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
   { id: 'reminders', label: 'تذكيرات' },
   { id: 'collection', label: 'تحصيل' },
 ];
+
+/** إشعارات تحصيل/دفعات أو متأخرات — تظهر زر واتساب */
+function shouldShowWhatsAppButton(item: NotificationCenterItem): boolean {
+  const cat = String(item.category || '').toLowerCase();
+  const pay =
+    cat === 'payments' || cat === 'collection' || cat.includes('payment');
+  const overdue =
+    cat.includes('overdue') ||
+    item.title.includes('متأخر') ||
+    item.message.includes('متأخر') ||
+    item.message.includes('متأخرة');
+  return pay || overdue;
+}
+
+function collectPhonesForNotificationEntity(entityId: string): string[] {
+  const eid = String(entityId || '').trim();
+  if (!eid) return [];
+  const contract = DbService.getContracts().find((c) => c.رقم_العقد === eid);
+  if (!contract) return [];
+  const person = DbService.getPersonById(contract.رقم_المستاجر);
+  const phones: string[] = [];
+  if (person?.رقم_الهاتف) phones.push(person.رقم_الهاتف);
+  if (person?.رقم_هاتف_اضافي) phones.push(person.رقم_هاتف_اضافي);
+  return phones;
+}
 
 function matchesFilter(item: NotificationCenterItem, tab: FilterTab): boolean {
   const cat = String(item.category || '').toLowerCase();
@@ -172,6 +202,23 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
     [markRead, navigate, onClose, openPanel]
   );
 
+  const handleWhatsApp = useCallback(async (item: NotificationCenterItem) => {
+    const rawMsg = item.message;
+    const settings = DbService.getSettings();
+    const phones = collectPhonesForNotificationEntity(String(item.entityId || ''));
+    if (phones.length > 0) {
+      await openWhatsAppForPhones(rawMsg, phones, {
+        defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+        delayMs: settings.whatsAppDelayMs ?? 10_000,
+        target: settings.whatsAppTarget ?? 'auto',
+      });
+    } else {
+      const text = applyOfficialBrandSignature(rawMsg);
+      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      openExternalUrl(url);
+    }
+  }, []);
+
   return (
     <div className="flex h-full min-h-[50vh] flex-col">
       <div className="border-b border-slate-100 px-4 pb-3 dark:border-slate-800">
@@ -234,40 +281,59 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           <ul className="space-y-2">
             {filtered.map((item) => (
               <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => handleNavigate(item)}
-                  className={`flex w-full gap-3 rounded-xl border p-3 text-right transition hover:bg-slate-50 dark:hover:bg-slate-800/80 ${
+                <div
+                  className={`flex w-full gap-2 rounded-xl border p-2 text-right transition hover:bg-slate-50 dark:hover:bg-slate-800/80 sm:gap-3 sm:p-3 ${
                     item.read
                       ? 'border-slate-100 bg-white/50 opacity-80 dark:border-slate-800 dark:bg-slate-900/40'
                       : 'border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/40 dark:bg-indigo-950/20'
                   } ${item.urgent ? 'ring-1 ring-amber-400/50' : ''}`}
                 >
-                  <TypeIcon type={item.type} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-slate-900 dark:text-white">{item.title}</span>
-                      {item.urgent && (
-                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-300">
-                          عاجل
+                  <button
+                    type="button"
+                    onClick={() => handleNavigate(item)}
+                    className="flex min-w-0 flex-1 gap-3 rounded-lg p-1 text-right outline-none ring-offset-2 ring-offset-white hover:bg-slate-100/80 focus-visible:ring-2 focus-visible:ring-indigo-400 dark:ring-offset-slate-900 dark:hover:bg-slate-800/60"
+                  >
+                    <TypeIcon type={item.type} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-slate-900 dark:text-white">{item.title}</span>
+                        {item.urgent && (
+                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-300">
+                            عاجل
+                          </span>
+                        )}
+                        {!item.read && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-label="غير مقروء" />
+                        )}
+                      </div>
+                      <p className="mt-0.5 line-clamp-3 text-sm text-slate-600 dark:text-slate-300">
+                        {item.message}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                        <span>{formatRelativeTimeAr(item.timestamp)}</span>
+                        <span className="opacity-60">•</span>
+                        <span dir="ltr" className="font-mono text-[10px]">
+                          {item.category}
                         </span>
-                      )}
-                      {!item.read && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-label="غير مقروء" />
-                      )}
+                      </div>
                     </div>
-                    <p className="mt-0.5 line-clamp-3 text-sm text-slate-600 dark:text-slate-300">
-                      {item.message}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                      <span>{formatRelativeTimeAr(item.timestamp)}</span>
-                      <span className="opacity-60">•</span>
-                      <span dir="ltr" className="font-mono text-[10px]">
-                        {item.category}
-                      </span>
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                  {shouldShowWhatsAppButton(item) && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-auto shrink-0 flex-col gap-0.5 px-2 py-1.5 text-[10px] font-bold leading-tight sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"
+                      title="إرسال واتساب"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleWhatsApp(item);
+                      }}
+                    >
+                      <MessageCircle size={16} className="shrink-0 sm:size-[18px]" aria-hidden />
+                      <span className="max-w-[4.5rem] sm:max-w-none">إرسال واتساب</span>
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

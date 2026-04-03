@@ -30,7 +30,7 @@ export interface TemplateContext {
 }
 
 /** نفس التذييل في قوالب التحصيل الثابتة — مصدر واحد لتفادي التباين بين النسخ. */
-const COLLECTION_FIXED_PAYMENT_FOOTER = `طرق الدفع:
+export const COLLECTION_FIXED_PAYMENT_FOOTER = `طرق الدفع:
 عبر خدمة CliQ (كليك)
 الاسم المستعار: KHABERNI
 البنك: بنك الاتحاد

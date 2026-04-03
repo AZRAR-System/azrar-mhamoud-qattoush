@@ -28,9 +28,13 @@ interface NotificationHandler {
   onNotify: (message: string, type: NotificationType, title?: string) => void;
 }
 
+/** نفس المحتوى لا يُعرض كـ Toast/صوت أكثر من مرة كل 10 دقائق */
+const TOAST_THROTTLE_MS = 10 * 60 * 1000;
+
 class NotificationService {
   private handler: NotificationHandler | null = null;
   private isEnabled = true;
+  private readonly lastToastAtByKey = new Map<string, number>();
 
   private defaultTitleForType(type: NotificationType): string {
     const m: Record<NotificationType, string> = {
@@ -61,6 +65,20 @@ class NotificationService {
     const displayTitle = title ?? this.defaultTitleForType(type);
     const cat = String(category ?? type);
     const urgent = type === 'error' || !!options.urgent;
+
+    const throttleKey = `${cat}|${displayTitle}|${message.slice(0, 240)}`;
+    const now = Date.now();
+    const lastAt = this.lastToastAtByKey.get(throttleKey);
+    if (lastAt !== undefined && now - lastAt < TOAST_THROTTLE_MS) {
+      return;
+    }
+    this.lastToastAtByKey.set(throttleKey, now);
+    if (this.lastToastAtByKey.size > 500) {
+      const cutoff = now - TOAST_THROTTLE_MS;
+      for (const [k, t] of this.lastToastAtByKey) {
+        if (t < cutoff) this.lastToastAtByKey.delete(k);
+      }
+    }
 
     notificationCenter.add({
       type,

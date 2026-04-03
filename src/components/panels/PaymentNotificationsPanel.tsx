@@ -5,7 +5,7 @@ import { formatDateOnly, parseDateOnly, toDateOnly, daysBetweenDateOnly } from '
 import { notificationService } from '@/services/notificationService';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
-import { NotificationTemplates } from '@/services/notificationTemplates';
+import { COLLECTION_FIXED_PAYMENT_FOOTER, NotificationTemplates } from '@/services/notificationTemplates';
 import { paymentNotificationTargetsSmart } from '@/services/domainQueries';
 
 interface PaymentNotificationsPanelProps {
@@ -73,19 +73,7 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
                 ? `${freq} دفعة/سنة`
                 : '—';
 
-  const paymentInstructions = `طرق الدفع:
-عبر خدمة CliQ (كليك)
-الاسم المستعار: KHABERNI
-البنك: بنك الاتحاد
-
-بعد التحويل يرجى إرسال:
-1- اسم المرسل
-2- سبب التحويل (إيجار / عربون)
-3- صورة إيصال الدفع
-
-على الأرقام التالية:
-0799090170 | 0799090171
-`;
+  const paymentInstructions = COLLECTION_FIXED_PAYMENT_FOOTER;
 
   const total = t.items.reduce((sum, x) => sum + (x.amountRemaining || 0), 0);
 
