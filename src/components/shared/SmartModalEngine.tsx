@@ -87,6 +87,11 @@ const BulkWhatsAppPanel = React.lazy(() =>
 const MarqueeAdsPanel = React.lazy(() =>
   import('@/components/panels/MarqueeAdsPanel').then((m) => ({ default: m.MarqueeAdsPanel }))
 );
+const FinancialReportPrintPanel = React.lazy(() =>
+  import('@/components/panels/FinancialReportPrintPanel').then((m) => ({
+    default: m.FinancialReportPrintPanel,
+  }))
+);
 const NotificationTemplatesPanel = React.lazy(() =>
   import('@/components/panels/NotificationTemplatesPanel').then((m) => ({
     default: m.NotificationTemplatesPanel,
@@ -133,6 +138,7 @@ const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   SERVER_DRAWER: ServerDrawerPanel as unknown as PanelComponent,
   SQL_SYNC_LOG: SqlSyncLogPanel as unknown as PanelComponent,
   MARQUEE_ADS: MarqueeAdsPanel as unknown as PanelComponent,
+  FINANCIAL_REPORT_PRINT: FinancialReportPrintPanel as unknown as PanelComponent,
 };
 
 /** لوحات عرض تفاصيل (ليست نماذج إدخال) — تُعرض كمنزلق جانبي بدل النافذة المنبثقة المركزية */
@@ -153,6 +159,7 @@ const SLIDE_OVER_DETAIL_PANELS = new Set<PanelType>([
   'MARQUEE_ADS',
   'CALENDAR_EVENTS',
   'SQL_SYNC_LOG',
+  'FINANCIAL_REPORT_PRINT',
 ]);
 
 const PANEL_TITLES: Partial<Record<PanelType, string>> = {
@@ -182,6 +189,7 @@ const PANEL_TITLES: Partial<Record<PanelType, string>> = {
   SERVER_DRAWER: 'المخدم',
   SQL_SYNC_LOG: 'سجل المزامنة',
   MARQUEE_ADS: 'إعلانات الشريط',
+  FINANCIAL_REPORT_PRINT: 'تقرير مالي مجدول',
   CONFIRM_MODAL: 'تأكيد',
   INSPECTION_FORM: 'الكشف',
 };

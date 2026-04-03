@@ -916,9 +916,16 @@ export type DesktopPrintingHtmlPayload = {
   defaultFileName?: string;
 };
 
+export type DesktopSavePdfPayload = DesktopPrintingHtmlPayload & {
+  /** مسار ملف PDF كامل (يُنشأ المجلد تلقائياً عند الحاجة) */
+  filePath: string;
+};
+
 export interface DesktopPrintingBridge {
   printHtml(payload: DesktopPrintingHtmlPayload): Promise<DesktopPrintDispatchResult>;
   htmlToPdf(payload: DesktopPrintingHtmlPayload): Promise<DesktopPrintDispatchResult>;
+  /** حفظ PDF بدون حوار (تقارير مجدولة، إلخ) */
+  savePdfToPath?(payload: DesktopSavePdfPayload): Promise<DesktopPrintDispatchResult>;
 }
 
 export type DesktopPrintSettings = {

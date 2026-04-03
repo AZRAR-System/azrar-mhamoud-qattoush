@@ -84,6 +84,7 @@ import {
   htmlToPdfFromHtml,
   parsePrintingHtmlPayload,
   printHtmlInHiddenWindow,
+  saveHtmlPdfToFilePath,
 } from './printing/htmlDocumentWindow';
 
 import logger from './logger';
@@ -7033,6 +7034,27 @@ export function registerIpcHandlers() {
       return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
     }
     return htmlToPdfFromHtml(parsed.value.html, {
+      orientation: parsed.value.orientation,
+      marginsMm: parsed.value.marginsMm,
+      pageRanges: parsed.value.pageRanges,
+      copies: parsed.value.copies,
+      defaultFileName: parsed.value.defaultFileName,
+    });
+  });
+
+  ipcMain.handle('report:savePdfToPath', async (e, payload: unknown) => {
+    const parsed = parsePrintingHtmlPayload(payload);
+    if (!parsed.ok) return { ok: false, code: 'INVALID', message: parsed.message };
+    const userId = getSessionUserId(e.sender);
+    if (!desktopUserHasPermission(userId, 'PRINT_EXECUTE')) {
+      return { ok: false, code: 'FORBIDDEN', message: 'ليس لديك صلاحية تنفيذ الطباعة' };
+    }
+    const r = payload as Record<string, unknown>;
+    const filePath = typeof r.filePath === 'string' ? r.filePath.trim() : '';
+    if (!filePath) {
+      return { ok: false, code: 'INVALID', message: 'مسار الملف مطلوب' };
+    }
+    return saveHtmlPdfToFilePath(parsed.value.html, filePath, {
       orientation: parsed.value.orientation,
       marginsMm: parsed.value.marginsMm,
       pageRanges: parsed.value.pageRanges,

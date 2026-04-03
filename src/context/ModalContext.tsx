@@ -40,7 +40,8 @@ export type PanelType =
   | 'SECTION_VIEW'
   | 'SERVER_DRAWER'
   | 'SQL_SYNC_LOG'
-  | 'MARQUEE_ADS';
+  | 'MARQUEE_ADS'
+  | 'FINANCIAL_REPORT_PRINT';
 
 export interface Panel {
   id: string;

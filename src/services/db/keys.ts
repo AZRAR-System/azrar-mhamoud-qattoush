@@ -44,6 +44,8 @@ export const KEYS = {
   INSPECTIONS: 'db_property_inspections',
   /** أنماط الإدخال / الأدوات الذكية (انظر smartEngine) */
   SMART_BEHAVIOR: 'db_smart_behavior',
+  /** إعدادات/حالة التقارير المالية المجدولة + آخر لقطة للمعاينة */
+  SCHEDULED_REPORTS_CONFIG: 'db_scheduled_reports_config',
 } as const;
 
 export type DbStorageKey = (typeof KEYS)[keyof typeof KEYS];

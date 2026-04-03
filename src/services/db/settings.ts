@@ -47,6 +47,10 @@ export const getSettings = (): SystemSettings => {
     whatsAppWorkHoursStart: 8,
     whatsAppWorkHoursEnd: 20,
     whatsAppAutoDelayDays: 3,
+    scheduledReportsEnabled: false,
+    scheduledReportFrequency: 'daily',
+    scheduledReportTime: '08:00',
+    scheduledReportExportPath: '',
     paymentMethods: [],
   };
 

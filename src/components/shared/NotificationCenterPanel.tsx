@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { DbService } from '@/services/mockDb';
+import { getLastScheduledReportSnapshot } from '@/services/scheduledReports';
 import type { NotificationCenterItem, NotificationCenterType } from '@/services/notificationCenter';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
 import { Button } from '@/components/ui/Button';
@@ -102,6 +104,18 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
       markRead(item.id);
       const cat = String(item.category || '').toLowerCase();
       const eid = String(item.entityId || '').trim();
+
+      if (cat === 'scheduled_financial_report') {
+        const snap = getLastScheduledReportSnapshot();
+        if (snap?.data) {
+          openPanel('FINANCIAL_REPORT_PRINT', undefined, {
+            reportData: snap.data,
+            settings: DbService.getSettings(),
+          });
+        }
+        onClose();
+        return;
+      }
 
       if (eid) {
         if (cat.includes('contract') || cat === 'contracts') {

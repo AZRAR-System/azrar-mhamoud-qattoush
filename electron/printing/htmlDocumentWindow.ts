@@ -173,28 +173,50 @@ export async function printHtmlInHiddenWindow(
   }
 }
 
+async function htmlToPdfBuffer(html: string, options: HtmlDocPrintOptions): Promise<Buffer> {
+  return withHiddenHtmlWindow(html, async (wc) => {
+    const buf = await wc.printToPDF({
+      printBackground: true,
+      preferCSSPageSize: true,
+      pageSize: 'A4',
+      landscape: options.orientation === 'landscape',
+      margins: {
+        marginType: 'custom',
+        top: mmToMarginPx(options.marginsMm.top),
+        bottom: mmToMarginPx(options.marginsMm.bottom),
+        left: mmToMarginPx(options.marginsMm.left),
+        right: mmToMarginPx(options.marginsMm.right),
+      },
+      pageRanges: options.pageRanges?.trim() || undefined,
+    });
+    return Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+  });
+}
+
+/** حفظ PDF مباشرة بدون حوار (للتقارير المجدولة وغيرها). */
+export async function saveHtmlPdfToFilePath(
+  html: string,
+  destPath: string,
+  options: HtmlDocPrintOptions
+): Promise<{ ok: true; savedPath: string } | { ok: false; code: string; message: string }> {
+  try {
+    const pdfBuffer = await htmlToPdfBuffer(html, options);
+    const dir = path.dirname(destPath);
+    await fsp.mkdir(dir, { recursive: true });
+    const out = destPath.toLowerCase().endsWith('.pdf') ? destPath : `${destPath}.pdf`;
+    await fsp.writeFile(out, pdfBuffer);
+    return { ok: true, savedPath: out };
+  } catch (err: unknown) {
+    return { ok: false, code: 'FAILED', message: toErrorMessage(err, 'فشل حفظ PDF') };
+  }
+}
+
 export async function htmlToPdfFromHtml(
   html: string,
   options: HtmlDocPrintOptions
 ): Promise<{ ok: true; savedPath: string } | { ok: false; code: string; message: string }> {
   try {
-    const pdfBuffer = await withHiddenHtmlWindow(html, async (wc) => {
-      const buf = await wc.printToPDF({
-        printBackground: true,
-        preferCSSPageSize: true,
-        pageSize: 'A4',
-        landscape: options.orientation === 'landscape',
-        margins: {
-          marginType: 'custom',
-          top: mmToMarginPx(options.marginsMm.top),
-          bottom: mmToMarginPx(options.marginsMm.bottom),
-          left: mmToMarginPx(options.marginsMm.left),
-          right: mmToMarginPx(options.marginsMm.right),
-        },
-        pageRanges: options.pageRanges?.trim() || undefined,
-      });
-      return Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
-    });
+    const pdfBuffer = await htmlToPdfBuffer(html, options);
 
     const suggested = options.defaultFileName?.toLowerCase().endsWith('.pdf')
       ? options.defaultFileName

@@ -339,6 +339,8 @@ contextBridge.exposeInMainWorld('desktopPrinting', {
     ipcRenderer.invoke('printing:printHtml', payload),
   htmlToPdf: (payload: Record<string, unknown>) =>
     ipcRenderer.invoke('printing:htmlToPdf', payload),
+  savePdfToPath: (payload: Record<string, unknown>) =>
+    ipcRenderer.invoke('report:savePdfToPath', payload),
 });
 
 contextBridge.exposeInMainWorld('desktopPrintSettings', {

@@ -26,6 +26,7 @@ import {
   Copy,
   MessageCircle,
   FileText,
+  BarChart3,
 } from 'lucide-react';
 import { GEO_COUNTRIES, GEO_CURRENCIES } from '@/constants/geo';
 import { getCurrencySuffix } from '@/services/moneySettings';
@@ -210,6 +211,95 @@ export function SettingsGeneralSection({ page }: Props) {
                 })}
               />
             </div>
+          </div>
+        </section>
+
+        <section className="settings-section-panel">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+            <BarChart3 className="text-emerald-500" size={20} /> التقارير المالية المجدولة
+          </h3>
+          <div className="flex items-start gap-3 mb-6">
+            <input
+              id="settings-scheduled-reports-enabled"
+              type="checkbox"
+              className="mt-1 rounded border-slate-300"
+              checked={!!settings.scheduledReportsEnabled}
+              onChange={(e) =>
+                setSettings({ ...settings, scheduledReportsEnabled: e.target.checked })
+              }
+            />
+            <div>
+              <label
+                htmlFor="settings-scheduled-reports-enabled"
+                className="text-sm font-semibold text-slate-800 dark:text-white cursor-pointer"
+              >
+                تفعيل التقرير المالي المجدول
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                يُولَّد تلقائياً عند بدء البرنامج بعد وقت التشغيل المحدد (KPIs + أقساط قادمة + عقود
+                تنتهي + متأخرات). معطّل افتراضياً.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className={labelClass} htmlFor="settings-scheduled-frequency">
+                التكرار
+              </label>
+              <select
+                id="settings-scheduled-frequency"
+                className={inputClass}
+                value={settings.scheduledReportFrequency || 'daily'}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    scheduledReportFrequency: e.target.value as 'daily' | 'weekly' | 'monthly',
+                  })
+                }
+              >
+                <option value="daily">يومي</option>
+                <option value="weekly">أسبوعي (أسبوع يبدأ الاثنين)</option>
+                <option value="monthly">شهري (يوم 1 من كل شهر)</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="settings-scheduled-time">
+                وقت التشغيل (محلي)
+              </label>
+              <input
+                id="settings-scheduled-time"
+                type="time"
+                className={inputClass}
+                value={
+                  /^\d{1,2}:\d{2}$/.test(String(settings.scheduledReportTime || '').trim())
+                    ? String(settings.scheduledReportTime).trim()
+                    : '08:00'
+                }
+                onChange={(e) =>
+                  setSettings({ ...settings, scheduledReportTime: e.target.value || '08:00' })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <label className={labelClass} htmlFor="settings-scheduled-export-path">
+              مجلد حفظ PDF تلقائياً (اختياري — سطح المكتب)
+            </label>
+            <input
+              id="settings-scheduled-export-path"
+              className={inputClass}
+              dir="ltr"
+              placeholder="C:\Reports\Azrar"
+              value={settings.scheduledReportExportPath || ''}
+              onChange={(e) =>
+                setSettings({ ...settings, scheduledReportExportPath: e.target.value })
+              }
+            />
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+              إن وُجد، يُحفظ الملف باسم: تقرير-مالي-YYYY-MM-DD.pdf عبر الطباعة إلى PDF بدون حوار.
+            </p>
           </div>
         </section>
 

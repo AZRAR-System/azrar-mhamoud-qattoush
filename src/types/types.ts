@@ -455,6 +455,14 @@ export interface SystemSettings {
   /** كم يوماً قبل الاستحقاق يُرسل التذكير الودي (افتراضي 3) */
   whatsAppAutoDelayDays?: number;
 
+  /** تقارير مالية مجدولة (معطّلة افتراضياً) */
+  scheduledReportsEnabled?: boolean;
+  scheduledReportFrequency?: 'daily' | 'weekly' | 'monthly';
+  /** وقت التشغيل المحلي "HH:mm" (افتراضي 08:00) */
+  scheduledReportTime?: string;
+  /** مجلد حفظ PDF التلقائي (سطح المكتب فقط) */
+  scheduledReportExportPath?: string;
+
   // Messages/Notifications
   // Human-readable payment methods used in notifications (e.g., "نقداً", "تحويل بنكي").
   paymentMethods?: string[];

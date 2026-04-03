@@ -101,6 +101,7 @@ import {
   type NotificationSendLogRecord,
 } from './db/paymentNotifications';
 import { createBackgroundScansRuntime } from './db/backgroundScans';
+import { runScheduledReportsTick } from './scheduledReports';
 import { runInitData } from './db/initData';
 import { resetOperationalData } from './db/resetOperationalData';
 import { lookupKeyFor, normKeySimple } from './db/lookupKeys';
@@ -1825,6 +1826,14 @@ export const DbService = {
   },
 
   runDailyScheduler: () => {
+    void (async () => {
+      try {
+        await runScheduledReportsTick();
+      } catch (e) {
+        console.warn('Daily scheduler: scheduled reports failed', e);
+      }
+    })();
+
     // Simulated daily scheduled tasks (runs after login)
     // Avoid repeating heavy work multiple times per session
     const todayKey = new Date().toISOString().split('T')[0];
