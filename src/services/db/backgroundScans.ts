@@ -20,6 +20,7 @@ import { INSTALLMENT_STATUS } from './installmentConstants';
 import { getInstallmentPaidAndRemaining } from './installments';
 import { buildContractAlertContext, markAlertsReadByPrefix, upsertAlert } from './alertsCore';
 import { getSettings } from './settings';
+import { tryAutoSendIfEligible } from '@/services/whatsAppAutoSender';
 
 export type CreateContractFn = (
   data: Partial<العقود_tbl>,
@@ -205,27 +206,38 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
 
       markAlertsReadByPrefix(`ALR-FIN-LEGAL-${contract.رقم_العقد}`);
 
+      const settings = getSettings();
+
       for (const u of unpaid) {
         const due = parseDateOnly(u.inst.تاريخ_استحقاق);
         if (!due) continue;
         const daysUntilDue = daysBetweenDateOnly(today, due);
-        if (daysUntilDue > 7) continue;
-        if (daysUntilDue <= 0) continue;
 
-        const alertId = `ALR-FIN-REM7-${u.inst.رقم_الكمبيالة}`;
-        upsertAlert({
-          id: alertId,
-          تاريخ_الانشاء: today.toISOString().split('T')[0],
-          نوع_التنبيه: 'تذكير قبل الاستحقاق (7 أيام)',
-          الوصف: `دفعة ستستحق خلال ${daysUntilDue} أيام. المبلغ: ${formatCurrencyJOD(u.remaining)} — تاريخ الاستحقاق: ${u.inst.تاريخ_استحقاق}`,
-          category: 'Financial',
-          تم_القراءة: false,
-          tenantName: tenant?.الاسم,
-          phone: tenant?.رقم_الهاتف,
-          propertyCode: property?.الكود_الداخلي,
-          مرجع_الجدول: 'الكمبيالات_tbl',
-          مرجع_المعرف: u.inst.رقم_الكمبيالة,
-        });
+        if (daysUntilDue > 0 && daysUntilDue <= 7) {
+          const alertId = `ALR-FIN-REM7-${u.inst.رقم_الكمبيالة}`;
+          upsertAlert({
+            id: alertId,
+            تاريخ_الانشاء: today.toISOString().split('T')[0],
+            نوع_التنبيه: 'تذكير قبل الاستحقاق (7 أيام)',
+            الوصف: `دفعة ستستحق خلال ${daysUntilDue} أيام. المبلغ: ${formatCurrencyJOD(u.remaining)} — تاريخ الاستحقاق: ${u.inst.تاريخ_استحقاق}`,
+            category: 'Financial',
+            تم_القراءة: false,
+            tenantName: tenant?.الاسم,
+            phone: tenant?.رقم_الهاتف,
+            propertyCode: property?.الكود_الداخلي,
+            مرجع_الجدول: 'الكمبيالات_tbl',
+            مرجع_المعرف: u.inst.رقم_الكمبيالة,
+          });
+        }
+
+        void tryAutoSendIfEligible({
+          installment: u.inst,
+          contract,
+          tenant,
+          property,
+          settings,
+          daysUntilDue,
+        }).catch((e) => console.warn('[WhatsApp auto]', e));
       }
     }
   };

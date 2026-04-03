@@ -212,9 +212,11 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
       message,
     });
 
+    const settings = DbService.getSettings();
     await openWhatsAppForPhones(message, phones, {
       defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
-      delayMs: 10_000,
+      delayMs: settings.whatsAppDelayMs ?? 10_000,
+      target: settings.whatsAppTarget ?? 'auto',
     });
   };
 

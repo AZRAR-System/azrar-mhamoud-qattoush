@@ -138,6 +138,105 @@ export function SettingsMessagesSection({ page }: Props) {
               </div>
             </div>
           </div>
+
+          <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700 space-y-4">
+            <div className="flex items-start gap-3">
+              <input
+                id="settings-msg-whatsapp-auto-enabled"
+                type="checkbox"
+                className="mt-1 rounded border-slate-300"
+                checked={!!settings.whatsAppAutoEnabled}
+                onChange={(e) =>
+                  setSettings({ ...settings, whatsAppAutoEnabled: e.target.checked })
+                }
+              />
+              <div>
+                <label
+                  htmlFor="settings-msg-whatsapp-auto-enabled"
+                  className="text-sm font-semibold text-slate-800 dark:text-white cursor-pointer"
+                >
+                  الإرسال التلقائي للتذكيرات (مسح الخلفية)
+                </label>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  عند التفعيل، يُفتح واتساب تلقائياً حسب الجدولة أدناه (ضمن ساعات العمل فقط، وليس
+                  أكثر من مرة كل 24 ساعة لكل دفعة). معطّل افتراضياً.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className={labelClass} htmlFor="settings-msg-whatsapp-work-start">
+                  بداية ساعات الإرسال (0–23)
+                </label>
+                <input
+                  id="settings-msg-whatsapp-work-start"
+                  type="number"
+                  min={0}
+                  max={23}
+                  className={inputClass}
+                  value={Number(settings.whatsAppWorkHoursStart ?? 8)}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      whatsAppWorkHoursStart: Math.max(
+                        0,
+                        Math.min(23, Math.floor(Number(e.target.value) || 0))
+                      ),
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="settings-msg-whatsapp-work-end">
+                  نهاية ساعات الإرسال (0–24)
+                </label>
+                <input
+                  id="settings-msg-whatsapp-work-end"
+                  type="number"
+                  min={0}
+                  max={24}
+                  className={inputClass}
+                  value={Number(settings.whatsAppWorkHoursEnd ?? 20)}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      whatsAppWorkHoursEnd: Math.max(
+                        0,
+                        Math.min(24, Math.floor(Number(e.target.value) || 0))
+                      ),
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="settings-msg-whatsapp-auto-delay-days">
+                  تذكير قبل الاستحقاق (أيام)
+                </label>
+                <input
+                  id="settings-msg-whatsapp-auto-delay-days"
+                  type="number"
+                  min={1}
+                  max={30}
+                  className={inputClass}
+                  value={Number(settings.whatsAppAutoDelayDays ?? 3)}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      whatsAppAutoDelayDays: Math.max(
+                        1,
+                        Math.min(30, Math.floor(Number(e.target.value) || 3))
+                      ),
+                    })
+                  }
+                />
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                  يُرسل تذكير ودي عندما يبقى على الاستحقاق هذا العدد من الأيام (افتراضي 3). يُرسل
+                  تنبيه يوم الاستحقاق، وتنبيه تأخر بعد 3 أيام.
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="settings-section-panel">
