@@ -4,8 +4,6 @@ import {
   List,
   Upload,
   Globe,
-  Phone,
-  Bell,
   Image as ImageIcon,
   Plus,
   Trash2,
