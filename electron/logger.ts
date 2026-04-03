@@ -3,7 +3,8 @@
  * نظام تسجيل الأخطاء والأحداث
  */
 
-import log from 'electron-log';
+/** استيراد مسار الـ main فقط — تجنب `src/index.js` الذي يسحب فرع الـ renderer ويكسر الدمج مع esbuild */
+import log from 'electron-log/main.js';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';

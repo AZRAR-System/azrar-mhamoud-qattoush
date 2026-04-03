@@ -181,6 +181,59 @@ export const printHtmlUnified = async (
   return undefined;
 };
 
+/** When no Electron print bridge exists, open a hidden iframe and trigger the browser print dialog. */
+export function printHtmlInBrowserIframe(fullHtml: string): void {
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute(
+    'style',
+    'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;'
+  );
+  document.body.appendChild(iframe);
+  const win = iframe.contentWindow;
+  const doc = iframe.contentDocument;
+  if (!win || !doc) {
+    try {
+      document.body.removeChild(iframe);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  doc.open();
+  doc.write(fullHtml);
+  doc.close();
+  const cleanup = () => {
+    try {
+      document.body.removeChild(iframe);
+    } catch {
+      // ignore
+    }
+  };
+  const doPrint = () => {
+    try {
+      win.focus();
+      win.print();
+    } finally {
+      setTimeout(cleanup, 500);
+    }
+  };
+  if (doc.readyState === 'complete') {
+    setTimeout(doPrint, 0);
+  } else {
+    iframe.onload = () => doPrint();
+  }
+}
+
+/** Like {@link printHtmlUnified}, but falls back to the browser print dialog when no desktop bridge is available. */
+export const printHtmlUnifiedWithBrowserFallback = async (
+  ctx: Parameters<typeof printHtmlUnified>[0]
+): Promise<DesktopPrintDispatchResult | undefined> => {
+  const res = await printHtmlUnified(ctx);
+  if (res !== undefined) return res;
+  printHtmlInBrowserIframe(ctx.html);
+  return undefined;
+};
+
 export const exportDocxUnified = async (
   ctx: UnifiedPrintContext & {
     templateName?: string;

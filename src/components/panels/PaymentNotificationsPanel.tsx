@@ -5,12 +5,7 @@ import { formatDateOnly, parseDateOnly, toDateOnly, daysBetweenDateOnly } from '
 import { notificationService } from '@/services/notificationService';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
-import {
-  COLLECTION_FIXED_PAYMENT_FOOTER,
-  fillTemplate,
-  NotificationTemplates,
-} from '@/services/notificationTemplates';
-import { getTemplate } from '@/services/db/messageTemplates';
+import { NotificationTemplates } from '@/services/notificationTemplates';
 import { paymentNotificationTargetsSmart } from '@/services/domainQueries';
 
 interface PaymentNotificationsPanelProps {
@@ -78,7 +73,19 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
                 ? `${freq} دفعة/سنة`
                 : '—';
 
-  const paymentInstructions = COLLECTION_FIXED_PAYMENT_FOOTER;
+  const paymentInstructions = `طرق الدفع:
+عبر خدمة CliQ (كليك)
+الاسم المستعار: KHABERNI
+البنك: بنك الاتحاد
+
+بعد التحويل يرجى إرسال:
+1- اسم المرسل
+2- سبب التحويل (إيجار / عربون)
+3- صورة إيصال الدفع
+
+على الأرقام التالية:
+0799090170 | 0799090171
+`;
 
   const total = t.items.reduce((sum, x) => sum + (x.amountRemaining || 0), 0);
 
@@ -94,8 +101,7 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
 
   const fixed = NotificationTemplates.getById('installment_reminder_upcoming_summary_fixed');
   if (fixed && fixed.enabled) {
-    const bodyFromStore = getTemplate('installment_reminder_upcoming_summary_fixed');
-    const base = fillTemplate(bodyFromStore, {
+    const base = NotificationTemplates.fill(fixed, {
       اسم_المستأجر: t.tenantName,
       جزء_العقار: t.propertyCode ? ` للعقار (${t.propertyCode})` : '',
       المستحقات_القريبة: lines,
@@ -107,7 +113,7 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
     return hasPayInfo ? base : `${base}${extra}`;
   }
 
-  // Fallback (legacy): keep old format if template is missing/disabled
+  // Fallback if the fixed template is missing or disabled
   const header = `مرحباً ${t.tenantName}،\nتذكير قبل الاستحقاق${t.propertyCode ? ` للعقار (${t.propertyCode})` : ''}.`;
   const base = `${header}\n\nالمستحقات القريبة:\n${lines}\n\nالإجمالي: ${Number(total || 0).toLocaleString('en-US')} د.أ\nشكراً لكم.`;
   const extra = `\n\nبيانات الدفع:\n• نظام الدفع بالعقد: ${paymentPlanLabel}\n• تكرار الدفع: ${freqLabel}\n\n${paymentInstructions}`;

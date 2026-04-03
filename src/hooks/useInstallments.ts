@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
-import { DynamicFormField, الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types';
+import {
+  DynamicFormField,
+  الأشخاص_tbl,
+  العقارات_tbl,
+  العقود_tbl,
+  الكمبيالات_tbl,
+} from '@/types';
 import { can } from '@/utils/permissions';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { exportToXlsx } from '@/utils/xlsx';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
-import { compareDateOnlySafe, daysBetweenDateOnlySafe, todayDateOnlyISO } from '@/utils/dateOnly';
+import {
+  compareDateOnlySafe,
+  daysBetweenDateOnlySafe,
+  todayDateOnlyISO,
+} from '@/utils/dateOnly';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useDebounce } from '@/hooks/useDebounce';
 import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
@@ -27,6 +37,13 @@ import {
 } from '@/components/installments/installmentsUtils';
 import type { DesktopInstallmentsRow } from '@/components/installments/installmentsTypes';
 import type { StatementTemplateData } from '@/components/printing/templates/StatementTemplate';
+import {
+  buildFullPrintHtmlDocument,
+  DEFAULT_PRINT_MARGINS_MM,
+  escapeHtml,
+} from '@/components/printing/printPreviewTypes';
+import { getSettings } from '@/services/db/settings';
+import { printHtmlUnifiedWithBrowserFallback } from '@/services/printing/unifiedPrint';
 
 function lastDayOfMonthStr(ym: string): string {
   const [yS, mS] = ym.split('-');
@@ -64,6 +81,7 @@ export function useInstallments() {
   const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
   const isDesktopFast = isDesktop && !!window.desktopDb?.domainInstallmentsContractsSearch;
 
+
   const [desktopRows, setDesktopRows] = useState<DesktopInstallmentsRow[]>([]);
   const [desktopTotal, setDesktopTotal] = useState(0);
   const [desktopPage, setDesktopPage] = useState(0);
@@ -84,7 +102,13 @@ export function useInstallments() {
   type InstallmentsFiltersSaved = {
     filter?: 'all' | 'debt' | 'paid' | 'due';
     search?: string;
-    sortMode?: 'tenant-asc' | 'tenant-desc' | 'due-asc' | 'due-desc' | 'amount-asc' | 'amount-desc';
+    sortMode?:
+      | 'tenant-asc'
+      | 'tenant-desc'
+      | 'due-asc'
+      | 'due-desc'
+      | 'amount-asc'
+      | 'amount-desc';
     isAdvancedFiltersOpen?: boolean;
     filterStartDate?: string;
     filterEndDate?: string;
@@ -505,6 +529,7 @@ export function useInstallments() {
         // Show success toast message
         toast.success(`تم سداد الدفعة بنجاح للمستأجر: ${tenantNameForDialog}`);
 
+        // تحديث state مباشرة من قاعدة البيانات (بدون تأخير)
         loadData();
       },
     });
@@ -552,6 +577,7 @@ export function useInstallments() {
         // Show info toast message
         toast.info(`تم إلغاء سداد الدفعة بنجاح - السبب: ${reason}`);
 
+        // Reload data immediately (no setTimeout)
         loadData();
       },
     });
@@ -731,9 +757,6 @@ export function useInstallments() {
 
     data = [...data].sort((a, b) => {
       if (sortMode === 'due-asc' || sortMode === 'due-desc') {
-        const aDebt = a.hasDebt ? 1 : 0;
-        const bDebt = b.hasDebt ? 1 : 0;
-        if (aDebt !== bDebt) return bDebt - aDebt;
         const aDue = getNextDueISO(Array.isArray(a.installments) ? a.installments : []);
         const bDue = getNextDueISO(Array.isArray(b.installments) ? b.installments : []);
         const aHas = !!aDue;
@@ -874,15 +897,13 @@ export function useInstallments() {
 
   // Financial Stats calculation for the dashboard
   const financialStats = useMemo(() => {
-    const data = isDesktopFast ? [] : groupedData; // Desktop fast mode stats would come from desktopCounts if available
+    const data = isDesktopFast ? [] : groupedData;
     let totalExpected = 0;
     let totalCollected = 0;
     let totalOverdue = 0;
     let overdueCount = 0;
 
     if (isDesktopFast && desktopCounts) {
-      // For desktop, we use counts if available, but for now we'll just show N/A or placeholders
-      // unless we want to fetch full stats which might be slow.
       return null;
     }
 
@@ -951,9 +972,75 @@ export function useInstallments() {
     toast.success('تم تصدير ملف Excel بنجاح');
   };
 
-  const handleExportPdf = () => {
-    window.print();
-  };
+  const handleExportPdf = useCallback(async () => {
+    const rows = isDesktopFast ? [] : filteredList;
+    if (rows.length === 0) {
+      toast.error('لا توجد بيانات للطباعة');
+      return;
+    }
+
+    const exportRows = rows.flatMap((d) =>
+      d.installments.map((i) => ({
+        tenantName: d.tenant?.الاسم || 'غير معروف',
+        contractNo: d.contract.رقم_العقد,
+        propertyCode: d.property?.الكود_الداخلي || 'غير معروف',
+        dueDate: i.تاريخ_استحقاق,
+        total: i.القيمة,
+        paid: getPaidAndRemaining(i).paid,
+        remaining: getPaidAndRemaining(i).remaining,
+        status: i.حالة_الكمبيالة,
+      }))
+    );
+
+    try {
+      const settings = getSettings();
+      const trs = exportRows
+        .map((row, idx) => {
+          return `<tr>
+            <td>${idx + 1}</td>
+            <td>${escapeHtml(String(row.tenantName))}</td>
+            <td>${escapeHtml(String(row.contractNo))}</td>
+            <td>${escapeHtml(String(row.propertyCode))}</td>
+            <td>${escapeHtml(String(row.dueDate || ''))}</td>
+            <td>${(Number(row.total) || 0).toLocaleString()}</td>
+            <td>${(Number(row.paid) || 0).toLocaleString()}</td>
+            <td>${(Number(row.remaining) || 0).toLocaleString()}</td>
+            <td>${escapeHtml(String(row.status || ''))}</td>
+          </tr>`;
+        })
+        .join('');
+      const body = `
+        <h1 style="font-size:18px;margin:0 0 12px;">قائمة الدفعات</h1>
+        <p style="font-size:12px;color:#64748b;margin:0 0 14px;">${escapeHtml(new Date().toLocaleString('ar'))}</p>
+        <table>
+          <thead><tr>
+            <th>#</th><th>المستأجر</th><th>رقم العقد</th><th>العقار</th><th>تاريخ الاستحقاق</th>
+            <th>القيمة</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th>
+          </tr></thead>
+          <tbody>${trs}</tbody>
+        </table>`;
+      const fullHtml = buildFullPrintHtmlDocument(settings, body, {
+        orientation: 'landscape',
+        marginsMm: DEFAULT_PRINT_MARGINS_MM,
+      });
+      const res = await printHtmlUnifiedWithBrowserFallback({
+        documentType: 'installments_list',
+        html: fullHtml,
+        orientation: 'landscape',
+        marginsMm: DEFAULT_PRINT_MARGINS_MM,
+        defaultFileName: `دفعات_مالية_${new Date().toISOString().split('T')[0]}`,
+      });
+      if (res && res.ok === false) {
+        toast.error(res.message.trim() || 'تعذرت الطباعة');
+      } else if (res?.ok) {
+        toast.success('جاري فتح حوار الطباعة');
+      } else {
+        toast.success('جاري فتح نافذة الطباعة');
+      }
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'فشلت الطباعة');
+    }
+  }, [filteredList, isDesktopFast, toast]);
 
   const clearFilters = useCallback(() => {
     setFilter('all');
