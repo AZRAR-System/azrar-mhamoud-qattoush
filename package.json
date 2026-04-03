@@ -41,7 +41,7 @@
     "electron:dev": "npm run desktop:dev",
     "electron:preload": "npx --no-install esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=electron/preload.cjs",
     "electron:main": "npx --no-install esbuild electron/main.ts --bundle --platform=node --format=esm --external:electron --external:better-sqlite3 --external:electron-updater --external:mssql --external:electron-log --outfile=electron/main.js",
-    "electron:ipc": "npx --no-install esbuild electron/ipc.ts --bundle --platform=node --format=esm --external:electron --external:better-sqlite3 --external:electron-updater --external:mssql --outfile=electron/ipc.js",
+    "electron:ipc": "npx --no-install esbuild electron/ipc/index.ts --bundle --platform=node --format=esm --external:electron --external:better-sqlite3 --external:electron-updater --external:mssql --outfile=electron/ipc.js",
     "electron:db": "npx --no-install esbuild electron/db.ts --bundle --platform=node --format=esm --external:electron --external:better-sqlite3 --external:better-sqlite3-multiple-ciphers --outfile=electron/db.js",
     "electron:obfuscate": "node scripts/obfuscate-electron-bundles.mjs",
     "electron:build:dev": "npm run electron:preload && npm run electron:main && npm run electron:ipc && npm run electron:db && npm run electron:obfuscate",
