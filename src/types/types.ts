@@ -446,6 +446,15 @@ export interface SystemSettings {
   // Delay between opening multiple chats (ms). Default: 10000
   whatsAppDelayMs?: number;
 
+  /** إرسال تلقائي من مسح الخلفية (معطّل افتراضياً — يتطلب تفعيلاً صريحاً) */
+  whatsAppAutoEnabled?: boolean;
+  /** بداية نافذة الإرسال (ساعة 0–23)، افتراضي 8 */
+  whatsAppWorkHoursStart?: number;
+  /** نهاية نافذة الإرسال (ساعة 0–24)، افتراضي 20 — لا يُرسل عند الساعة 20 أو بعدها */
+  whatsAppWorkHoursEnd?: number;
+  /** كم يوماً قبل الاستحقاق يُرسل التذكير الودي (افتراضي 3) */
+  whatsAppAutoDelayDays?: number;
+
   // Messages/Notifications
   // Human-readable payment methods used in notifications (e.g., "نقداً", "تحويل بنكي").
   paymentMethods?: string[];

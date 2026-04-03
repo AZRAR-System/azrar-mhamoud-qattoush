@@ -43,6 +43,10 @@ export const getSettings = (): SystemSettings => {
     contractWhatsAppPromptAfterCreate: true,
     whatsAppTarget: 'auto',
     whatsAppDelayMs: 10_000,
+    whatsAppAutoEnabled: false,
+    whatsAppWorkHoursStart: 8,
+    whatsAppWorkHoursEnd: 20,
+    whatsAppAutoDelayDays: 3,
     paymentMethods: [],
   };
 
