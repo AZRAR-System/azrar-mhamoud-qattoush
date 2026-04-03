@@ -77,6 +77,7 @@ import {
   deleteSalesAgreement,
   createSalesAgreement,
 } from './db/sales';
+import { userHasPermission as userHasPermissionCore } from '@/services/userPermissions';
 import { validateAllData } from '@/services/dataValidation';
 import { purgeRefs, isDesktop, getDesktopBridge } from './db/refs';
 import { makeCascadeDeletes } from './db/cascade';
@@ -1660,17 +1661,8 @@ export const DbService = {
       // ignore
     }
   },
-  userHasPermission: (userId: string, permission: string) => {
-    const user = get<المستخدمين_tbl>(KEYS.USERS).find((u) => u.id === userId);
-    if (!user) return false;
-    // SuperAdmin should bypass all permission checks, even if role value is not exactly 'SuperAdmin'
-    // (e.g., different casing, localized labels, or legacy values).
-    if (isSuperAdmin(normalizeRole(user.الدور))) return true;
-    const perms = get<مستخدم_صلاحية_tbl>(KEYS.USER_PERMISSIONS)
-      .filter((p) => p.userId === userId)
-      .map((p) => p.permissionCode);
-    return perms.includes(permission);
-  },
+  userHasPermission: (userId: string, permission: string) =>
+    userHasPermissionCore(userId, permission),
   getUserPermissions: (userId: string) =>
     get<مستخدم_صلاحية_tbl>(KEYS.USER_PERMISSIONS)
       .filter((p) => p.userId === userId)

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { RoleType, PermissionCode } from '@/types';
-import { DbService } from '@/services/mockDb';
+import { userHasPermission } from '@/services/userPermissions';
 import { isSuperAdmin, normalizeRole } from '@/utils/roles';
 
 interface RBACGuardProps {
@@ -39,7 +39,7 @@ export const RBACGuard: React.FC<RBACGuardProps> = ({
 
   // 2. Permission Check
   const checkPermission = (permissionCode: PermissionCode) =>
-    DbService.userHasPermission(user.id, permissionCode);
+    userHasPermission(user.id, permissionCode);
 
   if (requiredPermission) {
     if (!checkPermission(requiredPermission)) return <>{fallback}</>;

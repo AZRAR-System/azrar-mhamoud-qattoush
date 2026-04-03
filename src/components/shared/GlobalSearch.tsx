@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useId } from 'react';
 import { Search, User, Home, FileText, ChevronLeft, ArrowRight } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatContractNumberShort } from '@/utils/contractNumber';
-import { domainSearchGlobalSmart } from '@/services/domainQueries';
 import { AppModal } from '@/components/ui/AppModal';
 import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types';
 
@@ -70,6 +69,7 @@ export const GlobalSearch: React.FC = () => {
         return;
       }
 
+      const { domainSearchGlobalSmart } = await import('@/services/domainQueries');
       const res = await domainSearchGlobalSmart(q);
       if (!alive) return;
       setResults(res);
