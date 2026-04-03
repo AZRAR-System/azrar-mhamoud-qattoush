@@ -99,7 +99,7 @@ export const DailySummaryWidget: React.FC<DailySummaryWidgetProps> = ({ data, is
       value: paymentRemindersNext7,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
-      action: () => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 }),
+      action: () => openPanel('NOTIFICATION_CENTER'),
     },
     {
       icon: FileText,

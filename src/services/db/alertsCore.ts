@@ -4,8 +4,25 @@
 
 import type { tbl_Alerts } from '@/types';
 import { العقود_tbl, الأشخاص_tbl, العقارات_tbl } from '@/types';
+import { notificationCenter } from '@/services/notificationCenter';
 import { get, save } from './kv';
 import { KEYS } from './keys';
+
+function pushNewTblAlertToNotificationCenter(alert: tbl_Alerts) {
+  try {
+    notificationCenter.add({
+      id: `nc-tbl-${alert.id}`,
+      type: alert.نوع_التنبيه === 'error' ? 'error' : 'warning',
+      title: String(alert.category ?? 'تنبيه'),
+      message: String(alert.الوصف ?? ''),
+      category: String(alert.category ?? 'alerts'),
+      entityId: alert.مرجع_المعرف ? String(alert.مرجع_المعرف) : undefined,
+      urgent: alert.نوع_التنبيه === 'error',
+    });
+  } catch {
+    // ignore
+  }
+}
 
 export function upsertAlert(alert: tbl_Alerts) {
   const all = get<tbl_Alerts>(KEYS.ALERTS);
@@ -36,6 +53,7 @@ export function upsertAlert(alert: tbl_Alerts) {
     return;
   }
 
+  pushNewTblAlertToNotificationCenter(alert);
   save(KEYS.ALERTS, [alert, ...all]);
 }
 

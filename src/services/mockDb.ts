@@ -1569,7 +1569,7 @@ export const DbService = {
           content: `⏳ يوجد ${count} دفعات قريبة الاستحقاق خلال 7 أيام بقيمة إجمالية ${formatCurrencyJOD(total)}`,
           priority: 'High',
           type: 'info',
-          action: { kind: 'panel', panel: 'PAYMENT_NOTIFICATIONS', options: { daysAhead: 7 } },
+          action: { kind: 'panel', panel: 'NOTIFICATION_CENTER' },
         });
       }
     } catch {

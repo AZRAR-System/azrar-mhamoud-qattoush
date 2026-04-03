@@ -133,7 +133,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       textColor: 'text-red-600',
       bgColor: 'bg-red-50 dark:bg-red-900/20',
       trend: 'دفعات مستحقة خلال 7 أيام — اضغط للتفاصيل',
-      onClick: () => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 }),
+      onClick: () => openPanel('NOTIFICATION_CENTER'),
     },
     {
       title: 'إيرادات الشهر الحالي',
