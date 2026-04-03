@@ -96,7 +96,7 @@ export function SettingsBackupSection({ page }: Props) {
               </label>
             )}
           </div>
-
+    
           <div className="md:col-span-2 flex items-center justify-between gap-3 px-2">
             <div>
               <h3 className="text-sm font-black text-slate-800 dark:text-white">
@@ -108,7 +108,7 @@ export function SettingsBackupSection({ page }: Props) {
             </div>
             <div className="hidden md:block h-px flex-1 bg-slate-200 dark:bg-slate-700" />
           </div>
-
+    
           {isDesktop && (
             <div className="app-card p-6 rounded-3xl md:col-span-2">
               <div className="flex items-start justify-between gap-4">
@@ -132,7 +132,7 @@ export function SettingsBackupSection({ page }: Props) {
               </div>
             </div>
           )}
-
+    
           {isDesktop && window.desktopDb?.getBackupEncryptionSettings && (
             <div className="app-card p-6 rounded-3xl md:col-span-2">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -143,17 +143,18 @@ export function SettingsBackupSection({ page }: Props) {
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     عند التفعيل سيتم تشفير النسخ الاحتياطية (
                     <span className="font-mono">.db.enc</span> و{' '}
-                    <span className="font-mono">.tar.gz.enc</span>) وكذلك تشفير المرفقات المخزنة على
-                    الجهاز (تشفير أثناء التخزين) ولن يمكن فتحها بدون كلمة المرور.
+                    <span className="font-mono">.tar.gz.enc</span>) وكذلك تشفير المرفقات
+                    المخزنة على الجهاز (تشفير أثناء التخزين) ولن يمكن فتحها بدون كلمة
+                    المرور.
                   </div>
                   {!backupEncAvailable && (
                     <div className="mt-3 text-xs rounded-xl bg-amber-50 border border-amber-200 text-amber-900 p-3">
-                      ملاحظة: تشفير/حفظ كلمة المرور يعتمد على حماية النظام (Windows). إذا لم تكن
-                      متاحة قد يعمل بشكل محدود.
+                      ملاحظة: تشفير/حفظ كلمة المرور يعتمد على حماية النظام (Windows). إذا لم
+                      تكن متاحة قد يعمل بشكل محدود.
                     </div>
                   )}
                 </div>
-
+    
                 <button
                   type="button"
                   onClick={() => saveBackupEncryption({ enabled: !backupEncEnabled })}
@@ -163,7 +164,7 @@ export function SettingsBackupSection({ page }: Props) {
                   {backupEncEnabled ? 'مفعل' : 'غير مفعل'}
                 </button>
               </div>
-
+    
               <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass} htmlFor="settings-backup-enc-password">
@@ -188,7 +189,7 @@ export function SettingsBackupSection({ page }: Props) {
                       : 'لا توجد كلمة مرور محفوظة بعد.'}
                   </div>
                 </div>
-
+    
                 <div className="flex items-end gap-2">
                   <button
                     type="button"
@@ -213,7 +214,7 @@ export function SettingsBackupSection({ page }: Props) {
               </div>
             </div>
           )}
-
+    
           {isDesktop && window.desktopDb?.getLocalBackupAutomationSettings && (
             <div className="app-card p-6 rounded-3xl md:col-span-2">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -222,8 +223,8 @@ export function SettingsBackupSection({ page }: Props) {
                     النسخ الاحتياطي التلقائي
                   </h3>
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    سيتم إنشاء نسخة كاملة (قاعدة البيانات + المرفقات) يومياً حسب الوقت الذي تختاره
-                    داخل <span className="font-mono">مجلد النسخ الاحتياطي</span>.
+                    سيتم إنشاء نسخة كاملة (قاعدة البيانات + المرفقات) يومياً حسب الوقت الذي
+                    تختاره داخل <span className="font-mono">مجلد النسخ الاحتياطي</span>.
                   </div>
                   {!backupDir && (
                     <div className="mt-3 text-xs rounded-xl bg-amber-50 border border-amber-200 text-amber-900 p-3">
@@ -231,7 +232,7 @@ export function SettingsBackupSection({ page }: Props) {
                     </div>
                   )}
                 </div>
-
+    
                 <button
                   type="button"
                   onClick={() =>
@@ -247,10 +248,12 @@ export function SettingsBackupSection({ page }: Props) {
                   {localBackupEnabled ? 'مفعل' : 'غير مفعل'}
                 </button>
               </div>
-
+    
               <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">الوقت المحدد</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    الوقت المحدد
+                  </div>
                   <div className="mt-1 text-sm font-black text-slate-800 dark:text-white font-mono">
                     {localBackupTime || '—'}
                   </div>
@@ -280,7 +283,9 @@ export function SettingsBackupSection({ page }: Props) {
                     عدد أيام الحذف
                   </div>
                   <div className="mt-1 text-sm font-black text-slate-800 dark:text-white">
-                    {Number.isFinite(localBackupRetentionDays) ? localBackupRetentionDays : 30}
+                    {Number.isFinite(localBackupRetentionDays)
+                      ? localBackupRetentionDays
+                      : 30}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
@@ -301,7 +306,7 @@ export function SettingsBackupSection({ page }: Props) {
                   ) : null}
                 </div>
               </div>
-
+    
               <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className={labelClass} htmlFor="settings-local-backup-time">
@@ -315,7 +320,7 @@ export function SettingsBackupSection({ page }: Props) {
                     onChange={(e) => setLocalBackupTime(e.target.value)}
                   />
                 </div>
-
+    
                 <div>
                   <label className={labelClass} htmlFor="settings-local-backup-retention">
                     الاحتفاظ (بالأيام)
@@ -327,12 +332,16 @@ export function SettingsBackupSection({ page }: Props) {
                     max={3650}
                     className={inputClass}
                     value={
-                      Number.isFinite(localBackupRetentionDays) ? localBackupRetentionDays : 30
+                      Number.isFinite(localBackupRetentionDays)
+                        ? localBackupRetentionDays
+                        : 30
                     }
-                    onChange={(e) => setLocalBackupRetentionDays(Number(e.target.value || 0) || 30)}
+                    onChange={(e) =>
+                      setLocalBackupRetentionDays(Number(e.target.value || 0) || 30)
+                    }
                   />
                 </div>
-
+    
                 <div>
                   <label className={labelClass}>آخر تنفيذ</label>
                   <div className="mt-1 text-xs font-mono bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700 break-all">
@@ -340,7 +349,7 @@ export function SettingsBackupSection({ page }: Props) {
                   </div>
                 </div>
               </div>
-
+    
               <div className="mt-4 flex gap-2 flex-wrap">
                 <button
                   type="button"
@@ -376,7 +385,7 @@ export function SettingsBackupSection({ page }: Props) {
                   تحديث العدادات والسجل
                 </button>
               </div>
-
+    
               <div className="mt-6">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -396,7 +405,7 @@ export function SettingsBackupSection({ page }: Props) {
                     مسح السجل
                   </button>
                 </div>
-
+    
                 <div className="mt-3 app-table-wrapper overflow-hidden">
                   <div className="max-h-[280px] overflow-auto no-scrollbar">
                     <table className="app-table">
@@ -496,10 +505,13 @@ export function SettingsBackupSection({ page }: Props) {
                                           <button
                                             type="button"
                                             onClick={() =>
-                                              copyToClipboard(x.attachmentsLatestPath || '', {
-                                                successMessage: 'تم نسخ المسار',
-                                                failureMessage: 'تعذر النسخ',
-                                              })
+                                              copyToClipboard(
+                                                x.attachmentsLatestPath || '',
+                                                {
+                                                  successMessage: 'تم نسخ المسار',
+                                                  failureMessage: 'تعذر النسخ',
+                                                }
+                                              )
                                             }
                                             className="px-3 py-2 rounded-lg text-[10px] font-black bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 active:scale-95 transition-all"
                                           >
@@ -510,15 +522,19 @@ export function SettingsBackupSection({ page }: Props) {
                                       {x.attachmentsArchivePath && (
                                         <div className="flex items-start gap-2">
                                           <div className="flex-1 font-mono text-[10px] bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-lg p-2 break-all">
-                                            Attachments (archive): {x.attachmentsArchivePath}
+                                            Attachments (archive):{' '}
+                                            {x.attachmentsArchivePath}
                                           </div>
                                           <button
                                             type="button"
                                             onClick={() =>
-                                              copyToClipboard(x.attachmentsArchivePath || '', {
-                                                successMessage: 'تم نسخ المسار',
-                                                failureMessage: 'تعذر النسخ',
-                                              })
+                                              copyToClipboard(
+                                                x.attachmentsArchivePath || '',
+                                                {
+                                                  successMessage: 'تم نسخ المسار',
+                                                  failureMessage: 'تعذر النسخ',
+                                                }
+                                              )
                                             }
                                             className="px-3 py-2 rounded-lg text-[10px] font-black bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 active:scale-95 transition-all"
                                           >
@@ -546,7 +562,7 @@ export function SettingsBackupSection({ page }: Props) {
                     </table>
                   </div>
                 </div>
-
+    
                 {localBackupStats?.ok ? (
                   <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
                     إجمالي حجم ملفات النسخ داخل المجلد:{' '}
@@ -558,12 +574,13 @@ export function SettingsBackupSection({ page }: Props) {
               </div>
             </div>
           )}
-
+    
           <div className="app-card p-8 rounded-3xl flex flex-col items-center text-center md:col-span-2">
             <AlertTriangle size={40} className="text-red-600 mb-4" />
             <h3 className="text-xl font-bold mb-2">إعادة ضبط المصنع</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl">
-              تصفير/حذف البيانات يتم من شاشة إدارة قاعدة البيانات. تأكد من عمل نسخة احتياطية أولاً.
+              تصفير/حذف البيانات يتم من شاشة إدارة قاعدة البيانات. تأكد من عمل نسخة احتياطية
+              أولاً.
             </p>
             <button
               onClick={goToDatabaseReset}

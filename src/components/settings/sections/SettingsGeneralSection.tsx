@@ -1,35 +1,13 @@
 import {
-  Database,
-  Building,
-  List,
-  Upload,
-  Globe,
-  Phone,
-  Bell,
-  Image as ImageIcon,
-  Plus,
-  Trash2,
-  Download,
-  Search,
-  Check,
-  FolderOpen,
-  ArrowRight,
-  RefreshCcw,
-  Edit2,
-  BadgeDollarSign,
-  History,
-  Shield,
-  FileSpreadsheet,
-  Info,
-  PlayCircle,
   AlertTriangle,
-  Copy,
-  MessageCircle,
-  FileText,
+  Building,
+  Globe,
+  Image as ImageIcon,
+  Phone,
+  Shield,
 } from 'lucide-react';
 import { GEO_COUNTRIES, GEO_CURRENCIES } from '@/constants/geo';
 import { getCurrencySuffix } from '@/services/moneySettings';
-import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import type { SettingsPageModel } from '@/hooks/useSettingsPage';
@@ -45,7 +23,6 @@ export function SettingsGeneralSection({ page }: Props) {
     setSettings,
     settings,
     settingsNoAccessFallback,
-    t,
   } = page;
 
   return (

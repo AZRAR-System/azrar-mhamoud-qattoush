@@ -14,7 +14,7 @@ import { AppModal } from '@/components/ui/AppModal';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info' | 'delete';
 
-interface Toast {
+interface ToastItem {
   id: string;
   type: ToastType;
   message: string;
@@ -33,7 +33,7 @@ interface DialogOptions {
 }
 
 interface ToastContextType {
-  toasts: Toast[];
+  toasts: ToastItem[];
   showToast: (
     message: string,
     type: ToastType,
@@ -52,7 +52,7 @@ interface ToastContextType {
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [dialog, setDialog] = useState<DialogOptions | null>(null);
   const [dialogResolve, setDialogResolve] = useState<((value: boolean) => void) | null>(null);
   const [portalReady, setPortalReady] = useState(false);
@@ -213,21 +213,21 @@ export const useToast = () => {
 };
 
 // Toast Container Component
-const ToastContainer: React.FC<{ toasts: Toast[]; removeToast: (id: string) => void }> = ({
+const ToastContainer: React.FC<{ toasts: ToastItem[]; removeToast: (id: string) => void }> = ({
   toasts,
   removeToast,
 }) => {
   return (
     <div className="fixed bottom-6 right-6 layer-toast flex flex-col gap-3 pointer-events-none">
       {toasts.map((toast) => (
-        <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
+        <ToastView key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
       ))}
     </div>
   );
 };
 
 // Individual Toast Component
-const Toast: React.FC<{ toast: Toast; onClose: () => void }> = ({ toast, onClose }) => {
+const ToastView: React.FC<{ toast: ToastItem; onClose: () => void }> = ({ toast, onClose }) => {
   const getStyles = (type: ToastType) => {
     const baseStyles =
       'pointer-events-auto w-full max-w-sm rounded-xl shadow-2xl border p-4 flex items-start gap-3 toast-enter';

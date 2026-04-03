@@ -23,6 +23,9 @@ import {
   Pencil,
   CornerDownRight,
   Download,
+  FileSpreadsheet,
+  Users,
+  Inbox,
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
@@ -36,17 +39,12 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { getRentalTier } from '@/utils/employeeCommission';
 import { storage } from '@/services/storage';
 import { contractDetailsSmart, domainGetSmart } from '@/services/domainQueries';
-import {
-  COMMISSIONS_DESKTOP_CACHE_CLEARED_EVENT,
-  commissionsFastContractById,
-  commissionsFastPersonById,
-  commissionsFastPropertyById,
-} from '@/services/commissionsDesktopEntityCache';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { PageHero } from '@/components/shared/PageHero';
 import { Input } from '@/components/ui/Input';
 import { MoneyInput } from '@/components/ui/MoneyInput';
+import { exportToXlsx, type XlsxColumn } from '@/utils/xlsx';
 
 type Tab = 'contracts' | 'external' | 'employee';
 
@@ -74,9 +72,10 @@ const asNumber = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/** مطابقة معرفات قد تختلف بين نص/رقم في الذاكرة أو SQLite */
 const idEq = (a: unknown, b: unknown) => String(a ?? '').trim() === String(b ?? '').trim();
 
-/** للربط المعروض للمستخدم: العقار يُعرض دائماً بالكود الداخلي؛ المعرف الداخلي لقاعدة البيانات يُستخدم للجلب فقط */
+/** قراءة حقول من كائن قد يعيدها الديسكتوب بمفاتيح عربية أو إنجليزية */
 const pickRecordField = (obj: unknown, keys: string[]): string => {
   if (!isRecord(obj)) return '';
   for (const k of keys) {
@@ -85,6 +84,7 @@ const pickRecordField = (obj: unknown, keys: string[]): string => {
   }
   return '';
 };
+
 const contractPropertyId = (c: unknown) =>
   pickRecordField(c, ['رقم_العقار', 'property_id', 'propertyId']);
 const contractTenantId = (c: unknown) =>
@@ -106,6 +106,7 @@ export const Commissions: FC = () => {
   const [contractsPage, setContractsPage] = useState(1);
   const [externalPage, setExternalPage] = useState(1);
 
+  /** الديسكتوب: مسار SQL السريع عبر domainGet و/أو تفاصيل العقد الكاملة */
   const isDesktopFast =
     typeof window !== 'undefined' &&
     storage.isDesktop() &&
@@ -117,10 +118,10 @@ export const Commissions: FC = () => {
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
 
-  // Desktop-fast: resolve contract/property/people lazily; maps are module-singletons so data survives unmount/navigation
-  const fastContractByIdRef = useRef(commissionsFastContractById);
-  const fastPropertyByIdRef = useRef(commissionsFastPropertyById);
-  const fastPersonByIdRef = useRef(commissionsFastPersonById);
+  // Desktop-fast: resolve contract/property/people names lazily (avoid renderer loading huge arrays)
+  const fastContractByIdRef = useRef<Map<string, العقود_tbl>>(new Map());
+  const fastPropertyByIdRef = useRef<Map<string, العقارات_tbl>>(new Map());
+  const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
   const [fastCacheVersion, setFastCacheVersion] = useState(0);
 
   // External Commissions Data
@@ -152,6 +153,8 @@ export const Commissions: FC = () => {
   // Filters
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [searchTerm, setSearchTerm] = useState('');
+  /** بحث داخل تبويب عمولات العقود فقط (لا يؤثر على إجماليات الشهر) */
+  const [contractSearchTerm, setContractSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
 
   const toast = useToast();
@@ -209,6 +212,10 @@ export const Commissions: FC = () => {
       setContracts([]);
       setProperties([]);
       setPeople([]);
+      fastContractByIdRef.current = new Map();
+      fastPropertyByIdRef.current = new Map();
+      fastPersonByIdRef.current = new Map();
+      setFastCacheVersion((v) => v + 1);
     } else {
       setContracts(DbService.getContracts());
       setProperties(DbService.getProperties());
@@ -238,15 +245,9 @@ export const Commissions: FC = () => {
   useEffect(() => {
     // Keep filters intuitive across tabs
     setSearchTerm('');
+    setContractSearchTerm('');
     setFilterType('All');
   }, [activeTab]);
-
-  useEffect(() => {
-    if (!isDesktopFast) return;
-    const bump = () => setFastCacheVersion((v) => v + 1);
-    window.addEventListener(COMMISSIONS_DESKTOP_CACHE_CLEARED_EVENT, bump);
-    return () => window.removeEventListener(COMMISSIONS_DESKTOP_CACHE_CLEARED_EVENT, bump);
-  }, [isDesktopFast]);
 
   const handleAddExternal = (e: FormEvent) => {
     e.preventDefault();
@@ -427,59 +428,66 @@ export const Commissions: FC = () => {
 
   // --- Calculations & Helpers ---
 
-  const getPropCode = (contractId: string) => {
-    const safeId = String(contractId || '').trim();
-    if (!safeId) return '—';
+  const getPropCode = useCallback(
+    (contractId: string) => {
+      const safeId = String(contractId || '').trim();
+      if (!safeId) return '—';
 
-    if (isDesktopFast) {
-      void fastCacheVersion;
-      const contract = fastContractByIdRef.current.get(safeId);
-      const propId = contractPropertyId(contract);
-      const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
-      return propertyInternalCode(prop) || '—';
-    }
+      if (isDesktopFast) {
+        // Touch fastCacheVersion to make ESLint/TS aware this value is intentionally read.
+        void fastCacheVersion;
+        const contract = fastContractByIdRef.current.get(safeId);
+        const propId = contractPropertyId(contract);
+        const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
+        return propertyInternalCode(prop) || '—';
+      }
 
-    const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
-    if (!contract) return '—';
-    const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
-    return prop ? String(prop.الكود_الداخلي || '').trim() || '—' : '—';
-  };
+      const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
+      if (!contract) return '—';
+      const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
+      return prop ? String(prop.الكود_الداخلي || '').trim() || '—' : '—';
+    },
+    [isDesktopFast, fastCacheVersion, contracts, properties]
+  );
 
-  const getOwnerAndTenantNames = (contractId: string) => {
-    const safeId = String(contractId || '').trim();
-    if (!safeId) return { ownerName: '—', tenantName: '—' };
+  const getOwnerAndTenantNames = useCallback(
+    (contractId: string) => {
+      const safeId = String(contractId || '').trim();
+      if (!safeId) return { ownerName: '—', tenantName: '—' };
 
-    if (isDesktopFast) {
-      void fastCacheVersion;
-      const contract = fastContractByIdRef.current.get(safeId);
-      const tenantId = contractTenantId(contract);
-      const propId = contractPropertyId(contract);
-      const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
-      const ownerId = propertyOwnerId(prop);
+      if (isDesktopFast) {
+        void fastCacheVersion;
+        const contract = fastContractByIdRef.current.get(safeId);
+        const tenantId = contractTenantId(contract);
+        const propId = contractPropertyId(contract);
+        const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
+        const ownerId = propertyOwnerId(prop);
 
-      const tenant = tenantId ? fastPersonByIdRef.current.get(tenantId) : null;
-      const owner = ownerId ? fastPersonByIdRef.current.get(ownerId) : null;
+        const tenant = tenantId ? fastPersonByIdRef.current.get(tenantId) : null;
+        const owner = ownerId ? fastPersonByIdRef.current.get(ownerId) : null;
+
+        return {
+          ownerName: personDisplayName(owner) || '—',
+          tenantName: personDisplayName(tenant) || '—',
+        };
+      }
+
+      const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
+      if (!contract) return { ownerName: '—', tenantName: '—' };
+
+      const tenant = people.find((p) => idEq(p.رقم_الشخص, contract.رقم_المستاجر));
+      const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
+      const owner = prop
+        ? people.find((p) => idEq(p.رقم_الشخص, prop.رقم_المالك))
+        : undefined;
 
       return {
-        ownerName: personDisplayName(owner) || '—',
-        tenantName: personDisplayName(tenant) || '—',
+        ownerName: String(owner?.الاسم || '').trim() || '—',
+        tenantName: String(tenant?.الاسم || '').trim() || '—',
       };
-    }
-
-    const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
-    if (!contract) return { ownerName: '—', tenantName: '—' };
-
-    const tenant = people.find((p) => idEq(p.رقم_الشخص, contract.رقم_المستاجر));
-    const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
-    const owner = prop
-      ? people.find((p) => idEq(p.رقم_الشخص, prop.رقم_المالك))
-      : undefined;
-
-    return {
-      ownerName: String(owner?.الاسم || '').trim() || '—',
-      tenantName: String(tenant?.الاسم || '').trim() || '—',
-    };
-  };
+    },
+    [isDesktopFast, fastCacheVersion, contracts, properties, people]
+  );
 
   const handlePostponeCommissionCollection = async (c: العمولات_tbl) => {
     const defaultWho = (() => {
@@ -546,14 +554,34 @@ export const Commissions: FC = () => {
     return '';
   };
 
+  /** كل عمولات الشهر المختار — أساس الإجماليات وحساب الشريحة */
   const commissionsForSelectedMonth = useMemo(
     () => commissions.filter((c) => getCommissionMonthKey(c) === selectedMonth),
     [commissions, selectedMonth]
   );
 
-  const filteredCommissions = commissionsForSelectedMonth;
+  /** قائمة العرض (شهر + بحث نصي داخل التبويب) */
+  const filteredCommissions = useMemo(() => {
+    const q = contractSearchTerm.trim().toLowerCase();
+    if (!q) return commissionsForSelectedMonth;
+    return commissionsForSelectedMonth.filter((c) => {
+      const prop = getPropCode(c.رقم_العقد);
+      const names = getOwnerAndTenantNames(c.رقم_العقد);
+      const blob = [
+        formatContractNumberShort(c.رقم_العقد),
+        String(c.رقم_العقد || ''),
+        prop,
+        names.ownerName,
+        names.tenantName,
+        String(c.رقم_الفرصة || ''),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return blob.includes(q);
+    });
+  }, [commissionsForSelectedMonth, contractSearchTerm, getOwnerAndTenantNames, getPropCode]);
 
-  /** ديسكتوب: جلب العقد والعقار (للكود الداخلي) والأشخاص عبر تفاصيل العقد أو domainGet */
+  /** سطح المكتب السريع: تحميل العقد ثم العقار والمستأجر والمالك — حتى لو كان العقد في الكاش نُكمل ما فقد سابقاً */
   useEffect(() => {
     if (!isDesktopFast) return;
     let alive = true;
@@ -575,6 +603,7 @@ export const Commissions: FC = () => {
       for (const contractId of limited) {
         if (!alive) return;
 
+        /* المسار المفضّل على الديسكتوب: تفاصيل العقد (عقد + عقار + مستأجر) كما في لوحات النظام */
         if (hasContractDetails) {
           let hydratedWithDetails = false;
           try {
@@ -635,7 +664,7 @@ export const Commissions: FC = () => {
               }
             }
           } catch {
-            // fallback below
+            // ننتقل للمسار الاحتياطي
           }
           if (hydratedWithDetails) continue;
         }
@@ -661,9 +690,9 @@ export const Commissions: FC = () => {
 
         if (propId && !fastPropertyByIdRef.current.has(propId)) {
           try {
-            const p = await domainGetSmart('properties', propId);
-            if (p) {
-              fastPropertyByIdRef.current.set(propId, p);
+            const prop = await domainGetSmart('properties', propId);
+            if (prop) {
+              fastPropertyByIdRef.current.set(propId, prop);
               changed = true;
             }
           } catch {
@@ -684,12 +713,12 @@ export const Commissions: FC = () => {
         }
 
         const propRow = propId ? fastPropertyByIdRef.current.get(propId) : null;
-        const oid = propertyOwnerId(propRow);
-        if (oid && !fastPersonByIdRef.current.has(oid)) {
+        const ownerId = propertyOwnerId(propRow);
+        if (ownerId && !fastPersonByIdRef.current.has(ownerId)) {
           try {
-            const owner = await domainGetSmart('people', oid);
+            const owner = await domainGetSmart('people', ownerId);
             if (owner) {
-              fastPersonByIdRef.current.set(oid, owner);
+              fastPersonByIdRef.current.set(ownerId, owner);
               changed = true;
             }
           } catch {
@@ -754,7 +783,7 @@ export const Commissions: FC = () => {
 
   useEffect(() => {
     setContractsPage(1);
-  }, [selectedMonth, listPageSize]);
+  }, [selectedMonth, contractSearchTerm, listPageSize]);
 
   useEffect(() => {
     setExternalPage(1);
@@ -787,9 +816,12 @@ export const Commissions: FC = () => {
     return filteredExternal.slice(start, start + listPageSize);
   }, [filteredExternal, externalPage, listPageSize]);
 
-  // Totals
-  const totalOwner = filteredCommissions.reduce((acc, curr) => acc + curr.عمولة_المالك, 0);
-  const totalTenant = filteredCommissions.reduce((acc, curr) => acc + curr.عمولة_المستأجر, 0);
+  // Totals (شهر كامل — بغض النظر عن البحث في القائمة)
+  const totalOwner = commissionsForSelectedMonth.reduce((acc, curr) => acc + curr.عمولة_المالك, 0);
+  const totalTenant = commissionsForSelectedMonth.reduce(
+    (acc, curr) => acc + curr.عمولة_المستأجر,
+    0
+  );
   const grandTotalContracts = totalOwner + totalTenant;
   const totalExternal = filteredExternal.reduce((acc, curr) => acc + curr.القيمة, 0);
 
@@ -914,6 +946,139 @@ export const Commissions: FC = () => {
     toast.success('تم تصدير CSV');
   };
 
+  /** تصدير Excel: كل الأعمدة الموجودة في بيانات التقرير (مثل اسم المستخدم) + ترويسات التقرير، وورقة ملخص للفلاتر الحالية */
+  const handleExportEmployeeXlsx = async () => {
+    if (!employeeReport) {
+      toast.warning('تقرير عمولات الموظفين غير متاح حاليًا');
+      return;
+    }
+    if (filteredEmployeeRows.length === 0) {
+      toast.warning('لا توجد بيانات لتصديرها ضمن الفلاتر الحالية');
+      return;
+    }
+
+    const colDefs = employeeReport.columns || [];
+    const allKeys = new Set<string>();
+    for (const r of filteredEmployeeRows) {
+      if (isRecord(r)) {
+        for (const k of Object.keys(r)) allKeys.add(k);
+      }
+    }
+
+    const orderedKeys: string[] = [];
+    for (const c of colDefs) {
+      if (allKeys.has(c.key)) orderedKeys.push(c.key);
+    }
+    for (const k of [...allKeys].sort((a, b) => a.localeCompare(b, 'ar'))) {
+      if (!orderedKeys.includes(k)) orderedKeys.push(k);
+    }
+
+    const columns = orderedKeys.map((key) => {
+      const fromReport = colDefs.find((c) => c.key === key);
+      return { key, header: fromReport?.header || key };
+    }) as Array<XlsxColumn<Record<string, unknown>>>;
+
+    const rows: Record<string, unknown>[] = filteredEmployeeRows.map((r) => {
+      const o: Record<string, unknown> = {};
+      if (isRecord(r)) {
+        for (const key of orderedKeys) {
+          o[key] = r[key];
+        }
+      }
+      return o;
+    });
+
+    const safeMonth = String(selectedMonth || '').trim() || 'all';
+    const filename = `employee_commissions_${safeMonth}.xlsx`;
+
+    const summaryRows: unknown[][] = [
+      ['البند', 'القيمة'],
+      ['الشهر المحاسبي', selectedMonth],
+      ['عدد الصفوف المصدّرة', filteredEmployeeRows.length],
+      ['تصفية الموظف (اسم المستخدم)', employeeUserFilter || '— (الكل)'],
+      ['إجمالي عمولة الموظفين', formatCurrencyJOD(employeeTotals.totalEmployee)],
+      ['إجمالي عمولات العمليات (للمكتب)', formatCurrencyJOD(employeeTotals.totalOffice)],
+      ['إجمالي إدخال العقار', formatCurrencyJOD(employeeTotals.totalIntro)],
+      [],
+      [
+        'ملاحظة',
+        'الورقة الأولى تتضمن جميع الحقول المتاحة في التقرير لكل صف (بما فيها غير الظاهرة في القائمة). البيانات تعكس الفلاتر الحالية.',
+      ],
+    ];
+
+    try {
+      await exportToXlsx('عمولات الموظفين', columns, rows, filename, {
+        extraSheets: [{ name: 'ملخص التصدير', rows: summaryRows }],
+      });
+      toast.success('تم تصدير ملف Excel');
+    } catch {
+      toast.error('تعذر تصدير ملف Excel');
+    }
+  };
+
+  /** تصدير عمولات العقود لشهر كامل: كود العقار، المالك، المستأجر، الفرصة، والمبالغ */
+  const handleExportContractCommissionsXlsx = async () => {
+    if (commissionsForSelectedMonth.length === 0) {
+      toast.warning('لا توجد عمولات لهذا الشهر للتصدير');
+      return;
+    }
+
+    const columns = [
+      { key: 'k_commission', header: 'رقم العمولة' },
+      { key: 'k_contract_short', header: 'رقم العقد (مختصر)' },
+      { key: 'k_contract_id', header: 'رقم العقد' },
+      { key: 'k_contract_date', header: 'تاريخ العملية / العقد' },
+      { key: 'k_paid_month', header: 'شهر دفع العمولة' },
+      { key: 'k_opportunity', header: 'رقم الفرصة' },
+      { key: 'k_property_code', header: 'الكود الداخلي للعقار' },
+      { key: 'k_owner', header: 'اسم المالك' },
+      { key: 'k_tenant', header: 'اسم المستأجر' },
+      { key: 'k_owner_comm', header: 'عمولة المالك (د.أ)' },
+      { key: 'k_tenant_comm', header: 'عمولة المستأجر (د.أ)' },
+      { key: 'k_total', header: 'المجموع (د.أ)' },
+    ] as Array<XlsxColumn<Record<string, unknown>>>;
+
+    const rows: Record<string, unknown>[] = commissionsForSelectedMonth.map((c) => {
+      const cid = String(c.رقم_العقد || '').trim();
+      const names = getOwnerAndTenantNames(cid);
+      return {
+        k_commission: c.رقم_العمولة,
+        k_contract_short: formatContractNumberShort(c.رقم_العقد),
+        k_contract_id: cid,
+        k_contract_date: c.تاريخ_العقد ?? '',
+        k_paid_month: c.شهر_دفع_العمولة ?? '',
+        k_opportunity: c.رقم_الفرصة ?? '',
+        k_property_code: getPropCode(cid),
+        k_owner: names.ownerName,
+        k_tenant: names.tenantName,
+        k_owner_comm: Number(c.عمولة_المالك || 0),
+        k_tenant_comm: Number(c.عمولة_المستأجر || 0),
+        k_total: Number(c.المجموع || 0),
+      };
+    });
+
+    const safeMonth = String(selectedMonth || '').trim() || 'all';
+    const filename = `contract_commissions_${safeMonth}.xlsx`;
+
+    const summaryRows: unknown[][] = [
+      ['البند', 'القيمة'],
+      ['الشهر المحاسبي', selectedMonth],
+      ['عدد السجلات', rows.length],
+      ['إجمالي عمولة الملاك', formatCurrencyJOD(totalOwner)],
+      ['إجمالي عمولة المستأجرين', formatCurrencyJOD(totalTenant)],
+      ['الإجمالي', formatCurrencyJOD(grandTotalContracts)],
+    ];
+
+    try {
+      await exportToXlsx('عمولات العقود', columns, rows, filename, {
+        extraSheets: [{ name: 'ملخص', rows: summaryRows }],
+      });
+      toast.success('تم تصدير عمولات العقود إلى Excel');
+    } catch {
+      toast.error('تعذر تصدير ملف Excel');
+    }
+  };
+
   // Unique External Types for Filter (prefer system lookups so the user can manage them)
   const availableTypes = useMemo(() => {
     try {
@@ -942,11 +1107,19 @@ export const Commissions: FC = () => {
         icon={<HandCoins size={26} className="text-indigo-600 dark:text-indigo-400" />}
         iconVariant="inline"
         title="إدارة العمولات والإيرادات"
-        subtitle="تتبع صافي العمولات من العقود والعمليات الخارجية الشهرية"
+        subtitle="عمولات العقود، والدخل الخارجي، وتقرير عمولات الموظفين — كلها مرتبطة بالشهر المحاسبي الذي تختاره أعلاه."
         actions={
           <>
-            <div className="inline-flex items-center gap-1 bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800 p-1 rounded-2xl">
+            <div
+              className="inline-flex items-center gap-1 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-1 dark:border-slate-800 dark:bg-slate-950/40"
+              role="tablist"
+              aria-label="أقسام صفحة العمولات"
+            >
               <Button
+                type="button"
+                role="tab"
+                id="comm-tab-contracts"
+                aria-selected={activeTab === 'contracts'}
                 size="sm"
                 variant={activeTab === 'contracts' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('contracts')}
@@ -954,6 +1127,10 @@ export const Commissions: FC = () => {
                 عمولات العقود
               </Button>
               <Button
+                type="button"
+                role="tab"
+                id="comm-tab-external"
+                aria-selected={activeTab === 'external'}
                 size="sm"
                 variant={activeTab === 'external' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('external')}
@@ -961,6 +1138,10 @@ export const Commissions: FC = () => {
                 عمولات خارجية
               </Button>
               <Button
+                type="button"
+                role="tab"
+                id="comm-tab-employee"
+                aria-selected={activeTab === 'employee'}
                 size="sm"
                 variant={activeTab === 'employee' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('employee')}
@@ -969,11 +1150,15 @@ export const Commissions: FC = () => {
               </Button>
             </div>
 
-            <div className="app-card px-3 py-2 flex items-center gap-2">
-              <Filter size={16} className="text-gray-400" />
+            <div className="app-card flex items-center gap-2 px-3 py-2">
+              <Filter size={16} className="shrink-0 text-gray-400" aria-hidden />
+              <label className="sr-only" htmlFor="commissions-month-filter">
+                الشهر المحاسبي
+              </label>
               <input
+                id="commissions-month-filter"
                 type="month"
-                className="bg-transparent text-slate-700 dark:text-white outline-none text-sm font-bold"
+                className="bg-transparent text-sm font-bold text-slate-700 outline-none dark:text-white"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
               />
@@ -984,14 +1169,19 @@ export const Commissions: FC = () => {
 
       {/* View 3: Employee Commissions */}
       {activeTab === 'employee' && (
-        <div className="space-y-6 animate-slide-up">
+        <div
+          className="animate-slide-up space-y-6"
+          role="tabpanel"
+          id="comm-panel-employee"
+          aria-labelledby="comm-tab-employee"
+        >
           {/* Filter Bar */}
           <div className="app-card p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
             <div className="flex-1 flex gap-3 w-full">
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="بحث (المرجع، الكود الداخلي، رقم الفرصة)..."
+                  placeholder="بحث (المرجع، العقار، رقم الفرصة)..."
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1034,29 +1224,29 @@ export const Commissions: FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 المصدر: تقرير employee_commissions
               </div>
-              <Button size="sm" variant="secondary" onClick={handleExportEmployeeCsv}>
-                <Download size={16} /> تصدير CSV
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                onClick={() => void handleExportEmployeeXlsx()}
+              >
+                <FileSpreadsheet size={16} aria-hidden /> تصدير Excel
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={handleExportEmployeeCsv}>
+                <Download size={16} aria-hidden /> تصدير CSV
               </Button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              المستخدم المسجل:{' '}
-              <b className="text-slate-900 dark:text-white" dir="ltr">
-                {String(user?.اسم_المستخدم || '—')}
-              </b>
-            </div>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-600/20 relative overflow-hidden">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white shadow-lg shadow-indigo-600/25 ring-1 ring-white/10">
               <div className="relative z-10">
-                <p className="text-indigo-100 font-bold mb-1">عدد العمليات</p>
+                <p className="mb-1 font-bold text-indigo-100">عدد العمليات</p>
                 <h3 className="text-3xl font-bold">
                   {employeeTotals.count.toLocaleString()}{' '}
                   <span className="text-lg opacity-80">عملية</span>
@@ -1144,20 +1334,37 @@ export const Commissions: FC = () => {
 
           {/* List */}
           <div className="app-card">
-            <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
-              <h3 className="font-bold text-slate-700 dark:text-white">
-                عمليات عمولة الموظف لشهر {selectedMonth}
-              </h3>
+            <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-bold text-slate-700 dark:text-white">عمليات عمولة الموظفين</h3>
+                <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  الشهر {selectedMonth}
+                  {filteredEmployeeRows.length > 0 ? (
+                    <>
+                      {' · '}
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {filteredEmployeeRows.length} عملية
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
               <PaginationControls
                 page={employeePage}
                 pageCount={employeePageCount}
                 onPageChange={setEmployeePage}
               />
             </div>
-            <div className="p-4 space-y-3">
+            <div className="space-y-3 p-4">
               {filteredEmployeeRows.length === 0 ? (
-                <div className="p-8 text-center text-gray-400">
-                  لا توجد عمليات ضمن الفلاتر الحالية
+                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900/40">
+                  <Users className="h-12 w-12 text-slate-300 dark:text-slate-600" strokeWidth={1.25} aria-hidden />
+                  <p className="max-w-sm text-sm font-bold text-slate-600 dark:text-slate-300">
+                    لا توجد عمليات ضمن الفلاتر الحالية
+                  </p>
+                  <p className="max-w-md text-xs text-slate-500 dark:text-slate-400">
+                    جرّب تغيير الشهر، أو تصفية الموظف، أو توسيع نطاق البحث.
+                  </p>
                 </div>
               ) : (
                 visibleEmployeeRows.map((r, idx) => (
@@ -1177,7 +1384,7 @@ export const Commissions: FC = () => {
                             </b>
                           </span>
                           <span className="text-slate-500 dark:text-slate-400 text-sm">
-                            | الكود الداخلي:{' '}
+                            | العقار:{' '}
                             <b className="text-slate-700 dark:text-slate-200">
                               {String(r.property || '—')}
                             </b>
@@ -1231,17 +1438,18 @@ export const Commissions: FC = () => {
 
       {/* View 1: Contract Commissions */}
       {activeTab === 'contracts' && (
-        <div className="space-y-6 animate-slide-up">
+        <div className="animate-slide-up space-y-6" role="tabpanel" id="comm-panel-contracts" aria-labelledby="comm-tab-contracts">
           {/* Financial Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-emerald-500 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 text-white shadow-lg shadow-emerald-500/25 ring-1 ring-white/10">
               <div className="relative z-10">
-                <p className="text-emerald-100 font-bold mb-1 flex items-center gap-2">
-                  <ArrowUp size={16} /> إجمالي العمولات
+                <p className="mb-1 flex items-center gap-2 font-bold text-emerald-100">
+                  <ArrowUp size={16} aria-hidden /> إجمالي العمولات
                 </p>
-                <h3 className="text-3xl font-bold">{formatCurrencyJOD(grandTotalContracts)}</h3>
+                <h3 className="text-3xl font-bold tracking-tight">{formatCurrencyJOD(grandTotalContracts)}</h3>
+                <p className="mt-2 text-xs font-medium text-emerald-100/90">مجموع المالك + المستأجر للشهر</p>
               </div>
-              <Briefcase className="absolute -bottom-4 -left-4 text-white opacity-20 w-32 h-32" />
+              <Briefcase className="absolute -bottom-4 -left-4 h-32 w-32 text-white opacity-20" aria-hidden />
             </div>
             <div className="app-card p-6">
               <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">من الملاك</p>
@@ -1275,21 +1483,77 @@ export const Commissions: FC = () => {
             </div>
           </div>
 
-          <div className="app-card">
-            <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
-              <h3 className="font-bold text-slate-700 dark:text-white">
-                سجل العمولات لشهر {selectedMonth}
-              </h3>
-              <PaginationControls
-                page={contractsPage}
-                pageCount={contractsPageCount}
-                onPageChange={setContractsPage}
+          <div className="app-card p-4">
+            <div className="relative flex-1">
+              <label htmlFor="contracts-comm-search" className="sr-only">
+                بحث في عمولات العقود
+              </label>
+              <input
+                id="contracts-comm-search"
+                type="search"
+                placeholder="بحث: رقم العقد، العقار، المالك، المستأجر، الفرصة..."
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pe-4 ps-10 text-sm outline-none transition focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                value={contractSearchTerm}
+                onChange={(e) => setContractSearchTerm(e.target.value)}
+                autoComplete="off"
               />
+              <Search className="pointer-events-none absolute start-3 top-2.5 text-gray-400" size={18} aria-hidden />
             </div>
-            <div className="p-4 space-y-3">
-              {filteredCommissions.length === 0 ? (
-                <div className="p-8 text-center text-gray-400">
-                  لا توجد عمولات مسجلة في هذا الشهر
+          </div>
+
+          <div className="app-card">
+            <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-bold text-slate-700 dark:text-white">سجل عمولات العقود</h3>
+                <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  الشهر {selectedMonth}
+                  {commissionsForSelectedMonth.length > 0 ? (
+                    <>
+                      {' · '}
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {filteredCommissions.length} من {commissionsForSelectedMonth.length} سجل
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => void handleExportContractCommissionsXlsx()}
+                  title="تصدير كل عمولات الشهر المختار مع العقار والمالك والمستأجر والفرصة"
+                >
+                  <FileSpreadsheet size={16} aria-hidden /> تصدير Excel
+                </Button>
+                <PaginationControls
+                  page={contractsPage}
+                  pageCount={contractsPageCount}
+                  onPageChange={setContractsPage}
+                />
+              </div>
+            </div>
+            <div className="space-y-3 p-4">
+              {commissionsForSelectedMonth.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900/40">
+                  <Briefcase className="h-12 w-12 text-slate-300 dark:text-slate-600" strokeWidth={1.25} aria-hidden />
+                  <p className="max-w-sm text-sm font-bold text-slate-600 dark:text-slate-300">
+                    لا توجد عمولات مسجلة لهذا الشهر
+                  </p>
+                  <p className="max-w-md text-xs text-slate-500 dark:text-slate-400">
+                    عند اعتماد عمولة من أدوات ذكية أو من العقد ستظهر هنا ضمن الشهر المحاسبي المختار.
+                  </p>
+                </div>
+              ) : filteredCommissions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900/40">
+                  <Inbox className="h-10 w-10 text-slate-300 dark:text-slate-600" strokeWidth={1.25} aria-hidden />
+                  <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                    لا نتائج تطابق البحث الحالي
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setContractSearchTerm('')}>
+                    مسح البحث
+                  </Button>
                 </div>
               ) : (
                 visibleContractCommissions.map((c) => (
@@ -1304,7 +1568,7 @@ export const Commissions: FC = () => {
                             #{formatContractNumberShort(c.رقم_العقد)}
                           </span>
                           <span className="text-slate-500 dark:text-slate-400 text-sm">
-                            | الكود الداخلي:{' '}
+                            | عقار:{' '}
                             <b className="text-slate-700 dark:text-slate-200">
                               {getPropCode(c.رقم_العقد)}
                             </b>
@@ -1346,26 +1610,29 @@ export const Commissions: FC = () => {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 justify-end">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
                         <button
+                          type="button"
                           onClick={() => openEditContractModal(c)}
-                          className="px-3 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700 transition text-sm font-bold flex items-center gap-2"
+                          className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                         >
-                          <Pencil size={16} /> تعديل
+                          <Pencil size={16} aria-hidden /> تعديل
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => void handlePostponeCommissionCollection(c)}
-                          className="px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition text-sm font-bold flex items-center gap-2"
+                          className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-200 dark:hover:bg-indigo-900/30"
                         >
-                          <CornerDownRight size={16} /> تأجيل التحصيل
+                          <CornerDownRight size={16} aria-hidden /> تأجيل التحصيل
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => handleDeleteContractCommission(c)}
-                          className="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition text-sm font-bold flex items-center gap-2"
+                          className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30"
                         >
-                          <Trash2 size={16} /> حذف
+                          <Trash2 size={16} aria-hidden /> حذف
                         </button>
                       </div>
                     </div>
@@ -1406,7 +1673,12 @@ export const Commissions: FC = () => {
 
       {/* View 2: External Commissions */}
       {activeTab === 'external' && (
-        <div className="space-y-6 animate-slide-up">
+        <div
+          className="animate-slide-up space-y-6"
+          role="tabpanel"
+          id="comm-panel-external"
+          aria-labelledby="comm-tab-external"
+        >
           {/* Advanced Filter Bar */}
           <div className="app-card p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
             <div className="flex-1 flex gap-3 w-full">
@@ -1437,24 +1709,26 @@ export const Commissions: FC = () => {
               </div>
             </div>
 
-            <button
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full justify-center md:w-auto"
               onClick={openAddExternalModal}
-              className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 flex items-center gap-2 shadow-lg shadow-indigo-600/20 font-bold text-sm w-full md:w-auto justify-center"
             >
               <Plus size={18} /> عمولة جديدة
-            </button>
+            </Button>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-600/20 relative overflow-hidden flex flex-col justify-center">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white shadow-lg shadow-indigo-600/25 ring-1 ring-white/10">
               <div className="relative z-10">
-                <p className="text-indigo-100 font-bold mb-1 flex items-center gap-2">
-                  <Globe size={16} /> مجموع العمولات الخارجية
+                <p className="mb-1 flex items-center gap-2 font-bold text-indigo-100">
+                  <Globe size={16} aria-hidden /> مجموع العمولات الخارجية (المفلترة)
                 </p>
-                <h3 className="text-3xl font-bold">{formatCurrencyJOD(totalExternal)}</h3>
+                <h3 className="text-3xl font-bold tracking-tight">{formatCurrencyJOD(totalExternal)}</h3>
               </div>
-              <Globe className="absolute -bottom-4 -left-4 text-white opacity-20 w-32 h-32" />
+              <Globe className="absolute -bottom-4 -left-4 h-32 w-32 text-white opacity-20" aria-hidden />
             </div>
             <div className="app-card p-6 flex flex-col justify-center">
               <div className="flex items-center gap-3">
@@ -1475,17 +1749,39 @@ export const Commissions: FC = () => {
 
           {/* External Commissions List (Cards) */}
           <div className="app-card">
-            <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
-              <h3 className="font-bold text-slate-700 dark:text-white">سجل العمولات الخارجية</h3>
+            <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-bold text-slate-700 dark:text-white">سجل العمولات الخارجية</h3>
+                <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {filteredExternal.length > 0 ? (
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {filteredExternal.length} سجل ضمن الفلاتر
+                    </span>
+                  ) : (
+                    'لا توجد نتائج ضمن الفلاتر'
+                  )}
+                </p>
+              </div>
               <PaginationControls
                 page={externalPage}
                 pageCount={externalPageCount}
                 onPageChange={setExternalPage}
               />
             </div>
-            <div className="p-4 space-y-3">
+            <div className="space-y-3 p-4">
               {filteredExternal.length === 0 ? (
-                <div className="p-8 text-center text-gray-400">لا توجد عمولات خارجية مسجلة</div>
+                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900/40">
+                  <Globe className="h-12 w-12 text-slate-300 dark:text-slate-600" strokeWidth={1.25} aria-hidden />
+                  <p className="max-w-sm text-sm font-bold text-slate-600 dark:text-slate-300">
+                    لا توجد عمولات خارجية تطابق الشهر أو الفلاتر
+                  </p>
+                  <p className="max-w-md text-xs text-slate-500 dark:text-slate-400">
+                    أضف عمولة خارجية جديدة أو غيّر شهر العرض أو نوع الدخل.
+                  </p>
+                  <Button type="button" variant="primary" size="sm" onClick={openAddExternalModal}>
+                    <Plus size={16} /> إضافة عمولة
+                  </Button>
+                </div>
               ) : (
                 visibleExternal.map((c) => (
                   <div key={c.id} className="app-card p-4">
@@ -1652,8 +1948,8 @@ export const Commissions: FC = () => {
           >
             <div className="text-sm text-slate-600 dark:text-slate-400">
               العقد:{' '}
-              <b className="text-slate-800 dark:text-white">
-                #{(editingContractComm.رقم_العقد || '').substring(0, 5)}
+              <b className="font-mono text-slate-800 dark:text-white" dir="ltr">
+                #{formatContractNumberShort(String(editingContractComm.رقم_العقد || ''))}
               </b>
             </div>
             <Input

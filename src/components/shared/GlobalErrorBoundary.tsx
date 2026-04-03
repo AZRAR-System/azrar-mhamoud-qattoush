@@ -1,4 +1,4 @@
-﻿import React, { ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCcw, Home, Download, Copy, Trash2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { safeCopyToClipboard } from '@/utils/clipboard';
@@ -415,7 +415,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fullscreen-loader fixed inset-0 flex items-center justify-center bg-gray-100 dark:bg-slate-900 p-4">
+        <div className="fullscreen-loader fixed inset-0 flex items-center justify-center bg-gray-100 dark:bg-slate-900 p-4" dir="rtl">
           <div className="modal-content app-modal-content border-red-200 dark:border-red-900 p-8 max-w-lg w-full text-center">
             <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle size={40} className="text-red-600 dark:text-red-400" />
@@ -429,24 +429,33 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
               واجه النظام مشكلة أثناء معالجة طلبك. تم تسجيل الخطأ وسنقوم بمراجعته.
             </p>
 
-            <div className="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl text-left dir-ltr mb-6 overflow-auto max-h-32 border border-gray-200 dark:border-slate-700">
-              <code className="text-xs text-red-500 font-mono">
+            <div className="mb-6 w-full rounded-xl border border-red-200/70 bg-red-50/80 p-4 text-start dark:border-red-900/60 dark:bg-red-950/25">
+              <code
+                className="block w-full break-words font-mono text-sm font-medium leading-relaxed text-red-800 dark:text-red-200"
+                dir="ltr"
+              >
                 {this.state.error?.message || 'Unknown Error'}
               </code>
             </div>
 
             {(this.state.componentStack || this.state.errorStack) && (
-              <details className="text-left dir-ltr mb-6">
-                <summary className="cursor-pointer text-xs font-bold text-slate-600 dark:text-slate-300 select-none">
+              <details className="mb-6 w-full text-start">
+                <summary className="cursor-pointer select-none text-xs font-bold text-slate-600 dark:text-slate-300">
                   تفاصيل الخطأ (للمطور)
                 </summary>
                 {this.state.componentStack && (
-                  <pre className="mt-3 bg-gray-50 dark:bg-slate-900 p-4 rounded-xl text-xs text-slate-700 dark:text-slate-200 overflow-auto max-h-48 border border-gray-200 dark:border-slate-700 whitespace-pre-wrap">
+                  <pre
+                    className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 p-4 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    dir="ltr"
+                  >
                     {this.state.componentStack}
                   </pre>
                 )}
                 {!this.state.componentStack && this.state.errorStack && (
-                  <pre className="mt-3 bg-gray-50 dark:bg-slate-900 p-4 rounded-xl text-xs text-slate-700 dark:text-slate-200 overflow-auto max-h-48 border border-gray-200 dark:border-slate-700 whitespace-pre-wrap">
+                  <pre
+                    className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 p-4 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    dir="ltr"
+                  >
                     {this.state.errorStack}
                   </pre>
                 )}

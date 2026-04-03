@@ -39,7 +39,7 @@ const toYyyyMmDdKey = (raw: string): string => {
   const s = String(raw ?? '').trim();
   if (!s) return '19700101';
 
-  const m1 = /^(\d{4})[-\/](\d{2})[-\/](\d{2})/.exec(s);
+  const m1 = /^(\d{4})[-/](\d{2})[-/](\d{2})/.exec(s);
   if (m1) return `${m1[1]}${m1[2]}${m1[3]}`;
 
   const ts = Date.parse(s);

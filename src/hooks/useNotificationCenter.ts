@@ -11,7 +11,10 @@ export function useNotificationCenter() {
     return notificationCenter.subscribe(() => setTick((t) => t + 1));
   }, []);
 
-  const items = useMemo(() => notificationCenter.getItems(), [tick]);
+  const items = useMemo(() => {
+    void tick;
+    return notificationCenter.getItems();
+  }, [tick]);
   const unreadCount = useMemo(() => items.filter((i) => !i.read).length, [items]);
   const urgentUnreadCount = useMemo(
     () => items.filter((i) => !i.read && i.urgent === true).length,

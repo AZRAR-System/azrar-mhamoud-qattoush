@@ -148,7 +148,7 @@ export const BackupManager: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [isDesktop, autoTime, autoRetention, autoEnabled]);
+  }, [isDesktop, autoTime, autoRetention, autoEnabled, toast]);
 
   useEffect(() => {
     fetchData();

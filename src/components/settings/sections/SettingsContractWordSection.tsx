@@ -231,7 +231,10 @@ export function SettingsContractWordSection({ page, embedded }: Props) {
                 <div className="space-y-2">
                   {CONTRACT_WORD_DYNAMIC_PREFIXES.map((p) => {
                     const main = `{{${p.prefix}${p.exampleKey}}}`;
-                    const alt = p.altPrefix != null ? `{{${p.altPrefix}${p.exampleKey}}}` : null;
+                    const alt =
+                      p.altPrefix !== undefined && p.altPrefix !== null
+                        ? `{{${p.altPrefix}${p.exampleKey}}}`
+                        : null;
                     return (
                       <div
                         key={p.prefix}

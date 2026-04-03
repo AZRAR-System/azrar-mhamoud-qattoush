@@ -12,6 +12,8 @@ export const sanitizeFolderName = (input: string, maxLen = 80): string => {
   const cleaned = raw
     .replace(/[\\/]+/g, '-')
     .replace(/[<>:"|?*]+/g, '-')
+    // Strip ASCII control chars (intentional for safe folder names).
+    // eslint-disable-next-line no-control-regex -- strip NUL–US
     .replace(/[\u0000-\u001F]+/g, '')
     .replace(/\s+/g, ' ')
     .trim();

@@ -6,7 +6,6 @@
  */
 
 import { notificationService } from '@/services/notificationService';
-import { useNotification } from '@/hooks/useNotification';
 
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (value: unknown): value is UnknownRecord =>
@@ -71,23 +70,15 @@ export const example2_businessEvents = () => {
  * استخدام الإشعارات في مكون React
  */
 export const example3_reactComponent = () => {
-  // In a React component:
   const handleSaveContract = () => {
-    const notify = useNotification();
-
     try {
-      // save logic here
       const contractId = 'CNT-20251222-001';
       const tenantName = 'أحمد علي';
-
-      // Show notification
-      notify.success('تم إنشاء العقد بنجاح');
-
-      // Trigger business event notification
-      notify.contractCreated(contractId, tenantName);
-    } catch (error) {
-      notify.error('فشل في إنشاء العقد');
-      notify.systemAlert('خطأ في النظام', 'critical');
+      notificationService.success('تم إنشاء العقد بنجاح', 'نجاح');
+      notificationService.contractCreated(contractId, tenantName);
+    } catch (_error) {
+      notificationService.error('فشل في إنشاء العقد', 'خطأ');
+      notificationService.systemAlert('خطأ في النظام', 'critical');
     }
   };
 
@@ -130,15 +121,15 @@ export const example4_customOptions = () => {
 export const example5_notifications_logging = () => {
   // Get all notification logs
   const logs = notificationService.getLogs();
-  console.log('All notifications:', logs);
+  console.warn('All notifications:', logs);
 
   // Filter by type
   const successLogs = logs.filter((log) => log.type === 'success');
-  console.log('Success notifications:', successLogs);
+  console.warn('Success notifications:', successLogs);
 
   // Filter by category
   const contractLogs = logs.filter((log) => log.category === 'contracts');
-  console.log('Contract notifications:', contractLogs);
+  console.warn('Contract notifications:', contractLogs);
 
   // Clear logs
   notificationService.clearLogs();
@@ -177,7 +168,7 @@ export const example6_paymentFlow = () => {
 
         return true;
       }
-    } catch (error) {
+    } catch (_error) {
       notificationService.error('فشل معالجة الدفع');
       notificationService.systemAlert('خطأ في نظام الدفع', 'critical');
       return false;
@@ -329,7 +320,7 @@ export const example9_batchNotifications = () => {
  * اختبار التكامل الكامل
  */
 export const example10_integrationTest = async () => {
-  console.log('🧪 بدء اختبار نظام الإشعارات...');
+  console.warn('🧪 بدء اختبار نظام الإشعارات...');
 
   // Test 1: Basic notifications
   notificationService.success('✅ اختبار 1: إشعارات أساسية');
@@ -339,10 +330,10 @@ export const example10_integrationTest = async () => {
 
   // Test 3: Logging
   const logs = notificationService.getLogs();
-  console.log(`✅ اختبار 2: تم تسجيل ${logs.length} إشعار`);
+  console.warn(`✅ اختبار 2: تم تسجيل ${logs.length} إشعار`);
 
   // Test 4: System alerts
   notificationService.systemAlert('اختبار التنبيهات', 'info');
 
-  console.log('✅ اكتمل اختبار نظام الإشعارات بنجاح!');
+  console.warn('✅ اكتمل اختبار نظام الإشعارات بنجاح!');
 };

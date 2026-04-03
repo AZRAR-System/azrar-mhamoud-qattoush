@@ -12,41 +12,21 @@ import {
   العمليات_tbl,
 } from '@/types';
 import {
-  Database,
-  Building,
-  List,
-  Upload,
-  Server,
-  Phone,
-  Bell,
-  Image as ImageIcon,
-  Plus,
-  Trash2,
-  Download,
-  Search,
-  Check,
-  FolderOpen,
-  ArrowRight,
-  RefreshCcw,
-  Edit2,
   BadgeDollarSign,
-  History,
+  Bell,
+  Building,
+  Database,
   FileJson,
-  Shield,
+  Globe,
+  History,
   Info,
-  PlayCircle,
-  AlertTriangle,
-  Copy,
-  MessageCircle,
+  List,
   Printer,
+  Shield,
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
-import { RBACGuard } from '@/components/shared/RBACGuard';
 import { isRole, isSuperAdmin } from '@/utils/roles';
-import { DS } from '@/constants/designSystem';
 import { ROUTE_PATHS } from '@/routes/paths';
-import { Button } from '@/components/ui/Button';
-import { AppModal } from '@/components/ui/AppModal';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { getErrorMessage } from '@/utils/errors';
 import { exportToXlsx } from '@/utils/xlsx';
@@ -57,9 +37,6 @@ import {
 } from '@/constants/contractWordTemplateVariables';
 import { getPrintingQaSampleData } from '@/services/printing/qaSamples';
 import { exportDocxUnified, generateTemplateUnified } from '@/services/printing/unifiedPrint';
-import { Select } from '@/components/ui/Select';
-import { GEO_COUNTRIES, GEO_CURRENCIES } from '@/constants/geo';
-import { getCurrencySuffix } from '@/services/moneySettings';
 import {
   type AppLastError,
   type AppErrorLogEntry,
@@ -1099,8 +1076,8 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
       {
         id: 'server',
         label: 'إعدادات المخدم',
-        icon: Server,
-        desc: 'اتصال SQL Server والمزامنة',
+        icon: Globe,
+        desc: 'SQL Server والمزامنة',
         role: 'SuperAdmin',
       },
       {

@@ -13,6 +13,7 @@ import {
 } from '@/services/db/paymentNotifications';
 import { get } from '@/services/db/kv';
 import { KEYS } from '@/services/db/keys';
+import { getInstallmentPaidAndRemaining } from '@/services/db/installments';
 
 const LATE_DAYS_AFTER_DUE = 3;
 
@@ -30,10 +31,9 @@ function isWithinWorkHours(settings: SystemSettings): boolean {
 export function hasRecentAutoSendForInstallment(installmentId: string): boolean {
   const logs = get<NotificationSendLogRecord>(KEYS.NOTIFICATION_SEND_LOGS) || [];
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-  const prefix = 'whatsapp_auto_';
   for (const log of logs) {
     if (!log.installmentIds?.includes(installmentId)) continue;
-    if (!String(log.category || '').startsWith(prefix)) continue;
+    if (!String(log.category || '').startsWith('whatsapp_auto')) continue;
     const t = Date.parse(log.sentAt);
     if (Number.isFinite(t) && t >= cutoff) return true;
   }
@@ -111,12 +111,12 @@ export async function sendReminder(p: SendReminderParams): Promise<void> {
   );
   if (phones.length === 0) return;
 
-  const { remaining } = await import('@/services/db/installments').then((m) => {
-    const r = m.getInstallmentPaidAndRemaining(installment);
-    return { remaining: r.remaining };
-  });
+  const { remaining } = getInstallmentPaidAndRemaining(installment);
 
-  const delayDays = Math.max(1, Math.min(30, Math.floor(Number(settings.whatsAppAutoDelayDays ?? 3))));
+  const delayDays = Math.max(
+    1,
+    Math.min(30, Math.floor(Number(settings.whatsAppAutoDelayDays ?? 3)))
+  );
 
   const message = buildMessage(kind, {
     tenantName: String(tenant?.الاسم || 'المستأجر').trim() || 'المستأجر',
@@ -133,7 +133,7 @@ export async function sendReminder(p: SendReminderParams): Promise<void> {
   await openWhatsAppForPhones(message, phones, {
     defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
     delayMs,
-    target: target === 'auto' ? 'auto' : target,
+    target,
   });
 
   addNotificationSendLogInternal({
@@ -166,7 +166,10 @@ export async function tryAutoSendIfEligible(params: {
   if (!settings.whatsAppAutoEnabled) return;
   if (!isWithinWorkHours(settings)) return;
 
-  const delayDays = Math.max(1, Math.min(30, Math.floor(Number(settings.whatsAppAutoDelayDays ?? 3))));
+  const delayDays = Math.max(
+    1,
+    Math.min(30, Math.floor(Number(settings.whatsAppAutoDelayDays ?? 3)))
+  );
   const kind = classifyAutoSendKind(daysUntilDue, delayDays);
   if (!kind) return;
 

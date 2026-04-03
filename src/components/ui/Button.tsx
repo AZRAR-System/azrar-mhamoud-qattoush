@@ -1,6 +1,5 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
-import { DS } from '@/constants/designSystem';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';

@@ -56,7 +56,7 @@ export function PageHero({
           {iconNode}
           <span className="min-w-0">{title}</span>
         </h2>
-        {subtitle != null && subtitle !== '' ? (
+        {(subtitle ?? '') !== '' ? (
           <p className={subtitleClassName ?? DS.components.pageSubtitle}>{subtitle}</p>
         ) : null}
       </div>

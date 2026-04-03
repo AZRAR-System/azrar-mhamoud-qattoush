@@ -78,7 +78,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
       if (a?.نوع_التنبيه !== 'تأجيل تحصيل') return false;
 
       const msg = String(a?.الوصف || '');
-      const m = msg.match(/عقد\s*#?\s*([A-Za-z0-9_\-]+)/);
+      const m = msg.match(/عقد\s*#?\s*([A-Za-z0-9_-]+)/);
       const contractId = String(m?.[1] || '').trim();
       if (!contractId) return false;
 

@@ -30,7 +30,7 @@ export function InstallmentsPageView({ page }: Props) {
     selectedInstallment,
     setSelectedInstallment,
     people,
-    loadData,
+    loadData: _loadData,
     userId,
     userRole,
     confirmDialog,

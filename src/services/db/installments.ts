@@ -325,7 +325,8 @@ export function createInstallmentPaymentHandlers(deps: InstallmentPaymentDeps) {
       return fail('يجب تحديد مبلغ أكبر من صفر');
     }
 
-    const totalPaid = inst.سجل_الدفعات!.reduce((sum, p) => sum + (p.المبلغ > 0 ? p.المبلغ : 0), 0);
+    const paymentsLog = inst.سجل_الدفعات;
+    const totalPaid = paymentsLog.reduce((sum, p) => sum + (p.المبلغ > 0 ? p.المبلغ : 0), 0);
     const currentRemaining = inst.القيمة - totalPaid;
 
     if (paymentDetails.paidAmount > currentRemaining) {
@@ -350,7 +351,7 @@ export function createInstallmentPaymentHandlers(deps: InstallmentPaymentDeps) {
     }
 
     const operationId = `OP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    inst.سجل_الدفعات!.push({
+    paymentsLog.push({
       رقم_العملية: operationId,
       المبلغ: paymentDetails.paidAmount,
       التاريخ: paymentDate,

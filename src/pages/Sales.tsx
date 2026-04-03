@@ -879,9 +879,7 @@ export const Sales: React.FC = () => {
                     className="border-none p-3 px-5 rounded-xl text-xs font-black bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-soft outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                   >
                     <option value="all">{t('الكل')}</option>
-                    <option value="also-rentable">
-                      {t('معروضة للبيع (قد تكون للإيجار أيضاً)')}
-                    </option>
+                    <option value="also-rentable">{t('معروضة للبيع (قد تكون للإيجار أيضاً)')}</option>
                     <option value="sale-only">{t('للبيع فقط (غير متاح للإيجار)')}</option>
                   </select>
                   <Button
@@ -941,7 +939,6 @@ export const Sales: React.FC = () => {
                     {visibleAgreements.map((a) => {
                       const listing = listings.find((l) => l.id === a.listingId);
                       const propId = a.رقم_العقار || listing?.رقم_العقار;
-                      const sellerId = a.رقم_البائع || listing?.رقم_المالك;
                       return (
                         <tr key={a.id} className="app-table-row group">
                           <td className="app-table-td">

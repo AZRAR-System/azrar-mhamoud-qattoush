@@ -13,6 +13,14 @@ import type {
 } from '@/types/domain.types';
 import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types/types';
 
+import { INSTALLMENT_STATUS } from '@/components/installments/installmentsConstants';
+import {
+  getPaidAndRemaining,
+  parseDateOnlyLocal,
+  todayDateOnlyLocal,
+} from '@/components/installments/installmentsUtils';
+import { daysBetweenDateOnlySafe, todayDateOnlyISO } from '@/utils/dateOnly';
+
 export type DomainEntity = DomainEntityType;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -231,73 +239,20 @@ export async function propertyPickerSearchSmart(
 
 export async function propertyPickerSearchPagedSmart(
   payload: PropertyPickerSearchPayload
-): Promise<{ items: PropertyPickerItem[]; total: number; error?: string }> {
-  const desktopPropertySearch = async (): Promise<unknown> => {
-    if (!window.desktopDb?.domainPropertyPickerSearch)
-      return { ok: false, message: 'استعلام العقارات غير متاح' };
-    return window.desktopDb.domainPropertyPickerSearch(payload);
-  };
-
+): Promise<{ items: PropertyPickerItem[]; total: number }> {
   if (isDesktop() && window.desktopDb?.domainPropertyPickerSearch) {
-    const parseOk = (res: unknown) => {
+    try {
+      const res: unknown = await window.desktopDb.domainPropertyPickerSearch(payload);
       if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
         return {
           items: hasUnknownProp(res, 'items') ? asArray<PropertyPickerItem>(res.items) : [],
           total: hasUnknownProp(res, 'total') ? asNumber(res.total) : 0,
         };
       }
-      return null;
-    };
-
-    try {
-      let res: unknown = await desktopPropertySearch();
-      let parsed = parseOk(res);
-      if (parsed) return parsed;
-
-      if (window.desktopDb?.domainMigrate) {
-        try {
-          await window.desktopDb.domainMigrate();
-          res = await desktopPropertySearch();
-          parsed = parseOk(res);
-          if (parsed) return parsed;
-        } catch {
-          // continue
-        }
-      }
-
-      if (window.desktopDb?.domainRebuildFromKv) {
-        try {
-          await window.desktopDb.domainRebuildFromKv();
-          res = await desktopPropertySearch();
-          parsed = parseOk(res);
-          if (parsed) return parsed;
-        } catch {
-          // ignore
-        }
-      }
-
-      return {
-        items: [],
-        total: 0,
-        error:
-          isRecord(res) && hasUnknownProp(res, 'message')
-            ? asString(res.message) || 'فشل تحميل العقارات (Desktop SQL)'
-            : 'فشل تحميل العقارات (Desktop SQL)',
-      };
-    } catch (e: unknown) {
-      return {
-        items: [],
-        total: 0,
-        error:
-          e instanceof Error
-            ? e.message
-            : 'فشل تحميل العقارات (Desktop SQL)',
-      };
+    } catch {
+      // fall back
     }
   }
-
-  if (isDesktop())
-    return { items: [], total: 0, error: 'المزامنة غير جاهزة أو الاستعلام غير متاح (Desktop)' };
 
   const items = await propertyPickerSearchSmart(payload);
   return { items, total: items.length };
@@ -354,67 +309,38 @@ export async function contractPickerSearchPagedSmart(payload: {
   error?: string;
 }> {
   if (isDesktop() && window.desktopDb?.domainContractPickerSearch) {
-    const runSearch = async (): Promise<unknown> => {
-      if (!window.desktopDb?.domainContractPickerSearch)
-        return { ok: false, message: 'استعلام العقود غير متاح' };
-      return window.desktopDb.domainContractPickerSearch(payload);
-    };
-    const parseOk = (res: unknown) => {
+    try {
+      const res: unknown = await window.desktopDb.domainContractPickerSearch(payload);
       if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
         return {
           items: hasUnknownProp(res, 'items') ? asArray<ContractPickerItem>(res.items) : [],
           total: hasUnknownProp(res, 'total') ? asNumber(res.total) : 0,
         };
       }
-      return null;
-    };
 
-    try {
-      let res: unknown = await runSearch();
-      let parsed = parseOk(res);
-      if (parsed) return parsed;
-
-      if (window.desktopDb?.domainMigrate) {
-        try {
-          await window.desktopDb.domainMigrate();
-          res = await runSearch();
-          parsed = parseOk(res);
-          if (parsed) return parsed;
-        } catch {
-          // continue
-        }
-      }
-
-      if (window.desktopDb?.domainRebuildFromKv) {
-        try {
-          await window.desktopDb.domainRebuildFromKv();
-          res = await runSearch();
-          parsed = parseOk(res);
-          if (parsed) return parsed;
-        } catch {
-          // ignore
-        }
-      }
-
-      return {
-        items: [],
-        total: 0,
-        error:
-          isRecord(res) && hasUnknownProp(res, 'message')
-            ? asString(res.message) || 'فشل تحميل العقود (Desktop SQL)'
-            : 'فشل تحميل العقود (Desktop SQL)',
-      };
-    } catch (e: unknown) {
-      return {
-        items: [],
-        total: 0,
-        error:
-          isRecord(e) && hasUnknownProp(e, 'message')
-            ? asString(e.message) || 'فشل تحميل العقود (Desktop SQL)'
-            : e instanceof Error
-              ? e.message
+      // Desktop safety: do not fall back to in-memory scans; surface the error.
+      if (isDesktop()) {
+        return {
+          items: [],
+          total: 0,
+          error:
+            isRecord(res) && hasUnknownProp(res, 'message')
+              ? asString(res.message) || 'فشل تحميل العقود (Desktop SQL)'
               : 'فشل تحميل العقود (Desktop SQL)',
-      };
+        };
+      }
+    } catch (e: unknown) {
+      // Desktop safety: do not fall back to in-memory scans; surface the error.
+      if (isDesktop()) {
+        return {
+          items: [],
+          total: 0,
+          error:
+            isRecord(e) && hasUnknownProp(e, 'message')
+              ? asString(e.message) || 'فشل تحميل العقود (Desktop SQL)'
+              : 'فشل تحميل العقود (Desktop SQL)',
+        };
+      }
     }
   }
 
@@ -446,7 +372,7 @@ export async function domainCountsSmart(): Promise<{
         };
       }
 
-      // Desktop: attempt migrate/repair then full KV rebuild and retry.
+      // Desktop: attempt one-time migrate/repair and retry.
       if (isDesktop() && window.desktopDb?.domainMigrate) {
         try {
           await window.desktopDb.domainMigrate();
@@ -465,32 +391,6 @@ export async function domainCountsSmart(): Promise<{
                 : 0,
               contracts: hasUnknownProp(again.counts, 'contracts')
                 ? asNumber(again.counts.contracts)
-                : 0,
-            };
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      if (isDesktop() && window.desktopDb?.domainRebuildFromKv) {
-        try {
-          await window.desktopDb.domainRebuildFromKv();
-          const third: unknown = await window.desktopDb.domainCounts();
-          if (
-            isRecord(third) &&
-            hasUnknownProp(third, 'ok') &&
-            third.ok === true &&
-            hasUnknownProp(third, 'counts') &&
-            isRecord(third.counts)
-          ) {
-            return {
-              people: hasUnknownProp(third.counts, 'people') ? asNumber(third.counts.people) : 0,
-              properties: hasUnknownProp(third.counts, 'properties')
-                ? asNumber(third.counts.properties)
-                : 0,
-              contracts: hasUnknownProp(third.counts, 'contracts')
-                ? asNumber(third.counts.contracts)
                 : 0,
             };
           }
@@ -1038,72 +938,22 @@ export async function peoplePickerSearchPagedSmart(payload: {
   offset?: number;
   limit?: number;
 }): Promise<{ items: PeoplePickerItem[]; total: number; error?: string }> {
-  const desktopPeopleSearch = async (): Promise<unknown> => {
-    if (!window.desktopDb?.domainPeoplePickerSearch) return { ok: false, message: 'استعلام الأشخاص غير متاح' };
-    return window.desktopDb.domainPeoplePickerSearch(payload);
-  };
-
   if (isDesktop() && window.desktopDb?.domainPeoplePickerSearch) {
-    const parseOk = (res: unknown) => {
+    try {
+      const res: unknown = await window.desktopDb.domainPeoplePickerSearch(payload);
       if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
         return {
           items: hasUnknownProp(res, 'items') ? asArray<PeoplePickerItem>(res.items) : [],
           total: hasUnknownProp(res, 'total') ? asNumber(res.total) : 0,
         };
       }
-      return null;
-    };
-
-    try {
-      let res: unknown = await desktopPeopleSearch();
-      let parsed = parseOk(res);
-      if (parsed) return parsed;
-
-      if (window.desktopDb?.domainMigrate) {
-        try {
-          await window.desktopDb.domainMigrate();
-          res = await desktopPeopleSearch();
-          parsed = parseOk(res);
-          if (parsed) return parsed;
-        } catch {
-          // continue to rebuild
-        }
-      }
-
-      if (window.desktopDb?.domainRebuildFromKv) {
-        try {
-          await window.desktopDb.domainRebuildFromKv();
-          res = await desktopPeopleSearch();
-          parsed = parseOk(res);
-          if (parsed) return parsed;
-        } catch {
-          // ignore
-        }
-      }
-
-      return {
-        items: [],
-        total: 0,
-        error:
-          isRecord(res) && hasUnknownProp(res, 'message')
-            ? asString(res.message) || 'فشل تحميل الأشخاص (Desktop SQL)'
-            : 'فشل تحميل الأشخاص (Desktop SQL)',
-      };
-    } catch (e: unknown) {
-      return {
-        items: [],
-        total: 0,
-        error:
-          e instanceof Error
-            ? e.message
-            : 'فشل تحميل الأشخاص (Desktop SQL)',
-      };
+    } catch {
+      // fall back
     }
   }
 
   // Desktop safety: do not fall back to in-memory scans.
-  if (isDesktop())
-    return { items: [], total: 0, error: 'المزامنة غير جاهزة أو الاستعلام غير متاح (Desktop)' };
+  if (isDesktop()) return { items: [], total: 0 };
 
   // Legacy fallback: in-memory (non-desktop)
   const q = String(payload?.query || '')
@@ -1204,65 +1054,28 @@ export async function installmentsContractsPagedSmart(payload: {
   error?: string;
 }> {
   if (isDesktop() && window.desktopDb?.domainInstallmentsContractsSearch) {
-    const runSearch = async (): Promise<unknown> => {
-      if (!window.desktopDb?.domainInstallmentsContractsSearch)
-        return { ok: false, message: 'استعلام الدفعات غير متاح' };
-      return window.desktopDb.domainInstallmentsContractsSearch(payload);
-    };
-    const parseOk = (res: unknown) => {
+    try {
+      const res: unknown = await window.desktopDb.domainInstallmentsContractsSearch(payload);
       if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
         return {
           items: hasUnknownProp(res, 'items') ? asArray<InstallmentsContractsItem>(res.items) : [],
           total: hasUnknownProp(res, 'total') ? asNumber(res.total) : 0,
         };
       }
-      return null;
-    };
 
-    try {
-      let res: unknown = await runSearch();
-      let parsed = parseOk(res);
-      if (parsed) return parsed;
-
-      if (window.desktopDb?.domainMigrate) {
-        try {
-          await window.desktopDb.domainMigrate();
-          res = await runSearch();
-          parsed = parseOk(res);
-          if (parsed) return parsed;
-        } catch {
-          // continue
-        }
+      // Desktop safety: do not fall back to in-memory scans; surface the error.
+      if (isDesktop()) {
+        return {
+          items: [],
+          total: 0,
+          error:
+            isRecord(res) && hasUnknownProp(res, 'message')
+              ? asString(res.message) || 'فشل تحميل الدفعات (Desktop SQL)'
+              : 'فشل تحميل الدفعات (Desktop SQL)',
+        };
       }
-
-      if (window.desktopDb?.domainRebuildFromKv) {
-        try {
-          await window.desktopDb.domainRebuildFromKv();
-          res = await runSearch();
-          parsed = parseOk(res);
-          if (parsed) return parsed;
-        } catch {
-          // ignore
-        }
-      }
-
-      return {
-        items: [],
-        total: 0,
-        error:
-          isRecord(res) && hasUnknownProp(res, 'message')
-            ? asString(res.message) || 'فشل تحميل الدفعات (Desktop SQL)'
-            : 'فشل تحميل الدفعات (Desktop SQL)',
-      };
-    } catch (e: unknown) {
-      return {
-        items: [],
-        total: 0,
-        error:
-          e instanceof Error
-            ? e.message
-            : 'فشل تحميل الدفعات (Desktop SQL)',
-      };
+    } catch {
+      // fall back
     }
   }
 
@@ -1296,30 +1109,34 @@ export async function installmentsContractsPagedSmart(payload: {
     const properties = DbService.getProperties();
     const installments = DbService.getInstallments();
 
-    const now = Date.now();
-    const in7 = now + 7 * 24 * 60 * 60 * 1000;
     const parseDate = (d: unknown) => {
       const s = String(d ?? '').trim();
       const t = Date.parse(s);
       return Number.isFinite(t) ? t : NaN;
     };
 
-    const getRemaining = (inst: الكمبيالات_tbl) =>
-      Math.max(0, Number(inst?.القيمة_المتبقية ?? inst?.القيمة ?? 0) || 0);
-    const isDueSoon = (inst: الكمبيالات_tbl) => {
-      const rem = getRemaining(inst);
-      if (rem <= 0) return false;
-      const t = parseDate(inst?.تاريخ_استحقاق);
-      if (!Number.isFinite(t)) return false;
-      // "مستحق" = متأخر أو يستحق خلال 7 أيام
-      return t <= in7;
+    const today = todayDateOnlyLocal();
+    const isRealInstallment = (i: الكمبيالات_tbl) => {
+      if (String(i?.نوع_الكمبيالة ?? '').trim() === 'تأمين') return false;
+      return String(i?.حالة_الكمبيالة ?? '').trim() !== INSTALLMENT_STATUS.CANCELLED;
     };
+    /** ذمم = دفعة غير مؤمنة/ملغاة، متبقٍ عليها مبلغ، وتاريخ استحقاق ≤ اليوم (لا تشمل المستقبل) */
     const isDebt = (inst: الكمبيالات_tbl) => {
-      const rem = getRemaining(inst);
-      if (rem <= 0) return false;
-      const t = parseDate(inst?.تاريخ_استحقاق);
-      if (!Number.isFinite(t)) return false;
-      return t < now;
+      if (!isRealInstallment(inst)) return false;
+      const { remaining } = getPaidAndRemaining(inst);
+      if (remaining <= 0) return false;
+      const due = parseDateOnlyLocal(inst?.تاريخ_استحقاق);
+      if (!due) return false;
+      return due.getTime() <= today.getTime();
+    };
+    const isDueSoon = (inst: الكمبيالات_tbl) => {
+      if (!isRealInstallment(inst)) return false;
+      const { remaining } = getPaidAndRemaining(inst);
+      if (remaining <= 0) return false;
+      const daysUntilDue = daysBetweenDateOnlySafe(todayDateOnlyISO(), inst?.تاريخ_استحقاق);
+      if (typeof daysUntilDue !== 'number') return false;
+      // "مستحق" = متأخر أو يستحق خلال 7 أيام (تقويم)
+      return daysUntilDue <= 7;
     };
 
     let rows: InstallmentsContractsItem[] = contracts.map((c) => {
@@ -1333,11 +1150,12 @@ export async function installmentsContractsPagedSmart(payload: {
         (i) => String(i?.رقم_العقد ?? '') === String(c?.رقم_العقد ?? '')
       );
 
-      const relevant = cInstalls;
+      const relevant = cInstalls.filter(isRealInstallment);
       const hasAnyRelevant = relevant.length > 0;
       const hasDebt = relevant.some(isDebt);
       const hasDueSoon = relevant.some(isDueSoon);
-      const isFullyPaid = hasAnyRelevant && relevant.every((i) => getRemaining(i) <= 0);
+      const isFullyPaid =
+        hasAnyRelevant && relevant.every((i) => getPaidAndRemaining(i).remaining <= 0);
 
       return {
         contract: c,
@@ -1433,9 +1251,6 @@ export async function installmentsContractsPagedSmart(payload: {
 
     rows.sort((a, b) => {
       if (sort === 'due-asc' || sort === 'due-desc') {
-        const aDebt = a.hasDebt ? 1 : 0;
-        const bDebt = b.hasDebt ? 1 : 0;
-        if (aDebt !== bDebt) return bDebt - aDebt;
         const aTs = getNextDueTs(a.installments);
         const bTs = getNextDueTs(b.installments);
         const aHas = Number.isFinite(aTs);

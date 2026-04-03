@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
  */
@@ -16,6 +16,7 @@ import 'react-resizable/css/styles.css';
 import './styles/tailwind.css';
 import './styles/animations.css';
 import './styles/mobile-improvements.css';
+import './i18n';
 import { storage } from '@/services/storage';
 import { isAppActivated } from '@/services/activation';
 import { installEnglishNumeralsPolyfill } from '@/utils/englishNumerals';

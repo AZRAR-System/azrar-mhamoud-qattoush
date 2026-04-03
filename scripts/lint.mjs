@@ -1,10 +1,12 @@
 import process from 'node:process';
+import fs from 'node:fs';
+import path from 'node:path';
 import { ESLint } from 'eslint';
 
-const targets = [
-  'src/**/*.{ts,tsx,js,jsx}',
-  'electron/**/*.{ts,tsx,js,jsx}',
-];
+const targets = ['src/**/*.{ts,tsx,js,jsx}'];
+if (fs.existsSync(path.join(process.cwd(), 'electron'))) {
+  targets.push('electron/**/*.{ts,tsx,js,jsx}');
+}
 
 async function main() {
   const eslint = new ESLint({

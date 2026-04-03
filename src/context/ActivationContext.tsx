@@ -1,10 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import {
-  activateWithLicenseKey,
-  activateWithLicenseFileContent,
-  deactivateApp,
-  getActivationState,
-} from '@/services/activation';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 type ActivationContextType = {
   isActivated: boolean;
@@ -36,37 +30,24 @@ type ActivationContextType = {
 
 const ActivationContext = createContext<ActivationContextType | undefined>(undefined);
 
-const ACTIVATION_POLL_MS = 60_000;
-
-const messageForReason = (r?: string): string | undefined => {
-  if (!r) return undefined;
-  if (r === 'remote:suspended') return 'تم تعليق الترخيص — راجع الشركة.';
-  if (r === 'remote:revoked') return 'تم إلغاء الترخيص — راجع الشركة.';
-  if (r === 'remote:expired') return 'انتهت صلاحية الترخيص.';
-  if (r === 'remote:mismatch') return 'الترخيص غير مطابق لهذا الجهاز.';
-  if (r === 'remote:invalid_license') return 'مفتاح الترخيص غير صالح.';
-  if (r === 'remote:stale') return 'تعذر التحقق من حالة الترخيص عبر الإنترنت حالياً.';
-  return undefined;
-};
-
 export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [isActivated, setIsActivated] = useState(true);
-  const [activatedAt, setActivatedAt] = useState<string | undefined>(new Date().toISOString());
-  const [activationError, setActivationError] = useState<string | undefined>(undefined);
-  const [reason, setReason] = useState<string | undefined>(undefined);
-  const [review, setReview] = useState<ActivationContextType['review'] | undefined>(undefined);
+  const [activatedAt] = useState<string | undefined>(new Date().toISOString());
+  const [activationError] = useState<string | undefined>(undefined);
+  const [reason] = useState<string | undefined>(undefined);
+  const [review] = useState<ActivationContextType['review'] | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     setIsActivated(true);
     setLoading(false);
   }, []);
 
-  const activate = useCallback(async (licenseKey: string, opts?: { serverUrl?: string }) => {
+  const activate = useCallback(async (_licenseKey: string, _opts?: { serverUrl?: string }) => {
     setIsActivated(true);
   }, []);
 
-  const activateWithLicenseFileContent = useCallback(async (rawLicense: string) => {
+  const activateWithLicenseFileContent = useCallback(async (_rawLicense: string) => {
     setIsActivated(true);
   }, []);
 
@@ -76,8 +57,8 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const value = useMemo(
     () => ({
-      isActivated: true,
-      loading: false,
+      isActivated,
+      loading,
       activatedAt,
       activationError,
       reason,
@@ -88,6 +69,8 @@ export const ActivationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       deactivate,
     }),
     [
+      isActivated,
+      loading,
       activatedAt,
       activationError,
       reason,

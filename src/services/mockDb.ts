@@ -47,7 +47,6 @@ import {
 import { storage } from '@/services/storage';
 import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
 import { computeEmployeeCommission, getRentalTier } from '@/utils/employeeCommission';
-import { isSuperAdmin, normalizeRole } from '@/utils/roles';
 import { formatCurrencyJOD } from '@/utils/format';
 import { hashPassword, isHashedPassword, verifyPassword } from '@/services/passwordHash';
 

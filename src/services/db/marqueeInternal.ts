@@ -23,6 +23,7 @@ export type MarqueePlainJson =
 export const sanitizeMarqueeTextForDb = (raw: unknown, maxLen = 300): string => {
   const s = String(raw ?? '')
     .replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F]/g, '')
+    // eslint-disable-next-line no-control-regex -- strip bidi/control for DB text
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/\s{2,}/g, ' ')

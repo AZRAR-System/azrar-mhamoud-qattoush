@@ -4,13 +4,21 @@ import type { SettingsPageModel } from '@/hooks/useSettingsPage';
 type Props = { page: SettingsPageModel };
 
 export function SettingsCommissionsSection({ page }: Props) {
-  const { inputClass, labelClass, setSettings, settings, settingsNoAccessFallback } = page;
+  const {
+    inputClass,
+    labelClass,
+    setSettings,
+    settings,
+    settingsNoAccessFallback,
+  } = page;
 
   return (
     <RBACGuard requiredPermission="SETTINGS_ADMIN" fallback={settingsNoAccessFallback}>
       <div className="space-y-8 animate-fade-in">
         <section className="settings-section-panel">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">عمولات البيع</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">
+            عمولات البيع
+          </h3>
           <div>
             <label className={labelClass} htmlFor="settings-sales-commission-percent">
               نسبة عمولة البيع (%)
@@ -27,10 +35,15 @@ export function SettingsCommissionsSection({ page }: Props) {
           </div>
         </section>
         <section className="settings-section-panel">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">عمولات الإيجار</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">
+            عمولات الإيجار
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className={labelClass} htmlFor="settings-rental-commission-owner-percent">
+              <label
+                className={labelClass}
+                htmlFor="settings-rental-commission-owner-percent"
+              >
                 عمولة المالك (%)
               </label>
               <input
@@ -47,7 +60,10 @@ export function SettingsCommissionsSection({ page }: Props) {
               />
             </div>
             <div>
-              <label className={labelClass} htmlFor="settings-rental-commission-tenant-percent">
+              <label
+                className={labelClass}
+                htmlFor="settings-rental-commission-tenant-percent"
+              >
                 عمولة المستأجر (%)
               </label>
               <input

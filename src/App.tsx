@@ -265,7 +265,7 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
           hasEnv && Object.prototype.hasOwnProperty.call(env, 'VITE_AUTORUN_SYSTEM_TESTS');
         const hasIntegrationKey =
           hasEnv && Object.prototype.hasOwnProperty.call(env, 'VITE_ENABLE_INTEGRATION_TEST_DATA');
-        console.debug(
+        console.warn(
           `[autorun] env check hasEnv=${hasEnv ? '1' : '0'} hasAutorunKey=${hasAutorunKey ? '1' : '0'} hasIntegrationKey=${hasIntegrationKey ? '1' : '0'} autorunRaw=${String(autorunRaw)}`
         );
       }
