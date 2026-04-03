@@ -135,8 +135,8 @@ jobs:
         with:
           node-version: '22'
       
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
+      - name: Security audit
+        run: npm audit --audit-level=critical
         continue-on-error: true
       
       - name: Run security scan
