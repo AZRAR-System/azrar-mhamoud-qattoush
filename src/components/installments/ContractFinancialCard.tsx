@@ -791,9 +791,8 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
                 عرض تفاصيل العقد كاملة
               </Button>
             </div>
-          </div>
-        )}
-      </Card>
+        </div>
+      </AppModal>
 
       {invoicePrintCtx && invoicePrintData ? (
         <InvoicePrintPreview

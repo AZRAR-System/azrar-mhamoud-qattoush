@@ -40,6 +40,7 @@ import { useSmartModal } from '@/context/ModalContext';
 // Hooks
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { runWithSqlSyncBlocking } from '@/utils/sqlSyncBlockingUi';
+import { clearCommissionsDesktopEntityCache } from '@/services/commissionsDesktopEntityCache';
 
 type LayerTab = 'overview' | 'sales' | 'calendar' | 'monitoring' | 'performance';
 
@@ -242,8 +243,10 @@ export const Dashboard: React.FC = () => {
           ok?: boolean;
           message?: string;
         } | null;
-        if (res?.ok) toast.success(res?.message || 'تمت المزامنة');
-        else toast.error(res?.message || 'فشل المزامنة');
+        if (res?.ok) {
+          clearCommissionsDesktopEntityCache();
+          toast.success(res?.message || 'تمت المزامنة');
+        } else toast.error(res?.message || 'فشل المزامنة');
       });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'فشل المزامنة';

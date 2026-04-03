@@ -35,7 +35,13 @@ import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { getRentalTier } from '@/utils/employeeCommission';
 import { storage } from '@/services/storage';
-import { domainGetSmart } from '@/services/domainQueries';
+import { contractDetailsSmart, domainGetSmart } from '@/services/domainQueries';
+import {
+  COMMISSIONS_DESKTOP_CACHE_CLEARED_EVENT,
+  commissionsFastContractById,
+  commissionsFastPersonById,
+  commissionsFastPropertyById,
+} from '@/services/commissionsDesktopEntityCache';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { PageHero } from '@/components/shared/PageHero';
@@ -68,6 +74,30 @@ const asNumber = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const idEq = (a: unknown, b: unknown) => String(a ?? '').trim() === String(b ?? '').trim();
+
+/** للربط المعروض للمستخدم: العقار يُعرض دائماً بالكود الداخلي؛ المعرف الداخلي لقاعدة البيانات يُستخدم للجلب فقط */
+const pickRecordField = (obj: unknown, keys: string[]): string => {
+  if (!isRecord(obj)) return '';
+  for (const k of keys) {
+    const v = obj[k];
+    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
+};
+const contractPropertyId = (c: unknown) =>
+  pickRecordField(c, ['رقم_العقار', 'property_id', 'propertyId']);
+const contractTenantId = (c: unknown) =>
+  pickRecordField(c, ['رقم_المستاجر', 'tenant_id', 'tenantId']);
+const propertyOwnerId = (p: unknown) =>
+  pickRecordField(p, ['رقم_المالك', 'owner_id', 'ownerId']);
+const propertyInternalCode = (p: unknown) =>
+  pickRecordField(p, ['الكود_الداخلي', 'internal_code', 'internalCode', 'code']);
+const personDisplayName = (p: unknown) =>
+  pickRecordField(p, ['الاسم', 'name', 'fullName']);
+const personIdFromRow = (p: unknown) =>
+  pickRecordField(p, ['رقم_الشخص', 'id', 'personId']);
+
 export const Commissions: FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('contracts');
 
@@ -77,7 +107,9 @@ export const Commissions: FC = () => {
   const [externalPage, setExternalPage] = useState(1);
 
   const isDesktopFast =
-    typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb?.domainGet;
+    typeof window !== 'undefined' &&
+    storage.isDesktop() &&
+    (!!window.desktopDb?.domainGet || !!window.desktopDb?.domainContractDetails);
 
   // Contract Commissions Data
   const [commissions, setCommissions] = useState<العمولات_tbl[]>([]);
@@ -85,10 +117,10 @@ export const Commissions: FC = () => {
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
 
-  // Desktop-fast: resolve contract/property/people names lazily (avoid renderer loading huge arrays)
-  const fastContractByIdRef = useRef<Map<string, العقود_tbl>>(new Map());
-  const fastPropertyByIdRef = useRef<Map<string, العقارات_tbl>>(new Map());
-  const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
+  // Desktop-fast: resolve contract/property/people lazily; maps are module-singletons so data survives unmount/navigation
+  const fastContractByIdRef = useRef(commissionsFastContractById);
+  const fastPropertyByIdRef = useRef(commissionsFastPropertyById);
+  const fastPersonByIdRef = useRef(commissionsFastPersonById);
   const [fastCacheVersion, setFastCacheVersion] = useState(0);
 
   // External Commissions Data
@@ -177,10 +209,6 @@ export const Commissions: FC = () => {
       setContracts([]);
       setProperties([]);
       setPeople([]);
-      fastContractByIdRef.current = new Map();
-      fastPropertyByIdRef.current = new Map();
-      fastPersonByIdRef.current = new Map();
-      setFastCacheVersion((v) => v + 1);
     } else {
       setContracts(DbService.getContracts());
       setProperties(DbService.getProperties());
@@ -212,6 +240,13 @@ export const Commissions: FC = () => {
     setSearchTerm('');
     setFilterType('All');
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!isDesktopFast) return;
+    const bump = () => setFastCacheVersion((v) => v + 1);
+    window.addEventListener(COMMISSIONS_DESKTOP_CACHE_CLEARED_EVENT, bump);
+    return () => window.removeEventListener(COMMISSIONS_DESKTOP_CACHE_CLEARED_EVENT, bump);
+  }, [isDesktopFast]);
 
   const handleAddExternal = (e: FormEvent) => {
     e.preventDefault();
@@ -397,18 +432,17 @@ export const Commissions: FC = () => {
     if (!safeId) return '—';
 
     if (isDesktopFast) {
-      // Touch fastCacheVersion to make ESLint/TS aware this value is intentionally read.
       void fastCacheVersion;
       const contract = fastContractByIdRef.current.get(safeId);
-      const propId = String(contract?.رقم_العقار || '').trim();
+      const propId = contractPropertyId(contract);
       const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
-      return String(prop?.الكود_الداخلي || '').trim() || '—';
+      return propertyInternalCode(prop) || '—';
     }
 
-    const contract = contracts.find((c) => c.رقم_العقد === contractId);
-    if (!contract) return 'N/A';
-    const prop = properties.find((p) => p.رقم_العقار === contract.رقم_العقار);
-    return prop ? prop.الكود_الداخلي : 'N/A';
+    const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
+    if (!contract) return '—';
+    const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
+    return prop ? String(prop.الكود_الداخلي || '').trim() || '—' : '—';
   };
 
   const getOwnerAndTenantNames = (contractId: string) => {
@@ -418,27 +452,27 @@ export const Commissions: FC = () => {
     if (isDesktopFast) {
       void fastCacheVersion;
       const contract = fastContractByIdRef.current.get(safeId);
-      const tenantId = String(contract?.رقم_المستاجر || '').trim();
-      const propId = String(contract?.رقم_العقار || '').trim();
+      const tenantId = contractTenantId(contract);
+      const propId = contractPropertyId(contract);
       const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
-      const ownerId = String(prop?.رقم_المالك || '').trim();
+      const ownerId = propertyOwnerId(prop);
 
       const tenant = tenantId ? fastPersonByIdRef.current.get(tenantId) : null;
       const owner = ownerId ? fastPersonByIdRef.current.get(ownerId) : null;
 
       return {
-        ownerName: String(owner?.الاسم || '').trim() || '—',
-        tenantName: String(tenant?.الاسم || '').trim() || '—',
+        ownerName: personDisplayName(owner) || '—',
+        tenantName: personDisplayName(tenant) || '—',
       };
     }
 
-    const contract = contracts.find((c) => c.رقم_العقد === contractId);
+    const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
     if (!contract) return { ownerName: '—', tenantName: '—' };
 
-    const tenant = people.find((p) => String(p.رقم_الشخص) === String(contract.رقم_المستاجر));
-    const prop = properties.find((p) => p.رقم_العقار === contract.رقم_العقار);
+    const tenant = people.find((p) => idEq(p.رقم_الشخص, contract.رقم_المستاجر));
+    const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
     const owner = prop
-      ? people.find((p) => String(p.رقم_الشخص) === String(prop.رقم_المالك))
+      ? people.find((p) => idEq(p.رقم_الشخص, prop.رقم_المالك))
       : undefined;
 
     return {
@@ -446,96 +480,6 @@ export const Commissions: FC = () => {
       tenantName: String(tenant?.الاسم || '').trim() || '—',
     };
   };
-
-  useEffect(() => {
-    if (!isDesktopFast) return;
-    let alive = true;
-
-    const run = async () => {
-      const ids = Array.from(
-        new Set(
-          commissions
-            .filter((c) => {
-              const paidMonth = String(c.شهر_دفع_العمولة || '').trim();
-              if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth === selectedMonth;
-              const contractDate = String(c.تاريخ_العقد || '').trim();
-              if (/^\d{4}-\d{2}/.test(contractDate))
-                return contractDate.slice(0, 7) === selectedMonth;
-              return false;
-            })
-            .map((c) => String(c.رقم_العقد || '').trim())
-            .filter(Boolean)
-        )
-      );
-
-      const limited = ids.slice(0, 250);
-      let changed = false;
-
-      for (const contractId of limited) {
-        if (!alive) return;
-        if (fastContractByIdRef.current.has(contractId)) continue;
-        try {
-          const contract = await domainGetSmart('contracts', contractId);
-          if (contract) {
-            fastContractByIdRef.current.set(contractId, contract);
-            changed = true;
-
-            const propId = String(contract.رقم_العقار || '').trim();
-            const tenantId = String(contract.رقم_المستاجر || '').trim();
-
-            if (propId && !fastPropertyByIdRef.current.has(propId)) {
-              try {
-                const prop = await domainGetSmart('properties', propId);
-                if (prop) {
-                  fastPropertyByIdRef.current.set(propId, prop);
-                  changed = true;
-                }
-              } catch {
-                // ignore
-              }
-            }
-
-            if (tenantId && !fastPersonByIdRef.current.has(tenantId)) {
-              try {
-                const tenant = await domainGetSmart('people', tenantId);
-                if (tenant) {
-                  fastPersonByIdRef.current.set(tenantId, tenant);
-                  changed = true;
-                }
-              } catch {
-                // ignore
-              }
-            }
-
-            // Owner depends on property; try resolve now if property was fetched.
-            const ownerId = String(
-              fastPropertyByIdRef.current.get(propId)?.رقم_المالك || ''
-            ).trim();
-            if (ownerId && !fastPersonByIdRef.current.has(ownerId)) {
-              try {
-                const owner = await domainGetSmart('people', ownerId);
-                if (owner) {
-                  fastPersonByIdRef.current.set(ownerId, owner);
-                  changed = true;
-                }
-              } catch {
-                // ignore
-              }
-            }
-          }
-        } catch {
-          // ignore per-id failures
-        }
-      }
-
-      if (alive && changed) setFastCacheVersion((v) => v + 1);
-    };
-
-    void run();
-    return () => {
-      alive = false;
-    };
-  }, [isDesktopFast, selectedMonth, commissions]);
 
   const handlePostponeCommissionCollection = async (c: العمولات_tbl) => {
     const defaultWho = (() => {
@@ -602,11 +546,170 @@ export const Commissions: FC = () => {
     return '';
   };
 
-  const filteredCommissions = commissions.filter((c) => getCommissionMonthKey(c) === selectedMonth);
+  const commissionsForSelectedMonth = useMemo(
+    () => commissions.filter((c) => getCommissionMonthKey(c) === selectedMonth),
+    [commissions, selectedMonth]
+  );
+
+  const filteredCommissions = commissionsForSelectedMonth;
+
+  /** ديسكتوب: جلب العقد والعقار (للكود الداخلي) والأشخاص عبر تفاصيل العقد أو domainGet */
+  useEffect(() => {
+    if (!isDesktopFast) return;
+    let alive = true;
+
+    const run = async () => {
+      const ids = Array.from(
+        new Set(
+          commissionsForSelectedMonth.map((c) => String(c.رقم_العقد || '').trim()).filter(Boolean)
+        )
+      );
+
+      const limited = ids.slice(0, 250);
+      let changed = false;
+
+      const hasContractDetails =
+        typeof window !== 'undefined' &&
+        typeof window.desktopDb?.domainContractDetails === 'function';
+
+      for (const contractId of limited) {
+        if (!alive) return;
+
+        if (hasContractDetails) {
+          let hydratedWithDetails = false;
+          try {
+            const details = await contractDetailsSmart(contractId);
+            if (details?.contract) {
+              hydratedWithDetails = true;
+              fastContractByIdRef.current.set(contractId, details.contract);
+              changed = true;
+
+              let prop = details.property ?? null;
+              const propIdFromContract = contractPropertyId(details.contract);
+
+              if (!prop && propIdFromContract) {
+                try {
+                  prop = (await domainGetSmart('properties', propIdFromContract)) ?? null;
+                } catch {
+                  // ignore
+                }
+              }
+
+              if (prop) {
+                const pid = contractPropertyId(prop) || propIdFromContract;
+                if (pid) fastPropertyByIdRef.current.set(pid, prop);
+              }
+
+              if (details.tenant) {
+                const tid = personIdFromRow(details.tenant);
+                if (tid) fastPersonByIdRef.current.set(tid, details.tenant);
+              } else {
+                const tid = contractTenantId(details.contract);
+                if (tid && !fastPersonByIdRef.current.has(tid)) {
+                  try {
+                    const t = await domainGetSmart('people', tid);
+                    if (t) {
+                      fastPersonByIdRef.current.set(tid, t);
+                      changed = true;
+                    }
+                  } catch {
+                    // ignore
+                  }
+                }
+              }
+
+              const pidKey = prop ? contractPropertyId(prop) || propIdFromContract : propIdFromContract;
+              const resolvedProp =
+                prop || (pidKey ? fastPropertyByIdRef.current.get(pidKey) ?? null : null);
+              const ownerId = propertyOwnerId(resolvedProp);
+              if (ownerId && !fastPersonByIdRef.current.has(ownerId)) {
+                try {
+                  const owner = await domainGetSmart('people', ownerId);
+                  if (owner) {
+                    fastPersonByIdRef.current.set(ownerId, owner);
+                    changed = true;
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          } catch {
+            // fallback below
+          }
+          if (hydratedWithDetails) continue;
+        }
+
+        let contract = fastContractByIdRef.current.get(contractId);
+        if (!contract) {
+          try {
+            const fetched = await domainGetSmart('contracts', contractId);
+            if (fetched) {
+              fastContractByIdRef.current.set(contractId, fetched);
+              contract = fetched;
+              changed = true;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (!contract) continue;
+
+        const propId = contractPropertyId(contract);
+        const tenantId = contractTenantId(contract);
+
+        if (propId && !fastPropertyByIdRef.current.has(propId)) {
+          try {
+            const p = await domainGetSmart('properties', propId);
+            if (p) {
+              fastPropertyByIdRef.current.set(propId, p);
+              changed = true;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (tenantId && !fastPersonByIdRef.current.has(tenantId)) {
+          try {
+            const tenant = await domainGetSmart('people', tenantId);
+            if (tenant) {
+              fastPersonByIdRef.current.set(tenantId, tenant);
+              changed = true;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        const propRow = propId ? fastPropertyByIdRef.current.get(propId) : null;
+        const oid = propertyOwnerId(propRow);
+        if (oid && !fastPersonByIdRef.current.has(oid)) {
+          try {
+            const owner = await domainGetSmart('people', oid);
+            if (owner) {
+              fastPersonByIdRef.current.set(oid, owner);
+              changed = true;
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      if (alive && changed) setFastCacheVersion((v) => v + 1);
+    };
+
+    void run();
+    return () => {
+      alive = false;
+    };
+  }, [isDesktopFast, commissionsForSelectedMonth]);
 
   const filteredExternal = useMemo(() => {
     return externalCommissions.filter((c) => {
-      const matchMonth = c.التاريخ.startsWith(selectedMonth);
+      const matchMonth = String(c.التاريخ || '').startsWith(selectedMonth);
       const matchSearch = searchTerm
         ? c.العنوان.toLowerCase().includes(searchTerm.toLowerCase())
         : true;
@@ -731,7 +834,7 @@ export const Commissions: FC = () => {
     const officeTotal =
       Math.max(0, Number(editingContractComm.عمولة_المالك || 0)) +
       Math.max(0, Number(editingContractComm.عمولة_المستأجر || 0));
-    const monthRentalOfficeTotal = filteredCommissions.reduce(
+    const monthRentalOfficeTotal = commissionsForSelectedMonth.reduce(
       (sum, c) => sum + (Number(c.المجموع) || 0),
       0
     );
@@ -751,7 +854,7 @@ export const Commissions: FC = () => {
       introEarned,
       finalEarned,
     };
-  }, [editingContractComm, filteredCommissions]);
+  }, [editingContractComm, commissionsForSelectedMonth]);
 
   const escapeCsvValue = (value: unknown) => {
     if (value === null || value === undefined) return '';
@@ -888,7 +991,7 @@ export const Commissions: FC = () => {
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="بحث (المرجع، العقار، رقم الفرصة)..."
+                  placeholder="بحث (المرجع، الكود الداخلي، رقم الفرصة)..."
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1074,7 +1177,7 @@ export const Commissions: FC = () => {
                             </b>
                           </span>
                           <span className="text-slate-500 dark:text-slate-400 text-sm">
-                            | العقار:{' '}
+                            | الكود الداخلي:{' '}
                             <b className="text-slate-700 dark:text-slate-200">
                               {String(r.property || '—')}
                             </b>
@@ -1201,7 +1304,7 @@ export const Commissions: FC = () => {
                             #{formatContractNumberShort(c.رقم_العقد)}
                           </span>
                           <span className="text-slate-500 dark:text-slate-400 text-sm">
-                            | عقار:{' '}
+                            | الكود الداخلي:{' '}
                             <b className="text-slate-700 dark:text-slate-200">
                               {getPropCode(c.رقم_العقد)}
                             </b>

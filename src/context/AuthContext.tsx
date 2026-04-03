@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { المستخدمين_tbl } from '@/types';
 import { notificationService } from '@/services/notificationService';
+import { clearCommissionsDesktopEntityCache } from '@/services/commissionsDesktopEntityCache';
 
 interface AuthContextType {
   user: المستخدمين_tbl | null;
@@ -50,6 +51,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user]);
 
   const logout = useCallback(() => {
+    clearCommissionsDesktopEntityCache();
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('khaberni_user');

@@ -32,6 +32,7 @@ import { useSmartModal } from '@/context/ModalContext';
 import { isSuperAdmin } from '@/utils/roles';
 import { resolveDesktopError, resolveDesktopMessage } from '@/utils/desktopMessages';
 import { runWithSqlSyncBlocking } from '@/utils/sqlSyncBlockingUi';
+import { clearCommissionsDesktopEntityCache } from '@/services/commissionsDesktopEntityCache';
 
 type SqlStatus = {
   configured: boolean;
@@ -615,8 +616,10 @@ export const ServerSqlSection: React.FC = () => {
     await runGuarded('sql:syncNow', async () => {
       await runWithSqlSyncBlocking(async () => {
         const res = (await window.desktopDb.sqlSyncNow()) as unknown as DesktopOkMessage | null;
-        if (res?.ok) toastSuccess(getDesktopMessage(res, 'تمت المزامنة بنجاح'));
-        else toastError(getDesktopMessage(res, 'فشل المزامنة'));
+        if (res?.ok) {
+          clearCommissionsDesktopEntityCache();
+          toastSuccess(getDesktopMessage(res, 'تمت المزامنة بنجاح'));
+        } else toastError(getDesktopMessage(res, 'فشل المزامنة'));
         void refreshSqlStatus();
       });
     });

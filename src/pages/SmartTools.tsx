@@ -210,11 +210,15 @@ export const SmartTools: React.FC = () => {
   );
   const contractsOptions = useMemo(
     () =>
-      contracts.map((c) => ({
-        value: c.رقم_العقد,
-        label: `#${formatContractNumberShort(c.رقم_العقد)} — ${c.رقم_العقار}`,
-      })),
-    [contracts]
+      contracts.map((c) => {
+        const prop = properties.find((p) => String(p.رقم_العقار) === String(c.رقم_العقار));
+        const code = String(prop?.الكود_الداخلي || c.رقم_العقار || '').trim();
+        return {
+          value: c.رقم_العقد,
+          label: `#${formatContractNumberShort(c.رقم_العقد)} — ${code}`,
+        };
+      }),
+    [contracts, properties]
   );
 
   const endDate = useMemo(

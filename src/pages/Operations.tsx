@@ -802,7 +802,7 @@ export const Operations: FC = () => {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">العقار:</span>
+                      <span className="text-slate-600 dark:text-slate-400">الكود الداخلي:</span>
                       <span className="font-bold">
                         {getProperty(selectedContract)?.الكود_الداخلي}
                       </span>
