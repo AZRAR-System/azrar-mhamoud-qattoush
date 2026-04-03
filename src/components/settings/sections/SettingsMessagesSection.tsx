@@ -1,4 +1,5 @@
 import { BadgeDollarSign, Bell, FileText, MessageCircle, Phone } from 'lucide-react';
+import { SettingsMessageTemplatesSection } from '@/components/settings/sections/SettingsMessageTemplatesSection';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
 import { RBACGuard } from '@/components/shared/RBACGuard';
@@ -60,6 +61,8 @@ export function SettingsMessagesSection({ page }: Props) {
             </div>
           </div>
         </section>
+
+        <SettingsMessageTemplatesSection page={page} />
     
         <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">

@@ -358,6 +358,11 @@ ${COLLECTION_FIXED_PAYMENT_FOOTER}`,
   },
 ];
 
+/** نسخة للقراءة فقط من القوالب المدمجة — للمقارنة مع `db_message_templates` */
+export function getBuiltinNotificationTemplates(): NotificationTemplate[] {
+  return JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+}
+
 // فئة إدارة النماذج
 import { storage } from '@/services/storage';
 

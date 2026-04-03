@@ -48,6 +48,8 @@ export const KEYS = {
   SCHEDULED_REPORTS_CONFIG: 'db_scheduled_reports_config',
   /** سجل التدقيق — مصفوفة آخر 500 سجل */
   AUDIT_LOG: 'db_audit_log',
+  /** قوالب رسائل قابلة للتعديل (نصوص) — يُكمّل notificationTemplates الافتراضية */
+  MESSAGE_TEMPLATES: 'db_message_templates',
 } as const;
 
 export type DbStorageKey = (typeof KEYS)[keyof typeof KEYS];
