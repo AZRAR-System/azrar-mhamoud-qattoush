@@ -428,6 +428,8 @@ export interface SystemSettings {
   // Session / Security
   // Auto-logout after inactivity (minutes). Default: 15
   inactivityTimeoutMinutes?: number;
+  /** قفل الشاشة بعد خمول (دقائق). افتراضي 30. صفر = معطّل */
+  autoLockMinutes?: number;
 
   // Word contract template (Desktop)
   contractWordTemplateName?: string;

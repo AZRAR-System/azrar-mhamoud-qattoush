@@ -46,6 +46,8 @@ export const KEYS = {
   SMART_BEHAVIOR: 'db_smart_behavior',
   /** إعدادات/حالة التقارير المالية المجدولة + آخر لقطة للمعاينة */
   SCHEDULED_REPORTS_CONFIG: 'db_scheduled_reports_config',
+  /** سجل التدقيق — مصفوفة آخر 500 سجل */
+  AUDIT_LOG: 'db_audit_log',
 } as const;
 
 export type DbStorageKey = (typeof KEYS)[keyof typeof KEYS];

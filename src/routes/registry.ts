@@ -19,6 +19,7 @@ import {
   Lock,
   BookOpen,
   History,
+  ScrollText,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -59,6 +60,12 @@ export const NAV_ITEMS: NavItem[] = [
       { label: 'إعدادات النظام', path: ROUTE_PATHS.SETTINGS, icon: Settings },
       { label: 'النسخ الاحتياطي', path: ROUTE_PATHS.BACKUP, icon: History },
       { label: 'سجل العمليات', path: ROUTE_PATHS.OPERATIONS, icon: Activity },
+      {
+        label: 'سجل التدقيق',
+        path: ROUTE_PATHS.AUDIT_LOG,
+        icon: ScrollText,
+        role: 'SuperAdmin',
+      },
       { label: 'صيانة النظام', path: ROUTE_PATHS.SYS_MAINTENANCE, icon: ServerCog },
       { label: 'قواعد البيانات', path: ROUTE_PATHS.DATABASE, icon: Database },
       { label: 'منشئ النظام', path: ROUTE_PATHS.BUILDER, icon: Database },
@@ -96,6 +103,7 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
   titles[ROUTE_PATHS.DOCUMENTS] = 'مستندات';
   titles[ROUTE_PATHS.COMPREHENSIVE_TESTS] = 'الاختبارات الشاملة';
   titles[ROUTE_PATHS.RESET_DATABASE] = 'إعادة ضبط المصنع';
+  titles[ROUTE_PATHS.AUDIT_LOG] = 'سجل التدقيق';
 
   return titles;
 })();
@@ -129,4 +137,5 @@ export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.DATABASE]: 'إدارة الجداول، تحسين الأداء، والتحكم في القيود',
   [ROUTE_PATHS.DOCS]: 'مرجع المطورين، الهيكلية، ودليل التشغيل',
   [ROUTE_PATHS.RESET_DATABASE]: 'حذف البيانات وإعادة تهيئة النظام',
+  [ROUTE_PATHS.AUDIT_LOG]: 'من فعل ماذا ومتى — آخر 500 عملية',
 };

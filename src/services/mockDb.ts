@@ -56,6 +56,7 @@ import { INSTALLMENT_STATUS } from './db/installmentConstants';
 import { buildCache, DbCache } from './dbCache';
 import { KEYS } from './db/keys';
 import { get, save } from './db/kv';
+import { auditLog } from '@/services/auditLog';
 import { createContractWrites, getContracts, getContractDetails } from './db/contracts';
 import {
   createInstallmentPaymentHandlers,
@@ -101,7 +102,6 @@ import {
   type NotificationSendLogRecord,
 } from './db/paymentNotifications';
 import { createBackgroundScansRuntime } from './db/backgroundScans';
-import { runScheduledReportsTick } from './scheduledReports';
 import { runInitData } from './db/initData';
 import { resetOperationalData } from './db/resetOperationalData';
 import { lookupKeyFor, normKeySimple } from './db/lookupKeys';
@@ -196,6 +196,11 @@ const logOperationInternal = (
     deviceInfo: meta?.deviceInfo,
   };
   save(KEYS.LOGS, [...logs, newLog]);
+  try {
+    auditLog.appendFromLegacyLog(user, action, table, recordId, details, meta);
+  } catch {
+    /* ignore audit mirror failures */
+  }
 };
 
 const {
@@ -1826,14 +1831,6 @@ export const DbService = {
   },
 
   runDailyScheduler: () => {
-    void (async () => {
-      try {
-        await runScheduledReportsTick();
-      } catch (e) {
-        console.warn('Daily scheduler: scheduled reports failed', e);
-      }
-    })();
-
     // Simulated daily scheduled tasks (runs after login)
     // Avoid repeating heavy work multiple times per session
     const todayKey = new Date().toISOString().split('T')[0];
@@ -2980,6 +2977,7 @@ export const DbService = {
           { key: 'type', header: 'النوع' },
           { key: 'date', header: 'التاريخ', type: 'date' as const },
           { key: 'reference', header: 'المرجع' },
+          { key: 'employeeUsername', header: 'اسم المستخدم (تسجيل الدخول)' },
           { key: 'employee', header: 'الموظف' },
           { key: 'property', header: 'العقار' },
           { key: 'opportunity', header: 'رقم الفرصة' },

@@ -4,18 +4,20 @@ import React, {
   useState,
   useEffect,
   ReactNode,
-  useRef,
   useCallback,
 } from 'react';
 import { المستخدمين_tbl } from '@/types';
-import { notificationService } from '@/services/notificationService';
-import { clearCommissionsDesktopEntityCache } from '@/services/commissionsDesktopEntityCache';
+import { auditLog } from '@/services/auditLog';
 
 interface AuthContextType {
   user: المستخدمين_tbl | null;
   isAuthenticated: boolean;
+  /** قفل الجلسة (طرفية) — التطبيق يبقى مفتوحاً */
+  sessionLocked: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  lockSession: () => void;
+  unlockSession: (password: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,13 +25,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<المستخدمين_tbl | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Inactivity limit in milliseconds (30 minutes)
-  const INACTIVITY_LIMIT = 30 * 60 * 1000;
+  const [sessionLocked, setSessionLocked] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check for persisted session (simplified)
     const storedUser = localStorage.getItem('khaberni_user');
     if (storedUser) {
       try {
@@ -50,8 +48,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user]);
 
+  const lockSession = useCallback(() => {
+    setSessionLocked(true);
+  }, []);
+
+  const unlockSession = useCallback(async (password: string): Promise<boolean> => {
+    const u = user;
+    if (!u) return false;
+    const username = String(u.اسم_المستخدم || '').trim();
+    if (!username || !password) return false;
+    try {
+      const { DbService } = await import('@/services/mockDb');
+      const response = await DbService.authenticateUser(username, password);
+      if (response?.success && response.data) {
+        setSessionLocked(false);
+        return true;
+      }
+    } catch (e) {
+      console.error('Unlock session:', e);
+    }
+    return false;
+  }, [user]);
+
   const logout = useCallback(() => {
-    clearCommissionsDesktopEntityCache();
+    try {
+      const uid = user ? String((user as unknown as Record<string, unknown>)?.id ?? '').trim() : '';
+      auditLog.record('AUTH_LOGOUT', 'Auth', uid || undefined, 'تسجيل خروج يدوي أو تلقائي');
+    } catch {
+      /* ignore */
+    }
+    setSessionLocked(false);
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('khaberni_user');
@@ -60,8 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {
       // ignore
     }
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
+  }, [user]);
 
   const login = async (username: string, password: string) => {
     try {
@@ -70,6 +95,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (response && response.success && response.data) {
         setUser(response.data);
         setIsAuthenticated(true);
+        setSessionLocked(false);
         localStorage.setItem('khaberni_user', JSON.stringify(response.data));
         try {
           const id = String((response.data as unknown as Record<string, unknown>)?.id ?? '').trim();
@@ -77,7 +103,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } catch {
           // ignore
         }
-        resetTimer(); // Start tracking activity
+        try {
+          const id = String((response.data as unknown as Record<string, unknown>)?.id ?? '').trim();
+          auditLog.record('AUTH_LOGIN', 'Auth', id || undefined, 'تسجيل دخول ناجح');
+        } catch {
+          /* ignore */
+        }
         return true;
       }
     } catch (e) {
@@ -86,46 +117,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return false;
   };
 
-  const resetTimer = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (isAuthenticated) {
-      timerRef.current = setTimeout(() => {
-        console.warn('Auto-logging out due to inactivity');
-        logout();
-        notificationService.warning(
-          'تم تسجيل الخروج تلقائياً لعدم النشاط لمدة 30 دقيقة.',
-          'تسجيل خروج تلقائي'
-        );
-      }, INACTIVITY_LIMIT);
-    }
-  }, [INACTIVITY_LIMIT, isAuthenticated, logout]);
-
-  // Activity Listeners
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const handleActivity = () => resetTimer();
-
-    // Events to track
-    window.addEventListener('mousemove', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-    window.addEventListener('scroll', handleActivity);
-    window.addEventListener('click', handleActivity);
-
-    // Initial start
-    resetTimer();
-
-    return () => {
-      window.removeEventListener('mousemove', handleActivity);
-      window.removeEventListener('keydown', handleActivity);
-      window.removeEventListener('scroll', handleActivity);
-      window.removeEventListener('click', handleActivity);
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [isAuthenticated, resetTimer]);
-
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        sessionLocked,
+        login,
+        logout,
+        lockSession,
+        unlockSession,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

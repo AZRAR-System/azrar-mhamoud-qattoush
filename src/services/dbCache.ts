@@ -51,6 +51,7 @@ const KEYS = {
   OWNERSHIP_HISTORY: 'db_ownership_history',
   MAINTENANCE: 'db_maintenance_tickets',
   LOGS: 'db_operations',
+  AUDIT_LOG: 'db_audit_log',
   LOOKUPS: 'db_lookups',
   LOOKUP_CATEGORIES: 'db_lookup_categories',
   BLACKLIST: 'db_blacklist',
@@ -390,6 +391,7 @@ export function buildCache() {
   });
 
   load(KEYS.LOGS);
+  load(KEYS.AUDIT_LOG);
   load(KEYS.LOOKUPS);
   load(KEYS.LOOKUP_CATEGORIES);
   load(KEYS.BLACKLIST);

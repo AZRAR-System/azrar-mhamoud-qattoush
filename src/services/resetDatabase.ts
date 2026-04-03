@@ -7,8 +7,6 @@
  */
 
 import { storage } from '@/services/storage';
-import { hashPassword } from '@/services/passwordHash';
-import { KEYS } from '@/services/db/keys';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -20,16 +18,69 @@ const getErrorMessage = (error: unknown): string => {
   return String(msg);
 };
 
-const unique = (arr: string[]): string[] => Array.from(new Set(arr.filter(Boolean)));
+// مفاتيح البيانات (db_*) المعروفة في النظام.
+// ملاحظة: قد توجد مفاتيح إضافية db_* (إضافات/ميزات)؛ يتم التقاطها ديناميكياً أيضاً.
+const BASE_DB_KEYS = [
+  // الأساسية
+  'db_people',
+  'db_companies',
+  'db_properties',
+  'db_contracts',
+  'db_installments',
+  'db_payments',
+  'db_roles',
+  'db_commissions',
+  'db_users',
+  'db_user_permissions',
+  'db_alerts',
 
-// مفاتيح البيانات (db_*) — مصدر واحد: KEYS ثم مفاتيح إضافية (قديمة/حالة).
-// ملاحظة: «الدفعات/الأقساط» تُخزَّن تحت db_installments فقط (لا يوجد db_payments في mockDb).
-// قد توجد مفاتيح db_* إضافية؛ يتم التقاطها ديناميكياً من التخزين أيضاً.
-const BASE_DB_KEYS = unique([
-  ...Object.values(KEYS),
-  'db_sales', // legacy/compat قديم
+  // البيع
+  'db_sales', // legacy/compat
+  'db_sales_listings',
+  'db_sales_offers',
+  'db_sales_agreements',
+  'db_external_commissions',
+
+  // الصيانة والإدارة
+  'db_maintenance_tickets',
+  'db_settings',
+  'db_operations',
+  'db_audit_log',
+  'db_blacklist',
+
+  // القوائم
+  'db_lookups',
+  'db_lookup_categories',
+
+  // الجداول الديناميكية
+  'db_dynamic_tables',
+  'db_dynamic_records',
+  'db_dynamic_form_fields',
+
+  // المرفقات والملاحظات
+  'db_attachments',
+  'db_activities',
+  'db_notes',
+
+  // القانونية
+  'db_legal_templates',
+  'db_legal_history',
+
+  // لوحة التحكم / إضافات
+  'db_dashboard_config',
+  'db_dashboard_notes',
+  'db_notification_send_logs',
+  'db_reminders',
+  'db_client_interactions',
+  'db_followups',
+  'db_clearance_records',
+  'db_ownership_history',
+  'db_marquee',
+  'db_smart_behavior',
+
+  // علامات النظام
   'db_initialized',
-]);
+];
 
 // مفاتيح غير db_* لكنها تخص بيانات/حالة التطبيق
 const APP_STATE_KEYS = [
@@ -45,6 +96,8 @@ const APP_STATE_KEYS = [
 
 // مفاتيح قديمة/تجريبية نريد تنظيفها إن وُجدت (بدون إعادة إنشائها)
 const LEGACY_CLEANUP_KEYS = ['demo_data_loaded'];
+
+const unique = (arr: string[]): string[] => Array.from(new Set(arr.filter(Boolean)));
 
 const isDesktop = (): boolean => typeof window !== 'undefined' && !!window.desktopDb;
 
@@ -178,14 +231,11 @@ export const resetToFreshState = async (): Promise<{ success: boolean; message: 
       return clearResult;
     }
 
-    // 2. إنشاء مستخدم admin فقط (نفس بيانات الزرع الافتراضية من env)
-    const adminName = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_USERNAME || 'admin').trim();
-    const plain = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_PASSWORD || '7Bibi@_@_0788');
-    const hashed = await hashPassword(plain);
+    // 2. إنشاء مستخدم admin فقط
     const adminUser = {
       id: '1',
-      اسم_المستخدم: adminName,
-      كلمة_المرور: hashed,
+      اسم_المستخدم: 'admin',
+      كلمة_المرور: '123456',
       الدور: 'SuperAdmin',
       isActive: true,
     };

@@ -1,4 +1,8 @@
 import { useEffect, useState, memo, useRef, Fragment, type ReactNode } from 'react';
+import { useAutoLock } from '@/hooks/useAutoLock';
+import { SessionLockOverlay } from '@/components/SessionLockOverlay';
+import { getSettings } from '@/services/db/settings';
+import { KEYS } from '@/services/db/keys';
 import { useLocation } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants';
 import {
@@ -25,13 +29,9 @@ import { storage } from '@/services/storage';
 import { isRole } from '@/utils/roles';
 import { formatTimeHM } from '@/utils/format';
 import { useInAppReminderNotifier } from '@/hooks/useInAppReminderNotifier';
-import { useNotificationCenter } from '@/hooks/useNotificationCenter';
-import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import { getDatabaseStats } from '@/services/resetDatabase';
 import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
-import { runWithSqlSyncBlocking } from '@/utils/sqlSyncBlockingUi';
-import { clearCommissionsDesktopEntityCache } from '@/services/commissionsDesktopEntityCache';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 const getUnknownMessage = (v: unknown): string | undefined =>
@@ -123,14 +123,22 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   };
 
   const { openPanel } = useSmartModal();
-  const { user } = useAuth();
+  const { user, isAuthenticated, sessionLocked, lockSession } = useAuth();
   const toast = useToast();
+
+  const [autoLockMinutes, setAutoLockMinutes] = useState(() => getSettings().autoLockMinutes ?? 30);
+  useEffect(() => {
+    const onSettingsChanged = (e: Event) => {
+      const d = (e as CustomEvent<{ key?: string }>).detail;
+      if (d?.key === KEYS.SETTINGS) setAutoLockMinutes(getSettings().autoLockMinutes ?? 30);
+    };
+    window.addEventListener('azrar:db-changed', onSettingsChanged as EventListener);
+    return () => window.removeEventListener('azrar:db-changed', onSettingsChanged as EventListener);
+  }, []);
+  useAutoLock(isAuthenticated && !sessionLocked, autoLockMinutes, lockSession);
 
   // In-app reminder sound/toast notifier (today reminders)
   useInAppReminderNotifier();
-  useDesktopNotifications();
-
-  const { unreadCount: centerUnreadCount, hasUnreadUrgent } = useNotificationCenter();
 
   const [appVersion, setAppVersion] = useState<string>('');
   const postUpdateRestorePromptGuard = useRef(false);
@@ -167,8 +175,6 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         agg.timer = null;
       }
       if (agg.upserts === 0 && agg.deletes === 0 && agg.errors === 0) return;
-
-      clearCommissionsDesktopEntityCache();
 
       const now = Date.now();
       const minIntervalMs = 1800;
@@ -289,16 +295,14 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           const st = (await window.desktopDb?.sqlStatus?.()) as unknown as SqlStatus | null;
           if (cancelled) return;
           if (st?.configured && st?.enabled) {
-            await runWithSqlSyncBlocking(async () => {
-              await window.desktopDb?.sqlConnect?.();
-              const syncRes =
-                (await window.desktopDb?.sqlSyncNow?.()) as unknown as DesktopOkMessage | null;
-              if (cancelled) return;
-              if (syncRes?.ok) {
-                // Reload to rebuild in-memory indexes/caches and ensure relationships are consistent
-                window.location.reload();
-              }
-            });
+            await window.desktopDb?.sqlConnect?.();
+            const syncRes =
+              (await window.desktopDb?.sqlSyncNow?.()) as unknown as DesktopOkMessage | null;
+            if (cancelled) return;
+            if (syncRes?.ok) {
+              // Reload to rebuild in-memory indexes/caches and ensure relationships are consistent
+              window.location.reload();
+            }
           }
         }
       } catch {
@@ -519,7 +523,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       const child = item.children?.find((c) => c.path === location.pathname);
       if (child) return child.label;
     }
-    return 'نظام أزرار العقاري';
+    return 'نظام AZRAR';
   };
 
   const getPageSubtitle = () => {
@@ -808,20 +812,13 @@ export const Layout = ({ children }: { children: ReactNode }) => {
               </button>
 
               <button
-                type="button"
-                onClick={() => openPanel('NOTIFICATION_CENTER')}
-                className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm ${
-                  hasUnreadUrgent ? 'animate-pulse ring-2 ring-amber-400/60 ring-offset-2 ring-offset-white dark:ring-offset-slate-950' : ''
-                }`}
-                title="مركز الإشعارات"
-                aria-label="مركز الإشعارات"
+                onClick={() => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 })}
+                className="relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm"
               >
                 <Bell size={20} />
-                {centerUnreadCount + paymentNotifCount > 0 && (
+                {paymentNotifCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-gradient-to-br from-red-600 to-red-500 text-white text-[10px] font-black flex items-center justify-center ring-4 ring-white dark:ring-slate-900 shadow-lg shadow-red-500/30">
-                    {centerUnreadCount + paymentNotifCount > 99
-                      ? '99+'
-                      : centerUnreadCount + paymentNotifCount}
+                    {paymentNotifCount > 99 ? '99+' : paymentNotifCount}
                   </span>
                 )}
               </button>
@@ -859,6 +856,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         {/* Engine Layers */}
         <SmartModalEngine />
         <OnboardingGuide />
+        <SessionLockOverlay />
       </div>
     </div>
   );

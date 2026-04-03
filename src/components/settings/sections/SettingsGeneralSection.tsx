@@ -26,7 +26,6 @@ import {
   Copy,
   MessageCircle,
   FileText,
-  BarChart3,
 } from 'lucide-react';
 import { GEO_COUNTRIES, GEO_CURRENCIES } from '@/constants/geo';
 import { getCurrencySuffix } from '@/services/moneySettings';
@@ -91,7 +90,9 @@ export function SettingsGeneralSection({ page }: Props) {
                   id="settings-company-name"
                   className={inputClass}
                   value={settings.companyName}
-                  onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                  onChange={(e) =>
+                    setSettings({ ...settings, companyName: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -102,7 +103,9 @@ export function SettingsGeneralSection({ page }: Props) {
                   id="settings-company-slogan"
                   className={inputClass}
                   value={settings.companySlogan || ''}
-                  onChange={(e) => setSettings({ ...settings, companySlogan: e.target.value })}
+                  onChange={(e) =>
+                    setSettings({ ...settings, companySlogan: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -143,7 +146,9 @@ export function SettingsGeneralSection({ page }: Props) {
                 id="settings-company-website"
                 className={inputClass}
                 value={settings.companyWebsite}
-                onChange={(e) => setSettings({ ...settings, companyWebsite: e.target.value })}
+                onChange={(e) =>
+                  setSettings({ ...settings, companyWebsite: e.target.value })
+                }
               />
             </div>
           </div>
@@ -159,12 +164,12 @@ export function SettingsGeneralSection({ page }: Props) {
             />
           </div>
         </section>
-
+    
         <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <Globe className="text-sky-500" size={20} /> البلد والعملة
           </h3>
-
+    
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className={labelClass}>البلد (مع العلم)</label>
@@ -189,7 +194,7 @@ export function SettingsGeneralSection({ page }: Props) {
                 يُستخدم كود البلد تلقائياً لتطبيع أرقام WhatsApp المكتوبة بصيغة محلية.
               </div>
             </div>
-
+    
             <div>
               <label className={labelClass}>العملة (تصنيف/اختيار)</label>
               <Select
@@ -216,95 +221,35 @@ export function SettingsGeneralSection({ page }: Props) {
 
         <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-            <BarChart3 className="text-emerald-500" size={20} /> التقارير المالية المجدولة
+            <Shield className="text-amber-500" size={20} /> الأمان والجلسة
           </h3>
-          <div className="flex items-start gap-3 mb-6">
-            <input
-              id="settings-scheduled-reports-enabled"
-              type="checkbox"
-              className="mt-1 rounded border-slate-300"
-              checked={!!settings.scheduledReportsEnabled}
-              onChange={(e) =>
-                setSettings({ ...settings, scheduledReportsEnabled: e.target.checked })
-              }
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xl">
             <div>
-              <label
-                htmlFor="settings-scheduled-reports-enabled"
-                className="text-sm font-semibold text-slate-800 dark:text-white cursor-pointer"
-              >
-                تفعيل التقرير المالي المجدول
+              <label className={labelClass} htmlFor="settings-auto-lock-minutes">
+                قفل الشاشة بعد خمول (دقائق)
               </label>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                يُولَّد تلقائياً عند بدء البرنامج بعد وقت التشغيل المحدد (KPIs + أقساط قادمة + عقود
-                تنتهي + متأخرات). معطّل افتراضياً.
+              <input
+                id="settings-auto-lock-minutes"
+                type="number"
+                min={0}
+                max={240}
+                className={inputClass}
+                value={settings.autoLockMinutes ?? 30}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  const v = Number.isFinite(n) ? Math.max(0, Math.min(240, Math.floor(n))) : 30;
+                  setSettings({ ...settings, autoLockMinutes: v });
+                }}
+              />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                افتراضي 30 دقيقة. اضبط على 0 لتعطيل القفل التلقائي (تبقى الجلسة مفتوحة حتى تسجيل الخروج).
               </p>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className={labelClass} htmlFor="settings-scheduled-frequency">
-                التكرار
-              </label>
-              <select
-                id="settings-scheduled-frequency"
-                className={inputClass}
-                value={settings.scheduledReportFrequency || 'daily'}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    scheduledReportFrequency: e.target.value as 'daily' | 'weekly' | 'monthly',
-                  })
-                }
-              >
-                <option value="daily">يومي</option>
-                <option value="weekly">أسبوعي (أسبوع يبدأ الاثنين)</option>
-                <option value="monthly">شهري (يوم 1 من كل شهر)</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="settings-scheduled-time">
-                وقت التشغيل (محلي)
-              </label>
-              <input
-                id="settings-scheduled-time"
-                type="time"
-                className={inputClass}
-                value={
-                  /^\d{1,2}:\d{2}$/.test(String(settings.scheduledReportTime || '').trim())
-                    ? String(settings.scheduledReportTime).trim()
-                    : '08:00'
-                }
-                onChange={(e) =>
-                  setSettings({ ...settings, scheduledReportTime: e.target.value || '08:00' })
-                }
-              />
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <label className={labelClass} htmlFor="settings-scheduled-export-path">
-              مجلد حفظ PDF تلقائياً (اختياري — سطح المكتب)
-            </label>
-            <input
-              id="settings-scheduled-export-path"
-              className={inputClass}
-              dir="ltr"
-              placeholder="C:\Reports\Azrar"
-              value={settings.scheduledReportExportPath || ''}
-              onChange={(e) =>
-                setSettings({ ...settings, scheduledReportExportPath: e.target.value })
-              }
-            />
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
-              إن وُجد، يُحفظ الملف باسم: تقرير-مالي-YYYY-MM-DD.pdf عبر الطباعة إلى PDF بدون حوار.
-            </p>
-          </div>
         </section>
-
+    
         {/* الترويسة وقوالب DOCX وإعدادات الطباعة: راجع «الطباعة والقوالب» في الشريط الجانبي */}
-
+    
         {/* Advanced Reset Section */}
         <section className="bg-red-50 dark:bg-red-900/10 rounded-2xl p-6 border border-red-100 dark:border-red-800/30">
           <h3 className="text-lg font-bold text-red-800 dark:text-red-400 mb-4 flex items-center gap-2">
@@ -312,8 +257,8 @@ export function SettingsGeneralSection({ page }: Props) {
           </h3>
           <div className="flex items-center justify-between">
             <p className="text-sm text-red-600/80 dark:text-red-400/80 max-w-lg">
-              في حال واجهت مشاكل في تحميل البيانات أو عرض الصفحات، يمكنك مسح الذاكرة المؤقتة وإعادة
-              بناء الفهارس. لن يتم حذف البيانات الأساسية.
+              في حال واجهت مشاكل في تحميل البيانات أو عرض الصفحات، يمكنك مسح الذاكرة المؤقتة
+              وإعادة بناء الفهارس. لن يتم حذف البيانات الأساسية.
             </p>
             <button
               onClick={clearSystemCache}

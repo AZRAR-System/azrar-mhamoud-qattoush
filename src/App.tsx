@@ -13,9 +13,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivationProvider, useActivation } from './context/ActivationContext';
 import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { isSuperAdmin } from '@/utils/roles';
 import { validateRoutes } from '@/routes/validate';
 import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
-import { SqlSyncBlockingOverlay } from '@/components/shared/SqlSyncBlockingOverlay';
 
 // Lazy Load Pages
 const Dashboard = React.lazy(() =>
@@ -119,6 +119,9 @@ const ComprehensiveTests = React.lazy(() =>
   import('./pages/ComprehensiveTests').then((module) => ({ default: module.ComprehensiveTests }))
 );
 const DatabaseReset = React.lazy(() => import('./pages/DatabaseReset'));
+const AuditLog = React.lazy(() =>
+  import('./pages/AuditLog').then((module) => ({ default: module.AuditLog }))
+);
 
 // Loading Fallback
 const PageLoader = () => (
@@ -254,15 +257,15 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
     const isDev = !!env?.DEV;
 
     try {
-      // Helps diagnose cases where env flags don't reach renderer during desktop dev tests.
+      // Opt-in: add ?autorunDebug=1 to see whether Vite env flags reach the renderer (desktop dev).
       const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
-      if (isDev && isDesktop) {
+      if (isDev && isDesktop && readQueryFlag('autorunDebug')) {
         const hasEnv = typeof env === 'object' && env !== null;
         const hasAutorunKey =
           hasEnv && Object.prototype.hasOwnProperty.call(env, 'VITE_AUTORUN_SYSTEM_TESTS');
         const hasIntegrationKey =
           hasEnv && Object.prototype.hasOwnProperty.call(env, 'VITE_ENABLE_INTEGRATION_TEST_DATA');
-        console.warn(
+        console.debug(
           `[autorun] env check hasEnv=${hasEnv ? '1' : '0'} hasAutorunKey=${hasAutorunKey ? '1' : '0'} hasIntegrationKey=${hasIntegrationKey ? '1' : '0'} autorunRaw=${String(autorunRaw)}`
         );
       }
@@ -301,12 +304,10 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
 
         // Retry activation/login for up to ~60s (desktop cache hydration can be slow on first load).
         while (!cancelled && Date.now() - startedAt < 60_000) {
-          // 1) Ensure login. Default super admin matches VITE_SEED_DEFAULT_ADMIN_* (see .env.desktop).
+          // 1) Ensure login. Default super admin exists on clean DB (admin / 123456).
           if (!isAuthenticated) {
             try {
-              const u = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_USERNAME || 'admin').trim();
-              const p = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_PASSWORD || '7Bibi@_@_0788');
-              await login(u, p);
+              await login('admin', '123456');
               try {
                 console.warn('[autorun] logged in');
               } catch {
@@ -338,6 +339,14 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
   }, [isAuthenticated, login]);
 
   return null;
+};
+
+const RequireSuperAdmin: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (!isSuperAdmin(user?.الدور)) {
+    return <Navigate to={ROUTE_PATHS.DASHBOARD} replace />;
+  }
+  return <>{children}</>;
 };
 
 const RequireAuth: React.FC = () => {
@@ -422,6 +431,14 @@ const AppRoutes: React.FC = () => {
               <Route path={ROUTE_PATHS.BUILDER} element={<DynamicBuilder />} />
               <Route path={ROUTE_PATHS.ALERTS} element={<Alerts />} />
               <Route path={ROUTE_PATHS.OPERATIONS} element={<Operations />} />
+              <Route
+                path={ROUTE_PATHS.AUDIT_LOG}
+                element={
+                  <RequireSuperAdmin>
+                    <AuditLog />
+                  </RequireSuperAdmin>
+                }
+              />
               <Route path={ROUTE_PATHS.SETTINGS} element={<Settings />} />
               <Route path={ROUTE_PATHS.BACKUP} element={<BackupManager />} />
               <Route path={ROUTE_PATHS.REPORTS} element={<Reports />} />
@@ -452,7 +469,6 @@ function App() {
           <AutorunDesktopTestBootstrap />
           <ToastProvider>
             <ModalProvider>
-              <SqlSyncBlockingOverlay />
               <Suspense fallback={<PageLoader />}>
                 <AppRoutes />
               </Suspense>

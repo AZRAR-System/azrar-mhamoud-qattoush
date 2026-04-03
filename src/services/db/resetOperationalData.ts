@@ -31,6 +31,7 @@ export function resetOperationalData() {
     KEYS.SALES_AGREEMENTS,
     KEYS.ALERTS,
     KEYS.LOGS,
+    KEYS.AUDIT_LOG,
     KEYS.MAINTENANCE,
     KEYS.DYNAMIC_TABLES,
     KEYS.CLEARANCE_RECORDS,
