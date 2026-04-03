@@ -1,108 +1,6 @@
 import type { IpcDeps } from './deps.js';
-import * as ipc from './context.js';
-import {
-  dbMaintenanceMode,
-  restoreInProgress,
-  currentFeedUrl,
-  lastUpdaterEvent,
-} from './context.js';
-import { ipcMain, dialog, app, BrowserWindow, shell, safeStorage } from 'electron';
-
-import {
-  kvApplyRemoteDelete,
-  kvDelete,
-  kvGet,
-  kvGetDeletedAt,
-  kvGetMeta,
-  kvKeys,
-  kvListDeletedSince,
-  kvListUpdatedSince,
-  kvResetAll,
-  kvSet,
-  kvSetWithUpdatedAt,
-  getDbPath,
-  exportDatabaseToMany,
-  importDatabase,
-  domainMigrateFromKvIfNeeded,
-  domainRebuildFromKv,
-  domainSyncAfterKvSet,
-  domainStatus,
-  domainCounts,
-  runSqlReport,
-  domainSearchGlobal,
-  domainSearch,
-  domainGetEntityById,
-  domainPropertyPickerSearch,
-  domainContractPickerSearch,
-  domainPeoplePickerSearch,
-  domainInstallmentsContractsSearch,
-  domainDashboardSummary,
-  domainDashboardPerformance,
-  domainDashboardHighlights,
-  domainPaymentNotificationTargets,
-  domainContractDetails,
-  domainPersonDetails,
-  domainPersonTenancyContracts,
-  domainPropertyContracts,
-} from '../db';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import crypto from 'node:crypto';
-import { spawn, spawnSync } from 'node:child_process';
-import updaterPkg from 'electron-updater';
-import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
-import {
-  connectAndEnsureDatabase,
-  createServerBackupOnServer,
-  disconnectSql,
-  ensureDailyServerBackupIfEnabled,
-  exportServerBackupToFile,
-  getOrCreateDeviceId,
-  getRemoteKvStoreMeta,
-  getRemoteKvStoreRow,
-  getSqlStatus,
-  importServerBackupFromFile,
-  listServerBackups,
-  loadSqlBackupAutomationSettings,
-  loadSqlSettings,
-  loadSqlSettingsRedacted,
-  logSyncError,
-  provisionSqlServer,
-  pullAttachmentFilesForAttachmentsJson,
-  pullKvStoreOnce,
-  pushKvDelete,
-  pushKvUpsert,
-  resetSqlPullState,
-  restoreServerBackupFromServer,
-  saveSqlBackupAutomationSettings,
-  saveSqlSettings,
-  startBackgroundPull,
-  testSqlConnection,
-} from '../sqlSync';
-import { validateInstallerCandidate } from '../security/updaterInstallValidation.js';
-import { printEngine, type PrintEngineJob } from '../printing';
-import {
-  getPrintSettingsFilePath,
-  loadPrintSettings,
-  savePrintSettings,
-} from '../printing/settings/store';
-import { desktopUserHasPermission, getDesktopUserById } from '../printing/permissions';
-import {
-  htmlToPdfFromHtml,
-  parsePrintingHtmlPayload,
-  printHtmlInHiddenWindow,
-  saveHtmlPdfToFilePath,
-} from '../printing/htmlDocumentWindow';
-
-import logger from '../logger';
-
-import { ensureInsideRoot } from '../utils/pathSafety';
-import { toErrorMessage } from '../utils/errors';
-import { isRecord } from '../utils/unknown';
-import { safeJsonParseArray } from '../utils/json';
-
+import { sessionUserByWebContentsId } from './context.js';
+import { ipcMain } from 'electron';
 import {
   activateOnline as licenseActivateOnline,
   activateWithLicenseContent as licenseActivateWithLicenseContent,
@@ -113,22 +11,9 @@ import {
   refreshOnlineStatus as licenseRefreshOnlineStatus,
   setLicenseServerUrl,
 } from '../license/licenseManager';
-import {
-  decryptFileToBuffer,
-  decryptFileToFile,
-  encryptBufferToFile,
-  encryptFileToFile,
-  isEncryptedFile,
-} from '../utils/fileEncryption';
-import * as tar from 'tar';
-import {
-  decryptSecretBestEffort,
-  encryptSecretBestEffort,
-  getBackupEncryptionPasswordState,
-  readBackupEncryptionSettings,
-  writeBackupEncryptionSettings,
-  type BackupEncryptionSettings,
-} from '../utils/backupEncryptionSettings';
+import { getDesktopUserById } from '../printing/permissions';
+import { toErrorMessage } from '../utils/errors';
+import { isRecord } from '../utils/unknown';
 
 export function registerLicense(deps: IpcDeps): void {
   void deps;
@@ -242,17 +127,17 @@ export function registerLicense(deps: IpcDeps): void {
     const userId = String(rawUserId ?? '').trim();
   
     if (!userId) {
-      ipc.sessionUserByWebContentsId.delete(senderId);
+      sessionUserByWebContentsId.delete(senderId);
       return { ok: true };
     }
   
     const user = getDesktopUserById(userId);
     if (!user) {
-      ipc.sessionUserByWebContentsId.delete(senderId);
+      sessionUserByWebContentsId.delete(senderId);
       return { ok: false, message: 'User not recognized' };
     }
   
-    ipc.sessionUserByWebContentsId.set(senderId, userId);
+    sessionUserByWebContentsId.set(senderId, userId);
     return { ok: true };
   });
 }

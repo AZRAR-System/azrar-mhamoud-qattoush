@@ -1,4 +1,3 @@
-import type { IpcDeps } from './deps.js';
 import { createIpcDeps } from './deps.js';
 import { registerPrinting } from './printing.js';
 import { registerApp } from './app.js';
