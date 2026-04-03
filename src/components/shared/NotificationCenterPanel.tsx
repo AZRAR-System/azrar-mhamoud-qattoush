@@ -1,0 +1,264 @@
+import { useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  Trash2,
+  CheckCheck,
+  Bell,
+  CreditCard,
+} from 'lucide-react';
+import { useSmartModal } from '@/context/ModalContext';
+import { ROUTE_PATHS } from '@/routes/paths';
+import type { NotificationCenterItem, NotificationCenterType } from '@/services/notificationCenter';
+import { useNotificationCenter } from '@/hooks/useNotificationCenter';
+import { Button } from '@/components/ui/Button';
+
+type FilterTab = 'all' | 'unread' | 'urgent' | 'reminders' | 'collection';
+
+function formatRelativeTimeAr(ts: number): string {
+  const now = Date.now();
+  const diffSec = Math.floor((now - ts) / 1000);
+  if (diffSec < 45) return 'الآن';
+  if (diffSec < 3600) {
+    const m = Math.floor(diffSec / 60);
+    return m <= 1 ? 'منذ دقيقة' : `منذ ${m} دقائق`;
+  }
+  if (diffSec < 86400) {
+    const h = Math.floor(diffSec / 3600);
+    return h <= 1 ? 'منذ ساعة' : `منذ ${h} ساعات`;
+  }
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const d = new Date(ts);
+  const yesterday = new Date(startOfToday);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d >= yesterday && d < startOfToday) return 'أمس';
+  const days = Math.floor(diffSec / 86400);
+  return days <= 1 ? 'أمس' : `منذ ${days} أيام`;
+}
+
+function TypeIcon({ type }: { type: NotificationCenterType }) {
+  const cls = 'shrink-0';
+  switch (type) {
+    case 'success':
+      return <CheckCircle className={`${cls} text-emerald-500`} size={20} aria-hidden />;
+    case 'error':
+      return <AlertCircle className={`${cls} text-red-500`} size={20} aria-hidden />;
+    case 'warning':
+      return <AlertTriangle className={`${cls} text-amber-500`} size={20} aria-hidden />;
+    case 'delete':
+      return <AlertCircle className={`${cls} text-red-400`} size={20} aria-hidden />;
+    default:
+      return <Info className={`${cls} text-indigo-500`} size={20} aria-hidden />;
+  }
+}
+
+const FILTER_TABS: { id: FilterTab; label: string }[] = [
+  { id: 'all', label: 'الكل' },
+  { id: 'unread', label: 'غير مقروء' },
+  { id: 'urgent', label: 'عاجل' },
+  { id: 'reminders', label: 'تذكيرات' },
+  { id: 'collection', label: 'تحصيل' },
+];
+
+function matchesFilter(item: NotificationCenterItem, tab: FilterTab): boolean {
+  const cat = String(item.category || '').toLowerCase();
+  switch (tab) {
+    case 'all':
+      return true;
+    case 'unread':
+      return !item.read;
+    case 'urgent':
+      return item.urgent === true;
+    case 'reminders':
+      return cat === 'reminders' || cat.includes('reminder');
+    case 'collection':
+      return cat === 'payments' || cat === 'collection' || cat.includes('payment');
+    default:
+      return true;
+  }
+}
+
+interface Props {
+  onClose: () => void;
+}
+
+export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
+  const navigate = useNavigate();
+  const { openPanel } = useSmartModal();
+  const { items, markRead, markAllRead, clear } = useNotificationCenter();
+  const [filter, setFilter] = useState<FilterTab>('all');
+
+  const filtered = useMemo(
+    () => items.filter((i) => matchesFilter(i, filter)),
+    [items, filter]
+  );
+
+  const handleNavigate = useCallback(
+    (item: NotificationCenterItem) => {
+      markRead(item.id);
+      const cat = String(item.category || '').toLowerCase();
+      const eid = String(item.entityId || '').trim();
+
+      if (eid) {
+        if (cat.includes('contract') || cat === 'contracts') {
+          openPanel('CONTRACT_DETAILS', eid);
+          onClose();
+          return;
+        }
+        if (cat.includes('person') || cat === 'people' || cat === 'blacklist') {
+          openPanel('PERSON_DETAILS', eid);
+          onClose();
+          return;
+        }
+        if (cat.includes('propert') || cat === 'maintenance') {
+          openPanel('PROPERTY_DETAILS', eid);
+          onClose();
+          return;
+        }
+      }
+
+      if (cat === 'reminders' || cat.includes('reminder')) {
+        navigate(ROUTE_PATHS.DASHBOARD);
+        onClose();
+        return;
+      }
+      if (cat === 'payments' || cat.includes('payment') || cat === 'collection') {
+        navigate(ROUTE_PATHS.INSTALLMENTS);
+        onClose();
+        return;
+      }
+      if (cat === 'contracts' || cat.includes('contract')) {
+        navigate(ROUTE_PATHS.CONTRACTS);
+        onClose();
+        return;
+      }
+      if (cat === 'commissions' || cat.includes('commission')) {
+        navigate(ROUTE_PATHS.COMMISSIONS);
+        onClose();
+        return;
+      }
+      if (cat === 'maintenance') {
+        navigate(ROUTE_PATHS.MAINTENANCE);
+        onClose();
+        return;
+      }
+      if (cat === 'system') {
+        navigate(ROUTE_PATHS.SETTINGS);
+        onClose();
+        return;
+      }
+
+      navigate(ROUTE_PATHS.ALERTS);
+      onClose();
+    },
+    [markRead, navigate, onClose, openPanel]
+  );
+
+  return (
+    <div className="flex h-full min-h-[50vh] flex-col">
+      <div className="border-b border-slate-100 px-4 pb-3 dark:border-slate-800">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9 gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400"
+            onClick={() => {
+              openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 });
+            }}
+          >
+            <CreditCard size={16} aria-hidden />
+            تنبيهات الدفعات والتحصيل
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {FILTER_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setFilter(t.id)}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                filter === t.id
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2 dark:border-slate-800">
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" className="h-8 gap-1 text-xs" onClick={markAllRead}>
+            <CheckCheck size={14} aria-hidden />
+            تحديد الكل كمقروء
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-8 gap-1 text-xs text-red-600 dark:text-red-400"
+            onClick={() => clear()}
+          >
+            <Trash2 size={14} aria-hidden />
+            مسح الكل
+          </Button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar p-2">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-slate-400">
+            <Bell className="opacity-40" size={40} aria-hidden />
+            <p className="text-sm font-bold">لا توجد إشعارات في هذا التصفية</p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {filtered.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => handleNavigate(item)}
+                  className={`flex w-full gap-3 rounded-xl border p-3 text-right transition hover:bg-slate-50 dark:hover:bg-slate-800/80 ${
+                    item.read
+                      ? 'border-slate-100 bg-white/50 opacity-80 dark:border-slate-800 dark:bg-slate-900/40'
+                      : 'border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/40 dark:bg-indigo-950/20'
+                  } ${item.urgent ? 'ring-1 ring-amber-400/50' : ''}`}
+                >
+                  <TypeIcon type={item.type} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-slate-900 dark:text-white">{item.title}</span>
+                      {item.urgent && (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-300">
+                          عاجل
+                        </span>
+                      )}
+                      {!item.read && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-label="غير مقروء" />
+                      )}
+                    </div>
+                    <p className="mt-0.5 line-clamp-3 text-sm text-slate-600 dark:text-slate-300">
+                      {item.message}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                      <span>{formatRelativeTimeAr(item.timestamp)}</span>
+                      <span className="opacity-60">•</span>
+                      <span dir="ltr" className="font-mono text-[10px]">
+                        {item.category}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+};

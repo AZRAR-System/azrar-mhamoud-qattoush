@@ -25,10 +25,13 @@ import { storage } from '@/services/storage';
 import { isRole } from '@/utils/roles';
 import { formatTimeHM } from '@/utils/format';
 import { useInAppReminderNotifier } from '@/hooks/useInAppReminderNotifier';
+import { useNotificationCenter } from '@/hooks/useNotificationCenter';
+import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import { getDatabaseStats } from '@/services/resetDatabase';
 import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 import { runWithSqlSyncBlocking } from '@/utils/sqlSyncBlockingUi';
+import { clearCommissionsDesktopEntityCache } from '@/services/commissionsDesktopEntityCache';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 const getUnknownMessage = (v: unknown): string | undefined =>
@@ -125,6 +128,9 @@ export const Layout = ({ children }: { children: ReactNode }) => {
 
   // In-app reminder sound/toast notifier (today reminders)
   useInAppReminderNotifier();
+  useDesktopNotifications();
+
+  const { unreadCount: centerUnreadCount, hasUnreadUrgent } = useNotificationCenter();
 
   const [appVersion, setAppVersion] = useState<string>('');
   const postUpdateRestorePromptGuard = useRef(false);
@@ -161,6 +167,8 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         agg.timer = null;
       }
       if (agg.upserts === 0 && agg.deletes === 0 && agg.errors === 0) return;
+
+      clearCommissionsDesktopEntityCache();
 
       const now = Date.now();
       const minIntervalMs = 1800;
@@ -800,13 +808,20 @@ export const Layout = ({ children }: { children: ReactNode }) => {
               </button>
 
               <button
-                onClick={() => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 })}
-                className="relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm"
+                type="button"
+                onClick={() => openPanel('NOTIFICATION_CENTER')}
+                className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm ${
+                  hasUnreadUrgent ? 'animate-pulse ring-2 ring-amber-400/60 ring-offset-2 ring-offset-white dark:ring-offset-slate-950' : ''
+                }`}
+                title="مركز الإشعارات"
+                aria-label="مركز الإشعارات"
               >
                 <Bell size={20} />
-                {paymentNotifCount > 0 && (
+                {centerUnreadCount + paymentNotifCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-gradient-to-br from-red-600 to-red-500 text-white text-[10px] font-black flex items-center justify-center ring-4 ring-white dark:ring-slate-900 shadow-lg shadow-red-500/30">
-                    {paymentNotifCount > 99 ? '99+' : paymentNotifCount}
+                    {centerUnreadCount + paymentNotifCount > 99
+                      ? '99+'
+                      : centerUnreadCount + paymentNotifCount}
                   </span>
                 )}
               </button>

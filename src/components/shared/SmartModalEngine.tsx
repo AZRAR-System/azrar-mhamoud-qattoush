@@ -59,6 +59,11 @@ const PaymentNotificationsPanel = React.lazy(() =>
     default: m.PaymentNotificationsPanel,
   }))
 );
+const NotificationCenterPanel = React.lazy(() =>
+  import('@/components/shared/NotificationCenterPanel').then((m) => ({
+    default: m.NotificationCenterPanel,
+  }))
+);
 const GenericAlertPanel = React.lazy(() =>
   import('@/components/panels/GenericAlertPanel').then((m) => ({ default: m.GenericAlertPanel }))
 );
@@ -121,6 +126,7 @@ const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   SMART_PROMPT: SmartPromptPanel as unknown as PanelComponent,
   CALENDAR_EVENTS: CalendarEventsPanel as unknown as PanelComponent,
   PAYMENT_NOTIFICATIONS: PaymentNotificationsPanel as unknown as PanelComponent,
+  NOTIFICATION_CENTER: NotificationCenterPanel as unknown as PanelComponent,
   NOTIFICATION_TEMPLATES: NotificationTemplatesPanel as unknown as PanelComponent,
   GENERIC_ALERT: GenericAlertPanel as unknown as PanelComponent,
   SECTION_VIEW: SectionViewPanel as unknown as PanelComponent,
@@ -140,6 +146,7 @@ const SLIDE_OVER_DETAIL_PANELS = new Set<PanelType>([
   'CLEARANCE_REPORT',
   'CLEARANCE_WIZARD',
   'PAYMENT_NOTIFICATIONS',
+  'NOTIFICATION_CENTER',
   'NOTIFICATION_TEMPLATES',
   'SECTION_VIEW',
   'CONTRACT_WHATSAPP_SEND',
@@ -170,6 +177,7 @@ const PANEL_TITLES: Partial<Record<PanelType, string>> = {
   SMART_PROMPT: 'مساعد ذكي',
   CALENDAR_EVENTS: 'مهام اليوم',
   PAYMENT_NOTIFICATIONS: 'تنبيهات الدفعات',
+  NOTIFICATION_CENTER: 'مركز الإشعارات',
   SECTION_VIEW: 'عرض القسم',
   SERVER_DRAWER: 'المخدم',
   SQL_SYNC_LOG: 'سجل المزامنة',

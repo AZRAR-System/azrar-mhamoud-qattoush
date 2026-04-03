@@ -8,6 +8,8 @@
 
 import { audioService } from './audioService';
 import { storage } from '@/services/storage';
+import { notificationCenter } from './notificationCenter';
+import { sendDesktopNotification } from './desktopNotifications';
 
 type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'delete';
 
@@ -18,6 +20,8 @@ interface NotificationOptions {
   showNotification?: boolean;
   category?: string;
   icon?: string;
+  entityId?: string;
+  urgent?: boolean;
 }
 
 interface NotificationHandler {
@@ -27,6 +31,17 @@ interface NotificationHandler {
 class NotificationService {
   private handler: NotificationHandler | null = null;
   private isEnabled = true;
+
+  private defaultTitleForType(type: NotificationType): string {
+    const m: Record<NotificationType, string> = {
+      success: 'نجاح',
+      error: 'خطأ',
+      warning: 'تحذير',
+      info: 'معلومة',
+      delete: 'حذف',
+    };
+    return m[type];
+  }
 
   setHandler(handler: NotificationHandler) {
     this.handler = handler;
@@ -43,6 +58,22 @@ class NotificationService {
     if (!this.isEnabled) return;
 
     const { title, sound = true, showNotification = true, category = type } = options;
+    const displayTitle = title ?? this.defaultTitleForType(type);
+    const cat = String(category ?? type);
+    const urgent = type === 'error' || !!options.urgent;
+
+    notificationCenter.add({
+      type,
+      title: displayTitle,
+      message,
+      category: cat,
+      entityId: options.entityId,
+      urgent,
+    });
+
+    if (urgent) {
+      sendDesktopNotification(displayTitle, message);
+    }
 
     // Play sound if enabled
     if (sound) {
@@ -55,7 +86,7 @@ class NotificationService {
     }
 
     // Log notification for debugging
-    this.logNotification(message, type, category);
+    this.logNotification(message, type, cat);
   }
 
   /**
@@ -146,6 +177,8 @@ class NotificationService {
   contractEnding(contractId: string, tenantName: string, daysRemaining: number) {
     this.warning(`العقد مع ${tenantName} ينتهي خلال ${daysRemaining} أيام`, 'انتهاء عقد قريب', {
       category: 'contracts',
+      urgent: true,
+      entityId: contractId,
     });
   }
 
@@ -176,6 +209,7 @@ class NotificationService {
     this.notify(message, typeMap[severity], {
       title: `تنبيه نظام - ${severity}`,
       category: 'system',
+      urgent: severity === 'critical',
     });
   }
 
