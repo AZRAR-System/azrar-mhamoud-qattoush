@@ -142,13 +142,14 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     const startDay = getFirstDayOfMonth(year, month);
 
     const days = [];
+    // ✅ الحل الصحيح: تحويل القيمة خارج الحلقة مرة واحدة فقط
+    const selectedDate = value ? parseDateSafe(value) : null;
 
     for (let i = 0; i < startDay; i++) {
       days.push(<div key={`empty-${i}`} className="h-8 w-8"></div>);
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const selectedDate = value ? parseDateSafe(value) : null;
       const isSelected = selectedDate 
         ? selectedDate.getFullYear() === year && 
           selectedDate.getMonth() === month && 
