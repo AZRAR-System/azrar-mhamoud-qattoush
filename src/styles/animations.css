@@ -188,3 +188,42 @@
     color 0.3s ease,
     border-color 0.3s ease;
 }
+
+/* انتقال بين التبويبات */
+@keyframes tab-slide-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ظهور البطاقات تدريجي */
+@keyframes card-appear {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* نبضة الأرقام عند التحديث */
+@keyframes number-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.animate-tab-slide-in {
+  animation: tab-slide-in 300ms ease-out forwards;
+}
+
+.animate-card-appear {
+  animation: card-appear 350ms ease-out forwards;
+}
+
+.animate-number-pop {
+  animation: number-pop 300ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tab-slide-in,
+  .animate-card-appear,
+  .animate-number-pop {
+    animation: none;
+  }
+}

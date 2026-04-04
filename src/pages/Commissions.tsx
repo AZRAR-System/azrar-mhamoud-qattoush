@@ -1176,8 +1176,8 @@ export const Commissions: FC = () => {
           aria-labelledby="comm-tab-employee"
         >
           {/* Filter Bar */}
-          <div className="app-card p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
-            <div className="flex-1 flex gap-3 w-full">
+          <div className="app-card p-4 flex flex-col sm:flex-row gap-4 justify-between items-center">
+            <div className="flex-1 flex flex-col sm:flex-row gap-3 w-full">
               <div className="relative flex-1">
                 <input
                   type="text"
