@@ -148,9 +148,12 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const isSelected =
-        value ===
-        `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+      const selectedDate = value ? parseDateSafe(value) : null;
+      const isSelected = selectedDate 
+        ? selectedDate.getFullYear() === year && 
+          selectedDate.getMonth() === month && 
+          selectedDate.getDate() === d
+        : false;
       const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
 
       days.push(

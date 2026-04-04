@@ -90,7 +90,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
 
   // Initialize with empty strings for required fields to keep inputs controlled
   const [contract, setContract] = useState<Partial<العقود_tbl>>({
-    تاريخ_البداية: formatDateOnly(new Date()),
+    تاريخ_البداية: '',
     رقم_الفرصة: '',
     تكرار_الدفع: undefined,
     مدة_العقد_بالاشهر: undefined,
