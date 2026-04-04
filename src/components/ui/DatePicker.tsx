@@ -46,12 +46,28 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     width: number;
   } | null>(null);
 
-  const initialDate = value ? new Date(value) : new Date();
+  const parseDateSafe = (dateStr: string): Date => {
+    if (!dateStr) return new Date();
+    const parts = dateStr.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return new Date();
+    // ✅ الحل: انشاء التاريخ بالمنطقة الزمنية المحلية وليس UTC
+    // هذا هو سبب مشكلة اختفاء التاريخ والخطأ المعروف في حقول التاريخ
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  };
+
+  const initialDate = parseDateSafe(value || '');
   const [viewDate, setViewDate] = useState(initialDate);
 
   useEffect(() => {
     setPortalReady(true);
   }, []);
+
+  // ✅ اصلاح المشكلة الثانية: تحديث عرض التقويم عندما تتغير القيمة من الخارج
+  useEffect(() => {
+    if (value) {
+      setViewDate(parseDateSafe(value));
+    }
+  }, [value]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
