@@ -164,7 +164,7 @@ export const Login = () => {
           await storage.setItem(REMEMBER_KEY, 'false');
           await storage.removeItem(LAST_USERNAME_KEY);
         }
-        window.location.hash = ROUTE_PATHS.DASHBOARD;
+        window.location.replace(`#${ROUTE_PATHS.DASHBOARD}`);
         return;
       }
       setError('اسم المستخدم أو كلمة المرور غير صحيحة');
