@@ -195,11 +195,12 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           value={value || ''}
           placeholder={placeholder}
           required={required}
-          className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-600 text-slate-800 dark:text-white text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-3 pl-10 outline-none transition-colors cursor-pointer group-hover:border-indigo-400"
+            className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-600 text-slate-800 dark:text-white text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-3 pl-10 outline-none transition-colors cursor-pointer group-hover:border-indigo-400 pointer-events-none"
         />
         <Calendar
           size={18}
-          className="absolute left-3 top-3.5 text-gray-400 group-hover:text-indigo-500 transition-colors"
+          className="absolute left-3 top-3.5 text-gray-400 group-hover:text-indigo-500 transition-colors cursor-pointer"
+          onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
         />
       </div>
 
@@ -211,7 +212,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           <div
             ref={popoverRef}
             className="fixed layer-dropdown w-72 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 p-4 animate-scale-up"
-            style={{ top: popoverStyle.top, left: popoverStyle.left, width: popoverStyle.width }}
+            style={{ top: popoverStyle.top, left: popoverStyle.left, width: popoverStyle.width, zIndex: 999999 }}
           >
             <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100 dark:border-slate-700">
               <button
