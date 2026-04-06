@@ -30,13 +30,13 @@ export const Logout = () => {
   return (
     <div className="min-h-screen w-full relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
 
-      {/* دوائر نابضة في الخلفية */}
+      {/* دوائر نابضة متوهجة في الخلفية */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1000ms' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '500ms' }} />
-        <div className="absolute top-10 right-10 w-48 h-48 bg-violet-500/10 rounded-full blur-2xl animate-ping" style={{ animationDuration: '3s' }} />
-        <div className="absolute bottom-10 left-10 w-56 h-56 bg-cyan-500/10 rounded-full blur-2xl animate-ping" style={{ animationDuration: '4s' }} />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/8 rounded-full bg-glow-border blur-2xl animate-float" style={{ animationDelay: '0s' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/8 rounded-full bg-glow-border blur-2xl animate-float" style={{ animationDelay: '3s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full bg-glow-border blur-xl animate-float" style={{ animationDelay: '6s' }} />
+        <div className="absolute top-10 right-10 w-48 h-48 bg-violet-500/7 rounded-full bg-glow-border blur-xl animate-pulse-slow" style={{ animationDelay: '1.5s' }} />
+        <div className="absolute bottom-10 left-10 w-56 h-56 bg-cyan-500/7 rounded-full bg-glow-border blur-xl animate-pulse-slow" style={{ animationDelay: '2.5s' }} />
       </div>
 
       <div className="app-card p-8 rounded-3xl shadow-2xl w-full max-w-md border-gray-100 dark:border-slate-700 relative z-10 animate-scale-up">

@@ -454,13 +454,13 @@ export const Login = () => {
   return (
     <div className="min-h-screen w-full overflow-y-auto bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors duration-300 relative overflow-x-hidden">
       <div className="min-h-screen flex flex-col lg:flex-row items-center justify-center gap-6 p-4 py-8">
-      {/* دوائر نابضة في الخلفية */}
+      {/* دوائر نابضة متوهجة في الخلفية */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1000ms' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '500ms' }} />
-        <div className="absolute top-10 right-10 w-48 h-48 bg-violet-500/10 rounded-full blur-2xl animate-ping" style={{ animationDuration: '3s' }} />
-        <div className="absolute bottom-10 left-10 w-56 h-56 bg-cyan-500/10 rounded-full blur-2xl animate-ping" style={{ animationDuration: '4s' }} />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/8 rounded-full bg-glow-border blur-2xl animate-float" style={{ animationDelay: '0s' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/8 rounded-full bg-glow-border blur-2xl animate-float" style={{ animationDelay: '3s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full bg-glow-border blur-xl animate-float" style={{ animationDelay: '6s' }} />
+        <div className="absolute top-10 right-10 w-48 h-48 bg-violet-500/7 rounded-full bg-glow-border blur-xl animate-pulse-slow" style={{ animationDelay: '1.5s' }} />
+        <div className="absolute bottom-10 left-10 w-56 h-56 bg-cyan-500/7 rounded-full bg-glow-border blur-xl animate-pulse-slow" style={{ animationDelay: '2.5s' }} />
       </div>
 
       <div className="relative z-10 w-full max-w-5xl rounded-[2rem] border border-slate-200/80 bg-white/85 shadow-2xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/75 dark:shadow-black/40 md:max-w-6xl animate-scale-up">
