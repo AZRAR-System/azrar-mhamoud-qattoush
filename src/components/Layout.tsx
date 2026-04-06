@@ -730,15 +730,13 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         {/* Floating Modern Header */}
         <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft layer-header transition-all">
           <div className="flex items-center gap-6">
-            {!isDesktop && (
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(true)}
-                className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl hover:scale-105 active:scale-95 transition-all"
-              >
-                <Menu size={24} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl hover:scale-105 active:scale-95 transition-all"
+            >
+              <Menu size={24} />
+            </button>
 
             <div className="flex flex-col">
               <Breadcrumbs pathname={pathname} />
