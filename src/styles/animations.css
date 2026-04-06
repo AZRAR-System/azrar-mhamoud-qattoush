@@ -208,6 +208,16 @@
   100% { transform: scale(1); }
 }
 
+/* نبضة بطيئة للدوائر الخلفية */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.1; transform: scale(1); }
+  50% { opacity: 0.2; transform: scale(1.1); }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
 .animate-tab-slide-in {
   animation: tab-slide-in 300ms ease-out forwards;
 }
@@ -223,7 +233,8 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-tab-slide-in,
   .animate-card-appear,
-  .animate-number-pop {
+  .animate-number-pop,
+  .animate-pulse-slow {
     animation: none;
   }
 }
