@@ -452,7 +452,8 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors duration-300 relative overflow-x-hidden overflow-y-auto py-8 px-4">
+    <div className="min-h-screen w-full overflow-y-auto bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors duration-300 relative overflow-x-hidden">
+      <div className="min-h-screen flex flex-col lg:flex-row items-center justify-center gap-6 p-4 py-8">
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
         <div className="absolute -top-32 -right-32 h-[28rem] w-[28rem] rounded-full bg-indigo-400/15 blur-3xl dark:bg-indigo-500/10" />
         <div className="absolute -bottom-24 -left-24 h-[24rem] w-[24rem] rounded-full bg-violet-400/12 blur-3xl dark:bg-violet-600/10" />
@@ -1106,6 +1107,7 @@ export const Login = () => {
           </div>
         </div>
       </AppModal>
+      </div>
     </div>
   );
 };
