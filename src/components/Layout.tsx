@@ -528,7 +528,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300 font-sans">
+    <div className="flex h-screen w-screen bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300 font-sans">
       {/* ================================ */}
       {/* Mobile Overlay */}
       {/* ================================ */}
