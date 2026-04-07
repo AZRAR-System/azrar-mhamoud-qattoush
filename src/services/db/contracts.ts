@@ -330,6 +330,15 @@ export function createContractWrites(deps: ContractWritesDeps) {
       } catch (whatsappError) {
         console.warn('[WhatsApp] Failed to send termination notice', whatsappError);
       }
+
+      // Generate termination settlement report
+      try {
+        import('@/services/terminationReport').then(({ generateTerminationReport }) => {
+          generateTerminationReport(id, date, reason);
+        });
+      } catch (reportError) {
+        console.warn('[Report] Failed to generate termination report', reportError);
+      }
       
       return ok();
     }
