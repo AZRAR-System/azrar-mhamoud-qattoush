@@ -14,7 +14,7 @@ import {
 import { get } from '@/services/db/kv';
 import { KEYS } from '@/services/db/keys';
 import { getInstallmentPaidAndRemaining } from '@/services/db/installments';
-import { getTemplate } from '@/services/db/messageTemplates';
+import { getTemplate, saveTemplate } from '@/services/db/messageTemplates';
 import { fillTemplate } from '@/services/notificationTemplates';
 
 const LATE_DAYS_AFTER_DUE = 3;
