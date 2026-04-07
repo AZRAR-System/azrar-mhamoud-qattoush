@@ -246,6 +246,25 @@ GO
   }
   Set-Content -Path $CredPath -Value ($cred | ConvertTo-Json -Depth 6) -Encoding UTF8
   Write-Log "Saved: $CredPath"
+
+  # حفظ ملف نصي للمرجع السهل
+  $txtPath = Join-Path $ProgramDataAzrar 'database-info.txt'
+  $txtContent = @"
+=== بيانات قاعدة بيانات AZRAR ===
+
+الخادم: $env:COMPUTERNAME\$InstanceName
+عنوان الاتصال: 127.0.0.1,$TcpPort
+قاعدة البيانات: $DbName
+المستخدم: $AppLogin
+كلمة المرور: $appPwd
+البورت: $TcpPort
+تاريخ التثبيت: $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+
+ملاحظة: يمكنك استخدام هذه المعلومات للاتصال بقاعدة البيانات مباشرة عبر SSMS أو أي عميل SQL آخر.
+"@
+  $txtContent | Out-File -FilePath $txtPath -Encoding UTF8
+  Write-Log "Saved reference file: $txtPath"
+
   Write-Log 'Done.'
   exit 0
 }
