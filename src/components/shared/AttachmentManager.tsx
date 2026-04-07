@@ -38,14 +38,14 @@ export function AttachmentManager({ entityType, entityId }: AttachmentManagerPro
   const [selectedType, setSelectedType] = useState<AttachmentType>('اخرى');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadAttachments();
-  }, [entityType, entityId]);
-
   const loadAttachments = () => {
     const data = getAttachments(entityType, entityId);
     setAttachments(data);
   };
+
+  useEffect(() => {
+    loadAttachments();
+  }, [entityType, entityId, loadAttachments]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
