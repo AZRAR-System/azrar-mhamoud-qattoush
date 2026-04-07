@@ -450,7 +450,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           تاريخ_الانشاء: todayIso,
           نوع_التنبيه: 'تجديد تلقائي قادم',
           الوصف: `عقد ${c.رقم_العقد} سيتجدد تلقائياً خلال ${daysLeft} يوم`,
-          category: 'Contract',
+          category: 'Expiry',
           تم_القراءة: false,
           urgent: daysLeft <= 7,
           ...ctx,

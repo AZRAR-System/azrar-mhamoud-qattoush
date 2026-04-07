@@ -6,11 +6,8 @@
 import type { العقود_tbl, الأشخاص_tbl, العقارات_tbl, الكمبيالات_tbl } from '@/types';
 import { formatCurrencyJOD } from '@/utils/format';
 import { getContractDetails } from '@/services/db/contracts';
-import { buildFullPrintHtmlDocument } from '@/services/print/printEngine';
-import { savePdfToPath } from '@/services/print/pdfGenerator';
+import { buildFullPrintHtmlDocument, savePdfToPath } from '@/services/printing/unifiedPrint';
 import { upsertAlert } from '@/services/db/alertsCore';
-import { get } from './db/kv';
-import { KEYS } from './db/keys';
 import { INSTALLMENT_STATUS } from './db/installmentConstants';
 
 interface TerminationReportData {
@@ -53,10 +50,10 @@ export async function generateTerminationReport(
     );
 
     // حساب الإجماليات
-    const totalContractAmount = installments.reduce((sum, i) => sum + (Number(i.المبلغ) || 0), 0);
-    const totalPaid = paid.reduce((sum, i) => sum + (Number(i.المبلغ_المدفوع) || Number(i.المبلغ) || 0), 0);
-    const totalCancelled = cancelled.reduce((sum, i) => sum + (Number(i.المبلغ) || 0), 0);
-    const totalRemaining = remaining.reduce((sum, i) => sum + (Number(i.المبلغ) || 0), 0);
+    const totalContractAmount = installments.reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
+    const totalPaid = paid.reduce((sum, i) => sum + (Number(i.القيمة_المدفوعة) || Number(i.القيمة) || 0), 0);
+    const totalCancelled = cancelled.reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
+    const totalRemaining = remaining.reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
     const finalBalance = totalRemaining;
 
     const reportData: TerminationReportData = {
@@ -89,7 +86,7 @@ export async function generateTerminationReport(
       تاريخ_الانشاء: new Date().toISOString().split('T')[0],
       نوع_التنبيه: 'تقرير تسوية حساب',
       الوصف: `تم إنشاء تقرير تسوية الحساب لعقد ${contractId} بنجاح`,
-      category: 'Reports',
+      category: 'Financial',
       تم_القراءة: false,
       مرجع_الجدول: 'العقود_tbl',
       مرجع_المعرف: contractId,
