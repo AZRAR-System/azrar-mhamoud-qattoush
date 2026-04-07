@@ -239,14 +239,13 @@ async function installContentSecurityPolicy() {
         }
 
         const responseHeaders = details.responseHeaders ?? {};
-        responseHeaders['Content-Security-Policy'] = [csp];
+        responseHeaders['Content-Security-Policy'] = csp;
         // Defense-in-depth headers (best-effort in Electron)
-        responseHeaders['X-Content-Type-Options'] = ['nosniff'];
-        responseHeaders['Referrer-Policy'] = ['no-referrer'];
-        responseHeaders['X-Frame-Options'] = ['DENY'];
-        responseHeaders['Permissions-Policy'] = [
-          'camera=(), microphone=(), geolocation=(), payment=(), usb=(), hid=(), serial=(), clipboard-read=(), clipboard-write=()',
-        ];
+        responseHeaders['X-Content-Type-Options'] = 'nosniff';
+        responseHeaders['Referrer-Policy'] = 'no-referrer';
+        responseHeaders['X-Frame-Options'] = 'DENY';
+        responseHeaders['Permissions-Policy'] = 
+          'camera=(), microphone=(), geolocation=(), payment=(), usb=(), hid=(), serial=(), clipboard-read=(), clipboard-write=()';
         callback({ responseHeaders });
       }
     );
@@ -276,8 +275,13 @@ function inferIsLicenseAdminMode(): boolean {
     }
 
     try {
-      const id = String(app.getAppUserModelId?.() || '').toLowerCase();
-      if (id.includes('licenseadmin') || id.includes('license-admin')) return true;
+      // Electron 41+: check app name directly instead of removed getAppUserModelId
+      try {
+        const appId = app.name?.toLowerCase() || '';
+        if (appId.includes('licenseadmin') || appId.includes('license-admin')) return true;
+      } catch {
+        // ignore
+      }
     } catch {
       // ignore
     }
