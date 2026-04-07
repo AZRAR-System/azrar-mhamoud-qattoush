@@ -187,10 +187,24 @@ USESQLRECOMMENDEDMEMORYLIMITS="True"
 
   try {
     New-NetFirewallRule -DisplayName 'AZRAR SQL Server (TCP 1433)' -Direction Inbound -Protocol TCP -LocalPort $TcpPort -Action Allow -ErrorAction Stop | Out-Null
-    Write-Log 'Firewall rule added.'
+    Write-Log 'Firewall rule added for SQL port 1433.'
   }
   catch {
-    Write-Log "Firewall: $($_.Exception.Message)"
+    Write-Log "Firewall SQL: $($_.Exception.Message)"
+  }
+
+  try {
+    netsh advfirewall firewall add rule `
+        name="AZRAR License Server" `
+        dir=in `
+        action=allow `
+        protocol=TCP `
+        localport=5056 `
+        description="AZRAR Real Estate License Server"
+    Write-Log 'Firewall rule added for License Server port 5056.'
+  }
+  catch {
+    Write-Log "Firewall License Server: $($_.Exception.Message)"
   }
 
   $sqlcmd = Find-SqlCmd

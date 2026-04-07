@@ -45,15 +45,9 @@ import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { toDateOnly, parseDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { RBACGuard } from '@/components/shared/RBACGuard';
-import { NotificationTemplates, type NotificationTemplate } from '@/services/notificationTemplates';
-import { Edit } from 'lucide-react';
 
 export const LegalHub: React.FC = () => {
   const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainGet;
-  const [activeTab, setActiveTab] = useState<'generator' | 'payment-templates'>('generator');
-  const [paymentTemplates, setPaymentTemplates] = useState<NotificationTemplate[]>([]);
-  const [editingPaymentTemplateId, setEditingPaymentTemplateId] = useState<string | null>(null);
-  const [paymentTemplateEdit, setPaymentTemplateEdit] = useState<Partial<NotificationTemplate>>({});
 
   type DesktopContractBundle = {
     contract: العقود_tbl | null;
@@ -125,9 +119,6 @@ export const LegalHub: React.FC = () => {
     setHistory(DbService.getLegalNoticeHistory().reverse()); // Newest first
     setContracts(isDesktopFast ? [] : DbService.getContracts());
     setTemplates(DbService.getLegalTemplates());
-    setPaymentTemplates(NotificationTemplates.getAll().filter(t => 
-      t.category === 'reminder' || t.category === 'due' || t.category === 'late'
-    ));
   };
 
   refreshDataRef.current = refreshData;
