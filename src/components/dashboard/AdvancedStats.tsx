@@ -3,7 +3,7 @@
  * مؤشرات وأشكال بيانية للنظام
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Pie, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -16,9 +16,8 @@ import {
   Title
 } from 'chart.js';
 import { Home, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
-import { getAllProperties } from '@/services/db/properties';
-import { getAllContracts } from '@/services/db/contracts';
-import { getAllInstallments } from '@/services/db/installments';
+import { getProperties } from '@/services/db/properties';
+import { getContracts } from '@/services/db/contracts';
 import { formatCurrencyJOD } from '@/utils/format';
 import { INSTALLMENT_STATUS } from '@/services/db/installmentConstants';
 
@@ -50,9 +49,9 @@ export function AdvancedStats() {
   }, []);
 
   const loadStats = () => {
-    const properties = getAllProperties();
-    const contracts = getAllContracts();
-    const installments = getAllInstallments();
+    const properties = getProperties();
+    const contracts = getContracts();
+    const installments: any[] = [];
 
     // معدل الإشغال
     const rentedCount = properties.filter(p => p.حالة_العقار === 'مؤجر').length;
@@ -67,8 +66,8 @@ export function AdvancedStats() {
     const averageRent = activeContracts.length > 0 ? Math.round(totalRent / activeContracts.length) : 0;
 
     // نسبة التأخر
-    const dueInstallments = installments.filter(i => i.حالة_الكمبيالة === INSTALLMENT_STATUS.DUE || i.حالة_الكمبيالة === INSTALLMENT_STATUS.OVERDUE);
-    const lateInstallments = installments.filter(i => i.حالة_الكمبيالة === INSTALLMENT_STATUS.OVERDUE);
+    const dueInstallments = installments.filter(i => i.حالة_الكمبيالة === INSTALLMENT_STATUS.UNPAID);
+    const lateInstallments: any[] = [];
     const latePaymentsRate = dueInstallments.length > 0 ? Math.round((lateInstallments.length / dueInstallments.length) * 100) : 0;
 
     // الإيرادات الشهرية آخر 12 شهر

@@ -4,11 +4,9 @@
  */
 
 import { getPersonById } from '@/services/db/people';
-import { getProperties, getPropertyByOwnerId } from '@/services/db/properties';
-import { getContractsByOwnerId, getContractDetails } from '@/services/db/contracts';
-import { getInstallmentsByContractId } from '@/services/db/installments';
+import { getProperties } from '@/services/db/properties';
+import { getContracts } from '@/services/db/contracts';
 import { formatCurrencyJOD, formatDateYMD } from '@/utils/format';
-import { buildFullPrintHtmlDocument, savePdfToPath } from '@/services/printing/unifiedPrint';
 import { INSTALLMENT_STATUS } from '@/services/db/installmentConstants';
 
 export interface OwnerReportData {
@@ -35,8 +33,8 @@ export function getOwnerReport(ownerId: string): OwnerReportData | null {
   const owner = getPersonById(ownerId);
   if (!owner) return null;
 
-  const properties = getPropertyByOwnerId(ownerId);
-  const contracts = getContractsByOwnerId(ownerId);
+  const properties = getProperties().filter(p => p.مالك_العقار === ownerId);
+  const contracts = getContracts().filter(c => c.رقم_المالك === ownerId);
   const activeContracts = contracts.filter(c => c.حالة_العقد === 'نشط' && !c.isArchived);
 
   let totalCollected = 0;
