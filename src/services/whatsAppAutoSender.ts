@@ -216,3 +216,27 @@ export async function tryAutoSendIfEligible(params: {
     kind,
   });
 }
+
+export async function sendContractTerminationNotice(
+  phone: string,
+  contract: العقود_tbl,
+  reason: string,
+  terminationDate: string
+): Promise<void> {
+  const message = `عزيزي المستأجر،\nنحيط علمك بأنه تم فسخ عقد الإيجار رقم ${contract.رقم_العقد} بتاريخ ${terminationDate}.\nالسبب: ${reason}\nيرجى مراجعة الإدارة لإتمام إجراءات التسوية وتسليم العقار.\nشكراً لتعاونكم.`;
+
+  await openWhatsAppForPhones(message, [phone], {
+    defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+    delayMs: 1000,
+    target: 'auto',
+  });
+
+  addNotificationSendLogInternal({
+    category: 'whatsapp_termination',
+    contractId: String(contract.رقم_العقد || ''),
+    phone,
+    sentAt: new Date().toISOString(),
+    message,
+    tenantName: ''
+  });
+}

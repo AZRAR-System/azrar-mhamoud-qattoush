@@ -318,6 +318,19 @@ export function createContractWrites(deps: ContractWritesDeps) {
       }
 
       logOperation('Admin', 'فسخ', 'Contracts', id, `فسخ العقد: ${reason}`);
+      
+      // WhatsApp notification to tenant
+      try {
+        const tenant = get<الأشخاص_tbl>(KEYS.PEOPLE).find(p => p.رقم_الشخص === all[idx].رقم_المستاجر);
+        if (tenant && tenant.رقم_الهاتف) {
+          import('@/services/whatsAppAutoSender').then(({ sendContractTerminationNotice }) => {
+            sendContractTerminationNotice(tenant.رقم_الهاتف, all[idx], reason, date);
+          });
+        }
+      } catch (whatsappError) {
+        console.warn('[WhatsApp] Failed to send termination notice', whatsappError);
+      }
+      
       return ok();
     }
     return fail('العقد غير موجود');
