@@ -14,10 +14,15 @@ import { KEYS } from './keys';
  */
 export function syncExistingAlertsToNotificationCenter() {
   const all = get<tbl_Alerts>(KEYS.ALERTS);
+  const existingIds = new Set(notificationCenter.getItems().map(i => i.id));
+  
   all
     .filter(alert => !alert.تم_القراءة)
     .forEach(alert => {
-      pushNewTblAlertToNotificationCenter(alert);
+      const ncId = `nc-tbl-${alert.id}`;
+      if (!existingIds.has(ncId)) {
+        pushNewTblAlertToNotificationCenter(alert);
+      }
     });
 }
 

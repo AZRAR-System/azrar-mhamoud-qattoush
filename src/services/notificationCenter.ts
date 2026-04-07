@@ -99,8 +99,18 @@ export const notificationCenter = {
 
   add(input: NotificationCenterAddInput): NotificationCenterItem {
     const now = Date.now();
+    const id = input.id ?? `nc-${now}-${Math.random().toString(36).slice(2, 11)}`;
+    
+    // منع التكرار: اذا التنبيه موجود بالفعل نرجعه بدون اضافته مرة اخرى
+    const existing = getItems();
+    const exists = existing.some(i => i.id === id);
+    
+    if (exists) {
+      return existing.find(i => i.id === id)!;
+    }
+
     const item: NotificationCenterItem = {
-      id: input.id ?? `nc-${now}-${Math.random().toString(36).slice(2, 11)}`,
+      id,
       type: input.type,
       title: input.title,
       message: input.message,
@@ -111,7 +121,7 @@ export const notificationCenter = {
       urgent: input.urgent,
     };
 
-    const next = [item, ...getItems()].slice(0, MAX_ITEMS);
+    const next = [item, ...existing].slice(0, MAX_ITEMS);
     persist(next);
     return item;
   },
