@@ -106,7 +106,9 @@ export const notificationCenter = {
     const exists = existing.some(i => i.id === id);
     
     if (exists) {
-      return existing.find(i => i.id === id)!;
+      const found = existing.find(i => i.id === id);
+      // we already checked that it exists above so this is safe
+      return found as NotificationCenterItem;
     }
 
     const item: NotificationCenterItem = {
