@@ -23,6 +23,18 @@ import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { openExternalUrl } from '@/utils/externalLink';
 
+const categoryLabels: Record<string, string> = {
+  'Financial': 'مالي',
+  'Expiry': 'انتهاء عقد',
+  'payment': 'تحصيل',
+  'overdue': 'متأخرات',
+  'reminders': 'تذكيرات',
+  'scheduled_financial_report': 'تقرير مالي',
+  'whatsapp_auto': 'واتساب تلقائي',
+  'payments': 'دفعات',
+  'collection': 'تحصيل',
+};
+
 type FilterTab = 'all' | 'unread' | 'urgent' | 'reminders' | 'collection';
 
 function formatRelativeTimeAr(ts: number): string {
@@ -73,15 +85,9 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
 
 /** إشعارات تحصيل/دفعات أو متأخرات — تظهر زر واتساب */
 function shouldShowWhatsAppButton(item: NotificationCenterItem): boolean {
-  const cat = String(item.category || '').toLowerCase();
-  const pay =
-    cat === 'payments' || cat === 'collection' || cat.includes('payment');
-  const overdue =
-    cat.includes('overdue') ||
-    item.title.includes('متأخر') ||
-    item.message.includes('متأخر') ||
-    item.message.includes('متأخرة');
-  return pay || overdue;
+  return item.category === 'Financial' || 
+         item.category === 'payment' || 
+         item.category === 'overdue';
 }
 
 function collectPhonesForNotificationEntity(entityId: string): string[] {
@@ -108,7 +114,12 @@ function matchesFilter(item: NotificationCenterItem, tab: FilterTab): boolean {
     case 'reminders':
       return cat === 'reminders' || cat.includes('reminder');
     case 'collection':
-      return cat === 'payments' || cat === 'collection' || cat.includes('payment');
+      return cat === 'financial' || 
+             cat === 'payment' || 
+             cat === 'overdue' ||
+             cat === 'payments' || 
+             cat === 'collection' || 
+             cat.includes('payment');
     default:
       return true;
   }
@@ -312,8 +323,8 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
                         <span>{formatRelativeTimeAr(item.timestamp)}</span>
                         <span className="opacity-60">•</span>
-                        <span dir="ltr" className="font-mono text-[10px]">
-                          {item.category}
+                        <span className="font-mono text-[10px]">
+                          {categoryLabels[item.category] || item.category}
                         </span>
                       </div>
                     </div>
