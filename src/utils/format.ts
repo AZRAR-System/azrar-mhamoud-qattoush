@@ -96,3 +96,10 @@ export const formatTimeFromHM = (
   const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
   return formatTimeHM(d, options);
 };
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' بايت';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' كيلوبايت';
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' ميجابايت';
+  return (bytes / 1073741824).toFixed(1) + ' جيجابايت';
+}
