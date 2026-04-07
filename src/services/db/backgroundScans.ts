@@ -440,9 +440,28 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
         مرجع_الجدول: 'العقود_tbl',
         مرجع_المعرف: c.رقم_العقد,
       });
+
+      // Auto renew alert 30 days before expiry
+      if (c.autoRenew && daysLeft <= 30 && daysLeft > 0) {
+        const renewAlertId = `ALR-RENEW-${c.رقم_العقد}`;
+        alive.add(renewAlertId);
+        upsertAlert({
+          id: renewAlertId,
+          تاريخ_الانشاء: todayIso,
+          نوع_التنبيه: 'تجديد تلقائي قادم',
+          الوصف: `عقد ${c.رقم_العقد} سيتجدد تلقائياً خلال ${daysLeft} يوم`,
+          category: 'Contract',
+          تم_القراءة: false,
+          urgent: daysLeft <= 7,
+          ...ctx,
+          مرجع_الجدول: 'العقود_tbl',
+          مرجع_المعرف: c.رقم_العقد,
+        });
+      }
     }
 
     markAlertsReadIfNotInSet('ALR-EXP-', alive);
+    markAlertsReadIfNotInSet('ALR-RENEW-', alive);
   };
 
   const runRiskScanInternal = () => {
