@@ -56,8 +56,12 @@ export function AttachmentManager({ entityType, entityId }: AttachmentManagerPro
       await addAttachment(entityType, entityId, selectedType, file, user.id);
       toast.success('تم رفع الملف بنجاح');
       loadAttachments();
-    } catch (error: any) {
-      toast.error(error.message || 'فشل رفع الملف');
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message || 'فشل رفع الملف');
+      } else {
+        toast.error('فشل رفع الملف');
+      }
     } finally {
       setUploading(false);
       e.target.value = '';
