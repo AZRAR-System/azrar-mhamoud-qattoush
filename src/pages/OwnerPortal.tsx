@@ -3,12 +3,13 @@
  * صفحة خاصة بمالكي العقارات لعرض بياناتهم
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { getOwnerReport } from '@/services/ownerReport';
 import { formatCurrencyJOD, formatDateYMD } from '@/utils/format';
 import { Home, FileText, BarChart3, Receipt } from 'lucide-react';
+import type { OwnerReportData } from '@/services/ownerReport';
 
 const tabs = [
   { id: 'properties', label: 'عقاراتي', icon: Home },
@@ -18,15 +19,10 @@ const tabs = [
 ];
 
 export function OwnerPortal() {
-  const { user, hasPermission } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('properties');
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<OwnerReportData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // التحقق من الصلاحيات
-  if (!user || !(user.role === 'Owner' || user.role === 'SuperAdmin' || hasPermission('VIEW_OWNER_PORTAL'))) {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   useEffect(() => {
     if (user) {
@@ -35,6 +31,11 @@ export function OwnerPortal() {
       setLoading(false);
     }
   }, [user]);
+
+  // التحقق من الصلاحيات
+  if (!user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (loading) {
     return (
