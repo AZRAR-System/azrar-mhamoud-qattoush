@@ -8,6 +8,19 @@ import { notificationCenter } from '@/services/notificationCenter';
 import { get, save } from './kv';
 import { KEYS } from './keys';
 
+/**
+ * مزامنة جميع التنبيهات الموجودة في tbl_Alerts مع مركز الاشعارات
+ * تُستدعى مرة واحدة عند بدء تشغيل النظام
+ */
+export function syncExistingAlertsToNotificationCenter() {
+  const all = get<tbl_Alerts>(KEYS.ALERTS);
+  all
+    .filter(alert => !alert.تم_القراءة)
+    .forEach(alert => {
+      pushNewTblAlertToNotificationCenter(alert);
+    });
+}
+
 function pushNewTblAlertToNotificationCenter(alert: tbl_Alerts) {
   try {
     notificationCenter.add({

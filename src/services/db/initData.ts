@@ -18,6 +18,7 @@ import { KEYS } from './keys';
 import { MOCK_LEGAL_TEMPLATES } from './mockDbConstants';
 import { lookupKeyFor, normKeySimple } from './lookupKeys';
 import { migrateLegacyContractNumbersOnce } from './contractNumberMigration';
+import { syncExistingAlertsToNotificationCenter } from './alertsCore';
 
 const asUnknownRecord = (value: unknown): Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)
@@ -358,6 +359,7 @@ export async function runInitData(deps: InitDataDeps): Promise<void> {
   }
 
   dedupeAndCleanupAlertsInternal();
+  syncExistingAlertsToNotificationCenter();
 
   try {
     const legacyCompaniesRaw = localStorage.getItem(KEYS.COMPANIES);
