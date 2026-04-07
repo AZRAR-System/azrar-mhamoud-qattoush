@@ -56,6 +56,13 @@ export function classifyAutoSendKind(
   return null;
 }
 
+export function classifyAlertType(daysUntilDue: number): string | null {
+  if (daysUntilDue === 0) return 'due_today';
+  if (daysUntilDue < 0) return 'overdue';
+  if (daysUntilDue <= 7) return 'upcoming';
+  return null;
+}
+
 function buildMessage(
   kind: WhatsAppAutoKind,
   ctx: {
