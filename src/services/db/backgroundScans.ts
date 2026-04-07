@@ -452,10 +452,20 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           الوصف: `عقد ${c.رقم_العقد} سيتجدد تلقائياً خلال ${daysLeft} يوم`,
           category: 'Expiry',
           تم_القراءة: false,
-          urgent: daysLeft <= 7,
           ...ctx,
           مرجع_الجدول: 'العقود_tbl',
           مرجع_المعرف: c.رقم_العقد,
+        });
+        
+        import('@/services/notificationCenter').then(({ notificationCenter }) => {
+          notificationCenter.add({
+            type: 'warning',
+            title: 'تجديد تلقائي قادم',
+            message: `عقد ${c.رقم_العقد} سيتجدد تلقائياً خلال ${daysLeft} يوم`,
+            category: 'contract_renewal',
+            entityId: c.رقم_العقد,
+            urgent: daysLeft <= 7,
+          });
         });
       }
     }
