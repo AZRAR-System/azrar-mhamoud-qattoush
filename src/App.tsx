@@ -73,7 +73,7 @@ const DatabaseManager = React.lazy(() =>
   import('./pages/DatabaseManager').then((module) => ({ default: module.DatabaseManager }))
 );
 const Sales = React.lazy(() =>
-  import('./pages/Sales').then((module) => ({ default: module.Sales }))
+  import('./pages/sales').then((module) => ({ default: module.Sales }))
 );
 const Login = React.lazy(() =>
   import('./pages/Login').then((module) => ({ default: module.Login }))
