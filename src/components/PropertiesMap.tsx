@@ -3,12 +3,12 @@
  * عرض مواقع العقارات على خريطة جوجل
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MapPin } from 'lucide-react';
-import { getAllProperties } from '@/services/db/properties';
+import { getProperties } from '@/services/db/properties';
 
 export function PropertiesMap() {
-  const properties = getAllProperties();
+  const properties = getProperties();
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
 
   const propertiesWithLocation = properties.filter(p => p.latitude && p.longitude);
