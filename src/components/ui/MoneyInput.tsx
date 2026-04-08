@@ -26,7 +26,9 @@ function roundToDecimals(value: number, decimals: number): number {
 
 function formatMoneyText(value: number, decimals: number): string {
   // Keep simple and predictable: no thousands separators while editing.
-  return value.toFixed(decimals);
+  // Trim trailing zeros after decimal point, keep dot only if needed
+  const fixed = value.toFixed(decimals);
+  return fixed.replace(/\.?0*$/, '');
 }
 
 export function MoneyInput({
