@@ -24,7 +24,6 @@ import {
   FileText,
   DollarSign,
   GitMerge,
-  Loader
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
@@ -40,7 +39,7 @@ import { AppModal } from '@/components/ui/AppModal';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { DS } from '@/constants/designSystem';
 import { PageHero } from '@/components/shared/PageHero';
-import { computeEmployeeCommission } from '@/utils/employeeCommission';
+import { computeEmployeeCommission as _computeEmployeeCommission } from '@/utils/employeeCommission';
 import { formatCurrencyJOD, formatDateYMD, formatNumber } from '@/utils/format';
 import { getErrorMessage } from '@/utils/errors';
 import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
@@ -169,34 +168,43 @@ const SalesTimeline: React.FC<{ status: string }> = ({ status }) => {
 };
 
 // --- SUB-COMPONENT: SALES CARD (MOBILE) ---
-const SalesCard: React.FC<{ item: any, type: 'listing' | 'agreement' | 'offer' }> = ({ item, type }) => {
+const SalesCard: React.FC<{ item: عروض_البيع_tbl | اتفاقيات_البيع_tbl, type: 'listing' | 'agreement' | 'offer' }> = ({ item, type }) => {
   const { openPanel } = useSmartModal();
+
+  // Type guards
+  const isListing = 'السعر_المطلوب' in item;
+  const isAgreement = 'السعر_النهائي' in item;
   
+  const code = '#' + item.id?.substring(6, 12);
+  const status = isListing ? item.الحالة : item.isCompleted ? 'Sold' : 'Pending';
+  const price = isListing ? item.السعر_المطلوب : item.السعر_النهائي;
+  const date = isListing ? item.تاريخ_العرض : item.تاريخ_الاتفاقية;
+
   return (
     <div className={`app-card p-4 ${ANIMATIONS.cardAppear}`}>
       <div className="flex justify-between items-start mb-3">
         <div>
-          <div className="font-black text-slate-800 dark:text-white">{item.الكود_الداخلي || '#' + item.id?.substring(6, 12)}</div>
-          <SalesTimeline status={item.الحالة} />
+          <div className="font-black text-slate-800 dark:text-white">{code}</div>
+          <SalesTimeline status={status} />
         </div>
         <span className={`px-2 py-1 rounded-full text-[10px] font-black border ${
-          item.الحالة === 'Active' ? 'bg-green-100 text-green-700 border-green-200' :
-          item.الحالة === 'Sold' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-          item.الحالة === 'Cancelled' ? 'bg-red-100 text-red-700 border-red-200' :
+          status === 'Active' ? 'bg-green-100 text-green-700 border-green-200' :
+          status === 'Sold' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+          status === 'Cancelled' ? 'bg-red-100 text-red-700 border-red-200' :
           'bg-orange-100 text-orange-700 border-orange-200'
         }`}>
-          {item.الحالة}
+          {status}
         </span>
       </div>
       
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-slate-500">السعر</span>
-          <span className="font-bold text-emerald-600">{formatCurrencyJOD(item.السعر_المطلوب || item.السعر_النهائي)}</span>
+          <span className="font-bold text-emerald-600">{formatCurrencyJOD(price)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-500">التاريخ</span>
-          <span className="font-medium">{formatDateYMD(item.تاريخ_العرض || item.تاريخ_الاتفاقية)}</span>
+          <span className="font-medium">{formatDateYMD(date)}</span>
         </div>
       </div>
       
@@ -325,7 +333,7 @@ export const Sales: React.FC = () => {
   const [fastCacheVersion, setFastCacheVersion] = useState(0);
   const [activeTab, setActiveTab] = useState<'listings' | 'offers' | 'agreements'>('listings');
   const [listings, setListings] = useState<عروض_البيع_tbl[]>([]);
-  const [offers, setOffers] = useState<any[]>([]);
+  const [_offers, setOffers] = useState<any[]>([]);
   const [agreements, setAgreements] = useState<اتفاقيات_البيع_tbl[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saleOnly, setSaleOnly] = useState(false);
