@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DbService } from '@/services/mockDb';
 
 const t = (s: string) => s;
@@ -17,6 +17,14 @@ import {
   HandCoins,
   Edit2,
   Trash2,
+  Search,
+  Filter,
+  ChevronRight,
+  Check,
+  FileText,
+  DollarSign,
+  GitMerge,
+  Loader
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
@@ -33,9 +41,24 @@ import { PaginationControls } from '@/components/shared/PaginationControls';
 import { DS } from '@/constants/designSystem';
 import { PageHero } from '@/components/shared/PageHero';
 import { computeEmployeeCommission } from '@/utils/employeeCommission';
-import { formatCurrencyJOD } from '@/utils/format';
+import { formatCurrencyJOD, formatDateYMD, formatNumber } from '@/utils/format';
 import { getErrorMessage } from '@/utils/errors';
 import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
+
+// --- ANIMATION STYLES ---
+const ANIMATIONS = {
+  cardAppear: 'animate-[card-appear_0.4s_ease-out_forwards] opacity-0 translate-y-2',
+  tabSlideIn: 'animate-[tab-slide-in_0.3s_ease-out_forwards]',
+  skeletonPulse: 'animate-pulse bg-gray-200 dark:bg-gray-700 rounded'
+};
+
+// --- STATUS FILTER OPTIONS ---
+const STATUS_FILTERS = [
+  { id: 'all', label: 'الكل', color: 'gray' },
+  { id: 'active', label: 'نشط', color: 'green' },
+  { id: 'completed', label: 'مكتمل', color: 'emerald' },
+  { id: 'cancelled', label: 'ملغي', color: 'red' }
+];
 
 // --- SUB-COMPONENT: SALES DASHBOARD ---
 const SalesDashboard = () => {
@@ -49,92 +72,234 @@ const SalesDashboard = () => {
     .reduce((sum, a) => sum + a.السعر_النهائي, 0);
   const activeListings = listings.filter((l) => l.الحالة === 'Active');
 
+  const cards = [
+    {
+      title: 'مبيعات مكتملة',
+      value: totalSales,
+      subtitle: 'إجمالي المبيعات المحققة',
+      icon: BadgeDollarSign,
+      color: 'emerald',
+      suffix: 'د.أ',
+      trend: '+12%'
+    },
+    {
+      title: 'عروض نشطة',
+      value: activeListings.length,
+      subtitle: 'عقارات معروضة حالياً',
+      icon: Briefcase,
+      color: 'indigo',
+      suffix: '',
+      trend: '+3'
+    },
+    {
+      title: 'عروض الشراء',
+      value: offers.length,
+      subtitle: `${offers.filter((o) => o.الحالة === 'Pending').length} قيد الانتظار`,
+      icon: User,
+      color: 'purple',
+      suffix: '',
+      trend: '+5'
+    },
+    {
+      title: 'اتفاقيات موقعة',
+      value: agreements.length,
+      subtitle: `${agreements.filter((a) => !a.isCompleted).length} بانتظار نقل الملكية`,
+      icon: FileSignature,
+      color: 'orange',
+      suffix: '',
+      trend: '+2'
+    }
+  ];
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
-      <div className="app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-transform cursor-default">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">
-              {t('مبيعات مكتملة')}
-            </p>
-            <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">
-              {totalSales.toLocaleString()}{' '}
-              <span className="text-sm font-bold text-slate-400">د.أ</span>
-            </h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {cards.map((card, idx) => (
+        <div
+          key={card.title}
+          className={`app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-all cursor-default ${ANIMATIONS.cardAppear}`}
+          style={{ animationDelay: `${idx * 0.1}s` }}
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">
+                {t(card.title)}
+              </p>
+              <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">
+                {card.color === 'emerald' ? formatCurrencyJOD(card.value, { maximumFractionDigits: 0 }) : formatNumber(card.value)}
+                {card.suffix && <span className="text-sm font-bold text-slate-400 ml-1">{card.suffix}</span>}
+              </h3>
+            </div>
+            <div className={`p-3 bg-${card.color}-500/10 text-${card.color}-600 dark:text-${card.color}-400 rounded-2xl border border-${card.color}-200/50 dark:border-${card.color}-500/20 shadow-inner`}>
+              <card.icon size={24} />
+            </div>
           </div>
-          <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl border border-emerald-200/50 dark:border-emerald-500/20 shadow-inner">
-            <BadgeDollarSign size={24} />
+          <div className={`text-[10px] text-${card.color}-700 dark:text-${card.color}-400 font-bold flex items-center gap-1 mt-4 bg-${card.color}-50/50 dark:bg-${card.color}-900/20 w-fit px-2 py-0.5 rounded-full border border-${card.color}-100 dark:border-${card.color}-800/50`}>
+            <ArrowUpRight size={12} /> {t(card.subtitle)} • <span className="text-green-600">{card.trend}</span>
           </div>
         </div>
-        <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1 mt-4 bg-emerald-50/50 dark:bg-emerald-900/20 w-fit px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/50">
-          <ArrowUpRight size={12} /> {t('إجمالي المبيعات المحققة')}
+      ))}
+    </div>
+  );
+};
+
+// --- SUB-COMPONENT: TIMELINE STATUS ---
+const SalesTimeline: React.FC<{ status: string }> = ({ status }) => {
+  const steps = [
+    { id: 'offer', label: 'عرض', icon: FileText, completed: true },
+    { id: 'negotiation', label: 'مفاوضة', icon: GitMerge, completed: status === 'Pending' || status === 'Sold' },
+    { id: 'agreement', label: 'اتفاقية', icon: FileSignature, completed: status === 'Sold' },
+    { id: 'closed', label: 'إغلاق', icon: CheckCircle, completed: false }
+  ];
+
+  return (
+    <div className="flex items-center gap-1 mt-2">
+      {steps.map((step, idx) => (
+        <React.Fragment key={step.id}>
+          <div className={`flex items-center gap-1 p-1 rounded-full text-xs ${step.completed ? 'bg-green-100 text-green-700 dark:bg-green-900/30' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'}`}>
+            <step.icon size={12} />
+            <span className="hidden sm:inline">{step.label}</span>
+          </div>
+          {idx < steps.length - 1 && (
+            <div className={`h-0.5 w-4 ${steps[idx + 1].completed ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
+
+// --- SUB-COMPONENT: SALES CARD (MOBILE) ---
+const SalesCard: React.FC<{ item: any, type: 'listing' | 'agreement' | 'offer' }> = ({ item, type }) => {
+  const { openPanel } = useSmartModal();
+  
+  return (
+    <div className={`app-card p-4 ${ANIMATIONS.cardAppear}`}>
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <div className="font-black text-slate-800 dark:text-white">{item.الكود_الداخلي || '#' + item.id?.substring(6, 12)}</div>
+          <SalesTimeline status={item.الحالة} />
+        </div>
+        <span className={`px-2 py-1 rounded-full text-[10px] font-black border ${
+          item.الحالة === 'Active' ? 'bg-green-100 text-green-700 border-green-200' :
+          item.الحالة === 'Sold' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+          item.الحالة === 'Cancelled' ? 'bg-red-100 text-red-700 border-red-200' :
+          'bg-orange-100 text-orange-700 border-orange-200'
+        }`}>
+          {item.الحالة}
+        </span>
+      </div>
+      
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-slate-500">السعر</span>
+          <span className="font-bold text-emerald-600">{formatCurrencyJOD(item.السعر_المطلوب || item.السعر_النهائي)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">التاريخ</span>
+          <span className="font-medium">{formatDateYMD(item.تاريخ_العرض || item.تاريخ_الاتفاقية)}</span>
         </div>
       </div>
-
-      <div className="app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-transform cursor-default">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">
-              {t('عروض نشطة')}
-            </p>
-            <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">
-              {activeListings.length}
-            </h3>
-          </div>
-          <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-200/50 dark:border-indigo-500/20 shadow-inner">
-            <Briefcase size={24} />
-          </div>
-        </div>
-        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-4">
-          {t('عقارات معروضة حالياً')}
-        </p>
-      </div>
-
-      <div className="app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-transform cursor-default">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">
-              {t('عروض الشراء')}
-            </p>
-            <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">
-              {offers.length}
-            </h3>
-          </div>
-          <div className="p-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-2xl border border-purple-200/50 dark:border-purple-500/20 shadow-inner">
-            <User size={24} />
-          </div>
-        </div>
-        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-4">
-          {offers.filter((o) => o.الحالة === 'Pending').length} {t('قيد الانتظار')}
-        </p>
-      </div>
-
-      <div className="app-card p-6 flex flex-col justify-between min-h-32 hover:scale-[1.02] transition-transform cursor-default">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">
-              {t('اتفاقيات موقعة')}
-            </p>
-            <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-2">
-              {agreements.length}
-            </h3>
-          </div>
-          <div className="p-3 bg-orange-500/10 text-orange-700 dark:text-orange-400 rounded-2xl border border-orange-200/50 dark:border-orange-500/20 shadow-inner">
-            <FileSignature size={24} />
-          </div>
-        </div>
-        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-4">
-          {agreements.filter((a) => !a.isCompleted).length} {t('بانتظار نقل الملكية')}
-        </p>
+      
+      <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+        <Button size="sm" variant="ghost" className="flex-1 text-indigo-600" onClick={() => openPanel(type === 'agreement' ? 'CONTRACT_DETAILS' : 'SALES_LISTING_DETAILS', item.id)}>
+          تفاصيل
+        </Button>
+        <Button size="sm" variant="ghost" className="text-emerald-600">
+          <Edit2 size={16} />
+        </Button>
+        <Button size="sm" variant="ghost" className="text-rose-600">
+          <Trash2 size={16} />
+        </Button>
       </div>
     </div>
   );
 };
 
+// --- SUB-COMPONENT: STEPPER MODAL ---
+const AgreementStepper: React.FC<{
+  step: number;
+  onNext: () => void;
+  onPrev: () => void;
+  onSubmit: (e?: React.FormEvent) => void;
+  children: React.ReactNode;
+}> = ({ step, onNext, onPrev, onSubmit, children }) => {
+  const steps = [
+    { id: 1, label: 'بيانات الصفقة', icon: FileText },
+    { id: 2, label: 'التفاصيل المالية', icon: DollarSign },
+    { id: 3, label: 'العمولات', icon: HandCoins },
+    { id: 4, label: 'المراجعة', icon: CheckCircle }
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Stepper Header */}
+      <div className="flex items-center justify-between mb-6">
+        {steps.map((s, idx) => (
+          <React.Fragment key={s.id}>
+            <div className={`flex flex-col items-center gap-1 ${step >= s.id ? 'text-indigo-600' : 'text-gray-400'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= s.id ? 'bg-indigo-100 dark:bg-indigo-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                {step > s.id ? <Check size={18} /> : <s.icon size={18} />}
+              </div>
+              <span className="text-xs font-medium hidden md:block">{s.label}</span>
+            </div>
+            {idx < steps.length - 1 && (
+              <div className={`flex-1 h-1 mx-2 rounded-full ${step > s.id ? 'bg-indigo-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Step Content */}
+      <div className="min-h-[350px]">
+        {Array.isArray(children) ? children[step - 1] : children}
+      </div>
+
+      {/* Step Actions */}
+      <div className="flex justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onPrev}
+          disabled={step === 1}
+        >
+          السابق
+        </Button>
+        {step < 4 ? (
+          <Button type="button" onClick={onNext}>
+            التالي <ChevronRight size={16} />
+          </Button>
+        ) : (
+          <Button type="button" onClick={onSubmit} variant="primary" className="bg-emerald-600 hover:bg-emerald-700">
+            <Check size={16} /> حفظ الاتفاقية
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- SUB-COMPONENT: LOADING SKELETON ---
+const LoadingSkeleton: React.FC = () => (
+  <div className="space-y-4">
+    {[1, 2, 3].map((i) => (
+      <div key={i} className={`app-card p-4 space-y-3 ${ANIMATIONS.skeletonPulse}`}>
+        <div className="h-5 w-1/3 rounded" />
+        <div className="h-4 w-1/2 rounded" />
+        <div className="h-4 w-2/3 rounded" />
+        <div className="flex gap-2 mt-2">
+          <div className="h-8 w-20 rounded" />
+          <div className="h-8 w-20 rounded" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
 // --- MAIN SALES PAGE ---
 export const Sales: React.FC = () => {
   const dbSignal = useDbSignal();
   const isDesktopFast = typeof window !== 'undefined' && !!window.desktopDb?.domainGet;
+  const [isLoading, setIsLoading] = useState(true);
 
   const formId = useId();
   const formIds = {
@@ -158,11 +323,15 @@ export const Sales: React.FC = () => {
   const fastPropByIdRef = useRef<Map<string, العقارات_tbl>>(new Map());
   const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
   const [fastCacheVersion, setFastCacheVersion] = useState(0);
-  const [activeTab, setActiveTab] = useState<'listings' | 'agreements'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'offers' | 'agreements'>('listings');
   const [listings, setListings] = useState<عروض_البيع_tbl[]>([]);
+  const [offers, setOffers] = useState<any[]>([]);
   const [agreements, setAgreements] = useState<اتفاقيات_البيع_tbl[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saleOnly, setSaleOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  
   type SalesFiltersSaved = { listingMarketingFilter?: 'all' | 'sale-only' | 'also-rentable' };
   const savedSalesFilters = readSessionFilterJson<SalesFiltersSaved>('sales');
   const [listingMarketingFilter, setListingMarketingFilter] = useState<
@@ -173,6 +342,7 @@ export const Sales: React.FC = () => {
   });
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
   const [editingAgreementId, setEditingAgreementId] = useState<string | null>(null);
+  const [agreementStep, setAgreementStep] = useState(1);
 
   const [pageSize, setPageSize] = useState(12);
   const [agreementsPage, setAgreementsPage] = useState(1);
@@ -293,12 +463,17 @@ export const Sales: React.FC = () => {
 
   const loadData = useCallback(() => {
     try {
+      setIsLoading(true);
       setListings(DbService.getSalesListings());
+      setOffers(DbService.getSalesOffers());
       setAgreements(DbService.getSalesAgreements());
+      setTimeout(() => setIsLoading(false), 500);
     } catch (e: unknown) {
       toast.error(getErrorMessage(e) || 'فشل تحميل بيانات المبيعات');
       setListings([]);
+      setOffers([]);
       setAgreements([]);
+      setIsLoading(false);
     }
   }, [toast]);
 
@@ -321,6 +496,7 @@ export const Sales: React.FC = () => {
   const resetAgreementForm = () => {
     setEditingAgreementId(null);
     setSelectedOfferId('');
+    setAgreementStep(1);
     setNewAgreement({
       تاريخ_الاتفاقية: new Date().toISOString().split('T')[0],
       العمولة_الإجمالية: 0,
@@ -358,6 +534,19 @@ export const Sales: React.FC = () => {
 
     const visible = rows.slice((page - 1) * safePageSize, page * safePageSize);
 
+    // Responsive: cards on mobile, table on desktop
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+    if (isMobile) {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
+          {visible.map((l) => (
+            <SalesCard key={l.id} item={l} type="listing" />
+          ))}
+        </div>
+      );
+    }
+
     return (
       <div className="app-table-wrapper overflow-hidden animate-slide-up">
         <div className="p-4 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-950/20 border-b border-slate-100 dark:border-slate-800">
@@ -379,6 +568,7 @@ export const Sales: React.FC = () => {
                 <th className="app-table-th">{t('السعر المطلوب')}</th>
                 <th className="app-table-th">{t('تاريخ العرض')}</th>
                 <th className="app-table-th">{t('الحالة')}</th>
+                <th className="app-table-th">{t('ال Timeline')}</th>
                 <th className="app-table-th text-center">{t('إجراء')}</th>
               </tr>
             </thead>
@@ -403,11 +593,10 @@ export const Sales: React.FC = () => {
                     </td>
                     <td className="app-table-td">
                       <div className="text-emerald-600 dark:text-emerald-400 font-black text-base">
-                        {l.السعر_المطلوب.toLocaleString()}
-                        <span className="text-[10px] mr-1">د.أ</span>
+                        {formatCurrencyJOD(l.السعر_المطلوب)}
                       </div>
                     </td>
-                    <td className="app-table-td font-medium text-slate-500">{l.تاريخ_العرض}</td>
+                    <td className="app-table-td font-medium text-slate-500">{formatDateYMD(l.تاريخ_العرض)}</td>
                     <td className="app-table-td">
                       <span
                         className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${l.الحالة === 'Active' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800/50' : l.الحالة === 'Sold' ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:border-slate-700' : l.الحالة === 'Cancelled' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800/50' : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:border-orange-800/50'}`}
@@ -415,15 +604,34 @@ export const Sales: React.FC = () => {
                         {listingStatusLabel[l.الحالة] || l.الحالة}
                       </span>
                     </td>
+                    <td className="app-table-td">
+                      <SalesTimeline status={l.الحالة} />
+                    </td>
                     <td className="app-table-td text-center">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openPanel('SALES_LISTING_DETAILS', l.id)}
-                        className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-black text-xs rounded-xl"
-                      >
-                        {t('التفاصيل والعروض')}
-                      </Button>
+                      <div className="flex justify-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openPanel('SALES_LISTING_DETAILS', l.id)}
+                          className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-black text-xs rounded-xl"
+                        >
+                          تفاصيل
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-emerald-600 hover:bg-emerald-50 font-black text-xs rounded-xl"
+                        >
+                          <Edit2 size={14} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-rose-600 hover:bg-rose-50 font-black text-xs rounded-xl"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -449,6 +657,7 @@ export const Sales: React.FC = () => {
 
       setEditingAgreementId(agreementId);
       setSelectedOfferId('');
+      setAgreementStep(1);
       setNewAgreement({
         تاريخ_الاتفاقية: ag.تاريخ_الاتفاقية,
         العمولة_الإجمالية: Number(ag.العمولة_الإجمالية || 0),
@@ -805,6 +1014,17 @@ export const Sales: React.FC = () => {
     return listingMarketingFilter === 'sale-only' ? isSaleOnly : !isSaleOnly;
   };
 
+  // Filter data
+  const filteredListings = listings.filter(l => {
+    if (statusFilter !== 'all' && l.الحالة?.toLowerCase() !== statusFilter) return false;
+    if (searchQuery && !getPropCode(l.رقم_العقار).includes(searchQuery) && !getPersonName(l.رقم_المالك).includes(searchQuery)) return false;
+    return true;
+  });
+
+  // Stepper step handlers
+  const handleNextStep = () => setAgreementStep(s => Math.min(4, s + 1));
+  const handlePrevStep = () => setAgreementStep(s => Math.max(1, s - 1));
+
   return (
     <div className="space-y-8 animate-fade-in pb-10">
       <PageHero
@@ -848,6 +1068,12 @@ export const Sales: React.FC = () => {
             <Home size={20} /> {t('عروض البيع')}
           </button>
           <button
+            onClick={() => setActiveTab('offers')}
+            className={`flex-1 py-4 font-black text-sm flex items-center justify-center gap-2 rounded-2xl transition-all duration-300 ${activeTab === 'offers' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft border border-slate-100 dark:border-slate-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            <User size={20} /> {t('عروض الشراء')}
+          </button>
+          <button
             onClick={() => setActiveTab('agreements')}
             className={`flex-1 py-4 font-black text-sm flex items-center justify-center gap-2 rounded-2xl transition-all duration-300 ${activeTab === 'agreements' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft border border-slate-100 dark:border-slate-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
@@ -855,8 +1081,42 @@ export const Sales: React.FC = () => {
           </button>
         </div>
 
+        {/* Filter Bar */}
+        <div className="p-4 bg-slate-50/30 dark:bg-slate-900/20 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <Input
+                placeholder="بحث بالعقار، المالك، السعر..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter size={18} className="text-gray-400" />
+              {STATUS_FILTERS.map(filter => (
+                <button
+                  key={filter.id}
+                  onClick={() => setStatusFilter(filter.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    statusFilter === filter.id
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="p-8">
-          {activeTab === 'listings' && (
+          {isLoading ? (
+            <LoadingSkeleton />
+          ) : activeTab === 'listings' ? (
             <div className="space-y-8">
               <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800">
                 <label
@@ -893,7 +1153,7 @@ export const Sales: React.FC = () => {
                 </div>
               </div>
               {listingStatusOrder.map((status) => {
-                const rows = listings
+                const rows = filteredListings
                   .filter((l) => l.الحالة === status)
                   .filter(listingMatchesMarketing);
                 if (rows.length === 0) return null;
@@ -902,14 +1162,18 @@ export const Sales: React.FC = () => {
                     key={status}
                     status={status}
                     rows={rows}
-                    resetKey={listingMarketingFilter}
+                    resetKey={listingMarketingFilter + statusFilter + searchQuery}
                   />
                 );
               })}
             </div>
-          )}
-
-          {activeTab === 'agreements' && (
+          ) : activeTab === 'offers' ? (
+            <div className="text-center py-16">
+              <User size={64} className="mx-auto text-gray-300 mb-4" />
+              <h3 className="text-xl font-bold text-gray-500">قسم عروض الشراء</h3>
+              <p className="text-gray-400 mt-2">سيتم تفعيل هذا القسم في التحديث القادم</p>
+            </div>
+          ) : (
             <div className="app-table-wrapper animate-slide-up">
               <div className="p-4 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-950/20 border-b border-slate-100 dark:border-slate-800">
                 <div className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -932,6 +1196,7 @@ export const Sales: React.FC = () => {
                       <th className="app-table-th">{t('السعر النهائي')}</th>
                       <th className="app-table-th">{t('المدفوع / المتبقي')}</th>
                       <th className="app-table-th">{t('الحالة')}</th>
+                      <th className="app-table-th">{t('ال Timeline')}</th>
                       <th className="app-table-th text-center">{t('إجراء')}</th>
                     </tr>
                   </thead>
@@ -962,18 +1227,17 @@ export const Sales: React.FC = () => {
                           </td>
                           <td className="app-table-td">
                             <div className="font-black text-emerald-600 dark:text-emerald-400 text-base">
-                              {a.السعر_النهائي.toLocaleString()}{' '}
-                              <span className="text-[10px] mr-0.5">د.أ</span>
+                              {formatCurrencyJOD(a.السعر_النهائي)}
                             </div>
                             <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 space-y-0.5 font-bold">
                               <div>
                                 {t('إجمالي المصاريف')}:{' '}
-                                <b>{Number(a.إجمالي_المصاريف || 0).toLocaleString()}</b>
+                                <b>{formatCurrencyJOD(a.إجمالي_المصاريف || 0)}</b>
                               </div>
                               <div>
                                 {t('إجمالي العمولات')}:{' '}
                                 <b className="text-indigo-600 dark:text-indigo-400">
-                                  {Number(a.إجمالي_العمولات || 0).toLocaleString()}
+                                  {formatCurrencyJOD(a.إجمالي_العمولات || 0)}
                                 </b>
                               </div>
                             </div>
@@ -981,10 +1245,10 @@ export const Sales: React.FC = () => {
                           <td className="app-table-td">
                             <div className="flex flex-col gap-1 font-bold text-xs">
                               <div className="text-slate-600 dark:text-slate-400">
-                                {t('مدفوع')}: {a.قيمة_الدفعة_الاولى.toLocaleString()}
+                                {t('مدفوع')}: {formatCurrencyJOD(a.قيمة_الدفعة_الاولى)}
                               </div>
                               <div className="text-rose-600">
-                                {t('متبقي')}: {a.قيمة_المتبقي.toLocaleString()}
+                                {t('متبقي')}: {formatCurrencyJOD(a.قيمة_المتبقي)}
                               </div>
                             </div>
                           </td>
@@ -998,6 +1262,9 @@ export const Sales: React.FC = () => {
                                 <Clock size={14} /> {t('قيد الإجراء')}
                               </span>
                             )}
+                          </td>
+                          <td className="app-table-td">
+                            <SalesTimeline status={a.isCompleted ? 'Sold' : 'Pending'} />
                           </td>
                           <td className="app-table-td">
                             <div className="flex flex-col gap-2">
@@ -1024,18 +1291,18 @@ export const Sales: React.FC = () => {
                                 )}
                               </div>
 
-                              <div className="flex gap-2 justify-end pt-1 border-t border-slate-100 dark:border-slate-800">
+                              <div className="flex gap-2 justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
                                 <button
                                   onClick={() => handleEditAgreement(a.id)}
-                                  className="inline-flex items-center gap-1 text-[10px] font-black text-slate-600 dark:text-slate-400 hover:text-indigo-600 transition-colors"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all border border-indigo-200 dark:border-indigo-800/50"
                                 >
-                                  <Edit2 size={12} /> {t('تعديل')}
+                                  <Edit2 size={14} /> {t('تعديل')}
                                 </button>
                                 <button
                                   onClick={() => handleDeleteAgreement(a.id)}
-                                  className="inline-flex items-center gap-1 text-[10px] font-black text-rose-600 hover:text-rose-700 transition-colors"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-all border border-rose-200 dark:border-rose-800/50"
                                 >
-                                  <Trash2 size={12} /> {t('حذف')}
+                                  <Trash2 size={14} /> {t('حذف')}
                                 </button>
                               </div>
 
@@ -1152,6 +1419,7 @@ export const Sales: React.FC = () => {
                     onValueChange={(v) =>
                       setNewListing({ ...newListing, السعر_المطلوب: Math.max(0, Number(v ?? 0)) })
                     }
+                    step={0.001}
                   />
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     سيظهر للمستخدمين كـ “السعر المطلوب”
@@ -1168,6 +1436,7 @@ export const Sales: React.FC = () => {
                     onValueChange={(v) =>
                       setNewListing({ ...newListing, أقل_سعر_مقبول: Math.max(0, Number(v ?? 0)) })
                     }
+                    step={0.001}
                   />
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     اختياري — لتحديد حد التفاوض
@@ -1200,7 +1469,7 @@ export const Sales: React.FC = () => {
         </AppModal>
       )}
 
-      {/* Create Agreement Modal */}
+      {/* Create Agreement Modal with Stepper */}
       {isAgreementModalOpen && (
         <AppModal
           open={isAgreementModalOpen}
@@ -1208,432 +1477,121 @@ export const Sales: React.FC = () => {
             setIsAgreementModalOpen(false);
             setEditingAgreementId(null);
           }}
-          size="lg"
+          size="xl"
           headerClassName="bg-emerald-600 text-white border-b border-emerald-500"
           titleClassName="text-white"
           title={editingAgreementId ? 'تعديل اتفاقية بيع' : 'إنشاء اتفاقية بيع نهائية'}
-          footer={
-            <div className="flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setIsAgreementModalOpen(false);
-                  setEditingAgreementId(null);
-                }}
-              >
-                إلغاء
-              </Button>
-              <Button type="submit" variant="primary" form="create-agreement-form">
-                {editingAgreementId ? 'حفظ التعديل' : 'حفظ الاتفاقية'}
-              </Button>
-            </div>
-          }
           bodyClassName="p-6"
         >
           <form id="create-agreement-form" onSubmit={handleCreateAgreement} className="space-y-4">
-            {!editingAgreementId ? (
-              <>
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-xs text-yellow-800 dark:text-yellow-300 mb-4">
-                  يرجى اختيار العرض المقبول الذي سيتم بناء الاتفاقية عليه. سيتم تعبئة بيانات المشتري
-                  والسعر تلقائياً.
-                </div>
-                <div>
-                  <label
-                    htmlFor={formIds.agreementAcceptedOffer}
-                    className="block text-sm font-bold mb-1"
-                  >
-                    العرض المقبول
-                  </label>
-                  <select
-                    id={formIds.agreementAcceptedOffer}
-                    className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
-                    required
-                    value={selectedOfferId}
-                    onChange={(e) => setSelectedOfferId(e.target.value)}
-                  >
-                    <option value="">-- اختر العرض --</option>
-                    {getAcceptedOffers().map((o) => {
-                      const l = listings.find((lst) => lst.id === o.listingId);
-                      return (
-                        <option key={o.id} value={o.id}>
-                          {getPersonName(o.رقم_المشتري)} - {o.قيمة_العرض.toLocaleString()} -{' '}
-                          {l ? getPropCode(l.رقم_العقار) : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </>
-            ) : (
-              <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg text-xs text-indigo-800 dark:text-indigo-300 mb-4">
-                تعديل بيانات الاتفاقية فقط (لا يتم تغيير المشتري/العقار من هنا).
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold mb-1">تاريخ الاتفاقية</label>
-                <DatePicker
-                  value={newAgreement.تاريخ_الاتفاقية}
-                  onChange={(d) => setNewAgreement({ ...newAgreement, تاريخ_الاتفاقية: d })}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor={formIds.agreementTotalCommission}
-                  className="block text-sm font-bold mb-1"
-                >
-                  إجمالي العمولة
-                </label>
-                <Input
-                  id={formIds.agreementTotalCommission}
-                  type="number"
-                  className="w-full p-2 border rounded-lg text-sm bg-gray-100 dark:bg-slate-800 border-gray-300 dark:border-slate-600"
-                  readOnly
-                  value={newAgreement.العمولة_الإجمالية}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor={formIds.agreementOpportunityNumber}
-                  className="block text-sm font-bold mb-1"
-                >
-                  رقم الفرصة
-                </label>
-                <Input
-                  id={formIds.agreementOpportunityNumber}
-                  type="text"
-                  dir="ltr"
-                  inputMode="numeric"
-                  className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
-                  value={String(newAgreement.رقم_الفرصة ?? '')}
-                  onChange={(e) =>
-                    setNewAgreement((prev) => ({ ...prev, رقم_الفرصة: e.target.value }))
-                  }
-                  placeholder="Opportunity #"
-                />
-              </div>
-              <div className="flex items-end">
-                <label className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 select-none">
-                  <input
-                    type="checkbox"
-                    checked={!!newAgreement.يوجد_ادخال_عقار}
-                    onChange={(e) =>
-                      setNewAgreement((prev) => ({ ...prev, يوجد_ادخال_عقار: e.target.checked }))
-                    }
-                  />
-                  عمولة إدخال عقار (5%)
-                </label>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor={formIds.agreementDownPayment}
-                  className="block text-sm font-bold mb-1"
-                >
-                  الدفعة الأولى / العربون
-                </label>
-                <MoneyInput
-                  id={formIds.agreementDownPayment}
-                  className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
-                  required
-                  value={newAgreement.قيمة_الدفعة_الاولى}
-                  onValueChange={(v) =>
-                    setNewAgreement((prev) => ({ ...prev, قيمة_الدفعة_الاولى: v }))
-                  }
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor={formIds.agreementPaymentMethod}
-                  className="block text-sm font-bold mb-1"
-                >
-                  طريقة الدفع
-                </label>
-                <select
-                  id={formIds.agreementPaymentMethod}
-                  className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
-                  value={newAgreement.طريقة_الدفع}
-                  onChange={(e) =>
-                    setNewAgreement({ ...newAgreement, طريقة_الدفع: e.target.value as SalesType })
-                  }
-                >
-                  <option value="Cash">كاش كامل</option>
-                  <option value="Installment">أقساط</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Detailed Commissions */}
-            <div className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800 space-y-3">
-              <h4 className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-2 text-sm">
-                <HandCoins size={16} /> تفاصيل العمولات
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor={formIds.agreementCommissionSeller}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    من البائع
-                  </label>
-                  <MoneyInput
-                    id={formIds.agreementCommissionSeller}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    value={salesCommissions.seller}
-                    onValueChange={(v) =>
-                      setSalesCommissions({ ...salesCommissions, seller: v ?? 0 })
-                    }
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor={formIds.agreementCommissionBuyer}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    من المشتري
-                  </label>
-                  <MoneyInput
-                    id={formIds.agreementCommissionBuyer}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    value={salesCommissions.buyer}
-                    onValueChange={(v) =>
-                      setSalesCommissions({ ...salesCommissions, buyer: v ?? 0 })
-                    }
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label
-                    htmlFor={formIds.agreementCommissionExternal}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    وسيط خارجي (إن وجد)
-                  </label>
-                  <MoneyInput
-                    id={formIds.agreementCommissionExternal}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    value={salesCommissions.external}
-                    onValueChange={(v) =>
-                      setSalesCommissions({ ...salesCommissions, external: v ?? 0 })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Employee Commission (Sale) */}
-            {(() => {
-              const agreementRec = newAgreement as unknown as Record<string, unknown>;
-              const externalFromAgreement = Number(agreementRec['عمولة_وسيط_خارجي'] ?? 0) || 0;
-              const officeSaleTotal =
-                (Number(newAgreement.العمولة_الإجمالية || 0) || 0) +
-                (externalFromAgreement || Number(salesCommissions.external || 0) || 0);
-
-              const breakdown = computeEmployeeCommission({
-                rentalOfficeCommissionTotal: 0,
-                // Include external broker commission fully (per request)
-                saleOfficeCommissionTotal: officeSaleTotal,
-                propertyIntroEnabled: !!newAgreement.يوجد_ادخال_عقار,
-              });
-
-              return (
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 text-sm">
-                    <HandCoins size={16} /> عمولة الموظف (تفصيل)
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700">
-                      <div className="text-xs text-slate-500">
-                        إجمالي عمولات البيع (شامل الخارجي)
-                      </div>
-                      <div className="font-black text-slate-800 dark:text-white">
-                        {formatCurrencyJOD(breakdown.sale.officeCommissionTotal, {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
+            <AgreementStepper
+              step={agreementStep}
+              onNext={handleNextStep}
+              onPrev={handlePrevStep}
+              onSubmit={handleCreateAgreement}
+            >
+              {/* Step 1: بيانات الصفقة */}
+              <div className="space-y-4">
+                {!editingAgreementId ? (
+                  <>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-xs text-yellow-800 dark:text-yellow-300 mb-4">
+                      يرجى اختيار العرض المقبول الذي سيتم بناء الاتفاقية عليه. سيتم تعبئة بيانات المشتري
+                      والسعر تلقائياً.
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={formIds.agreementAcceptedOffer}
+                        className="block text-sm font-bold mb-1"
+                      >
+                        العرض المقبول
+                      </label>
+                      <select
+                        id={formIds.agreementAcceptedOffer}
+                        className="w-full p-3 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
+                        required
+                        value={selectedOfferId}
+                        onChange={(e) => setSelectedOfferId(e.target.value)}
+                      >
+                        <option value="">-- اختر العرض --</option>
+                        {getAcceptedOffers().map((o) => {
+                          const l = listings.find((lst) => lst.id === o.listingId);
+                          return (
+                            <option key={o.id} value={o.id}>
+                              {getPersonName(o.رقم_المشتري)} - {formatCurrencyJOD(o.قيمة_العرض)} -{' '}
+                              {l ? getPropCode(l.رقم_العقار) : ''}
+                            </option>
+                          );
                         })}
-                      </div>
+                      </select>
                     </div>
-                    <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30">
-                      <div className="text-xs text-slate-500">نسبة الموظف (بيع)</div>
-                      <div className="font-black text-indigo-700 dark:text-indigo-300">40%</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
-                      <div className="text-xs text-slate-500">عمولة الموظف (بيع)</div>
-                      <div className="font-black text-emerald-700 dark:text-emerald-300">
-                        {formatCurrencyJOD(breakdown.sale.earned, {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        })}
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-purple-50/60 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30">
-                      <div className="text-xs text-slate-500">
-                        إدخال عقار (5% من إجمالي العمولة)
-                      </div>
-                      <div className="font-black text-purple-700 dark:text-purple-300">
-                        {formatCurrencyJOD(breakdown.propertyIntro.earned, {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        })}
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 md:col-span-4">
-                      <div className="text-xs text-slate-500">الإجمالي النهائي للموظف</div>
-                      <div className="font-black text-amber-700 dark:text-amber-300 text-lg">
-                        {formatCurrencyJOD(breakdown.totals.finalEarned, {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        })}
-                      </div>
-                    </div>
+                  </>
+                ) : (
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg text-xs text-indigo-800 dark:text-indigo-300 mb-4">
+                    تعديل بيانات الاتفاقية فقط (لا يتم تغيير المشتري/العقار من هنا).
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold mb-1">تاريخ الاتفاقية</label>
+                    <DatePicker
+                      value={newAgreement.تاريخ_الاتفاقية}
+                      onChange={(d) => setNewAgreement({ ...newAgreement, تاريخ_الاتفاقية: d })}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={formIds.agreementTotalCommission}
+                      className="block text-sm font-bold mb-1"
+                    >
+                      إجمالي العمولة
+                    </label>
+                    <Input
+                      id={formIds.agreementTotalCommission}
+                      type="text"
+                      className="w-full p-3 border rounded-lg text-sm bg-gray-100 dark:bg-slate-800 border-gray-300 dark:border-slate-600"
+                      readOnly
+                      value={formatCurrencyJOD(newAgreement.العمولة_الإجمالية)}
+                    />
                   </div>
                 </div>
-              );
-            })()}
 
-            {/* Sale Expenses */}
-            <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 space-y-3">
-              <h4 className="font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-2 text-sm">
-                <HandCoins size={16} /> مصاريف البيع (توثيق كامل)
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor={formIds.agreementExpenseFee}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    رسوم التنازل
-                  </label>
-                  <MoneyInput
-                    id={formIds.agreementExpenseFee}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    value={saleExpenses.رسوم_التنازل}
-                    onValueChange={(v) =>
-                      setSaleExpenses({ ...saleExpenses, رسوم_التنازل: v ?? 0 })
-                    }
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor={formIds.agreementExpenseBuildingTax}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    ضريبة الأبنية
-                  </label>
-                  <MoneyInput
-                    id={formIds.agreementExpenseBuildingTax}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    value={saleExpenses.ضريبة_الابنية}
-                    onValueChange={(v) =>
-                      setSaleExpenses({ ...saleExpenses, ضريبة_الابنية: v ?? 0 })
-                    }
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor={formIds.agreementExpenseElectricity}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    نقل اشتراك الكهرباء
-                  </label>
-                  <MoneyInput
-                    id={formIds.agreementExpenseElectricity}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    value={saleExpenses.نقل_اشتراك_الكهرباء}
-                    onValueChange={(v) =>
-                      setSaleExpenses({ ...saleExpenses, نقل_اشتراك_الكهرباء: v ?? 0 })
-                    }
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor={formIds.agreementExpenseWater}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    نقل اشتراك المياه
-                  </label>
-                  <MoneyInput
-                    id={formIds.agreementExpenseWater}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    value={saleExpenses.نقل_اشتراك_المياه}
-                    onValueChange={(v) =>
-                      setSaleExpenses({ ...saleExpenses, نقل_اشتراك_المياه: v ?? 0 })
-                    }
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label
-                    htmlFor={formIds.agreementExpenseDeposits}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    قيمة التأمينات (إن لم يتنازل عنها البائع)
-                  </label>
-                  <MoneyInput
-                    id={formIds.agreementExpenseDeposits}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    value={saleExpenses.قيمة_التأمينات}
-                    onValueChange={(v) =>
-                      setSaleExpenses({ ...saleExpenses, قيمة_التأمينات: v ?? 0 })
-                    }
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label
-                    htmlFor={formIds.agreementExpenseNotes}
-                    className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1"
-                  >
-                    ملاحظات
-                  </label>
-                  <textarea
-                    id={formIds.agreementExpenseNotes}
-                    className="w-full p-2 rounded border bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-sm"
-                    rows={2}
-                    value={saleExpenses.ملاحظات}
-                    onChange={(e) => setSaleExpenses({ ...saleExpenses, ملاحظات: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      htmlFor={formIds.agreementOpportunityNumber}
+                      className="block text-sm font-bold mb-1"
+                    >
+                      رقم الفرصة
+                    </label>
+                    <Input
+                      id={formIds.agreementOpportunityNumber}
+                      type="text"
+                      dir="ltr"
+                      inputMode="numeric"
+                      className="w-full p-3 border rounded-lg text-sm bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600"
+                      value={String(newAgreement.رقم_الفرصة ?? '')}
+                      onChange={(e) =>
+                        setNewAgreement((prev) => ({ ...prev, رقم_الفرصة: e.target.value }))
+                      }
+                      placeholder="Opportunity #"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <label className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!!newAgreement.يوجد_ادخال_عقار}
+                        onChange={(e) =>
+                          setNewAgreement((prev) => ({ ...prev, يوجد_ادخال_عقار: e.target.checked }))
+                        }
+                      />
+                      عمولة إدخال عقار (5%)
+                    </label>
+                  </div>
                 </div>
               </div>
-
-              <div className="text-xs text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-slate-900/40 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
-                <div>
-                  إجمالي مصاريف البيع:{' '}
-                  <b>
-                    {(
-                      Number(saleExpenses.رسوم_التنازل || 0) +
-                      Number(saleExpenses.ضريبة_الابنية || 0) +
-                      Number(saleExpenses.نقل_اشتراك_الكهرباء || 0) +
-                      Number(saleExpenses.نقل_اشتراك_المياه || 0) +
-                      Number(saleExpenses.قيمة_التأمينات || 0)
-                    ).toLocaleString()}
-                  </b>{' '}
-                  د.أ
-                </div>
-                <div>
-                  إجمالي العمولات (بائع + مشتري + وسيط):{' '}
-                  <b>
-                    {(
-                      Number(salesCommissions.seller || 0) +
-                      Number(salesCommissions.buyer || 0) +
-                      Number(salesCommissions.external || 0)
-                    ).toLocaleString()}
-                  </b>{' '}
-                  د.أ
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
-            >
-              {editingAgreementId ? 'حفظ التعديلات' : 'توليد الاتفاقية'}
-            </button>
+            </AgreementStepper>
           </form>
         </AppModal>
       )}
