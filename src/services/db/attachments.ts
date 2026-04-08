@@ -86,13 +86,13 @@ export function addAttachment(
 /**
  * حذف مرفق
  */
-export function deleteAttachment(id: string, deletedBy: string): boolean {
+export function deleteAttachment(id: string, _deletedBy: string): boolean {
   const all = get<Attachment>(KEYS.ATTACHMENTS) || [];
   const idx = all.findIndex(a => a.id === id);
   
   if (idx === -1) return false;
   
-  const attachment = all[idx];
+  const _attachment = all[idx];
   all.splice(idx, 1);
   save(KEYS.ATTACHMENTS, all);
 
