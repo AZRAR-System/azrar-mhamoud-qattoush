@@ -9,9 +9,9 @@ import { getProperties } from '@/services/db/properties';
 
 export function PropertiesMap() {
   const properties = getProperties();
-  const [selectedProperty, setSelectedProperty] = useState<any>(null);
+  const [selectedProperty, setSelectedProperty] = useState<typeof properties[0] | null>(null);
 
-  const propertiesWithLocation = properties.filter(p => p.latitude && p.longitude);
+  const propertiesWithLocation = properties.filter(p => (p as any).latitude && (p as any).longitude);
 
   if (propertiesWithLocation.length === 0) {
     return (
@@ -28,7 +28,7 @@ export function PropertiesMap() {
     <div className="space-y-4">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <iframe
-          src={`https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center=${firstProperty.latitude},${firstProperty.longitude}&zoom=12`}
+          src={`https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center=${(firstProperty as any).latitude},${(firstProperty as any).longitude}&zoom=12`}
           width="100%"
           height="500"
           style={{ border: 0 }}

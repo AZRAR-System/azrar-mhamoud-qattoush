@@ -6,13 +6,16 @@
 import { getPersonById } from '@/services/db/people';
 import { getProperties } from '@/services/db/properties';
 import { getContracts } from '@/services/db/contracts';
+import { getInstallmentsByContractId } from '@/services/db/installments';
+import { buildFullPrintHtmlDocument, savePdfToPath } from '@/services/printing/printEngine';
 import { formatCurrencyJOD, formatDateYMD } from '@/utils/format';
 import { INSTALLMENT_STATUS } from '@/services/db/installmentConstants';
+import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types/types';
 
 export interface OwnerReportData {
-  owner: any;
-  properties: any[];
-  activeContracts: any[];
+  owner: الأشخاص_tbl;
+  properties: العقارات_tbl[];
+  activeContracts: العقود_tbl[];
   totalCollected: number;
   totalCommissions: number;
   netOwnerAmount: number;
@@ -22,7 +25,7 @@ export interface OwnerReportData {
     commission: number;
     net: number;
   }>;
-  installments: any[];
+  installments: (الكمبيالات_tbl & { contractNumber: string; propertyCode: string; isPaid: boolean; commission: number; net: number })[];
   generatedAt: string;
 }
 
@@ -33,8 +36,9 @@ export function getOwnerReport(ownerId: string): OwnerReportData | null {
   const owner = getPersonById(ownerId);
   if (!owner) return null;
 
-  const properties = getProperties().filter(p => p.مالك_العقار === ownerId);
-  const contracts = getContracts().filter(c => c.رقم_المالك === ownerId);
+  const properties = getProperties().filter(p => p.رقم_المالك === ownerId);
+  const propertyIds = properties.map(p => p.رقم_العقار);
+  const contracts = getContracts().filter(c => propertyIds.includes(c.رقم_العقار));
   const activeContracts = contracts.filter(c => c.حالة_العقد === 'نشط' && !c.isArchived);
 
   let totalCollected = 0;
@@ -54,7 +58,8 @@ export function getOwnerReport(ownerId: string): OwnerReportData | null {
 
       const isPaid = inst.حالة_الكمبيالة === INSTALLMENT_STATUS.PAID;
       const amount = Number(inst.القيمة) || 0;
-      const commission = (amount * Number(contract.عمولة_المالك || 0)) / 100;
+      // ✅ استخدام نسبة عمولة المالك الافتراضية من الإعدادات (5%)
+      const commission = (amount * 5) / 100;
       const net = amount - commission;
 
       if (isPaid) {

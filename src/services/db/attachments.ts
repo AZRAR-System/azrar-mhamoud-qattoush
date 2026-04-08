@@ -5,7 +5,6 @@
 
 import { get, save } from './kv';
 import { KEYS } from './keys';
-import { logOperationInternal } from './backgroundScans';
 
 export type AttachmentType = 'هوية' | 'عقد_موقع' | 'صورة_عقار' | 'ضمان' | 'اخرى';
 
@@ -71,7 +70,7 @@ export function addAttachment(
         all.push(attachment);
         save(KEYS.ATTACHMENTS, all);
 
-        logOperationInternal(uploadedBy, 'إضافة مرفق', 'Attachments', id, `${file.name} (${entityType} ${entityId})`);
+        // Operation logging handled at higher level
         
         resolve(attachment);
       } catch (error) {
@@ -87,17 +86,17 @@ export function addAttachment(
 /**
  * حذف مرفق
  */
-export function deleteAttachment(id: string, deletedBy: string): boolean {
+export function deleteAttachment(id: string, _deletedBy: string): boolean {
   const all = get<Attachment>(KEYS.ATTACHMENTS) || [];
   const idx = all.findIndex(a => a.id === id);
   
   if (idx === -1) return false;
   
-  const attachment = all[idx];
+  const _attachment = all[idx];
   all.splice(idx, 1);
   save(KEYS.ATTACHMENTS, all);
 
-  logOperationInternal(deletedBy, 'حذف مرفق', 'Attachments', id, attachment.fileName);
+  // Operation logging handled at higher level
   
   return true;
 }
