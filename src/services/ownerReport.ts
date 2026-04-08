@@ -6,8 +6,7 @@
 import { getPersonById } from '@/services/db/people';
 import { getProperties } from '@/services/db/properties';
 import { getContracts } from '@/services/db/contracts';
-import { getInstallmentsByContractId } from '@/services/db/installments';
-import { buildFullPrintHtmlDocument, savePdfToPath } from '@/services/printing/printEngine';
+import { getInstallments } from '@/services/db/installments';
 import { formatCurrencyJOD, formatDateYMD } from '@/utils/format';
 import { INSTALLMENT_STATUS } from '@/services/db/installmentConstants';
 import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl, الكمبيالات_tbl } from '@/types/types';
@@ -44,13 +43,13 @@ export function getOwnerReport(ownerId: string): OwnerReportData | null {
   let totalCollected = 0;
   let totalCommissions = 0;
   let pendingAmount = 0;
-  const allInstallments: any[] = [];
+  const allInstallments: (الكمبيالات_tbl & { contractNumber: string; propertyCode: string; isPaid: boolean; commission: number; net: number })[] = [];
   const byMonth: OwnerReportData['byMonth'] = {};
 
   contracts.forEach(contract => {
-    const installments = getInstallmentsByContractId(contract.رقم_العقد);
+    const contractInstallments = getInstallments().filter(i => i.رقم_العقد === contract.رقم_العقد);
     
-    installments.forEach(inst => {
+    contractInstallments.forEach(inst => {
       const month = inst.تاريخ_استحقاق?.slice(0, 7) || 'unknown';
       if (!byMonth[month]) {
         byMonth[month] = { collected: 0, commission: 0, net: 0 };
@@ -197,10 +196,11 @@ export async function exportOwnerReportPdf(ownerId: string): Promise<string | nu
     if (!data) return null;
 
     const htmlContent = buildOwnerReportHtml(data);
-    const fullHtml = buildFullPrintHtmlDocument(htmlContent, `كشف حساب المالك - ${data.owner.الاسم}`);
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>كشف حساب المالك - ${data.owner.الاسم}</title></head><body>${htmlContent}</body></html>`;
     
     const fileName = `owner_report_${ownerId}_${Date.now()}.pdf`;
-    return await savePdfToPath(fullHtml, fileName);
+    const result = await window.desktopPrinting?.savePdfToPath?.({ html: fullHtml, filePath: fileName }) ?? null;
+    return (result && 'ok' in result && result.ok) ? (result.savedPath ?? null) : null;
   } catch (error) {
     console.error('[OwnerReport] Failed to generate PDF', error);
     return null;

@@ -6,12 +6,16 @@
 import { useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { getProperties } from '@/services/db/properties';
+import type { العقارات_tbl } from '@/types/types';
 
 export function PropertiesMap() {
   const properties = getProperties();
-  const [selectedProperty, setSelectedProperty] = useState<typeof properties[0] | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<العقارات_tbl | null>(null);
 
-  const propertiesWithLocation = properties.filter(p => (p as any).latitude && (p as any).longitude);
+  const propertiesWithLocation = properties.filter(p => 
+    typeof (p as unknown as Record<string, unknown>).latitude === 'number' && 
+    typeof (p as unknown as Record<string, unknown>).longitude === 'number'
+  );
 
   if (propertiesWithLocation.length === 0) {
     return (
@@ -28,7 +32,7 @@ export function PropertiesMap() {
     <div className="space-y-4">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <iframe
-          src={`https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center=${(firstProperty as any).latitude},${(firstProperty as any).longitude}&zoom=12`}
+          src={`https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center=${(firstProperty as unknown as Record<string, unknown>).latitude},${(firstProperty as unknown as Record<string, unknown>).longitude}&zoom=12`}
           width="100%"
           height="500"
           style={{ border: 0 }}

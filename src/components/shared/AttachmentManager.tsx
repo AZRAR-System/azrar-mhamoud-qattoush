@@ -3,7 +3,7 @@
  * عرض ورفع وحذف المرفقات لجميع الكيانات
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Trash2, Download, Upload, FileText, Image, File, Shield, User } from 'lucide-react';
 import { Attachment, AttachmentType, getAttachments, addAttachment, deleteAttachment } from '@/services/db/attachments';
 import { useAuth } from '@/context/AuthContext';
@@ -38,14 +38,14 @@ export function AttachmentManager({ entityType, entityId }: AttachmentManagerPro
   const [selectedType, setSelectedType] = useState<AttachmentType>('اخرى');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const loadAttachments = () => {
+  const loadAttachments = useCallback(() => {
     const data = getAttachments(entityType, entityId);
     setAttachments(data);
-  };
+  }, [entityType, entityId]);
 
   useEffect(() => {
     loadAttachments();
-  }, [entityType, entityId, loadAttachments]);
+  }, [loadAttachments]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

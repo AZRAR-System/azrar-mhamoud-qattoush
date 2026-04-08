@@ -18,6 +18,7 @@ import {
 import { Home, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
 import { getProperties } from '@/services/db/properties';
 import { getContracts } from '@/services/db/contracts';
+import { getInstallments } from '@/services/db/installments';
 import { formatCurrencyJOD } from '@/utils/format';
 import { INSTALLMENT_STATUS } from '@/services/db/installmentConstants';
 
@@ -51,7 +52,13 @@ export function AdvancedStats() {
   const loadStats = () => {
     const properties = getProperties();
     const contracts = getContracts();
-    const installments: any[] = [];
+    const allInstallments = getInstallments();
+    
+    const installments: { حالة_الكمبيالة: string; تاريخ_الدفع?: string; القيمة?: number }[] = allInstallments.map(i => ({
+      حالة_الكمبيالة: i.حالة_الكمبيالة,
+      تاريخ_الدفع: i.تاريخ_الدفع,
+      القيمة: i.القيمة
+    }));
 
     // معدل الإشغال
     const rentedCount = properties.filter(p => p.حالة_العقار === 'مؤجر').length;
@@ -62,12 +69,12 @@ export function AdvancedStats() {
 
     // متوسط الإيجار الشهري
     const activeContracts = contracts.filter(c => c.حالة_العقد === 'نشط');
-    const totalRent = activeContracts.reduce((sum, c) => sum + (Number(c.قيمة_الايجار) || 0), 0);
-    const averageRent = activeContracts.length > 0 ? Math.round(totalRent / activeContracts.length) : 0;
+    const totalRent = activeContracts.reduce((sum, c) => sum + (Number(c.القيمة_السنوية) || 0), 0);
+    const averageRent = activeContracts.length > 0 ? Math.round((totalRent / 12) / activeContracts.length) : 0;
 
     // نسبة التأخر
-    const dueInstallments = installments.filter(i => i.حالة_الكمبيالة === INSTALLMENT_STATUS.UNPAID);
-    const lateInstallments: any[] = [];
+    const dueInstallments = installments.filter(i => i.حالة_الكمبيالة === 'غير مدفوع');
+    const lateInstallments: typeof installments = [];
     const latePaymentsRate = dueInstallments.length > 0 ? Math.round((lateInstallments.length / dueInstallments.length) * 100) : 0;
 
     // الإيرادات الشهرية آخر 12 شهر

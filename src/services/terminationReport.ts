@@ -6,7 +6,6 @@
 import type { العقود_tbl, الأشخاص_tbl, العقارات_tbl, الكمبيالات_tbl } from '@/types';
 import { formatCurrencyJOD } from '@/utils/format';
 import { getContractDetails } from '@/services/db/contracts';
-import { buildFullPrintHtmlDocument, savePdfToPath } from '@/services/printing/unifiedPrint';
 import { upsertAlert } from '@/services/db/alertsCore';
 import { INSTALLMENT_STATUS } from './db/installmentConstants';
 
@@ -51,7 +50,7 @@ export async function generateTerminationReport(
 
     // حساب الإجماليات
     const totalContractAmount = installments.reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
-    const totalPaid = paid.reduce((sum, i) => sum + (Number(i.القيمة_المدفوعة) || Number(i.القيمة) || 0), 0);
+    const totalPaid = paid.reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
     const totalCancelled = cancelled.reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
     const totalRemaining = remaining.reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
     const finalBalance = totalRemaining;
@@ -74,11 +73,12 @@ export async function generateTerminationReport(
 
     // بناء محتوى HTML للتقرير
     const htmlContent = buildTerminationReportHtml(reportData);
-    const fullHtml = buildFullPrintHtmlDocument(htmlContent, `تقرير تسوية الحساب - عقد ${contractId}`);
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>تقرير تسوية الحساب - عقد ${contractId}</title></head><body>${htmlContent}</body></html>`;
 
     // حفظ PDF
     const fileName = `termination_report_${contractId}_${Date.now()}.pdf`;
-    const savePath = await savePdfToPath(fullHtml, fileName);
+    const result = await window.desktopPrinting?.savePdfToPath?.({ html: fullHtml, filePath: fileName }) ?? null;
+    const savePath = (result && 'ok' in result && result.ok) ? (result.savedPath ?? null) : null;
 
     // إضافة إشعار في مركز التنبيهات
     await upsertAlert({
@@ -90,10 +90,6 @@ export async function generateTerminationReport(
       تم_القراءة: false,
       مرجع_الجدول: 'العقود_tbl',
       مرجع_المعرف: contractId,
-      metadata: {
-        filePath: savePath,
-        fileName
-      }
     });
 
     return savePath;

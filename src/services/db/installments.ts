@@ -572,3 +572,10 @@ export function createInstallmentPaymentHandlers(deps: InstallmentPaymentDeps) {
 
   return { markInstallmentPaid, setInstallmentLateFee, reversePayment };
 }
+
+/**
+ * جلب جميع الكمبيالات
+ */
+export function getInstallments(): الكمبيالات_tbl[] {
+  return get<الكمبيالات_tbl>(KEYS.INSTALLMENTS) || [];
+}

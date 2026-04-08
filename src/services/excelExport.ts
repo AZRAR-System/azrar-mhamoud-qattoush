@@ -4,8 +4,8 @@
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { formatDateOnly, formatCurrencyJOD } from '@/utils/format';
-import { getPersons } from '@/services/db/persons';
+import { formatDateYMD, formatCurrencyJOD } from '@/utils/format';
+import { getPeople } from '@/services/db/people';
 import { getContracts } from '@/services/db/contracts';
 import { getInstallments } from '@/services/db/installments';
 import { getProperties } from '@/services/db/properties';
@@ -18,16 +18,16 @@ function getExcelDate(dateStr: string): string {
  * تصدير جميع الأشخاص إلى Excel
  */
 export function exportAllPersons(): void {
-  const persons = getPersons();
+  const persons = getPeople();
   const data = persons.map(p => ({
     'رقم الشخص': p.رقم_الشخص,
     'الاسم الكامل': p.الاسم,
     'رقم الهاتف': p.رقم_الهاتف,
     'الرقم الوطني': p.الرقم_الوطني,
-    'البريد الإلكتروني': p.البريد_الالكتروني,
+    'البريد الإلكتروني': p.البريد_الإلكتروني,
     'العنوان': p.العنوان,
     'الملاحظات': p.ملاحظات,
-    'تاريخ الإنشاء': getExcelDate(p.تاريخ_الانشاء)
+    'تاريخ الإنشاء': '-'
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
@@ -35,7 +35,7 @@ export function exportAllPersons(): void {
   XLSX.utils.book_append_sheet(wb, ws, 'الأشخاص');
   
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  saveAs(new Blob([buf]), `الاشخاص_${formatDateOnly(new Date())}.xlsx`);
+  saveAs(new Blob([buf]), `الاشخاص_${formatDateYMD(new Date())}.xlsx`);
 }
 
 /**
@@ -46,12 +46,12 @@ export function exportAllContracts(): void {
   const data = contracts.map(c => ({
     'رقم العقد': c.رقم_العقد,
     'رقم العقار': c.رقم_العقار,
-    'رقم المستأجر': c.رقم_المستأجر,
+    'رقم المستأجر': c.رقم_المستاجر,
     'تاريخ البداية': getExcelDate(c.تاريخ_البداية),
     'تاريخ النهاية': getExcelDate(c.تاريخ_النهاية),
     'مدة العقد (شهر)': c.مدة_العقد_بالاشهر,
-    'قيمة العقد الشهرية': formatCurrencyJOD(c.قيمة_الشهرية),
-    'إجمالي قيمة العقد': formatCurrencyJOD(c.القيمة_الاجمالية),
+    'قيمة العقد السنوية': formatCurrencyJOD(c.القيمة_السنوية),
+    'إجمالي قيمة العقد': formatCurrencyJOD(c.القيمة_السنوية),
     'الحالة': c.حالة_العقد,
     'التجديد التلقائي': c.autoRenew ? 'مفعل' : 'غير مفعل',
     'تاريخ الفسخ': getExcelDate(c.terminationDate),
@@ -63,7 +63,7 @@ export function exportAllContracts(): void {
   XLSX.utils.book_append_sheet(wb, ws, 'العقود');
   
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  saveAs(new Blob([buf]), `العقود_${formatDateOnly(new Date())}.xlsx`);
+  saveAs(new Blob([buf]), `العقود_${formatDateYMD(new Date())}.xlsx`);
 }
 
 /**
@@ -76,11 +76,10 @@ export function exportAllInstallments(): void {
     'رقم العقد': i.رقم_العقد,
     'ترتيب الكمبيالة': i.ترتيب_الكمبيالة,
     'تاريخ الاستحقاق': getExcelDate(i.تاريخ_استحقاق),
-    'المبلغ': formatCurrencyJOD(i.المبلغ),
-    'المبلغ المدفوع': formatCurrencyJOD(i.المبلغ_المدفوع || 0),
+    'المبلغ': formatCurrencyJOD(i.القيمة),
     'الحالة': i.حالة_الكمبيالة,
     'نوع الكمبيالة': i.نوع_الكمبيالة,
-    'تاريخ الدفع': getExcelDate(i.تاريخ_الدفع),
+    'تاريخ الدفع': getExcelDate(i.تاريخ_الدفع || ''),
     'ملاحظات': i.ملاحظات || '-'
   }));
 
@@ -89,7 +88,7 @@ export function exportAllInstallments(): void {
   XLSX.utils.book_append_sheet(wb, ws, 'الأقساط والدفعات');
   
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  saveAs(new Blob([buf]), `الاقساط_${formatDateOnly(new Date())}.xlsx`);
+  saveAs(new Blob([buf]), `الاقساط_${formatDateYMD(new Date())}.xlsx`);
 }
 
 /**
@@ -101,10 +100,10 @@ export function exportAllProperties(): void {
     'رقم العقار': p.رقم_العقار,
     'الكود الداخلي': p.الكود_الداخلي,
     'العنوان': p.العنوان,
-    'النوع': p.نوع_العقار,
+    'النوع': p.النوع,
     'رقم المالك': p.رقم_المالك,
     'الحالة': p.حالة_العقار,
-    'قيمة الايجار الشهرية': formatCurrencyJOD(p.قيمة_الايجار),
+    'قيمة الايجار السنوية': formatCurrencyJOD(p.الإيجار_التقديري || 0),
     'رقم اشتراك الكهرباء': p.رقم_اشتراك_الكهرباء || '-',
     'رقم اشتراك المياه': p.رقم_اشتراك_المياه || '-',
     'الملاحظات': p.ملاحظات || '-'
@@ -115,7 +114,7 @@ export function exportAllProperties(): void {
   XLSX.utils.book_append_sheet(wb, ws, 'العقارات');
   
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  saveAs(new Blob([buf]), `العقارات_${formatDateOnly(new Date())}.xlsx`);
+  saveAs(new Blob([buf]), `العقارات_${formatDateYMD(new Date())}.xlsx`);
 }
 
 /**
@@ -125,7 +124,7 @@ export function exportFullSystemReport(): void {
   const wb = XLSX.utils.book_new();
 
   // ورقة الأشخاص
-  const persons = getPersons().map(p => ({
+  const persons = getPeople().map(p => ({
     'رقم الشخص': p.رقم_الشخص,
     'الاسم الكامل': p.الاسم,
     'رقم الهاتف': p.رقم_الهاتف,
@@ -139,9 +138,9 @@ export function exportFullSystemReport(): void {
     'رقم العقار': p.رقم_العقار,
     'الكود الداخلي': p.الكود_الداخلي,
     'العنوان': p.العنوان,
-    'النوع': p.نوع_العقار,
+    'النوع': p.النوع,
     'الحالة': p.حالة_العقار,
-    'قيمة الايجار': formatCurrencyJOD(p.قيمة_الايجار)
+    'قيمة الايجار السنوية': formatCurrencyJOD(p.الإيجار_التقديري || 0)
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(properties), 'العقارات');
 
@@ -149,10 +148,10 @@ export function exportFullSystemReport(): void {
   const contracts = getContracts().map(c => ({
     'رقم العقد': c.رقم_العقد,
     'رقم العقار': c.رقم_العقار,
-    'رقم المستأجر': c.رقم_المستأجر,
+    'رقم المستأجر': c.رقم_المستاجر,
     'تاريخ البداية': getExcelDate(c.تاريخ_البداية),
     'تاريخ النهاية': getExcelDate(c.تاريخ_النهاية),
-    'قيمة الشهرية': formatCurrencyJOD(c.قيمة_الشهرية),
+    'قيمة السنوية': formatCurrencyJOD(c.القيمة_السنوية),
     'الحالة': c.حالة_العقد
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(contracts), 'العقود');
@@ -162,11 +161,11 @@ export function exportFullSystemReport(): void {
     'رقم الكمبيالة': i.رقم_الكمبيالة,
     'رقم العقد': i.رقم_العقد,
     'تاريخ الاستحقاق': getExcelDate(i.تاريخ_استحقاق),
-    'المبلغ': formatCurrencyJOD(i.المبلغ),
+    'المبلغ': formatCurrencyJOD(i.القيمة),
     'الحالة': i.حالة_الكمبيالة
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(installments), 'الأقساط');
 
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  saveAs(new Blob([buf]), `تقرير_النظام_الشامل_${formatDateOnly(new Date())}.xlsx`);
+  saveAs(new Blob([buf]), `تقرير_النظام_الشامل_${formatDateYMD(new Date())}.xlsx`);
 }

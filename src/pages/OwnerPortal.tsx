@@ -115,7 +115,7 @@ export function OwnerPortal() {
             <div className="space-y-4">
               <h3 className="font-medium text-gray-900 mb-4">العقارات المملوكة ({report.properties.length})</h3>
               <div className="grid gap-3">
-                {report.properties.map((p: any) => (
+                {report.properties.map((p) => (
                   <div key={p.رقم_العقار} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium">{p.الكود_الداخلي || p.رقم_العقار}</p>
@@ -150,7 +150,7 @@ export function OwnerPortal() {
                     </tr>
                   </thead>
                   <tbody>
-                    {report.activeContracts.map((c: any) => (
+                    {report.activeContracts.map((c) => (
                       <tr key={c.رقم_العقد} className="border-t border-gray-100">
                         <td className="px-4 py-3">{c.رقم_العقد}</td>
                         <td className="px-4 py-3">{c.رقم_العقار}</td>
@@ -172,14 +172,14 @@ export function OwnerPortal() {
             <div className="space-y-4">
               <h3 className="font-medium text-gray-900 mb-4">الإيرادات الشهرية</h3>
               <div className="space-y-3">
-                {Object.entries(report.byMonth).sort().reverse().slice(0, 12).map(([month, data]: [string, any]) => (
+                {Object.entries(report.byMonth).sort().reverse().slice(0, 12).map(([month, data]) => (
                   <div key={month} className="flex items-center gap-4">
                     <span className="w-20 text-sm text-gray-600">{month}</span>
                     <div className="flex-1">
                       <div className="h-6 bg-gray-100 rounded relative overflow-hidden">
                         <div
                           className="absolute inset-y-0 right-0 bg-blue-500 rounded"
-                          style={{ width: `${Math.min((data.collected / Math.max(...Object.values(report.byMonth).map((m: any) => m.collected), 1)) * 100, 100)}%` }}
+                          style={{ width: `${Math.min((data.collected / Math.max(...Object.values(report.byMonth).map((m) => m.collected), 1)) * 100, 100)}%` }}
                         />
                       </div>
                     </div>
@@ -207,7 +207,7 @@ export function OwnerPortal() {
                     </tr>
                   </thead>
                   <tbody>
-                    {report.installments.slice(0, 30).map((i: any) => (
+                    {report.installments.slice(0, 30).map((i) => (
                       <tr key={i.رقم_الكمبيالة} className="border-t border-gray-100">
                         <td className="px-4 py-3">{i.تاريخ_استحقاق}</td>
                         <td className="px-4 py-3">{i.contractNumber}</td>
