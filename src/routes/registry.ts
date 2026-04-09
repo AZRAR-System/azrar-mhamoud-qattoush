@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Building,
+  Building2,
   FileText,
   CreditCard,
   Settings,
@@ -39,6 +40,7 @@ export type NavItem = {
 // Keep this aligned with [src/App.tsx](src/App.tsx) routing.
 export const NAV_ITEMS: NavItem[] = [
   { label: 'لوحة المعلومات', path: ROUTE_PATHS.DASHBOARD, icon: LayoutDashboard },
+  { label: 'لوحة المالك', path: ROUTE_PATHS.OWNER_PORTAL, icon: Building2, role: 'SuperAdmin' },
   { label: 'إدارة المبيعات', path: ROUTE_PATHS.SALES, icon: BadgeDollarSign },
   { label: 'إدارة الأشخاص', path: ROUTE_PATHS.PEOPLE, icon: Users },
   { label: 'إدارة العقارات', path: ROUTE_PATHS.PROPERTIES, icon: Building },
@@ -104,6 +106,7 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
   titles[ROUTE_PATHS.COMPREHENSIVE_TESTS] = 'الاختبارات الشاملة';
   titles[ROUTE_PATHS.RESET_DATABASE] = 'إعادة ضبط المصنع';
   titles[ROUTE_PATHS.AUDIT_LOG] = 'سجل التدقيق';
+  titles[ROUTE_PATHS.OWNER_PORTAL] = 'لوحة المالك';
 
   return titles;
 })();
@@ -138,4 +141,5 @@ export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.DOCS]: 'مرجع المطورين، الهيكلية، ودليل التشغيل',
   [ROUTE_PATHS.RESET_DATABASE]: 'حذف البيانات وإعادة تهيئة النظام',
   [ROUTE_PATHS.AUDIT_LOG]: 'من فعل ماذا ومتى — آخر 500 عملية',
+  [ROUTE_PATHS.OWNER_PORTAL]: 'لوحة تحكم مخصصة لمالكي العقارات لعرض إيراداتهم وعقودهم',
 };

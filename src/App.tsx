@@ -75,6 +75,9 @@ const DatabaseManager = React.lazy(() =>
 const Sales = React.lazy(() =>
   import('./pages/sales').then((module) => ({ default: module.Sales }))
 );
+const OwnerPortal = React.lazy(() =>
+  import('./pages/OwnerPortal').then((module) => ({ default: module.OwnerPortal }))
+);
 const Login = React.lazy(() =>
   import('./pages/Login').then((module) => ({ default: module.Login }))
 );
@@ -448,6 +451,7 @@ const AppRoutes: React.FC = () => {
               <Route path={ROUTE_PATHS.CONTACTS} element={<Contacts />} />
               <Route path={ROUTE_PATHS.BULK_WHATSAPP} element={<BulkWhatsApp />} />
               <Route path={ROUTE_PATHS.DOCUMENTS} element={<Documents />} />
+              <Route path={ROUTE_PATHS.OWNER_PORTAL} element={<OwnerPortal />} />
               <Route path={ROUTE_PATHS.COMPREHENSIVE_TESTS} element={<ComprehensiveTests />} />
               <Route path={ROUTE_PATHS.RESET_DATABASE} element={<DatabaseReset />} />
 

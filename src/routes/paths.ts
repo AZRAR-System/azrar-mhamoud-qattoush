@@ -45,6 +45,9 @@ export const ROUTE_PATHS = {
   BUILDER: '/builder',
   DOCS: '/docs',
 
+  // Portal
+  OWNER_PORTAL: '/owner-portal',
+
   // Hidden/utility
   COMPREHENSIVE_TESTS: '/comprehensive-tests',
   RESET_DATABASE: '/reset-database',
