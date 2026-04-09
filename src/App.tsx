@@ -69,9 +69,6 @@ const SystemMaintenance = React.lazy(() =>
 const AdminControlPanel = React.lazy(() =>
   import('./pages/AdminControlPanel').then((module) => ({ default: module.AdminControlPanel }))
 );
-const DatabaseManager = React.lazy(() =>
-  import('./pages/DatabaseManager').then((module) => ({ default: module.DatabaseManager }))
-);
 const Sales = React.lazy(() =>
   import('./pages/sales').then((module) => ({ default: module.Sales }))
 );
@@ -430,7 +427,7 @@ const AppRoutes: React.FC = () => {
               <Route path={ROUTE_PATHS.MAINTENANCE} element={<Maintenance />} />
               <Route path={ROUTE_PATHS.SYS_MAINTENANCE} element={<SystemMaintenance />} />
               <Route path={ROUTE_PATHS.ADMIN_PANEL} element={<AdminControlPanel />} />
-              <Route path={ROUTE_PATHS.DATABASE} element={<DatabaseManager />} />
+
               <Route path={ROUTE_PATHS.BUILDER} element={<DynamicBuilder />} />
               <Route path={ROUTE_PATHS.ALERTS} element={<Alerts />} />
               <Route path={ROUTE_PATHS.OPERATIONS} element={<Operations />} />

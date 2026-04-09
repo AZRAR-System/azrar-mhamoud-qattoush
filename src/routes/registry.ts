@@ -69,7 +69,6 @@ export const NAV_ITEMS: NavItem[] = [
         role: 'SuperAdmin',
       },
       { label: 'صيانة النظام', path: ROUTE_PATHS.SYS_MAINTENANCE, icon: ServerCog },
-      { label: 'قواعد البيانات', path: ROUTE_PATHS.DATABASE, icon: Database },
       { label: 'منشئ النظام', path: ROUTE_PATHS.BUILDER, icon: Database },
       { label: 'التوثيق التقني', path: ROUTE_PATHS.DOCS, icon: BookOpen },
       {
@@ -137,7 +136,7 @@ export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.BULK_WHATSAPP]: 'اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح',
   [ROUTE_PATHS.ADMIN_PANEL]: 'إدارة المستخدمين، الصلاحيات، ومراقبة النظام',
   [ROUTE_PATHS.SETTINGS]: 'تخصيص خيارات النظام والشركة والمستخدمين',
-  [ROUTE_PATHS.DATABASE]: 'إدارة الجداول، تحسين الأداء، والتحكم في القيود',
+
   [ROUTE_PATHS.DOCS]: 'مرجع المطورين، الهيكلية، ودليل التشغيل',
   [ROUTE_PATHS.RESET_DATABASE]: 'حذف البيانات وإعادة تهيئة النظام',
   [ROUTE_PATHS.AUDIT_LOG]: 'من فعل ماذا ومتى — آخر 500 عملية',

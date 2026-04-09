@@ -132,9 +132,12 @@ export const MarqueeWidget: FC<{
 
     const durationHours = Number(hoursStr);
 
+    const validHours = Number.isFinite(durationHours) && durationHours >= 0 ? durationHours : 0;
+    const expiresAt = validHours > 0 ? new Date(Date.now() + validHours * 3600 * 1000).toISOString() : undefined;
+
     const local = DbService.addMarqueeAd({
       content,
-      durationHours,
+      expiresAt,
       type: 'info',
       priority: 'Normal',
     });

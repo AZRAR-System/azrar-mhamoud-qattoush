@@ -377,7 +377,7 @@ export const BulkWhatsApp: React.FC = () => {
       setProgress((p) => ({ ...p, done: opened, currentName: '' }));
       cancelRef.current = false;
       if (opened > 0)
-        DbService.logEvent('User', 'BulkWhatsApp', 'Contacts', `Opened ${opened} chats`);
+        DbService.logEvent('User', 'BulkWhatsApp', 'Contacts', `Opened ${opened} chats`, 'whatsapp_batch');
       if (opened > 0) toast.success(`تم فتح ${opened} محادثة واتساب`);
     }
   };

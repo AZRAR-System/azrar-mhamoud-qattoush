@@ -901,7 +901,7 @@ export function useProperties() {
         }
       );
 
-      DbService.logEvent('User', 'Export', 'Properties', `Exported ${rows.length} properties`);
+      DbService.logEvent('User', 'Export', 'Properties', '-', `Exported ${rows.length} properties`);
       toast.success(t('تم التصدير بنجاح'));
       return;
     }
@@ -953,6 +953,7 @@ export function useProperties() {
       'User',
       'Export',
       'Properties',
+      '-',
       `Exported ${filteredProperties.length} properties`
     );
     toast.success(t('تم التصدير بنجاح'));

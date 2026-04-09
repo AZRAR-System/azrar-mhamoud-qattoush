@@ -215,9 +215,12 @@ export const MarqueeAdsPanel: React.FC = () => {
 
     setBusy(true);
     try {
+      const validHours = Number.isFinite(durationHours) && durationHours >= 0 ? durationHours : 0;
+      const expiresAt = validHours > 0 ? new Date(Date.now() + validHours * 3600 * 1000).toISOString() : undefined;
       const local = DbService.addMarqueeAd({
         content,
-        durationHours: Number.isFinite(durationHours) && durationHours >= 0 ? durationHours : 0,
+        // Replace durationHours with expiresAt
+        expiresAt,
         type: typeValue,
         priority: priorityValue,
         ...(action ? { action } : {}),

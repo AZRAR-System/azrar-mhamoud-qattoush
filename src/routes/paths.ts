@@ -41,7 +41,6 @@ export const ROUTE_PATHS = {
   /** سجل التدقيق — SuperAdmin فقط */
   AUDIT_LOG: '/audit-log',
   SYS_MAINTENANCE: '/sys-maintenance',
-  DATABASE: '/database',
   BUILDER: '/builder',
   DOCS: '/docs',
 

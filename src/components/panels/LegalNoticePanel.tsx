@@ -28,7 +28,9 @@ export const LegalNoticePanel: React.FC<{ id: string }> = ({ id }) => {
     setSelectedTemplateId(tmplId);
     if (tmplId) {
       const result = DbService.generateLegalNotice(tmplId, id);
-      if (result) setGeneratedText(result.text);
+      if (result) {
+        setGeneratedText(typeof result === 'string' ? result : (result as any).text || '');
+      }
     } else {
       setGeneratedText('');
     }

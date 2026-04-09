@@ -328,14 +328,14 @@ export const SmartTools: React.FC = () => {
         hasDownPayment && splitDownPayment ? downPaymentSplitCount : undefined,
     };
 
-    const res = DbService.previewContractInstallments(draft);
+    const res = DbService.previewContractInstallments(draft as any, 'preview');
 
     if (!res.success || !res.data) {
       toast.error(res.message || 'تعذر توليد الدفعات');
       return;
     }
 
-    const list = [...res.data.installments].sort(
+    const list = [...res.data].sort(
       (a, b) => (a.ترتيب_الكمبيالة || 0) - (b.ترتيب_الكمبيالة || 0)
     );
     setPreviewInstallments(list);

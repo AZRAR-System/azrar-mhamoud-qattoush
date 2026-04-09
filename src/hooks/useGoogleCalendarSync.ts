@@ -31,7 +31,7 @@ function collectTasksPayload(): Array<{
     done: boolean;
   }> = [];
 
-  const reminders = DbService.getAllReminders?.() || [];
+  const reminders = DbService.getReminders?.() || [];
   for (const r of reminders) {
     out.push({
       id: `rem:${String(r.id)}`,

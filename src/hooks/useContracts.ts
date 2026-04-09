@@ -1112,6 +1112,7 @@ export function useContracts() {
       'User',
       'Export',
       'Contracts',
+      '-',
       `Exported ${filteredContracts.length} contracts`
     );
     toast.success(t('تم التصدير'));

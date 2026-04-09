@@ -287,7 +287,7 @@ export const LegalHub: React.FC = () => {
 
     // Web/legacy behavior
     const result = DbService.generateLegalNotice(selectedTemplateId, selectedContractId);
-    if (result) setGeneratedText(result.text);
+    if (result) setGeneratedText(typeof result === 'string' ? result : (result as any).text || '');
   };
 
   handleGenerateRef.current = handleGenerate;
@@ -485,14 +485,10 @@ export const LegalHub: React.FC = () => {
 
   const handleSaveHistoryEdit = async () => {
     if (!editingHistory) return;
-    const res = DbService.updateLegalNoticeHistory(editingHistory.id, {
+    DbService.updateLegalNoticeHistory(editingHistory.id, {
       note: editNote,
       reply: editReply,
     });
-    if (!res.success) {
-      toast.error(res.message || 'فشل حفظ التعديل');
-      return;
-    }
     toast.success('تم تحديث السجل');
     setEditingHistory(null);
     refreshData();

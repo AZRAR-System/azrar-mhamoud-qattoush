@@ -155,6 +155,48 @@ export const getPersonDetails = (id: string): PersonDetailsResult | null => {
   };
 };
 
+export const updateTenantRatingImpl = (
+  tenantId: string,
+  paymentType: 'full' | 'partial' | 'late'
+): void => {
+  const people = get<الأشخاص_tbl>(KEYS.PEOPLE);
+  const idx = people.findIndex((p) => p.رقم_الشخص === tenantId);
+  if (idx === -1) return;
+
+  const person = people[idx];
+
+  if (!person.تصنيف_السلوك) {
+    person.تصنيف_السلوك = { type: 'جيد', points: 100, history: [] };
+  }
+
+  let pointsChange = 0;
+  if (paymentType === 'full') {
+    pointsChange = 5;
+    person.تصنيف_السلوك.points = Math.min(100, person.تصنيف_السلوك.points + 5);
+  } else if (paymentType === 'partial') {
+    pointsChange = -10;
+    person.تصنيف_السلوك.points = Math.max(0, person.تصنيف_السلوك.points - 10);
+  } else if (paymentType === 'late') {
+    pointsChange = -20;
+    person.تصنيف_السلوك.points = Math.max(0, person.تصنيف_السلوك.points - 20);
+  }
+
+  const pts = person.تصنيف_السلوك.points;
+  if (pts >= 90) person.تصنيف_السلوك.type = 'ممتاز';
+  else if (pts >= 70) person.تصنيف_السلوك.type = 'جيد';
+  else if (pts >= 50) person.تصنيف_السلوك.type = 'مقبول';
+  else person.تصنيف_السلوك.type = 'سيء';
+
+  person.تصنيف_السلوك.history.unshift({
+    date: new Date().toISOString(),
+    paymentType,
+    pointsChange,
+    points: person.تصنيف_السلوك.points,
+  });
+
+  save(KEYS.PEOPLE, people);
+};
+
 export const getPersonBlacklistStatus = (id: string): BlacklistRecord | undefined =>
   get<BlacklistRecord>(KEYS.BLACKLIST).find((b) => b.personId === id && b.isActive);
 

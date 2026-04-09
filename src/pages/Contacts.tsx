@@ -332,7 +332,7 @@ export const Contacts: React.FC = () => {
       }
     );
 
-    DbService.logEvent('User', 'Export', 'Contacts', `Exported ${rows.length} records`);
+    DbService.logEvent('User', 'Export', 'Contacts', `Exported ${rows.length} records`, 'export');
     toast.success(t('تم تصدير البيانات بنجاح'));
   };
 

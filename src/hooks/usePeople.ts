@@ -488,7 +488,7 @@ export function usePeople() {
         }
       );
 
-      DbService.logEvent('User', 'Export', 'People', `Exported ${rows.length} records`);
+      DbService.logEvent('User', 'Export', 'People', '-', `Exported ${rows.length} records`);
       toast.success(t('تم تصدير البيانات بنجاح'));
       return;
     }
@@ -526,7 +526,7 @@ export function usePeople() {
     );
 
     // Log Export
-    DbService.logEvent('User', 'Export', 'People', `Exported ${filtered.length} records`);
+    DbService.logEvent('User', 'Export', 'People', '-', `Exported ${filtered.length} records`);
     toast.success(t('تم تصدير البيانات بنجاح'));
   };
 

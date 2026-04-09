@@ -1546,7 +1546,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
   };
 
   const handleDeleteLookup = (id: string) => {
-    DbService.deleteLookup(id);
+    DbService.deleteLookupItem(id);
     if (activeCategory) setLookupItems(DbService.getLookupsByCategory(activeCategory.name));
   };
 
@@ -1656,7 +1656,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
     try {
       const text = await file.text();
       const json = JSON.parse(text);
-      const preview = DbService.previewRestore(json);
+      const preview = await DbService.previewRestore(json);
       openPanel('CONFIRM_MODAL', 'restore', {
         title: 'استعادة نسخة احتياطية',
         message: `سيتم استرجاع: ${preview.people} أشخاص، ${preview.contracts} عقود. هل أنت متأكد؟ سيتم استبدال البيانات الحالية.`,

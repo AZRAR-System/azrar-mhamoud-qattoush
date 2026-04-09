@@ -8,8 +8,11 @@ import { SystemHealth, PredictiveInsight } from '@/types';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { getErrorMessage } from '@/utils/errors';
-import { validateAllData } from '@/services/dataValidation';
+import { validateAllData, type ValidationResult } from '@/services/dataValidation';
 import { runSystemScenarioTests, UiTestResult } from '@/services/integrationTests';
+import { storage } from '@/services/storage';
+import { buildCache, DbCache } from '@/services/dbCache';
+import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   CheckCircle,
@@ -32,6 +35,10 @@ import {
   Terminal,
   Trash2,
   Upload,
+  HardDrive,
+  Table,
+  Key,
+  RefreshCw,
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -1062,142 +1069,327 @@ const SystemTestView = memo(() => {
 /*    Database View (NEW)    */
 /* ========================= */
 
+/* ========================= */
+/*    Database View (Consolidated) */
+/* ========================= */
+
+const FRIENDLY_NAMES: Record<string, string> = {
+  db_people: 'الأشخاص (People)',
+  db_properties: 'العقارات (Properties)',
+  db_contracts: 'العقود (Contracts)',
+  db_installments: 'الكمبيالات / جدول الدفعات (Installments)',
+  db_operations: 'سجل العمليات (Logs)',
+  db_users: 'المستخدمين (Users)',
+  db_roles: 'الأدوار (Roles)',
+  db_user_permissions: 'صلاحيات المستخدمين (User Permissions)',
+  db_settings: 'إعدادات النظام (Settings)',
+  db_blacklist: 'القائمة السوداء (Blacklist)',
+  db_sales_listings: 'عروض البيع (Sales Listings)',
+  db_sales_offers: 'عروض الشراء (Sales Offers)',
+  db_sales_agreements: 'اتفاقيات البيع (Sales Agreements)',
+  db_external_commissions: 'العمولات الخارجية (External Commissions)',
+  db_ownership_history: 'سجل الملكية (Ownership History)',
+  db_maintenance_tickets: 'الصيانة (Maintenance Tickets)',
+  db_attachments: 'المرفقات (Attachments)',
+  db_notes: 'الملاحظات (Notes)',
+  db_activities: 'النشاطات (Activities)',
+  db_lookups: 'القوائم (Lookups)',
+  db_lookup_categories: 'تصنيفات القوائم (Lookup Categories)',
+  db_dynamic_tables: 'الجداول الديناميكية (Dynamic Tables)',
+  db_dynamic_records: 'سجلات ديناميكية (Dynamic Records)',
+  db_dynamic_form_fields: 'حقول النماذج (Dynamic Fields)',
+  db_dashboard_config: 'إعدادات لوحة التحكم (Dashboard Config)',
+  db_dashboard_notes: 'ملاحظات لوحة التحكم (Dashboard Notes)',
+  db_reminders: 'التذكيرات (Reminders)',
+  db_client_interactions: 'تفاعلات العملاء (Client Interactions)',
+  db_followups: 'المتابعات (Follow-ups)',
+  db_notification_send_logs: 'سجل إرسال التنبيهات (Notification Send Logs)',
+  db_clearance_records: 'براءة الذمة (Clearance Records)',
+  db_legal_templates: 'قوالب قانونية (Legal Templates)',
+  db_legal_history: 'سجل قانوني (Legal History)',
+  db_smart_behavior: 'سلوك ذكي (Smart Behavior)',
+  theme: 'الثيم (Theme)',
+  khaberni_onboarding_completed: 'حالة الإرشاد (Onboarding)',
+  ui_sales_edit_agreement_id: 'ربط تعديل اتفاقية بيع (Sales Deep Link)',
+  app_update_feed_url: 'رابط التحديثات (Update Feed URL)',
+  audioConfig: 'إعدادات الصوت (Audio Config)',
+  daily_scheduler_last_run: 'آخر تشغيل للجدولة اليومية',
+  notification_templates: 'قوالب الإشعارات (Notification Templates)',
+  notificationLogs: 'سجل الإشعارات (Notification Logs)',
+  dashboard_tasks: 'مهام لوحة التحكم (Dashboard Tasks)',
+};
+
+const KNOWN_ORDER = [
+  'db_people',
+  'db_properties',
+  'db_contracts',
+  'db_installments',
+  'db_users',
+  'db_roles',
+  'db_user_permissions',
+  'db_operations',
+  'db_settings',
+  'db_blacklist',
+  'db_sales_listings',
+  'db_sales_offers',
+  'db_sales_agreements',
+  'db_external_commissions',
+  'db_ownership_history',
+  'db_maintenance_tickets',
+  'db_attachments',
+  'db_notes',
+  'db_activities',
+  'db_lookups',
+  'db_lookup_categories',
+  'db_dynamic_tables',
+  'db_dynamic_records',
+  'db_dynamic_form_fields',
+  'db_dashboard_config',
+  'db_dashboard_notes',
+  'db_reminders',
+  'db_client_interactions',
+  'db_followups',
+  'db_notification_send_logs',
+  'db_clearance_records',
+  'db_legal_templates',
+  'db_legal_history',
+  'db_smart_behavior',
+  'theme',
+  'app_update_feed_url',
+  'audioConfig',
+  'notification_templates',
+  'notificationLogs',
+  'dashboard_tasks',
+  'daily_scheduler_last_run',
+  'khaberni_onboarding_completed',
+  'ui_sales_edit_agreement_id',
+];
+
+const HIDDEN_KEYS = new Set(['demo_data_loaded']);
+
 const DatabaseView = memo(() => {
   const toast = useToast();
   const { openPanel } = useSmartModal();
   const [dbPath, setDbPath] = useState<string>('');
-  // Backup/restore is centralized in Settings.
-
   const [appVersion, setAppVersion] = useState<string>('');
   const [installingFromFile, setInstallingFromFile] = useState<boolean>(false);
+  const [rebuilding, setRebuilding] = useState(false);
+  const [cacheTick, setCacheTick] = useState(0);
+  const [tables, setTables] = useState<Array<{ key: string; name: string; icon: LucideIcon; kind: 'db' | 'system' }>>([]);
+  const [tablesPage, setTablesPage] = useState(1);
+  const tablesPageSize = 10;
 
   useEffect(() => {
     if (window.desktopDb?.getPath) {
-      window.desktopDb
-        .getPath()
-        .then((p) => setDbPath(p))
-        .catch(() => setDbPath(''));
+      window.desktopDb.getPath().then(setDbPath).catch(() => {});
     }
-
     if (window.desktopUpdater?.getVersion) {
-      window.desktopUpdater
-        .getVersion()
-        .then((v) => setAppVersion(v))
-        .catch(() => setAppVersion(''));
+      window.desktopUpdater.getVersion().then(setAppVersion).catch(() => {});
     }
   }, []);
 
+  const refreshLocalStorageList = useCallback(() => {
+    try {
+      const keys = Array.from(new Set(Object.keys(localStorage))).filter((k) => !HIDDEN_KEYS.has(k));
+      const orderIndex = new Map<string, number>();
+      KNOWN_ORDER.forEach((k, i) => orderIndex.set(k, i));
+
+      const sorted = keys.sort((a, b) => {
+        const ai = orderIndex.has(a) ? (orderIndex.get(a) as number) : Number.MAX_SAFE_INTEGER;
+        const bi = orderIndex.has(b) ? (orderIndex.get(b) as number) : Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+        return a.localeCompare(b);
+      });
+
+      setTables(
+        sorted.map((k) => {
+          const kind: 'db' | 'system' = k.startsWith('db_') ? 'db' : 'system';
+          const name = FRIENDLY_NAMES[k] ?? (kind === 'db' ? `جدول: ${k}` : `مفتاح: ${k}`);
+          const icon = kind === 'db' ? Table : Key;
+          return { key: k, name, icon, kind };
+        })
+      );
+    } catch {
+      setTables([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLocalStorageList();
+  }, [refreshLocalStorageList]);
+
+  const handleRebuildIndexes = () => {
+    setRebuilding(true);
+    setTimeout(() => {
+      buildCache();
+      setCacheTick((t) => t + 1);
+      setRebuilding(false);
+      toast.success('تم إعادة بناء الفهارس بنجاح');
+    }, 1000);
+  };
+
+  const handleClearKey = async (key: string) => {
+    const ok = await toast.confirm({
+      title: 'تحذير',
+      message: `هل أنت متأكد من مسح جميع بيانات (${key})؟ لا يمكن التراجع.`,
+      confirmText: 'مسح',
+      cancelText: 'إلغاء',
+      isDangerous: true,
+    });
+    if (ok) {
+      if (key.startsWith('db_')) {
+        await storage.setItem(key, '[]');
+      } else {
+        localStorage.removeItem(key);
+      }
+      buildCache();
+      setCacheTick((t) => t + 1);
+      refreshLocalStorageList();
+      toast.success('تم مسح البيانات بنجاح');
+    }
+  };
+
+  const getSize = (key: string) => {
+    const data = localStorage.getItem(key);
+    return data ? (data.length / 1024).toFixed(1) + ' KB' : '0 KB';
+  };
+
+  const getCount = (key: string) => {
+    const raw = localStorage.getItem(key);
+    if (!raw) return '0';
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? String(parsed.length) : '1';
+    } catch {
+      return '1';
+    }
+  };
+
   const doInstallFromFile = async () => {
     if (!window.desktopUpdater?.installFromFile) {
-      toast.warning('ميزة التحديث من ملف متاحة فقط في وضع Desktop (Electron)');
+      toast.warning('متاح فقط في وضع Desktop');
       return;
     }
     setInstallingFromFile(true);
     try {
-      const res = (await window.desktopUpdater.installFromFile()) as unknown as {
-        success?: boolean;
-        message?: string;
-      } | null;
-      if (res?.success === false) {
-        toast.error(res?.message || 'فشل تثبيت التحديث من ملف');
-      }
+      await window.desktopUpdater.installFromFile();
     } catch (e: unknown) {
-      toast.error(getErrorMessage(e) || 'فشل تثبيت التحديث من ملف');
+      toast.error(getErrorMessage(e) || 'فشل التثبيت');
     } finally {
       setInstallingFromFile(false);
     }
   };
 
-  const handleInstallFromFile = () => {
-    if (!window.desktopUpdater?.installFromFile) {
-      toast.warning('ميزة التحديث من ملف متاحة فقط في وضع Desktop (Electron)');
-      return;
-    }
-
-    openPanel('CONFIRM_MODAL', 'install_from_file', {
-      title: 'تثبيت تحديث',
-      confirmText: 'موافق',
-      message: `اختر ملف التحديث (مثبت البرنامج .exe).
-
-سيتم أخذ نسخة احتياطية إجبارية تلقائياً قبل التحديث (لحماية بياناتك). إذا فشل أخذ النسخة سيتم إيقاف التحديث.
-
-بعدها سيتم إغلاق البرنامج ثم فتح المثبت. هل تريد المتابعة؟`,
-      onConfirm: () => {
-        void doInstallFromFile();
-      },
-    });
-  };
-
   const isDesktop = !!window.desktopDb;
+  const visibleTables = tables.slice((tablesPage - 1) * tablesPageSize, tablesPage * tablesPageSize);
+  const tablesPageCount = Math.ceil(tables.length / tablesPageSize);
 
   return (
-    <div className="app-card p-8 rounded-3xl animate-slide-up space-y-6">
-      <div className="flex items-start gap-3">
-        <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl">
-          <Database size={24} />
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-slate-800 dark:text-white">إدارة قاعدة البيانات</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-            النسخ الاحتياطي/الاسترجاع متاح الآن من صفحة الإعدادات فقط لتجنب التكرار.
-          </p>
-        </div>
-      </div>
-
-      {isDesktop && dbPath && (
-        <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
-          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-            موقع قاعدة البيانات:
-          </div>
-          <div className="text-sm text-slate-700 dark:text-slate-200 font-mono bg-white dark:bg-slate-800 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 break-all">
-            {dbPath}
-          </div>
-        </div>
-      )}
-
-      {isDesktop && (
-        <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700 rounded-2xl p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm font-black text-slate-800 dark:text-white">
-                تحديث البرنامج
+    <div className="space-y-8 animate-fade-in pb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="app-card p-6 rounded-3xl space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl">
+                  <Database size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-white">إدارة كاش النظام والجداول</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">عرض حالة البيانات المحلية (LocalStorage) وإدارة الفهارس.</p>
+                </div>
               </div>
-              <div className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                الإصدار الحالي: <span className="font-mono">{appVersion || '—'}</span>
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                اختر ملف التحديث <span className="font-mono">.exe</span> من جهازك ليتم تثبيته
-                تلقائياً.
+              <button
+                onClick={handleRebuildIndexes}
+                disabled={rebuilding}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition"
+              >
+                <RefreshCw size={16} className={rebuilding ? 'animate-spin' : ''} />
+                {rebuilding ? 'جاري البناء...' : 'إعادة بناء الفهارس'}
+              </button>
+            </div>
+
+            <div className="app-table-wrapper rounded-2xl border border-slate-100 dark:border-slate-800">
+              <table className="app-table">
+                <thead className="app-table-thead">
+                  <tr>
+                    <th className="app-table-th">الجدول</th>
+                    <th className="app-table-th text-center">السجلات</th>
+                    <th className="app-table-th text-center">الحجم</th>
+                    <th className="app-table-th text-center">إجراء</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
+                  {visibleTables.map((t) => (
+                    <tr key={t.key} className="app-table-row group">
+                      <td className="app-table-td">
+                        <div className="flex items-center gap-2">
+                          <t.icon size={14} className="text-slate-400" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.name}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{t.key}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="app-table-td text-center font-mono text-xs">{getCount(t.key)}</td>
+                      <td className="app-table-td text-center font-mono text-xs text-slate-400">{getSize(t.key)}</td>
+                      <td className="app-table-td">
+                        <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => handleClearKey(t.key)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition" title="مسح">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="p-3 border-t border-slate-100 dark:border-slate-800">
+                <PaginationControls page={tablesPage} pageCount={tablesPageCount} onPageChange={setTablesPage} />
               </div>
             </div>
           </div>
-
-          <div className="mt-4">
-            <button
-              onClick={handleInstallFromFile}
-              disabled={installingFromFile}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold px-4 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
-            >
-              {installingFromFile ? (
-                <>
-                  <RotateCcw size={16} className="animate-spin" /> فتح المثبت...
-                </>
-              ) : (
-                <>
-                  <Upload size={16} /> تثبيت تحديث من ملف
-                </>
-              )}
-            </button>
-          </div>
         </div>
-      )}
 
-      <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 rounded-2xl p-5">
-        <div className="flex items-start gap-3">
-          <AlertTriangle size={20} className="text-indigo-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-indigo-800 dark:text-indigo-200">
-            <div className="font-bold mb-1">ملاحظة</div>
-            <div>لتجنب التكرار، تم توحيد النسخ الاحتياطي/الاسترجاع داخل صفحة الإعدادات.</div>
+        <div className="space-y-6">
+          {/* Desktop Info */}
+          {isDesktop && (
+            <div className="app-card p-6 rounded-3xl space-y-4">
+              <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <HardDrive size={18} className="text-indigo-600" />
+                معلومات المسار والنسخة
+              </h4>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">موقع قاعدة البيانات</p>
+                  <p className="text-xs font-mono text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/40 p-2 rounded-lg mt-1 break-all border border-slate-100 dark:border-slate-800">
+                    {dbPath || 'غير متوفر'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">إصدار التطبيق</p>
+                  <p className="text-sm font-black text-indigo-600 mt-1">{appVersion || '—'}</p>
+                </div>
+              </div>
+              <button
+                onClick={doInstallFromFile}
+                disabled={installingFromFile}
+                className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-50"
+              >
+                <Upload size={16} />
+                تثبيت تحديث من ملف
+              </button>
+            </div>
+          )}
+
+          <div className="app-card p-6 rounded-3xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30">
+            <div className="flex gap-3 text-indigo-800 dark:text-indigo-300">
+              <Key size={20} className="shrink-0" />
+              <div className="text-xs leading-relaxed">
+                <p className="font-bold mb-1">تلميح:</p>
+                يتم مزامنة البيانات الأساسية مع المخدم تلقائياً إذا كان مفعل. إعدادات المخدم موجودة في "الإعدادات العامة".
+              </div>
+            </div>
           </div>
         </div>
       </div>

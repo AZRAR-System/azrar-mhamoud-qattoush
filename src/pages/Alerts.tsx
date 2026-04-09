@@ -288,7 +288,7 @@ export const Alerts = () => {
       time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     });
 
-    const message = String(generated?.text || '').trim();
+    const message = String(typeof generated === 'string' ? generated : (generated as any)?.text || '').trim();
     if (!message) return;
 
     const phones =
