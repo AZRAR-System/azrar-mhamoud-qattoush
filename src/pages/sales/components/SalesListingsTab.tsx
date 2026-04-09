@@ -15,12 +15,12 @@ interface SalesListingsTabProps {
 }
 
 export const SalesListingsTab: React.FC<SalesListingsTabProps> = ({
-  listings,
+  listings: _listings,
   isLoading,
   listingMarketingFilter,
   setListingMarketingFilter,
-  statusFilter,
-  searchQuery
+  statusFilter: _statusFilter,
+  searchQuery: _searchQuery
 }) => {
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -43,7 +43,7 @@ export const SalesListingsTab: React.FC<SalesListingsTabProps> = ({
             onChange={(e) => {
               const next = String(e.target.value || '').trim();
               if (next === 'all' || next === 'sale-only' || next === 'also-rentable') {
-                setListingMarketingFilter(next as any);
+setListingMarketingFilter(next as 'all' | 'sale-only' | 'also-rentable');
               }
             }}
             className="border-none p-3 px-5 rounded-xl text-xs font-black bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-soft outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all"

@@ -1,7 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { Button } from '@/components/ui/Button';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -23,8 +22,8 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md',
   children,
   footer,
-  onSubmit,
-  isLoading = false
+  onSubmit: _onSubmit,
+  isLoading: _isLoading = false
 }) => {
   if (!isOpen) return null;
 
