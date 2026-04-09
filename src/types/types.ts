@@ -274,6 +274,8 @@ export interface عروض_البيع_tbl {
   نوع_البيع: SalesType;
   الحالة: 'Active' | 'Sold' | 'Cancelled' | 'Pending';
   تاريخ_العرض: string;
+  ملاحظات?: string;
+  متاح_للإيجار_أيضا?: boolean;
 }
 
 export interface عروض_الشراء_tbl {
@@ -284,6 +286,10 @@ export interface عروض_الشراء_tbl {
   تاريخ_العرض: string;
   ملاحظات_التفاوض?: string;
   الحالة: 'Pending' | 'Accepted' | 'Rejected';
+  مشتري_الرقم?: string;
+  السعر_المعروض?: number;
+  ملاحظات?: string;
+  شروط_إضافية?: string;
 }
 
 export interface اتفاقيات_البيع_tbl {
@@ -318,6 +324,12 @@ export interface اتفاقيات_البيع_tbl {
   isCompleted: boolean;
   transferDate?: string;
   transactionId?: string;
+  عقد_الرقم?: string;
+  عرض_البيع_الرقم?: string;
+  عرض_الشراء_الرقم?: string;
+  سعر_الاتفاق?: number;
+  تاريخ_الانتقال?: string;
+  ملاحظات?: string;
 }
 
 export interface سجل_الملكية_tbl {

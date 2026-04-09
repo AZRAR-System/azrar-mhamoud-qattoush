@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Check, Circle, FileSignature } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 import { اتفاقيات_البيع_tbl } from '@/types';
 
 const t = (s: string) => s;
@@ -15,14 +15,31 @@ interface AgreementModalProps {
 
 export const AgreementModal: React.FC<AgreementModalProps> = ({ isOpen, onClose, onSubmit }) => {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    عقد_الرقم: '',
-    عرض_البيع_الرقم: '',
-    عرض_الشراء_الرقم: '',
-    سعر_الاتفاق: '',
-    تاريخ_الانتقال: '',
-    ملاحظات: ''
-  });
+const [formData, setFormData] = useState<Partial<اتفاقيات_البيع_tbl>>({
+    id: '',
+    listingId: '',
+    رقم_العقار: '',
+    رقم_البائع: '',
+    رقم_المشتري: '',
+    رقم_الفرصة: '',
+    يوجد_ادخال_عقار: false,
+    اسم_المستخدم: '',
+    تاريخ_الاتفاقية: '',
+    السعر_النهائي: '',
+    العمولة_الإجمالية: '',
+    عمولة_البائع: '',
+    عمولة_المشتري: '',
+    عمولة_وسيط_خارجي: '',
+    مصاريف_البيع: '',
+    إجمالي_المصاريف: '',
+    إجمالي_العمولات: '',
+    قيمة_الدفعة_الاولى: '',
+    قيمة_المتبقي: '',
+    طريقة_الدفع: '',
+    isCompleted: false,
+    transferDate: '',
+    transactionId: ''
+  } as unknown as Partial<اتفاقيات_البيع_tbl>);
 
   const steps = [
     { id: 1, label: 'ربط العروض', icon: Check },
@@ -32,10 +49,10 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({ isOpen, onClose,
   ];
 
   const handleSubmit = () => {
-    onSubmit({
-      عقد_الرقم: Number(formData.عقد_الرقم),
-      عرض_البيع_الرقم: Number(formData.عرض_البيع_الرقم),
-      عرض_الشراء_الرقم: Number(formData.عرض_الشراء_الرقم),
+onSubmit({
+      عقد_الرقم: formData.عقد_الرقم,
+      عرض_البيع_الرقم: formData.عرض_البيع_الرقم,
+      عرض_الشراء_الرقم: formData.عرض_الشراء_الرقم,
       سعر_الاتفاق: Number(formData.سعر_الاتفاق),
       تاريخ_الانتقال: formData.تاريخ_الانتقال,
       ملاحظات: formData.ملاحظات
@@ -68,26 +85,26 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({ isOpen, onClose,
           {step === 1 && (
             <div className="space-y-6">
               <div>
-                <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-                  {t('رقم عرض البيع')}
-                </label>
-                <Input
-                  type="number"
-                  value={formData.عرض_البيع_الرقم}
-                  onChange={(e) => setFormData({ ...formData, عرض_البيع_الرقم: e.target.value })}
-                  required
-                />
+<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
+          {t('رقم عرض البيع')}
+        </label>
+        <Input
+          type="number"
+          value={formData.عرض_البيع_الرقم}
+          onChange={(e) => setFormData({ ...formData, عرض_البيع_الرقم: e.target.value })}
+          required
+        />
               </div>
               <div>
-                <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-                  {t('رقم عرض الشراء')}
-                </label>
-                <Input
-                  type="number"
-                  value={formData.عرض_الشراء_الرقم}
-                  onChange={(e) => setFormData({ ...formData, عرض_الشراء_الرقم: e.target.value })}
-                  required
-                />
+<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
+          {t('رقم عرض الشراء')}
+        </label>
+        <Input
+          type="number"
+          value={formData.عرض_الشراء_الرقم}
+          onChange={(e) => setFormData({ ...formData, عرض_الشراء_الرقم: e.target.value })}
+          required
+        />
               </div>
             </div>
           )}
@@ -95,16 +112,16 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({ isOpen, onClose,
           {step === 2 && (
             <div className="space-y-6">
               <div>
-                <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-                  {t('سعر الاتفاق النهائي بالدينار')}
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.سعر_الاتفاق}
-                  onChange={(e) => setFormData({ ...formData, سعر_الاتفاق: e.target.value })}
-                  required
-                />
+<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
+          {t('سعر الاتفاق النهائي بالدينار')}
+        </label>
+        <Input
+          type="number"
+          step="0.01"
+          value={formData.سعر_الاتفاق}
+onChange={(e) => setFormData({ ...formData, سعر_الاتفاق: Number(e.target.value) })}
+          required
+        />
               </div>
             </div>
           )}
@@ -112,26 +129,26 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({ isOpen, onClose,
           {step === 3 && (
             <div className="space-y-6">
               <div>
-                <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-                  {t('تاريخ نقل الملكية المتوقع')}
-                </label>
-                <Input
-                  type="date"
-                  value={formData.تاريخ_الانتقال}
-                  onChange={(e) => setFormData({ ...formData, تاريخ_الانتقال: e.target.value })}
-                  required
-                />
+<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
+          {t('تاريخ نقل الملكية المتوقع')}
+        </label>
+        <Input
+          type="date"
+          value={formData.تاريخ_الانتقال}
+          onChange={(e) => setFormData({ ...formData, تاريخ_الانتقال: e.target.value })}
+          required
+        />
               </div>
               <div>
-                <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-                  {t('ملاحظات إضافية')}
-                </label>
-                <textarea
-                  className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-                  rows={3}
-                  value={formData.ملاحظات}
-                  onChange={(e) => setFormData({ ...formData, ملاحظات: e.target.value })}
-                />
+<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
+          {t('ملاحظات إضافية')}
+        </label>
+        <textarea
+          className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+          rows={3}
+          value={formData.ملاحظات}
+          onChange={(e) => setFormData({ ...formData, ملاحظات: e.target.value })}
+        />
               </div>
             </div>
           )}

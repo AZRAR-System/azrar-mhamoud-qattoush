@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
 import { BadgeDollarSign } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 import { عروض_البيع_tbl } from '@/types';
 
 const t = (s: string) => s;
@@ -15,17 +14,17 @@ interface NewListingModalProps {
 }
 
 export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const [formData, setFormData] = useState({
-    عقار_الرقم: '',
+const [formData, setFormData] = useState<Partial<عروض_البيع_tbl>>({
+    رقم_العقار: '',
     السعر_المطلوب: '',
     ملاحظات: '',
     متاح_للإيجار_أيضا: false
-  });
+  } as unknown as Partial<عروض_البيع_tbl>);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      عقار_الرقم: Number(formData.عقار_الرقم),
+onSubmit({
+      رقم_العقار: formData.رقم_العقار,
       السعر_المطلوب: Number(formData.السعر_المطلوب),
       ملاحظات: formData.ملاحظات,
       متاح_للإيجار_أيضا: formData.متاح_للإيجار_أيضا
@@ -37,42 +36,42 @@ export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClos
     <Modal isOpen={isOpen} onClose={onClose} title={t('عرض بيع جديد')} icon={<BadgeDollarSign size={24} />}>
       <form onSubmit={handleSubmit} className="space-y-6 p-2">
         <div>
-          <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-            {t('رقم العقار')}
-          </label>
-          <Input
-            type="number"
-            value={formData.عقار_الرقم}
-            onChange={(e) => setFormData({ ...formData, عقار_الرقم: e.target.value })}
-            placeholder={t('أدخل رقم العقار')}
-            required
-          />
+<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
+          {t('رقم العقار')}
+        </label>
+        <Input
+          type="number"
+          value={formData.رقم_العقار}
+          onChange={(e) => setFormData({ ...formData, رقم_العقار: e.target.value })}
+          placeholder={t('أدخل رقم العقار')}
+          required
+        />
         </div>
 
         <div>
-          <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-            {t('السعر المطلوب بالدينار الأردني')}
-          </label>
-          <Input
-            type="number"
-            step="0.01"
-            value={formData.السعر_المطلوب}
-            onChange={(e) => setFormData({ ...formData, السعر_المطلوب: e.target.value })}
-            placeholder={t('مثال: 250000')}
-            required
-          />
+<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
+          {t('السعر المطلوب بالدينار الأردني')}
+        </label>
+        <Input
+          type="number"
+          step="0.01"
+          value={formData.السعر_المطلوب}
+onChange={(e) => setFormData({ ...formData, السعر_المطلوب: Number(e.target.value) })}
+          placeholder={t('مثال: 250000')}
+          required
+        />
         </div>
 
         <div>
-          <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-            {t('ملاحظات إضافية')}
-          </label>
-          <Textarea
-            value={formData.ملاحظات}
-            onChange={(e) => setFormData({ ...formData, ملاحظات: e.target.value })}
-            placeholder={t('أي تفاصيل إضافية تتعلق بعرض البيع')}
-            rows={4}
-          />
+<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
+          {t('ملاحظات إضافية')}
+        </label>
+        <textarea
+          className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+          rows={4}
+          value={formData.ملاحظات}
+          onChange={(e) => setFormData({ ...formData, ملاحظات: e.target.value })}
+        />
         </div>
 
         <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
