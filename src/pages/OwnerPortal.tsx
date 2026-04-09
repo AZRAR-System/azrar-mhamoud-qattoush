@@ -3,14 +3,28 @@
  * صفحة خاصة بمالكي العقارات لعرض بياناتهم
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { getOwnerReport } from '@/services/ownerReport';
 import { getPeopleByRole } from '@/services/db/people';
 import { formatCurrencyJOD, formatDateYMD } from '@/utils/format';
-import { Home, FileText, BarChart3, Receipt } from 'lucide-react';
+// دالة تحسين البحث
+const normalizeSearchTerm = (str: string): string => {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFKD')
+    .replace(/[\u064B-\u065F\u0610-\u061A]/g, '') // حذف تشكيل العربية
+    .replace(/[يىئ]/g, 'ي')
+    .replace(/[ؤو]/g, 'و')
+    .replace(/[ةه]/g, 'ه')
+    .replace(/[\s\-_.,]/g, '')
+    .toLowerCase()
+    .trim();
+};
+import { Home, FileText, BarChart3, Receipt, Search } from 'lucide-react';
 import type { OwnerReportData } from '@/services/ownerReport';
+import type { الأشخاص_tbl } from '@/types';
 
 const tabs = [
   { id: 'properties', label: 'عقاراتي', icon: Home },
@@ -25,20 +39,36 @@ export function OwnerPortal() {
   const [report, setReport] = useState<OwnerReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
-  const [owners, setOwners] = useState<{id: string, name: string}[]>([]);
+  const [owners, setOwners] = useState<الأشخاص_tbl[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     // جلب قائمة جميع المالكين
-    const ownersList = getPeopleByRole('مالك').map(p => ({
-      id: p.رقم_الشخص,
-      name: p.الاسم
-    }));
+    const ownersList = getPeopleByRole('مالك');
     setOwners(ownersList);
 
     if (ownersList.length > 0 && !selectedOwnerId) {
-      setSelectedOwnerId(ownersList[0].id);
+      setSelectedOwnerId(ownersList[0].رقم_الشخص);
     }
   }, []);
+
+  // فلترة المالكين حسب البحث
+  const filteredOwners = useMemo(() => {
+    if (!searchTerm.trim()) return owners;
+
+    const normalizedSearch = normalizeSearchTerm(searchTerm);
+    return owners.filter(owner => {
+      const name = normalizeSearchTerm(owner.الاسم);
+      const nationalId = normalizeSearchTerm(owner.الرقم_الوطني || '');
+      const phone = normalizeSearchTerm(owner.رقم_الهاتف || '');
+      const extraPhone = normalizeSearchTerm(owner.رقم_هاتف_اضافي || '');
+
+      return name.includes(normalizedSearch) ||
+             nationalId.includes(normalizedSearch) ||
+             phone.includes(normalizedSearch) ||
+             extraPhone.includes(normalizedSearch);
+    });
+  }, [owners, searchTerm]);
 
   useEffect(() => {
     if (selectedOwnerId) {
@@ -74,8 +104,21 @@ export function OwnerPortal() {
       {/* رأس الصفحة */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">لوحة المالك</h1>
-          {report && <p className="text-gray-500">{report.owner.الاسم}</p>}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">لوحة المالك</h1>
+          {report && <p className="text-gray-500 dark:text-gray-400">{report.owner.الاسم}</p>}
+        </div>
+
+        <div className="w-full sm:w-96 flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="البحث بالاسم، الرقم الوطني، الهاتف..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+            />
+          </div>
         </div>
 
         <div className="w-full sm:w-auto">
@@ -85,13 +128,13 @@ export function OwnerPortal() {
             className="w-full sm:w-64 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium"
           >
             <option value="">اختر مالك</option>
-            {owners.map(owner => (
-              <option key={owner.id} value={owner.id}>{owner.name}</option>
+            {filteredOwners.map(owner => (
+              <option key={owner.رقم_الشخص} value={owner.رقم_الشخص}>{owner.الاسم}</option>
             ))}
           </select>
         </div>
 
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           تاريخ التحديث: {formatDateYMD(new Date())}
         </div>
       </div>
