@@ -462,3 +462,14 @@ export const getContactsDirectoryInternal = (): ContactsDirectoryRow[] => {
   for (const v of byKey.values()) out.push(v);
   return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 };
+
+/**
+ * جلب جميع الأشخاص الذين لديهم دور معين
+ */
+export const getPeopleByRole = (roleName: string): الأشخاص_tbl[] => {
+  const people = getPeople();
+  return people.filter(p => {
+    const roles = getPersonRoles(p.رقم_الشخص);
+    return roles.includes(roleName);
+  });
+};

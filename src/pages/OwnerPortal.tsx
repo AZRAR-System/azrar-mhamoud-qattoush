@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { getOwnerReport } from '@/services/ownerReport';
+import { getPeopleByRole } from '@/services/db/people';
 import { formatCurrencyJOD, formatDateYMD } from '@/utils/format';
 import { Home, FileText, BarChart3, Receipt } from 'lucide-react';
 import type { OwnerReportData } from '@/services/ownerReport';
@@ -23,14 +24,29 @@ export function OwnerPortal() {
   const [activeTab, setActiveTab] = useState('properties');
   const [report, setReport] = useState<OwnerReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
+  const [owners, setOwners] = useState<{id: string, name: string}[]>([]);
 
   useEffect(() => {
-    if (user) {
-      const data = getOwnerReport(user.id);
+    // جلب قائمة جميع المالكين
+    const ownersList = getPeopleByRole('مالك').map(p => ({
+      id: p.رقم_الشخص,
+      name: p.الاسم
+    }));
+    setOwners(ownersList);
+
+    if (ownersList.length > 0 && !selectedOwnerId) {
+      setSelectedOwnerId(ownersList[0].id);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedOwnerId) {
+      const data = getOwnerReport(selectedOwnerId);
       setReport(data);
       setLoading(false);
     }
-  }, [user]);
+  }, [selectedOwnerId]);
 
   // التحقق من الصلاحيات
   if (!user) {
@@ -59,8 +75,22 @@ export function OwnerPortal() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">لوحة المالك</h1>
-          <p className="text-gray-500">{report.owner.الاسم}</p>
+          {report && <p className="text-gray-500">{report.owner.الاسم}</p>}
         </div>
+
+        <div className="w-full sm:w-auto">
+          <select
+            value={selectedOwnerId || ''}
+            onChange={(e) => setSelectedOwnerId(e.target.value)}
+            className="w-full sm:w-64 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium"
+          >
+            <option value="">اختر مالك</option>
+            {owners.map(owner => (
+              <option key={owner.id} value={owner.id}>{owner.name}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="text-sm text-gray-500">
           تاريخ التحديث: {formatDateYMD(new Date())}
         </div>
