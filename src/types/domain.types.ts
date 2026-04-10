@@ -3,16 +3,20 @@ import type {
   العقارات_tbl,
   العقود_tbl,
   الكمبيالات_tbl,
+  اتفاقيات_البيع_tbl,
+  عروض_البيع_tbl,
   ContractDetailsResult,
   PersonDetailsResult,
 } from '@/types/types';
 
-export type DomainEntity = 'people' | 'properties' | 'contracts';
+export type DomainEntity = 'people' | 'properties' | 'contracts' | 'agreements' | 'sales_listings';
 
 export type DomainEntityMap = {
   people: الأشخاص_tbl;
   properties: العقارات_tbl;
   contracts: العقود_tbl;
+  agreements: اتفاقيات_البيع_tbl;
+  sales_listings: عروض_البيع_tbl;
 };
 
 export type PropertyPickerOccupancy = 'all' | 'rented' | 'vacant';

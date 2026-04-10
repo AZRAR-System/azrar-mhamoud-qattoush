@@ -301,6 +301,87 @@ function getJournalMode(): 'WAL' | 'DELETE' {
   return 'WAL';
 }
 
+function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
+  try {
+    const dataDir = path.dirname(corruptedPath);
+    const backupRoot = path.join(dataDir, 'backups');
+
+    let backupPath: string | null = null;
+
+    if (fsSync.existsSync(backupRoot)) {
+      // Find latest backup folder YYYY-MM-DD, sorted descending
+      const folders = fsSync
+        .readdirSync(backupRoot)
+        .filter((f) => /^\d{4}-\d{2}-\d{2}$/.test(f))
+        .sort((a, b) => b.localeCompare(a));
+
+      for (const dateDir of folders) {
+        // Try named file first, then any .sqlite file in the folder
+        const namedPath = path.join(backupRoot, dateDir, 'khaberni.sqlite');
+        if (fsSync.existsSync(namedPath)) {
+          backupPath = namedPath;
+          break;
+        }
+        // Fallback: find any .sqlite file in this date folder
+        try {
+          const entries = fsSync.readdirSync(path.join(backupRoot, dateDir));
+          const sqliteFile = entries.find((e) => e.toLowerCase().endsWith('.sqlite'));
+          if (sqliteFile) {
+            backupPath = path.join(backupRoot, dateDir, sqliteFile);
+            break;
+          }
+        } catch {
+          // continue searching
+        }
+      }
+    }
+
+    if (!backupPath) {
+      dialog.showMessageBoxSync({
+        type: 'error',
+        title: 'فشل استعادة البيانات',
+        message: 'تم اكتشاف تلف في قاعدة البيانات ولكن تعذر العثور على أي نسخ احتياطية لاستعادتها.',
+        detail: 'يرجى التواصل مع الدعم الفني لإصلاح المشكلة يدوياً.',
+        buttons: ['إغلاق'],
+      });
+      return false;
+    }
+
+    // Close existing DB connection
+    if (db) {
+      try {
+        db.close();
+      } catch {
+        /* ignore */
+      }
+      db = null;
+    }
+
+    // Save corrupted file before overwriting
+    const malformedPath = `${corruptedPath}.malformed.${Date.now()}`;
+    try {
+      fsSync.renameSync(corruptedPath, malformedPath);
+    } catch {
+      // If rename fails (e.g. lock), try removing
+      try { fsSync.unlinkSync(corruptedPath); } catch { /* ignore */ }
+    }
+
+    // Restore backup
+    fsSync.copyFileSync(backupPath, corruptedPath);
+
+    dialog.showMessageBoxSync({
+      type: 'info',
+      title: 'تمت استعادة البيانات بنجاح',
+      message: 'تم اكتشاف تلف في قاعدة البيانات وتمت استعادتها تلقائياً من أحدث نسخة احتياطية.',
+      detail: 'قد تفقد بعض البيانات التي تم إدخالها مؤخراً. التطبيق سيعمل الآن بشكل طبيعي.',
+      buttons: ['موافق'],
+    });
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 export function getDb(): SqliteDb {
   if (db) return db;
 
@@ -353,49 +434,76 @@ export function getDb(): SqliteDb {
     fsSync.mkdirSync(dir, { recursive: true });
   }
 
-  let database = (db = new BetterSqlite3Ctor(dbPath) as SqliteDb);
+  if (!BetterSqlite3Ctor) throw new Error('BetterSqlite3Ctor is not initialized');
 
-  // Optional: SQLCipher (at-rest encryption).
-  // IMPORTANT: this is enabled only when AZRAR_DB_ENCRYPTION=sqlcipher.
-  if (isSqlcipherEnabled()) {
-    const key = getOrCreateDbCipherKeySync();
-    try {
-      // Apply key before any queries. Escaping is defensive.
-      database.pragma(`key = '${escapeSqlString(key)}'`);
+  let database: SqliteDb;
+  try {
+    database = db = new BetterSqlite3Ctor(dbPath) as SqliteDb;
 
-      // Validate key by touching sqlite_master.
-      database.prepare('SELECT count(*) AS c FROM sqlite_master').get();
-    } catch (e: unknown) {
-      // If this DB is plaintext and migration is explicitly allowed, attempt rekey.
-      const allowMigrate = String(process.env.AZRAR_DB_ENCRYPTION_MIGRATE || '').trim();
-      const migrateOk = allowMigrate === '1' || allowMigrate.toLowerCase() === 'true';
+    // Optional: SQLCipher (at-rest encryption).
+    // IMPORTANT: this is enabled only when AZRAR_DB_ENCRYPTION=sqlcipher.
+    if (isSqlcipherEnabled()) {
+      const key = getOrCreateDbCipherKeySync();
+      try {
+        // Apply key before any queries. Escaping is defensive.
+        database.pragma(`key = '${escapeSqlString(key)}'`);
 
-      if (migrateOk) {
-        try {
-          // Re-open without key to see if DB is plaintext.
-          database.close();
-          db = null;
-          const dbPlain = new BetterSqlite3Ctor(dbPath) as SqliteDb;
-          // If plaintext is readable, rekey it to encrypted.
-          dbPlain.prepare('SELECT count(*) AS c FROM sqlite_master').get();
-          dbPlain.pragma(`rekey = '${escapeSqlString(key)}'`);
-          dbPlain.close();
-          db = null;
+        // Validate key by touching sqlite_master.
+        database.prepare('SELECT count(*) AS c FROM sqlite_master').get();
+      } catch (e: unknown) {
+        // If this DB is plaintext and migration is explicitly allowed, attempt rekey.
+        const allowMigrate = String(process.env.AZRAR_DB_ENCRYPTION_MIGRATE || '').trim();
+        const migrateOk = allowMigrate === '1' || allowMigrate.toLowerCase() === 'true';
 
-          // Re-open encrypted.
-          const dbEnc = new BetterSqlite3Ctor(dbPath) as SqliteDb;
-          dbEnc.pragma(`key = '${escapeSqlString(key)}'`);
-          dbEnc.prepare('SELECT count(*) AS c FROM sqlite_master').get();
-          db = dbEnc;
-          database = dbEnc;
-        } catch (e2: unknown) {
-          const rawMsg = e2 instanceof Error ? String(e2.message) : String(e2);
+        if (migrateOk) {
+          try {
+            // Re-open without key to see if DB is plaintext.
+            database.close();
+            db = null;
+            const dbPlain = new BetterSqlite3Ctor(dbPath) as SqliteDb;
+            // If plaintext is readable, rekey it to encrypted.
+            dbPlain.prepare('SELECT count(*) AS c FROM sqlite_master').get();
+            dbPlain.pragma(`rekey = '${escapeSqlString(key)}'`);
+            dbPlain.close();
+            db = null;
+
+            // Re-open encrypted.
+            const dbEnc = new BetterSqlite3Ctor(dbPath) as SqliteDb;
+            dbEnc.pragma(`key = '${escapeSqlString(key)}'`);
+            dbEnc.prepare('SELECT count(*) AS c FROM sqlite_master').get();
+            db = dbEnc;
+            database = dbEnc;
+          } catch (e2: unknown) {
+            const rawMsg = e2 instanceof Error ? String(e2.message) : String(e2);
+            try {
+              dialog.showMessageBoxSync({
+                type: 'error',
+                title: 'خطأ في تشفير قاعدة البيانات',
+                message: 'تعذر تفعيل تشفير قاعدة البيانات (SQLCipher)',
+                detail: `فشل ترحيل/فتح قاعدة البيانات المشفرة.\n\n${rawMsg}`,
+                buttons: ['إغلاق'],
+              });
+            } catch {
+              // ignore
+            }
+            try {
+              app.quit();
+            } catch {
+              // ignore
+            }
+            throw e2;
+          }
+        } else {
+          const rawMsg = e instanceof Error ? String(e.message) : String(e);
           try {
             dialog.showMessageBoxSync({
               type: 'error',
-              title: 'خطأ في تشفير قاعدة البيانات',
-              message: 'تعذر تفعيل تشفير قاعدة البيانات (SQLCipher)',
-              detail: `فشل ترحيل/فتح قاعدة البيانات المشفرة.\n\n${rawMsg}`,
+              title: 'خطأ في تشغيل قاعدة البيانات',
+              message: 'تعذر فتح قاعدة البيانات المشفرة',
+              detail:
+                'تم تفعيل SQLCipher لكن قاعدة البيانات الحالية غير مشفرة أو المفتاح غير صحيح.\n' +
+                'لتشفير قاعدة موجودة: شغّل التطبيق مع AZRAR_DB_ENCRYPTION_MIGRATE=1 مرة واحدة.\n\n' +
+                rawMsg,
               buttons: ['إغلاق'],
             });
           } catch {
@@ -406,44 +514,21 @@ export function getDb(): SqliteDb {
           } catch {
             // ignore
           }
-          throw e2;
+          throw e;
         }
-      } else {
-        const rawMsg = e instanceof Error ? String(e.message) : String(e);
-        try {
-          dialog.showMessageBoxSync({
-            type: 'error',
-            title: 'خطأ في تشغيل قاعدة البيانات',
-            message: 'تعذر فتح قاعدة البيانات المشفرة',
-            detail:
-              'تم تفعيل SQLCipher لكن قاعدة البيانات الحالية غير مشفرة أو المفتاح غير صحيح.\n' +
-              'لتشفير قاعدة موجودة: شغّل التطبيق مع AZRAR_DB_ENCRYPTION_MIGRATE=1 مرة واحدة.\n\n' +
-              rawMsg,
-            buttons: ['إغلاق'],
-          });
-        } catch {
-          // ignore
-        }
-        try {
-          app.quit();
-        } catch {
-          // ignore
-        }
-        throw e;
       }
     }
-  }
 
-  database.pragma(`journal_mode = ${getJournalMode()}`);
-  // Foreign keys are OFF by default in SQLite; enable enforcement per connection.
-  // This is forward-compatible with planned FK constraints and helps catch bad writes early.
-  database.pragma('foreign_keys = ON');
-  // Performance + stability settings for long-term usage.
-  // WAL is the default (see getJournalMode) and works well for desktop apps.
-  database.pragma('busy_timeout = 5000');
-  database.pragma('synchronous = NORMAL');
-  database.pragma('temp_store = MEMORY');
-  database.exec(`
+    database.pragma(`journal_mode = ${getJournalMode()}`);
+    // Foreign keys are OFF by default in SQLite; enable enforcement per connection.
+    // This is forward-compatible with planned FK constraints and helps catch bad writes early.
+    database.pragma('foreign_keys = ON');
+    // Performance + stability settings for long-term usage.
+    // WAL is the default (see getJournalMode) and works well for desktop apps.
+    database.pragma('busy_timeout = 5000');
+    database.pragma('synchronous = NORMAL');
+    database.pragma('temp_store = MEMORY');
+    database.exec(`
     CREATE TABLE IF NOT EXISTS kv (
       k TEXT PRIMARY KEY,
       v TEXT NOT NULL,
@@ -451,30 +536,40 @@ export function getDb(): SqliteDb {
     );
   `);
 
-  // Track deletions for sync (tombstones).
-  // We keep deletions separate so kvGet() remains null after delete.
-  database.exec(`
+    // Track deletions for sync (tombstones).
+    // We keep deletions separate so kvGet() remains null after delete.
+    database.exec(`
     CREATE TABLE IF NOT EXISTS kv_deleted (
       k TEXT PRIMARY KEY,
       deletedAt TEXT NOT NULL
     );
   `);
 
-  // Auto-indexing (no user intervention)
-  // - k is already indexed by PRIMARY KEY
-  // - updatedAt index helps maintenance/ordering/reporting that uses timestamps
-  database.exec(`
+    // Auto-indexing (no user intervention)
+    // - k is already indexed by PRIMARY KEY
+    // - updatedAt index helps maintenance/ordering/reporting that uses timestamps
+    database.exec(`
     CREATE INDEX IF NOT EXISTS idx_kv_updatedAt ON kv(updatedAt);
   `);
 
-  database.exec(`
+    database.exec(`
     CREATE INDEX IF NOT EXISTS idx_kv_deleted_deletedAt ON kv_deleted(deletedAt);
   `);
 
-  // Domain schema (reports + scalable queries)
-  ensureDomainSchema(database);
+    // Domain schema (reports + scalable queries)
+    ensureDomainSchema(database);
 
-  return database;
+    return database;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.toLowerCase().includes('database disk image is malformed')) {
+      if (repairCorruptedDatabaseSync(dbPath)) {
+        // Recursively try again once after repair
+        return getDb();
+      }
+    }
+    throw err;
+  }
 }
 
 type DomainMigrationResult = {
@@ -2442,11 +2537,11 @@ export function domainInstallmentsContractsSearch(payload: {
   const rawMin = payload?.filterMinAmount;
   const rawMax = payload?.filterMaxAmount;
   const filterMinNum =
-    rawMin !== undefined && rawMin !== null && rawMin !== '' && Number.isFinite(Number(rawMin))
+    rawMin !== undefined && rawMin !== null && (rawMin as any) !== '' && Number.isFinite(Number(rawMin))
       ? Number(rawMin)
       : NaN;
   const filterMaxNum =
-    rawMax !== undefined && rawMax !== null && rawMax !== '' && Number.isFinite(Number(rawMax))
+    rawMax !== undefined && rawMax !== null && (rawMax as any) !== '' && Number.isFinite(Number(rawMax))
       ? Number(rawMax)
       : NaN;
   const filterPaymentMethod = String(payload?.filterPaymentMethod || 'all').trim().toLowerCase();
@@ -3305,7 +3400,7 @@ export function domainPaymentNotificationTargets(payload: {
           COALESCE(c.tenantId, '') AS tenantId,
           COALESCE(c.propertyId, '') AS propertyId,
           COALESCE(JSON_EXTRACT(c.data, '$.طريقة_الدفع'), '') AS paymentPlanRaw,
-          COALESCE(CAST(JSON_EXTRACT(c.data, '$.تكرار_الدفع') AS INTEGER), 0) AS paymentFrequency,
+          COALESCE(CAST(JSON_EXTRACT(c.data, '$.تكرار_الدفع') AS INTEGER), 1) AS paymentFrequency,
           COALESCE(t.name, '') AS tenantName,
           COALESCE(JSON_EXTRACT(t.data, '$.رقم_الهاتف'), '') AS phone,
           COALESCE(JSON_EXTRACT(t.data, '$.رقم_هاتف_اضافي'), '') AS extraPhone,
@@ -3764,7 +3859,7 @@ export function domainMigrateFromKvIfNeeded(): DomainMigrationResult {
         cRec['تاريخ_البداية'] ? String(cRec['تاريخ_البداية']) : null,
         cRec['تاريخ_النهاية'] ? String(cRec['تاريخ_النهاية']) : null,
         toNumber(cRec['القيمة_السنوية']),
-        toNumber(cRec['تكرار_الدفع']),
+        toNumber(cRec['تكرار_الدفع']) || 1,
         cRec['طريقة_الدفع'] ? String(cRec['طريقة_الدفع']) : null,
         cRec.isArchived ? 1 : 0,
         JSON.stringify(c),
@@ -3973,7 +4068,7 @@ function syncContractsKvPayload(dbh: SqliteDb, value: string, nowIso: string): v
         cRec['تاريخ_البداية'] ? String(cRec['تاريخ_البداية']) : null,
         cRec['تاريخ_النهاية'] ? String(cRec['تاريخ_النهاية']) : null,
         toNumber(cRec['القيمة_السنوية']),
-        toNumber(cRec['تكرار_الدفع']),
+        toNumber(cRec['تكرار_الدفع']) || 1,
         cRec['طريقة_الدفع'] ? String(cRec['طريقة_الدفع']) : null,
         cRec.isArchived ? 1 : 0,
         JSON.stringify(c),

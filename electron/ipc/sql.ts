@@ -396,7 +396,7 @@ export function registerSql(deps: IpcDeps): void {
       }`;
       const defaultPath = path.join(backupDir, defaultName);
   
-      const result = await dialog.showSaveDialog({
+      const result = (await dialog.showSaveDialog({
         title: 'حفظ نسخة احتياطية من المخدم',
         defaultPath,
         filters: [
@@ -404,7 +404,7 @@ export function registerSql(deps: IpcDeps): void {
           { name: 'Encrypted Backup', extensions: ['enc'] },
           { name: 'JSON', extensions: ['json'] },
         ],
-      });
+      })) as any;
   
       if (result.canceled || !result.filePath) return { ok: false, message: 'تم الإلغاء' };
   

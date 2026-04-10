@@ -469,9 +469,9 @@ ipcMain.handle('licensegen:pickPrivateKey', async () => {
       ],
     };
 
-    const result = win
+    const result = (win
       ? await dialog.showOpenDialog(win, options)
-      : await dialog.showOpenDialog(options);
+      : await dialog.showOpenDialog(options)) as any;
     if (result.canceled || result.filePaths.length === 0) {
       return { ok: false, canceled: true };
     }
@@ -536,7 +536,7 @@ ipcMain.handle('licensegen:generateKeypairAndSave', async () => {
     }
 
     const win = BrowserWindow.getFocusedWindow();
-    const save = win
+    const save = (win
       ? await dialog.showSaveDialog(win, {
           title: 'حفظ مفتاح التوقيع (Private Key)',
           defaultPath: 'azrar-license-private.key.json',
@@ -552,7 +552,7 @@ ipcMain.handle('licensegen:generateKeypairAndSave', async () => {
             { name: 'Key File', extensions: ['json'] },
             { name: 'All Files', extensions: ['*'] },
           ],
-        });
+        })) as any;
 
     if (save.canceled || !save.filePath) {
       return { ok: false, canceled: true };
@@ -640,7 +640,7 @@ ipcMain.handle('licensegen:generateAndSave', async (_e, payload: unknown) => {
     };
 
     const win = BrowserWindow.getFocusedWindow();
-    const save = win
+    const save = (win
       ? await dialog.showSaveDialog(win, {
           title: 'حفظ ملف التفعيل',
           defaultPath: `AZRAR-License-${deviceId}.json`,
@@ -656,7 +656,7 @@ ipcMain.handle('licensegen:generateAndSave', async (_e, payload: unknown) => {
             { name: 'Activation / License', extensions: ['json', 'lic'] },
             { name: 'All Files', extensions: ['*'] },
           ],
-        });
+        })) as any;
 
     if (save.canceled || !save.filePath) {
       return { ok: false, canceled: true };

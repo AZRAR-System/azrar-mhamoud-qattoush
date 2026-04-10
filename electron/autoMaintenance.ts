@@ -115,7 +115,7 @@ async function cleanupOldBackups(backupRoot: string, retentionDays = 30): Promis
 }
 
 async function backupDbTo(dbBackupPath: string): Promise<void> {
-  // Prefer better-sqlite3 online backup API if available.
+  // Prefer better-sqlite3 online backup API if available (safe while DB is open).
   const db = getDb() as unknown;
   if (typeof db === 'object' && db !== null) {
     const maybeBackup = (db as { backup?: unknown }).backup;
@@ -126,10 +126,12 @@ async function backupDbTo(dbBackupPath: string): Promise<void> {
     }
   }
 
-  // Fallback: close, copy DB file, reopen (matches exportDatabase behavior).
-  // This is less ideal but still consistent for our single-process desktop usage.
-  const { exportDatabase } = await import('./db');
-  await exportDatabase(dbBackupPath);
+  // Fallback: direct file copy. This is safe because WAL mode allows reads
+  // from the OS level. We use sync copy to avoid partial writes.
+  const srcPath = getDbPath();
+  if (fsSync.existsSync(srcPath)) {
+    fsSync.copyFileSync(srcPath, dbBackupPath);
+  }
 }
 
 async function copyDirRecursive(src: string, dst: string): Promise<void> {

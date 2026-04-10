@@ -11,6 +11,7 @@ import {
   العمولات_tbl,
   الكمبيالات_tbl,
   BlacklistRecord,
+  تذاكر_الصيانة_tbl,
 } from '@/types';
 import { formatCurrencyJOD } from '@/utils/format';
 import { isTenancyRelevant } from '@/utils/tenancy';
@@ -575,6 +576,40 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
     markAlertsReadIfNotInSet('ALR-RISK-', alive);
   };
 
+  const runMaintenanceScanInternal = () => {
+    const today = toDateOnly(new Date());
+    const tickets = get<تذاكر_الصيانة_tbl>(KEYS.MAINTENANCE) || [];
+    const alive = new Set<string>();
+
+    const thresholdDays = 5;
+
+    for (const t of tickets) {
+      if (t.الحالة === 'مغلق') continue;
+
+      const requestedDate = parseDateOnly(t.تاريخ_الطلب);
+      if (!requestedDate) continue;
+
+      const daysOpen = daysBetweenDateOnly(requestedDate, today);
+      if (daysOpen >= thresholdDays) {
+        const id = `ALR-MNT-PENDING-${t.رقم_التذكرة}`;
+        alive.add(id);
+        
+        upsertAlert({
+          id,
+          تاريخ_الانشاء: today.toISOString().split('T')[0],
+          نوع_التنبيه: 'تأخر في إنجاز الصيانة',
+          الوصف: `تذكرة الصيانة #${t.رقم_التذكرة} ما زالت مفتوحة منذ ${daysOpen} أيام — الوصف: ${t.الوصف}`,
+          category: 'System',
+          تم_القراءة: false,
+          مرجع_الجدول: 'تذاكر_الصيانة_tbl',
+          مرجع_المعرف: t.رقم_التذكرة,
+        });
+      }
+    }
+
+    markAlertsReadIfNotInSet('ALR-MNT-PENDING-', alive);
+  };
+
   return {
     dedupeAndCleanupAlertsInternal,
     runInstallmentReminderScanInternal,
@@ -583,5 +618,6 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
     runDataQualityScanInternal,
     runExpiryScanInternal,
     runRiskScanInternal,
+    runMaintenanceScanInternal,
   };
 }

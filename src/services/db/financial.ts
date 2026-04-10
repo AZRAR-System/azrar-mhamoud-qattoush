@@ -101,6 +101,47 @@ export const upsertCommissionForContract = (
   return ok(record);
 };
 
+export const upsertCommissionForSale = (
+  agreementId: string,
+  data: {
+    sellerComm: number;
+    buyerComm: number;
+    listingComm?: number;
+    listingEmployee?: string;
+    closingEmployee?: string;
+    date?: string;
+  }
+): DbResult<العمولات_tbl> => {
+  const all = get<العمولات_tbl>(KEYS.COMMISSIONS);
+  const existingId = `COM-SALE-${agreementId}`;
+  const idx = all.findIndex((c) => c.رقم_العمولة === existingId);
+
+  const record: العمولات_tbl = {
+    رقم_العمولة: existingId,
+    رقم_الاتفاقية: agreementId,
+    تاريخ_العقد: data.date || new Date().toISOString().split('T')[0],
+    نوع_العمولة: 'Sale',
+    عمولة_البائع: data.sellerComm,
+    عمولة_المشتري: data.buyerComm,
+    عمولة_المالك: data.sellerComm, // Legacy field sync
+    عمولة_المستأجر: data.buyerComm, // Legacy field sync
+    عمولة_إدخال_عقار: data.listingComm || 0,
+    موظف_إدخال_العقار: data.listingEmployee,
+    اسم_المستخدم: data.closingEmployee,
+    المجموع: data.sellerComm + data.buyerComm + (data.listingComm || 0),
+    يوجد_ادخال_عقار: (data.listingComm || 0) > 0,
+  };
+
+  if (idx !== -1) {
+    all[idx] = record;
+  } else {
+    all.push(record);
+  }
+
+  save(KEYS.COMMISSIONS, all);
+  return ok(record);
+};
+
 export const finalizeCommissionCollection = (id: string): DbResult<null> => {
   const all = get<العمولات_tbl>(KEYS.COMMISSIONS);
   const idx = all.findIndex((c) => c.رقم_العمولة === id);

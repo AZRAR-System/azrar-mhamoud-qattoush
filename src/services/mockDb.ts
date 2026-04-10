@@ -60,8 +60,21 @@ const asUnknownRecord = (value: unknown): Record<string, unknown> =>
 
 import { createHandleSmartEngine } from './db/smartEngineBridge';
 import { addDaysIso, addMonthsDateOnly } from './db/utils/dates';
-import { formatDateOnly } from '@/utils/dateOnly';
+import { formatDateOnly, toDateOnly, parseDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
+import { createBackgroundScansRuntime } from './db/backgroundScans';
 import type { DbResult } from '@/types';
+
+const backgroundScansRuntime = createBackgroundScansRuntime({
+  asUnknownRecord,
+  toDateOnly,
+  formatDateOnly,
+  parseDateOnly,
+  daysBetweenDateOnly,
+  addDaysIso,
+  addMonthsDateOnly,
+  createContract: (...args) => contractWrites.createContract(...args),
+  logOperationInternal: Logger.logOperationInternal,
+});
 
 const contractWrites = Contracts.createContractWrites({
   logOperation: Logger.logOperationInternal,
@@ -69,6 +82,14 @@ const contractWrites = Contracts.createContractWrites({
   formatDateOnly,
   addDaysIso,
   addMonthsDateOnly,
+});
+
+const salesHandlers = SalesAgreements.createSalesHandlers({
+  logOperation: Logger.logOperationInternal,
+  getPersonRoles: (pid) => People.getPersonRoles(pid),
+  updatePersonRoles: (pid, roles) => People.updatePersonRoles(pid, roles),
+  terminateContract: (cid, reason, date) => contractWrites.terminateContract(cid, reason, date),
+  upsertCommissionForSale: Financial.upsertCommissionForSale,
 });
 
 /**
@@ -116,7 +137,19 @@ export const DbService = {
   getDashboardNotes: undefined as any,
   addDashboardNote: undefined as any,
   archiveDashboardNote: undefined as any,
-  runDailyScheduler: undefined as any,
+  runDailyScheduler: () => {
+    try {
+      backgroundScansRuntime.dedupeAndCleanupAlertsInternal();
+      backgroundScansRuntime.runInstallmentReminderScanInternal();
+      backgroundScansRuntime.runAutoRenewContractsInternal();
+      backgroundScansRuntime.runDataQualityScanInternal();
+      backgroundScansRuntime.runExpiryScanInternal();
+      backgroundScansRuntime.runRiskScanInternal();
+      backgroundScansRuntime.runMaintenanceScanInternal();
+    } catch (e) {
+      console.error('[SchedulerError]', e);
+    }
+  },
   getClientInteractions: undefined as any,
   // Logging
   logOperation: Logger.logOperationInternal,
@@ -152,6 +185,7 @@ export const DbService = {
   finalizeCommissionCollection: Financial.finalizeCommissionCollection,
   getFinancialAlerts: Financial.getFinancialAlerts,
   upsertCommissionForContract: Financial.upsertCommissionForContract,
+  upsertCommissionForSale: Financial.upsertCommissionForSale,
 
   // External Commissions
   ...ExternalComm.createExternalCommHandlers({
@@ -178,8 +212,9 @@ export const DbService = {
   deleteMarqueeAd: Marquee.deleteMarqueeAd,
 
   // Users & Auth
-  authenticateUser: Users.authenticateUser,
   getUsers: Users.getUsers,
+  getCurrentUser: Users.getCurrentUser,
+  authenticateUser: Users.authenticateUser,
   getSystemUsers: Users.getUsers,
   addUser: Users.addSystemUser,
   addSystemUser: Users.addSystemUser,
@@ -248,8 +283,22 @@ export const DbService = {
   addEntityNote: Notes.addEntityNote,
 
   // Sales
+  getSalesListings: SalesAgreements.getSalesListings,
+  getSalesOffers: SalesAgreements.getSalesOffers,
+  getSalesAgreements: SalesAgreements.getSalesAgreements,
+  addSalesListing: SalesAgreements.addSalesListing,
+  updateSalesListing: SalesAgreements.updateSalesListing,
+  deleteSalesListing: SalesAgreements.deleteSalesListing,
+  addSalesOffer: SalesAgreements.submitSalesOffer,
+  deleteSalesOffer: SalesAgreements.deleteSalesOffer,
+  submitSalesOffer: SalesAgreements.submitSalesOffer,
+  updateSalesOfferStatus: SalesAgreements.updateOfferStatus,
+  updateOfferStatus: SalesAgreements.updateOfferStatus,
+  addSalesAgreement: salesHandlers.addSalesAgreement,
+  updateSalesAgreement: salesHandlers.updateSalesAgreement,
   addSalesOfferNote: SalesAgreements.addSalesOfferNote,
   getOwnershipHistory: SalesAgreements.getOwnershipHistory,
+  finalizeOwnershipTransfer: salesHandlers.finalizeOwnershipTransfer,
   
   // Reports
   getAvailableReports: Reports.getAvailableReports,
@@ -261,9 +310,11 @@ export const DbService = {
   },
 
   // System Core & Analytics
-  getPaymentNotificationTargets: PaymentNotifications.getPaymentNotificationTargetsInternal,
+  getPaymentNotificationTargets: (daysAhead: number) => 
+    PaymentNotifications.getPaymentNotificationTargetsInternal(daysAhead),
   getNotificationSendLogs: () => get<any>(KEYS.NOTIFICATION_SEND_LOGS),
-  addNotificationSendLog: PaymentNotifications.addNotificationSendLogInternal,
+  addNotificationSendLog: (log: any) => 
+    PaymentNotifications.addNotificationSendLogInternal(log),
   searchGlobal: (query: string) => {
     const lower = query.toLowerCase();
     const people = get<الأشخاص_tbl>(KEYS.PEOPLE)
@@ -291,14 +342,4 @@ export const DbService = {
     };
   },
 };
-
-// Wire complex handlers
-const salesHandlers = SalesAgreements.createSalesHandlers({
-  logOperation: Logger.logOperationInternal,
-  getPersonRoles: (id) => [], // Mocked for now, should connect to people service
-  updatePersonRoles: (id, roles) => {}, 
-  terminateContract: (id, r, d) => dbOk(),
-});
-
-(DbService as any).finalizeOwnershipTransfer = salesHandlers.finalizeOwnershipTransfer;
 

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BadgeDollarSign } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { عروض_البيع_tbl } from '@/types';
 
 const t = (s: string) => s;
@@ -11,15 +12,34 @@ interface NewListingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (listing: Partial<عروض_البيع_tbl>) => void;
+  initialData?: Partial<عروض_البيع_tbl> | null;
 }
 
-export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClose, onSubmit }) => {
-const [formData, setFormData] = useState<Partial<عروض_البيع_tbl>>({
+export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+  const [formData, setFormData] = React.useState<any>({
     رقم_العقار: '',
     السعر_المطلوب: '',
     ملاحظات: '',
     متاح_للإيجار_أيضا: false
-  } as unknown as Partial<عروض_البيع_tbl>);
+  });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setFormData({
+          ...initialData,
+          السعر_المطلوب: initialData.السعر_المطلوب?.toString() || ''
+        });
+      } else {
+        setFormData({
+          رقم_العقار: '',
+          السعر_المطلوب: '',
+          ملاحظات: '',
+          متاح_للإيجار_أيضا: false
+        });
+      }
+    }
+  }, [isOpen, initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,18 +55,12 @@ onSubmit({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('عرض بيع جديد')} icon={<BadgeDollarSign size={24} />}>
       <form onSubmit={handleSubmit} className="space-y-6 p-2">
-        <div>
-<label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">
-          {t('رقم العقار')}
-        </label>
-        <Input
-          type="number"
+        <PropertyPicker
+          label={t('اختر العقار المعروض للبيع')}
           value={formData.رقم_العقار}
-          onChange={(e) => setFormData({ ...formData, رقم_العقار: e.target.value })}
-          placeholder={t('أدخل رقم العقار')}
+          onChange={(id) => setFormData({ ...formData, رقم_العقار: id })}
           required
         />
-        </div>
 
         <div>
 <label className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2 block">

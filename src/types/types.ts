@@ -205,8 +205,10 @@ export interface شخص_دور_tbl {
 
 export interface العمولات_tbl {
   رقم_العمولة: string;
-  رقم_العقد: string;
+  رقم_العقد?: string;
+  رقم_الاتفاقية?: string;
   تاريخ_العقد: string;
+  نوع_العمولة?: 'Rental' | 'Sale';
   شهر_دفع_العمولة?: string; // YYYY-MM
   // Optional: commission attribution to a specific employee/user
   اسم_المستخدم?: string;
@@ -216,6 +218,10 @@ export interface العمولات_tbl {
   يوجد_ادخال_عقار?: boolean;
   عمولة_المالك: number;
   عمولة_المستأجر: number;
+  عمولة_البائع?: number;
+  عمولة_المشتري?: number;
+  عمولة_إدخال_عقار?: number;
+  موظف_إدخال_العقار?: string;
   المجموع: number;
 }
 
@@ -305,9 +311,17 @@ export interface اتفاقيات_البيع_tbl {
   تاريخ_الاتفاقية: string;
   السعر_النهائي: number;
   العمولة_الإجمالية: number;
-  عمولة_البائع?: number;
-  عمولة_المشتري?: number;
+  عمولة_البائع: number;
+  عمولة_المشتري: number;
+  عمولة_إدخال_عقار?: number;
+  موظف_إدخال_العقار?: string;
   عمولة_وسيط_خارجي?: number;
+  إجمالي_المصاريف?: number;
+  طريقة_الدفع: SalesType;
+  isCompleted: boolean;
+  transactionId?: string;
+  transferDate?: string;
+  ملاحظات?: string;
   مصاريف_البيع?: {
     رسوم_التنازل?: number;
     ضريبة_الابنية?: number;
@@ -316,20 +330,14 @@ export interface اتفاقيات_البيع_tbl {
     قيمة_التأمينات?: number;
     ملاحظات?: string;
   };
-  إجمالي_المصاريف?: number;
   إجمالي_العمولات?: number;
   قيمة_الدفعة_الاولى?: number;
   قيمة_المتبقي?: number;
-  طريقة_الدفع: SalesType;
-  isCompleted: boolean;
-  transferDate?: string;
-  transactionId?: string;
   عقد_الرقم?: string;
   عرض_البيع_الرقم?: string;
   عرض_الشراء_الرقم?: string;
   سعر_الاتفاق?: number;
   تاريخ_الانتقال?: string;
-  ملاحظات?: string;
 }
 
 export interface سجل_الملكية_tbl {

@@ -14,6 +14,8 @@ interface SalesListingsTabProps {
   setListingMarketingFilter: (value: 'all' | 'sale-only' | 'also-rentable') => void;
   statusFilter: string;
   searchQuery: string;
+  getPropertyLabel: (id: string) => string;
+  getPersonName: (id: string) => string;
   onView?: (listing: عروض_البيع_tbl) => void;
   onEdit?: (listing: عروض_البيع_tbl) => void;
   onDelete?: (listing: عروض_البيع_tbl) => void;
@@ -27,6 +29,8 @@ export const SalesListingsTab: React.FC<SalesListingsTabProps> = ({
   setListingMarketingFilter,
   statusFilter,
   searchQuery,
+  getPropertyLabel,
+  getPersonName,
   onView,
   onEdit,
   onDelete,
@@ -93,8 +97,8 @@ export const SalesListingsTab: React.FC<SalesListingsTabProps> = ({
             <tbody>
               {listings.map((listing) => (
                 <tr key={listing.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="p-4 font-bold text-slate-800 dark:text-slate-200">{listing.رقم_العقار}</td>
-                  <td className="p-4 text-slate-600 dark:text-slate-400">{listing.رقم_المالك}</td>
+                  <td className="p-4 font-bold text-slate-800 dark:text-slate-200">{getPropertyLabel(listing.رقم_العقار)}</td>
+                  <td className="p-4 text-slate-600 dark:text-slate-400">{getPersonName(listing.رقم_المالك)}</td>
                   <td className="p-4 font-bold text-indigo-600 dark:text-indigo-400">{formatCurrencyJOD(listing.السعر_المطلوب)}</td>
                   <td className="p-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${

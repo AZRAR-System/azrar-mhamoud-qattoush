@@ -189,47 +189,49 @@ export const ServerSqlSection: React.FC = () => {
 
   const keyLabels = useMemo<Record<string, string>>(
     () => ({
-      db_people: 'الأشخاص',
-      db_companies: 'الشركات',
-      db_contacts: 'جهات الاتصال',
-      db_properties: 'العقارات',
-      db_contracts: 'العقود',
-      /** الكمبيالات وجدول الدفعات — مفتاح KV واحد: db_installments */
-      db_installments: 'الكمبيالات / الدفعات',
-      db_commissions: 'العمولات',
-      db_alerts: 'التنبيهات',
-      db_attachments: 'المرفقات',
-      db_users: 'المستخدمون',
-      db_user_permissions: 'صلاحيات المستخدمين',
-      db_roles: 'الأدوار',
-      db_settings: 'إعدادات النظام',
-      db_lookup_categories: 'تصنيفات الجداول',
-      db_lookups: 'الجداول المساعدة',
-      db_legal_templates: 'قوالب العقود/النماذج',
-      db_legal_history: 'سجل القانوني',
-      db_followups: 'المتابعات',
-      db_notes: 'الملاحظات',
-      db_reminders: 'التذكيرات',
-      db_maintenance_tickets: 'بلاغات الصيانة',
-      db_notification_send_logs: 'سجل الإشعارات',
-      db_operations: 'العمليات',
-      db_marquee: 'الشريط الإعلاني',
-      db_smart_behavior: 'سلوك الأدوات الذكية',
-      db_sales_listings: 'عروض البيع',
-      db_sales_offers: 'طلبات الشراء',
-      db_sales_agreements: 'اتفاقيات البيع',
-      db_ownership_history: 'سجل الملكية',
-      db_blacklist: 'القائمة السوداء',
-      db_dynamic_tables: 'الجداول الديناميكية',
-      db_dynamic_records: 'السجلات الديناميكية',
-      db_dynamic_form_fields: 'حقول النماذج',
-      db_activities: 'الأنشطة',
-      db_external_commissions: 'العمولات الخارجية',
-      db_dashboard_config: 'إعدادات لوحة التحكم',
-      db_clearance_records: 'سجلات براءة الذمة',
-      db_dashboard_notes: 'ملاحظات لوحة التحكم',
-      db_client_interactions: 'تفاعلات العملاء',
-      db_property_inspections: 'معاينات العقارات',
+      db_people:                  'الأشخاص',
+      db_companies:               'الشركات',
+      db_contacts:                'جهات الاتصال',
+      db_properties:              'العقارات',
+      db_contracts:               'العقود',
+      db_installments:            'الكمبيالات / الدفعات',
+      db_commissions:             'العمولات',
+      db_users:                   'المستخدمون',
+      db_user_permissions:        'صلاحيات المستخدمين',
+      db_roles:                   'الأدوار',
+      db_alerts:                  'التنبيهات',
+      db_attachments:             'المرفقات',
+      db_settings:                'إعدادات النظام',
+      db_lookup_categories:       'تصنيفات الجداول',
+      db_lookups:                 'الجداول المساعدة',
+      db_legal_templates:         'قوالب العقود / النماذج',
+      db_legal_history:           'السجل القانوني',
+      db_followups:               'المتابعات',
+      db_notes:                   'الملاحظات',
+      db_reminders:               'التذكيرات',
+      db_maintenance_tickets:     'بلاغات الصيانة',
+      db_notification_send_logs:  'سجل الإشعارات',
+      db_operations:              'سجل العمليات',
+      db_marquee:                 'الشريط الإعلاني',
+      db_smart_behavior:          'الأدوات الذكية',
+      db_sales_listings:          'عروض البيع',
+      db_sales_offers:            'طلبات الشراء',
+      db_sales_agreements:        'اتفاقيات البيع',
+      db_ownership_history:       'سجل الملكية',
+      db_blacklist:               'القائمة السوداء',
+      db_dynamic_tables:          'الجداول الديناميكية',
+      db_dynamic_records:         'السجلات الديناميكية',
+      db_dynamic_form_fields:     'حقول النماذج الديناميكية',
+      db_activities:              'الأنشطة',
+      db_external_commissions:    'العمولات الخارجية',
+      db_dashboard_config:        'إعدادات لوحة التحكم',
+      db_clearance_records:       'سجلات براءة الذمة',
+      db_dashboard_notes:         'ملاحظات لوحة التحكم',
+      db_client_interactions:     'تفاعلات العملاء',
+      db_property_inspections:    'معاينات العقارات',
+      db_scheduled_reports_config: 'إعدادات التقارير المجدولة',
+      db_audit_log:               'سجل التدقيق',
+      db_message_templates:       'قوالب الرسائل',
     }),
     []
   );
@@ -1415,7 +1417,7 @@ export const ServerSqlSection: React.FC = () => {
       {/* Sync Coverage Table Section (Full Width) */}
       {sqlCoverage && (
         <div className="app-card overflow-hidden">
-          <div className="app-card-header flex items-center justify-between">
+          <div className="app-card-header flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-5">
               <div className="p-4 bg-emerald-600 dark:bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
                 <Layers size={28} />
@@ -1425,101 +1427,140 @@ export const ServerSqlSection: React.FC = () => {
                   {t('تغطية المزامنة التفصيلية')}
                 </h4>
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-2">
-                  {t('مقارنة حالة البيانات المحلية مع المخدم لكل جدول.')}
+                  {sqlCoverage.localCount ?? 0} {t('محلي')} &nbsp;·&nbsp;
+                  {sqlCoverage.remoteCount ?? 0} {t('مخدم')}
                 </p>
               </div>
             </div>
             <button
               onClick={refreshSqlCoverage}
-              className="btn-secondary-modern"
+              className="btn-secondary-modern self-start md:self-center"
               disabled={sqlCoverageBusy}
             >
               <RefreshCcw
                 size={20}
                 className={sqlCoverageBusy ? 'animate-spin text-indigo-500' : 'text-indigo-500'}
               />
+              <span>{t('تحديث')}</span>
             </button>
           </div>
 
-          <div className="app-card-body">
-            <div className="app-table-wrapper !rounded-3xl border-none shadow-none bg-slate-50/30 dark:bg-slate-800/20">
-              <table className="app-table">
-                <thead className="app-table-thead !bg-transparent">
-                  <tr>
-                    <th className="app-table-th">{t('الجدول')}</th>
-                    <th className="app-table-th">{t('الحالة')}</th>
-                    <th className="app-table-th">{t('محلي')}</th>
-                    <th className="app-table-th">{t('المخدم')}</th>
-                    <th className="app-table-th text-center">{t('آخر تحديث')}</th>
+          {/* Summary Stats Bar */}
+          {sqlCoverage.items && sqlCoverage.items.length > 0 && (() => {
+            const items = sqlCoverage.items!;
+            const inSync        = items.filter(i => i.status === 'inSync').length;
+            const localAhead    = items.filter(i => i.status === 'localAhead').length;
+            const remoteAhead   = items.filter(i => i.status === 'remoteAhead').length;
+            const missingLocal  = items.filter(i => i.status === 'missingLocal').length;
+            const missingRemote = items.filter(i => i.status === 'missingRemote').length;
+            const other         = items.filter(i => !['inSync','localAhead','remoteAhead','missingLocal','missingRemote'].includes(i.status)).length;
+            return (
+              <div className="px-8 pb-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 p-5 rounded-3xl bg-slate-50/90 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/60">
+                  {[
+                    { label: 'متزامن',        count: inSync,        color: 'emerald' },
+                    { label: 'محلي أحدث',      count: localAhead,    color: 'blue' },
+                    { label: 'مخدم أحدث',      count: remoteAhead,   color: 'amber' },
+                    { label: 'ناقص محلياً',    count: missingLocal,  color: 'rose' },
+                    { label: 'ناقص بالمخدم',   count: missingRemote, color: 'orange' },
+                    { label: 'مختلف / مجهول', count: other,         color: 'slate' },
+                  ].map(({ label, count, color }) => (
+                    <div key={label} className="flex flex-col items-center gap-1.5 py-2">
+                      <span className={`text-2xl font-black ${
+                        color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400'
+                        : color === 'blue'   ? 'text-blue-600 dark:text-blue-400'
+                        : color === 'amber'  ? 'text-amber-600 dark:text-amber-400'
+                        : color === 'rose'   ? 'text-rose-600 dark:text-rose-400'
+                        : color === 'orange' ? 'text-orange-600 dark:text-orange-400'
+                        : 'text-slate-500 dark:text-slate-400'
+                      }`}>{count}</span>
+                      <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 text-center leading-tight">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="app-card-body !pt-4">
+            <div className="overflow-x-auto rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm bg-white dark:bg-slate-900/40">
+              <table className="w-full table-fixed text-sm" style={{ minWidth: '640px' }}>
+                <colgroup>
+                  <col style={{ width: '30%' }} />
+                  <col style={{ width: '18%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '20%' }} />
+                  <col style={{ width: '20%' }} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-700/60">
+                    <th className="text-right px-5 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('الجدول')}</th>
+                    <th className="text-right px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('الحالة')}</th>
+                    <th className="text-right px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('حجم محلي')}</th>
+                    <th className="text-right px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('آخر تحديث محلي')}</th>
+                    <th className="text-right px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('آخر تحديث مخدم')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {sqlCoverage.items?.map((item: SqlCoverageItem) => (
-                    <tr key={item.key} className="app-table-row group">
-                      <td className="app-table-td">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-base font-black text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                            {keyLabels[item.key] || item.key}
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
+                  {sqlCoverage.items?.map((item: SqlCoverageItem) => {
+                    const statusConfig = {
+                      inSync:        { label: 'متزامن',        dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50', glow: 'shadow-[0_0_8px_rgba(16,185,129,0.6)]' },
+                      localAhead:    { label: 'محلي أحدث',    dot: 'bg-blue-500',    badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50',       glow: 'shadow-[0_0_8px_rgba(59,130,246,0.6)]' },
+                      remoteAhead:   { label: 'مخدم أحدث',    dot: 'bg-amber-500',   badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/50',    glow: 'shadow-[0_0_8px_rgba(245,158,11,0.6)]' },
+                      missingLocal:  { label: 'ناقص محلياً',   dot: 'bg-rose-500',    badge: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800/50',         glow: 'shadow-[0_0_8px_rgba(244,63,94,0.6)]' },
+                      missingRemote: { label: 'ناقص بالمخدم',  dot: 'bg-orange-500',  badge: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50', glow: 'shadow-[0_0_8px_rgba(249,115,22,0.6)]' },
+                      different:     { label: 'مختلف',          dot: 'bg-purple-500',  badge: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50', glow: 'shadow-[0_0_8px_rgba(168,85,247,0.6)]' },
+                      unknown:       { label: 'مجهول',          dot: 'bg-slate-400',   badge: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',             glow: '' },
+                    } as const;
+                    const cfg = statusConfig[item.status as keyof typeof statusConfig] ?? statusConfig.unknown;
+                    const fmtTs = (iso?: string) => iso
+                      ? new Date(iso).toLocaleString('ar-JO', { year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+                      : '—';
+                    return (
+                      <tr key={item.key} className="group hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors">
+                        {/* Column 1: name */}
+                        <td className="px-5 py-4 align-middle">
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-sm font-black text-slate-800 dark:text-white truncate group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
+                              {keyLabels[item.key] || item.key}
+                            </span>
+                            <span className="text-[9px] text-slate-400 dark:text-slate-600 font-mono truncate dir-ltr">
+                              {item.key}
+                            </span>
+                          </div>
+                        </td>
+                        {/* Column 2: status badge */}
+                        <td className="px-4 py-4 align-middle">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black border whitespace-nowrap ${cfg.badge}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot} ${cfg.glow}`} />
+                            {cfg.label}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono font-bold tracking-tighter uppercase">
-                            {item.key}
+                        </td>
+                        {/* Column 3: local size */}
+                        <td className="px-4 py-4 align-middle">
+                          <span className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap ${
+                            item.localBytes > 0
+                              ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                              : 'text-slate-400 border-transparent'
+                          }`}>
+                            {item.localBytes > 0 ? formatSize(item.localBytes) : '—'}
                           </span>
-                        </div>
-                      </td>
-                      <td className="app-table-td">
-                        <span
-                          className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm border ${
-                            item.status === 'inSync'
-                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                              : item.status === 'localAhead'
-                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-                                : item.status === 'remoteAhead'
-                                  ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                  : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                          }`}
-                        >
-                          <div
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              item.status === 'inSync'
-                                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
-                                : item.status === 'localAhead'
-                                  ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]'
-                                  : item.status === 'remoteAhead'
-                                    ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]'
-                                    : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'
-                            }`}
-                          />
-                          {item.status === 'inSync'
-                            ? t('متزامن')
-                            : item.status === 'localAhead'
-                              ? t('محلي أحدث')
-                              : item.status === 'remoteAhead'
-                                ? t('مخدم أحدث')
-                                : t('غير متطابق')}
-                        </span>
-                      </td>
-                      <td className="app-table-td">
-                        <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
-                          {formatSize(item.localBytes)}
-                        </span>
-                      </td>
-                      <td className="app-table-td">
-                        <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
-                          {formatSize(item.remoteBytes || 0)}
-                        </span>
-                      </td>
-                      <td className="app-table-td text-center">
-                        <div className="font-mono text-[10px] text-slate-500 font-bold bg-slate-50 dark:bg-slate-900/50 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                          {item.localUpdatedAt
-                            ? new Date(item.localUpdatedAt).toLocaleString('ar-JO', {
-                                dateStyle: 'short',
-                                timeStyle: 'short',
-                              })
-                            : '-'}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        {/* Column 4: local updated at */}
+                        <td className="px-4 py-4 align-middle">
+                          <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 font-bold whitespace-nowrap" dir="ltr">
+                            {fmtTs(item.localUpdatedAt)}
+                          </div>
+                        </td>
+                        {/* Column 5: remote updated at */}
+                        <td className="px-4 py-4 align-middle">
+                          <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 font-bold whitespace-nowrap" dir="ltr">
+                            {fmtTs(item.remoteUpdatedAt)}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

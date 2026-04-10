@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BadgeDollarSign, Plus, FileSignature } from 'lucide-react';
 import { PageHero } from '@/components/shared/PageHero';
 import { Button } from '@/components/ui/Button';
@@ -9,11 +9,29 @@ import { SalesFilterBar } from './components/SalesFilterBar';
 import { SalesListingsTab } from './components/SalesListingsTab';
 import { SalesOffersTab } from './components/SalesOffersTab';
 import { SalesAgreementsTab } from './components/SalesAgreementsTab';
+import { AgreementModal } from './components/modals/AgreementModal';
+import { TransferOwnershipModal } from './components/modals/TransferOwnershipModal';
+import { NewListingModal } from './components/modals/NewListingModal';
+import { NewOfferModal } from './components/modals/NewOfferModal';
+import { DbService } from '@/services/mockDb';
+import { useToast } from '@/context/ToastContext';
+import { عروض_البيع_tbl, اتفاقيات_البيع_tbl } from '@/types';
 
 const t = (s: string) => s;
 
 export const Sales: React.FC = () => {
-  const { isLoading, stats, listings, offers, agreements, loadData } = useSalesData();
+  const { 
+    isLoading, 
+    stats, 
+    listings, 
+    offers, 
+    agreements, 
+    employees,
+    getPropertyLabel,
+    getPersonName,
+    loadData 
+  } = useSalesData();
+  const toast = useToast();
   const {
     activeTab,
     setActiveTab,
@@ -25,6 +43,108 @@ export const Sales: React.FC = () => {
     setListingMarketingFilter,
     STATUS_FILTERS
   } = useSalesFilters();
+
+  const [isListingModalOpen, setIsListingModalOpen] = useState(false);
+  const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
+  const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<عروض_البيع_tbl | null>(null);
+  const [selectedAgreement, setSelectedAgreement] = useState<اتفاقيات_البيع_tbl | null>(null);
+
+  const handleCreateListing = async (data: any) => {
+    const res = selectedListing?.id 
+      ? DbService.updateSalesListing(selectedListing.id, data)
+      : DbService.addSalesListing(data);
+      
+    if (res.success) {
+      toast.success(res.message);
+      setIsListingModalOpen(false);
+      setSelectedListing(null);
+      loadData();
+    } else {
+      toast.error(res.message);
+    }
+  };
+
+  const handleUpdateOfferStatus = async (offerId: string, status: 'Accepted' | 'Rejected') => {
+    const res = DbService.updateSalesOfferStatus(offerId, status);
+    if (res.success) {
+      toast.success(res.message);
+      loadData();
+    } else {
+      toast.error(res.message);
+    }
+  };
+
+  const handleDeleteOffer = async (offer: any) => {
+    const ok = await toast.confirm({
+      title: 'تأكيد الحذف',
+      message: 'هل أنت متأكد من حذف عرض الشراء هذا؟',
+      isDangerous: true
+    });
+    if (ok) {
+      const res = DbService.deleteSalesOffer(offer.id);
+      if (res.success) {
+        toast.success(res.message);
+        loadData();
+      } else {
+        toast.error(res.message);
+      }
+    }
+  };
+
+  const handleCreateOffer = async (data: any) => {
+    const res = DbService.addSalesOffer({ ...data, listingId: selectedListing?.id });
+    if (res.success) {
+      toast.success(res.message);
+      setIsOfferModalOpen(false);
+      loadData();
+    } else {
+      toast.error(res.message);
+    }
+  };
+
+  const handleCreateAgreement = async (data: any) => {
+    const res = selectedAgreement?.id 
+      ? DbService.updateSalesAgreement(selectedAgreement.id, data)
+      : DbService.addSalesAgreement({ ...data, listingId: selectedListing?.id });
+      
+    if (res.success) {
+      toast.success(res.message);
+      setIsAgreementModalOpen(false);
+      setSelectedAgreement(null);
+      loadData();
+    } else {
+      toast.error(res.message);
+    }
+  };
+
+  const handleEditAgreement = (agreement: اتفاقيات_البيع_tbl) => {
+    setSelectedAgreement(agreement);
+    setIsAgreementModalOpen(true);
+  };
+
+  const handleEditListing = (listing: عروض_البيع_tbl) => {
+    setSelectedListing(listing);
+    setIsListingModalOpen(true);
+  };
+
+  const handleDeleteListing = async (listing: عروض_البيع_tbl) => {
+    const ok = await toast.confirm({
+      title: 'تأكيد الحذف',
+      message: 'هل أنت متأكد من حذف عرض البيع هذا؟ سيتم إرجاع حالة العقار لوضعها الطبيعي.',
+      isDangerous: true
+    });
+    if (ok) {
+      const res = DbService.deleteSalesListing(listing.id!);
+      if (res.success) {
+        toast.success(res.message);
+        loadData();
+      } else {
+        toast.error(res.message);
+      }
+    }
+  };
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">
@@ -39,12 +159,14 @@ export const Sales: React.FC = () => {
               variant="secondary"
               className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
               leftIcon={<FileSignature size={20} />}
+              onClick={() => setIsAgreementModalOpen(true)}
             >
               {t('إنشاء اتفاقية')}
             </Button>
             <Button
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-6 py-3 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
               leftIcon={<Plus size={20} />}
+              onClick={() => setIsListingModalOpen(true)}
             >
               {t('عرض بيع جديد')}
             </Button>
@@ -93,16 +215,85 @@ export const Sales: React.FC = () => {
               setListingMarketingFilter={setListingMarketingFilter}
               statusFilter={statusFilter}
               searchQuery={searchQuery}
+              getPropertyLabel={getPropertyLabel}
+              getPersonName={getPersonName}
+              onView={handleEditListing}
+              onEdit={handleEditListing}
+              onCreateOffer={(l) => {
+                setSelectedListing(l);
+                setIsOfferModalOpen(true);
+              }}
+              onDelete={handleDeleteListing}
             />
           )}
           {activeTab === 'offers' && (
-            <SalesOffersTab offers={offers} isLoading={isLoading} />
+            <SalesOffersTab 
+              offers={offers} 
+              isLoading={isLoading} 
+              getPropertyLabel={getPropertyLabel}
+              getPersonName={getPersonName}
+              listings={listings}
+              onUpdateStatus={handleUpdateOfferStatus}
+              onDelete={handleDeleteOffer}
+            />
           )}
           {activeTab === 'agreements' && (
-            <SalesAgreementsTab agreements={agreements} isLoading={isLoading} listings={listings} />
+            <SalesAgreementsTab 
+              agreements={agreements} 
+              isLoading={isLoading} 
+              listings={listings}
+              getPropertyLabel={getPropertyLabel}
+              getPersonName={getPersonName}
+              onFinalize={(a) => {
+                setSelectedAgreement(a);
+                setIsTransferModalOpen(true);
+              }}
+              onEdit={handleEditAgreement}
+            />
           )}
         </div>
       </div>
+
+      <NewListingModal 
+        isOpen={isListingModalOpen} 
+        onClose={() => {
+          setIsListingModalOpen(false);
+          setSelectedListing(null);
+        }} 
+        onSubmit={handleCreateListing} 
+        initialData={selectedListing}
+      />
+      
+      <NewOfferModal 
+        isOpen={isOfferModalOpen} 
+        onClose={() => setIsOfferModalOpen(false)} 
+        onSubmit={handleCreateOffer}
+      />
+
+      <AgreementModal
+        isOpen={isAgreementModalOpen}
+        onClose={() => setIsAgreementModalOpen(false)}
+        onSubmit={handleCreateAgreement}
+        listings={listings}
+        offers={offers}
+        getPropertyLabel={getPropertyLabel}
+        getPersonName={getPersonName}
+        employees={employees}
+        initialData={selectedAgreement}
+      />
+
+      <TransferOwnershipModal 
+        isOpen={isTransferModalOpen}
+        onClose={() => {
+          setIsTransferModalOpen(false);
+          setSelectedAgreement(null);
+        }}
+        agreement={selectedAgreement}
+        getPropertyLabel={getPropertyLabel}
+        getPersonName={getPersonName}
+        employees={employees}
+        onSuccess={loadData}
+      />
     </div>
   );
 };

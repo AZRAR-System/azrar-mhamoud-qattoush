@@ -219,13 +219,26 @@ export const MAX_JSON_BACKUP_BYTES = 500 * 1024 * 1024; // 500MB
 
 export const DB_KEYS = {
   PEOPLE: 'db_people',
+  COMPANIES: 'db_companies',
+  CONTACTS: 'db_contacts',
   ROLES: 'db_roles',
   PROPERTIES: 'db_properties',
   CONTRACTS: 'db_contracts',
   /** كمبيالات / جدول الدفعات — يجب أن يطابق KEYS.INSTALLMENTS ومسار المزامنة */
   INSTALLMENTS: 'db_installments',
+  COMMISSIONS: 'db_commissions',
+  USERS: 'db_users',
+  USER_PERMISSIONS: 'db_user_permissions',
+  ALERTS: 'db_alerts',
   MAINTENANCE: 'db_maintenance_tickets',
+  LOOKUPS: 'db_lookups',
+  LOOKUP_CATEGORIES: 'db_lookup_categories',
+  SETTINGS: 'db_settings',
+  LOGS: 'db_operations',
   BLACKLIST: 'db_blacklist',
+  DYNAMIC_TABLES: 'db_dynamic_tables',
+  DYNAMIC_RECORDS: 'db_dynamic_records',
+  DYNAMIC_FORM_FIELDS: 'db_dynamic_form_fields',
   OWNERSHIP_HISTORY: 'db_ownership_history',
   INSPECTIONS: 'db_property_inspections',
   SALES_LISTINGS: 'db_sales_listings',
@@ -237,6 +250,18 @@ export const DB_KEYS = {
   ATTACHMENTS: 'db_attachments',
   ACTIVITIES: 'db_activities',
   NOTES: 'db_notes',
+  LEGAL_TEMPLATES: 'db_legal_templates',
+  LEGAL_HISTORY: 'db_legal_history',
+  MARQUEE: 'db_marquee',
+  DASHBOARD_CONFIG: 'db_dashboard_config',
+  CLEARANCE_RECORDS: 'db_clearance_records',
+  DASHBOARD_NOTES: 'db_dashboard_notes',
+  CLIENT_INTERACTIONS: 'db_client_interactions',
+  NOTIFICATION_SEND_LOGS: 'db_notification_send_logs',
+  SMART_BEHAVIOR: 'db_smart_behavior',
+  SCHEDULED_REPORTS_CONFIG: 'db_scheduled_reports_config',
+  AUDIT_LOG: 'db_audit_log',
+  MESSAGE_TEMPLATES: 'db_message_templates',
 } as const;
 
 export const kvGetArray = (key: string): unknown[] => safeJsonParseArray(kvGet(key));
@@ -1447,7 +1472,7 @@ export function formatBackupStamp(d = new Date()): string {
 }
 
 export async function chooseJsonFileViaDialog(): Promise<string | null> {
-  const result = await dialog.showOpenDialog({
+  const result: any = await dialog.showOpenDialog({
     title: 'اختر ملف النسخة الاحتياطية',
     properties: ['openFile'],
     filters: [
@@ -1480,7 +1505,7 @@ export async function chooseJsonFileViaDialog(): Promise<string | null> {
 }
 
 export async function chooseBackupDirViaDialog(): Promise<string | null> {
-  const result = await dialog.showOpenDialog({
+  const result: any = await dialog.showOpenDialog({
     title: 'اختر مجلد النسخ الاحتياطي',
     properties: ['openDirectory', 'createDirectory'],
   });

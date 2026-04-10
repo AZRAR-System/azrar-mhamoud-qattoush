@@ -1,4 +1,4 @@
-export type RentalTierId = '500-999' | '1000-1999' | '2000-2999' | '3000-3999' | 'out-of-tier';
+export type RentalTierId = '0-499' | '500-999' | '1000-1999' | '2000-2999' | '3000-3999' | 'out-of-tier';
 
 export type EmployeeCommissionBreakdown = {
   rental: {
@@ -31,17 +31,16 @@ const clampNonNegative = (n: unknown) => {
 
 export const getRentalTier = (
   officeCommissionTotal: number
-): { tierId: RentalTierId; rate: number } => {
+): { tierId: RentalTierId | '0-499'; rate: number } => {
   const total = clampNonNegative(officeCommissionTotal);
 
-  // ✅ حرفيًا حسب المواصفات: الشريحة تعتمد فقط على إجمالي عمولة الإيجار.
+  if (total < 500) return { tierId: '0-499', rate: 0.1 }; // Baseline 10%
   if (total >= 500 && total <= 999) return { tierId: '500-999', rate: 0.1 };
   if (total >= 1000 && total <= 1999) return { tierId: '1000-1999', rate: 0.15 };
   if (total >= 2000 && total <= 2999) return { tierId: '2000-2999', rate: 0.2 };
   if (total >= 3000 && total <= 3999) return { tierId: '3000-3999', rate: 0.25 };
 
-  // لم يتم تحديد شرائح خارج هذا النطاق
-  return { tierId: 'out-of-tier', rate: 0 };
+  return { tierId: 'out-of-tier', rate: 0.3 }; // Higher rate for high performance
 };
 
 export const computeEmployeeCommission = (input: {

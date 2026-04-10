@@ -589,4 +589,55 @@ body,
   .report-print {
     direction: rtl;
   }
+
+  /* Force white background and black text to fix "Black Box" issue in high-contrast/dark modes */
+  .glass,
+  .glass-card,
+  .app-card,
+  .app-table-wrapper,
+  .app-modal-content,
+  .bg-white\/70,
+  .bg-white\/80,
+  .bg-white\/60,
+  .dark .bg-slate-900\/80,
+  .dark .bg-slate-900 {
+    background: white !important;
+    background-color: white !important;
+    color: black !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Reset all text colors for printing */
+  .text-slate-800, 
+  .text-slate-700, 
+  .text-slate-600, 
+  .text-slate-500,
+  .dark .text-white,
+  .dark .text-slate-200,
+  .dark .text-slate-300,
+  .dark .text-slate-400 {
+    color: black !important;
+  }
+
+  /* Reset indigo/colored text to a darker shade for legibility on paper */
+  .text-indigo-600,
+  .text-indigo-700,
+  .dark .text-indigo-400 {
+    color: #4338ca !important;
+  }
+
+  /* Layout cleanup */
+  .app-card {
+    border-radius: 0 !important;
+    margin-bottom: 2rem !important;
+    break-inside: avoid;
+  }
+
+  .app-card-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
 }

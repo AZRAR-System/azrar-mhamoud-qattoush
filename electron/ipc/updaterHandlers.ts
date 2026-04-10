@@ -195,11 +195,11 @@ export function registerUpdaterHandlers(opts: {
       };
     }
 
-    const result = await dialog.showOpenDialog({
+    const result = (await dialog.showOpenDialog({
       title: 'اختر ملف تحديث (مثبت البرنامج)',
       filters: [{ name: 'Installer', extensions: ['exe'] }],
       properties: ['openFile'],
-    });
+    })) as any;
 
     if (result.canceled || result.filePaths.length === 0) {
       return { success: false, message: 'تم الإلغاء' };

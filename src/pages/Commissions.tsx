@@ -8,6 +8,7 @@ import {
   العمولات_الخارجية_tbl,
   الأشخاص_tbl,
   المستخدمين_tbl,
+  اتفاقيات_البيع_tbl,
 } from '@/types';
 import { runReportSmart } from '@/services/reporting';
 import {
@@ -49,19 +50,19 @@ import { exportToXlsx, type XlsxColumn } from '@/utils/xlsx';
 type Tab = 'contracts' | 'external' | 'employee';
 
 type EmployeeCommissionRow = {
-  type?: unknown;
-  date?: unknown;
-  reference?: unknown;
-  employee?: unknown;
-  employeeUsername?: unknown;
-  property?: unknown;
-  opportunity?: unknown;
-  officeCommission?: unknown;
-  tier?: unknown;
-  employeeBase?: unknown;
-  intro?: unknown;
-  employeeTotal?: unknown;
-  [key: string]: unknown;
+  type?: string;
+  date?: string;
+  reference?: string;
+  employee?: string;
+  employeeUsername?: string;
+  property?: string;
+  opportunity?: string;
+  officeCommission?: number;
+  tier?: string;
+  employeeBase?: number;
+  intro?: number;
+  employeeTotal?: number;
+  [key: string]: string | number | boolean | null | undefined | unknown;
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -99,7 +100,13 @@ const personIdFromRow = (p: unknown) =>
   pickRecordField(p, ['رقم_الشخص', 'id', 'personId']);
 
 export const Commissions: FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('contracts');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    try {
+      const saved = sessionStorage.getItem('commissions_activeTab');
+      if (saved === 'contracts' || saved === 'external' || saved === 'employee') return saved as Tab;
+    } catch { /* ignore */ }
+    return 'contracts';
+  });
 
   const listPageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 14, '2xl': 18 });
   const [employeePage, setEmployeePage] = useState(1);
@@ -115,11 +122,13 @@ export const Commissions: FC = () => {
   // Contract Commissions Data
   const [commissions, setCommissions] = useState<العمولات_tbl[]>([]);
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
+  const [agreements, setAgreements] = useState<اتفاقيات_البيع_tbl[]>([]);
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
 
   // Desktop-fast: resolve contract/property/people names lazily (avoid renderer loading huge arrays)
   const fastContractByIdRef = useRef<Map<string, العقود_tbl>>(new Map());
+  const fastAgreementByIdRef = useRef<Map<string, اتفاقيات_البيع_tbl>>(new Map());
   const fastPropertyByIdRef = useRef<Map<string, العقارات_tbl>>(new Map());
   const fastPersonByIdRef = useRef<Map<string, الأشخاص_tbl>>(new Map());
   const [fastCacheVersion, setFastCacheVersion] = useState(0);
@@ -151,7 +160,13 @@ export const Commissions: FC = () => {
   const [employeeUserFilter, setEmployeeUserFilter] = useState<string>('');
 
   // Filters
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    try {
+      const saved = sessionStorage.getItem('commissions_selectedMonth');
+      if (/^\d{4}-\d{2}$/.test(saved || '')) return saved!;
+    } catch { /* ignore */ }
+    return new Date().toISOString().slice(0, 7);
+  });
   const [searchTerm, setSearchTerm] = useState('');
   /** بحث داخل تبويب عمولات العقود فقط (لا يؤثر على إجماليات الشهر) */
   const [contractSearchTerm, setContractSearchTerm] = useState('');
@@ -196,6 +211,15 @@ export const Commissions: FC = () => {
     return () => window.removeEventListener('hashchange', applyFromHash);
   }, []);
 
+  // Sync to SessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('commissions_activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    sessionStorage.setItem('commissions_selectedMonth', selectedMonth);
+  }, [selectedMonth]);
+
   // Default employee filter to current logged-in user
   useEffect(() => {
     if (employeeUserFilter) return;
@@ -210,14 +234,15 @@ export const Commissions: FC = () => {
     if (isDesktopFast) {
       // Desktop fast mode: never load huge arrays into renderer memory.
       setContracts([]);
+      setAgreements([]);
       setProperties([]);
       setPeople([]);
-      fastContractByIdRef.current = new Map();
-      fastPropertyByIdRef.current = new Map();
-      fastPersonByIdRef.current = new Map();
+      // Preserving the Maps (fastContractByIdRef etc.) to prevent "flicker" on tab switch.
+      // They are populated by the hydration useEffect whenever IDs appear.
       setFastCacheVersion((v) => v + 1);
     } else {
       setContracts(DbService.getContracts());
+      setAgreements(DbService.getSalesAgreements());
       setProperties(DbService.getProperties());
       setPeople(DbService.getPeople());
     }
@@ -243,10 +268,7 @@ export const Commissions: FC = () => {
   }, [activeTab, dbSignal, loadData]);
 
   useEffect(() => {
-    // Keep filters intuitive across tabs
-    setSearchTerm('');
-    setContractSearchTerm('');
-    setFilterType('All');
+    // Info used to disappear here; now we keep filters fixed across tabs.
   }, [activeTab]);
 
   const handleAddExternal = (e: FormEvent) => {
@@ -378,9 +400,11 @@ export const Commissions: FC = () => {
       return;
     }
 
-    const commOwner = Number(editingContractComm.عمولة_المالك || 0);
-    const commTenant = Number(editingContractComm.عمولة_المستأجر || 0);
-    if (!Number.isFinite(commOwner) || !Number.isFinite(commTenant)) {
+    const isSale = editingContractComm.نوع_العمولة === 'Sale';
+    const c1 = Number((isSale ? editingContractComm.عمولة_البائع : editingContractComm.عمولة_المالك) || 0);
+    const c2 = Number((isSale ? editingContractComm.عمولة_المشتري : editingContractComm.عمولة_المستأجر) || 0);
+
+    if (!Number.isFinite(c1) || !Number.isFinite(c2)) {
       toast.warning('يرجى إدخال أرقام صحيحة');
       return;
     }
@@ -393,12 +417,14 @@ export const Commissions: FC = () => {
       رقم_الفرصة: asTrimmedString(editingContractComm.رقم_الفرصة) || undefined,
       يوجد_ادخال_عقار: !!editingContractComm.يوجد_ادخال_عقار,
       اسم_المستخدم: asTrimmedString(editingContractComm.اسم_المستخدم) || undefined,
-      عمولة_المالك: commOwner,
-      عمولة_المستأجر: commTenant,
+      ...(isSale 
+        ? { عمولة_البائع: c1, عمولة_المشتري: c2 }
+        : { عمولة_المالك: c1, عمولة_المستأجر: c2 }
+      )
     });
 
     if (res.success) {
-      toast.success('تم تعديل العمولة');
+      toast.success('تم تعديل العمولة بنجاح');
       setIsContractModalOpen(false);
       setEditingContractComm(null);
       loadData();
@@ -408,9 +434,13 @@ export const Commissions: FC = () => {
   };
 
   const handleDeleteContractCommission = async (c: العمولات_tbl) => {
+    const isSale = c.نوع_العمولة === 'Sale';
+    const ref = isSale ? (c.رقم_الاتفاقية || '') : (c.رقم_العقد || '');
+    const label = isSale ? 'اتفاقية البيع' : 'العقد';
+
     const ok = await toast.confirm({
-      title: 'حذف',
-      message: `هل تريد حذف عمولة العقد #${formatContractNumberShort(c.رقم_العقد)}؟`,
+      title: 'حذف حظر',
+      message: `هل تريد حذف عمولة ${label} #${formatContractNumberShort(ref)}؟`,
       confirmText: 'حذف',
       cancelText: 'إلغاء',
       isDangerous: true,
@@ -429,96 +459,141 @@ export const Commissions: FC = () => {
   // --- Calculations & Helpers ---
 
   const getPropCode = useCallback(
-    (contractId: string) => {
-      const safeId = String(contractId || '').trim();
-      if (!safeId) return '—';
+    (comm: العمولات_tbl) => {
+      const type = comm.نوع_العمولة || 'Rental';
+      const contractId = String(comm.رقم_العقد || '').trim();
+      const agreementId = String(comm.رقم_الاتفاقية || '').trim();
 
       if (isDesktopFast) {
-        // Touch fastCacheVersion to make ESLint/TS aware this value is intentionally read.
         void fastCacheVersion;
-        const contract = fastContractByIdRef.current.get(safeId);
-        const propId = contractPropertyId(contract);
-        const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
-        return propertyInternalCode(prop) || '—';
+        if (type === 'Rental' && contractId) {
+          const contract = fastContractByIdRef.current.get(contractId.toLowerCase());
+          const propId = contractPropertyId(contract);
+          const prop = propId ? fastPropertyByIdRef.current.get(propId.toLowerCase()) : null;
+          return propertyInternalCode(prop) || '—';
+        }
+        if (type === 'Sale' && agreementId) {
+          const agreement = fastAgreementByIdRef.current.get(agreementId.toLowerCase());
+          const propId = pickRecordField(agreement, ['رقم_العقار', 'property_id', 'propertyId']);
+          const prop = propId ? fastPropertyByIdRef.current.get(propId.toLowerCase()) : null;
+          return propertyInternalCode(prop) || '—';
+        }
+        return '—';
       }
 
-      const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
-      if (!contract) return '—';
-      const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
-      return prop ? String(prop.الكود_الداخلي || '').trim() || '—' : '—';
+      if (type === 'Rental') {
+        const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
+        if (!contract) return '—';
+        const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
+        return prop ? String(prop.الكود_الداخلي || '').trim() || '—' : '—';
+      } else {
+        const agreement = agreements.find((a) => idEq(a.id, agreementId));
+        if (!agreement) return '—';
+        const prop = properties.find((p) => idEq(p.رقم_العقار, agreement.رقم_العقار));
+        return prop ? String(prop.الكود_الداخلي || '').trim() || '—' : '—';
+      }
     },
-    [isDesktopFast, fastCacheVersion, contracts, properties]
+    [isDesktopFast, fastCacheVersion, contracts, agreements, properties]
   );
 
-  const getOwnerAndTenantNames = useCallback(
-    (contractId: string) => {
-      const safeId = String(contractId || '').trim();
-      if (!safeId) return { ownerName: '—', tenantName: '—' };
+  const getNames = useCallback(
+    (comm: العمولات_tbl) => {
+      const type = comm.نوع_العمولة || 'Rental';
+      const contractId = String(comm.رقم_العقد || '').trim();
+      const agreementId = String(comm.رقم_الاتفاقية || '').trim();
 
       if (isDesktopFast) {
         void fastCacheVersion;
-        const contract = fastContractByIdRef.current.get(safeId);
-        const tenantId = contractTenantId(contract);
-        const propId = contractPropertyId(contract);
-        const prop = propId ? fastPropertyByIdRef.current.get(propId) : null;
-        const ownerId = propertyOwnerId(prop);
-
-        const tenant = tenantId ? fastPersonByIdRef.current.get(tenantId) : null;
-        const owner = ownerId ? fastPersonByIdRef.current.get(ownerId) : null;
-
-        return {
-          ownerName: personDisplayName(owner) || '—',
-          tenantName: personDisplayName(tenant) || '—',
-        };
+        if (type === 'Rental' && contractId) {
+          const contract = fastContractByIdRef.current.get(contractId.toLowerCase());
+          const tenantId = contractTenantId(contract);
+          const propId = contractPropertyId(contract);
+          const prop = propId ? fastPropertyByIdRef.current.get(propId.toLowerCase()) : null;
+          const ownerId = propertyOwnerId(prop);
+          const tenant = tenantId ? fastPersonByIdRef.current.get(tenantId.toLowerCase()) : null;
+          const owner = ownerId ? fastPersonByIdRef.current.get(ownerId.toLowerCase()) : null;
+          return {
+            p1: personDisplayName(owner) || '—',
+            p2: personDisplayName(tenant) || '—',
+          };
+        }
+        if (type === 'Sale' && agreementId) {
+          const agreement = fastAgreementByIdRef.current.get(agreementId.toLowerCase());
+          const buyerId = pickRecordField(agreement, ['رقم_المشتري', 'buyer_id', 'buyerId']);
+          const propId = pickRecordField(agreement, ['رقم_العقار', 'property_id', 'propertyId']);
+          const prop = propId ? fastPropertyByIdRef.current.get(propId.toLowerCase()) : null;
+          const sellerId = propertyOwnerId(prop);
+          const buyer = buyerId ? fastPersonByIdRef.current.get(buyerId.toLowerCase()) : null;
+          const seller = sellerId ? fastPersonByIdRef.current.get(sellerId.toLowerCase()) : null;
+          return {
+            p1: personDisplayName(seller) || '—',
+            p2: personDisplayName(buyer) || '—',
+          };
+        }
+        return { p1: '—', p2: '—' };
       }
 
-      const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
-      if (!contract) return { ownerName: '—', tenantName: '—' };
-
-      const tenant = people.find((p) => idEq(p.رقم_الشخص, contract.رقم_المستاجر));
-      const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
-      const owner = prop
-        ? people.find((p) => idEq(p.رقم_الشخص, prop.رقم_المالك))
-        : undefined;
-
-      return {
-        ownerName: String(owner?.الاسم || '').trim() || '—',
-        tenantName: String(tenant?.الاسم || '').trim() || '—',
-      };
+      if (type === 'Rental') {
+        const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
+        if (!contract) return { p1: '—', p2: '—' };
+        const tenant = people.find((p) => idEq(p.رقم_الشخص, contract.رقم_المستاجر));
+        const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
+        const owner = prop ? people.find((p) => idEq(p.رقم_الشخص, prop.رقم_المالك)) : undefined;
+        return {
+          p1: String(owner?.الاسم || '').trim() || '—',
+          p2: String(tenant?.الاسم || '').trim() || '—',
+        };
+      } else {
+        const agreement = agreements.find((a) => idEq(a.id, agreementId));
+        if (!agreement) return { p1: '—', p2: '—' };
+        const prop = properties.find((p) => idEq(p.رقم_العقار, agreement.رقم_العقار));
+        const seller = prop ? people.find((p) => idEq(p.رقم_الشخص, prop.رقم_المالك)) : undefined;
+        const buyer = people.find((p) => idEq(p.رقم_الشخص, agreement.رقم_المشتري));
+        return {
+          p1: String(seller?.الاسم || '').trim() || '—',
+          p2: String(buyer?.الاسم || '').trim() || '—',
+        };
+      }
     },
-    [isDesktopFast, fastCacheVersion, contracts, properties, people]
+    [isDesktopFast, fastCacheVersion, contracts, agreements, properties, people]
   );
 
   const handlePostponeCommissionCollection = async (c: العمولات_tbl) => {
+    const isSale = c.نوع_العمولة === 'Sale';
+    const c1Label = isSale ? 'البائع' : 'المالك';
+    const c2Label = isSale ? 'المشتري' : 'المستأجر';
+    const c1Val = Number((isSale ? c.عمولة_البائع : c.عمولة_المالك) || 0);
+    const c2Val = Number((isSale ? c.عمولة_المشتري : c.عمولة_المستأجر) || 0);
+
     const defaultWho = (() => {
       const prev = String(c.جهة_تحصيل_مؤجل || '').trim();
       if (prev === 'مالك') return 'Owner';
       if (prev === 'مستأجر') return 'Tenant';
-      if (Number(c.عمولة_المالك || 0) > 0 && Number(c.عمولة_المستأجر || 0) <= 0) return 'Owner';
-      if (Number(c.عمولة_المستأجر || 0) > 0 && Number(c.عمولة_المالك || 0) <= 0) return 'Tenant';
+      if (c1Val > 0 && c2Val <= 0) return 'Owner';
+      if (c2Val > 0 && c1Val <= 0) return 'Tenant';
       return 'Owner';
     })();
 
-    const whoRaw = await dialogs.prompt({
+    const whoRaw = (await (dialogs as any).prompt({
       title: 'تأجيل التحصيل',
-      message: 'من هو المطلوب تأجيل تحصيل العمولة منه؟',
+      message: `من هو المطلوب تأجيل تحصيل العمولة منه؟`,
       inputType: 'select',
       options: [
-        { label: 'المالك', value: 'Owner' },
-        { label: 'المستأجر', value: 'Tenant' },
+        { label: c1Label, value: 'Owner' },
+        { label: c2Label, value: 'Tenant' },
       ],
       defaultValue: defaultWho,
       required: true,
-    });
+    })) as string | null;
     if (whoRaw !== 'Owner' && whoRaw !== 'Tenant') return;
     const who = whoRaw;
 
-    if (who === 'Owner' && Number(c.عمولة_المالك || 0) <= 0) {
-      toast.warning('عمولة المالك = 0 (لا يوجد ما يمكن تأجيله)');
+    if (who === 'Owner' && c1Val <= 0) {
+      toast.warning(`عمولة ${c1Label} = 0 (لا يوجد ما يمكن تأجيله)`);
       return;
     }
-    if (who === 'Tenant' && Number(c.عمولة_المستأجر || 0) <= 0) {
-      toast.warning('عمولة المستأجر = 0 (لا يوجد ما يمكن تأجيله)');
+    if (who === 'Tenant' && c2Val <= 0) {
+      toast.warning(`عمولة ${c2Label} = 0 (لا يوجد ما يمكن تأجيله)`);
       return;
     }
 
@@ -547,10 +622,18 @@ export const Commissions: FC = () => {
   };
 
   const getCommissionMonthKey = (c: العمولات_tbl) => {
-    const paidMonth = String(c.شهر_دفع_العمولة || '');
+    const paidMonth = asTrimmedString(c.شهر_دفع_العمولة);
     if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth;
-    const contractDate = String(c.تاريخ_العقد || '');
-    if (/^\d{4}-\d{2}/.test(contractDate)) return contractDate.slice(0, 7);
+    
+    // Fallback to تاريخ_العقد
+    const dateStr = asTrimmedString(c.تاريخ_العقد);
+    if (/^\d{4}-\d{2}/.test(dateStr)) return dateStr.slice(0, 7);
+    
+    // Support DD/MM/YYYY if found
+    if (/\d{1,2}\/\d{1,2}\/\d{4}/.test(dateStr)) {
+      const parts = dateStr.split('/');
+      return `${parts[2]}-${parts[1].padStart(2, '0')}`;
+    }
     return '';
   };
 
@@ -565,166 +648,162 @@ export const Commissions: FC = () => {
     const q = contractSearchTerm.trim().toLowerCase();
     if (!q) return commissionsForSelectedMonth;
     return commissionsForSelectedMonth.filter((c) => {
-      const prop = getPropCode(c.رقم_العقد);
-      const names = getOwnerAndTenantNames(c.رقم_العقد);
+      const type = c.نوع_العمولة || 'Rental';
+      const ref = type === 'Rental' ? (c.رقم_العقد || '') : (c.رقم_الاتفاقية || '');
+      const prop = getPropCode(c);
+      const names = getNames(c);
       const blob = [
-        formatContractNumberShort(c.رقم_العقد),
-        String(c.رقم_العقد || ''),
+        formatContractNumberShort(ref),
+        String(ref),
         prop,
-        names.ownerName,
-        names.tenantName,
+        names.p1,
+        names.p2,
         String(c.رقم_الفرصة || ''),
+        type === 'Rental' ? 'إيجار' : 'بيع',
       ]
         .join(' ')
         .toLowerCase();
       return blob.includes(q);
     });
-  }, [commissionsForSelectedMonth, contractSearchTerm, getOwnerAndTenantNames, getPropCode]);
+  }, [commissionsForSelectedMonth, contractSearchTerm, getNames, getPropCode]);
 
-  /** سطح المكتب السريع: تحميل العقد ثم العقار والمستأجر والمالك — حتى لو كان العقد في الكاش نُكمل ما فقد سابقاً */
+  /** سطح المكتب السريع: تحميل العقد/الاتفاقية ثم العقار والأطراف */
   useEffect(() => {
     if (!isDesktopFast) return;
     let alive = true;
 
     const run = async () => {
-      const ids = Array.from(
+      const contractIds = Array.from(
         new Set(
-          commissionsForSelectedMonth.map((c) => String(c.رقم_العقد || '').trim()).filter(Boolean)
+          commissionsForSelectedMonth
+            .filter((c) => c.نوع_العمولة === 'Rental' || !c.نوع_العمولة)
+            .map((c) => String(c.رقم_العقد || '').trim())
+            .filter(Boolean)
+        )
+      );
+      const agreementIds = Array.from(
+        new Set(
+          commissionsForSelectedMonth
+            .filter((c) => c.نوع_العمولة === 'Sale')
+            .map((c) => String(c.رقم_الاتفاقية || '').trim())
+            .filter(Boolean)
         )
       );
 
-      const limited = ids.slice(0, 250);
       let changed = false;
 
+      // 1. Hydrate Contracts (and related Property/Person)
       const hasContractDetails =
         typeof window !== 'undefined' &&
         typeof window.desktopDb?.domainContractDetails === 'function';
 
-      for (const contractId of limited) {
+      for (const cid of contractIds.slice(0, 150)) {
         if (!alive) return;
-
-        /* المسار المفضّل على الديسكتوب: تفاصيل العقد (عقد + عقار + مستأجر) كما في لوحات النظام */
         if (hasContractDetails) {
-          let hydratedWithDetails = false;
           try {
-            const details = await contractDetailsSmart(contractId);
+            const details = await contractDetailsSmart(cid);
             if (details?.contract) {
-              hydratedWithDetails = true;
-              fastContractByIdRef.current.set(contractId, details.contract);
-              changed = true;
-
-              let prop = details.property ?? null;
-              const propIdFromContract = contractPropertyId(details.contract);
-
-              if (!prop && propIdFromContract) {
-                try {
-                  prop = (await domainGetSmart('properties', propIdFromContract)) ?? null;
-                } catch {
-                  // ignore
+              const contractIdNormal = cid.toLowerCase();
+              fastContractByIdRef.current.set(contractIdNormal, details.contract);
+              const pid = contractPropertyId(details.contract);
+              if (pid) {
+                const propIdNormal = pid.toLowerCase();
+                if (details.property) fastPropertyByIdRef.current.set(propIdNormal, details.property);
+                const p = details.property || fastPropertyByIdRef.current.get(propIdNormal);
+                if (p) {
+                  const oid = propertyOwnerId(p);
+                  if (oid) {
+                    const ownerIdNormal = oid.toLowerCase();
+                    if (!fastPersonByIdRef.current.has(ownerIdNormal)) {
+                      const owner = await domainGetSmart('people', oid);
+                      if (owner) fastPersonByIdRef.current.set(ownerIdNormal, owner);
+                    }
+                  }
                 }
               }
-
-              if (prop) {
-                const pid = contractPropertyId(prop) || propIdFromContract;
-                if (pid) fastPropertyByIdRef.current.set(pid, prop);
-              }
-
               if (details.tenant) {
                 const tid = personIdFromRow(details.tenant);
-                if (tid) fastPersonByIdRef.current.set(tid, details.tenant);
-              } else {
-                const tid = contractTenantId(details.contract);
-                if (tid && !fastPersonByIdRef.current.has(tid)) {
-                  try {
-                    const t = await domainGetSmart('people', tid);
-                    if (t) {
-                      fastPersonByIdRef.current.set(tid, t);
-                      changed = true;
+                if (tid) fastPersonByIdRef.current.set(tid.toLowerCase(), details.tenant);
+              }
+              changed = true;
+            }
+          } catch { /* ignore */ }
+        } else {
+          try {
+            const c = await domainGetSmart('contracts', cid);
+            if (c) {
+              const contractIdNormal = cid.toLowerCase();
+              fastContractByIdRef.current.set(contractIdNormal, c);
+              const pid = contractPropertyId(c);
+              const tid = contractTenantId(c);
+              if (pid) {
+                const propIdNormal = pid.toLowerCase();
+                let p = fastPropertyByIdRef.current.get(propIdNormal);
+                if (!p) {
+                  p = await domainGetSmart('properties', pid);
+                  if (p) fastPropertyByIdRef.current.set(propIdNormal, p);
+                }
+                if (p) {
+                  const oid = propertyOwnerId(p);
+                  if (oid) {
+                    const ownerIdNormal = oid.toLowerCase();
+                    if (!fastPersonByIdRef.current.has(ownerIdNormal)) {
+                      const owner = await domainGetSmart('people', oid);
+                      if (owner) fastPersonByIdRef.current.set(ownerIdNormal, owner);
                     }
-                  } catch {
-                    // ignore
                   }
                 }
               }
+              if (tid) {
+                const tenantIdNormal = tid.toLowerCase();
+                if (!fastPersonByIdRef.current.has(tenantIdNormal)) {
+                  const t = await domainGetSmart('people', tid);
+                  if (t) fastPersonByIdRef.current.set(tenantIdNormal, t);
+                }
+              }
+              changed = true;
+            }
+          } catch { /* ignore */ }
+        }
+      }
 
-              const pidKey = prop ? contractPropertyId(prop) || propIdFromContract : propIdFromContract;
-              const resolvedProp =
-                prop || (pidKey ? fastPropertyByIdRef.current.get(pidKey) ?? null : null);
-              const ownerId = propertyOwnerId(resolvedProp);
-              if (ownerId && !fastPersonByIdRef.current.has(ownerId)) {
-                try {
-                  const owner = await domainGetSmart('people', ownerId);
-                  if (owner) {
-                    fastPersonByIdRef.current.set(ownerId, owner);
-                    changed = true;
-                  }
-                } catch {
-                  // ignore
+      // 2. Hydrate Sales Agreements (and related Property/Person)
+      for (const aid of agreementIds.slice(0, 150)) {
+        if (!alive) return;
+        try {
+          const agreement = await domainGetSmart('agreements', aid);
+          if (agreement) {
+            fastAgreementByIdRef.current.set(aid, agreement);
+            const pid = pickRecordField(agreement, ['رقم_العقار', 'property_id', 'propertyId']);
+            const sid = pickRecordField(agreement, ['رقم_البائع', 'seller_id', 'sellerId']);
+            const bid = pickRecordField(agreement, ['رقم_المشتري', 'buyer_id', 'buyerId']);
+
+            if (pid) {
+              let prop = fastPropertyByIdRef.current.get(pid);
+              if (!prop) {
+                prop = await domainGetSmart('properties', pid);
+                if (prop) fastPropertyByIdRef.current.set(pid, prop);
+              }
+              if (prop) {
+                const oid = propertyOwnerId(prop);
+                // Try to resolve seller via property if sid is missing
+                if (!sid && oid && !fastPersonByIdRef.current.has(oid)) {
+                  const owner = await domainGetSmart('people', oid);
+                  if (owner) fastPersonByIdRef.current.set(oid, owner);
                 }
               }
             }
-          } catch {
-            // ننتقل للمسار الاحتياطي
-          }
-          if (hydratedWithDetails) continue;
-        }
-
-        let contract = fastContractByIdRef.current.get(contractId);
-        if (!contract) {
-          try {
-            const fetched = await domainGetSmart('contracts', contractId);
-            if (fetched) {
-              fastContractByIdRef.current.set(contractId, fetched);
-              contract = fetched;
-              changed = true;
+            if (sid && !fastPersonByIdRef.current.has(sid)) {
+              const person = await domainGetSmart('people', sid);
+              if (person) fastPersonByIdRef.current.set(sid, person);
             }
-          } catch {
-            // ignore
-          }
-        }
-
-        if (!contract) continue;
-
-        const propId = contractPropertyId(contract);
-        const tenantId = contractTenantId(contract);
-
-        if (propId && !fastPropertyByIdRef.current.has(propId)) {
-          try {
-            const prop = await domainGetSmart('properties', propId);
-            if (prop) {
-              fastPropertyByIdRef.current.set(propId, prop);
-              changed = true;
+            if (bid && !fastPersonByIdRef.current.has(bid)) {
+              const person = await domainGetSmart('people', bid);
+              if (person) fastPersonByIdRef.current.set(bid, person);
             }
-          } catch {
-            // ignore
+            changed = true;
           }
-        }
-
-        if (tenantId && !fastPersonByIdRef.current.has(tenantId)) {
-          try {
-            const tenant = await domainGetSmart('people', tenantId);
-            if (tenant) {
-              fastPersonByIdRef.current.set(tenantId, tenant);
-              changed = true;
-            }
-          } catch {
-            // ignore
-          }
-        }
-
-        const propRow = propId ? fastPropertyByIdRef.current.get(propId) : null;
-        const ownerId = propertyOwnerId(propRow);
-        if (ownerId && !fastPersonByIdRef.current.has(ownerId)) {
-          try {
-            const owner = await domainGetSmart('people', ownerId);
-            if (owner) {
-              fastPersonByIdRef.current.set(ownerId, owner);
-              changed = true;
-            }
-          } catch {
-            // ignore
-          }
-        }
+        } catch { /* ignore */ }
       }
 
       if (alive && changed) setFastCacheVersion((v) => v + 1);
@@ -739,8 +818,10 @@ export const Commissions: FC = () => {
   const filteredExternal = useMemo(() => {
     return externalCommissions.filter((c) => {
       const matchMonth = String(c.التاريخ || '').startsWith(selectedMonth);
+      const q = searchTerm.toLowerCase();
       const matchSearch = searchTerm
-        ? c.العنوان.toLowerCase().includes(searchTerm.toLowerCase())
+        ? [c.العنوان, c.النوع, c.ملاحظات]
+            .some(v => String(v || '').toLowerCase().includes(q))
         : true;
       const matchType = filterType !== 'All' ? c.النوع === filterType : true;
       return matchMonth && matchSearch && matchType;
@@ -751,7 +832,15 @@ export const Commissions: FC = () => {
     const rows = (employeeReport?.data || []).filter(isRecord) as EmployeeCommissionRow[];
     return rows.filter((r) => {
       const date = asString(r.date);
-      const matchMonth = selectedMonth ? date.slice(0, 7) === selectedMonth : true;
+      // More robust date matching for employee report rows
+      let rowMonth = '';
+      if (/^\d{4}-\d{2}/.test(date)) rowMonth = date.slice(0, 7);
+      else if (/\d{1,2}\/\d{1,2}\/\d{4}/.test(date)) {
+        const p = date.split('/');
+        rowMonth = `${p[2]}-${p[1].padStart(2, '0')}`;
+      }
+
+      const matchMonth = selectedMonth ? rowMonth === selectedMonth : true;
       const rowUser = asTrimmedString(r.employeeUsername);
       const matchEmployee = employeeUserFilter ? rowUser === employeeUserFilter : true;
       const matchSearch = searchTerm
@@ -817,11 +906,14 @@ export const Commissions: FC = () => {
   }, [filteredExternal, externalPage, listPageSize]);
 
   // Totals (شهر كامل — بغض النظر عن البحث في القائمة)
-  const totalOwner = commissionsForSelectedMonth.reduce((acc, curr) => acc + curr.عمولة_المالك, 0);
-  const totalTenant = commissionsForSelectedMonth.reduce(
-    (acc, curr) => acc + curr.عمولة_المستأجر,
-    0
-  );
+  const totalOwner = commissionsForSelectedMonth.reduce((acc, curr) => {
+    const isSale = curr.نوع_العمولة === 'Sale';
+    return acc + Number((isSale ? curr.عمولة_البائع : curr.عمولة_المالك) || 0);
+  }, 0);
+  const totalTenant = commissionsForSelectedMonth.reduce((acc, curr) => {
+    const isSale = curr.نوع_العمولة === 'Sale';
+    return acc + Number((isSale ? curr.عمولة_المشتري : curr.عمولة_المستأجر) || 0);
+  }, 0);
   const grandTotalContracts = totalOwner + totalTenant;
   const totalExternal = filteredExternal.reduce((acc, curr) => acc + curr.القيمة, 0);
 
@@ -863,23 +955,33 @@ export const Commissions: FC = () => {
   const contractEmployeeBreakdown = useMemo(() => {
     if (!editingContractComm) return null;
 
+    const isSale = editingContractComm.نوع_العمولة === 'Sale';
     const officeTotal =
-      Math.max(0, Number(editingContractComm.عمولة_المالك || 0)) +
-      Math.max(0, Number(editingContractComm.عمولة_المستأجر || 0));
-    const monthRentalOfficeTotal = commissionsForSelectedMonth.reduce(
-      (sum, c) => sum + (Number(c.المجموع) || 0),
-      0
-    );
-    const tier = getRentalTier(monthRentalOfficeTotal);
+      Math.max(0, Number((isSale ? editingContractComm.عمولة_البائع : editingContractComm.عمولة_المالك) || 0)) +
+      Math.max(0, Number((isSale ? editingContractComm.عمولة_المشتري : editingContractComm.عمولة_المستأجر) || 0));
+    
+    let rate = 0;
+    let tierId = 'Sale';
 
-    const baseEarned = officeTotal * tier.rate;
+    if (isSale) {
+      rate = 0.40; // Flat 40% for sales
+    } else {
+      const monthRentalOfficeTotal = commissionsForSelectedMonth
+        .filter(c => c.نوع_العمولة !== 'Sale')
+        .reduce((sum, c) => sum + (Number(c.المجموع) || 0), 0);
+      const tier = getRentalTier(monthRentalOfficeTotal);
+      rate = tier.rate;
+      tierId = tier.tierId;
+    }
+
+    const baseEarned = officeTotal * rate;
     const introEnabled = !!editingContractComm.يوجد_ادخال_عقار;
     const introEarned = introEnabled ? officeTotal * 0.05 : 0;
     const finalEarned = baseEarned + introEarned;
 
     return {
-      tierId: tier.tierId,
-      rate: tier.rate,
+      tierId,
+      rate,
       officeTotal,
       introEnabled,
       baseEarned,
@@ -1024,35 +1126,39 @@ export const Commissions: FC = () => {
     }
 
     const columns = [
-      { key: 'k_commission', header: 'رقم العمولة' },
-      { key: 'k_contract_short', header: 'رقم العقد (مختصر)' },
-      { key: 'k_contract_id', header: 'رقم العقد' },
-      { key: 'k_contract_date', header: 'تاريخ العملية / العقد' },
-      { key: 'k_paid_month', header: 'شهر دفع العمولة' },
+      { key: 'k_type', header: 'النوع' },
+      { key: 'k_commission', header: 'رقم العملية' },
+      { key: 'k_reference_short', header: 'الرقم (مختصر)' },
+      { key: 'k_reference', header: 'رقم العقد / الاتفاقية' },
+      { key: 'k_date', header: 'تاريخ العملية' },
       { key: 'k_opportunity', header: 'رقم الفرصة' },
-      { key: 'k_property_code', header: 'الكود الداخلي للعقار' },
-      { key: 'k_owner', header: 'اسم المالك' },
-      { key: 'k_tenant', header: 'اسم المستأجر' },
-      { key: 'k_owner_comm', header: 'عمولة المالك (د.أ)' },
-      { key: 'k_tenant_comm', header: 'عمولة المستأجر (د.أ)' },
-      { key: 'k_total', header: 'المجموع (د.أ)' },
+      { key: 'k_property_code', header: 'كود العقار' },
+      { key: 'k_p1', header: 'المالك / البائع' },
+      { key: 'k_p2', header: 'المستأجر / المشتري' },
+      { key: 'k_c1', header: 'عمولة المالك/البائع' },
+      { key: 'k_c2', header: 'عمولة المستأجر/المشتري' },
+      { key: 'k_total', header: 'المجموع' },
     ] as Array<XlsxColumn<Record<string, unknown>>>;
 
     const rows: Record<string, unknown>[] = commissionsForSelectedMonth.map((c) => {
-      const cid = String(c.رقم_العقد || '').trim();
-      const names = getOwnerAndTenantNames(cid);
+      const type = c.نوع_العمولة || 'Rental';
+      const isSale = type === 'Sale';
+      const ref = isSale ? (c.رقم_الاتفاقية || '') : (c.رقم_العقد || '');
+      const prop = getPropCode(c);
+      const names = getNames(c);
+
       return {
+        k_type: isSale ? 'بيع' : 'إيجار',
         k_commission: c.رقم_العمولة,
-        k_contract_short: formatContractNumberShort(c.رقم_العقد),
-        k_contract_id: cid,
-        k_contract_date: c.تاريخ_العقد ?? '',
-        k_paid_month: c.شهر_دفع_العمولة ?? '',
+        k_reference_short: formatContractNumberShort(ref),
+        k_reference: ref,
+        k_date: c.تاريخ_العقد ?? '',
         k_opportunity: c.رقم_الفرصة ?? '',
-        k_property_code: getPropCode(cid),
-        k_owner: names.ownerName,
-        k_tenant: names.tenantName,
-        k_owner_comm: Number(c.عمولة_المالك || 0),
-        k_tenant_comm: Number(c.عمولة_المستأجر || 0),
+        k_property_code: prop,
+        k_p1: names.p1,
+        k_p2: names.p2,
+        k_c1: Number((isSale ? c.عمولة_البائع : c.عمولة_المالك) || 0),
+        k_c2: Number((isSale ? c.عمولة_المشتري : c.عمولة_المستأجر) || 0),
         k_total: Number(c.المجموع || 0),
       };
     });
@@ -1562,15 +1668,15 @@ export const Commissions: FC = () => {
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-bold text-slate-800 dark:text-white">
-                            عمولة عقد
+                            {c.نوع_العمولة === 'Sale' ? 'عمولة بيع' : 'عمولة عقد'}
                           </span>
                           <span className="text-slate-500 dark:text-slate-400 text-sm font-mono">
-                            #{formatContractNumberShort(c.رقم_العقد)}
+                            #{formatContractNumberShort(c.نوع_العمولة === 'Sale' ? c.رقم_الاتفاقية : c.رقم_العقد)}
                           </span>
                           <span className="text-slate-500 dark:text-slate-400 text-sm">
                             | عقار:{' '}
                             <b className="text-slate-700 dark:text-slate-200">
-                              {getPropCode(c.رقم_العقد)}
+                              {getPropCode(c)}
                             </b>
                           </span>
                         </div>
@@ -1588,10 +1694,23 @@ export const Commissions: FC = () => {
 
                         <div className="text-sm font-bold text-orange-500">
                           {(() => {
-                            const names = getOwnerAndTenantNames(c.رقم_العقد);
+                            const names = getNames(c);
+                            const isSale = c.نوع_العمولة === 'Sale';
                             return (
                               <span>
-                                المالك: {names.ownerName} | المستأجر: {names.tenantName}
+                                {isSale ? (
+                                  <>
+                                    <span className="text-orange-600 dark:text-orange-400">البائع</span>: {names.p1} 
+                                    <span className="mx-2 text-slate-300">|</span>
+                                    <span className="text-orange-600 dark:text-orange-400">المشتري</span>: {names.p2}
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-orange-600 dark:text-orange-400">المالك</span>: {names.p1} 
+                                    <span className="mx-2 text-slate-300">|</span>
+                                    <span className="text-orange-600 dark:text-orange-400">المستأجر</span>: {names.p2}
+                                  </>
+                                )}
                               </span>
                             );
                           })()}
@@ -1640,25 +1759,25 @@ export const Commissions: FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
                       <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
                         <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">
-                          عمولة المالك
+                          {c.نوع_العمولة === 'Sale' ? 'عمولة البائع' : 'عمولة المالك'}
                         </div>
                         <div className="text-lg font-bold text-slate-800 dark:text-white">
-                          {formatCurrencyJOD(Number(c.عمولة_المالك || 0))}
+                          {formatCurrencyJOD(Number((c.نوع_العمولة === 'Sale' ? c.عمولة_البائع : c.عمولة_المالك) || 0))}
                         </div>
                       </div>
                       <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-3">
                         <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">
-                          عمولة المستأجر
+                          {c.نوع_العمولة === 'Sale' ? 'عمولة المشتري' : 'عمولة المستأجر'}
                         </div>
                         <div className="text-lg font-bold text-slate-800 dark:text-white">
-                          {formatCurrencyJOD(Number(c.عمولة_المستأجر || 0))}
+                          {formatCurrencyJOD(Number((c.نوع_العمولة === 'Sale' ? c.عمولة_المشتري : c.عمولة_المستأجر) || 0))}
                         </div>
                       </div>
-                      <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
-                        <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold">
-                          المجموع
+                      <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+                        <div className="text-xs text-indigo-700 dark:text-indigo-300 font-bold">
+                          المجموع {c.يوجد_ادخال_عقار && <span className="text-indigo-500">(+ إدخال)</span>}
                         </div>
-                        <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                        <div className="text-lg font-bold text-indigo-700 dark:text-indigo-300">
                           {formatCurrencyJOD(Number(c.المجموع || 0))}
                         </div>
                       </div>
@@ -1947,9 +2066,9 @@ export const Commissions: FC = () => {
             className="space-y-4"
           >
             <div className="text-sm text-slate-600 dark:text-slate-400">
-              العقد:{' '}
+              {editingContractComm.نوع_العمولة === 'Sale' ? 'الاتفاقية' : 'العقد'}:{' '}
               <b className="font-mono text-slate-800 dark:text-white" dir="ltr">
-                #{formatContractNumberShort(String(editingContractComm.رقم_العقد || ''))}
+                #{formatContractNumberShort(String((editingContractComm.نوع_العمولة === 'Sale' ? editingContractComm.رقم_الاتفاقية : editingContractComm.رقم_العقد) || ''))}
               </b>
             </div>
             <Input
@@ -2028,27 +2147,33 @@ export const Commissions: FC = () => {
               </div>
             </div>
             <MoneyInput
-              placeholder="عمولة المالك"
+              placeholder={editingContractComm.نوع_العمولة === 'Sale' ? "عمولة البائع" : "عمولة المالك"}
               className={inputClass}
               value={
-                typeof editingContractComm.عمولة_المالك === 'number'
-                  ? editingContractComm.عمولة_المالك
-                  : Number(editingContractComm.عمولة_المالك ?? 0)
+                editingContractComm.نوع_العمولة === 'Sale'
+                  ? (typeof editingContractComm.عمولة_البائع === 'number' ? editingContractComm.عمولة_البائع : Number(editingContractComm.عمولة_البائع ?? 0))
+                  : (typeof editingContractComm.عمولة_المالك === 'number' ? editingContractComm.عمولة_المالك : Number(editingContractComm.عمولة_المالك ?? 0))
               }
               onValueChange={(v) =>
-                setEditingContractComm({ ...editingContractComm, عمولة_المالك: v ?? 0 })
+                setEditingContractComm({ 
+                  ...editingContractComm, 
+                  ...(editingContractComm.نوع_العمولة === 'Sale' ? { عمولة_البائع: v ?? 0 } : { عمولة_المالك: v ?? 0 })
+                })
               }
             />
             <MoneyInput
-              placeholder="عمولة المستأجر"
+              placeholder={editingContractComm.نوع_العمولة === 'Sale' ? "عمولة المشتري" : "عمولة المستأجر"}
               className={inputClass}
               value={
-                typeof editingContractComm.عمولة_المستأجر === 'number'
-                  ? editingContractComm.عمولة_المستأجر
-                  : Number(editingContractComm.عمولة_المستأجر ?? 0)
+                editingContractComm.نوع_العمولة === 'Sale'
+                  ? (typeof editingContractComm.عمولة_المشتري === 'number' ? editingContractComm.عمولة_المشتري : Number(editingContractComm.عمولة_المشتري ?? 0))
+                  : (typeof editingContractComm.عمولة_المستأجر === 'number' ? editingContractComm.عمولة_المستأجر : Number(editingContractComm.عمولة_المستأجر ?? 0))
               }
               onValueChange={(v) =>
-                setEditingContractComm({ ...editingContractComm, عمولة_المستأجر: v ?? 0 })
+                setEditingContractComm({ 
+                  ...editingContractComm, 
+                  ...(editingContractComm.نوع_العمولة === 'Sale' ? { عمولة_المشتري: v ?? 0 } : { عمولة_المستأجر: v ?? 0 })
+                })
               }
             />
           </form>

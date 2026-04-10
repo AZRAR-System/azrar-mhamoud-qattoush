@@ -414,7 +414,7 @@ export const PropertyFormPanel: React.FC<PropertyFormProps> = ({ id, onClose, on
                     className={`${inputClass} font-mono font-bold`}
                     value={formData.الكود_الداخلي}
                     onChange={(e) => setFormData({ ...formData, الكود_الداخلي: e.target.value })}
-                    placeholder="CODE-001"
+                    placeholder={t('أدخل كود العقار...')}
                     dir="ltr"
                   />
                   <div className={helperTextClass}>{t('مثال: `A-101` أو `SHOP-12`')}</div>

@@ -12,8 +12,12 @@ import {
   Search,
   AlertCircle,
   Printer,
+  FileSpreadsheet,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
+import { useToast } from '@/context/ToastContext';
+import { exportToXlsx, type ExtraSheet } from '@/utils/xlsx';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatCurrencyJOD, formatDateYMD, formatNumber } from '@/utils/format';
 import { DS } from '@/constants/designSystem';
@@ -134,7 +138,9 @@ export const Reports: React.FC = () => {
     generatedAt?: string;
   } | null>(null);
   const [kpisError, setKpisError] = useState<string | null>(null);
+  const [isExportingAll, setIsExportingAll] = useState(false);
   const { openPanel } = useSmartModal();
+  const toast = useToast();
 
   const dbSignal = useDbSignal();
 
@@ -222,6 +228,79 @@ export const Reports: React.FC = () => {
     };
   }, [kpis]);
 
+  const handlePrintDashboard = () => {
+    window.print();
+  };
+
+  const handleExportAllToExcel = async () => {
+    if (isExportingAll) return;
+    setIsExportingAll(true);
+    const tid = toast.loading('جاري تشغيل كافة التقارير وتجميع البيانات...');
+
+    try {
+      const allReportIds = reports.map((r) => r.id);
+      const results = await Promise.all(
+        allReportIds.map(async (id) => {
+          try {
+            return { id, res: await runReportSmart(id) };
+          } catch {
+            return { id, res: null };
+          }
+        })
+      );
+
+      const sheets: ExtraSheet[] = results
+        .filter((r) => r.res && r.res.data)
+        .map((r) => {
+          const rep = r.res!;
+          const headers = rep.columns.map((c) => c.header);
+          const dataRows = (rep.data || []).map((row: any) =>
+            rep.columns.map((col) => row[col.key] ?? '')
+          );
+          return {
+            name: String(rep.title || r.id).slice(0, 31).replace(/[\\/:*?"<>|]/g, '_'),
+            rows: [headers, ...dataRows],
+          };
+        });
+
+      if (sheets.length === 0) {
+        toast.error('لم يتم العثور على بيانات لتصديرها', { id: tid });
+        return;
+      }
+
+      // First sheet will be the Financial Summary KPIs if available
+      const kpiRows: any[][] = [['العقار/التصنيف', 'القيمة']];
+      if (kpis) {
+        kpiRows.push(['إجمالي المتوقع', kpis.totalExpected]);
+        kpiRows.push(['إجمالي المحصل', kpis.totalPaid]);
+        kpiRows.push(['إجمالي المتأخر', kpis.totalLate]);
+        kpiRows.push(['العقود النشطة', kpis.activeContracts]);
+        kpiRows.push(['تذاكر الصيانة', kpis.openTickets]);
+      }
+
+      await exportToXlsx(
+        'الملخص المالي',
+        [{ key: 'label', header: 'المجال' }, { key: 'value', header: 'النتيجة' }],
+        kpis ? [
+          { label: 'إجمالي المتوقع', value: kpis.totalExpected },
+          { label: 'إجمالي المحصل', value: kpis.totalPaid },
+          { label: 'إجمالي المتأخر', value: kpis.totalLate },
+          { label: 'العقود النشطة', value: kpis.activeContracts },
+          { label: 'تذاكر الصيانة', value: kpis.openTickets },
+        ] : [],
+        `تقرير_شامل_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        { extraSheets: sheets }
+      );
+
+      toast.success('✅ تم تصدير كافة التقارير في ملف Excel واحد بنجاح', { id: tid });
+    } catch (err) {
+      console.error('Unified export failed:', err);
+      toast.error('❌ فشل في تجميع البيانات وتصدير الملف', { id: tid });
+    } finally {
+      setIsExportingAll(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in space-y-8 pb-10">
       <div className={DS.components.pageHeader}>
@@ -262,7 +341,26 @@ export const Reports: React.FC = () => {
                 تصدير تقرير مالي
               </Button>
             ) : null}
-            <div className="flex-1 min-w-[200px] max-w-md">
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 shrink-0 h-10 font-black border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 print:hidden"
+              onClick={handleExportAllToExcel}
+              disabled={isExportingAll || reports.length === 0}
+            >
+              <FileSpreadsheet size={16} />
+              تصدير كافة التقارير
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="gap-2 shrink-0 h-10 font-black text-slate-600 dark:text-slate-400 print:hidden"
+              onClick={handlePrintDashboard}
+            >
+              <Printer size={16} />
+              طباعة الملخص
+            </Button>
+            <div className="flex-1 min-w-[200px] max-w-md print:hidden">
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
