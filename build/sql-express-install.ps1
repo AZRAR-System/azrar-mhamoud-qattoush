@@ -94,11 +94,11 @@ try {
         New-Item -ItemType Directory -Path $mediaPath -Force | Out-Null
 
         Write-Log 'Downloading SQL Server media (may take several minutes)...'
-        $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('/ACTION=Download', "/MEDIAPATH=$mediaPath", '/MEDIATYPE=Core', '/QUIET', '/IACCEPTSQLSERVERLICENSETERMS') -Wait -PassThru -NoNewWindow
+        $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('/ACTION=Download', "/MEDIAPATH=$mediaPath", '/MEDIATYPE=Core', '/QUIET') -Wait -PassThru -NoNewWindow
 
         if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) {
             Write-Log "Download with MEDIATYPE=Core failed ($($dl.ExitCode)); retrying without MEDIATYPE..."
-            $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('/ACTION=Download', "/MEDIAPATH=$mediaPath", '/QUIET', '/IACCEPTSQLSERVERLICENSETERMS') -Wait -PassThru -NoNewWindow
+            $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('/ACTION=Download', "/MEDIAPATH=$mediaPath", '/QUIET') -Wait -PassThru -NoNewWindow
         }
 
         if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) { throw "SQL media download failed (exit $($dl.ExitCode))." }
@@ -182,7 +182,7 @@ try {
         "ALTER ROLE db_owner ADD MEMBER [$AppLogin];",
         "GO"
     ) -join "`r`n"
-    
+
     Write-Log 'Creating database and login...'
     try {
         Invoke-SqlCmdBatch -sqlcmdExe $sqlcmd -server $serverConn -user 'sa' -pass $saPwd -sql $sqlBatch
