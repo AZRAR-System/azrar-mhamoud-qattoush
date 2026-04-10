@@ -60,7 +60,7 @@ export function buildFinancialReportTemplateBodyHtml(
   const tableRows = rows
     .map(
       ([k, v]) =>
-        `<tr><th style="text-align:right;padding:10px;border:1px solid #e5e7eb;width:40%;background:#f8fafc;font-weight:700;">${k}</th><td style="padding:10px;border:1px solid #e5e7eb;font-weight:800;font-size:14px;">${v}</td></tr>`
+        `<tr><th style="text-align:right;padding:10px;border:1px solid #cbd5e1;width:40%;background:#f1f5f9;font-weight:900;color:#334155;">${k}</th><td style="padding:10px;border:1px solid #cbd5e1;font-weight:800;font-size:15px;color:#0f172a;background:#ffffff;">${v}</td></tr>`
     )
     .join('');
 
@@ -109,14 +109,14 @@ export const FinancialReportTemplate: React.FC<{
         <div className="mb-4" />
       )}
 
-      <table className="w-full border-collapse border border-slate-200 text-sm">
+      <table className="w-full border-collapse border border-slate-300 text-sm">
         <tbody>
           {rows.map(([k, v]) => (
             <tr key={k}>
-              <th className="w-[40%] border border-slate-200 bg-slate-50 px-3 py-3 text-right font-bold">
+             <th className="w-[40%] border border-slate-300 bg-slate-100/80 px-3 py-3 text-right font-black text-slate-700">
                 {k}
               </th>
-              <td className="border border-slate-200 px-3 py-3 text-base font-extrabold text-slate-900">
+              <td className="border border-slate-300 px-3 py-3 text-base font-extrabold text-slate-900 bg-white">
                 {v}
               </td>
             </tr>

@@ -253,9 +253,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           </label>
         </aside>
 
-        <div className="min-h-0 flex-1 overflow-auto bg-slate-100/80 p-4 dark:bg-slate-950/40">
+        <div className="min-h-0 flex-1 overflow-auto bg-slate-200/50 p-4 dark:bg-black/40">
           <div
-            className="mx-auto bg-white shadow-xl ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-800"
+            className="mx-auto bg-white text-slate-900 shadow-2xl ring-1 ring-slate-200"
             style={{
               width: '210mm',
               minHeight: '297mm',
@@ -266,7 +266,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           >
             <PrintLetterhead className="mb-4" />
             <div
-              className="prose prose-sm max-w-none text-slate-900 dark:prose-invert"
+              className="prose prose-sm max-w-none text-slate-900"
               dangerouslySetInnerHTML={{ __html: augmentedBodyHtml }}
             />
           </div>
