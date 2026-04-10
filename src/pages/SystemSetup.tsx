@@ -230,20 +230,20 @@ export const SystemSetup: React.FC = () => {
 
               <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-2 scroll-smooth">
                 {logs.length === 0 && !isInstalling && (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-600 space-y-4">
-                    <Command size={48} className="opacity-20 animate-pulse" />
-                    <p className="italic font-bold">جاهز لاستقبال الأوامر... اضغط على "بدء التثبيت"</p>
+                  <div className="flex flex-col items-center justify-center h-full text-slate-600 space-y-4 opacity-40">
+                    <Command size={48} className="animate-pulse" />
+                    <p className="italic font-bold text-center px-6">جاهز لاستقبال الأوامر... اضغط على الزر أدناه لبدء التثبيت</p>
                   </div>
                 )}
                 {logs.map((log, i) => (
-                  <div key={i} className="flex gap-4 text-rtl animate-in fade-in slide-in-from-right-2 duration-300">
-                    <span className="text-slate-700 shrink-0 text-[10px] tabular-nums font-black mt-1">
-                      {String(i + 1).padStart(2, '0')}
+                  <div key={i} className="flex gap-4 text-rtl animate-in fade-in slide-in-from-right-1 duration-200">
+                    <span className="text-slate-700 shrink-0 text-[9px] tabular-nums font-black mt-1.5 opacity-50">
+                      {String(i + 1).padStart(3, '0')}
                     </span>
-                    <span className={`leading-relaxed break-words font-medium ${
-                      log.startsWith('[ERROR]') ? 'text-rose-400' : 
+                    <span className={`leading-relaxed break-words font-medium text-xs md:text-sm ${
+                      log.toLowerCase().includes('error') || log.toLowerCase().includes('failed') ? 'text-rose-400 font-black' : 
                       log.startsWith('[SYSTEM]') ? 'text-indigo-400' : 
-                      log.startsWith('[SUCCESS]') ? 'text-emerald-400' :
+                      log.toLowerCase().includes('success') || log.includes('Done') ? 'text-emerald-400 font-bold' :
                       'text-slate-300'
                     }`}>
                       {log}
@@ -342,7 +342,7 @@ export const SystemSetup: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white/50 dark:bg-white/5 p-1.5 rounded-2xl border border-white/50 dark:border-white/5 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-white/5 p-1.5 rounded-2xl border border-slate-200/50 dark:border-white/5 overflow-x-auto no-scrollbar scroll-smooth">
             {(['welcome', 'requirements', 'install', 'success'] as Step[]).map((step, i) => {
               const steps: Step[] = ['welcome', 'requirements', 'install', 'success'];
               const stepIndex = steps.indexOf(currentStep);
@@ -352,16 +352,20 @@ export const SystemSetup: React.FC = () => {
               return (
                 <div 
                   key={step}
-                  className={`relative flex items-center justify-center h-10 transition-all duration-500 rounded-xl px-4 shrink-0 ${
-                    isCurrent ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 w-auto min-w-[5rem]' : 
-                    active ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-10' : 
-                    'bg-slate-100 dark:bg-slate-800/50 text-slate-400 w-10'
+                  className={`relative flex items-center justify-center h-10 transition-all duration-500 rounded-xl px-4 shrink-0 overflow-hidden ${
+                    isCurrent ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 w-auto min-w-[5rem] px-6' : 
+                    active ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-10 md:w-12' : 
+                    'bg-slate-100 dark:bg-slate-800/50 text-slate-400 w-10 md:w-12 border border-transparent'
                   }`}
                 >
-                  <span className={`text-xs font-black transition-all duration-500 ${isCurrent ? 'opacity-100' : 'opacity-0 scale-0 absolute'}`}>
-                    {step === 'welcome' ? 'ترحيب' : step === 'requirements' ? 'فحص' : step === 'install' ? 'تثبيت' : 'نجاح'}
+                  <span className={`text-[11px] font-black transition-all duration-500 whitespace-nowrap ${isCurrent ? 'opacity-100 scale-100 translate-x-0' : 'opacity-0 scale-50 absolute translate-x-4'}`}>
+                    {step === 'welcome' ? 'ترحيب' : step === 'requirements' ? 'فحص جاهزية' : step === 'install' ? 'تثبيت النظام' : 'نجاح الإعداد'}
                   </span>
                   {!isCurrent && <span className="text-xs font-bold">{i + 1}</span>}
+                  
+                  {isCurrent && (
+                    <div className="absolute bottom-0 left-0 h-0.5 bg-white/30 animate-progress-fast" />
+                  )}
                 </div>
               );
             })}
@@ -402,6 +406,8 @@ export const SystemSetup: React.FC = () => {
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes progress-fast { from { width: 0; } to { width: 100%; } }
+        .animate-progress-fast { animation: progress-fast 2s ease-in-out infinite; }
       `}</style>
     </div>
   );
