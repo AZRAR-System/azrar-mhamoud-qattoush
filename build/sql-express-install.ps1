@@ -186,11 +186,16 @@ USESQLRECOMMENDEDMEMORYLIMITS="True"
   }
 
   try {
-    New-NetFirewallRule -DisplayName 'AZRAR SQL Server (TCP 1433)' -Direction Inbound -Protocol TCP -LocalPort $TcpPort -Action Allow -ErrorAction Stop | Out-Null
-    Write-Log 'Firewall rule added for SQL port 1433.'
+    # Try modern PowerShell cmdlet
+    New-NetFirewallRule -DisplayName "AZRAR SQL Server (TCP 1433)" -Direction Inbound -Protocol TCP -LocalPort $TcpPort -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
+    
+    # Also use legacy netsh for maximum compatibility
+    netsh advfirewall firewall add rule name="AZRAR SQL Server (TCP 1433)" dir=in action=allow protocol=TCP localport=$TcpPort description="SQL Server for AZRAR Real Estate System" profile=any
+    
+    Write-Log "Firewall rule configured for SQL port $TcpPort (TCP)."
   }
   catch {
-    Write-Log "Firewall SQL: $($_.Exception.Message)"
+    Write-Log "Firewall SQL Warning: $($_.Exception.Message). Please ensure port $TcpPort is open manually if connection fails."
   }
 
   try {

@@ -182,10 +182,10 @@ export const updateTenantRatingImpl = (
   }
 
   const pts = person.تصنيف_السلوك.points;
-  if (pts >= 90) person.تصنيف_السلوك.type = 'ممتاز';
-  else if (pts >= 70) person.تصنيف_السلوك.type = 'جيد';
-  else if (pts >= 50) person.تصنيف_السلوك.type = 'مقبول';
-  else person.تصنيف_السلوك.type = 'سيء';
+  if (pts >= 90) person.تصنيف_السلوك.type = 'ملتزم جداً';
+  else if (pts >= 70) person.تصنيف_السلوك.type = 'جيد (ملتزم)';
+  else if (pts >= 50) person.تصنيف_السلوك.type = 'مقبول (متذبذب)';
+  else person.تصنيف_السلوك.type = 'غير منتظم (سيء)';
 
   person.تصنيف_السلوك.history.unshift({
     date: new Date().toISOString(),
