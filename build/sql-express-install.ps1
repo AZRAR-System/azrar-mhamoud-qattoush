@@ -146,9 +146,10 @@ try {
         )
         Set-Content -Path $iniPath -Value ($iniLines -join "`r`n") -Encoding Unicode
 
-        Write-Log "Running setup: $setupExe -ConfigurationFile=..."
+        Write-Log "Running setup: $setupExe -ConfigurationFile=... -MEDIALAYOUT=Core"
         # Use Hyphen prefix (-) instead of Slash (/) to avoid PowerShell argument mangling (// error)
-        $ins = Start-Process -FilePath $setupExe -ArgumentList "-ConfigurationFile=`"$iniPath`"" -Wait -PassThru -NoNewWindow
+        # Added -MEDIALAYOUT=Core because the setup engine requires it when run from extracted "Core" media
+        $ins = Start-Process -FilePath $setupExe -ArgumentList @("-ConfigurationFile=`"$iniPath`"", "-MEDIALAYOUT=Core") -Wait -PassThru -NoNewWindow
         
         if ($ins.ExitCode -ne 0 -and $ins.ExitCode -ne 3010) { throw "SQL Server setup failed (exit $($ins.ExitCode))." }
     }
