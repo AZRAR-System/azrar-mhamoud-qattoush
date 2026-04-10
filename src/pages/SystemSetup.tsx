@@ -213,7 +213,7 @@ export const SystemSetup: React.FC = () => {
               <p className="text-slate-500 dark:text-slate-500 font-bold">يتم الآن تحميل محرك قاعدة البيانات وضبط إعدادات الشبكة المحلية.</p>
             </div>
 
-            <div className="relative flex-1 bg-slate-950 rounded-[2.5rem] p-6 font-mono text-sm overflow-hidden flex flex-col shadow-2xl border border-white/5 min-h-[400px]">
+            <div className="relative flex-1 bg-slate-950 rounded-[2.5rem] p-4 md:p-6 font-mono text-sm overflow-hidden flex flex-col shadow-2xl border border-white/5 min-h-[350px] md:min-h-[450px]">
               <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center">
@@ -328,7 +328,7 @@ export const SystemSetup: React.FC = () => {
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-[80px]" />
       </div>
 
-      <div className="w-full max-w-5xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl border border-white/40 dark:border-slate-800/50 rounded-[3rem] p-8 md:p-14 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.15)] dark:shadow-[0_40px_100px_-20px_rgba(0,0,0,0.4)] relative z-10 flex flex-col min-h-[700px] transition-all duration-500">
+      <div className="w-full max-w-5xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl border border-white/40 dark:border-slate-800/50 rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-14 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.15)] dark:shadow-[0_40px_100px_-20px_rgba(0,0,0,0.4)] relative z-10 flex flex-col min-h-[auto] md:min-h-[700px] transition-all duration-500">
         
         {/* Modern Header Navigation */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
@@ -342,7 +342,7 @@ export const SystemSetup: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-white/50 dark:bg-white/5 p-2 rounded-2xl border border-white/50 dark:border-white/5">
+          <div className="flex items-center gap-2 bg-white/50 dark:bg-white/5 p-1.5 rounded-2xl border border-white/50 dark:border-white/5 overflow-x-auto no-scrollbar">
             {(['welcome', 'requirements', 'install', 'success'] as Step[]).map((step, i) => {
               const steps: Step[] = ['welcome', 'requirements', 'install', 'success'];
               const stepIndex = steps.indexOf(currentStep);
@@ -352,16 +352,16 @@ export const SystemSetup: React.FC = () => {
               return (
                 <div 
                   key={step}
-                  className={`relative flex items-center justify-center h-10 transition-all duration-500 rounded-xl px-4 ${
-                    isCurrent ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 w-32' : 
-                    active ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-12' : 
-                    'bg-slate-100 dark:bg-slate-800/50 text-slate-400 w-12'
+                  className={`relative flex items-center justify-center h-10 transition-all duration-500 rounded-xl px-4 shrink-0 ${
+                    isCurrent ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 w-auto min-w-[5rem]' : 
+                    active ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-10' : 
+                    'bg-slate-100 dark:bg-slate-800/50 text-slate-400 w-10'
                   }`}
                 >
-                  <span className={`text-sm font-black transition-all duration-500 ${isCurrent ? 'opacity-100' : 'opacity-0 scale-0 absolute'}`}>
+                  <span className={`text-xs font-black transition-all duration-500 ${isCurrent ? 'opacity-100' : 'opacity-0 scale-0 absolute'}`}>
                     {step === 'welcome' ? 'ترحيب' : step === 'requirements' ? 'فحص' : step === 'install' ? 'تثبيت' : 'نجاح'}
                   </span>
-                  {!isCurrent && <span className="text-sm font-bold">{i + 1}</span>}
+                  {!isCurrent && <span className="text-xs font-bold">{i + 1}</span>}
                 </div>
               );
             })}
@@ -399,6 +399,8 @@ export const SystemSetup: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(79, 70, 229, 0.4); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(79, 70, 229, 0.6); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>

@@ -147,7 +147,8 @@ try {
         Set-Content -Path $iniPath -Value ($iniLines -join "`r`n") -Encoding Unicode
 
         Write-Log "Running setup: $setupExe /ConfigurationFile=..."
-        $ins = Start-Process -FilePath $setupExe -ArgumentList @("/ConfigurationFile=$iniPath") -Wait -PassThru -NoNewWindow
+        # Using a single string for ArgumentList and explicit quoting for path to avoid PowerShell argument translation bugs (// error)
+        $ins = Start-Process -FilePath $setupExe -ArgumentList "/ConfigurationFile=""$iniPath""" -Wait -PassThru -NoNewWindow
         if ($ins.ExitCode -ne 0 -and $ins.ExitCode -ne 3010) { throw "SQL Server setup failed (exit $($ins.ExitCode))." }
     }
     else {
