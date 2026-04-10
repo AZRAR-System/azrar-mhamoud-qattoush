@@ -89,6 +89,46 @@ try {
         Write-Log 'Downloading SQL Server 2022 Express bootstrapper...'
         Invoke-WebRequest -Uri $downloadUrl -OutFile $bootstrapper -UseBasicParsing
 
+        $mediaPath = Join-Path $env:TEMP 'AZRAR_SQL2022_MEDIA'
+        if (Test-Path $mediaPath) { Remove-Item -LiteralPath $mediaPath -Recurse -Force -ErrorAction SilentlyContinue }
+        New-Item -ItemType Directory -Path $mediaPath -Force | Out-Null
+
+        Write-Log "Downloading SQL Server media to: $mediaPath"
+        # Download media using the bootstrapper's internal downloader
+        $dl = Start-Process -FilePath $bootstrapper -ArgumentList @("-ACTION=Download", "-MEDIAPATH=$mediaPath", "-MEDIATYPE=Core", "-QUIET") -Wait -PassThru -NoNewWindow
+        
+        if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) {
+            Write-Log "Download with MEDIATYPE=Core failed ($($dl.ExitCode)); retrying without MEDIATYPE..."
+            $dl = Start-Process -FilePath $bootstrapper -ArgumentList @("-ACTION=Download", "-MEDIAPATH=$mediaPath", "-QUIET") -Wait -PassThru -NoNewWindow
+        }
+
+        if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) { throw "SQL media download failed (exit $($dl.ExitCode))." }
+
+        # Check for compressed media and extract it
+        $compressedExe = Get-ChildItem -Path $mediaPath -Filter '*.exe' | Select-Object -First 1
+        if ($compressedExe) {
+            $extractPath = Join-Path $mediaPath 'extracted'
+            $null = New-Item -ItemType Directory -Path $extractPath -Force -ErrorAction SilentlyContinue
+            Write-Log "Extracting $($compressedExe.Name) to $extractPath..."
+            # Self-extracting EXEs require /Q /X: syntax
+            $proc = Start-Process -FilePath $compressedExe.FullName -ArgumentList @("/Q", "/X:$extractPath") -Wait -PassThru -NoNewWindow
+            if ($proc.ExitCode -ne 0) { throw "Extraction failed (exit $($proc.ExitCode))." }
+            
+            # CRITICAL: Find setup.exe in the ROOT of the extracted folder. 
+            # Running from the x64 subfolder causes MEDIALAYOUT invalid errors.
+            $setupExe = Get-ChildItem -Path $extractPath -Filter 'setup.exe' | Select-Object -First 1 -ExpandProperty FullName
+            if (-not $setupExe) {
+                # Fallback to recursive if not in root, but try root first
+                $setupExe = Get-ChildItem -Path $extractPath -Filter 'setup.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+            }
+        }
+        else {
+            # Check if it was already an extracted folder layout
+            $setupExe = Get-ChildItem -Path $mediaPath -Filter 'setup.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+        }
+
+        if (-not $setupExe) { throw "setup.exe not found under $mediaPath." }
+
         $iniPath = Join-Path $env:TEMP 'azrar-sql-configuration.ini'
         $saEsc = $saPwd -replace '"', '""'
         $iniLines = @(
@@ -109,10 +149,10 @@ try {
         )
         Set-Content -Path $iniPath -Value ($iniLines -join "`r`n") -Encoding Unicode
 
-        Write-Log "Running SQL installation via bootstrapper: $bootstrapper"
-        # Use Hyphen prefix (-) instead of Slash (/) to avoid PowerShell argument mangling (// error)
-        # Running the bootstrapper directly in Install mode is more robust than manual extraction
-        $ins = Start-Process -FilePath $bootstrapper -ArgumentList @("-ACTION=Install", "-ConfigurationFile=`"$iniPath`"", "-IACCEPTSQLSERVERLICENSETERMS=True", "-QUIET") -Wait -PassThru -NoNewWindow
+        Write-Log "Running SQL installation: $setupExe -ConfigurationFile=..."
+        # Use Hyphen prefix (-) to avoid PowerShell argument mangling (// error)
+        # No MEDIALAYOUT needed if run from the correct setup.exe root folder
+        $ins = Start-Process -FilePath $setupExe -ArgumentList "-ConfigurationFile=`"$iniPath`"" -Wait -PassThru -NoNewWindow
         
         if ($ins.ExitCode -ne 0 -and $ins.ExitCode -ne 3010) { throw "SQL Server installation failed (exit $($ins.ExitCode))." }
     }
