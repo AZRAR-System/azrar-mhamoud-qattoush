@@ -50,6 +50,7 @@ export const KEYS = {
   AUDIT_LOG: 'db_audit_log',
   /** قوالب رسائل قابلة للتعديل (نصوص) — يُكمّل notificationTemplates الافتراضية */
   MESSAGE_TEMPLATES: 'db_message_templates',
+  WORD_TEMPLATES: 'db_word_templates',
 } as const;
 
 export type DbStorageKey = (typeof KEYS)[keyof typeof KEYS];

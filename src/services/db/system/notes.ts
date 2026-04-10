@@ -1,6 +1,6 @@
 import { get, save } from '../kv';
 import { KEYS } from '../keys';
-import { NoteRecord, الكمبيالات_tbl, DbResult, ReferenceType } from '@/types';
+import { NoteRecord, الكمبيالات_tbl, DbResult, ReferenceType, DashboardNote } from '@/types';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 
 const fail = dbFail;
@@ -62,3 +62,33 @@ export const addEntityNote = (table: string, id: string, note: string): DbResult
 
   return addNote({ referenceType: 'Generic' as ReferenceType, referenceId: rawId, content: clean });
 };
+
+export const getDashboardNotes = (): DashboardNote[] => {
+  return get<DashboardNote>(KEYS.DASHBOARD_NOTES)
+    .filter((n) => !n.isArchived)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+export const addDashboardNote = (data: { content: string; priority?: DashboardNote['priority'] }) => {
+  const all = get<DashboardNote>(KEYS.DASHBOARD_NOTES);
+  const next: DashboardNote = {
+    id: `DNB-${Date.now()}`,
+    content: String(data.content || '').trim(),
+    priority: data.priority || 'Normal',
+    createdAt: new Date().toISOString(),
+    isArchived: false,
+  };
+  save(KEYS.DASHBOARD_NOTES, [...all, next]);
+  return ok(next, 'تم إضافة الملاحظة');
+};
+
+export const archiveDashboardNote = (id: string) => {
+  const all = get<DashboardNote>(KEYS.DASHBOARD_NOTES);
+  const idx = all.findIndex((n) => String(n.id) === String(id));
+  if (idx > -1) {
+    all[idx] = { ...all[idx], isArchived: true };
+    save(KEYS.DASHBOARD_NOTES, all);
+  }
+  return ok(null, 'تم أرشفة الملاحظة');
+};
+

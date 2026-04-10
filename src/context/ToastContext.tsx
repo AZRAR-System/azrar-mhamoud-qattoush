@@ -7,12 +7,12 @@ import React, {
   useEffect,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, AlertTriangle, Info, AlertCircle } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, Info, AlertCircle, RefreshCw } from 'lucide-react';
 import { audioService } from '@/services/audioService';
 import { notificationService } from '@/services/notificationService';
 import { AppModal } from '@/components/ui/AppModal';
 
-type ToastType = 'success' | 'error' | 'warning' | 'info' | 'delete';
+type ToastType = 'success' | 'error' | 'warning' | 'info' | 'delete' | 'loading';
 
 interface ToastItem {
   id: string;
@@ -30,6 +30,7 @@ interface DialogOptions {
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void;
   isDangerous?: boolean;
+  requireTextInput?: string;
 }
 
 interface ToastContextType {
@@ -38,14 +39,15 @@ interface ToastContextType {
     message: string,
     type: ToastType,
     title?: string,
-    options?: { sound?: boolean }
-  ) => void;
+    options?: { sound?: boolean; id?: string }
+  ) => string;
   removeToast: (id: string) => void;
-  success: (message: string, title?: string) => void;
-  error: (message: string, title?: string) => void;
-  warning: (message: string, title?: string) => void;
-  info: (message: string, title?: string) => void;
-  delete: (message: string, title?: string) => void;
+  success: (message: string, options?: string | { title?: string; id?: string }) => void;
+  error: (message: string, options?: string | { title?: string; id?: string }) => void;
+  warning: (message: string, options?: string | { title?: string; id?: string }) => void;
+  info: (message: string, options?: string | { title?: string; id?: string }) => void;
+  loading: (message: string, options?: string | { title?: string; id?: string }) => string;
+  delete: (message: string, options?: string | { title?: string; id?: string }) => void;
   confirm: (options: DialogOptions) => Promise<boolean>;
 }
 
@@ -66,14 +68,29 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const showToast = useCallback(
-    (message: string, type: ToastType = 'info', title?: string, options?: { sound?: boolean }) => {
-      const id = Math.random().toString(36).substr(2, 9);
-      const duration = type === 'error' ? 5000 : type === 'warning' ? 4500 : 3500;
+    (
+      message: string,
+      type: ToastType = 'info',
+      title?: string,
+      options?: { sound?: boolean; id?: string }
+    ) => {
+      const id = options?.id || Math.random().toString(36).substr(2, 9);
+      const duration =
+        type === 'loading'
+          ? 60000 // Long duration for loading
+          : type === 'error'
+            ? 5000
+            : type === 'warning'
+              ? 4500
+              : 3500;
 
-      setToasts((prev) => [...prev, { id, type, message, title, duration }]);
+      setToasts((prev) => {
+        const filtered = options?.id ? prev.filter((t) => t.id !== options.id) : prev;
+        return [...filtered, { id, type, message, title, duration }];
+      });
 
-      // Play sound (unless suppressed)
-      if (options?.sound !== false) {
+      // Play sound (unless suppressed or loading)
+      if (options?.sound !== false && type !== 'loading') {
         type PlaySoundInput = Parameters<typeof audioService.playSound>[0];
         type SoundKey = Extract<PlaySoundInput, string>;
 
@@ -83,14 +100,19 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           warning: 'warning',
           info: 'info',
           delete: 'delete',
+          loading: 'info', // Map loading to info sound if played
         };
         audioService.playSound(soundMap[type]);
       }
 
-      // Auto remove
-      setTimeout(() => {
-        removeToast(id);
-      }, duration);
+      // Auto remove (except loading)
+      if (type !== 'loading') {
+        setTimeout(() => {
+          removeToast(id);
+        }, duration);
+      }
+
+      return id;
     },
     [removeToast]
   );
@@ -110,37 +132,55 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, [showToast]);
 
+  const getOpts = (opt?: string | { title?: string; id?: string }) => {
+    if (typeof opt === 'string') return { title: opt };
+    return opt;
+  };
+
   const success = useCallback(
-    (message: string, title?: string) => {
-      showToast(message, 'success', title || 'نجاح');
+    (message: string, options?: string | { title?: string; id?: string }) => {
+      const o = getOpts(options);
+      showToast(message, 'success', o?.title || 'نجاح', { id: o?.id });
     },
     [showToast]
   );
 
   const error = useCallback(
-    (message: string, title?: string) => {
-      showToast(message, 'error', title || 'خطأ');
+    (message: string, options?: string | { title?: string; id?: string }) => {
+      const o = getOpts(options);
+      showToast(message, 'error', o?.title || 'خطأ', { id: o?.id });
     },
     [showToast]
   );
 
   const warning = useCallback(
-    (message: string, title?: string) => {
-      showToast(message, 'warning', title || 'تحذير');
+    (message: string, options?: string | { title?: string; id?: string }) => {
+      const o = getOpts(options);
+      showToast(message, 'warning', o?.title || 'تحذير', { id: o?.id });
     },
     [showToast]
   );
 
   const info = useCallback(
-    (message: string, title?: string) => {
-      showToast(message, 'info', title || 'معلومة');
+    (message: string, options?: string | { title?: string; id?: string }) => {
+      const o = getOpts(options);
+      showToast(message, 'info', o?.title || 'معلومة', { id: o?.id });
+    },
+    [showToast]
+  );
+
+  const loading = useCallback(
+    (message: string, options?: string | { title?: string; id?: string }) => {
+      const o = getOpts(options);
+      return showToast(message, 'loading', o?.title || 'جاري المعالجة...', { id: o?.id });
     },
     [showToast]
   );
 
   const deleteToast = useCallback(
-    (message: string, title?: string) => {
-      showToast(message, 'delete', title || 'تم الحذف');
+    (message: string, options?: string | { title?: string; id?: string }) => {
+      const o = getOpts(options);
+      showToast(message, 'delete', o?.title || 'تم الحذف', { id: o?.id });
     },
     [showToast]
   );
@@ -184,6 +224,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         error,
         warning,
         info,
+        loading,
         delete: deleteToast,
         confirm,
       }}
@@ -236,6 +277,7 @@ const ToastView: React.FC<{ toast: ToastItem; onClose: () => void }> = ({ toast,
       error: `${baseStyles} bg-gradient-to-r from-red-50 to-white dark:from-red-900/30 dark:to-slate-800 border-red-500`,
       warning: `${baseStyles} bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/30 dark:to-slate-800 border-orange-500`,
       info: `${baseStyles} bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/30 dark:to-slate-800 border-indigo-500`,
+      loading: `${baseStyles} bg-gradient-to-r from-blue-50 to-white dark:from-blue-900/30 dark:to-slate-800 border-blue-400`,
       delete: `${baseStyles} bg-gradient-to-r from-red-50 to-white dark:from-red-900/30 dark:to-slate-800 border-red-500`,
     };
     return styles[type];
@@ -247,6 +289,7 @@ const ToastView: React.FC<{ toast: ToastItem; onClose: () => void }> = ({ toast,
       error: 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400',
       warning: 'bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400',
       info: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400',
+      loading: 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400 animate-spin-slow',
       delete: 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400',
     };
     return colors[type];
@@ -259,6 +302,7 @@ const ToastView: React.FC<{ toast: ToastItem; onClose: () => void }> = ({ toast,
         {toast.type === 'error' && <AlertCircle size={20} strokeWidth={2.5} />}
         {toast.type === 'warning' && <AlertTriangle size={20} strokeWidth={2.5} />}
         {toast.type === 'info' && <Info size={20} strokeWidth={2.5} />}
+        {toast.type === 'loading' && <RefreshCw size={20} strokeWidth={2.5} className="animate-spin" />}
         {toast.type === 'delete' && <AlertCircle size={20} strokeWidth={2.5} />}
       </div>
 
@@ -306,20 +350,63 @@ const ConfirmDialog: React.FC<{
           >
             {options.cancelText || 'إلغاء'}
           </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium transition-colors ${
-              options.isDangerous
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-indigo-600 hover:bg-indigo-700'
-            }`}
-          >
-            {options.confirmText || 'تأكيد'}
-          </button>
+          <ConfirmButton options={options} onConfirm={onConfirm} />
         </div>
       }
     >
-      <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{options.message}</p>
+      <div className="space-y-4">
+        <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{options.message}</p>
+        {options.requireTextInput && (
+          <div className="mt-4">
+            <p className="text-xs font-bold text-slate-500 mb-2">
+              اكتب "{options.requireTextInput}" للمتابعة
+            </p>
+            <input
+              type="text"
+              id="confirm-text-input"
+              className="w-full px-4 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700"
+              autoFocus
+              onKeyDown={(e) => {
+                const target = e.target as HTMLInputElement;
+                if (e.key === 'Enter' && target.value === options.requireTextInput) {
+                  onConfirm();
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
     </AppModal>
+  );
+};
+
+const ConfirmButton: React.FC<{ options: DialogOptions; onConfirm: () => void }> = ({
+  options,
+  onConfirm,
+}) => {
+  const [val, setVal] = useState('');
+
+  useEffect(() => {
+    if (!options.requireTextInput) return;
+    const input = document.getElementById('confirm-text-input') as HTMLInputElement;
+    if (input) {
+      const handler = (e: any) => setVal(e.target.value);
+      input.addEventListener('input', handler);
+      return () => input.removeEventListener('input', handler);
+    }
+  }, [options.requireTextInput]);
+
+  const disabled = options.requireTextInput ? val !== options.requireTextInput : false;
+
+  return (
+    <button
+      onClick={onConfirm}
+      disabled={disabled}
+      className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium transition-colors ${
+        options.isDangerous ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
+    >
+      {options.confirmText || 'تأكيد'}
+    </button>
   );
 };

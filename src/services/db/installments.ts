@@ -579,3 +579,15 @@ export function createInstallmentPaymentHandlers(deps: InstallmentPaymentDeps) {
 export function getInstallments(): الكمبيالات_tbl[] {
   return get<الكمبيالات_tbl>(KEYS.INSTALLMENTS) || [];
 }
+
+/**
+ * تحديث الحقول الديناميكية (بيانات إضافية) لكمبيالة معينة.
+ */
+export function updateInstallmentDynamicFields(id: string, fields: Record<string, unknown>) {
+  const all = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
+  const idx = all.findIndex((i) => i.رقم_الكمبيالة === id);
+  if (idx === -1) return dbFail('الكمبيالة غير موجودة');
+  all[idx] = { ...all[idx], ...fields };
+  save(KEYS.INSTALLMENTS, all);
+  return dbOk(all[idx]);
+}

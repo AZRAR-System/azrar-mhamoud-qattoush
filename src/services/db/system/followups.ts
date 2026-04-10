@@ -23,6 +23,8 @@ export const addClientInteraction = (data: Omit<ClientInteraction, 'id'>) => {
   save(KEYS.CLIENT_INTERACTIONS, [...all, { ...data, id: `INT-${Date.now()}` }]);
 };
 
+export const getClientInteractions = () => get<ClientInteraction>(KEYS.CLIENT_INTERACTIONS);
+
 export function createFollowUpHandlers(deps: FollowUpDeps) {
   const { addReminder, updateReminder, setReminderDone } = deps;
 

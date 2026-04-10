@@ -9,9 +9,6 @@ export const ROUTE_PATHS = {
   // Activation / licensing
   ACTIVATION: '/activation',
   LICENSE_ADMIN: '/license-admin',
-  LICENSE_ADMIN_LICENSES: '/license-admin/licenses',
-  LICENSE_ADMIN_USERS: '/license-admin/users',
-  LICENSE_ADMIN_CUSTOMERS: '/license-admin/customers',
 
   // Main
   DASHBOARD: '/',
@@ -38,8 +35,6 @@ export const ROUTE_PATHS = {
   SETTINGS: '/settings',
   BACKUP: '/backup',
   OPERATIONS: '/operations',
-  /** سجل التدقيق — SuperAdmin فقط */
-  AUDIT_LOG: '/audit-log',
   SYS_MAINTENANCE: '/sys-maintenance',
   BUILDER: '/builder',
   DOCS: '/docs',
@@ -49,7 +44,18 @@ export const ROUTE_PATHS = {
 
   // Hidden/utility
   COMPREHENSIVE_TESTS: '/comprehensive-tests',
+
+  // Setup
+  SYSTEM_SETUP: '/system-setup',
+
+  // License Admin sub-routes
+  LICENSE_ADMIN_LICENSES: '/license-admin/licenses',
+  LICENSE_ADMIN_USERS: '/license-admin/users',
+  LICENSE_ADMIN_CUSTOMERS: '/license-admin/customers',
+
+  // Admin extras
   RESET_DATABASE: '/reset-database',
+  AUDIT_LOG: '/audit-log',
 } as const;
 
 export type RoutePath = (typeof ROUTE_PATHS)[keyof typeof ROUTE_PATHS];

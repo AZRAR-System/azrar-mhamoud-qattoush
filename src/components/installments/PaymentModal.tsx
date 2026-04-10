@@ -60,8 +60,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       if (typeof DbService.updateInstallmentDynamicFields === 'function') {
         const resDyn = DbService.updateInstallmentDynamicFields(
           installment.رقم_الكمبيالة,
-          userId,
-          userRole as RoleType,
           dynamicValues
         );
         if (!resDyn.success) {

@@ -7,6 +7,9 @@ import zlib from 'node:zlib';
 import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
+import { spawn } from 'node:child_process';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import { getDbPath } from './db';
 import logger from './logger';
 
@@ -2212,3 +2215,83 @@ export async function pullKvStoreOnce(
     };
   }
 }
+
+/**
+ * Runs the SQL Express installation PowerShell script and streams logs.
+ */
+export async function runSetupScript(
+  onLog: (line: string) => void
+): Promise<{ ok: boolean; message: string }> {
+  return new Promise((resolve) => {
+    try {
+      // Find the script. In production, it's in the app root (extraFiles).
+      // In dev, it's in build/
+      const isDev = !app.isPackaged;
+      const scriptPath = isDev
+        ? path.join(app.getAppPath(), 'build', 'sql-express-install.ps1')
+        : path.join(path.dirname(app.getPath('exe')), 'sql-express-install.ps1');
+
+      if (!fs.existsSync(scriptPath)) {
+        resolve({ ok: false, message: `السكربت غير موجود في المسار: ${scriptPath}` });
+        return;
+      }
+
+      onLog(`[SYSTEM] بدء تشغيل السكربت: ${scriptPath}`);
+
+      const ps = spawn('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        scriptPath,
+      ]);
+
+      ps.stdout.on('data', (data) => {
+        const str = data.toString('utf8');
+        str.split(/\r?\n/).forEach((line: string) => {
+          if (line.trim()) onLog(line);
+        });
+      });
+
+      ps.stderr.on('data', (data) => {
+        const str = data.toString('utf8');
+        str.split(/\r?\n/).forEach((line: string) => {
+          if (line.trim()) onLog(`[ERROR] ${line}`);
+        });
+      });
+
+      ps.on('close', (code) => {
+        if (code === 0) {
+          resolve({ ok: true, message: 'تم التثبيت بنجاح' });
+        } else {
+          resolve({ ok: false, message: `فشل التثبيت. كود الخطأ: ${code}` });
+        }
+      });
+
+      ps.on('error', (err) => {
+        resolve({ ok: false, message: `خطأ في تشغيل العملية: ${err.message}` });
+      });
+    } catch (e: unknown) {
+      resolve({
+        ok: false,
+        message: e instanceof Error ? e.message : 'حدث خطأ غير متوقع أثناء تشغيل الإعداد',
+      });
+    }
+  });
+}
+
+const execAsync = promisify(exec);
+
+/**
+ * Checks if the current process has administrative privileges.
+ */
+export async function checkIsAdmin(): Promise<boolean> {
+  if (process.platform !== 'win32') return true;
+  try {
+    const { stdout } = await execAsync('net session');
+    return !!stdout;
+  } catch {
+    return false;
+  }
+}
+

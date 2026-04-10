@@ -48,6 +48,7 @@ import * as ExternalComm from './db/externalCommissions';
 import * as Notes from './db/system/notes';
 import * as Activities from './db/system/activities';
 import * as PaymentNotifications from './db/paymentNotifications';
+import * as WordTemplates from './db/system/wordTemplates';
 export * from './db/paymentNotifications';
 
 // Re-exports
@@ -123,20 +124,23 @@ export const DbService = {
   restoreSystem: async (data: any) => ({ success: true, message: '' }),
   backupSystem: () => { return ''; },
   importLookups: async (cat: string, data: any) => ({ success: true }),
-  listWordTemplatesDetailed: undefined as any,
-  listWordTemplates: undefined as any,
-  importWordTemplate: undefined as any,
-  readWordTemplate: undefined as any,
-  deleteWordTemplate: undefined as any,
-  getMergePlaceholderCatalog: undefined as any,
-  deleteContract: undefined as any,
-  getMarqueeAds: undefined as any,
-  updateInstallmentDynamicFields: undefined as any,
-  updateNotificationSendLog: undefined as any,
-  deleteNotificationSendLog: undefined as any,
-  getDashboardNotes: undefined as any,
-  addDashboardNote: undefined as any,
-  archiveDashboardNote: undefined as any,
+  listWordTemplatesDetailed: WordTemplates.listWordTemplatesDetailed,
+  listWordTemplates: (type?: string) => dbOk(WordTemplates.listWordTemplates(type)),
+  importWordTemplate: WordTemplates.importWordTemplate,
+  readWordTemplate: WordTemplates.readWordTemplate,
+  deleteWordTemplate: WordTemplates.deleteWordTemplate,
+  getMergePlaceholderCatalog: WordTemplates.getMergePlaceholderCatalog,
+  deleteContract: (id: string) => contractWrites.deleteContract(id),
+  getMarqueeAds: Marquee.getNonExpiredMarqueeAds,
+  updateInstallmentDynamicFields: (id: string, fields: any) =>
+    Installments.updateInstallmentDynamicFields(id, fields),
+  updateNotificationSendLog: (id: string, patch: any) =>
+    PaymentNotifications.updateNotificationSendLogInternal(id, patch),
+  deleteNotificationSendLog: (id: string) =>
+    PaymentNotifications.deleteNotificationSendLogInternal(id),
+  getDashboardNotes: Notes.getDashboardNotes,
+  addDashboardNote: Notes.addDashboardNote,
+  archiveDashboardNote: Notes.archiveDashboardNote,
   runDailyScheduler: () => {
     try {
       backgroundScansRuntime.dedupeAndCleanupAlertsInternal();
@@ -150,7 +154,7 @@ export const DbService = {
       console.error('[SchedulerError]', e);
     }
   },
-  getClientInteractions: undefined as any,
+  getClientInteractions: FollowUps.getClientInteractions,
   // Logging
   logOperation: Logger.logOperationInternal,
   getSystemLogs: Logger.getSystemLogs,

@@ -665,6 +665,11 @@ export interface DesktopDbBridge {
     }) => void
   ) => () => void;
 
+  // New Setup Methods
+  checkAdminStatus: () => Promise<{ isAdmin: boolean }>;
+  startInstallation: () => Promise<{ ok: boolean; message: string }>;
+  onSqlSetupLog: (handler: (line: string) => void) => () => void;
+
   // Attachments (Desktop only)
   saveAttachmentFile?: (payload: {
     referenceType: string;

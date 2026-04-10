@@ -9,12 +9,6 @@ import {
   BlacklistRecord,
 } from '@/types';
 import {
-  Shield,
-  Activity,
-  Users,
-  BarChart3,
-  Search,
-  CheckCircle,
   Lock,
   Edit2,
   Trash2,
@@ -30,7 +24,20 @@ import {
   Link,
   ShieldAlert,
   Ban,
+  ScrollText,
+  Filter,
+  RefreshCw,
+  Shield,
+  BarChart3,
+  Search,
+  CheckCircle,
+  Activity,
+  Users,
 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { auditLog, type AuditLogRecord } from '@/services/auditLog';
+import { exportToXlsx } from '@/utils/xlsx';
 import { Tooltip as ChartTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useToast } from '@/context/ToastContext';
 import { useSmartModal } from '@/context/ModalContext';
@@ -105,7 +112,12 @@ export const AdminControlPanel: React.FC = () => {
   const [blacklist, setBlacklist] = useState<BlacklistRecord[]>([]);
 
   // Filter States
-  const [logFilter, setLogFilter] = useState({ user: '', action: '', date: '' });
+  const [logFilter, setLogFilter] = useState({ 
+    user: '', 
+    action: '', 
+    dateFrom: '', 
+    dateTo: '' 
+  });
   const [userSearch, setUserSearch] = useState('');
   const [blacklistSearch, setBlacklistSearch] = useState('');
   const [showArchivedBlacklist, setShowArchivedBlacklist] = useState(false);
@@ -124,17 +136,22 @@ export const AdminControlPanel: React.FC = () => {
   const [usersPage, setUsersPage] = useState(1);
 
   const filteredLogs = useMemo(() => {
-    return logs.filter(
-      (log) =>
-        (!logFilter.user || log.اسم_المستخدم.includes(logFilter.user)) &&
-        (!logFilter.action || log.نوع_العملية.includes(logFilter.action)) &&
-        (!logFilter.date || log.تاريخ_العملية.startsWith(logFilter.date))
-    );
+    return logs.filter((log: any) => {
+      const r = log as AuditLogRecord;
+      if (logFilter.user && r.userName !== logFilter.user) return false;
+      if (logFilter.action && r.action !== logFilter.action) return false;
+      
+      const day = r.timestamp?.slice(0, 10);
+      if (logFilter.dateFrom && day < logFilter.dateFrom) return false;
+      if (logFilter.dateTo && day > logFilter.dateTo) return false;
+      
+      return true;
+    });
   }, [logs, logFilter]);
 
   useEffect(() => {
     setLogsPage(1);
-  }, [logFilter.user, logFilter.action, logFilter.date, logsPageSize]);
+  }, [logFilter.user, logFilter.action, logFilter.dateFrom, logFilter.dateTo, logsPageSize]);
 
   const logsPageCount = useMemo(
     () => Math.max(1, Math.ceil((filteredLogs.length || 0) / logsPageSize)),
@@ -217,7 +234,7 @@ export const AdminControlPanel: React.FC = () => {
     if (activeTab === 'analytics') {
       setAnalytics(DbService.getAdminAnalytics());
     } else if (activeTab === 'activity') {
-      setLogs(DbService.getLogs());
+      setLogs(auditLog.getAll() as any);
     } else if (activeTab === 'users') {
       setUsers(DbService.getSystemUsers());
       setPeople(isDesktopFast ? [] : DbService.getPeople());
@@ -404,6 +421,34 @@ export const AdminControlPanel: React.FC = () => {
       alive = false;
     };
   }, [isDesktopFast, activeTab, users, blacklist]);
+
+  const handleExportLogs = useCallback(() => {
+    const data = filteredLogs.map((r: any) => ({
+      id: r.id,
+      userName: r.userName,
+      action: r.action,
+      entity: r.entity,
+      entityId: r.entityId ?? '',
+      details: r.details ?? '',
+      timestamp: r.timestamp,
+      ip: r.ip ?? '',
+    }));
+
+    void exportToXlsx(
+      'سجل_التدقيق',
+      [
+        { key: 'timestamp', header: 'الوقت' },
+        { key: 'userName', header: 'المستخدم' },
+        { key: 'action', header: 'الإجراء' },
+        { key: 'entity', header: 'الكيان' },
+        { key: 'entityId', header: 'معرف السجل' },
+        { key: 'details', header: 'التفاصيل' },
+        { key: 'ip', header: 'IP' },
+      ],
+      data as Record<string, unknown>[],
+      `audit-log-${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+  }, [filteredLogs]);
 
   // --- ACTIONS ---
 
@@ -634,40 +679,78 @@ export const AdminControlPanel: React.FC = () => {
 
   const renderActivity = () => {
     return (
-      <div className="space-y-4 animate-fade-in">
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700">
-          <input
-            placeholder="بحث بالموظف..."
-            className="border p-2 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
-            aria-label="بحث بالموظف"
-            title="بحث بالموظف"
-            value={logFilter.user}
-            onChange={(e) => setLogFilter({ ...logFilter, user: e.target.value })}
-          />
-          <input
-            placeholder="بحث بنوع الإجراء..."
-            className="border p-2 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
-            aria-label="بحث بنوع الإجراء"
-            title="بحث بنوع الإجراء"
-            value={logFilter.action}
-            onChange={(e) => setLogFilter({ ...logFilter, action: e.target.value })}
-          />
-          <input
-            type="date"
-            className="border p-2 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 dark:border-slate-600 outline-none"
-            aria-label="بحث بتاريخ العملية"
-            title="بحث بتاريخ العملية"
-            value={logFilter.date}
-            onChange={(e) => setLogFilter({ ...logFilter, date: e.target.value })}
-          />
+      <div className="space-y-6 animate-fade-in">
+        {/* Header Actions */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-200 rounded-2xl shadow-sm">
+              <ScrollText size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white">سجل العمليات والتدقيق</h3>
+              <p className="text-sm text-slate-500 mt-1">مراقبة كافة تحركات المستخدمين والعمليات الحساسة في النظام.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => loadData()} className="gap-2">
+              <RefreshCw size={16} /> تحديث
+            </Button>
+            <Button onClick={() => void handleExportLogs()} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20">
+              <Download size={16} /> تصدير Excel
+            </Button>
+          </div>
         </div>
 
-        {/* Table */}
-        <div className="app-table-wrapper">
-          <div className="p-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/50">
-            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">
-              إجمالي السجلات: {filteredLogs.length.toLocaleString()}
+        {/* Filters */}
+        <Card className="p-6">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">
+            <Filter size={16} /> تصفية السجلات
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase px-1">الموظف</label>
+              <input
+                placeholder="اسم المستخدم..."
+                className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                value={logFilter.user}
+                onChange={(e) => setLogFilter({ ...logFilter, user: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase px-1">نوع الإجراء</label>
+              <input
+                placeholder="مثلاً: تعديل، حذف..."
+                className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                value={logFilter.action}
+                onChange={(e) => setLogFilter({ ...logFilter, action: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase px-1">من تاريخ</label>
+              <input
+                type="date"
+                className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 outline-none"
+                value={logFilter.dateFrom}
+                onChange={(e) => setLogFilter({ ...logFilter, dateFrom: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase px-1">إلى تاريخ</label>
+              <input
+                type="date"
+                className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 outline-none"
+                value={logFilter.dateTo}
+                onChange={(e) => setLogFilter({ ...logFilter, dateTo: e.target.value })}
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Table List */}
+        <div className="app-table-wrapper rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 bg-white dark:bg-slate-900 shadow-sm z-10">
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 border-r border-slate-200 dark:border-slate-800 ml-4 pl-4 shrink-0">
+              {filteredLogs.length.toLocaleString()} سجل
             </div>
             <PaginationControls
               page={logsPage}
@@ -675,67 +758,60 @@ export const AdminControlPanel: React.FC = () => {
               onPageChange={setLogsPage}
             />
           </div>
-          <div className="max-h-[600px] overflow-auto no-scrollbar">
+          <div className="max-h-[700px] overflow-auto no-scrollbar bg-white dark:bg-slate-900/40">
             <table className="app-table">
-              <thead className="app-table-thead">
+              <thead className="app-table-thead !bg-slate-50/50 dark:!bg-slate-900/80 sticky top-0 backdrop-blur-md">
                 <tr>
-                  <th className="app-table-th">الموظف</th>
+                  <th className="app-table-th">الوقت</th>
+                  <th className="app-table-th">المستخدم</th>
                   <th className="app-table-th">الإجراء</th>
+                  <th className="app-table-th">الكيان</th>
+                  <th className="app-table-th">IP</th>
                   <th className="app-table-th">التفاصيل</th>
-                  <th className="app-table-th">الجهاز / IP</th>
-                  <th className="app-table-th">التوقيت</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
                 {visibleLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="app-table-empty">
-                      لا توجد سجلات مطابقة للبحث
+                    <td colSpan={6} className="app-table-empty !py-20 text-slate-400">
+                      <ScrollText size={48} className="mx-auto mb-4 opacity-10" />
+                      لا توجد سجلات مطابقة لمعايير البحث
                     </td>
                   </tr>
                 ) : (
-                  visibleLogs.map((log) => (
-                    <tr key={log.id} className="app-table-row app-table-row-striped group">
-                      <td className="app-table-td font-black">
+                  visibleLogs.map((log: any) => (
+                    <tr key={log.id} className="app-table-row group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="app-table-td font-mono text-[10px] text-slate-500 font-bold whitespace-nowrap" dir="ltr">
+                        {log.timestamp ? new Date(log.timestamp).toLocaleString('ar-JO') : '—'}
+                      </td>
+                      <td className="app-table-td">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-black shadow-sm group-hover:scale-110 transition-transform">
-                            {log.اسم_المستخدم.charAt(0).toUpperCase()}
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-black text-slate-500 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                            {log.userName?.charAt(0).toUpperCase()}
                           </div>
-                          <span className="text-slate-700 dark:text-slate-200">
-                            {log.اسم_المستخدم}
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                            {log.userName}
                           </span>
                         </div>
                       </td>
                       <td className="app-table-td">
-                        <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-[10px] font-black border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
-                          {log.نوع_العملية}
+                        <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-[10px] font-black border border-indigo-100/50 dark:border-indigo-800/50">
+                          {log.action}
                         </span>
                       </td>
                       <td className="app-table-td">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                            {log.اسم_الجدول} #{log.رقم_السجل}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-medium mt-0.5 line-clamp-1">
-                            {log.details}
-                          </span>
-                        </div>
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                          {log.entity}
+                          {log.entityId && <span className="text-slate-400 font-normal mr-1">#{log.entityId.slice(0, 8)}</span>}
+                        </span>
                       </td>
-                      <td className="app-table-td">
-                        <div className="flex flex-col gap-1 text-[10px] font-medium text-slate-400">
-                          <span className="flex items-center gap-1.5">
-                            <Globe size={12} className="text-slate-300" /> {log.ipAddress}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <Smartphone size={12} className="text-slate-300" /> {log.deviceInfo}
-                          </span>
-                        </div>
+                      <td className="app-table-td font-mono text-[10px] text-slate-400">
+                        {log.ip || '—'}
                       </td>
-                      <td
-                        className="app-table-td font-mono text-[10px] text-slate-500 font-bold"
-                        dir="ltr"
-                      >
-                        {new Date(log.تاريخ_العملية).toLocaleString('ar-JO')}
+                      <td className="app-table-td max-w-xs xl:max-w-md">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate hover:whitespace-normal transition-all" title={log.details}>
+                          {log.details || '—'}
+                        </div>
                       </td>
                     </tr>
                   ))

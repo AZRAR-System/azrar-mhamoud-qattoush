@@ -33,6 +33,8 @@ import {
   pushKvUpsert,
   resetSqlPullState,
   restoreServerBackupFromServer,
+  runSetupScript,
+  checkIsAdmin,
   saveSqlBackupAutomationSettings,
   saveSqlSettings,
   startBackgroundPull,
@@ -558,7 +560,8 @@ export function registerSql(deps: IpcDeps): void {
           'هذه العملية ستحذف بيانات المخدم الحالية وتستبدلها بالكامل من ملف النسخة الاحتياطية.',
         detail: 'استخدمها فقط عند الضرورة. هل تريد المتابعة؟',
       });
-      if (confirm.response !== 1) return { ok: false, message: 'تم الإلغاء' };
+      const response = typeof confirm === 'number' ? confirm : (confirm as any).response;
+      if (response !== 1) return { ok: false, message: 'تم الإلغاء' };
   
       ipc.addSqlSyncLogEntry({
         direction: 'system',
@@ -710,7 +713,8 @@ export function registerSql(deps: IpcDeps): void {
           message: 'هذه العملية ستحذف بيانات المخدم الحالية وتستبدلها بالكامل من النسخة المختارة.',
           detail: 'استخدمها فقط عند الضرورة. هل تريد المتابعة؟',
         });
-        if (confirm.response !== 1) return { ok: false, message: 'تم الإلغاء' };
+        const response = typeof confirm === 'number' ? confirm : (confirm as any).response;
+        if (response !== 1) return { ok: false, message: 'تم الإلغاء' };
       }
   
       ipc.addSqlSyncLogEntry({
@@ -1378,4 +1382,13 @@ export function registerSql(deps: IpcDeps): void {
       }
     })();
   }, 800);
+  ipcMain.handle('sql:checkAdminStatus', async () => {
+    return { isAdmin: await checkIsAdmin() };
+  });
+
+  ipcMain.handle('sql:startInstallation', async (event) => {
+    return await runSetupScript((line) => {
+      event.sender.send('sql:setup-log', line);
+    });
+  });
 }

@@ -10,6 +10,7 @@ import { isTenancyRelevant } from '@/utils/tenancy';
 import { getErrorMessage } from '@/utils/errors';
 import { validateAllData, type ValidationResult } from '@/services/dataValidation';
 import { runSystemScenarioTests, UiTestResult } from '@/services/integrationTests';
+import { clearAllData, resetToFreshState, getDatabaseStats } from '@/services/resetDatabase';
 import { storage } from '@/services/storage';
 import { buildCache, DbCache } from '@/services/dbCache';
 import type { LucideIcon } from 'lucide-react';
@@ -1177,6 +1178,8 @@ const DatabaseView = memo(() => {
   const [cacheTick, setCacheTick] = useState(0);
   const [tables, setTables] = useState<Array<{ key: string; name: string; icon: LucideIcon; kind: 'db' | 'system' }>>([]);
   const [tablesPage, setTablesPage] = useState(1);
+  const [dbStats, setDbStats] = useState<Record<string, number>>({});
+  const [resetLoading, setResetLoading] = useState(false);
   const tablesPageSize = 10;
 
   useEffect(() => {
@@ -1186,6 +1189,7 @@ const DatabaseView = memo(() => {
     if (window.desktopUpdater?.getVersion) {
       window.desktopUpdater.getVersion().then(setAppVersion).catch(() => {});
     }
+    getDatabaseStats().then(setDbStats).catch(() => {});
   }, []);
 
   const refreshLocalStorageList = useCallback(() => {
@@ -1277,6 +1281,58 @@ const DatabaseView = memo(() => {
       toast.error(getErrorMessage(e) || 'فشل التثبيت');
     } finally {
       setInstallingFromFile(false);
+    }
+  };
+  
+  const handleResetToFresh = async () => {
+    const ok = await toast.confirm({
+      title: 'إعادة تهيئة النظام',
+      message: 'سيتم حذف جميع البيانات والاحتفاظ بمستخدم admin فقط. هل أنت متأكد؟ اكتب "إعادة تهيئة" للتأكيد.',
+      confirmText: 'تأكيد الحذف',
+      cancelText: 'إلغاء',
+      isDangerous: true,
+      requireTextInput: 'إعادة تهيئة'
+    });
+    
+    if (ok) {
+      setResetLoading(true);
+      try {
+        const res = await resetToFreshState();
+        if (res.success) {
+          toast.success(res.message);
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          toast.error(res.message);
+        }
+      } finally {
+        setResetLoading(false);
+      }
+    }
+  };
+
+  const handleClearAll = async () => {
+    const ok = await toast.confirm({
+      title: 'حذف جميع البيانات نهائياً',
+      message: '⚠️ تحذير: سيتم حذف كافة السجلات والملفات نهائياً. يرجى كتابة "حذف نهائي" للتأكيد.',
+      confirmText: 'حذف الكل',
+      cancelText: 'إلغاء',
+      isDangerous: true,
+      requireTextInput: 'حذف نهائي'
+    });
+    
+    if (ok) {
+      setResetLoading(true);
+      try {
+        const res = await clearAllData();
+        if (res.success) {
+          toast.success(res.message);
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          toast.error(res.message);
+        }
+      } finally {
+        setResetLoading(false);
+      }
     }
   };
 
@@ -1382,11 +1438,39 @@ const DatabaseView = memo(() => {
             </div>
           )}
 
+          <div className="app-card p-6 rounded-3xl space-y-4 border-2 border-red-100 dark:border-red-900/30">
+            <h4 className="font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertTriangle size={18} />
+              منطقة العمليات الخطرة
+            </h4>
+            <div className="space-y-3">
+              <button
+                onClick={handleResetToFresh}
+                disabled={resetLoading}
+                className="w-full bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-50 border border-emerald-100 dark:border-emerald-900/30"
+              >
+                <RefreshCw size={16} className={resetLoading ? 'animate-spin' : ''} />
+                إعادة تهيئة النظام (Fresh)
+              </button>
+              <button
+                onClick={handleClearAll}
+                disabled={resetLoading}
+                className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-50 border border-red-100 dark:border-red-900/30"
+              >
+                <Trash2 size={16} />
+                حذف جميع البيانات
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-relaxed text-center">
+              * العمليات أعلاه تغير حالة النظام بشكل نهائي ولا يمكن التراجع عنها.
+            </p>
+          </div>
+
           <div className="app-card p-6 rounded-3xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30">
             <div className="flex gap-3 text-indigo-800 dark:text-indigo-300">
               <Key size={20} className="shrink-0" />
               <div className="text-xs leading-relaxed">
-                <p className="font-bold mb-1">تلميح:</p>
+                <p className="font-bold mb-1">تلميح (إجمالي السجلات: {Object.values(dbStats).reduce((a,b)=>a+b, 0)}):</p>
                 يتم مزامنة البيانات الأساسية مع المخدم تلقائياً إذا كان مفعل. إعدادات المخدم موجودة في "الإعدادات العامة".
               </div>
             </div>

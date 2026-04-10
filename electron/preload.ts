@@ -81,7 +81,9 @@ export type DbChannel =
   | 'sql:listServerBackups'
   | 'sql:createServerBackup'
   | 'sql:restoreServerBackup'
-  | 'sql:mergePublishAdmin';
+  | 'sql:mergePublishAdmin'
+  | 'sql:checkAdminStatus'
+  | 'sql:startInstallation';
 
 export type PrintSettingsChannel =
   | 'print:settings:get'
@@ -297,6 +299,14 @@ contextBridge.exposeInMainWorld('desktopDb', {
     const listener = (_e: IpcRendererEvent, payload: unknown) => handler(payload);
     ipcRenderer.on('sql:syncEvent', listener);
     return () => ipcRenderer.removeListener('sql:syncEvent', listener);
+  },
+
+  checkAdminStatus: () => ipcRenderer.invoke('sql:checkAdminStatus'),
+  startInstallation: () => ipcRenderer.invoke('sql:startInstallation'),
+  onSqlSetupLog: (handler: (line: string) => void) => {
+    const listener = (_e: IpcRendererEvent, line: string) => handler(line);
+    ipcRenderer.on('sql:setup-log', listener);
+    return () => ipcRenderer.removeListener('sql:setup-log', listener);
   },
 
   // Attachments (filesystem)

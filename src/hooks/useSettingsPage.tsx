@@ -1204,13 +1204,14 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
         if (DbService.listWordTemplatesDetailed) {
           const res = await DbService.listWordTemplatesDetailed(t);
           if (res?.success && res.data) {
-            setWordTemplates(res.data.items || []);
+            setWordTemplates((res.data.items || []).map((i: any) => i.name));
             setWordTemplatesDir(String(res.data.dir || ''));
 
             const kvMap: Record<string, string> = {};
-            for (const d of res.data.details || []) {
-              const fileName = String(d?.fileName || '').trim();
-              const kvKey = String(d?.kvKey || '').trim();
+            const details = (res.data.details as any[]) || [];
+            for (const d of details) {
+              const fileName = String(d?.name || '').trim();
+              const kvKey = String(d?.id || '').trim();
               if (fileName && kvKey) kvMap[fileName] = kvKey;
             }
             setWordTemplateKvKeysByName(kvMap);
@@ -1290,7 +1291,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
         return;
       }
 
-      setSelectedWordTemplateName(activeWordTemplateType, res.data);
+      setSelectedWordTemplateName(activeWordTemplateType, (res.data?.name || (typeof res.data === 'string' ? res.data : '')) || '');
       await refreshWordTemplates(activeWordTemplateType);
       toast.success(
         `تم استيراد ${templateTypeLabel(activeWordTemplateType)} وتعيينه كقالب افتراضي`

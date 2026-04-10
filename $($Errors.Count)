@@ -1,0 +1,9667 @@
+
+
+Content     : #Requires -Version 5.1
+Type        : Comment
+Start       : 0
+Length      : 22
+StartLine   : 1
+StartColumn : 1
+EndLine     : 1
+EndColumn   : 23
+
+Content     : 
+              
+Type        : NewLine
+Start       : 22
+Length      : 1
+StartLine   : 1
+StartColumn : 23
+EndLine     : 2
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 23
+Length      : 1
+StartLine   : 2
+StartColumn : 1
+EndLine     : 3
+EndColumn   : 1
+
+Content     : <#
+                  AZRAR SQL Express Installer
+                  Purpose: Setup SQL Server 2022 Express for AZRAR system.
+              #>
+Type        : Comment
+Start       : 24
+Length      : 98
+StartLine   : 3
+StartColumn : 1
+EndLine     : 6
+EndColumn   : 3
+
+Content     : 
+              
+Type        : NewLine
+Start       : 122
+Length      : 1
+StartLine   : 6
+StartColumn : 3
+EndLine     : 7
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 123
+Length      : 1
+StartLine   : 7
+StartColumn : 1
+EndLine     : 8
+EndColumn   : 1
+
+Content     : ErrorActionPreference
+Type        : Variable
+Start       : 124
+Length      : 22
+StartLine   : 8
+StartColumn : 1
+EndLine     : 8
+EndColumn   : 23
+
+Content     : =
+Type        : Operator
+Start       : 147
+Length      : 1
+StartLine   : 8
+StartColumn : 24
+EndLine     : 8
+EndColumn   : 25
+
+Content     : Stop
+Type        : String
+Start       : 149
+Length      : 6
+StartLine   : 8
+StartColumn : 26
+EndLine     : 8
+EndColumn   : 32
+
+Content     : 
+              
+Type        : NewLine
+Start       : 155
+Length      : 1
+StartLine   : 8
+StartColumn : 32
+EndLine     : 9
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 156
+Length      : 1
+StartLine   : 9
+StartColumn : 1
+EndLine     : 10
+EndColumn   : 1
+
+Content     : # --- Initialization ---
+Type        : Comment
+Start       : 157
+Length      : 24
+StartLine   : 10
+StartColumn : 1
+EndLine     : 10
+EndColumn   : 25
+
+Content     : 
+              
+Type        : NewLine
+Start       : 181
+Length      : 1
+StartLine   : 10
+StartColumn : 25
+EndLine     : 11
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 182
+Length      : 1
+StartLine   : 11
+StartColumn : 1
+EndLine     : 12
+EndColumn   : 1
+
+Content     : function
+Type        : Keyword
+Start       : 183
+Length      : 8
+StartLine   : 12
+StartColumn : 1
+EndLine     : 12
+EndColumn   : 9
+
+Content     : Write-Log
+Type        : CommandArgument
+Start       : 192
+Length      : 9
+StartLine   : 12
+StartColumn : 10
+EndLine     : 12
+EndColumn   : 19
+
+Content     : (
+Type        : GroupStart
+Start       : 201
+Length      : 1
+StartLine   : 12
+StartColumn : 19
+EndLine     : 12
+EndColumn   : 20
+
+Content     : [string]
+Type        : Type
+Start       : 202
+Length      : 8
+StartLine   : 12
+StartColumn : 20
+EndLine     : 12
+EndColumn   : 28
+
+Content     : Message
+Type        : Variable
+Start       : 210
+Length      : 8
+StartLine   : 12
+StartColumn : 28
+EndLine     : 12
+EndColumn   : 36
+
+Content     : )
+Type        : GroupEnd
+Start       : 218
+Length      : 1
+StartLine   : 12
+StartColumn : 36
+EndLine     : 12
+EndColumn   : 37
+
+Content     : {
+Type        : GroupStart
+Start       : 220
+Length      : 1
+StartLine   : 12
+StartColumn : 38
+EndLine     : 12
+EndColumn   : 39
+
+Content     : 
+              
+Type        : NewLine
+Start       : 221
+Length      : 1
+StartLine   : 12
+StartColumn : 39
+EndLine     : 13
+EndColumn   : 1
+
+Content     : Write-Host
+Type        : Command
+Start       : 226
+Length      : 10
+StartLine   : 13
+StartColumn : 5
+EndLine     : 13
+EndColumn   : 15
+
+Content     : [$(Get-Date -Format 'HH:mm:ss')] $Message
+Type        : String
+Start       : 237
+Length      : 43
+StartLine   : 13
+StartColumn : 16
+EndLine     : 13
+EndColumn   : 59
+
+Content     : 
+              
+Type        : NewLine
+Start       : 280
+Length      : 1
+StartLine   : 13
+StartColumn : 59
+EndLine     : 14
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 281
+Length      : 1
+StartLine   : 14
+StartColumn : 1
+EndLine     : 14
+EndColumn   : 2
+
+Content     : 
+              
+Type        : NewLine
+Start       : 282
+Length      : 1
+StartLine   : 14
+StartColumn : 2
+EndLine     : 15
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 283
+Length      : 1
+StartLine   : 15
+StartColumn : 1
+EndLine     : 16
+EndColumn   : 1
+
+Content     : function
+Type        : Keyword
+Start       : 284
+Length      : 8
+StartLine   : 16
+StartColumn : 1
+EndLine     : 16
+EndColumn   : 9
+
+Content     : New-Password
+Type        : CommandArgument
+Start       : 293
+Length      : 12
+StartLine   : 16
+StartColumn : 10
+EndLine     : 16
+EndColumn   : 22
+
+Content     : (
+Type        : GroupStart
+Start       : 305
+Length      : 1
+StartLine   : 16
+StartColumn : 22
+EndLine     : 16
+EndColumn   : 23
+
+Content     : [int]
+Type        : Type
+Start       : 306
+Length      : 5
+StartLine   : 16
+StartColumn : 23
+EndLine     : 16
+EndColumn   : 28
+
+Content     : Length
+Type        : Variable
+Start       : 311
+Length      : 7
+StartLine   : 16
+StartColumn : 28
+EndLine     : 16
+EndColumn   : 35
+
+Content     : =
+Type        : Operator
+Start       : 319
+Length      : 1
+StartLine   : 16
+StartColumn : 36
+EndLine     : 16
+EndColumn   : 37
+
+Content     : 24
+Type        : Number
+Start       : 321
+Length      : 2
+StartLine   : 16
+StartColumn : 38
+EndLine     : 16
+EndColumn   : 40
+
+Content     : )
+Type        : GroupEnd
+Start       : 323
+Length      : 1
+StartLine   : 16
+StartColumn : 40
+EndLine     : 16
+EndColumn   : 41
+
+Content     : {
+Type        : GroupStart
+Start       : 325
+Length      : 1
+StartLine   : 16
+StartColumn : 42
+EndLine     : 16
+EndColumn   : 43
+
+Content     : 
+              
+Type        : NewLine
+Start       : 326
+Length      : 1
+StartLine   : 16
+StartColumn : 43
+EndLine     : 17
+EndColumn   : 1
+
+Content     : chars
+Type        : Variable
+Start       : 331
+Length      : 6
+StartLine   : 17
+StartColumn : 5
+EndLine     : 17
+EndColumn   : 11
+
+Content     : =
+Type        : Operator
+Start       : 338
+Length      : 1
+StartLine   : 17
+StartColumn : 12
+EndLine     : 17
+EndColumn   : 13
+
+Content     : ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()
+Type        : String
+Start       : 340
+Length      : 74
+StartLine   : 17
+StartColumn : 14
+EndLine     : 17
+EndColumn   : 88
+
+Content     : 
+              
+Type        : NewLine
+Start       : 414
+Length      : 1
+StartLine   : 17
+StartColumn : 88
+EndLine     : 18
+EndColumn   : 1
+
+Content     : bytes
+Type        : Variable
+Start       : 419
+Length      : 6
+StartLine   : 18
+StartColumn : 5
+EndLine     : 18
+EndColumn   : 11
+
+Content     : =
+Type        : Operator
+Start       : 426
+Length      : 1
+StartLine   : 18
+StartColumn : 12
+EndLine     : 18
+EndColumn   : 13
+
+Content     : New-Object
+Type        : Command
+Start       : 428
+Length      : 10
+StartLine   : 18
+StartColumn : 14
+EndLine     : 18
+EndColumn   : 24
+
+Content     : byte[]
+Type        : CommandArgument
+Start       : 439
+Length      : 6
+StartLine   : 18
+StartColumn : 25
+EndLine     : 18
+EndColumn   : 31
+
+Content     : (
+Type        : GroupStart
+Start       : 445
+Length      : 1
+StartLine   : 18
+StartColumn : 31
+EndLine     : 18
+EndColumn   : 32
+
+Content     : Length
+Type        : Variable
+Start       : 446
+Length      : 7
+StartLine   : 18
+StartColumn : 32
+EndLine     : 18
+EndColumn   : 39
+
+Content     : )
+Type        : GroupEnd
+Start       : 453
+Length      : 1
+StartLine   : 18
+StartColumn : 39
+EndLine     : 18
+EndColumn   : 40
+
+Content     : 
+              
+Type        : NewLine
+Start       : 454
+Length      : 1
+StartLine   : 18
+StartColumn : 40
+EndLine     : 19
+EndColumn   : 1
+
+Content     : rng
+Type        : Variable
+Start       : 459
+Length      : 4
+StartLine   : 19
+StartColumn : 5
+EndLine     : 19
+EndColumn   : 9
+
+Content     : =
+Type        : Operator
+Start       : 464
+Length      : 1
+StartLine   : 19
+StartColumn : 10
+EndLine     : 19
+EndColumn   : 11
+
+Content     : [System.Security.Cryptography.RandomNumberGenerator]
+Type        : Type
+Start       : 466
+Length      : 52
+StartLine   : 19
+StartColumn : 12
+EndLine     : 19
+EndColumn   : 64
+
+Content     : ::
+Type        : Operator
+Start       : 518
+Length      : 2
+StartLine   : 19
+StartColumn : 64
+EndLine     : 19
+EndColumn   : 66
+
+Content     : Create
+Type        : Member
+Start       : 520
+Length      : 6
+StartLine   : 19
+StartColumn : 66
+EndLine     : 19
+EndColumn   : 72
+
+Content     : (
+Type        : GroupStart
+Start       : 526
+Length      : 1
+StartLine   : 19
+StartColumn : 72
+EndLine     : 19
+EndColumn   : 73
+
+Content     : )
+Type        : GroupEnd
+Start       : 527
+Length      : 1
+StartLine   : 19
+StartColumn : 73
+EndLine     : 19
+EndColumn   : 74
+
+Content     : 
+              
+Type        : NewLine
+Start       : 528
+Length      : 1
+StartLine   : 19
+StartColumn : 74
+EndLine     : 20
+EndColumn   : 1
+
+Content     : rng
+Type        : Variable
+Start       : 533
+Length      : 4
+StartLine   : 20
+StartColumn : 5
+EndLine     : 20
+EndColumn   : 9
+
+Content     : .
+Type        : Operator
+Start       : 537
+Length      : 1
+StartLine   : 20
+StartColumn : 9
+EndLine     : 20
+EndColumn   : 10
+
+Content     : GetBytes
+Type        : Member
+Start       : 538
+Length      : 8
+StartLine   : 20
+StartColumn : 10
+EndLine     : 20
+EndColumn   : 18
+
+Content     : (
+Type        : GroupStart
+Start       : 546
+Length      : 1
+StartLine   : 20
+StartColumn : 18
+EndLine     : 20
+EndColumn   : 19
+
+Content     : bytes
+Type        : Variable
+Start       : 547
+Length      : 6
+StartLine   : 20
+StartColumn : 19
+EndLine     : 20
+EndColumn   : 25
+
+Content     : )
+Type        : GroupEnd
+Start       : 553
+Length      : 1
+StartLine   : 20
+StartColumn : 25
+EndLine     : 20
+EndColumn   : 26
+
+Content     : 
+              
+Type        : NewLine
+Start       : 554
+Length      : 1
+StartLine   : 20
+StartColumn : 26
+EndLine     : 21
+EndColumn   : 1
+
+Content     : rng
+Type        : Variable
+Start       : 559
+Length      : 4
+StartLine   : 21
+StartColumn : 5
+EndLine     : 21
+EndColumn   : 9
+
+Content     : .
+Type        : Operator
+Start       : 563
+Length      : 1
+StartLine   : 21
+StartColumn : 9
+EndLine     : 21
+EndColumn   : 10
+
+Content     : Dispose
+Type        : Member
+Start       : 564
+Length      : 7
+StartLine   : 21
+StartColumn : 10
+EndLine     : 21
+EndColumn   : 17
+
+Content     : (
+Type        : GroupStart
+Start       : 571
+Length      : 1
+StartLine   : 21
+StartColumn : 17
+EndLine     : 21
+EndColumn   : 18
+
+Content     : )
+Type        : GroupEnd
+Start       : 572
+Length      : 1
+StartLine   : 21
+StartColumn : 18
+EndLine     : 21
+EndColumn   : 19
+
+Content     : 
+              
+Type        : NewLine
+Start       : 573
+Length      : 1
+StartLine   : 21
+StartColumn : 19
+EndLine     : 22
+EndColumn   : 1
+
+Content     : return
+Type        : Keyword
+Start       : 578
+Length      : 6
+StartLine   : 22
+StartColumn : 5
+EndLine     : 22
+EndColumn   : 11
+
+Content     : -join
+Type        : Operator
+Start       : 585
+Length      : 5
+StartLine   : 22
+StartColumn : 12
+EndLine     : 22
+EndColumn   : 17
+
+Content     : (
+Type        : GroupStart
+Start       : 591
+Length      : 1
+StartLine   : 22
+StartColumn : 18
+EndLine     : 22
+EndColumn   : 19
+
+Content     : bytes
+Type        : Variable
+Start       : 592
+Length      : 6
+StartLine   : 22
+StartColumn : 19
+EndLine     : 22
+EndColumn   : 25
+
+Content     : |
+Type        : Operator
+Start       : 599
+Length      : 1
+StartLine   : 22
+StartColumn : 26
+EndLine     : 22
+EndColumn   : 27
+
+Content     : ForEach-Object
+Type        : Command
+Start       : 601
+Length      : 14
+StartLine   : 22
+StartColumn : 28
+EndLine     : 22
+EndColumn   : 42
+
+Content     : {
+Type        : GroupStart
+Start       : 616
+Length      : 1
+StartLine   : 22
+StartColumn : 43
+EndLine     : 22
+EndColumn   : 44
+
+Content     : chars
+Type        : Variable
+Start       : 618
+Length      : 6
+StartLine   : 22
+StartColumn : 45
+EndLine     : 22
+EndColumn   : 51
+
+Content     : [
+Type        : Operator
+Start       : 624
+Length      : 1
+StartLine   : 22
+StartColumn : 51
+EndLine     : 22
+EndColumn   : 52
+
+Content     : _
+Type        : Variable
+Start       : 625
+Length      : 2
+StartLine   : 22
+StartColumn : 52
+EndLine     : 22
+EndColumn   : 54
+
+Content     : %
+Type        : Operator
+Start       : 628
+Length      : 1
+StartLine   : 22
+StartColumn : 55
+EndLine     : 22
+EndColumn   : 56
+
+Content     : chars
+Type        : Variable
+Start       : 630
+Length      : 6
+StartLine   : 22
+StartColumn : 57
+EndLine     : 22
+EndColumn   : 63
+
+Content     : .
+Type        : Operator
+Start       : 636
+Length      : 1
+StartLine   : 22
+StartColumn : 63
+EndLine     : 22
+EndColumn   : 64
+
+Content     : Length
+Type        : Member
+Start       : 637
+Length      : 6
+StartLine   : 22
+StartColumn : 64
+EndLine     : 22
+EndColumn   : 70
+
+Content     : ]
+Type        : Operator
+Start       : 643
+Length      : 1
+StartLine   : 22
+StartColumn : 70
+EndLine     : 22
+EndColumn   : 71
+
+Content     : }
+Type        : GroupEnd
+Start       : 645
+Length      : 1
+StartLine   : 22
+StartColumn : 72
+EndLine     : 22
+EndColumn   : 73
+
+Content     : )
+Type        : GroupEnd
+Start       : 646
+Length      : 1
+StartLine   : 22
+StartColumn : 73
+EndLine     : 22
+EndColumn   : 74
+
+Content     : 
+              
+Type        : NewLine
+Start       : 647
+Length      : 1
+StartLine   : 22
+StartColumn : 74
+EndLine     : 23
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 648
+Length      : 1
+StartLine   : 23
+StartColumn : 1
+EndLine     : 23
+EndColumn   : 2
+
+Content     : 
+              
+Type        : NewLine
+Start       : 649
+Length      : 1
+StartLine   : 23
+StartColumn : 2
+EndLine     : 24
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 650
+Length      : 1
+StartLine   : 24
+StartColumn : 1
+EndLine     : 25
+EndColumn   : 1
+
+Content     : function
+Type        : Keyword
+Start       : 651
+Length      : 8
+StartLine   : 25
+StartColumn : 1
+EndLine     : 25
+EndColumn   : 9
+
+Content     : Test-Internet
+Type        : CommandArgument
+Start       : 660
+Length      : 13
+StartLine   : 25
+StartColumn : 10
+EndLine     : 25
+EndColumn   : 23
+
+Content     : {
+Type        : GroupStart
+Start       : 674
+Length      : 1
+StartLine   : 25
+StartColumn : 24
+EndLine     : 25
+EndColumn   : 25
+
+Content     : 
+              
+Type        : NewLine
+Start       : 675
+Length      : 1
+StartLine   : 25
+StartColumn : 25
+EndLine     : 26
+EndColumn   : 1
+
+Content     : try
+Type        : Keyword
+Start       : 680
+Length      : 3
+StartLine   : 26
+StartColumn : 5
+EndLine     : 26
+EndColumn   : 8
+
+Content     : {
+Type        : GroupStart
+Start       : 684
+Length      : 1
+StartLine   : 26
+StartColumn : 9
+EndLine     : 26
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 685
+Length      : 1
+StartLine   : 26
+StartColumn : 10
+EndLine     : 27
+EndColumn   : 1
+
+Content     : request
+Type        : Variable
+Start       : 694
+Length      : 8
+StartLine   : 27
+StartColumn : 9
+EndLine     : 27
+EndColumn   : 17
+
+Content     : =
+Type        : Operator
+Start       : 703
+Length      : 1
+StartLine   : 27
+StartColumn : 18
+EndLine     : 27
+EndColumn   : 19
+
+Content     : [System.Net.WebRequest]
+Type        : Type
+Start       : 705
+Length      : 23
+StartLine   : 27
+StartColumn : 20
+EndLine     : 27
+EndColumn   : 43
+
+Content     : ::
+Type        : Operator
+Start       : 728
+Length      : 2
+StartLine   : 27
+StartColumn : 43
+EndLine     : 27
+EndColumn   : 45
+
+Content     : Create
+Type        : Member
+Start       : 730
+Length      : 6
+StartLine   : 27
+StartColumn : 45
+EndLine     : 27
+EndColumn   : 51
+
+Content     : (
+Type        : GroupStart
+Start       : 736
+Length      : 1
+StartLine   : 27
+StartColumn : 51
+EndLine     : 27
+EndColumn   : 52
+
+Content     : http://www.msftncsi.com/ncsi.txt
+Type        : String
+Start       : 737
+Length      : 34
+StartLine   : 27
+StartColumn : 52
+EndLine     : 27
+EndColumn   : 86
+
+Content     : )
+Type        : GroupEnd
+Start       : 771
+Length      : 1
+StartLine   : 27
+StartColumn : 86
+EndLine     : 27
+EndColumn   : 87
+
+Content     : 
+              
+Type        : NewLine
+Start       : 772
+Length      : 1
+StartLine   : 27
+StartColumn : 87
+EndLine     : 28
+EndColumn   : 1
+
+Content     : request
+Type        : Variable
+Start       : 781
+Length      : 8
+StartLine   : 28
+StartColumn : 9
+EndLine     : 28
+EndColumn   : 17
+
+Content     : .
+Type        : Operator
+Start       : 789
+Length      : 1
+StartLine   : 28
+StartColumn : 17
+EndLine     : 28
+EndColumn   : 18
+
+Content     : Timeout
+Type        : Member
+Start       : 790
+Length      : 7
+StartLine   : 28
+StartColumn : 18
+EndLine     : 28
+EndColumn   : 25
+
+Content     : =
+Type        : Operator
+Start       : 798
+Length      : 1
+StartLine   : 28
+StartColumn : 26
+EndLine     : 28
+EndColumn   : 27
+
+Content     : 5000
+Type        : Number
+Start       : 800
+Length      : 4
+StartLine   : 28
+StartColumn : 28
+EndLine     : 28
+EndColumn   : 32
+
+Content     : 
+              
+Type        : NewLine
+Start       : 804
+Length      : 1
+StartLine   : 28
+StartColumn : 32
+EndLine     : 29
+EndColumn   : 1
+
+Content     : response
+Type        : Variable
+Start       : 813
+Length      : 9
+StartLine   : 29
+StartColumn : 9
+EndLine     : 29
+EndColumn   : 18
+
+Content     : =
+Type        : Operator
+Start       : 823
+Length      : 1
+StartLine   : 29
+StartColumn : 19
+EndLine     : 29
+EndColumn   : 20
+
+Content     : request
+Type        : Variable
+Start       : 825
+Length      : 8
+StartLine   : 29
+StartColumn : 21
+EndLine     : 29
+EndColumn   : 29
+
+Content     : .
+Type        : Operator
+Start       : 833
+Length      : 1
+StartLine   : 29
+StartColumn : 29
+EndLine     : 29
+EndColumn   : 30
+
+Content     : GetResponse
+Type        : Member
+Start       : 834
+Length      : 11
+StartLine   : 29
+StartColumn : 30
+EndLine     : 29
+EndColumn   : 41
+
+Content     : (
+Type        : GroupStart
+Start       : 845
+Length      : 1
+StartLine   : 29
+StartColumn : 41
+EndLine     : 29
+EndColumn   : 42
+
+Content     : )
+Type        : GroupEnd
+Start       : 846
+Length      : 1
+StartLine   : 29
+StartColumn : 42
+EndLine     : 29
+EndColumn   : 43
+
+Content     : 
+              
+Type        : NewLine
+Start       : 847
+Length      : 1
+StartLine   : 29
+StartColumn : 43
+EndLine     : 30
+EndColumn   : 1
+
+Content     : response
+Type        : Variable
+Start       : 856
+Length      : 9
+StartLine   : 30
+StartColumn : 9
+EndLine     : 30
+EndColumn   : 18
+
+Content     : .
+Type        : Operator
+Start       : 865
+Length      : 1
+StartLine   : 30
+StartColumn : 18
+EndLine     : 30
+EndColumn   : 19
+
+Content     : Close
+Type        : Member
+Start       : 866
+Length      : 5
+StartLine   : 30
+StartColumn : 19
+EndLine     : 30
+EndColumn   : 24
+
+Content     : (
+Type        : GroupStart
+Start       : 871
+Length      : 1
+StartLine   : 30
+StartColumn : 24
+EndLine     : 30
+EndColumn   : 25
+
+Content     : )
+Type        : GroupEnd
+Start       : 872
+Length      : 1
+StartLine   : 30
+StartColumn : 25
+EndLine     : 30
+EndColumn   : 26
+
+Content     : 
+              
+Type        : NewLine
+Start       : 873
+Length      : 1
+StartLine   : 30
+StartColumn : 26
+EndLine     : 31
+EndColumn   : 1
+
+Content     : return
+Type        : Keyword
+Start       : 882
+Length      : 6
+StartLine   : 31
+StartColumn : 9
+EndLine     : 31
+EndColumn   : 15
+
+Content     : true
+Type        : Variable
+Start       : 889
+Length      : 5
+StartLine   : 31
+StartColumn : 16
+EndLine     : 31
+EndColumn   : 21
+
+Content     : 
+              
+Type        : NewLine
+Start       : 894
+Length      : 1
+StartLine   : 31
+StartColumn : 21
+EndLine     : 32
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 899
+Length      : 1
+StartLine   : 32
+StartColumn : 5
+EndLine     : 32
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 900
+Length      : 1
+StartLine   : 32
+StartColumn : 6
+EndLine     : 33
+EndColumn   : 1
+
+Content     : catch
+Type        : Keyword
+Start       : 905
+Length      : 5
+StartLine   : 33
+StartColumn : 5
+EndLine     : 33
+EndColumn   : 10
+
+Content     : {
+Type        : GroupStart
+Start       : 911
+Length      : 1
+StartLine   : 33
+StartColumn : 11
+EndLine     : 33
+EndColumn   : 12
+
+Content     : 
+              
+Type        : NewLine
+Start       : 912
+Length      : 1
+StartLine   : 33
+StartColumn : 12
+EndLine     : 34
+EndColumn   : 1
+
+Content     : return
+Type        : Keyword
+Start       : 921
+Length      : 6
+StartLine   : 34
+StartColumn : 9
+EndLine     : 34
+EndColumn   : 15
+
+Content     : false
+Type        : Variable
+Start       : 928
+Length      : 6
+StartLine   : 34
+StartColumn : 16
+EndLine     : 34
+EndColumn   : 22
+
+Content     : 
+              
+Type        : NewLine
+Start       : 934
+Length      : 1
+StartLine   : 34
+StartColumn : 22
+EndLine     : 35
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 939
+Length      : 1
+StartLine   : 35
+StartColumn : 5
+EndLine     : 35
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 940
+Length      : 1
+StartLine   : 35
+StartColumn : 6
+EndLine     : 36
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 941
+Length      : 1
+StartLine   : 36
+StartColumn : 1
+EndLine     : 36
+EndColumn   : 2
+
+Content     : 
+              
+Type        : NewLine
+Start       : 942
+Length      : 1
+StartLine   : 36
+StartColumn : 2
+EndLine     : 37
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 943
+Length      : 1
+StartLine   : 37
+StartColumn : 1
+EndLine     : 38
+EndColumn   : 1
+
+Content     : function
+Type        : Keyword
+Start       : 944
+Length      : 8
+StartLine   : 38
+StartColumn : 1
+EndLine     : 38
+EndColumn   : 9
+
+Content     : Test-SqlInstance
+Type        : CommandArgument
+Start       : 953
+Length      : 16
+StartLine   : 38
+StartColumn : 10
+EndLine     : 38
+EndColumn   : 26
+
+Content     : (
+Type        : GroupStart
+Start       : 969
+Length      : 1
+StartLine   : 38
+StartColumn : 26
+EndLine     : 38
+EndColumn   : 27
+
+Content     : [string]
+Type        : Type
+Start       : 970
+Length      : 8
+StartLine   : 38
+StartColumn : 27
+EndLine     : 38
+EndColumn   : 35
+
+Content     : Name
+Type        : Variable
+Start       : 978
+Length      : 5
+StartLine   : 38
+StartColumn : 35
+EndLine     : 38
+EndColumn   : 40
+
+Content     : )
+Type        : GroupEnd
+Start       : 983
+Length      : 1
+StartLine   : 38
+StartColumn : 40
+EndLine     : 38
+EndColumn   : 41
+
+Content     : {
+Type        : GroupStart
+Start       : 985
+Length      : 1
+StartLine   : 38
+StartColumn : 42
+EndLine     : 38
+EndColumn   : 43
+
+Content     : 
+              
+Type        : NewLine
+Start       : 986
+Length      : 1
+StartLine   : 38
+StartColumn : 43
+EndLine     : 39
+EndColumn   : 1
+
+Content     : serviceName
+Type        : Variable
+Start       : 991
+Length      : 12
+StartLine   : 39
+StartColumn : 5
+EndLine     : 39
+EndColumn   : 17
+
+Content     : =
+Type        : Operator
+Start       : 1004
+Length      : 1
+StartLine   : 39
+StartColumn : 18
+EndLine     : 39
+EndColumn   : 19
+
+Content     : MSSQL$$Name
+Type        : String
+Start       : 1006
+Length      : 14
+StartLine   : 39
+StartColumn : 20
+EndLine     : 39
+EndColumn   : 34
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1020
+Length      : 1
+StartLine   : 39
+StartColumn : 34
+EndLine     : 40
+EndColumn   : 1
+
+Content     : service
+Type        : Variable
+Start       : 1025
+Length      : 8
+StartLine   : 40
+StartColumn : 5
+EndLine     : 40
+EndColumn   : 13
+
+Content     : =
+Type        : Operator
+Start       : 1034
+Length      : 1
+StartLine   : 40
+StartColumn : 14
+EndLine     : 40
+EndColumn   : 15
+
+Content     : Get-Service
+Type        : Command
+Start       : 1036
+Length      : 11
+StartLine   : 40
+StartColumn : 16
+EndLine     : 40
+EndColumn   : 27
+
+Content     : -Name
+Type        : CommandParameter
+Start       : 1048
+Length      : 5
+StartLine   : 40
+StartColumn : 28
+EndLine     : 40
+EndColumn   : 33
+
+Content     : serviceName
+Type        : Variable
+Start       : 1054
+Length      : 12
+StartLine   : 40
+StartColumn : 34
+EndLine     : 40
+EndColumn   : 46
+
+Content     : -ErrorAction
+Type        : CommandParameter
+Start       : 1067
+Length      : 12
+StartLine   : 40
+StartColumn : 47
+EndLine     : 40
+EndColumn   : 59
+
+Content     : SilentlyContinue
+Type        : CommandArgument
+Start       : 1080
+Length      : 16
+StartLine   : 40
+StartColumn : 60
+EndLine     : 40
+EndColumn   : 76
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1096
+Length      : 1
+StartLine   : 40
+StartColumn : 76
+EndLine     : 41
+EndColumn   : 1
+
+Content     : return
+Type        : Keyword
+Start       : 1101
+Length      : 6
+StartLine   : 41
+StartColumn : 5
+EndLine     : 41
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 1108
+Length      : 1
+StartLine   : 41
+StartColumn : 12
+EndLine     : 41
+EndColumn   : 13
+
+Content     : null
+Type        : Variable
+Start       : 1109
+Length      : 5
+StartLine   : 41
+StartColumn : 13
+EndLine     : 41
+EndColumn   : 18
+
+Content     : -ne
+Type        : Operator
+Start       : 1115
+Length      : 3
+StartLine   : 41
+StartColumn : 19
+EndLine     : 41
+EndColumn   : 22
+
+Content     : service
+Type        : Variable
+Start       : 1119
+Length      : 8
+StartLine   : 41
+StartColumn : 23
+EndLine     : 41
+EndColumn   : 31
+
+Content     : )
+Type        : GroupEnd
+Start       : 1127
+Length      : 1
+StartLine   : 41
+StartColumn : 31
+EndLine     : 41
+EndColumn   : 32
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1128
+Length      : 1
+StartLine   : 41
+StartColumn : 32
+EndLine     : 42
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 1129
+Length      : 1
+StartLine   : 42
+StartColumn : 1
+EndLine     : 42
+EndColumn   : 2
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1130
+Length      : 1
+StartLine   : 42
+StartColumn : 2
+EndLine     : 43
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1131
+Length      : 1
+StartLine   : 43
+StartColumn : 1
+EndLine     : 44
+EndColumn   : 1
+
+Content     : function
+Type        : Keyword
+Start       : 1132
+Length      : 8
+StartLine   : 44
+StartColumn : 1
+EndLine     : 44
+EndColumn   : 9
+
+Content     : Find-SqlCmdExe
+Type        : CommandArgument
+Start       : 1141
+Length      : 14
+StartLine   : 44
+StartColumn : 10
+EndLine     : 44
+EndColumn   : 24
+
+Content     : {
+Type        : GroupStart
+Start       : 1156
+Length      : 1
+StartLine   : 44
+StartColumn : 25
+EndLine     : 44
+EndColumn   : 26
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1157
+Length      : 1
+StartLine   : 44
+StartColumn : 26
+EndLine     : 45
+EndColumn   : 1
+
+Content     : searchPaths
+Type        : Variable
+Start       : 1162
+Length      : 12
+StartLine   : 45
+StartColumn : 5
+EndLine     : 45
+EndColumn   : 17
+
+Content     : =
+Type        : Operator
+Start       : 1175
+Length      : 1
+StartLine   : 45
+StartColumn : 18
+EndLine     : 45
+EndColumn   : 19
+
+Content     : @(
+Type        : GroupStart
+Start       : 1177
+Length      : 2
+StartLine   : 45
+StartColumn : 20
+EndLine     : 45
+EndColumn   : 22
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1179
+Length      : 1
+StartLine   : 45
+StartColumn : 22
+EndLine     : 46
+EndColumn   : 1
+
+Content     : C:\Program Files\Microsoft SQL Server
+Type        : String
+Start       : 1188
+Length      : 39
+StartLine   : 46
+StartColumn : 9
+EndLine     : 46
+EndColumn   : 48
+
+Content     : ,
+Type        : Operator
+Start       : 1227
+Length      : 1
+StartLine   : 46
+StartColumn : 48
+EndLine     : 46
+EndColumn   : 49
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1228
+Length      : 1
+StartLine   : 46
+StartColumn : 49
+EndLine     : 47
+EndColumn   : 1
+
+Content     : C:\Program Files (x86)\Microsoft SQL Server
+Type        : String
+Start       : 1237
+Length      : 45
+StartLine   : 47
+StartColumn : 9
+EndLine     : 47
+EndColumn   : 54
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1282
+Length      : 1
+StartLine   : 47
+StartColumn : 54
+EndLine     : 48
+EndColumn   : 1
+
+Content     : )
+Type        : GroupEnd
+Start       : 1287
+Length      : 1
+StartLine   : 48
+StartColumn : 5
+EndLine     : 48
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1288
+Length      : 1
+StartLine   : 48
+StartColumn : 6
+EndLine     : 49
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1289
+Length      : 1
+StartLine   : 49
+StartColumn : 1
+EndLine     : 50
+EndColumn   : 1
+
+Content     : foreach
+Type        : Keyword
+Start       : 1294
+Length      : 7
+StartLine   : 50
+StartColumn : 5
+EndLine     : 50
+EndColumn   : 12
+
+Content     : (
+Type        : GroupStart
+Start       : 1302
+Length      : 1
+StartLine   : 50
+StartColumn : 13
+EndLine     : 50
+EndColumn   : 14
+
+Content     : path
+Type        : Variable
+Start       : 1303
+Length      : 5
+StartLine   : 50
+StartColumn : 14
+EndLine     : 50
+EndColumn   : 19
+
+Content     : in
+Type        : Keyword
+Start       : 1309
+Length      : 2
+StartLine   : 50
+StartColumn : 20
+EndLine     : 50
+EndColumn   : 22
+
+Content     : searchPaths
+Type        : Variable
+Start       : 1312
+Length      : 12
+StartLine   : 50
+StartColumn : 23
+EndLine     : 50
+EndColumn   : 35
+
+Content     : )
+Type        : GroupEnd
+Start       : 1324
+Length      : 1
+StartLine   : 50
+StartColumn : 35
+EndLine     : 50
+EndColumn   : 36
+
+Content     : {
+Type        : GroupStart
+Start       : 1326
+Length      : 1
+StartLine   : 50
+StartColumn : 37
+EndLine     : 50
+EndColumn   : 38
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1327
+Length      : 1
+StartLine   : 50
+StartColumn : 38
+EndLine     : 51
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 1336
+Length      : 2
+StartLine   : 51
+StartColumn : 9
+EndLine     : 51
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 1339
+Length      : 1
+StartLine   : 51
+StartColumn : 12
+EndLine     : 51
+EndColumn   : 13
+
+Content     : -not
+Type        : Operator
+Start       : 1340
+Length      : 4
+StartLine   : 51
+StartColumn : 13
+EndLine     : 51
+EndColumn   : 17
+
+Content     : (
+Type        : GroupStart
+Start       : 1345
+Length      : 1
+StartLine   : 51
+StartColumn : 18
+EndLine     : 51
+EndColumn   : 19
+
+Content     : Test-Path
+Type        : Command
+Start       : 1346
+Length      : 9
+StartLine   : 51
+StartColumn : 19
+EndLine     : 51
+EndColumn   : 28
+
+Content     : path
+Type        : Variable
+Start       : 1356
+Length      : 5
+StartLine   : 51
+StartColumn : 29
+EndLine     : 51
+EndColumn   : 34
+
+Content     : )
+Type        : GroupEnd
+Start       : 1361
+Length      : 1
+StartLine   : 51
+StartColumn : 34
+EndLine     : 51
+EndColumn   : 35
+
+Content     : )
+Type        : GroupEnd
+Start       : 1362
+Length      : 1
+StartLine   : 51
+StartColumn : 35
+EndLine     : 51
+EndColumn   : 36
+
+Content     : {
+Type        : GroupStart
+Start       : 1364
+Length      : 1
+StartLine   : 51
+StartColumn : 37
+EndLine     : 51
+EndColumn   : 38
+
+Content     : continue
+Type        : Keyword
+Start       : 1366
+Length      : 8
+StartLine   : 51
+StartColumn : 39
+EndLine     : 51
+EndColumn   : 47
+
+Content     : }
+Type        : GroupEnd
+Start       : 1375
+Length      : 1
+StartLine   : 51
+StartColumn : 48
+EndLine     : 51
+EndColumn   : 49
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1376
+Length      : 1
+StartLine   : 51
+StartColumn : 49
+EndLine     : 52
+EndColumn   : 1
+
+Content     : found
+Type        : Variable
+Start       : 1385
+Length      : 6
+StartLine   : 52
+StartColumn : 9
+EndLine     : 52
+EndColumn   : 15
+
+Content     : =
+Type        : Operator
+Start       : 1392
+Length      : 1
+StartLine   : 52
+StartColumn : 16
+EndLine     : 52
+EndColumn   : 17
+
+Content     : Get-ChildItem
+Type        : Command
+Start       : 1394
+Length      : 13
+StartLine   : 52
+StartColumn : 18
+EndLine     : 52
+EndColumn   : 31
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 1408
+Length      : 5
+StartLine   : 52
+StartColumn : 32
+EndLine     : 52
+EndColumn   : 37
+
+Content     : path
+Type        : Variable
+Start       : 1414
+Length      : 5
+StartLine   : 52
+StartColumn : 38
+EndLine     : 52
+EndColumn   : 43
+
+Content     : -Recurse
+Type        : CommandParameter
+Start       : 1420
+Length      : 8
+StartLine   : 52
+StartColumn : 44
+EndLine     : 52
+EndColumn   : 52
+
+Content     : -Filter
+Type        : CommandParameter
+Start       : 1429
+Length      : 7
+StartLine   : 52
+StartColumn : 53
+EndLine     : 52
+EndColumn   : 60
+
+Content     : SQLCMD.EXE
+Type        : String
+Start       : 1437
+Length      : 12
+StartLine   : 52
+StartColumn : 61
+EndLine     : 52
+EndColumn   : 73
+
+Content     : -ErrorAction
+Type        : CommandParameter
+Start       : 1450
+Length      : 12
+StartLine   : 52
+StartColumn : 74
+EndLine     : 52
+EndColumn   : 86
+
+Content     : SilentlyContinue
+Type        : CommandArgument
+Start       : 1463
+Length      : 16
+StartLine   : 52
+StartColumn : 87
+EndLine     : 52
+EndColumn   : 103
+
+Content     : |
+Type        : Operator
+Start       : 1480
+Length      : 1
+StartLine   : 52
+StartColumn : 104
+EndLine     : 52
+EndColumn   : 105
+
+Content     : Select-Object
+Type        : Command
+Start       : 1482
+Length      : 13
+StartLine   : 52
+StartColumn : 106
+EndLine     : 52
+EndColumn   : 119
+
+Content     : -First
+Type        : CommandParameter
+Start       : 1496
+Length      : 6
+StartLine   : 52
+StartColumn : 120
+EndLine     : 52
+EndColumn   : 126
+
+Content     : 1
+Type        : Number
+Start       : 1503
+Length      : 1
+StartLine   : 52
+StartColumn : 127
+EndLine     : 52
+EndColumn   : 128
+
+Content     : -ExpandProperty
+Type        : CommandParameter
+Start       : 1505
+Length      : 15
+StartLine   : 52
+StartColumn : 129
+EndLine     : 52
+EndColumn   : 144
+
+Content     : FullName
+Type        : CommandArgument
+Start       : 1521
+Length      : 8
+StartLine   : 52
+StartColumn : 145
+EndLine     : 52
+EndColumn   : 153
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1529
+Length      : 1
+StartLine   : 52
+StartColumn : 153
+EndLine     : 53
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 1538
+Length      : 2
+StartLine   : 53
+StartColumn : 9
+EndLine     : 53
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 1541
+Length      : 1
+StartLine   : 53
+StartColumn : 12
+EndLine     : 53
+EndColumn   : 13
+
+Content     : found
+Type        : Variable
+Start       : 1542
+Length      : 6
+StartLine   : 53
+StartColumn : 13
+EndLine     : 53
+EndColumn   : 19
+
+Content     : )
+Type        : GroupEnd
+Start       : 1548
+Length      : 1
+StartLine   : 53
+StartColumn : 19
+EndLine     : 53
+EndColumn   : 20
+
+Content     : {
+Type        : GroupStart
+Start       : 1550
+Length      : 1
+StartLine   : 53
+StartColumn : 21
+EndLine     : 53
+EndColumn   : 22
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1551
+Length      : 1
+StartLine   : 53
+StartColumn : 22
+EndLine     : 54
+EndColumn   : 1
+
+Content     : return
+Type        : Keyword
+Start       : 1564
+Length      : 6
+StartLine   : 54
+StartColumn : 13
+EndLine     : 54
+EndColumn   : 19
+
+Content     : found
+Type        : Variable
+Start       : 1571
+Length      : 6
+StartLine   : 54
+StartColumn : 20
+EndLine     : 54
+EndColumn   : 26
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1577
+Length      : 1
+StartLine   : 54
+StartColumn : 26
+EndLine     : 55
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 1586
+Length      : 1
+StartLine   : 55
+StartColumn : 9
+EndLine     : 55
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1587
+Length      : 1
+StartLine   : 55
+StartColumn : 10
+EndLine     : 56
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 1592
+Length      : 1
+StartLine   : 56
+StartColumn : 5
+EndLine     : 56
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1593
+Length      : 1
+StartLine   : 56
+StartColumn : 6
+EndLine     : 57
+EndColumn   : 1
+
+Content     : return
+Type        : Keyword
+Start       : 1598
+Length      : 6
+StartLine   : 57
+StartColumn : 5
+EndLine     : 57
+EndColumn   : 11
+
+Content     : null
+Type        : Variable
+Start       : 1605
+Length      : 5
+StartLine   : 57
+StartColumn : 12
+EndLine     : 57
+EndColumn   : 17
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1610
+Length      : 1
+StartLine   : 57
+StartColumn : 17
+EndLine     : 58
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 1611
+Length      : 1
+StartLine   : 58
+StartColumn : 1
+EndLine     : 58
+EndColumn   : 2
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1612
+Length      : 1
+StartLine   : 58
+StartColumn : 2
+EndLine     : 59
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1613
+Length      : 1
+StartLine   : 59
+StartColumn : 1
+EndLine     : 60
+EndColumn   : 1
+
+Content     : function
+Type        : Keyword
+Start       : 1614
+Length      : 8
+StartLine   : 60
+StartColumn : 1
+EndLine     : 60
+EndColumn   : 9
+
+Content     : Invoke-SqlBatch
+Type        : CommandArgument
+Start       : 1623
+Length      : 15
+StartLine   : 60
+StartColumn : 10
+EndLine     : 60
+EndColumn   : 25
+
+Content     : (
+Type        : GroupStart
+Start       : 1638
+Length      : 1
+StartLine   : 60
+StartColumn : 25
+EndLine     : 60
+EndColumn   : 26
+
+Content     : [string]
+Type        : Type
+Start       : 1639
+Length      : 8
+StartLine   : 60
+StartColumn : 26
+EndLine     : 60
+EndColumn   : 34
+
+Content     : exe
+Type        : Variable
+Start       : 1647
+Length      : 4
+StartLine   : 60
+StartColumn : 34
+EndLine     : 60
+EndColumn   : 38
+
+Content     : ,
+Type        : Operator
+Start       : 1651
+Length      : 1
+StartLine   : 60
+StartColumn : 38
+EndLine     : 60
+EndColumn   : 39
+
+Content     : [string]
+Type        : Type
+Start       : 1653
+Length      : 8
+StartLine   : 60
+StartColumn : 40
+EndLine     : 60
+EndColumn   : 48
+
+Content     : server
+Type        : Variable
+Start       : 1661
+Length      : 7
+StartLine   : 60
+StartColumn : 48
+EndLine     : 60
+EndColumn   : 55
+
+Content     : ,
+Type        : Operator
+Start       : 1668
+Length      : 1
+StartLine   : 60
+StartColumn : 55
+EndLine     : 60
+EndColumn   : 56
+
+Content     : [string]
+Type        : Type
+Start       : 1670
+Length      : 8
+StartLine   : 60
+StartColumn : 57
+EndLine     : 60
+EndColumn   : 65
+
+Content     : user
+Type        : Variable
+Start       : 1678
+Length      : 5
+StartLine   : 60
+StartColumn : 65
+EndLine     : 60
+EndColumn   : 70
+
+Content     : ,
+Type        : Operator
+Start       : 1683
+Length      : 1
+StartLine   : 60
+StartColumn : 70
+EndLine     : 60
+EndColumn   : 71
+
+Content     : [string]
+Type        : Type
+Start       : 1685
+Length      : 8
+StartLine   : 60
+StartColumn : 72
+EndLine     : 60
+EndColumn   : 80
+
+Content     : pass
+Type        : Variable
+Start       : 1693
+Length      : 5
+StartLine   : 60
+StartColumn : 80
+EndLine     : 60
+EndColumn   : 85
+
+Content     : ,
+Type        : Operator
+Start       : 1698
+Length      : 1
+StartLine   : 60
+StartColumn : 85
+EndLine     : 60
+EndColumn   : 86
+
+Content     : [string]
+Type        : Type
+Start       : 1700
+Length      : 8
+StartLine   : 60
+StartColumn : 87
+EndLine     : 60
+EndColumn   : 95
+
+Content     : sql
+Type        : Variable
+Start       : 1708
+Length      : 4
+StartLine   : 60
+StartColumn : 95
+EndLine     : 60
+EndColumn   : 99
+
+Content     : )
+Type        : GroupEnd
+Start       : 1712
+Length      : 1
+StartLine   : 60
+StartColumn : 99
+EndLine     : 60
+EndColumn   : 100
+
+Content     : {
+Type        : GroupStart
+Start       : 1714
+Length      : 1
+StartLine   : 60
+StartColumn : 101
+EndLine     : 60
+EndColumn   : 102
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1715
+Length      : 1
+StartLine   : 60
+StartColumn : 102
+EndLine     : 61
+EndColumn   : 1
+
+Content     : tmpFile
+Type        : Variable
+Start       : 1720
+Length      : 8
+StartLine   : 61
+StartColumn : 5
+EndLine     : 61
+EndColumn   : 13
+
+Content     : =
+Type        : Operator
+Start       : 1729
+Length      : 1
+StartLine   : 61
+StartColumn : 14
+EndLine     : 61
+EndColumn   : 15
+
+Content     : [System.IO.Path]
+Type        : Type
+Start       : 1731
+Length      : 16
+StartLine   : 61
+StartColumn : 16
+EndLine     : 61
+EndColumn   : 32
+
+Content     : ::
+Type        : Operator
+Start       : 1747
+Length      : 2
+StartLine   : 61
+StartColumn : 32
+EndLine     : 61
+EndColumn   : 34
+
+Content     : GetTempFileName
+Type        : Member
+Start       : 1749
+Length      : 15
+StartLine   : 61
+StartColumn : 34
+EndLine     : 61
+EndColumn   : 49
+
+Content     : (
+Type        : GroupStart
+Start       : 1764
+Length      : 1
+StartLine   : 61
+StartColumn : 49
+EndLine     : 61
+EndColumn   : 50
+
+Content     : )
+Type        : GroupEnd
+Start       : 1765
+Length      : 1
+StartLine   : 61
+StartColumn : 50
+EndLine     : 61
+EndColumn   : 51
+
+Content     : +
+Type        : Operator
+Start       : 1767
+Length      : 1
+StartLine   : 61
+StartColumn : 52
+EndLine     : 61
+EndColumn   : 53
+
+Content     : .sql
+Type        : String
+Start       : 1769
+Length      : 6
+StartLine   : 61
+StartColumn : 54
+EndLine     : 61
+EndColumn   : 60
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1775
+Length      : 1
+StartLine   : 61
+StartColumn : 60
+EndLine     : 62
+EndColumn   : 1
+
+Content     : try
+Type        : Keyword
+Start       : 1780
+Length      : 3
+StartLine   : 62
+StartColumn : 5
+EndLine     : 62
+EndColumn   : 8
+
+Content     : {
+Type        : GroupStart
+Start       : 1784
+Length      : 1
+StartLine   : 62
+StartColumn : 9
+EndLine     : 62
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1785
+Length      : 1
+StartLine   : 62
+StartColumn : 10
+EndLine     : 63
+EndColumn   : 1
+
+Content     : Set-Content
+Type        : Command
+Start       : 1794
+Length      : 11
+StartLine   : 63
+StartColumn : 9
+EndLine     : 63
+EndColumn   : 20
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 1806
+Length      : 5
+StartLine   : 63
+StartColumn : 21
+EndLine     : 63
+EndColumn   : 26
+
+Content     : tmpFile
+Type        : Variable
+Start       : 1812
+Length      : 8
+StartLine   : 63
+StartColumn : 27
+EndLine     : 63
+EndColumn   : 35
+
+Content     : -Value
+Type        : CommandParameter
+Start       : 1821
+Length      : 6
+StartLine   : 63
+StartColumn : 36
+EndLine     : 63
+EndColumn   : 42
+
+Content     : sql
+Type        : Variable
+Start       : 1828
+Length      : 4
+StartLine   : 63
+StartColumn : 43
+EndLine     : 63
+EndColumn   : 47
+
+Content     : -Encoding
+Type        : CommandParameter
+Start       : 1833
+Length      : 9
+StartLine   : 63
+StartColumn : 48
+EndLine     : 63
+EndColumn   : 57
+
+Content     : UTF8
+Type        : CommandArgument
+Start       : 1843
+Length      : 4
+StartLine   : 63
+StartColumn : 58
+EndLine     : 63
+EndColumn   : 62
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1847
+Length      : 1
+StartLine   : 63
+StartColumn : 62
+EndLine     : 64
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 1856
+Length      : 2
+StartLine   : 64
+StartColumn : 9
+EndLine     : 64
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 1859
+Length      : 1
+StartLine   : 64
+StartColumn : 12
+EndLine     : 64
+EndColumn   : 13
+
+Content     : user
+Type        : Variable
+Start       : 1860
+Length      : 5
+StartLine   : 64
+StartColumn : 13
+EndLine     : 64
+EndColumn   : 18
+
+Content     : -eq
+Type        : Operator
+Start       : 1866
+Length      : 3
+StartLine   : 64
+StartColumn : 19
+EndLine     : 64
+EndColumn   : 22
+
+Content     : -E
+Type        : String
+Start       : 1870
+Length      : 4
+StartLine   : 64
+StartColumn : 23
+EndLine     : 64
+EndColumn   : 27
+
+Content     : )
+Type        : GroupEnd
+Start       : 1874
+Length      : 1
+StartLine   : 64
+StartColumn : 27
+EndLine     : 64
+EndColumn   : 28
+
+Content     : {
+Type        : GroupStart
+Start       : 1876
+Length      : 1
+StartLine   : 64
+StartColumn : 29
+EndLine     : 64
+EndColumn   : 30
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1877
+Length      : 1
+StartLine   : 64
+StartColumn : 30
+EndLine     : 65
+EndColumn   : 1
+
+Content     : commandParams
+Type        : Variable
+Start       : 1890
+Length      : 14
+StartLine   : 65
+StartColumn : 13
+EndLine     : 65
+EndColumn   : 27
+
+Content     : =
+Type        : Operator
+Start       : 1905
+Length      : 1
+StartLine   : 65
+StartColumn : 28
+EndLine     : 65
+EndColumn   : 29
+
+Content     : @(
+Type        : GroupStart
+Start       : 1907
+Length      : 2
+StartLine   : 65
+StartColumn : 30
+EndLine     : 65
+EndColumn   : 32
+
+Content     : -S
+Type        : String
+Start       : 1909
+Length      : 4
+StartLine   : 65
+StartColumn : 32
+EndLine     : 65
+EndColumn   : 36
+
+Content     : ,
+Type        : Operator
+Start       : 1913
+Length      : 1
+StartLine   : 65
+StartColumn : 36
+EndLine     : 65
+EndColumn   : 37
+
+Content     : server
+Type        : Variable
+Start       : 1915
+Length      : 7
+StartLine   : 65
+StartColumn : 38
+EndLine     : 65
+EndColumn   : 45
+
+Content     : ,
+Type        : Operator
+Start       : 1922
+Length      : 1
+StartLine   : 65
+StartColumn : 45
+EndLine     : 65
+EndColumn   : 46
+
+Content     : -E
+Type        : String
+Start       : 1924
+Length      : 4
+StartLine   : 65
+StartColumn : 47
+EndLine     : 65
+EndColumn   : 51
+
+Content     : ,
+Type        : Operator
+Start       : 1928
+Length      : 1
+StartLine   : 65
+StartColumn : 51
+EndLine     : 65
+EndColumn   : 52
+
+Content     : -b
+Type        : String
+Start       : 1930
+Length      : 4
+StartLine   : 65
+StartColumn : 53
+EndLine     : 65
+EndColumn   : 57
+
+Content     : ,
+Type        : Operator
+Start       : 1934
+Length      : 1
+StartLine   : 65
+StartColumn : 57
+EndLine     : 65
+EndColumn   : 58
+
+Content     : -i
+Type        : String
+Start       : 1936
+Length      : 4
+StartLine   : 65
+StartColumn : 59
+EndLine     : 65
+EndColumn   : 63
+
+Content     : ,
+Type        : Operator
+Start       : 1940
+Length      : 1
+StartLine   : 65
+StartColumn : 63
+EndLine     : 65
+EndColumn   : 64
+
+Content     : tmpFile
+Type        : Variable
+Start       : 1942
+Length      : 8
+StartLine   : 65
+StartColumn : 65
+EndLine     : 65
+EndColumn   : 73
+
+Content     : )
+Type        : GroupEnd
+Start       : 1950
+Length      : 1
+StartLine   : 65
+StartColumn : 73
+EndLine     : 65
+EndColumn   : 74
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1951
+Length      : 1
+StartLine   : 65
+StartColumn : 74
+EndLine     : 66
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 1960
+Length      : 1
+StartLine   : 66
+StartColumn : 9
+EndLine     : 66
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1961
+Length      : 1
+StartLine   : 66
+StartColumn : 10
+EndLine     : 67
+EndColumn   : 1
+
+Content     : else
+Type        : Keyword
+Start       : 1970
+Length      : 4
+StartLine   : 67
+StartColumn : 9
+EndLine     : 67
+EndColumn   : 13
+
+Content     : {
+Type        : GroupStart
+Start       : 1975
+Length      : 1
+StartLine   : 67
+StartColumn : 14
+EndLine     : 67
+EndColumn   : 15
+
+Content     : 
+              
+Type        : NewLine
+Start       : 1976
+Length      : 1
+StartLine   : 67
+StartColumn : 15
+EndLine     : 68
+EndColumn   : 1
+
+Content     : commandParams
+Type        : Variable
+Start       : 1989
+Length      : 14
+StartLine   : 68
+StartColumn : 13
+EndLine     : 68
+EndColumn   : 27
+
+Content     : =
+Type        : Operator
+Start       : 2004
+Length      : 1
+StartLine   : 68
+StartColumn : 28
+EndLine     : 68
+EndColumn   : 29
+
+Content     : @(
+Type        : GroupStart
+Start       : 2006
+Length      : 2
+StartLine   : 68
+StartColumn : 30
+EndLine     : 68
+EndColumn   : 32
+
+Content     : -S
+Type        : String
+Start       : 2008
+Length      : 4
+StartLine   : 68
+StartColumn : 32
+EndLine     : 68
+EndColumn   : 36
+
+Content     : ,
+Type        : Operator
+Start       : 2012
+Length      : 1
+StartLine   : 68
+StartColumn : 36
+EndLine     : 68
+EndColumn   : 37
+
+Content     : server
+Type        : Variable
+Start       : 2014
+Length      : 7
+StartLine   : 68
+StartColumn : 38
+EndLine     : 68
+EndColumn   : 45
+
+Content     : ,
+Type        : Operator
+Start       : 2021
+Length      : 1
+StartLine   : 68
+StartColumn : 45
+EndLine     : 68
+EndColumn   : 46
+
+Content     : -U
+Type        : String
+Start       : 2023
+Length      : 4
+StartLine   : 68
+StartColumn : 47
+EndLine     : 68
+EndColumn   : 51
+
+Content     : ,
+Type        : Operator
+Start       : 2027
+Length      : 1
+StartLine   : 68
+StartColumn : 51
+EndLine     : 68
+EndColumn   : 52
+
+Content     : user
+Type        : Variable
+Start       : 2029
+Length      : 5
+StartLine   : 68
+StartColumn : 53
+EndLine     : 68
+EndColumn   : 58
+
+Content     : ,
+Type        : Operator
+Start       : 2034
+Length      : 1
+StartLine   : 68
+StartColumn : 58
+EndLine     : 68
+EndColumn   : 59
+
+Content     : -P
+Type        : String
+Start       : 2036
+Length      : 4
+StartLine   : 68
+StartColumn : 60
+EndLine     : 68
+EndColumn   : 64
+
+Content     : ,
+Type        : Operator
+Start       : 2040
+Length      : 1
+StartLine   : 68
+StartColumn : 64
+EndLine     : 68
+EndColumn   : 65
+
+Content     : pass
+Type        : Variable
+Start       : 2042
+Length      : 5
+StartLine   : 68
+StartColumn : 66
+EndLine     : 68
+EndColumn   : 71
+
+Content     : ,
+Type        : Operator
+Start       : 2047
+Length      : 1
+StartLine   : 68
+StartColumn : 71
+EndLine     : 68
+EndColumn   : 72
+
+Content     : -b
+Type        : String
+Start       : 2049
+Length      : 4
+StartLine   : 68
+StartColumn : 73
+EndLine     : 68
+EndColumn   : 77
+
+Content     : ,
+Type        : Operator
+Start       : 2053
+Length      : 1
+StartLine   : 68
+StartColumn : 77
+EndLine     : 68
+EndColumn   : 78
+
+Content     : -i
+Type        : String
+Start       : 2055
+Length      : 4
+StartLine   : 68
+StartColumn : 79
+EndLine     : 68
+EndColumn   : 83
+
+Content     : ,
+Type        : Operator
+Start       : 2059
+Length      : 1
+StartLine   : 68
+StartColumn : 83
+EndLine     : 68
+EndColumn   : 84
+
+Content     : tmpFile
+Type        : Variable
+Start       : 2061
+Length      : 8
+StartLine   : 68
+StartColumn : 85
+EndLine     : 68
+EndColumn   : 93
+
+Content     : )
+Type        : GroupEnd
+Start       : 2069
+Length      : 1
+StartLine   : 68
+StartColumn : 93
+EndLine     : 68
+EndColumn   : 94
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2070
+Length      : 1
+StartLine   : 68
+StartColumn : 94
+EndLine     : 69
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2079
+Length      : 1
+StartLine   : 69
+StartColumn : 9
+EndLine     : 69
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2080
+Length      : 1
+StartLine   : 69
+StartColumn : 10
+EndLine     : 70
+EndColumn   : 1
+
+Content     : proc
+Type        : Variable
+Start       : 2089
+Length      : 5
+StartLine   : 70
+StartColumn : 9
+EndLine     : 70
+EndColumn   : 14
+
+Content     : =
+Type        : Operator
+Start       : 2095
+Length      : 1
+StartLine   : 70
+StartColumn : 15
+EndLine     : 70
+EndColumn   : 16
+
+Content     : Start-Process
+Type        : Command
+Start       : 2097
+Length      : 13
+StartLine   : 70
+StartColumn : 17
+EndLine     : 70
+EndColumn   : 30
+
+Content     : -FilePath
+Type        : CommandParameter
+Start       : 2111
+Length      : 9
+StartLine   : 70
+StartColumn : 31
+EndLine     : 70
+EndColumn   : 40
+
+Content     : exe
+Type        : Variable
+Start       : 2121
+Length      : 4
+StartLine   : 70
+StartColumn : 41
+EndLine     : 70
+EndColumn   : 45
+
+Content     : -ArgumentList
+Type        : CommandParameter
+Start       : 2126
+Length      : 13
+StartLine   : 70
+StartColumn : 46
+EndLine     : 70
+EndColumn   : 59
+
+Content     : commandParams
+Type        : Variable
+Start       : 2140
+Length      : 14
+StartLine   : 70
+StartColumn : 60
+EndLine     : 70
+EndColumn   : 74
+
+Content     : -Wait
+Type        : CommandParameter
+Start       : 2155
+Length      : 5
+StartLine   : 70
+StartColumn : 75
+EndLine     : 70
+EndColumn   : 80
+
+Content     : -PassThru
+Type        : CommandParameter
+Start       : 2161
+Length      : 9
+StartLine   : 70
+StartColumn : 81
+EndLine     : 70
+EndColumn   : 90
+
+Content     : -NoNewWindow
+Type        : CommandParameter
+Start       : 2171
+Length      : 12
+StartLine   : 70
+StartColumn : 91
+EndLine     : 70
+EndColumn   : 103
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2183
+Length      : 1
+StartLine   : 70
+StartColumn : 103
+EndLine     : 71
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 2192
+Length      : 2
+StartLine   : 71
+StartColumn : 9
+EndLine     : 71
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 2195
+Length      : 1
+StartLine   : 71
+StartColumn : 12
+EndLine     : 71
+EndColumn   : 13
+
+Content     : proc
+Type        : Variable
+Start       : 2196
+Length      : 5
+StartLine   : 71
+StartColumn : 13
+EndLine     : 71
+EndColumn   : 18
+
+Content     : .
+Type        : Operator
+Start       : 2201
+Length      : 1
+StartLine   : 71
+StartColumn : 18
+EndLine     : 71
+EndColumn   : 19
+
+Content     : ExitCode
+Type        : Member
+Start       : 2202
+Length      : 8
+StartLine   : 71
+StartColumn : 19
+EndLine     : 71
+EndColumn   : 27
+
+Content     : -ne
+Type        : Operator
+Start       : 2211
+Length      : 3
+StartLine   : 71
+StartColumn : 28
+EndLine     : 71
+EndColumn   : 31
+
+Content     : 0
+Type        : Number
+Start       : 2215
+Length      : 1
+StartLine   : 71
+StartColumn : 32
+EndLine     : 71
+EndColumn   : 33
+
+Content     : )
+Type        : GroupEnd
+Start       : 2216
+Length      : 1
+StartLine   : 71
+StartColumn : 33
+EndLine     : 71
+EndColumn   : 34
+
+Content     : {
+Type        : GroupStart
+Start       : 2218
+Length      : 1
+StartLine   : 71
+StartColumn : 35
+EndLine     : 71
+EndColumn   : 36
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2219
+Length      : 1
+StartLine   : 71
+StartColumn : 36
+EndLine     : 72
+EndColumn   : 1
+
+Content     : throw
+Type        : Keyword
+Start       : 2232
+Length      : 5
+StartLine   : 72
+StartColumn : 13
+EndLine     : 72
+EndColumn   : 18
+
+Content     : SQLCMD failure (Code: $($proc.ExitCode))
+Type        : String
+Start       : 2238
+Length      : 42
+StartLine   : 72
+StartColumn : 19
+EndLine     : 72
+EndColumn   : 61
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2280
+Length      : 1
+StartLine   : 72
+StartColumn : 61
+EndLine     : 73
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2289
+Length      : 1
+StartLine   : 73
+StartColumn : 9
+EndLine     : 73
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2290
+Length      : 1
+StartLine   : 73
+StartColumn : 10
+EndLine     : 74
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2295
+Length      : 1
+StartLine   : 74
+StartColumn : 5
+EndLine     : 74
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2296
+Length      : 1
+StartLine   : 74
+StartColumn : 6
+EndLine     : 75
+EndColumn   : 1
+
+Content     : finally
+Type        : Keyword
+Start       : 2301
+Length      : 7
+StartLine   : 75
+StartColumn : 5
+EndLine     : 75
+EndColumn   : 12
+
+Content     : {
+Type        : GroupStart
+Start       : 2309
+Length      : 1
+StartLine   : 75
+StartColumn : 13
+EndLine     : 75
+EndColumn   : 14
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2310
+Length      : 1
+StartLine   : 75
+StartColumn : 14
+EndLine     : 76
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 2319
+Length      : 2
+StartLine   : 76
+StartColumn : 9
+EndLine     : 76
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 2322
+Length      : 1
+StartLine   : 76
+StartColumn : 12
+EndLine     : 76
+EndColumn   : 13
+
+Content     : Test-Path
+Type        : Command
+Start       : 2323
+Length      : 9
+StartLine   : 76
+StartColumn : 13
+EndLine     : 76
+EndColumn   : 22
+
+Content     : tmpFile
+Type        : Variable
+Start       : 2333
+Length      : 8
+StartLine   : 76
+StartColumn : 23
+EndLine     : 76
+EndColumn   : 31
+
+Content     : )
+Type        : GroupEnd
+Start       : 2341
+Length      : 1
+StartLine   : 76
+StartColumn : 31
+EndLine     : 76
+EndColumn   : 32
+
+Content     : {
+Type        : GroupStart
+Start       : 2343
+Length      : 1
+StartLine   : 76
+StartColumn : 33
+EndLine     : 76
+EndColumn   : 34
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2344
+Length      : 1
+StartLine   : 76
+StartColumn : 34
+EndLine     : 77
+EndColumn   : 1
+
+Content     : Remove-Item
+Type        : Command
+Start       : 2357
+Length      : 11
+StartLine   : 77
+StartColumn : 13
+EndLine     : 77
+EndColumn   : 24
+
+Content     : -LiteralPath
+Type        : CommandParameter
+Start       : 2369
+Length      : 12
+StartLine   : 77
+StartColumn : 25
+EndLine     : 77
+EndColumn   : 37
+
+Content     : tmpFile
+Type        : Variable
+Start       : 2382
+Length      : 8
+StartLine   : 77
+StartColumn : 38
+EndLine     : 77
+EndColumn   : 46
+
+Content     : -Force
+Type        : CommandParameter
+Start       : 2391
+Length      : 6
+StartLine   : 77
+StartColumn : 47
+EndLine     : 77
+EndColumn   : 53
+
+Content     : -ErrorAction
+Type        : CommandParameter
+Start       : 2398
+Length      : 12
+StartLine   : 77
+StartColumn : 54
+EndLine     : 77
+EndColumn   : 66
+
+Content     : SilentlyContinue
+Type        : CommandArgument
+Start       : 2411
+Length      : 16
+StartLine   : 77
+StartColumn : 67
+EndLine     : 77
+EndColumn   : 83
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2427
+Length      : 1
+StartLine   : 77
+StartColumn : 83
+EndLine     : 78
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2436
+Length      : 1
+StartLine   : 78
+StartColumn : 9
+EndLine     : 78
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2437
+Length      : 1
+StartLine   : 78
+StartColumn : 10
+EndLine     : 79
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2442
+Length      : 1
+StartLine   : 79
+StartColumn : 5
+EndLine     : 79
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2443
+Length      : 1
+StartLine   : 79
+StartColumn : 6
+EndLine     : 80
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2444
+Length      : 1
+StartLine   : 80
+StartColumn : 1
+EndLine     : 80
+EndColumn   : 2
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2445
+Length      : 1
+StartLine   : 80
+StartColumn : 2
+EndLine     : 81
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2446
+Length      : 1
+StartLine   : 81
+StartColumn : 1
+EndLine     : 82
+EndColumn   : 1
+
+Content     : function
+Type        : Keyword
+Start       : 2447
+Length      : 8
+StartLine   : 82
+StartColumn : 1
+EndLine     : 82
+EndColumn   : 9
+
+Content     : Wait-ForSql
+Type        : CommandArgument
+Start       : 2456
+Length      : 11
+StartLine   : 82
+StartColumn : 10
+EndLine     : 82
+EndColumn   : 21
+
+Content     : (
+Type        : GroupStart
+Start       : 2467
+Length      : 1
+StartLine   : 82
+StartColumn : 21
+EndLine     : 82
+EndColumn   : 22
+
+Content     : [string]
+Type        : Type
+Start       : 2468
+Length      : 8
+StartLine   : 82
+StartColumn : 22
+EndLine     : 82
+EndColumn   : 30
+
+Content     : name
+Type        : Variable
+Start       : 2476
+Length      : 5
+StartLine   : 82
+StartColumn : 30
+EndLine     : 82
+EndColumn   : 35
+
+Content     : ,
+Type        : Operator
+Start       : 2481
+Length      : 1
+StartLine   : 82
+StartColumn : 35
+EndLine     : 82
+EndColumn   : 36
+
+Content     : [int]
+Type        : Type
+Start       : 2483
+Length      : 5
+StartLine   : 82
+StartColumn : 37
+EndLine     : 82
+EndColumn   : 42
+
+Content     : timeout
+Type        : Variable
+Start       : 2488
+Length      : 8
+StartLine   : 82
+StartColumn : 42
+EndLine     : 82
+EndColumn   : 50
+
+Content     : =
+Type        : Operator
+Start       : 2497
+Length      : 1
+StartLine   : 82
+StartColumn : 51
+EndLine     : 82
+EndColumn   : 52
+
+Content     : 120
+Type        : Number
+Start       : 2499
+Length      : 3
+StartLine   : 82
+StartColumn : 53
+EndLine     : 82
+EndColumn   : 56
+
+Content     : )
+Type        : GroupEnd
+Start       : 2502
+Length      : 1
+StartLine   : 82
+StartColumn : 56
+EndLine     : 82
+EndColumn   : 57
+
+Content     : {
+Type        : GroupStart
+Start       : 2504
+Length      : 1
+StartLine   : 82
+StartColumn : 58
+EndLine     : 82
+EndColumn   : 59
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2505
+Length      : 1
+StartLine   : 82
+StartColumn : 59
+EndLine     : 83
+EndColumn   : 1
+
+Content     : serviceInternalName
+Type        : Variable
+Start       : 2510
+Length      : 20
+StartLine   : 83
+StartColumn : 5
+EndLine     : 83
+EndColumn   : 25
+
+Content     : =
+Type        : Operator
+Start       : 2531
+Length      : 1
+StartLine   : 83
+StartColumn : 26
+EndLine     : 83
+EndColumn   : 27
+
+Content     : MSSQL$$name
+Type        : String
+Start       : 2533
+Length      : 14
+StartLine   : 83
+StartColumn : 28
+EndLine     : 83
+EndColumn   : 42
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2547
+Length      : 1
+StartLine   : 83
+StartColumn : 42
+EndLine     : 84
+EndColumn   : 1
+
+Content     : limitTime
+Type        : Variable
+Start       : 2552
+Length      : 10
+StartLine   : 84
+StartColumn : 5
+EndLine     : 84
+EndColumn   : 15
+
+Content     : =
+Type        : Operator
+Start       : 2563
+Length      : 1
+StartLine   : 84
+StartColumn : 16
+EndLine     : 84
+EndColumn   : 17
+
+Content     : (
+Type        : GroupStart
+Start       : 2565
+Length      : 1
+StartLine   : 84
+StartColumn : 18
+EndLine     : 84
+EndColumn   : 19
+
+Content     : Get-Date
+Type        : Command
+Start       : 2566
+Length      : 8
+StartLine   : 84
+StartColumn : 19
+EndLine     : 84
+EndColumn   : 27
+
+Content     : )
+Type        : GroupEnd
+Start       : 2574
+Length      : 1
+StartLine   : 84
+StartColumn : 27
+EndLine     : 84
+EndColumn   : 28
+
+Content     : .
+Type        : Operator
+Start       : 2575
+Length      : 1
+StartLine   : 84
+StartColumn : 28
+EndLine     : 84
+EndColumn   : 29
+
+Content     : AddSeconds
+Type        : Member
+Start       : 2576
+Length      : 10
+StartLine   : 84
+StartColumn : 29
+EndLine     : 84
+EndColumn   : 39
+
+Content     : (
+Type        : GroupStart
+Start       : 2586
+Length      : 1
+StartLine   : 84
+StartColumn : 39
+EndLine     : 84
+EndColumn   : 40
+
+Content     : timeout
+Type        : Variable
+Start       : 2587
+Length      : 8
+StartLine   : 84
+StartColumn : 40
+EndLine     : 84
+EndColumn   : 48
+
+Content     : )
+Type        : GroupEnd
+Start       : 2595
+Length      : 1
+StartLine   : 84
+StartColumn : 48
+EndLine     : 84
+EndColumn   : 49
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2596
+Length      : 1
+StartLine   : 84
+StartColumn : 49
+EndLine     : 85
+EndColumn   : 1
+
+Content     : while
+Type        : Keyword
+Start       : 2601
+Length      : 5
+StartLine   : 85
+StartColumn : 5
+EndLine     : 85
+EndColumn   : 10
+
+Content     : (
+Type        : GroupStart
+Start       : 2607
+Length      : 1
+StartLine   : 85
+StartColumn : 11
+EndLine     : 85
+EndColumn   : 12
+
+Content     : (
+Type        : GroupStart
+Start       : 2608
+Length      : 1
+StartLine   : 85
+StartColumn : 12
+EndLine     : 85
+EndColumn   : 13
+
+Content     : Get-Date
+Type        : Command
+Start       : 2609
+Length      : 8
+StartLine   : 85
+StartColumn : 13
+EndLine     : 85
+EndColumn   : 21
+
+Content     : )
+Type        : GroupEnd
+Start       : 2617
+Length      : 1
+StartLine   : 85
+StartColumn : 21
+EndLine     : 85
+EndColumn   : 22
+
+Content     : -lt
+Type        : Operator
+Start       : 2619
+Length      : 3
+StartLine   : 85
+StartColumn : 23
+EndLine     : 85
+EndColumn   : 26
+
+Content     : limitTime
+Type        : Variable
+Start       : 2623
+Length      : 10
+StartLine   : 85
+StartColumn : 27
+EndLine     : 85
+EndColumn   : 37
+
+Content     : )
+Type        : GroupEnd
+Start       : 2633
+Length      : 1
+StartLine   : 85
+StartColumn : 37
+EndLine     : 85
+EndColumn   : 38
+
+Content     : {
+Type        : GroupStart
+Start       : 2635
+Length      : 1
+StartLine   : 85
+StartColumn : 39
+EndLine     : 85
+EndColumn   : 40
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2636
+Length      : 1
+StartLine   : 85
+StartColumn : 40
+EndLine     : 86
+EndColumn   : 1
+
+Content     : checkStatus
+Type        : Variable
+Start       : 2645
+Length      : 12
+StartLine   : 86
+StartColumn : 9
+EndLine     : 86
+EndColumn   : 21
+
+Content     : =
+Type        : Operator
+Start       : 2658
+Length      : 1
+StartLine   : 86
+StartColumn : 22
+EndLine     : 86
+EndColumn   : 23
+
+Content     : Get-Service
+Type        : Command
+Start       : 2660
+Length      : 11
+StartLine   : 86
+StartColumn : 24
+EndLine     : 86
+EndColumn   : 35
+
+Content     : -Name
+Type        : CommandParameter
+Start       : 2672
+Length      : 5
+StartLine   : 86
+StartColumn : 36
+EndLine     : 86
+EndColumn   : 41
+
+Content     : serviceInternalName
+Type        : Variable
+Start       : 2678
+Length      : 20
+StartLine   : 86
+StartColumn : 42
+EndLine     : 86
+EndColumn   : 62
+
+Content     : -ErrorAction
+Type        : CommandParameter
+Start       : 2699
+Length      : 12
+StartLine   : 86
+StartColumn : 63
+EndLine     : 86
+EndColumn   : 75
+
+Content     : SilentlyContinue
+Type        : CommandArgument
+Start       : 2712
+Length      : 16
+StartLine   : 86
+StartColumn : 76
+EndLine     : 86
+EndColumn   : 92
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2728
+Length      : 1
+StartLine   : 86
+StartColumn : 92
+EndLine     : 87
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 2737
+Length      : 2
+StartLine   : 87
+StartColumn : 9
+EndLine     : 87
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 2740
+Length      : 1
+StartLine   : 87
+StartColumn : 12
+EndLine     : 87
+EndColumn   : 13
+
+Content     : checkStatus
+Type        : Variable
+Start       : 2741
+Length      : 12
+StartLine   : 87
+StartColumn : 13
+EndLine     : 87
+EndColumn   : 25
+
+Content     : -and
+Type        : Operator
+Start       : 2754
+Length      : 4
+StartLine   : 87
+StartColumn : 26
+EndLine     : 87
+EndColumn   : 30
+
+Content     : checkStatus
+Type        : Variable
+Start       : 2759
+Length      : 12
+StartLine   : 87
+StartColumn : 31
+EndLine     : 87
+EndColumn   : 43
+
+Content     : .
+Type        : Operator
+Start       : 2771
+Length      : 1
+StartLine   : 87
+StartColumn : 43
+EndLine     : 87
+EndColumn   : 44
+
+Content     : Status
+Type        : Member
+Start       : 2772
+Length      : 6
+StartLine   : 87
+StartColumn : 44
+EndLine     : 87
+EndColumn   : 50
+
+Content     : -eq
+Type        : Operator
+Start       : 2779
+Length      : 3
+StartLine   : 87
+StartColumn : 51
+EndLine     : 87
+EndColumn   : 54
+
+Content     : Running
+Type        : String
+Start       : 2783
+Length      : 9
+StartLine   : 87
+StartColumn : 55
+EndLine     : 87
+EndColumn   : 64
+
+Content     : )
+Type        : GroupEnd
+Start       : 2792
+Length      : 1
+StartLine   : 87
+StartColumn : 64
+EndLine     : 87
+EndColumn   : 65
+
+Content     : {
+Type        : GroupStart
+Start       : 2794
+Length      : 1
+StartLine   : 87
+StartColumn : 66
+EndLine     : 87
+EndColumn   : 67
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2795
+Length      : 1
+StartLine   : 87
+StartColumn : 67
+EndLine     : 88
+EndColumn   : 1
+
+Content     : return
+Type        : Keyword
+Start       : 2808
+Length      : 6
+StartLine   : 88
+StartColumn : 13
+EndLine     : 88
+EndColumn   : 19
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2814
+Length      : 1
+StartLine   : 88
+StartColumn : 19
+EndLine     : 89
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2823
+Length      : 1
+StartLine   : 89
+StartColumn : 9
+EndLine     : 89
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2824
+Length      : 1
+StartLine   : 89
+StartColumn : 10
+EndLine     : 90
+EndColumn   : 1
+
+Content     : Start-Sleep
+Type        : Command
+Start       : 2833
+Length      : 11
+StartLine   : 90
+StartColumn : 9
+EndLine     : 90
+EndColumn   : 20
+
+Content     : -Seconds
+Type        : CommandParameter
+Start       : 2845
+Length      : 8
+StartLine   : 90
+StartColumn : 21
+EndLine     : 90
+EndColumn   : 29
+
+Content     : 2
+Type        : Number
+Start       : 2854
+Length      : 1
+StartLine   : 90
+StartColumn : 30
+EndLine     : 90
+EndColumn   : 31
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2855
+Length      : 1
+StartLine   : 90
+StartColumn : 31
+EndLine     : 91
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2860
+Length      : 1
+StartLine   : 91
+StartColumn : 5
+EndLine     : 91
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2861
+Length      : 1
+StartLine   : 91
+StartColumn : 6
+EndLine     : 92
+EndColumn   : 1
+
+Content     : throw
+Type        : Keyword
+Start       : 2866
+Length      : 5
+StartLine   : 92
+StartColumn : 5
+EndLine     : 92
+EndColumn   : 10
+
+Content     : Timed out waiting for $serviceInternalName
+Type        : String
+Start       : 2872
+Length      : 44
+StartLine   : 92
+StartColumn : 11
+EndLine     : 92
+EndColumn   : 55
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2916
+Length      : 1
+StartLine   : 92
+StartColumn : 55
+EndLine     : 93
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 2917
+Length      : 1
+StartLine   : 93
+StartColumn : 1
+EndLine     : 93
+EndColumn   : 2
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2918
+Length      : 1
+StartLine   : 93
+StartColumn : 2
+EndLine     : 94
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2919
+Length      : 1
+StartLine   : 94
+StartColumn : 1
+EndLine     : 95
+EndColumn   : 1
+
+Content     : # --- Main Logic ---
+Type        : Comment
+Start       : 2920
+Length      : 20
+StartLine   : 95
+StartColumn : 1
+EndLine     : 95
+EndColumn   : 21
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2940
+Length      : 1
+StartLine   : 95
+StartColumn : 21
+EndLine     : 96
+EndColumn   : 1
+
+Content     : SqlInstanceName
+Type        : Variable
+Start       : 2941
+Length      : 16
+StartLine   : 96
+StartColumn : 1
+EndLine     : 96
+EndColumn   : 17
+
+Content     : =
+Type        : Operator
+Start       : 2958
+Length      : 1
+StartLine   : 96
+StartColumn : 18
+EndLine     : 96
+EndColumn   : 19
+
+Content     : AZRARSQL
+Type        : String
+Start       : 2960
+Length      : 10
+StartLine   : 96
+StartColumn : 20
+EndLine     : 96
+EndColumn   : 30
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2970
+Length      : 1
+StartLine   : 96
+StartColumn : 30
+EndLine     : 97
+EndColumn   : 1
+
+Content     : SqlDatabaseName
+Type        : Variable
+Start       : 2971
+Length      : 16
+StartLine   : 97
+StartColumn : 1
+EndLine     : 97
+EndColumn   : 17
+
+Content     : =
+Type        : Operator
+Start       : 2988
+Length      : 1
+StartLine   : 97
+StartColumn : 18
+EndLine     : 97
+EndColumn   : 19
+
+Content     : AZRAR
+Type        : String
+Start       : 2990
+Length      : 7
+StartLine   : 97
+StartColumn : 20
+EndLine     : 97
+EndColumn   : 27
+
+Content     : 
+              
+Type        : NewLine
+Start       : 2997
+Length      : 1
+StartLine   : 97
+StartColumn : 27
+EndLine     : 98
+EndColumn   : 1
+
+Content     : SqlAppName
+Type        : Variable
+Start       : 2998
+Length      : 11
+StartLine   : 98
+StartColumn : 1
+EndLine     : 98
+EndColumn   : 12
+
+Content     : =
+Type        : Operator
+Start       : 3010
+Length      : 1
+StartLine   : 98
+StartColumn : 13
+EndLine     : 98
+EndColumn   : 14
+
+Content     : azrar_app
+Type        : String
+Start       : 3012
+Length      : 11
+StartLine   : 98
+StartColumn : 15
+EndLine     : 98
+EndColumn   : 26
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3023
+Length      : 1
+StartLine   : 98
+StartColumn : 26
+EndLine     : 99
+EndColumn   : 1
+
+Content     : SqlPort
+Type        : Variable
+Start       : 3024
+Length      : 8
+StartLine   : 99
+StartColumn : 1
+EndLine     : 99
+EndColumn   : 9
+
+Content     : =
+Type        : Operator
+Start       : 3033
+Length      : 1
+StartLine   : 99
+StartColumn : 10
+EndLine     : 99
+EndColumn   : 11
+
+Content     : 1433
+Type        : Number
+Start       : 3035
+Length      : 4
+StartLine   : 99
+StartColumn : 12
+EndLine     : 99
+EndColumn   : 16
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3039
+Length      : 1
+StartLine   : 99
+StartColumn : 16
+EndLine     : 100
+EndColumn   : 1
+
+Content     : SqlSaPassword
+Type        : Variable
+Start       : 3040
+Length      : 14
+StartLine   : 100
+StartColumn : 1
+EndLine     : 100
+EndColumn   : 15
+
+Content     : =
+Type        : Operator
+Start       : 3055
+Length      : 1
+StartLine   : 100
+StartColumn : 16
+EndLine     : 100
+EndColumn   : 17
+
+Content     : New-Password
+Type        : Command
+Start       : 3057
+Length      : 12
+StartLine   : 100
+StartColumn : 18
+EndLine     : 100
+EndColumn   : 30
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3069
+Length      : 1
+StartLine   : 100
+StartColumn : 30
+EndLine     : 101
+EndColumn   : 1
+
+Content     : SqlAppPassword
+Type        : Variable
+Start       : 3070
+Length      : 15
+StartLine   : 101
+StartColumn : 1
+EndLine     : 101
+EndColumn   : 16
+
+Content     : =
+Type        : Operator
+Start       : 3086
+Length      : 1
+StartLine   : 101
+StartColumn : 17
+EndLine     : 101
+EndColumn   : 18
+
+Content     : New-Password
+Type        : Command
+Start       : 3088
+Length      : 12
+StartLine   : 101
+StartColumn : 19
+EndLine     : 101
+EndColumn   : 31
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3100
+Length      : 1
+StartLine   : 101
+StartColumn : 31
+EndLine     : 102
+EndColumn   : 1
+
+Content     : CredPath
+Type        : Variable
+Start       : 3101
+Length      : 9
+StartLine   : 102
+StartColumn : 1
+EndLine     : 102
+EndColumn   : 10
+
+Content     : =
+Type        : Operator
+Start       : 3111
+Length      : 1
+StartLine   : 102
+StartColumn : 11
+EndLine     : 102
+EndColumn   : 12
+
+Content     : Join-Path
+Type        : Command
+Start       : 3113
+Length      : 9
+StartLine   : 102
+StartColumn : 13
+EndLine     : 102
+EndColumn   : 22
+
+Content     : PSScriptRoot
+Type        : Variable
+Start       : 3123
+Length      : 13
+StartLine   : 102
+StartColumn : 23
+EndLine     : 102
+EndColumn   : 36
+
+Content     : db-connection.json
+Type        : String
+Start       : 3137
+Length      : 20
+StartLine   : 102
+StartColumn : 37
+EndLine     : 102
+EndColumn   : 57
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3157
+Length      : 1
+StartLine   : 102
+StartColumn : 57
+EndLine     : 103
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3158
+Length      : 1
+StartLine   : 103
+StartColumn : 1
+EndLine     : 104
+EndColumn   : 1
+
+Content     : try
+Type        : Keyword
+Start       : 3159
+Length      : 3
+StartLine   : 104
+StartColumn : 1
+EndLine     : 104
+EndColumn   : 4
+
+Content     : {
+Type        : GroupStart
+Start       : 3163
+Length      : 1
+StartLine   : 104
+StartColumn : 5
+EndLine     : 104
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3164
+Length      : 1
+StartLine   : 104
+StartColumn : 6
+EndLine     : 105
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 3169
+Length      : 2
+StartLine   : 105
+StartColumn : 5
+EndLine     : 105
+EndColumn   : 7
+
+Content     : (
+Type        : GroupStart
+Start       : 3172
+Length      : 1
+StartLine   : 105
+StartColumn : 8
+EndLine     : 105
+EndColumn   : 9
+
+Content     : -not
+Type        : Operator
+Start       : 3173
+Length      : 4
+StartLine   : 105
+StartColumn : 9
+EndLine     : 105
+EndColumn   : 13
+
+Content     : (
+Type        : GroupStart
+Start       : 3178
+Length      : 1
+StartLine   : 105
+StartColumn : 14
+EndLine     : 105
+EndColumn   : 15
+
+Content     : Test-SqlInstance
+Type        : Command
+Start       : 3179
+Length      : 16
+StartLine   : 105
+StartColumn : 15
+EndLine     : 105
+EndColumn   : 31
+
+Content     : SqlInstanceName
+Type        : Variable
+Start       : 3196
+Length      : 16
+StartLine   : 105
+StartColumn : 32
+EndLine     : 105
+EndColumn   : 48
+
+Content     : )
+Type        : GroupEnd
+Start       : 3212
+Length      : 1
+StartLine   : 105
+StartColumn : 48
+EndLine     : 105
+EndColumn   : 49
+
+Content     : )
+Type        : GroupEnd
+Start       : 3213
+Length      : 1
+StartLine   : 105
+StartColumn : 49
+EndLine     : 105
+EndColumn   : 50
+
+Content     : {
+Type        : GroupStart
+Start       : 3215
+Length      : 1
+StartLine   : 105
+StartColumn : 51
+EndLine     : 105
+EndColumn   : 52
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3216
+Length      : 1
+StartLine   : 105
+StartColumn : 52
+EndLine     : 106
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 3225
+Length      : 9
+StartLine   : 106
+StartColumn : 9
+EndLine     : 106
+EndColumn   : 18
+
+Content     : Instance $SqlInstanceName not found. Starting new installation...
+Type        : String
+Start       : 3235
+Length      : 67
+StartLine   : 106
+StartColumn : 19
+EndLine     : 106
+EndColumn   : 86
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3302
+Length      : 1
+StartLine   : 106
+StartColumn : 86
+EndLine     : 107
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 3311
+Length      : 2
+StartLine   : 107
+StartColumn : 9
+EndLine     : 107
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 3314
+Length      : 1
+StartLine   : 107
+StartColumn : 12
+EndLine     : 107
+EndColumn   : 13
+
+Content     : -not
+Type        : Operator
+Start       : 3315
+Length      : 4
+StartLine   : 107
+StartColumn : 13
+EndLine     : 107
+EndColumn   : 17
+
+Content     : (
+Type        : GroupStart
+Start       : 3320
+Length      : 1
+StartLine   : 107
+StartColumn : 18
+EndLine     : 107
+EndColumn   : 19
+
+Content     : Test-Internet
+Type        : Command
+Start       : 3321
+Length      : 13
+StartLine   : 107
+StartColumn : 19
+EndLine     : 107
+EndColumn   : 32
+
+Content     : )
+Type        : GroupEnd
+Start       : 3334
+Length      : 1
+StartLine   : 107
+StartColumn : 32
+EndLine     : 107
+EndColumn   : 33
+
+Content     : )
+Type        : GroupEnd
+Start       : 3335
+Length      : 1
+StartLine   : 107
+StartColumn : 33
+EndLine     : 107
+EndColumn   : 34
+
+Content     : {
+Type        : GroupStart
+Start       : 3337
+Length      : 1
+StartLine   : 107
+StartColumn : 35
+EndLine     : 107
+EndColumn   : 36
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3338
+Length      : 1
+StartLine   : 107
+StartColumn : 36
+EndLine     : 108
+EndColumn   : 1
+
+Content     : throw
+Type        : Keyword
+Start       : 3351
+Length      : 5
+StartLine   : 108
+StartColumn : 13
+EndLine     : 108
+EndColumn   : 18
+
+Content     : Internet connection is required for first time installation.
+Type        : String
+Start       : 3357
+Length      : 62
+StartLine   : 108
+StartColumn : 19
+EndLine     : 108
+EndColumn   : 81
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3419
+Length      : 1
+StartLine   : 108
+StartColumn : 81
+EndLine     : 109
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 3428
+Length      : 1
+StartLine   : 109
+StartColumn : 9
+EndLine     : 109
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3429
+Length      : 1
+StartLine   : 109
+StartColumn : 10
+EndLine     : 110
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3430
+Length      : 1
+StartLine   : 110
+StartColumn : 1
+EndLine     : 111
+EndColumn   : 1
+
+Content     : [Net.ServicePointManager]
+Type        : Type
+Start       : 3439
+Length      : 25
+StartLine   : 111
+StartColumn : 9
+EndLine     : 111
+EndColumn   : 34
+
+Content     : ::
+Type        : Operator
+Start       : 3464
+Length      : 2
+StartLine   : 111
+StartColumn : 34
+EndLine     : 111
+EndColumn   : 36
+
+Content     : SecurityProtocol
+Type        : Member
+Start       : 3466
+Length      : 16
+StartLine   : 111
+StartColumn : 36
+EndLine     : 111
+EndColumn   : 52
+
+Content     : =
+Type        : Operator
+Start       : 3483
+Length      : 1
+StartLine   : 111
+StartColumn : 53
+EndLine     : 111
+EndColumn   : 54
+
+Content     : [Net.SecurityProtocolType]
+Type        : Type
+Start       : 3485
+Length      : 26
+StartLine   : 111
+StartColumn : 55
+EndLine     : 111
+EndColumn   : 81
+
+Content     : ::
+Type        : Operator
+Start       : 3511
+Length      : 2
+StartLine   : 111
+StartColumn : 81
+EndLine     : 111
+EndColumn   : 83
+
+Content     : Tls12
+Type        : Member
+Start       : 3513
+Length      : 5
+StartLine   : 111
+StartColumn : 83
+EndLine     : 111
+EndColumn   : 88
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3518
+Length      : 1
+StartLine   : 111
+StartColumn : 88
+EndLine     : 112
+EndColumn   : 1
+
+Content     : microsoftSetupUrl
+Type        : Variable
+Start       : 3527
+Length      : 18
+StartLine   : 112
+StartColumn : 9
+EndLine     : 112
+EndColumn   : 27
+
+Content     : =
+Type        : Operator
+Start       : 3546
+Length      : 1
+StartLine   : 112
+StartColumn : 28
+EndLine     : 112
+EndColumn   : 29
+
+Content     : https://go.microsoft.com/fwlink/?linkid=2216019
+Type        : String
+Start       : 3548
+Length      : 49
+StartLine   : 112
+StartColumn : 30
+EndLine     : 112
+EndColumn   : 79
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3597
+Length      : 1
+StartLine   : 112
+StartColumn : 79
+EndLine     : 113
+EndColumn   : 1
+
+Content     : localBootstrapper
+Type        : Variable
+Start       : 3606
+Length      : 18
+StartLine   : 113
+StartColumn : 9
+EndLine     : 113
+EndColumn   : 27
+
+Content     : =
+Type        : Operator
+Start       : 3625
+Length      : 1
+StartLine   : 113
+StartColumn : 28
+EndLine     : 113
+EndColumn   : 29
+
+Content     : Join-Path
+Type        : Command
+Start       : 3627
+Length      : 9
+StartLine   : 113
+StartColumn : 30
+EndLine     : 113
+EndColumn   : 39
+
+Content     : env:TEMP
+Type        : Variable
+Start       : 3637
+Length      : 9
+StartLine   : 113
+StartColumn : 40
+EndLine     : 113
+EndColumn   : 49
+
+Content     : SQL2022-SSEI-Expr.exe
+Type        : String
+Start       : 3647
+Length      : 23
+StartLine   : 113
+StartColumn : 50
+EndLine     : 113
+EndColumn   : 73
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3670
+Length      : 1
+StartLine   : 113
+StartColumn : 73
+EndLine     : 114
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3679
+Length      : 1
+StartLine   : 114
+StartColumn : 9
+EndLine     : 115
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 3688
+Length      : 9
+StartLine   : 115
+StartColumn : 9
+EndLine     : 115
+EndColumn   : 18
+
+Content     : Downloading setup bootstrapper from Microsoft...
+Type        : String
+Start       : 3698
+Length      : 50
+StartLine   : 115
+StartColumn : 19
+EndLine     : 115
+EndColumn   : 69
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3748
+Length      : 1
+StartLine   : 115
+StartColumn : 69
+EndLine     : 116
+EndColumn   : 1
+
+Content     : Invoke-WebRequest
+Type        : Command
+Start       : 3757
+Length      : 17
+StartLine   : 116
+StartColumn : 9
+EndLine     : 116
+EndColumn   : 26
+
+Content     : -Uri
+Type        : CommandParameter
+Start       : 3775
+Length      : 4
+StartLine   : 116
+StartColumn : 27
+EndLine     : 116
+EndColumn   : 31
+
+Content     : microsoftSetupUrl
+Type        : Variable
+Start       : 3780
+Length      : 18
+StartLine   : 116
+StartColumn : 32
+EndLine     : 116
+EndColumn   : 50
+
+Content     : -OutFile
+Type        : CommandParameter
+Start       : 3799
+Length      : 8
+StartLine   : 116
+StartColumn : 51
+EndLine     : 116
+EndColumn   : 59
+
+Content     : localBootstrapper
+Type        : Variable
+Start       : 3808
+Length      : 18
+StartLine   : 116
+StartColumn : 60
+EndLine     : 116
+EndColumn   : 78
+
+Content     : -UseBasicParsing
+Type        : CommandParameter
+Start       : 3827
+Length      : 16
+StartLine   : 116
+StartColumn : 79
+EndLine     : 116
+EndColumn   : 95
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3843
+Length      : 1
+StartLine   : 116
+StartColumn : 95
+EndLine     : 117
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3844
+Length      : 1
+StartLine   : 117
+StartColumn : 1
+EndLine     : 118
+EndColumn   : 1
+
+Content     : sqlMediaDir
+Type        : Variable
+Start       : 3853
+Length      : 12
+StartLine   : 118
+StartColumn : 9
+EndLine     : 118
+EndColumn   : 21
+
+Content     : =
+Type        : Operator
+Start       : 3866
+Length      : 1
+StartLine   : 118
+StartColumn : 22
+EndLine     : 118
+EndColumn   : 23
+
+Content     : Join-Path
+Type        : Command
+Start       : 3868
+Length      : 9
+StartLine   : 118
+StartColumn : 24
+EndLine     : 118
+EndColumn   : 33
+
+Content     : env:TEMP
+Type        : Variable
+Start       : 3878
+Length      : 9
+StartLine   : 118
+StartColumn : 34
+EndLine     : 118
+EndColumn   : 43
+
+Content     : AZRAR_SQL_MEDIA
+Type        : String
+Start       : 3888
+Length      : 17
+StartLine   : 118
+StartColumn : 44
+EndLine     : 118
+EndColumn   : 61
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3905
+Length      : 1
+StartLine   : 118
+StartColumn : 61
+EndLine     : 119
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 3914
+Length      : 2
+StartLine   : 119
+StartColumn : 9
+EndLine     : 119
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 3917
+Length      : 1
+StartLine   : 119
+StartColumn : 12
+EndLine     : 119
+EndColumn   : 13
+
+Content     : Test-Path
+Type        : Command
+Start       : 3918
+Length      : 9
+StartLine   : 119
+StartColumn : 13
+EndLine     : 119
+EndColumn   : 22
+
+Content     : sqlMediaDir
+Type        : Variable
+Start       : 3928
+Length      : 12
+StartLine   : 119
+StartColumn : 23
+EndLine     : 119
+EndColumn   : 35
+
+Content     : )
+Type        : GroupEnd
+Start       : 3940
+Length      : 1
+StartLine   : 119
+StartColumn : 35
+EndLine     : 119
+EndColumn   : 36
+
+Content     : {
+Type        : GroupStart
+Start       : 3942
+Length      : 1
+StartLine   : 119
+StartColumn : 37
+EndLine     : 119
+EndColumn   : 38
+
+Content     : 
+              
+Type        : NewLine
+Start       : 3943
+Length      : 1
+StartLine   : 119
+StartColumn : 38
+EndLine     : 120
+EndColumn   : 1
+
+Content     : Remove-Item
+Type        : Command
+Start       : 3956
+Length      : 11
+StartLine   : 120
+StartColumn : 13
+EndLine     : 120
+EndColumn   : 24
+
+Content     : -LiteralPath
+Type        : CommandParameter
+Start       : 3968
+Length      : 12
+StartLine   : 120
+StartColumn : 25
+EndLine     : 120
+EndColumn   : 37
+
+Content     : sqlMediaDir
+Type        : Variable
+Start       : 3981
+Length      : 12
+StartLine   : 120
+StartColumn : 38
+EndLine     : 120
+EndColumn   : 50
+
+Content     : -Recurse
+Type        : CommandParameter
+Start       : 3994
+Length      : 8
+StartLine   : 120
+StartColumn : 51
+EndLine     : 120
+EndColumn   : 59
+
+Content     : -Force
+Type        : CommandParameter
+Start       : 4003
+Length      : 6
+StartLine   : 120
+StartColumn : 60
+EndLine     : 120
+EndColumn   : 66
+
+Content     : -ErrorAction
+Type        : CommandParameter
+Start       : 4010
+Length      : 12
+StartLine   : 120
+StartColumn : 67
+EndLine     : 120
+EndColumn   : 79
+
+Content     : SilentlyContinue
+Type        : CommandArgument
+Start       : 4023
+Length      : 16
+StartLine   : 120
+StartColumn : 80
+EndLine     : 120
+EndColumn   : 96
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4039
+Length      : 1
+StartLine   : 120
+StartColumn : 96
+EndLine     : 121
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 4048
+Length      : 1
+StartLine   : 121
+StartColumn : 9
+EndLine     : 121
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4049
+Length      : 1
+StartLine   : 121
+StartColumn : 10
+EndLine     : 122
+EndColumn   : 1
+
+Content     : null
+Type        : Variable
+Start       : 4058
+Length      : 5
+StartLine   : 122
+StartColumn : 9
+EndLine     : 122
+EndColumn   : 14
+
+Content     : =
+Type        : Operator
+Start       : 4064
+Length      : 1
+StartLine   : 122
+StartColumn : 15
+EndLine     : 122
+EndColumn   : 16
+
+Content     : New-Item
+Type        : Command
+Start       : 4066
+Length      : 8
+StartLine   : 122
+StartColumn : 17
+EndLine     : 122
+EndColumn   : 25
+
+Content     : -ItemType
+Type        : CommandParameter
+Start       : 4075
+Length      : 9
+StartLine   : 122
+StartColumn : 26
+EndLine     : 122
+EndColumn   : 35
+
+Content     : Directory
+Type        : CommandArgument
+Start       : 4085
+Length      : 9
+StartLine   : 122
+StartColumn : 36
+EndLine     : 122
+EndColumn   : 45
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 4095
+Length      : 5
+StartLine   : 122
+StartColumn : 46
+EndLine     : 122
+EndColumn   : 51
+
+Content     : sqlMediaDir
+Type        : Variable
+Start       : 4101
+Length      : 12
+StartLine   : 122
+StartColumn : 52
+EndLine     : 122
+EndColumn   : 64
+
+Content     : -Force
+Type        : CommandParameter
+Start       : 4114
+Length      : 6
+StartLine   : 122
+StartColumn : 65
+EndLine     : 122
+EndColumn   : 71
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4120
+Length      : 1
+StartLine   : 122
+StartColumn : 71
+EndLine     : 123
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4121
+Length      : 1
+StartLine   : 123
+StartColumn : 1
+EndLine     : 124
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 4130
+Length      : 9
+StartLine   : 124
+StartColumn : 9
+EndLine     : 124
+EndColumn   : 18
+
+Content     : Downloading full installation package...
+Type        : String
+Start       : 4140
+Length      : 42
+StartLine   : 124
+StartColumn : 19
+EndLine     : 124
+EndColumn   : 61
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4182
+Length      : 1
+StartLine   : 124
+StartColumn : 61
+EndLine     : 125
+EndColumn   : 1
+
+Content     : downloadProc
+Type        : Variable
+Start       : 4191
+Length      : 13
+StartLine   : 125
+StartColumn : 9
+EndLine     : 125
+EndColumn   : 22
+
+Content     : =
+Type        : Operator
+Start       : 4205
+Length      : 1
+StartLine   : 125
+StartColumn : 23
+EndLine     : 125
+EndColumn   : 24
+
+Content     : Start-Process
+Type        : Command
+Start       : 4207
+Length      : 13
+StartLine   : 125
+StartColumn : 25
+EndLine     : 125
+EndColumn   : 38
+
+Content     : -FilePath
+Type        : CommandParameter
+Start       : 4221
+Length      : 9
+StartLine   : 125
+StartColumn : 39
+EndLine     : 125
+EndColumn   : 48
+
+Content     : localBootstrapper
+Type        : Variable
+Start       : 4231
+Length      : 18
+StartLine   : 125
+StartColumn : 49
+EndLine     : 125
+EndColumn   : 67
+
+Content     : -ArgumentList
+Type        : CommandParameter
+Start       : 4250
+Length      : 13
+StartLine   : 125
+StartColumn : 68
+EndLine     : 125
+EndColumn   : 81
+
+Content     : @(
+Type        : GroupStart
+Start       : 4264
+Length      : 2
+StartLine   : 125
+StartColumn : 82
+EndLine     : 125
+EndColumn   : 84
+
+Content     : /ACTION=Download
+Type        : String
+Start       : 4266
+Length      : 18
+StartLine   : 125
+StartColumn : 84
+EndLine     : 125
+EndColumn   : 102
+
+Content     : ,
+Type        : Operator
+Start       : 4284
+Length      : 1
+StartLine   : 125
+StartColumn : 102
+EndLine     : 125
+EndColumn   : 103
+
+Content     : /MEDIAPATH=$sqlMediaDir
+Type        : String
+Start       : 4286
+Length      : 25
+StartLine   : 125
+StartColumn : 104
+EndLine     : 125
+EndColumn   : 129
+
+Content     : ,
+Type        : Operator
+Start       : 4311
+Length      : 1
+StartLine   : 125
+StartColumn : 129
+EndLine     : 125
+EndColumn   : 130
+
+Content     : /MEDIATYPE=Core
+Type        : String
+Start       : 4313
+Length      : 17
+StartLine   : 125
+StartColumn : 131
+EndLine     : 125
+EndColumn   : 148
+
+Content     : ,
+Type        : Operator
+Start       : 4330
+Length      : 1
+StartLine   : 125
+StartColumn : 148
+EndLine     : 125
+EndColumn   : 149
+
+Content     : /QUIET
+Type        : String
+Start       : 4332
+Length      : 8
+StartLine   : 125
+StartColumn : 150
+EndLine     : 125
+EndColumn   : 158
+
+Content     : ,
+Type        : Operator
+Start       : 4340
+Length      : 1
+StartLine   : 125
+StartColumn : 158
+EndLine     : 125
+EndColumn   : 159
+
+Content     : /IACCEPTSQLSERVERLICENSETERMS
+Type        : String
+Start       : 4342
+Length      : 31
+StartLine   : 125
+StartColumn : 160
+EndLine     : 125
+EndColumn   : 191
+
+Content     : )
+Type        : GroupEnd
+Start       : 4373
+Length      : 1
+StartLine   : 125
+StartColumn : 191
+EndLine     : 125
+EndColumn   : 192
+
+Content     : -Wait
+Type        : CommandParameter
+Start       : 4375
+Length      : 5
+StartLine   : 125
+StartColumn : 193
+EndLine     : 125
+EndColumn   : 198
+
+Content     : -PassThru
+Type        : CommandParameter
+Start       : 4381
+Length      : 9
+StartLine   : 125
+StartColumn : 199
+EndLine     : 125
+EndColumn   : 208
+
+Content     : -NoNewWindow
+Type        : CommandParameter
+Start       : 4391
+Length      : 12
+StartLine   : 125
+StartColumn : 209
+EndLine     : 125
+EndColumn   : 221
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4403
+Length      : 1
+StartLine   : 125
+StartColumn : 221
+EndLine     : 126
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 4412
+Length      : 2
+StartLine   : 126
+StartColumn : 9
+EndLine     : 126
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 4415
+Length      : 1
+StartLine   : 126
+StartColumn : 12
+EndLine     : 126
+EndColumn   : 13
+
+Content     : downloadProc
+Type        : Variable
+Start       : 4416
+Length      : 13
+StartLine   : 126
+StartColumn : 13
+EndLine     : 126
+EndColumn   : 26
+
+Content     : .
+Type        : Operator
+Start       : 4429
+Length      : 1
+StartLine   : 126
+StartColumn : 26
+EndLine     : 126
+EndColumn   : 27
+
+Content     : ExitCode
+Type        : Member
+Start       : 4430
+Length      : 8
+StartLine   : 126
+StartColumn : 27
+EndLine     : 126
+EndColumn   : 35
+
+Content     : -ne
+Type        : Operator
+Start       : 4439
+Length      : 3
+StartLine   : 126
+StartColumn : 36
+EndLine     : 126
+EndColumn   : 39
+
+Content     : 0
+Type        : Number
+Start       : 4443
+Length      : 1
+StartLine   : 126
+StartColumn : 40
+EndLine     : 126
+EndColumn   : 41
+
+Content     : -and
+Type        : Operator
+Start       : 4445
+Length      : 4
+StartLine   : 126
+StartColumn : 42
+EndLine     : 126
+EndColumn   : 46
+
+Content     : downloadProc
+Type        : Variable
+Start       : 4450
+Length      : 13
+StartLine   : 126
+StartColumn : 47
+EndLine     : 126
+EndColumn   : 60
+
+Content     : .
+Type        : Operator
+Start       : 4463
+Length      : 1
+StartLine   : 126
+StartColumn : 60
+EndLine     : 126
+EndColumn   : 61
+
+Content     : ExitCode
+Type        : Member
+Start       : 4464
+Length      : 8
+StartLine   : 126
+StartColumn : 61
+EndLine     : 126
+EndColumn   : 69
+
+Content     : -ne
+Type        : Operator
+Start       : 4473
+Length      : 3
+StartLine   : 126
+StartColumn : 70
+EndLine     : 126
+EndColumn   : 73
+
+Content     : 3010
+Type        : Number
+Start       : 4477
+Length      : 4
+StartLine   : 126
+StartColumn : 74
+EndLine     : 126
+EndColumn   : 78
+
+Content     : )
+Type        : GroupEnd
+Start       : 4481
+Length      : 1
+StartLine   : 126
+StartColumn : 78
+EndLine     : 126
+EndColumn   : 79
+
+Content     : {
+Type        : GroupStart
+Start       : 4483
+Length      : 1
+StartLine   : 126
+StartColumn : 80
+EndLine     : 126
+EndColumn   : 81
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4484
+Length      : 1
+StartLine   : 126
+StartColumn : 81
+EndLine     : 127
+EndColumn   : 1
+
+Content     : throw
+Type        : Keyword
+Start       : 4497
+Length      : 5
+StartLine   : 127
+StartColumn : 13
+EndLine     : 127
+EndColumn   : 18
+
+Content     : Download failed (Code: $($downloadProc.ExitCode))
+Type        : String
+Start       : 4503
+Length      : 51
+StartLine   : 127
+StartColumn : 19
+EndLine     : 127
+EndColumn   : 70
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4554
+Length      : 1
+StartLine   : 127
+StartColumn : 70
+EndLine     : 128
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 4563
+Length      : 1
+StartLine   : 128
+StartColumn : 9
+EndLine     : 128
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4564
+Length      : 1
+StartLine   : 128
+StartColumn : 10
+EndLine     : 129
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4565
+Length      : 1
+StartLine   : 129
+StartColumn : 1
+EndLine     : 130
+EndColumn   : 1
+
+Content     : setupFile
+Type        : Variable
+Start       : 4574
+Length      : 10
+StartLine   : 130
+StartColumn : 9
+EndLine     : 130
+EndColumn   : 19
+
+Content     : =
+Type        : Operator
+Start       : 4585
+Length      : 1
+StartLine   : 130
+StartColumn : 20
+EndLine     : 130
+EndColumn   : 21
+
+Content     : Get-ChildItem
+Type        : Command
+Start       : 4587
+Length      : 13
+StartLine   : 130
+StartColumn : 22
+EndLine     : 130
+EndColumn   : 35
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 4601
+Length      : 5
+StartLine   : 130
+StartColumn : 36
+EndLine     : 130
+EndColumn   : 41
+
+Content     : sqlMediaDir
+Type        : Variable
+Start       : 4607
+Length      : 12
+StartLine   : 130
+StartColumn : 42
+EndLine     : 130
+EndColumn   : 54
+
+Content     : -Filter
+Type        : CommandParameter
+Start       : 4620
+Length      : 7
+StartLine   : 130
+StartColumn : 55
+EndLine     : 130
+EndColumn   : 62
+
+Content     : setup.exe
+Type        : String
+Start       : 4628
+Length      : 11
+StartLine   : 130
+StartColumn : 63
+EndLine     : 130
+EndColumn   : 74
+
+Content     : -Recurse
+Type        : CommandParameter
+Start       : 4640
+Length      : 8
+StartLine   : 130
+StartColumn : 75
+EndLine     : 130
+EndColumn   : 83
+
+Content     : |
+Type        : Operator
+Start       : 4649
+Length      : 1
+StartLine   : 130
+StartColumn : 84
+EndLine     : 130
+EndColumn   : 85
+
+Content     : Select-Object
+Type        : Command
+Start       : 4651
+Length      : 13
+StartLine   : 130
+StartColumn : 86
+EndLine     : 130
+EndColumn   : 99
+
+Content     : -First
+Type        : CommandParameter
+Start       : 4665
+Length      : 6
+StartLine   : 130
+StartColumn : 100
+EndLine     : 130
+EndColumn   : 106
+
+Content     : 1
+Type        : Number
+Start       : 4672
+Length      : 1
+StartLine   : 130
+StartColumn : 107
+EndLine     : 130
+EndColumn   : 108
+
+Content     : -ExpandProperty
+Type        : CommandParameter
+Start       : 4674
+Length      : 15
+StartLine   : 130
+StartColumn : 109
+EndLine     : 130
+EndColumn   : 124
+
+Content     : FullName
+Type        : CommandArgument
+Start       : 4690
+Length      : 8
+StartLine   : 130
+StartColumn : 125
+EndLine     : 130
+EndColumn   : 133
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4698
+Length      : 1
+StartLine   : 130
+StartColumn : 133
+EndLine     : 131
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 4707
+Length      : 2
+StartLine   : 131
+StartColumn : 9
+EndLine     : 131
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 4710
+Length      : 1
+StartLine   : 131
+StartColumn : 12
+EndLine     : 131
+EndColumn   : 13
+
+Content     : -not
+Type        : Operator
+Start       : 4711
+Length      : 4
+StartLine   : 131
+StartColumn : 13
+EndLine     : 131
+EndColumn   : 17
+
+Content     : setupFile
+Type        : Variable
+Start       : 4716
+Length      : 10
+StartLine   : 131
+StartColumn : 18
+EndLine     : 131
+EndColumn   : 28
+
+Content     : )
+Type        : GroupEnd
+Start       : 4726
+Length      : 1
+StartLine   : 131
+StartColumn : 28
+EndLine     : 131
+EndColumn   : 29
+
+Content     : {
+Type        : GroupStart
+Start       : 4728
+Length      : 1
+StartLine   : 131
+StartColumn : 30
+EndLine     : 131
+EndColumn   : 31
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4729
+Length      : 1
+StartLine   : 131
+StartColumn : 31
+EndLine     : 132
+EndColumn   : 1
+
+Content     : throw
+Type        : Keyword
+Start       : 4742
+Length      : 5
+StartLine   : 132
+StartColumn : 13
+EndLine     : 132
+EndColumn   : 18
+
+Content     : Setup.exe not found in media.
+Type        : String
+Start       : 4748
+Length      : 31
+StartLine   : 132
+StartColumn : 19
+EndLine     : 132
+EndColumn   : 50
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4779
+Length      : 1
+StartLine   : 132
+StartColumn : 50
+EndLine     : 133
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 4788
+Length      : 1
+StartLine   : 133
+StartColumn : 9
+EndLine     : 133
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4789
+Length      : 1
+StartLine   : 133
+StartColumn : 10
+EndLine     : 134
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4790
+Length      : 1
+StartLine   : 134
+StartColumn : 1
+EndLine     : 135
+EndColumn   : 1
+
+Content     : setupIni
+Type        : Variable
+Start       : 4799
+Length      : 9
+StartLine   : 135
+StartColumn : 9
+EndLine     : 135
+EndColumn   : 18
+
+Content     : =
+Type        : Operator
+Start       : 4809
+Length      : 1
+StartLine   : 135
+StartColumn : 19
+EndLine     : 135
+EndColumn   : 20
+
+Content     : Join-Path
+Type        : Command
+Start       : 4811
+Length      : 9
+StartLine   : 135
+StartColumn : 21
+EndLine     : 135
+EndColumn   : 30
+
+Content     : env:TEMP
+Type        : Variable
+Start       : 4821
+Length      : 9
+StartLine   : 135
+StartColumn : 31
+EndLine     : 135
+EndColumn   : 40
+
+Content     : azrar_sql_setup.ini
+Type        : String
+Start       : 4831
+Length      : 21
+StartLine   : 135
+StartColumn : 41
+EndLine     : 135
+EndColumn   : 62
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4852
+Length      : 1
+StartLine   : 135
+StartColumn : 62
+EndLine     : 136
+EndColumn   : 1
+
+Content     : saEscapedValue
+Type        : Variable
+Start       : 4861
+Length      : 15
+StartLine   : 136
+StartColumn : 9
+EndLine     : 136
+EndColumn   : 24
+
+Content     : =
+Type        : Operator
+Start       : 4877
+Length      : 1
+StartLine   : 136
+StartColumn : 25
+EndLine     : 136
+EndColumn   : 26
+
+Content     : SqlSaPassword
+Type        : Variable
+Start       : 4879
+Length      : 14
+StartLine   : 136
+StartColumn : 27
+EndLine     : 136
+EndColumn   : 41
+
+Content     : -replace
+Type        : Operator
+Start       : 4894
+Length      : 8
+StartLine   : 136
+StartColumn : 42
+EndLine     : 136
+EndColumn   : 50
+
+Content     : "
+Type        : String
+Start       : 4903
+Length      : 3
+StartLine   : 136
+StartColumn : 51
+EndLine     : 136
+EndColumn   : 54
+
+Content     : ,
+Type        : Operator
+Start       : 4906
+Length      : 1
+StartLine   : 136
+StartColumn : 54
+EndLine     : 136
+EndColumn   : 55
+
+Content     : ""
+Type        : String
+Start       : 4908
+Length      : 4
+StartLine   : 136
+StartColumn : 56
+EndLine     : 136
+EndColumn   : 60
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4912
+Length      : 1
+StartLine   : 136
+StartColumn : 60
+EndLine     : 137
+EndColumn   : 1
+
+Content     : configContent
+Type        : Variable
+Start       : 4921
+Length      : 14
+StartLine   : 137
+StartColumn : 9
+EndLine     : 137
+EndColumn   : 23
+
+Content     : =
+Type        : Operator
+Start       : 4936
+Length      : 1
+StartLine   : 137
+StartColumn : 24
+EndLine     : 137
+EndColumn   : 25
+
+Content     : @(
+Type        : GroupStart
+Start       : 4938
+Length      : 2
+StartLine   : 137
+StartColumn : 26
+EndLine     : 137
+EndColumn   : 28
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4940
+Length      : 1
+StartLine   : 137
+StartColumn : 28
+EndLine     : 138
+EndColumn   : 1
+
+Content     : [OPTIONS]
+Type        : String
+Start       : 4953
+Length      : 11
+StartLine   : 138
+StartColumn : 13
+EndLine     : 138
+EndColumn   : 24
+
+Content     : ,
+Type        : Operator
+Start       : 4964
+Length      : 1
+StartLine   : 138
+StartColumn : 24
+EndLine     : 138
+EndColumn   : 25
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4965
+Length      : 1
+StartLine   : 138
+StartColumn : 25
+EndLine     : 139
+EndColumn   : 1
+
+Content     : ACTION="Install"
+Type        : String
+Start       : 4978
+Length      : 20
+StartLine   : 139
+StartColumn : 13
+EndLine     : 139
+EndColumn   : 33
+
+Content     : ,
+Type        : Operator
+Start       : 4998
+Length      : 1
+StartLine   : 139
+StartColumn : 33
+EndLine     : 139
+EndColumn   : 34
+
+Content     : 
+              
+Type        : NewLine
+Start       : 4999
+Length      : 1
+StartLine   : 139
+StartColumn : 34
+EndLine     : 140
+EndColumn   : 1
+
+Content     : FEATURES="SQLEngine"
+Type        : String
+Start       : 5012
+Length      : 24
+StartLine   : 140
+StartColumn : 13
+EndLine     : 140
+EndColumn   : 37
+
+Content     : ,
+Type        : Operator
+Start       : 5036
+Length      : 1
+StartLine   : 140
+StartColumn : 37
+EndLine     : 140
+EndColumn   : 38
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5037
+Length      : 1
+StartLine   : 140
+StartColumn : 38
+EndLine     : 141
+EndColumn   : 1
+
+Content     : INSTANCENAME="$SqlInstanceName"
+Type        : String
+Start       : 5050
+Length      : 35
+StartLine   : 141
+StartColumn : 13
+EndLine     : 141
+EndColumn   : 48
+
+Content     : ,
+Type        : Operator
+Start       : 5085
+Length      : 1
+StartLine   : 141
+StartColumn : 48
+EndLine     : 141
+EndColumn   : 49
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5086
+Length      : 1
+StartLine   : 141
+StartColumn : 49
+EndLine     : 142
+EndColumn   : 1
+
+Content     : SECURITYMODE="SQL"
+Type        : String
+Start       : 5099
+Length      : 22
+StartLine   : 142
+StartColumn : 13
+EndLine     : 142
+EndColumn   : 35
+
+Content     : ,
+Type        : Operator
+Start       : 5121
+Length      : 1
+StartLine   : 142
+StartColumn : 35
+EndLine     : 142
+EndColumn   : 36
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5122
+Length      : 1
+StartLine   : 142
+StartColumn : 36
+EndLine     : 143
+EndColumn   : 1
+
+Content     : SAPWD="$saEscapedValue"
+Type        : String
+Start       : 5135
+Length      : 27
+StartLine   : 143
+StartColumn : 13
+EndLine     : 143
+EndColumn   : 40
+
+Content     : ,
+Type        : Operator
+Start       : 5162
+Length      : 1
+StartLine   : 143
+StartColumn : 40
+EndLine     : 143
+EndColumn   : 41
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5163
+Length      : 1
+StartLine   : 143
+StartColumn : 41
+EndLine     : 144
+EndColumn   : 1
+
+Content     : TCPENABLED="1"
+Type        : String
+Start       : 5176
+Length      : 18
+StartLine   : 144
+StartColumn : 13
+EndLine     : 144
+EndColumn   : 31
+
+Content     : ,
+Type        : Operator
+Start       : 5194
+Length      : 1
+StartLine   : 144
+StartColumn : 31
+EndLine     : 144
+EndColumn   : 32
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5195
+Length      : 1
+StartLine   : 144
+StartColumn : 32
+EndLine     : 145
+EndColumn   : 1
+
+Content     : NPENABLED="1"
+Type        : String
+Start       : 5208
+Length      : 17
+StartLine   : 145
+StartColumn : 13
+EndLine     : 145
+EndColumn   : 30
+
+Content     : ,
+Type        : Operator
+Start       : 5225
+Length      : 1
+StartLine   : 145
+StartColumn : 30
+EndLine     : 145
+EndColumn   : 31
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5226
+Length      : 1
+StartLine   : 145
+StartColumn : 31
+EndLine     : 146
+EndColumn   : 1
+
+Content     : SQLSYSADMINACCOUNTS="BUILTIN\Administrators"
+Type        : String
+Start       : 5239
+Length      : 48
+StartLine   : 146
+StartColumn : 13
+EndLine     : 146
+EndColumn   : 61
+
+Content     : ,
+Type        : Operator
+Start       : 5287
+Length      : 1
+StartLine   : 146
+StartColumn : 61
+EndLine     : 146
+EndColumn   : 62
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5288
+Length      : 1
+StartLine   : 146
+StartColumn : 62
+EndLine     : 147
+EndColumn   : 1
+
+Content     : IACCEPTSQLSERVERLICENSETERMS="True"
+Type        : String
+Start       : 5301
+Length      : 39
+StartLine   : 147
+StartColumn : 13
+EndLine     : 147
+EndColumn   : 52
+
+Content     : ,
+Type        : Operator
+Start       : 5340
+Length      : 1
+StartLine   : 147
+StartColumn : 52
+EndLine     : 147
+EndColumn   : 53
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5341
+Length      : 1
+StartLine   : 147
+StartColumn : 53
+EndLine     : 148
+EndColumn   : 1
+
+Content     : QUIET="True"
+Type        : String
+Start       : 5354
+Length      : 16
+StartLine   : 148
+StartColumn : 13
+EndLine     : 148
+EndColumn   : 29
+
+Content     : ,
+Type        : Operator
+Start       : 5370
+Length      : 1
+StartLine   : 148
+StartColumn : 29
+EndLine     : 148
+EndColumn   : 30
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5371
+Length      : 1
+StartLine   : 148
+StartColumn : 30
+EndLine     : 149
+EndColumn   : 1
+
+Content     : UPDATEENABLED="False"
+Type        : String
+Start       : 5384
+Length      : 25
+StartLine   : 149
+StartColumn : 13
+EndLine     : 149
+EndColumn   : 38
+
+Content     : ,
+Type        : Operator
+Start       : 5409
+Length      : 1
+StartLine   : 149
+StartColumn : 38
+EndLine     : 149
+EndColumn   : 39
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5410
+Length      : 1
+StartLine   : 149
+StartColumn : 39
+EndLine     : 150
+EndColumn   : 1
+
+Content     : USESQLRECOMMENDEDMEMORYLIMITS="True"
+Type        : String
+Start       : 5423
+Length      : 40
+StartLine   : 150
+StartColumn : 13
+EndLine     : 150
+EndColumn   : 53
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5463
+Length      : 1
+StartLine   : 150
+StartColumn : 53
+EndLine     : 151
+EndColumn   : 1
+
+Content     : )
+Type        : GroupEnd
+Start       : 5472
+Length      : 1
+StartLine   : 151
+StartColumn : 9
+EndLine     : 151
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5473
+Length      : 1
+StartLine   : 151
+StartColumn : 10
+EndLine     : 152
+EndColumn   : 1
+
+Content     : configContent
+Type        : Variable
+Start       : 5482
+Length      : 14
+StartLine   : 152
+StartColumn : 9
+EndLine     : 152
+EndColumn   : 23
+
+Content     : -join
+Type        : Operator
+Start       : 5497
+Length      : 5
+StartLine   : 152
+StartColumn : 24
+EndLine     : 152
+EndColumn   : 29
+
+Content     : 
+              
+Type        : String
+Start       : 5503
+Length      : 6
+StartLine   : 152
+StartColumn : 30
+EndLine     : 152
+EndColumn   : 36
+
+Content     : |
+Type        : Operator
+Start       : 5510
+Length      : 1
+StartLine   : 152
+StartColumn : 37
+EndLine     : 152
+EndColumn   : 38
+
+Content     : Set-Content
+Type        : Command
+Start       : 5512
+Length      : 11
+StartLine   : 152
+StartColumn : 39
+EndLine     : 152
+EndColumn   : 50
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 5524
+Length      : 5
+StartLine   : 152
+StartColumn : 51
+EndLine     : 152
+EndColumn   : 56
+
+Content     : setupIni
+Type        : Variable
+Start       : 5530
+Length      : 9
+StartLine   : 152
+StartColumn : 57
+EndLine     : 152
+EndColumn   : 66
+
+Content     : -Encoding
+Type        : CommandParameter
+Start       : 5540
+Length      : 9
+StartLine   : 152
+StartColumn : 67
+EndLine     : 152
+EndColumn   : 76
+
+Content     : Unicode
+Type        : CommandArgument
+Start       : 5550
+Length      : 7
+StartLine   : 152
+StartColumn : 77
+EndLine     : 152
+EndColumn   : 84
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5557
+Length      : 1
+StartLine   : 152
+StartColumn : 84
+EndLine     : 153
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5558
+Length      : 1
+StartLine   : 153
+StartColumn : 1
+EndLine     : 154
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 5567
+Length      : 9
+StartLine   : 154
+StartColumn : 9
+EndLine     : 154
+EndColumn   : 18
+
+Content     : Running installation. Please wait...
+Type        : String
+Start       : 5577
+Length      : 38
+StartLine   : 154
+StartColumn : 19
+EndLine     : 154
+EndColumn   : 57
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5615
+Length      : 1
+StartLine   : 154
+StartColumn : 57
+EndLine     : 155
+EndColumn   : 1
+
+Content     : executionProc
+Type        : Variable
+Start       : 5624
+Length      : 14
+StartLine   : 155
+StartColumn : 9
+EndLine     : 155
+EndColumn   : 23
+
+Content     : =
+Type        : Operator
+Start       : 5639
+Length      : 1
+StartLine   : 155
+StartColumn : 24
+EndLine     : 155
+EndColumn   : 25
+
+Content     : Start-Process
+Type        : Command
+Start       : 5641
+Length      : 13
+StartLine   : 155
+StartColumn : 26
+EndLine     : 155
+EndColumn   : 39
+
+Content     : -FilePath
+Type        : CommandParameter
+Start       : 5655
+Length      : 9
+StartLine   : 155
+StartColumn : 40
+EndLine     : 155
+EndColumn   : 49
+
+Content     : setupFile
+Type        : Variable
+Start       : 5665
+Length      : 10
+StartLine   : 155
+StartColumn : 50
+EndLine     : 155
+EndColumn   : 60
+
+Content     : -ArgumentList
+Type        : CommandParameter
+Start       : 5676
+Length      : 13
+StartLine   : 155
+StartColumn : 61
+EndLine     : 155
+EndColumn   : 74
+
+Content     : @(
+Type        : GroupStart
+Start       : 5690
+Length      : 2
+StartLine   : 155
+StartColumn : 75
+EndLine     : 155
+EndColumn   : 77
+
+Content     : /ConfigurationFile=$setupIni
+Type        : String
+Start       : 5692
+Length      : 30
+StartLine   : 155
+StartColumn : 77
+EndLine     : 155
+EndColumn   : 107
+
+Content     : )
+Type        : GroupEnd
+Start       : 5722
+Length      : 1
+StartLine   : 155
+StartColumn : 107
+EndLine     : 155
+EndColumn   : 108
+
+Content     : -Wait
+Type        : CommandParameter
+Start       : 5724
+Length      : 5
+StartLine   : 155
+StartColumn : 109
+EndLine     : 155
+EndColumn   : 114
+
+Content     : -PassThru
+Type        : CommandParameter
+Start       : 5730
+Length      : 9
+StartLine   : 155
+StartColumn : 115
+EndLine     : 155
+EndColumn   : 124
+
+Content     : -NoNewWindow
+Type        : CommandParameter
+Start       : 5740
+Length      : 12
+StartLine   : 155
+StartColumn : 125
+EndLine     : 155
+EndColumn   : 137
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5752
+Length      : 1
+StartLine   : 155
+StartColumn : 137
+EndLine     : 156
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 5761
+Length      : 2
+StartLine   : 156
+StartColumn : 9
+EndLine     : 156
+EndColumn   : 11
+
+Content     : (
+Type        : GroupStart
+Start       : 5764
+Length      : 1
+StartLine   : 156
+StartColumn : 12
+EndLine     : 156
+EndColumn   : 13
+
+Content     : executionProc
+Type        : Variable
+Start       : 5765
+Length      : 14
+StartLine   : 156
+StartColumn : 13
+EndLine     : 156
+EndColumn   : 27
+
+Content     : .
+Type        : Operator
+Start       : 5779
+Length      : 1
+StartLine   : 156
+StartColumn : 27
+EndLine     : 156
+EndColumn   : 28
+
+Content     : ExitCode
+Type        : Member
+Start       : 5780
+Length      : 8
+StartLine   : 156
+StartColumn : 28
+EndLine     : 156
+EndColumn   : 36
+
+Content     : -ne
+Type        : Operator
+Start       : 5789
+Length      : 3
+StartLine   : 156
+StartColumn : 37
+EndLine     : 156
+EndColumn   : 40
+
+Content     : 0
+Type        : Number
+Start       : 5793
+Length      : 1
+StartLine   : 156
+StartColumn : 41
+EndLine     : 156
+EndColumn   : 42
+
+Content     : -and
+Type        : Operator
+Start       : 5795
+Length      : 4
+StartLine   : 156
+StartColumn : 43
+EndLine     : 156
+EndColumn   : 47
+
+Content     : executionProc
+Type        : Variable
+Start       : 5800
+Length      : 14
+StartLine   : 156
+StartColumn : 48
+EndLine     : 156
+EndColumn   : 62
+
+Content     : .
+Type        : Operator
+Start       : 5814
+Length      : 1
+StartLine   : 156
+StartColumn : 62
+EndLine     : 156
+EndColumn   : 63
+
+Content     : ExitCode
+Type        : Member
+Start       : 5815
+Length      : 8
+StartLine   : 156
+StartColumn : 63
+EndLine     : 156
+EndColumn   : 71
+
+Content     : -ne
+Type        : Operator
+Start       : 5824
+Length      : 3
+StartLine   : 156
+StartColumn : 72
+EndLine     : 156
+EndColumn   : 75
+
+Content     : 3010
+Type        : Number
+Start       : 5828
+Length      : 4
+StartLine   : 156
+StartColumn : 76
+EndLine     : 156
+EndColumn   : 80
+
+Content     : )
+Type        : GroupEnd
+Start       : 5832
+Length      : 1
+StartLine   : 156
+StartColumn : 80
+EndLine     : 156
+EndColumn   : 81
+
+Content     : {
+Type        : GroupStart
+Start       : 5834
+Length      : 1
+StartLine   : 156
+StartColumn : 82
+EndLine     : 156
+EndColumn   : 83
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5835
+Length      : 1
+StartLine   : 156
+StartColumn : 83
+EndLine     : 157
+EndColumn   : 1
+
+Content     : throw
+Type        : Keyword
+Start       : 5848
+Length      : 5
+StartLine   : 157
+StartColumn : 13
+EndLine     : 157
+EndColumn   : 18
+
+Content     : Installation failed (Code: $($executionProc.ExitCode))
+Type        : String
+Start       : 5854
+Length      : 56
+StartLine   : 157
+StartColumn : 19
+EndLine     : 157
+EndColumn   : 75
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5910
+Length      : 1
+StartLine   : 157
+StartColumn : 75
+EndLine     : 158
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 5919
+Length      : 1
+StartLine   : 158
+StartColumn : 9
+EndLine     : 158
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5920
+Length      : 1
+StartLine   : 158
+StartColumn : 10
+EndLine     : 159
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 5925
+Length      : 1
+StartLine   : 159
+StartColumn : 5
+EndLine     : 159
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5926
+Length      : 1
+StartLine   : 159
+StartColumn : 6
+EndLine     : 160
+EndColumn   : 1
+
+Content     : else
+Type        : Keyword
+Start       : 5931
+Length      : 4
+StartLine   : 160
+StartColumn : 5
+EndLine     : 160
+EndColumn   : 9
+
+Content     : {
+Type        : GroupStart
+Start       : 5936
+Length      : 1
+StartLine   : 160
+StartColumn : 10
+EndLine     : 160
+EndColumn   : 11
+
+Content     : 
+              
+Type        : NewLine
+Start       : 5937
+Length      : 1
+StartLine   : 160
+StartColumn : 11
+EndLine     : 161
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 5946
+Length      : 9
+StartLine   : 161
+StartColumn : 9
+EndLine     : 161
+EndColumn   : 18
+
+Content     : Instance $SqlInstanceName is already installed.
+Type        : String
+Start       : 5956
+Length      : 49
+StartLine   : 161
+StartColumn : 19
+EndLine     : 161
+EndColumn   : 68
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6005
+Length      : 1
+StartLine   : 161
+StartColumn : 68
+EndLine     : 162
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 6010
+Length      : 1
+StartLine   : 162
+StartColumn : 5
+EndLine     : 162
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6011
+Length      : 1
+StartLine   : 162
+StartColumn : 6
+EndLine     : 163
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6012
+Length      : 1
+StartLine   : 163
+StartColumn : 1
+EndLine     : 164
+EndColumn   : 1
+
+Content     : Wait-ForSql
+Type        : Command
+Start       : 6017
+Length      : 11
+StartLine   : 164
+StartColumn : 5
+EndLine     : 164
+EndColumn   : 16
+
+Content     : SqlInstanceName
+Type        : Variable
+Start       : 6029
+Length      : 16
+StartLine   : 164
+StartColumn : 17
+EndLine     : 164
+EndColumn   : 33
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6045
+Length      : 1
+StartLine   : 164
+StartColumn : 33
+EndLine     : 165
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6050
+Length      : 1
+StartLine   : 165
+StartColumn : 5
+EndLine     : 166
+EndColumn   : 1
+
+Content     : # --- Network Config ---
+Type        : Comment
+Start       : 6055
+Length      : 24
+StartLine   : 166
+StartColumn : 5
+EndLine     : 166
+EndColumn   : 29
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6079
+Length      : 1
+StartLine   : 166
+StartColumn : 29
+EndLine     : 167
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 6084
+Length      : 9
+StartLine   : 167
+StartColumn : 5
+EndLine     : 167
+EndColumn   : 14
+
+Content     : Configuring TCP/IP network settings...
+Type        : String
+Start       : 6094
+Length      : 40
+StartLine   : 167
+StartColumn : 15
+EndLine     : 167
+EndColumn   : 55
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6134
+Length      : 1
+StartLine   : 167
+StartColumn : 55
+EndLine     : 168
+EndColumn   : 1
+
+Content     : registryPath
+Type        : Variable
+Start       : 6139
+Length      : 13
+StartLine   : 168
+StartColumn : 5
+EndLine     : 168
+EndColumn   : 18
+
+Content     : =
+Type        : Operator
+Start       : 6153
+Length      : 1
+StartLine   : 168
+StartColumn : 19
+EndLine     : 168
+EndColumn   : 20
+
+Content     : HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL
+Type        : String
+Start       : 6155
+Length      : 66
+StartLine   : 168
+StartColumn : 21
+EndLine     : 168
+EndColumn   : 87
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6221
+Length      : 1
+StartLine   : 168
+StartColumn : 87
+EndLine     : 169
+EndColumn   : 1
+
+Content     : internalId
+Type        : Variable
+Start       : 6226
+Length      : 11
+StartLine   : 169
+StartColumn : 5
+EndLine     : 169
+EndColumn   : 16
+
+Content     : =
+Type        : Operator
+Start       : 6238
+Length      : 1
+StartLine   : 169
+StartColumn : 17
+EndLine     : 169
+EndColumn   : 18
+
+Content     : (
+Type        : GroupStart
+Start       : 6240
+Length      : 1
+StartLine   : 169
+StartColumn : 19
+EndLine     : 169
+EndColumn   : 20
+
+Content     : Get-ItemProperty
+Type        : Command
+Start       : 6241
+Length      : 16
+StartLine   : 169
+StartColumn : 20
+EndLine     : 169
+EndColumn   : 36
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 6258
+Length      : 5
+StartLine   : 169
+StartColumn : 37
+EndLine     : 169
+EndColumn   : 42
+
+Content     : registryPath
+Type        : Variable
+Start       : 6264
+Length      : 13
+StartLine   : 169
+StartColumn : 43
+EndLine     : 169
+EndColumn   : 56
+
+Content     : -Name
+Type        : CommandParameter
+Start       : 6278
+Length      : 5
+StartLine   : 169
+StartColumn : 57
+EndLine     : 169
+EndColumn   : 62
+
+Content     : SqlInstanceName
+Type        : Variable
+Start       : 6284
+Length      : 16
+StartLine   : 169
+StartColumn : 63
+EndLine     : 169
+EndColumn   : 79
+
+Content     : )
+Type        : GroupEnd
+Start       : 6300
+Length      : 1
+StartLine   : 169
+StartColumn : 79
+EndLine     : 169
+EndColumn   : 80
+
+Content     : .
+Type        : Operator
+Start       : 6301
+Length      : 1
+StartLine   : 169
+StartColumn : 80
+EndLine     : 169
+EndColumn   : 81
+
+Content     : SqlInstanceName
+Type        : Variable
+Start       : 6302
+Length      : 16
+StartLine   : 169
+StartColumn : 81
+EndLine     : 169
+EndColumn   : 97
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6318
+Length      : 1
+StartLine   : 169
+StartColumn : 97
+EndLine     : 170
+EndColumn   : 1
+
+Content     : targetTcpKey
+Type        : Variable
+Start       : 6323
+Length      : 13
+StartLine   : 170
+StartColumn : 5
+EndLine     : 170
+EndColumn   : 18
+
+Content     : =
+Type        : Operator
+Start       : 6337
+Length      : 1
+StartLine   : 170
+StartColumn : 19
+EndLine     : 170
+EndColumn   : 20
+
+Content     : HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$internalId\MSSQLServer\SuperSocketNetLib\Tcp\IPAll
+Type        : String
+Start       : 6339
+Length      : 99
+StartLine   : 170
+StartColumn : 21
+EndLine     : 170
+EndColumn   : 120
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6438
+Length      : 1
+StartLine   : 170
+StartColumn : 120
+EndLine     : 171
+EndColumn   : 1
+
+Content     : Set-ItemProperty
+Type        : Command
+Start       : 6443
+Length      : 16
+StartLine   : 171
+StartColumn : 5
+EndLine     : 171
+EndColumn   : 21
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 6460
+Length      : 5
+StartLine   : 171
+StartColumn : 22
+EndLine     : 171
+EndColumn   : 27
+
+Content     : targetTcpKey
+Type        : Variable
+Start       : 6466
+Length      : 13
+StartLine   : 171
+StartColumn : 28
+EndLine     : 171
+EndColumn   : 41
+
+Content     : -Name
+Type        : CommandParameter
+Start       : 6480
+Length      : 5
+StartLine   : 171
+StartColumn : 42
+EndLine     : 171
+EndColumn   : 47
+
+Content     : TcpPort
+Type        : String
+Start       : 6486
+Length      : 9
+StartLine   : 171
+StartColumn : 48
+EndLine     : 171
+EndColumn   : 57
+
+Content     : -Value
+Type        : CommandParameter
+Start       : 6496
+Length      : 6
+StartLine   : 171
+StartColumn : 58
+EndLine     : 171
+EndColumn   : 64
+
+Content     : SqlPort
+Type        : Variable
+Start       : 6503
+Length      : 8
+StartLine   : 171
+StartColumn : 65
+EndLine     : 171
+EndColumn   : 73
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6511
+Length      : 1
+StartLine   : 171
+StartColumn : 73
+EndLine     : 172
+EndColumn   : 1
+
+Content     : Set-ItemProperty
+Type        : Command
+Start       : 6516
+Length      : 16
+StartLine   : 172
+StartColumn : 5
+EndLine     : 172
+EndColumn   : 21
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 6533
+Length      : 5
+StartLine   : 172
+StartColumn : 22
+EndLine     : 172
+EndColumn   : 27
+
+Content     : targetTcpKey
+Type        : Variable
+Start       : 6539
+Length      : 13
+StartLine   : 172
+StartColumn : 28
+EndLine     : 172
+EndColumn   : 41
+
+Content     : -Name
+Type        : CommandParameter
+Start       : 6553
+Length      : 5
+StartLine   : 172
+StartColumn : 42
+EndLine     : 172
+EndColumn   : 47
+
+Content     : TcpDynamicPorts
+Type        : String
+Start       : 6559
+Length      : 17
+StartLine   : 172
+StartColumn : 48
+EndLine     : 172
+EndColumn   : 65
+
+Content     : -Value
+Type        : CommandParameter
+Start       : 6577
+Length      : 6
+StartLine   : 172
+StartColumn : 66
+EndLine     : 172
+EndColumn   : 72
+
+Content     : 
+Type        : String
+Start       : 6584
+Length      : 2
+StartLine   : 172
+StartColumn : 73
+EndLine     : 172
+EndColumn   : 75
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6586
+Length      : 1
+StartLine   : 172
+StartColumn : 75
+EndLine     : 173
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6591
+Length      : 1
+StartLine   : 173
+StartColumn : 5
+EndLine     : 174
+EndColumn   : 1
+
+Content     : Restart-Service
+Type        : Command
+Start       : 6596
+Length      : 15
+StartLine   : 174
+StartColumn : 5
+EndLine     : 174
+EndColumn   : 20
+
+Content     : -Name
+Type        : CommandParameter
+Start       : 6612
+Length      : 5
+StartLine   : 174
+StartColumn : 21
+EndLine     : 174
+EndColumn   : 26
+
+Content     : MSSQL$$SqlInstanceName
+Type        : String
+Start       : 6618
+Length      : 25
+StartLine   : 174
+StartColumn : 27
+EndLine     : 174
+EndColumn   : 52
+
+Content     : -Force
+Type        : CommandParameter
+Start       : 6644
+Length      : 6
+StartLine   : 174
+StartColumn : 53
+EndLine     : 174
+EndColumn   : 59
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6650
+Length      : 1
+StartLine   : 174
+StartColumn : 59
+EndLine     : 175
+EndColumn   : 1
+
+Content     : Start-Sleep
+Type        : Command
+Start       : 6655
+Length      : 11
+StartLine   : 175
+StartColumn : 5
+EndLine     : 175
+EndColumn   : 16
+
+Content     : -Seconds
+Type        : CommandParameter
+Start       : 6667
+Length      : 8
+StartLine   : 175
+StartColumn : 17
+EndLine     : 175
+EndColumn   : 25
+
+Content     : 5
+Type        : Number
+Start       : 6676
+Length      : 1
+StartLine   : 175
+StartColumn : 26
+EndLine     : 175
+EndColumn   : 27
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6677
+Length      : 1
+StartLine   : 175
+StartColumn : 27
+EndLine     : 176
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6678
+Length      : 1
+StartLine   : 176
+StartColumn : 1
+EndLine     : 177
+EndColumn   : 1
+
+Content     : # --- Firewall ---
+Type        : Comment
+Start       : 6683
+Length      : 18
+StartLine   : 177
+StartColumn : 5
+EndLine     : 177
+EndColumn   : 23
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6701
+Length      : 1
+StartLine   : 177
+StartColumn : 23
+EndLine     : 178
+EndColumn   : 1
+
+Content     : try
+Type        : Keyword
+Start       : 6706
+Length      : 3
+StartLine   : 178
+StartColumn : 5
+EndLine     : 178
+EndColumn   : 8
+
+Content     : {
+Type        : GroupStart
+Start       : 6710
+Length      : 1
+StartLine   : 178
+StartColumn : 9
+EndLine     : 178
+EndColumn   : 10
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6711
+Length      : 1
+StartLine   : 178
+StartColumn : 10
+EndLine     : 179
+EndColumn   : 1
+
+Content     : null
+Type        : Variable
+Start       : 6720
+Length      : 5
+StartLine   : 179
+StartColumn : 9
+EndLine     : 179
+EndColumn   : 14
+
+Content     : =
+Type        : Operator
+Start       : 6726
+Length      : 1
+StartLine   : 179
+StartColumn : 15
+EndLine     : 179
+EndColumn   : 16
+
+Content     : netsh
+Type        : Command
+Start       : 6728
+Length      : 5
+StartLine   : 179
+StartColumn : 17
+EndLine     : 179
+EndColumn   : 22
+
+Content     : advfirewall
+Type        : CommandArgument
+Start       : 6734
+Length      : 11
+StartLine   : 179
+StartColumn : 23
+EndLine     : 179
+EndColumn   : 34
+
+Content     : firewall
+Type        : CommandArgument
+Start       : 6746
+Length      : 8
+StartLine   : 179
+StartColumn : 35
+EndLine     : 179
+EndColumn   : 43
+
+Content     : add
+Type        : CommandArgument
+Start       : 6755
+Length      : 3
+StartLine   : 179
+StartColumn : 44
+EndLine     : 179
+EndColumn   : 47
+
+Content     : rule
+Type        : CommandArgument
+Start       : 6759
+Length      : 4
+StartLine   : 179
+StartColumn : 48
+EndLine     : 179
+EndColumn   : 52
+
+Content     : name=AZRAR SQL Server
+Type        : CommandArgument
+Start       : 6764
+Length      : 23
+StartLine   : 179
+StartColumn : 53
+EndLine     : 179
+EndColumn   : 76
+
+Content     : dir=in
+Type        : CommandArgument
+Start       : 6788
+Length      : 6
+StartLine   : 179
+StartColumn : 77
+EndLine     : 179
+EndColumn   : 83
+
+Content     : action=allow
+Type        : CommandArgument
+Start       : 6795
+Length      : 12
+StartLine   : 179
+StartColumn : 84
+EndLine     : 179
+EndColumn   : 96
+
+Content     : protocol=TCP
+Type        : CommandArgument
+Start       : 6808
+Length      : 12
+StartLine   : 179
+StartColumn : 97
+EndLine     : 179
+EndColumn   : 109
+
+Content     : localport=$SqlPort
+Type        : CommandArgument
+Start       : 6821
+Length      : 18
+StartLine   : 179
+StartColumn : 110
+EndLine     : 179
+EndColumn   : 128
+
+Content     : profile=any
+Type        : CommandArgument
+Start       : 6840
+Length      : 11
+StartLine   : 179
+StartColumn : 129
+EndLine     : 179
+EndColumn   : 140
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6851
+Length      : 1
+StartLine   : 179
+StartColumn : 140
+EndLine     : 180
+EndColumn   : 1
+
+Content     : null
+Type        : Variable
+Start       : 6860
+Length      : 5
+StartLine   : 180
+StartColumn : 9
+EndLine     : 180
+EndColumn   : 14
+
+Content     : =
+Type        : Operator
+Start       : 6866
+Length      : 1
+StartLine   : 180
+StartColumn : 15
+EndLine     : 180
+EndColumn   : 16
+
+Content     : netsh
+Type        : Command
+Start       : 6868
+Length      : 5
+StartLine   : 180
+StartColumn : 17
+EndLine     : 180
+EndColumn   : 22
+
+Content     : advfirewall
+Type        : CommandArgument
+Start       : 6874
+Length      : 11
+StartLine   : 180
+StartColumn : 23
+EndLine     : 180
+EndColumn   : 34
+
+Content     : firewall
+Type        : CommandArgument
+Start       : 6886
+Length      : 8
+StartLine   : 180
+StartColumn : 35
+EndLine     : 180
+EndColumn   : 43
+
+Content     : add
+Type        : CommandArgument
+Start       : 6895
+Length      : 3
+StartLine   : 180
+StartColumn : 44
+EndLine     : 180
+EndColumn   : 47
+
+Content     : rule
+Type        : CommandArgument
+Start       : 6899
+Length      : 4
+StartLine   : 180
+StartColumn : 48
+EndLine     : 180
+EndColumn   : 52
+
+Content     : name=AZRAR License Server
+Type        : CommandArgument
+Start       : 6904
+Length      : 27
+StartLine   : 180
+StartColumn : 53
+EndLine     : 180
+EndColumn   : 80
+
+Content     : dir=in
+Type        : CommandArgument
+Start       : 6932
+Length      : 6
+StartLine   : 180
+StartColumn : 81
+EndLine     : 180
+EndColumn   : 87
+
+Content     : action=allow
+Type        : CommandArgument
+Start       : 6939
+Length      : 12
+StartLine   : 180
+StartColumn : 88
+EndLine     : 180
+EndColumn   : 100
+
+Content     : protocol=TCP
+Type        : CommandArgument
+Start       : 6952
+Length      : 12
+StartLine   : 180
+StartColumn : 101
+EndLine     : 180
+EndColumn   : 113
+
+Content     : localport=5056
+Type        : CommandArgument
+Start       : 6965
+Length      : 14
+StartLine   : 180
+StartColumn : 114
+EndLine     : 180
+EndColumn   : 128
+
+Content     : profile=any
+Type        : CommandArgument
+Start       : 6980
+Length      : 11
+StartLine   : 180
+StartColumn : 129
+EndLine     : 180
+EndColumn   : 140
+
+Content     : 
+              
+Type        : NewLine
+Start       : 6991
+Length      : 1
+StartLine   : 180
+StartColumn : 140
+EndLine     : 181
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 7000
+Length      : 9
+StartLine   : 181
+StartColumn : 9
+EndLine     : 181
+EndColumn   : 18
+
+Content     : Firewall rules created successfully.
+Type        : String
+Start       : 7010
+Length      : 38
+StartLine   : 181
+StartColumn : 19
+EndLine     : 181
+EndColumn   : 57
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7048
+Length      : 1
+StartLine   : 181
+StartColumn : 57
+EndLine     : 182
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 7053
+Length      : 1
+StartLine   : 182
+StartColumn : 5
+EndLine     : 182
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7054
+Length      : 1
+StartLine   : 182
+StartColumn : 6
+EndLine     : 183
+EndColumn   : 1
+
+Content     : catch
+Type        : Keyword
+Start       : 7059
+Length      : 5
+StartLine   : 183
+StartColumn : 5
+EndLine     : 183
+EndColumn   : 10
+
+Content     : {
+Type        : GroupStart
+Start       : 7065
+Length      : 1
+StartLine   : 183
+StartColumn : 11
+EndLine     : 183
+EndColumn   : 12
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7066
+Length      : 1
+StartLine   : 183
+StartColumn : 12
+EndLine     : 184
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 7075
+Length      : 9
+StartLine   : 184
+StartColumn : 9
+EndLine     : 184
+EndColumn   : 18
+
+Content     : Automatic firewall configuration failed.
+Type        : String
+Start       : 7085
+Length      : 42
+StartLine   : 184
+StartColumn : 19
+EndLine     : 184
+EndColumn   : 61
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7127
+Length      : 1
+StartLine   : 184
+StartColumn : 61
+EndLine     : 185
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 7132
+Length      : 1
+StartLine   : 185
+StartColumn : 5
+EndLine     : 185
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7133
+Length      : 1
+StartLine   : 185
+StartColumn : 6
+EndLine     : 186
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7134
+Length      : 1
+StartLine   : 186
+StartColumn : 1
+EndLine     : 187
+EndColumn   : 1
+
+Content     : # --- Database Initialization ---
+Type        : Comment
+Start       : 7139
+Length      : 33
+StartLine   : 187
+StartColumn : 5
+EndLine     : 187
+EndColumn   : 38
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7172
+Length      : 1
+StartLine   : 187
+StartColumn : 38
+EndLine     : 188
+EndColumn   : 1
+
+Content     : sqlCmdPath
+Type        : Variable
+Start       : 7177
+Length      : 11
+StartLine   : 188
+StartColumn : 5
+EndLine     : 188
+EndColumn   : 16
+
+Content     : =
+Type        : Operator
+Start       : 7189
+Length      : 1
+StartLine   : 188
+StartColumn : 17
+EndLine     : 188
+EndColumn   : 18
+
+Content     : Find-SqlCmdExe
+Type        : Command
+Start       : 7191
+Length      : 14
+StartLine   : 188
+StartColumn : 19
+EndLine     : 188
+EndColumn   : 33
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7205
+Length      : 1
+StartLine   : 188
+StartColumn : 33
+EndLine     : 189
+EndColumn   : 1
+
+Content     : if
+Type        : Keyword
+Start       : 7210
+Length      : 2
+StartLine   : 189
+StartColumn : 5
+EndLine     : 189
+EndColumn   : 7
+
+Content     : (
+Type        : GroupStart
+Start       : 7213
+Length      : 1
+StartLine   : 189
+StartColumn : 8
+EndLine     : 189
+EndColumn   : 9
+
+Content     : -not
+Type        : Operator
+Start       : 7214
+Length      : 4
+StartLine   : 189
+StartColumn : 9
+EndLine     : 189
+EndColumn   : 13
+
+Content     : sqlCmdPath
+Type        : Variable
+Start       : 7219
+Length      : 11
+StartLine   : 189
+StartColumn : 14
+EndLine     : 189
+EndColumn   : 25
+
+Content     : )
+Type        : GroupEnd
+Start       : 7230
+Length      : 1
+StartLine   : 189
+StartColumn : 25
+EndLine     : 189
+EndColumn   : 26
+
+Content     : {
+Type        : GroupStart
+Start       : 7232
+Length      : 1
+StartLine   : 189
+StartColumn : 27
+EndLine     : 189
+EndColumn   : 28
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7233
+Length      : 1
+StartLine   : 189
+StartColumn : 28
+EndLine     : 190
+EndColumn   : 1
+
+Content     : throw
+Type        : Keyword
+Start       : 7242
+Length      : 5
+StartLine   : 190
+StartColumn : 9
+EndLine     : 190
+EndColumn   : 14
+
+Content     : sqlcmd.exe missing
+Type        : String
+Start       : 7248
+Length      : 20
+StartLine   : 190
+StartColumn : 15
+EndLine     : 190
+EndColumn   : 35
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7268
+Length      : 1
+StartLine   : 190
+StartColumn : 35
+EndLine     : 191
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 7273
+Length      : 1
+StartLine   : 191
+StartColumn : 5
+EndLine     : 191
+EndColumn   : 6
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7274
+Length      : 1
+StartLine   : 191
+StartColumn : 6
+EndLine     : 192
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7275
+Length      : 1
+StartLine   : 192
+StartColumn : 1
+EndLine     : 193
+EndColumn   : 1
+
+Content     : connectionServer
+Type        : Variable
+Start       : 7280
+Length      : 17
+StartLine   : 193
+StartColumn : 5
+EndLine     : 193
+EndColumn   : 22
+
+Content     : =
+Type        : Operator
+Start       : 7298
+Length      : 1
+StartLine   : 193
+StartColumn : 23
+EndLine     : 193
+EndColumn   : 24
+
+Content     : 127.0.0.1,$SqlPort
+Type        : String
+Start       : 7300
+Length      : 20
+StartLine   : 193
+StartColumn : 25
+EndLine     : 193
+EndColumn   : 45
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7320
+Length      : 1
+StartLine   : 193
+StartColumn : 45
+EndLine     : 194
+EndColumn   : 1
+
+Content     : escapedAppPass
+Type        : Variable
+Start       : 7325
+Length      : 15
+StartLine   : 194
+StartColumn : 5
+EndLine     : 194
+EndColumn   : 20
+
+Content     : =
+Type        : Operator
+Start       : 7341
+Length      : 1
+StartLine   : 194
+StartColumn : 21
+EndLine     : 194
+EndColumn   : 22
+
+Content     : SqlAppPassword
+Type        : Variable
+Start       : 7343
+Length      : 15
+StartLine   : 194
+StartColumn : 23
+EndLine     : 194
+EndColumn   : 38
+
+Content     : .
+Type        : Operator
+Start       : 7358
+Length      : 1
+StartLine   : 194
+StartColumn : 38
+EndLine     : 194
+EndColumn   : 39
+
+Content     : Replace
+Type        : Member
+Start       : 7359
+Length      : 7
+StartLine   : 194
+StartColumn : 39
+EndLine     : 194
+EndColumn   : 46
+
+Content     : (
+Type        : GroupStart
+Start       : 7366
+Length      : 1
+StartLine   : 194
+StartColumn : 46
+EndLine     : 194
+EndColumn   : 47
+
+Content     : '
+Type        : String
+Start       : 7367
+Length      : 3
+StartLine   : 194
+StartColumn : 47
+EndLine     : 194
+EndColumn   : 50
+
+Content     : ,
+Type        : Operator
+Start       : 7370
+Length      : 1
+StartLine   : 194
+StartColumn : 50
+EndLine     : 194
+EndColumn   : 51
+
+Content     : ''
+Type        : String
+Start       : 7372
+Length      : 4
+StartLine   : 194
+StartColumn : 52
+EndLine     : 194
+EndColumn   : 56
+
+Content     : )
+Type        : GroupEnd
+Start       : 7376
+Length      : 1
+StartLine   : 194
+StartColumn : 56
+EndLine     : 194
+EndColumn   : 57
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7377
+Length      : 1
+StartLine   : 194
+StartColumn : 57
+EndLine     : 195
+EndColumn   : 1
+
+Content     : initializationSql
+Type        : Variable
+Start       : 7382
+Length      : 18
+StartLine   : 195
+StartColumn : 5
+EndLine     : 195
+EndColumn   : 23
+
+Content     : =
+Type        : Operator
+Start       : 7401
+Length      : 1
+StartLine   : 195
+StartColumn : 24
+EndLine     : 195
+EndColumn   : 25
+
+Content     : @(
+Type        : GroupStart
+Start       : 7403
+Length      : 2
+StartLine   : 195
+StartColumn : 26
+EndLine     : 195
+EndColumn   : 28
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7405
+Length      : 1
+StartLine   : 195
+StartColumn : 28
+EndLine     : 196
+EndColumn   : 1
+
+Content     : IF DB_ID(N'$SqlDatabaseName') IS NULL CREATE DATABASE [$SqlDatabaseName];
+Type        : String
+Start       : 7414
+Length      : 75
+StartLine   : 196
+StartColumn : 9
+EndLine     : 196
+EndColumn   : 84
+
+Content     : ,
+Type        : Operator
+Start       : 7489
+Length      : 1
+StartLine   : 196
+StartColumn : 84
+EndLine     : 196
+EndColumn   : 85
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7490
+Length      : 1
+StartLine   : 196
+StartColumn : 85
+EndLine     : 197
+EndColumn   : 1
+
+Content     : GO
+Type        : String
+Start       : 7499
+Length      : 4
+StartLine   : 197
+StartColumn : 9
+EndLine     : 197
+EndColumn   : 13
+
+Content     : ,
+Type        : Operator
+Start       : 7503
+Length      : 1
+StartLine   : 197
+StartColumn : 13
+EndLine     : 197
+EndColumn   : 14
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7504
+Length      : 1
+StartLine   : 197
+StartColumn : 14
+EndLine     : 198
+EndColumn   : 1
+
+Content     : IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$SqlAppName')
+Type        : String
+Start       : 7513
+Length      : 81
+StartLine   : 198
+StartColumn : 9
+EndLine     : 198
+EndColumn   : 90
+
+Content     : ,
+Type        : Operator
+Start       : 7594
+Length      : 1
+StartLine   : 198
+StartColumn : 90
+EndLine     : 198
+EndColumn   : 91
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7595
+Length      : 1
+StartLine   : 198
+StartColumn : 91
+EndLine     : 199
+EndColumn   : 1
+
+Content     :   CREATE LOGIN [$SqlAppName] WITH PASSWORD = N'$escapedAppPass', CHECK_POLICY = ON;
+Type        : String
+Start       : 7604
+Length      : 85
+StartLine   : 199
+StartColumn : 9
+EndLine     : 199
+EndColumn   : 94
+
+Content     : ,
+Type        : Operator
+Start       : 7689
+Length      : 1
+StartLine   : 199
+StartColumn : 94
+EndLine     : 199
+EndColumn   : 95
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7690
+Length      : 1
+StartLine   : 199
+StartColumn : 95
+EndLine     : 200
+EndColumn   : 1
+
+Content     : GO
+Type        : String
+Start       : 7699
+Length      : 4
+StartLine   : 200
+StartColumn : 9
+EndLine     : 200
+EndColumn   : 13
+
+Content     : ,
+Type        : Operator
+Start       : 7703
+Length      : 1
+StartLine   : 200
+StartColumn : 13
+EndLine     : 200
+EndColumn   : 14
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7704
+Length      : 1
+StartLine   : 200
+StartColumn : 14
+EndLine     : 201
+EndColumn   : 1
+
+Content     : USE [$SqlDatabaseName];
+Type        : String
+Start       : 7713
+Length      : 25
+StartLine   : 201
+StartColumn : 9
+EndLine     : 201
+EndColumn   : 34
+
+Content     : ,
+Type        : Operator
+Start       : 7738
+Length      : 1
+StartLine   : 201
+StartColumn : 34
+EndLine     : 201
+EndColumn   : 35
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7739
+Length      : 1
+StartLine   : 201
+StartColumn : 35
+EndLine     : 202
+EndColumn   : 1
+
+Content     : IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$SqlAppName')
+Type        : String
+Start       : 7748
+Length      : 83
+StartLine   : 202
+StartColumn : 9
+EndLine     : 202
+EndColumn   : 92
+
+Content     : ,
+Type        : Operator
+Start       : 7831
+Length      : 1
+StartLine   : 202
+StartColumn : 92
+EndLine     : 202
+EndColumn   : 93
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7832
+Length      : 1
+StartLine   : 202
+StartColumn : 93
+EndLine     : 203
+EndColumn   : 1
+
+Content     :   CREATE USER [$SqlAppName] FOR LOGIN [$SqlAppName];
+Type        : String
+Start       : 7841
+Length      : 54
+StartLine   : 203
+StartColumn : 9
+EndLine     : 203
+EndColumn   : 63
+
+Content     : ,
+Type        : Operator
+Start       : 7895
+Length      : 1
+StartLine   : 203
+StartColumn : 63
+EndLine     : 203
+EndColumn   : 64
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7896
+Length      : 1
+StartLine   : 203
+StartColumn : 64
+EndLine     : 204
+EndColumn   : 1
+
+Content     : ALTER ROLE db_owner ADD MEMBER [$SqlAppName];
+Type        : String
+Start       : 7905
+Length      : 47
+StartLine   : 204
+StartColumn : 9
+EndLine     : 204
+EndColumn   : 56
+
+Content     : ,
+Type        : Operator
+Start       : 7952
+Length      : 1
+StartLine   : 204
+StartColumn : 56
+EndLine     : 204
+EndColumn   : 57
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7953
+Length      : 1
+StartLine   : 204
+StartColumn : 57
+EndLine     : 205
+EndColumn   : 1
+
+Content     : GO
+Type        : String
+Start       : 7962
+Length      : 4
+StartLine   : 205
+StartColumn : 9
+EndLine     : 205
+EndColumn   : 13
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7966
+Length      : 1
+StartLine   : 205
+StartColumn : 13
+EndLine     : 206
+EndColumn   : 1
+
+Content     : )
+Type        : GroupEnd
+Start       : 7971
+Length      : 1
+StartLine   : 206
+StartColumn : 5
+EndLine     : 206
+EndColumn   : 6
+
+Content     : -join
+Type        : Operator
+Start       : 7973
+Length      : 5
+StartLine   : 206
+StartColumn : 7
+EndLine     : 206
+EndColumn   : 12
+
+Content     : 
+              
+Type        : String
+Start       : 7979
+Length      : 6
+StartLine   : 206
+StartColumn : 13
+EndLine     : 206
+EndColumn   : 19
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7985
+Length      : 1
+StartLine   : 206
+StartColumn : 19
+EndLine     : 207
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 7986
+Length      : 1
+StartLine   : 207
+StartColumn : 1
+EndLine     : 208
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 7991
+Length      : 9
+StartLine   : 208
+StartColumn : 5
+EndLine     : 208
+EndColumn   : 14
+
+Content     : Initializing database and users...
+Type        : String
+Start       : 8001
+Length      : 36
+StartLine   : 208
+StartColumn : 15
+EndLine     : 208
+EndColumn   : 51
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8037
+Length      : 1
+StartLine   : 208
+StartColumn : 51
+EndLine     : 209
+EndColumn   : 1
+
+Content     : Invoke-SqlBatch
+Type        : Command
+Start       : 8042
+Length      : 15
+StartLine   : 209
+StartColumn : 5
+EndLine     : 209
+EndColumn   : 20
+
+Content     : -exe
+Type        : CommandParameter
+Start       : 8058
+Length      : 4
+StartLine   : 209
+StartColumn : 21
+EndLine     : 209
+EndColumn   : 25
+
+Content     : sqlCmdPath
+Type        : Variable
+Start       : 8063
+Length      : 11
+StartLine   : 209
+StartColumn : 26
+EndLine     : 209
+EndColumn   : 37
+
+Content     : -server
+Type        : CommandParameter
+Start       : 8075
+Length      : 7
+StartLine   : 209
+StartColumn : 38
+EndLine     : 209
+EndColumn   : 45
+
+Content     : connectionServer
+Type        : Variable
+Start       : 8083
+Length      : 17
+StartLine   : 209
+StartColumn : 46
+EndLine     : 209
+EndColumn   : 63
+
+Content     : -user
+Type        : CommandParameter
+Start       : 8101
+Length      : 5
+StartLine   : 209
+StartColumn : 64
+EndLine     : 209
+EndColumn   : 69
+
+Content     : sa
+Type        : String
+Start       : 8107
+Length      : 4
+StartLine   : 209
+StartColumn : 70
+EndLine     : 209
+EndColumn   : 74
+
+Content     : -pass
+Type        : CommandParameter
+Start       : 8112
+Length      : 5
+StartLine   : 209
+StartColumn : 75
+EndLine     : 209
+EndColumn   : 80
+
+Content     : SqlSaPassword
+Type        : Variable
+Start       : 8118
+Length      : 14
+StartLine   : 209
+StartColumn : 81
+EndLine     : 209
+EndColumn   : 95
+
+Content     : -sql
+Type        : CommandParameter
+Start       : 8133
+Length      : 4
+StartLine   : 209
+StartColumn : 96
+EndLine     : 209
+EndColumn   : 100
+
+Content     : initializationSql
+Type        : Variable
+Start       : 8138
+Length      : 18
+StartLine   : 209
+StartColumn : 101
+EndLine     : 209
+EndColumn   : 119
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8156
+Length      : 1
+StartLine   : 209
+StartColumn : 119
+EndLine     : 210
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8157
+Length      : 1
+StartLine   : 210
+StartColumn : 1
+EndLine     : 211
+EndColumn   : 1
+
+Content     : # --- Credentials Output ---
+Type        : Comment
+Start       : 8162
+Length      : 28
+StartLine   : 211
+StartColumn : 5
+EndLine     : 211
+EndColumn   : 33
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8190
+Length      : 1
+StartLine   : 211
+StartColumn : 33
+EndLine     : 212
+EndColumn   : 1
+
+Content     : credsJson
+Type        : Variable
+Start       : 8195
+Length      : 10
+StartLine   : 212
+StartColumn : 5
+EndLine     : 212
+EndColumn   : 15
+
+Content     : =
+Type        : Operator
+Start       : 8206
+Length      : 1
+StartLine   : 212
+StartColumn : 16
+EndLine     : 212
+EndColumn   : 17
+
+Content     : [ordered]
+Type        : Type
+Start       : 8208
+Length      : 9
+StartLine   : 212
+StartColumn : 18
+EndLine     : 212
+EndColumn   : 27
+
+Content     : @{
+Type        : GroupStart
+Start       : 8217
+Length      : 2
+StartLine   : 212
+StartColumn : 27
+EndLine     : 212
+EndColumn   : 29
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8219
+Length      : 1
+StartLine   : 212
+StartColumn : 29
+EndLine     : 213
+EndColumn   : 1
+
+Content     : server
+Type        : Member
+Start       : 8228
+Length      : 6
+StartLine   : 213
+StartColumn : 9
+EndLine     : 213
+EndColumn   : 15
+
+Content     : =
+Type        : Operator
+Start       : 8241
+Length      : 1
+StartLine   : 213
+StartColumn : 22
+EndLine     : 213
+EndColumn   : 23
+
+Content     : 127.0.0.1
+Type        : String
+Start       : 8243
+Length      : 11
+StartLine   : 213
+StartColumn : 24
+EndLine     : 213
+EndColumn   : 35
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8254
+Length      : 1
+StartLine   : 213
+StartColumn : 35
+EndLine     : 214
+EndColumn   : 1
+
+Content     : port
+Type        : Member
+Start       : 8263
+Length      : 4
+StartLine   : 214
+StartColumn : 9
+EndLine     : 214
+EndColumn   : 13
+
+Content     : =
+Type        : Operator
+Start       : 8276
+Length      : 1
+StartLine   : 214
+StartColumn : 22
+EndLine     : 214
+EndColumn   : 23
+
+Content     : SqlPort
+Type        : Variable
+Start       : 8278
+Length      : 8
+StartLine   : 214
+StartColumn : 24
+EndLine     : 214
+EndColumn   : 32
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8286
+Length      : 1
+StartLine   : 214
+StartColumn : 32
+EndLine     : 215
+EndColumn   : 1
+
+Content     : database
+Type        : Member
+Start       : 8295
+Length      : 8
+StartLine   : 215
+StartColumn : 9
+EndLine     : 215
+EndColumn   : 17
+
+Content     : =
+Type        : Operator
+Start       : 8308
+Length      : 1
+StartLine   : 215
+StartColumn : 22
+EndLine     : 215
+EndColumn   : 23
+
+Content     : SqlDatabaseName
+Type        : Variable
+Start       : 8310
+Length      : 16
+StartLine   : 215
+StartColumn : 24
+EndLine     : 215
+EndColumn   : 40
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8326
+Length      : 1
+StartLine   : 215
+StartColumn : 40
+EndLine     : 216
+EndColumn   : 1
+
+Content     : user
+Type        : Member
+Start       : 8335
+Length      : 4
+StartLine   : 216
+StartColumn : 9
+EndLine     : 216
+EndColumn   : 13
+
+Content     : =
+Type        : Operator
+Start       : 8348
+Length      : 1
+StartLine   : 216
+StartColumn : 22
+EndLine     : 216
+EndColumn   : 23
+
+Content     : SqlAppName
+Type        : Variable
+Start       : 8350
+Length      : 11
+StartLine   : 216
+StartColumn : 24
+EndLine     : 216
+EndColumn   : 35
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8361
+Length      : 1
+StartLine   : 216
+StartColumn : 35
+EndLine     : 217
+EndColumn   : 1
+
+Content     : password
+Type        : Member
+Start       : 8370
+Length      : 8
+StartLine   : 217
+StartColumn : 9
+EndLine     : 217
+EndColumn   : 17
+
+Content     : =
+Type        : Operator
+Start       : 8383
+Length      : 1
+StartLine   : 217
+StartColumn : 22
+EndLine     : 217
+EndColumn   : 23
+
+Content     : SqlAppPassword
+Type        : Variable
+Start       : 8385
+Length      : 15
+StartLine   : 217
+StartColumn : 24
+EndLine     : 217
+EndColumn   : 39
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8400
+Length      : 1
+StartLine   : 217
+StartColumn : 39
+EndLine     : 218
+EndColumn   : 1
+
+Content     : instanceName
+Type        : Member
+Start       : 8409
+Length      : 12
+StartLine   : 218
+StartColumn : 9
+EndLine     : 218
+EndColumn   : 21
+
+Content     : =
+Type        : Operator
+Start       : 8422
+Length      : 1
+StartLine   : 218
+StartColumn : 22
+EndLine     : 218
+EndColumn   : 23
+
+Content     : SqlInstanceName
+Type        : Variable
+Start       : 8424
+Length      : 16
+StartLine   : 218
+StartColumn : 24
+EndLine     : 218
+EndColumn   : 40
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8440
+Length      : 1
+StartLine   : 218
+StartColumn : 40
+EndLine     : 219
+EndColumn   : 1
+
+Content     : timestamp
+Type        : Member
+Start       : 8449
+Length      : 9
+StartLine   : 219
+StartColumn : 9
+EndLine     : 219
+EndColumn   : 18
+
+Content     : =
+Type        : Operator
+Start       : 8462
+Length      : 1
+StartLine   : 219
+StartColumn : 22
+EndLine     : 219
+EndColumn   : 23
+
+Content     : (
+Type        : GroupStart
+Start       : 8464
+Length      : 1
+StartLine   : 219
+StartColumn : 24
+EndLine     : 219
+EndColumn   : 25
+
+Content     : Get-Date
+Type        : Command
+Start       : 8465
+Length      : 8
+StartLine   : 219
+StartColumn : 25
+EndLine     : 219
+EndColumn   : 33
+
+Content     : )
+Type        : GroupEnd
+Start       : 8473
+Length      : 1
+StartLine   : 219
+StartColumn : 33
+EndLine     : 219
+EndColumn   : 34
+
+Content     : .
+Type        : Operator
+Start       : 8474
+Length      : 1
+StartLine   : 219
+StartColumn : 34
+EndLine     : 219
+EndColumn   : 35
+
+Content     : ToString
+Type        : Member
+Start       : 8475
+Length      : 8
+StartLine   : 219
+StartColumn : 35
+EndLine     : 219
+EndColumn   : 43
+
+Content     : (
+Type        : GroupStart
+Start       : 8483
+Length      : 1
+StartLine   : 219
+StartColumn : 43
+EndLine     : 219
+EndColumn   : 44
+
+Content     : o
+Type        : String
+Start       : 8484
+Length      : 3
+StartLine   : 219
+StartColumn : 44
+EndLine     : 219
+EndColumn   : 47
+
+Content     : )
+Type        : GroupEnd
+Start       : 8487
+Length      : 1
+StartLine   : 219
+StartColumn : 47
+EndLine     : 219
+EndColumn   : 48
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8488
+Length      : 1
+StartLine   : 219
+StartColumn : 48
+EndLine     : 220
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 8493
+Length      : 1
+StartLine   : 220
+StartColumn : 5
+EndLine     : 220
+EndColumn   : 6
+
+Content     : |
+Type        : Operator
+Start       : 8495
+Length      : 1
+StartLine   : 220
+StartColumn : 7
+EndLine     : 220
+EndColumn   : 8
+
+Content     : ConvertTo-Json
+Type        : Command
+Start       : 8497
+Length      : 14
+StartLine   : 220
+StartColumn : 9
+EndLine     : 220
+EndColumn   : 23
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8511
+Length      : 1
+StartLine   : 220
+StartColumn : 23
+EndLine     : 221
+EndColumn   : 1
+
+Content     : Set-Content
+Type        : Command
+Start       : 8516
+Length      : 11
+StartLine   : 221
+StartColumn : 5
+EndLine     : 221
+EndColumn   : 16
+
+Content     : -Path
+Type        : CommandParameter
+Start       : 8528
+Length      : 5
+StartLine   : 221
+StartColumn : 17
+EndLine     : 221
+EndColumn   : 22
+
+Content     : CredPath
+Type        : Variable
+Start       : 8534
+Length      : 9
+StartLine   : 221
+StartColumn : 23
+EndLine     : 221
+EndColumn   : 32
+
+Content     : -Value
+Type        : CommandParameter
+Start       : 8544
+Length      : 6
+StartLine   : 221
+StartColumn : 33
+EndLine     : 221
+EndColumn   : 39
+
+Content     : credsJson
+Type        : Variable
+Start       : 8551
+Length      : 10
+StartLine   : 221
+StartColumn : 40
+EndLine     : 221
+EndColumn   : 50
+
+Content     : -Encoding
+Type        : CommandParameter
+Start       : 8562
+Length      : 9
+StartLine   : 221
+StartColumn : 51
+EndLine     : 221
+EndColumn   : 60
+
+Content     : UTF8
+Type        : CommandArgument
+Start       : 8572
+Length      : 4
+StartLine   : 221
+StartColumn : 61
+EndLine     : 221
+EndColumn   : 65
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8576
+Length      : 1
+StartLine   : 221
+StartColumn : 65
+EndLine     : 222
+EndColumn   : 1
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8581
+Length      : 1
+StartLine   : 222
+StartColumn : 5
+EndLine     : 223
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 8586
+Length      : 9
+StartLine   : 223
+StartColumn : 5
+EndLine     : 223
+EndColumn   : 14
+
+Content     : Setup completed successfully.
+Type        : String
+Start       : 8596
+Length      : 31
+StartLine   : 223
+StartColumn : 15
+EndLine     : 223
+EndColumn   : 46
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8627
+Length      : 1
+StartLine   : 223
+StartColumn : 46
+EndLine     : 224
+EndColumn   : 1
+
+Content     : exit
+Type        : Keyword
+Start       : 8632
+Length      : 4
+StartLine   : 224
+StartColumn : 5
+EndLine     : 224
+EndColumn   : 9
+
+Content     : 0
+Type        : Number
+Start       : 8637
+Length      : 1
+StartLine   : 224
+StartColumn : 10
+EndLine     : 224
+EndColumn   : 11
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8638
+Length      : 1
+StartLine   : 224
+StartColumn : 11
+EndLine     : 225
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 8639
+Length      : 1
+StartLine   : 225
+StartColumn : 1
+EndLine     : 225
+EndColumn   : 2
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8640
+Length      : 1
+StartLine   : 225
+StartColumn : 2
+EndLine     : 226
+EndColumn   : 1
+
+Content     : catch
+Type        : Keyword
+Start       : 8641
+Length      : 5
+StartLine   : 226
+StartColumn : 1
+EndLine     : 226
+EndColumn   : 6
+
+Content     : {
+Type        : GroupStart
+Start       : 8647
+Length      : 1
+StartLine   : 226
+StartColumn : 7
+EndLine     : 226
+EndColumn   : 8
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8648
+Length      : 1
+StartLine   : 226
+StartColumn : 8
+EndLine     : 227
+EndColumn   : 1
+
+Content     : Write-Log
+Type        : Command
+Start       : 8653
+Length      : 9
+StartLine   : 227
+StartColumn : 5
+EndLine     : 227
+EndColumn   : 14
+
+Content     : Unexpected error: $($_.Exception.Message)
+Type        : String
+Start       : 8663
+Length      : 43
+StartLine   : 227
+StartColumn : 15
+EndLine     : 227
+EndColumn   : 58
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8706
+Length      : 1
+StartLine   : 227
+StartColumn : 58
+EndLine     : 228
+EndColumn   : 1
+
+Content     : exit
+Type        : Keyword
+Start       : 8711
+Length      : 4
+StartLine   : 228
+StartColumn : 5
+EndLine     : 228
+EndColumn   : 9
+
+Content     : 1
+Type        : Number
+Start       : 8716
+Length      : 1
+StartLine   : 228
+StartColumn : 10
+EndLine     : 228
+EndColumn   : 11
+
+Content     : 
+              
+Type        : NewLine
+Start       : 8717
+Length      : 1
+StartLine   : 228
+StartColumn : 11
+EndLine     : 229
+EndColumn   : 1
+
+Content     : }
+Type        : GroupEnd
+Start       : 8718
+Length      : 1
+StartLine   : 229
+StartColumn : 1
+EndLine     : 229
+EndColumn   : 2
+
+? SUCCESS: NO PARSING ERRORS - FILE IS 100% VALID
+
+

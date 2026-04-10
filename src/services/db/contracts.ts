@@ -403,11 +403,44 @@ export function createContractWrites(deps: ContractWritesDeps) {
     return ok(res.data, 'تم التجديد بنجاح');
   };
 
+  const deleteContract = (id: string): DbResult<null> => {
+    const all = get<العقود_tbl>(KEYS.CONTRACTS);
+    const idx = all.findIndex((c) => c.رقم_العقد === id);
+    if (idx === -1) return fail('العقد غير موجود');
+
+    const contract = all[idx];
+    const propertyId = contract.رقم_العقار;
+
+    // Remove contract
+    save(KEYS.CONTRACTS, all.filter((c) => c.رقم_العقد !== id));
+
+    // Remove commissions
+    const comms = get<العمولات_tbl>(KEYS.COMMISSIONS);
+    save(KEYS.COMMISSIONS, comms.filter((c) => c.رقم_العقد !== id));
+
+    // Remove installments
+    const insts = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
+    save(KEYS.INSTALLMENTS, insts.filter((i) => i.رقم_العقد !== id));
+
+    // Update property status
+    const props = get<العقارات_tbl>(KEYS.PROPERTIES);
+    const pIdx = props.findIndex((p) => p.رقم_العقار === propertyId);
+    if (pIdx > -1) {
+      props[pIdx].IsRented = false;
+      props[pIdx].حالة_العقار = 'شاغر';
+      save(KEYS.PROPERTIES, props);
+    }
+
+    logOperation('Admin', 'حذف', 'Contracts', id, `حذف العقد نهائياً للهاتف`);
+    return ok(null, 'تم حذف العقد بنجاح');
+  };
+
   return {
     createContract,
     updateContract,
     archiveContract,
     terminateContract,
     renewContract,
+    deleteContract,
   };
 }

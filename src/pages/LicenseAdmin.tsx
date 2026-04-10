@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -7,6 +7,25 @@ import { Select } from '@/components/ui/Select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { safeCopyToClipboard } from '@/utils/clipboard';
 import { ROUTE_PATHS } from '@/routes/paths';
+import {
+  Activity,
+  LayoutDashboard,
+  Key,
+  Users as UsersIcon,
+  Users2 as CustomersIcon,
+  Settings as SettingsIcon,
+  LogOut,
+  Globe,
+  Search,
+  Plus,
+  Trash2,
+  FileText,
+  Save,
+  ShieldCheck,
+  Smartphone,
+  History,
+  Info
+} from 'lucide-react';
 import {
   loadLicenseAdminServerSettings,
   normalizeServerOrigin,
@@ -21,6 +40,7 @@ import {
   upsertFingerprintRecord,
 } from '@/features/licenseAdmin/fingerprintRegistry';
 import { fmtDateTime, getErrorMessage, licenseStatusToArabic } from '@/features/licenseAdmin/utils';
+import { useToast } from '@/context/ToastContext';
 
 type AdminListItem = {
   licenseKey: string;
@@ -107,8 +127,14 @@ const computeExpiresAtFromDuration = (duration: IssueDuration): string => {
   return '';
 };
 
+type TabKey = 'dashboard' | 'licenses' | 'customers' | 'settings';
+
 export const LicenseAdmin: React.FC = () => {
+  const toast = useToast();
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [serverUrl, setServerUrl] = useState('http://127.0.0.1:5056');
+  const [servers, setServers] = useState<string[]>([]);
+  const [newServer, setNewServer] = useState('');
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [serverAdminToken, setServerAdminToken] = useState('');
@@ -118,9 +144,9 @@ export const LicenseAdmin: React.FC = () => {
   const [loggedIn, setLoggedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-
   const [info, setInfo] = useState('');
 
+  // Licensing State
   const [q, setQ] = useState('');
   const [items, setItems] = useState<AdminListItem[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>('');
@@ -140,6 +166,9 @@ export const LicenseAdmin: React.FC = () => {
   const [activateResultJson, setActivateResultJson] = useState('');
   const [activateMeta, setActivateMeta] = useState('');
   const [savePath, setSavePath] = useState('');
+  
+  // Customers State
+  const [customerSearch, setCustomerSearch] = useState('');
 
   const [fpOwner, setFpOwner] = useState('');
   const [fpComment, setFpComment] = useState('');
@@ -165,6 +194,7 @@ export const LicenseAdmin: React.FC = () => {
 
   useEffect(() => {
     const st = loadLicenseAdminServerSettings();
+    setServers(st.servers);
     if (st.selectedServer) setServerUrl(st.selectedServer);
     setFpItems(loadFingerprintRegistry());
   }, []);
@@ -178,6 +208,36 @@ export const LicenseAdmin: React.FC = () => {
     if (!fpOwner.trim()) setFpOwner(match.owner || '');
     if (!fpComment.trim()) setFpComment(match.comment || '');
   }, [activateDeviceId, fpItems, fpOwner, fpComment]);
+
+  useEffect(() => {
+    if (serverUrl) {
+      saveLicenseAdminSelectedServer(serverUrl);
+    }
+  }, [serverUrl]);
+
+  const doAddServer = () => {
+    const origin = normalizeServerOrigin(newServer);
+    if (!origin) {
+      toast.error('رابط السيرفر غير صالح');
+      return;
+    }
+    const next = Array.from(new Set([origin, ...servers]));
+    setServers(next);
+    setServerUrl(origin);
+    saveLicenseAdminServers(next);
+    setNewServer('');
+    toast.success('تمت إضافة السيرفر');
+  };
+
+  const doRemoveServer = (url: string) => {
+    const next = servers.filter((s) => s !== url);
+    setServers(next);
+    saveLicenseAdminServers(next);
+    if (serverUrl === url) {
+      setServerUrl(next[0] || 'http://127.0.0.1:5056');
+    }
+    toast.success('تم حذف السيرفر');
+  };
 
   const selectedItem = useMemo(
     () => items.find((x) => x.licenseKey === selectedKey) || null,
@@ -798,895 +858,573 @@ export const LicenseAdmin: React.FC = () => {
     if (duration === 'custom') return;
     setIssueExpiresAt(computeExpiresAtFromDuration(duration));
   };
+  
+  // --- Customers Logic ---
+  const customerGroups = useMemo(() => {
+    const byKey = new Map<string, { label: string; company?: string; name?: string; phone?: string; city?: string; items: AdminListItem[] }>();
+    const norm = (v: unknown) => String(v ?? '').trim();
+    
+    for (const it of items) {
+      const company = norm(it.customerCompany);
+      const name = norm(it.customerName);
+      const phone = norm(it.customerPhone);
+      const city = norm(it.customerCity);
+      const k = [company, name, phone, city].filter(Boolean).join(' | ') || 'بدون بيانات';
+      
+      if (!byKey.has(k)) {
+        byKey.set(k, {
+          label: company || name || 'عميل غير مسجل',
+          company: company || undefined,
+          name: name || undefined,
+          phone: phone || undefined,
+          city: city || undefined,
+          items: [it]
+        });
+      } else {
+        byKey.get(k)?.items.push(it);
+      }
+    }
+    
+    const out = Array.from(byKey.values());
+    out.sort((a,b) => b.items.length - a.items.length || a.label.localeCompare(b.label, 'ar'));
+    return out;
+  }, [items]);
+
+  const filteredCustomerGroups = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return customerGroups;
+    return customerGroups.filter(g => 
+      g.label.toLowerCase().includes(q) || 
+      g.company?.toLowerCase().includes(q) || 
+      g.phone?.includes(q)
+    );
+  }, [customerGroups, customerSearch]);
+
+  // --- Server User Settings Logic ---
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const doUpdateServerUser = async () => {
+    if (!canUseBridge) return;
+    const u = newUsername.trim();
+    if (!u) {
+      toast.error('اسم المستخدم مطلوب');
+      return;
+    }
+    if (newPassword && newPassword !== confirmPassword) {
+      toast.error('كلمة المرور غير متطابقة');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await window.desktopLicenseAdmin?.updateUser({
+        username: u,
+        newPassword: newPassword || undefined
+      });
+      const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
+      if (rec.ok !== true) throw new Error(String(rec.error || 'Failed'));
+      toast.success('تم تحديث بيانات الدخول للسيرفر');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || 'فشل التحديث');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950" dir="rtl">
-      <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-6" dir="rtl">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">إدارة التراخيص</h1>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              إدارة الأكواد والأجهزة + متابعة ما بعد البيع (بيانات عميل / ملاحظات / مواعيد)
-            </div>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+              <Globe className="text-indigo-600" size={28} />
+              مركز إدارة التراخيص (Hub)
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              إدارة تفعيل الأنظمة، متابعة العملاء، وإعدادات خادم الترخيص المركزي.
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link to={ROUTE_PATHS.LICENSE_ADMIN}>
-              <Button variant="secondary" disabled={busy}>
-                لوحة التحكم
+            <Button variant="secondary" onClick={() => void refreshList()} disabled={busy || !loggedIn}>
+              <Activity size={16} className={busy ? 'animate-spin' : ''} />
+              تحديث البيانات
+            </Button>
+            {loggedIn && (
+              <Button variant="danger" onClick={() => void doLogout()}>
+                <LogOut size={16} />
+                خروج
               </Button>
-            </Link>
-            {loggedIn ? (
-              <Link to={ROUTE_PATHS.LICENSE_ADMIN_USERS}>
-                <Button variant="secondary" disabled={busy}>
-                  المستخدمين
-                </Button>
-              </Link>
-            ) : null}
-            {loggedIn ? (
-              <Link to={ROUTE_PATHS.LICENSE_ADMIN_CUSTOMERS}>
-                <Button variant="secondary" disabled={busy}>
-                  العملاء
-                </Button>
-              </Link>
-            ) : null}
-            {loggedIn ? (
-              <Button variant="secondary" onClick={() => void doLogout()} disabled={busy}>
-                تسجيل الخروج
-              </Button>
-            ) : null}
+            )}
           </div>
         </div>
 
-        <Card className="p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <div className="md:col-span-2">
-              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
-                رابط سيرفر التفعيل
-              </div>
-              <Input
-                dir="ltr"
-                className="font-mono text-sm"
-                value={serverUrl}
-                onChange={(e) => {
-                  const nextRaw = e.target.value;
-                  setServerUrl(nextRaw);
-                  const origin = normalizeServerOrigin(nextRaw);
-                  if (origin) {
-                    const st = loadLicenseAdminServerSettings();
-                    saveLicenseAdminSelectedServer(origin);
-                    saveLicenseAdminServers(Array.from(new Set([origin, ...st.servers])));
-                  }
-                }}
-                placeholder="http://127.0.0.1:5056"
-              />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
-                اسم المستخدم
-              </div>
-              <Input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin"
-                disabled={loggedIn}
-              />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
-                كلمة مرور الأدمن
-              </div>
-              <Input
-                dir="ltr"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                type="password"
-                disabled={loggedIn}
-              />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
-                توكن السيرفر
-              </div>
-              <Input
-                dir="ltr"
-                className="font-mono text-xs"
-                value={serverAdminToken}
-                onChange={(e) => setServerAdminToken(e.target.value)}
-                placeholder="X-Admin-Token"
-                type="password"
-                disabled={busy}
-              />
-              {loggedIn ? (
-                <div className="mt-2 flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => void doSaveAdminToken()}
-                    disabled={busy}
-                    isLoading={busy}
-                  >
-                    حفظ التوكن
-                  </Button>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    الحالة:{' '}
-                    {serverAdminTokenConfigured === null
-                      ? '—'
-                      : serverAdminTokenConfigured
-                        ? 'مُعد'
-                        : 'غير مُعد'}
-                  </div>
-                </div>
-              ) : null}
-            </div>
+        {/* Tabs Switcher */}
+        <div className="flex flex-wrap gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+          {[
+            { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
+            { id: 'licenses', label: 'إدارة التراخيص', icon: Key },
+            { id: 'customers', label: 'العملاء والمتابعة', icon: CustomersIcon },
+            { id: 'settings', label: 'إعدادات الحساب', icon: SettingsIcon },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as TabKey)}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === tab.id
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                  : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <tab.icon size={18} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Error/Info Banner */}
+        {error && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-2xl text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-3 transition-all animate-shake">
+            <ShieldCheck size={20} />
+            {error}
           </div>
+        )}
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {!loggedIn ? (
-              <Button onClick={() => void doLogin()} disabled={busy}>
-                دخول
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={() => void refreshList()} disabled={busy}>
-                تحديث القائمة
-              </Button>
-            )}
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {canUseBridge
-                ? loggedIn
-                  ? 'الحالة: مُسجل دخول'
-                  : 'الحالة: غير مُسجل'
-                : 'هذه الصفحة تعمل داخل Electron فقط'}
-            </div>
-          </div>
-
-          {error ? <div className="text-sm text-red-600">{error}</div> : null}
-          {info ? <div className="text-sm text-slate-600 dark:text-slate-300">{info}</div> : null}
-        </Card>
-
-        {loggedIn ? (
-          <Card className="p-4 space-y-3 overflow-visible">
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-              إصدار ترخيص جديد
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div>
-                <div className="text-xs text-slate-500 mb-1">
-                  عدد الأجهزة المسموح (maxActivations)
-                </div>
-                <Input
-                  value={issueMaxActivations}
-                  onChange={(e) => setIssueMaxActivations(e.target.value)}
-                  placeholder="1"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">مدة الاشتراك</div>
-                <Select
-                  value={issueDuration}
-                  onChange={(e) => applyIssueDuration(String(e.target.value) as IssueDuration)}
-                  disabled={busy}
-                  options={[
-                    { value: 'trial14d', label: 'تجربة 14 يوم' },
-                    { value: '1m', label: 'شهر' },
-                    { value: '3m', label: '3 شهور' },
-                    { value: '6m', label: '6 شهور' },
-                    { value: '1y', label: 'سنة' },
-                    { value: '', label: 'بدون انتهاء' },
-                    { value: 'custom', label: 'مخصص (يدوي)' },
-                  ]}
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">تاريخ الانتهاء (expiresAt)</div>
-                <Input
-                  value={issueExpiresAt}
-                  onChange={(e) => {
-                    setIssueExpiresAt(e.target.value);
-                    setIssueDuration('custom');
-                  }}
-                  placeholder="2026-02-10"
-                  dir="ltr"
-                  lang="en"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">المزايا (features JSON)</div>
-                <Input
-                  value={issueFeaturesJson}
-                  onChange={(e) => setIssueFeaturesJson(e.target.value)}
-                  placeholder='{"featureA": true}'
-                  dir="ltr"
-                  lang="en"
-                  className="font-mono text-xs"
-                  spellCheck={false}
-                />
-              </div>
-            </div>
-            <div>
-              <Button onClick={() => void doIssue()} disabled={busy}>
-                إصدار الترخيص + نسخ المفتاح
-              </Button>
-            </div>
-          </Card>
-        ) : null}
-
-        {loggedIn ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  قائمة التراخيص
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="بحث بالمفتاح (licenseKey)"
-                    className="min-w-[16rem]"
-                  />
-                  <Button variant="secondary" onClick={() => void refreshList()} disabled={busy}>
-                    بحث
-                  </Button>
-                </div>
-              </div>
-
-              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-                <div className="max-h-[50vh] overflow-auto">
-                  {items.length === 0 ? (
-                    <div className="p-6 text-sm text-slate-500 text-center">لا توجد بيانات</div>
-                  ) : (
-                    <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                      {items.map((it) => {
-                        const active = it.licenseKey === selectedKey;
-                        const customerLabel =
-                          String(it.customerCompany || '').trim() ||
-                          String(it.customerName || '').trim() ||
-                          '';
-                        return (
-                          <button
-                            key={it.licenseKey}
-                            type="button"
-                            className={`w-full text-right p-3 transition-colors ${
-                              active
-                                ? 'bg-indigo-50 dark:bg-indigo-950/20'
-                                : 'bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900/20'
-                            }`}
-                            onClick={() => setSelectedKey(it.licenseKey)}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div
-                                  className="font-mono text-xs overflow-x-auto whitespace-nowrap"
-                                  dir="ltr"
-                                  title={it.licenseKey}
-                                >
-                                  {it.licenseKey}
-                                </div>
-                                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
-                                  <span className="whitespace-nowrap">
-                                    الإنشاء: {it.createdAt ? fmtDateTime(it.createdAt) : '—'}
-                                  </span>
-                                  <span className="whitespace-nowrap">
-                                    الانتهاء: {it.expiresAt ? fmtDateTime(it.expiresAt) : '—'}
-                                  </span>
-                                  <span className="whitespace-nowrap">
-                                    الأجهزة:{' '}
-                                    {typeof it.activationsCount === 'number'
-                                      ? it.activationsCount
-                                      : '—'}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex flex-col items-end gap-2">
-                                {it.status ? (
-                                  <StatusBadge status={licenseStatusToArabic(it.status)} />
-                                ) : null}
-                                {customerLabel ? (
-                                  <div
-                                    className="text-xs text-slate-600 dark:text-slate-300 max-w-[12rem] truncate"
-                                    title={customerLabel}
-                                  >
-                                    {customerLabel}
-                                  </div>
-                                ) : null}
-                              </div>
+        {/* Content Area */}
+        <div className="animate-fade-in">
+          {activeTab === 'dashboard' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 space-y-6">
+                {/* Server Selection */}
+                <Card className="p-6 rounded-3xl space-y-4">
+                  <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <Globe size={20} className="text-indigo-600" />
+                    خوادم الترخيص المتاحة
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      {servers.map((s) => (
+                        <div
+                          key={s}
+                          onClick={() => setServerUrl(s)}
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
+                            serverUrl === s
+                              ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-600'
+                              : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className={`p-2 rounded-xl ${serverUrl === s ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                              <Globe size={16} />
                             </div>
+                            <span className="text-sm font-bold truncate">{s}</span>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); doRemoveServer(s); }}
+                            className="p-2 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                          >
+                            <Trash2 size={16} />
                           </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  تفاصيل الترخيص
-                </div>
-                {selectedKey ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        void safeCopyToClipboard(selectedKey);
-                      }}
-                      disabled={!selectedKey}
-                    >
-                      نسخ المفتاح
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => void doDelete()}
-                      disabled={busy || !selectedKey}
-                    >
-                      حذف الكود
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-
-              {!selectedKey ? (
-                <div className="text-sm text-slate-500">اختر ترخيصاً من القائمة</div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <div className="text-xs text-slate-500">licenseKey</div>
-                      <div className="mt-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 px-2 py-1 overflow-x-auto">
-                        <span className="font-mono text-xs whitespace-nowrap" dir="ltr">
-                          {selectedKey}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">status</div>
-                      <div>
-                        {selectedRecord?.status || selectedItem?.status ? (
-                          <StatusBadge
-                            status={licenseStatusToArabic(
-                              selectedRecord?.status || selectedItem?.status
-                            )}
-                          />
-                        ) : (
-                          ''
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">createdAt</div>
-                      <div>
-                        {selectedRecord?.createdAt
-                          ? fmtDateTime(selectedRecord.createdAt)
-                          : selectedItem?.createdAt
-                            ? fmtDateTime(selectedItem.createdAt)
-                            : ''}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">expiresAt</div>
-                      <div>
-                        {selectedRecord?.expiresAt
-                          ? fmtDateTime(selectedRecord.expiresAt)
-                          : selectedItem?.expiresAt
-                            ? fmtDateTime(selectedItem.expiresAt)
-                            : ''}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">maxActivations</div>
-                      <div>
-                        {typeof selectedRecord?.maxActivations === 'number'
-                          ? selectedRecord.maxActivations
-                          : (selectedItem?.maxActivations ?? '')}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">activationsCount</div>
-                      <div>
-                        {selectedRecord?.activations?.length ??
-                          selectedItem?.activationsCount ??
-                          ''}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">lastSeenAt</div>
-                      <div>
-                        {selectedRecord?.lastSeenAt ? fmtDateTime(selectedRecord.lastSeenAt) : ''}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      المزايا (Features)
-                    </div>
-                    <textarea
-                      className="w-full h-28 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 overflow-x-auto"
-                      value={
-                        selectedRecord?.features
-                          ? JSON.stringify(selectedRecord.features, null, 2)
-                          : ''
-                      }
-                      readOnly
-                      placeholder="لا يوجد"
-                      dir="ltr"
-                      wrap="off"
-                      spellCheck={false}
-                    />
-                  </div>
-
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      تغيير الحالة
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Select
-                        value={setStatusValue}
-                        onChange={(e) =>
-                          setSetStatusValue(
-                            String(e.target.value) as 'active' | 'suspended' | 'revoked'
-                          )
-                        }
-                        disabled={busy}
-                        options={[
-                          { value: 'active', label: 'نشط' },
-                          { value: 'suspended', label: 'معلق' },
-                          { value: 'revoked', label: 'ملغي' },
-                        ]}
-                      />
-                      <Input
-                        value={setStatusNote}
-                        onChange={(e) => setSetStatusNote(e.target.value)}
-                        placeholder="ملاحظة (اختياري)"
-                        disabled={busy}
-                      />
-                      <Button
-                        variant="secondary"
-                        onClick={() => void doSetStatus()}
-                        disabled={busy}
-                      >
-                        تطبيق
-                      </Button>
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      آخر تغيير:{' '}
-                      {selectedRecord?.statusUpdatedAt
-                        ? fmtDateTime(selectedRecord.statusUpdatedAt)
-                        : selectedItem?.statusUpdatedAt
-                          ? fmtDateTime(selectedItem.statusUpdatedAt)
-                          : ''}
-                      {selectedRecord?.statusNote || selectedItem?.statusNote
-                        ? ` — ${selectedRecord?.statusNote || selectedItem?.statusNote}`
-                        : ''}
-                    </div>
-                  </div>
-
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-3">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        ما بعد البيع
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        آخر تحديث:{' '}
-                        {selectedRecord?.afterSales?.updatedAt
-                          ? fmtDateTime(selectedRecord.afterSales.updatedAt)
-                          : '—'}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">اسم العميل</div>
-                        <Input
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          placeholder="مثال: أحمد محمد"
-                          disabled={busy}
-                        />
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">اسم الشركة</div>
-                        <Input
-                          value={customerCompany}
-                          onChange={(e) => setCustomerCompany(e.target.value)}
-                          placeholder="مثال: مؤسسة ..."
-                          disabled={busy}
-                        />
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">الهاتف</div>
-                        <Input
-                          value={customerPhone}
-                          onChange={(e) => setCustomerPhone(e.target.value)}
-                          placeholder="05xxxxxxxx"
-                          disabled={busy}
-                        />
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">المدينة</div>
-                        <Input
-                          value={customerCity}
-                          onChange={(e) => setCustomerCity(e.target.value)}
-                          placeholder="الرياض"
-                          disabled={busy}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">حالة المتابعة</div>
-                        <Select
-                          value={followUpStatus}
-                          onChange={(e) => setFollowUpStatus(String(e.target.value))}
-                          disabled={busy}
-                          options={followUpStatusOptions}
-                          placeholder="اختر"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">آخر تواصل (ISO)</div>
-                        <Input
-                          value={followUpLastContactAt}
-                          onChange={(e) => setFollowUpLastContactAt(e.target.value)}
-                          placeholder="2026-02-09T12:00:00.000Z"
-                          disabled={busy}
-                          dir="ltr"
-                          lang="en"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">
-                          موعد المتابعة القادم (ISO)
                         </div>
-                        <Input
-                          value={followUpNextAt}
-                          onChange={(e) => setFollowUpNextAt(e.target.value)}
-                          placeholder="2026-02-15T10:00:00.000Z"
-                          disabled={busy}
-                          dir="ltr"
-                          lang="en"
-                        />
+                      ))}
+                    </div>
+                    <div className="p-6 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center space-y-4">
+                      <div className="p-4 bg-white dark:bg-slate-900 rounded-full text-slate-400">
+                        <Plus size={32} />
                       </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-slate-500 mb-1">ملاحظات الدعم (داخلية)</div>
-                      <textarea
-                        className="w-full min-h-28 p-3 text-sm rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/35"
-                        value={afterSalesNote}
-                        onChange={(e) => setAfterSalesNote(e.target.value)}
-                        placeholder="اكتب ملخص الحالة/المشكلة/ما تم عمله..."
-                        disabled={busy}
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Input
-                        value={afterSalesLogNote}
-                        onChange={(e) => setAfterSalesLogNote(e.target.value)}
-                        placeholder="سبب التحديث (اختياري يظهر في سجل الإجراءات)"
-                        disabled={busy}
-                      />
-                      <Button
-                        variant="secondary"
-                        onClick={() => void doUpdateAfterSales()}
-                        disabled={busy}
-                        isLoading={busy}
-                      >
-                        حفظ بيانات ما بعد البيع
-                      </Button>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold">إضافة خادم جديد</p>
+                        <p className="text-[10px] text-slate-400">يمكنك إضافة روابط خوادم تفعيل أخرى</p>
+                      </div>
+                      <div className="w-full space-y-2">
+                        <Input
+                          value={newServer}
+                          onChange={(e) => setNewServer(e.target.value)}
+                          placeholder="https://license.yoursite.com"
+                        />
+                        <Button onClick={doAddServer} className="w-full">إضافة للسجل</Button>
+                      </div>
                     </div>
                   </div>
+                </Card>
+              </div>
 
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      التفعيل (أونلاين / ملف Offline)
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      الصق بصمة جهاز العميل (fingerprint) ثم اكتب اسم العميل وتعليق. بعدها اختر:
-                      <br />- إنشاء ملف تفعيل Offline (JSON) للحفظ والإرسال للعميل
-                      <br />- أو حفظ البصمة في السجل لتسهيل العمل لاحقاً
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <div className="md:col-span-1">
-                        <div className="text-xs text-slate-500 mb-1">اسم/جهة العميل</div>
-                        <Input
-                          value={fpOwner}
-                          onChange={(e) => setFpOwner(e.target.value)}
-                          placeholder="مثال: أبو أحمد / شركة كذا"
-                          disabled={busy}
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <div className="text-xs text-slate-500 mb-1">تعليق</div>
-                        <Input
-                          value={fpComment}
-                          onChange={(e) => setFpComment(e.target.value)}
-                          placeholder="مثال: تم إرسال الملف عبر واتساب"
-                          disabled={busy}
-                        />
-                      </div>
+              <div className="lg:col-span-4 space-y-6">
+                {/* Login Status */}
+                <Card className="p-6 rounded-3xl space-y-6 relative overflow-hidden">
+                  <div className="relative z-10 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <Key size={20} className="text-indigo-600" />
+                        حالة الدخول
+                      </h3>
+                      <StatusBadge status={loggedIn ? 'متصل' : 'غير متصل'} />
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Input
-                        value={activateDeviceId}
-                        onChange={(e) => setActivateDeviceId(e.target.value)}
-                        placeholder="fingerprint (الصقه من جهاز العميل)"
-                        disabled={busy}
-                      />
-                      <Button onClick={() => void doActivate()} disabled={busy}>
-                        إنشاء ملف تفعيل Offline
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => void doUnbindDeviceFromLicense()}
-                        disabled={busy}
-                      >
-                        فصل الترخيص عن هذا الجهاز
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => doSaveFingerprint()}
-                        disabled={busy}
-                        isLoading={busy}
-                      >
-                        حفظ البصمة
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => doCancelFingerprint()}
-                        disabled={busy}
-                      >
-                        إلغاء
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => doDeleteFingerprint()}
-                        disabled={busy}
-                      >
-                        حذف
-                      </Button>
-                    </div>
-
-                    {fpItems.length ? (
-                      <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-950/20 p-2">
-                        <div className="text-xs text-slate-500 mb-2">
-                          سجل البصمات المحفوظة على هذا الجهاز
+                    {!loggedIn ? (
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-slate-500 px-1">اسم المستخدم (Admin)</label>
+                          <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" />
                         </div>
                         <div className="space-y-1">
-                          {fpItems.slice(0, 20).map((it) => (
-                            <div
-                              key={it.id}
-                              className="flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/40"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                                  {it.owner || 'بدون اسم'}
-                                </div>
-                                <div className="text-[11px] text-slate-500 break-all">
-                                  {it.fingerprint}
-                                </div>
-                                {it.comment ? (
-                                  <div className="text-xs text-slate-500 truncate">
-                                    {it.comment}
-                                  </div>
-                                ) : null}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <StatusBadge status={it.status === 'cancelled' ? 'ملغي' : 'نشط'} />
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => {
-                                    setActivateDeviceId(it.fingerprint);
-                                    setFpOwner(it.owner || '');
-                                    setFpComment(it.comment || '');
-                                  }}
-                                  disabled={busy}
-                                >
-                                  اختيار
-                                </Button>
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => void safeCopyToClipboard(it.fingerprint)}
-                                  disabled={busy}
-                                >
-                                  نسخ
-                                </Button>
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => {
-                                    setFpItems(cancelFingerprintRecord(it.id));
-                                    refreshFpItems();
-                                  }}
-                                  disabled={busy}
-                                >
-                                  إلغاء
-                                </Button>
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => {
-                                    setFpItems(deleteFingerprintRecord(it.id));
-                                    refreshFpItems();
-                                  }}
-                                  disabled={busy}
-                                >
-                                  حذف
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                          <label className="text-xs font-bold text-slate-500 px-1">كلمة المرور</label>
+                          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
                         </div>
-                        {fpItems.length > 20 ? (
-                          <div className="mt-2 text-[11px] text-slate-500">
-                            عرض 20 فقط (لتسريع الواجهة).
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {activateMeta ? (
-                      <div className="text-xs text-slate-500 whitespace-normal break-words">
-                        {activateMeta}
-                      </div>
-                    ) : null}
-
-                    {activateResultJson ? (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <div>
-                            <div className="text-xs text-slate-500 mb-1">
-                              كلمة المرور قبل تنزيل/حفظ الملف
-                            </div>
-                            <Input
-                              value={exportConfirmPassword}
-                              onChange={(e) => setExportConfirmPassword(e.target.value)}
-                              placeholder="أدخل كلمة المرور للتأكيد"
-                              type="password"
-                              disabled={busy}
-                            />
-                          </div>
-                          <div className="text-xs text-slate-500 self-end">
-                            لن يتم حفظ الملف بدون إدخال كلمة المرور.
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Button
-                            variant="secondary"
-                            onClick={() => void safeCopyToClipboard(activateResultJson)}
-                            disabled={busy}
-                          >
-                            نسخ ملف الترخيص (JSON)
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onClick={() => void doSaveLicenseFile()}
-                            disabled={busy}
-                            isLoading={busy}
-                          >
-                            حفظ الملف
-                          </Button>
-                          {savePath ? (
-                            <div className="text-xs text-slate-500">تم الحفظ: {savePath}</div>
-                          ) : null}
-                        </div>
-                        <textarea
-                          className="w-full h-48 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 overflow-x-auto"
-                          value={activateResultJson}
-                          readOnly
-                          dir="ltr"
-                          wrap="off"
-                          spellCheck={false}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      تحقق حالة جهاز (Status Check)
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      يفيد للتأكد هل الجهاز مربوط لهذا الترخيص أم سيظهر mismatch / suspended /
-                      revoked.
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Input
-                        value={statusCheckDeviceId}
-                        onChange={(e) => setStatusCheckDeviceId(e.target.value)}
-                        placeholder="fingerprint (الصقه من جهاز العميل)"
-                        disabled={busy}
-                      />
-                      <Button
-                        variant="secondary"
-                        onClick={() => void doCheckDeviceStatus()}
-                        disabled={busy}
-                      >
-                        تحقق
-                      </Button>
-                      {statusCheckResult ? (
-                        <Button
-                          variant="secondary"
-                          onClick={() => void safeCopyToClipboard(statusCheckResult)}
-                          disabled={busy}
-                        >
-                          نسخ النتيجة
+                        <Button onClick={() => void doLogin()} isLoading={busy} className="w-full py-6 text-lg">
+                          تسجيل الدخول للسيرفر
                         </Button>
-                      ) : null}
-                    </div>
-                    {statusCheckResult ? (
-                      <textarea
-                        className="w-full h-36 p-2 text-xs font-mono rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 overflow-x-auto"
-                        value={statusCheckResult}
-                        readOnly
-                        dir="ltr"
-                        wrap="off"
-                        spellCheck={false}
-                      />
-                    ) : null}
-                  </div>
-
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      سجل التفعيلات
-                    </div>
-                    {selectedRecord?.activations && selectedRecord.activations.length ? (
-                      <div className="space-y-1 text-sm">
-                        {selectedRecord.activations.map((a, idx) => (
-                          <div key={idx} className="flex items-center justify-between gap-2">
-                            <div className="font-mono break-all">{a.deviceId || ''}</div>
-                            <div className="text-xs text-slate-500">
-                              {a.at ? fmtDateTime(a.at) : ''}
-                            </div>
-                          </div>
-                        ))}
                       </div>
                     ) : (
-                      <div className="text-sm text-slate-500">لا يوجد</div>
+                      <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 text-center space-y-4">
+                        <div className="w-16 h-16 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-600/20">
+                          <ShieldCheck size={32} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-emerald-800 dark:text-emerald-300">أنت الآن في وضع التحكم</p>
+                          <p className="text-[10px] text-emerald-600/70 mt-1">يمكنك إدارة التراخيص والعملاء عبر التبويبات أعلاه.</p>
+                        </div>
+                      </div>
                     )}
                   </div>
+                </Card>
+              </div>
+            </div>
+          )}
 
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      سجل الإجراءات
-                    </div>
-                    {selectedRecord?.audit && selectedRecord.audit.length ? (
-                      <div className="space-y-2 text-sm">
-                        {selectedRecord.audit.slice(0, 30).map((a, idx) => (
-                          <div
-                            key={idx}
-                            className="border border-slate-200 dark:border-slate-800 rounded-lg p-2"
-                          >
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <div className="font-mono text-xs text-slate-700 dark:text-slate-200 break-all">
-                                {a.action || ''}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {a.at ? fmtDateTime(a.at) : ''}
-                              </div>
-                            </div>
-                            {a.note ? (
-                              <div className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                                {a.note}
-                              </div>
-                            ) : null}
+          {activeTab === 'licenses' && (
+            <div className="space-y-6">
+              {!loggedIn ? (
+                <div className="p-12 text-center space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+                  <Key size={48} className="mx-auto text-slate-300" />
+                  <p className="text-slate-500">يرجى تسجيل الدخول أولاً من لوحة التحكم للوصول لإدارة التراخيص.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Column: Management */}
+                  <div className="lg:col-span-8 flex flex-col gap-6">
+                    <Card className="p-6 rounded-3xl space-y-6">
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                          <Activity size={20} className="text-indigo-600" />
+                          قائمة المفاتيح المصدرة
+                        </h3>
+                        <div className="flex items-center gap-2 flex-1 max-w-md">
+                          <div className="relative flex-1">
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <Input
+                              value={q}
+                              onChange={(e) => setQ(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && refreshList()}
+                              placeholder="بحث برقم الكود أو الاسم..."
+                              className="pr-10"
+                            />
                           </div>
-                        ))}
+                          <Button onClick={() => void refreshList()} disabled={busy}>تحديث</Button>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-sm text-slate-500">لا يوجد</div>
+
+                      <div className="app-table-wrapper rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <table className="app-table">
+                          <thead className="app-table-thead">
+                            <tr>
+                              <th className="app-table-th">المفتاح</th>
+                              <th className="app-table-th">العميل</th>
+                              <th className="app-table-th text-center">الحالة</th>
+                              <th className="app-table-th text-center">التفعيل</th>
+                              <th className="app-table-th text-center">إجراء</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
+                            {items.slice(0, 50).map((it) => (
+                              <tr
+                                key={it.licenseKey}
+                                onClick={() => setSelectedKey(it.licenseKey)}
+                                className={`app-table-row group transition-all cursor-pointer ${
+                                  selectedKey === it.licenseKey ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''
+                                }`}
+                              >
+                                <td className="app-table-td">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded">
+                                      <Key size={12} />
+                                    </div>
+                                    <span className="font-mono text-xs font-black" dir="ltr">{it.licenseKey}</span>
+                                  </div>
+                                </td>
+                                <td className="app-table-td">
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-bold">{it.customerName || '—'}</span>
+                                    <span className="text-[10px] text-slate-400">{it.customerCompany || 'بدون شركة'}</span>
+                                  </div>
+                                </td>
+                                <td className="app-table-td text-center">
+                                  <StatusBadge status={licenseStatusToArabic(it.status || '')} className="!text-[10px] !px-2 !py-0.5" />
+                                </td>
+                                <td className="app-table-td text-center">
+                                  <span className="text-xs font-black bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                                    {it.activationsCount || 0} / {it.maxActivations || '—'}
+                                  </span>
+                                </td>
+                                <td className="app-table-td">
+                                  <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button className="p-2 text-indigo-500 hover:bg-white dark:hover:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                      <Info size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  </div>
+
+                  {/* Right Column: Actions & Details */}
+                  <div className="lg:col-span-4 space-y-6">
+                    {/* Issue New */}
+                    <Card className="p-6 rounded-3xl space-y-4 border-2 border-indigo-100 dark:border-indigo-900/30">
+                      <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <Plus size={18} className="text-indigo-600" />
+                        إصدار مفتاح جديد
+                      </h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">الأجهزة (Max)</label>
+                            <Input type="number" value={issueMaxActivations} onChange={(e) => setIssueMaxActivations(e.target.value)} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">المدة</label>
+                            <Select
+                              value={issueDuration}
+                              onChange={(e) => applyIssueDuration(e.target.value as IssueDuration)}
+                              options={[
+                                { value: 'trial14d', label: 'تجريبي 14 يوم' },
+                                { value: '1m', label: 'شهر واحد' },
+                                { value: '3m', label: '3 أشهر' },
+                                { value: '6m', label: '6 أشهر' },
+                                { value: '1y', label: 'سنة كاملة' },
+                                { value: 'custom', label: 'مخصص' },
+                              ]}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase">تاريخ الانتهاء</label>
+                          <Input type="date" value={issueExpiresAt} onChange={(e) => setIssueExpiresAt(e.target.value)} />
+                        </div>
+                        <Button onClick={() => void doIssue()} isLoading={busy} className="w-full">إصدار الآن</Button>
+                      </div>
+                    </Card>
+
+                    {/* Selected Item Details (Drawer alternative) */}
+                    {selectedRecord && (
+                      <Card className="p-6 rounded-3xl space-y-6 border-l-4 border-l-indigo-600 animate-slide-left">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-black text-slate-800 dark:text-white">تفاصيل: {selectedKey.slice(0, 8)}...</h4>
+                          <button onClick={() => void doDelete()} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl">
+                            <span className="text-xs text-slate-500">حالة الكود</span>
+                            <Select
+                              className="w-32 !py-1 !px-2 !text-xs"
+                              value={setStatusValue}
+                              onChange={(e) => setSetStatusValue(e.target.value as any)}
+                              options={[
+                                { value: 'active', label: 'فعال' },
+                                { value: 'suspended', label: 'معلق' },
+                                { value: 'revoked', label: 'ملغي' },
+                              ]}
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase px-1">بصمة العميل (تفعيل)</label>
+                            <div className="flex gap-2">
+                              <Input
+                                value={activateDeviceId}
+                                onChange={(e) => setActivateDeviceId(e.target.value)}
+                                placeholder="Fingerprint..."
+                                className="font-mono text-xs"
+                              />
+                              <Button variant="secondary" onClick={() => void doActivate()} disabled={busy}><Smartphone size={16} /></Button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase px-1">بيانات العميل (تعديل سريع)</label>
+                            <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="اسم العميل" className="text-xs" />
+                            <Input value={customerCompany} onChange={(e) => setCustomerCompany(e.target.value)} placeholder="اسم المكتب/الشركة" className="text-xs" />
+                          </div>
+
+                          <Button onClick={() => void doUpdateAfterSales()} isLoading={busy} className="w-full" variant="secondary">حفظ التعديلات</Button>
+                        </div>
+                      </Card>
                     )}
                   </div>
                 </div>
               )}
-            </Card>
-          </div>
-        ) : null}
+            </div>
+          )}
+
+          {activeTab === 'customers' && (
+            <div className="space-y-6">
+              <Card className="p-6 rounded-3xl space-y-6">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-xl">
+                      <CustomersIcon size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-white">قائمة العملاء النشطين</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">تجميع المفاتيح الصادرة حسب بيانات كل عميل.</p>
+                    </div>
+                  </div>
+                  <div className="relative w-full md:w-80">
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <Input
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      placeholder="بحث بالاسم أو الشركة..."
+                      className="pr-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredCustomerGroups.map((g, idx) => (
+                    <div
+                      key={idx}
+                      className="app-card p-5 rounded-3xl space-y-4 hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-slate-800 dark:text-white truncate" title={g.label}>{g.label}</h4>
+                          <p className="text-xs text-slate-400 mt-1 truncate">{g.company || 'فردي'}</p>
+                        </div>
+                        <div className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full text-xs font-black">
+                          {g.items.length} كود
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {g.items.slice(0, 3).map(it => (
+                          <div key={it.licenseKey} className="flex items-center justify-between text-[11px] bg-slate-50 dark:bg-slate-800/40 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                            <span className="font-mono" dir="ltr">{it.licenseKey.slice(0, 8)}...</span>
+                            <StatusBadge status={licenseStatusToArabic(it.status || '')} className="!text-[9px] !px-1.5 !py-0" />
+                          </div>
+                        ))}
+                        {g.items.length > 3 && (
+                          <p className="text-[10px] text-slate-400 text-center">+ {g.items.length - 3} رموز أخرى</p>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => { setActiveTab('licenses'); setQ(g.label); refreshList(); }}
+                        className="w-full py-2 rounded-xl text-xs font-bold text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all border border-indigo-100 dark:border-indigo-900/30"
+                      >
+                        عرض كافة التفاصيل
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="max-w-2xl mx-auto space-y-6">
+              <Card className="p-8 rounded-3xl space-y-8">
+                <div className="text-center space-y-3">
+                  <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                    <SettingsIcon size={40} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-white">إعدادات ملف المشغل (Server Admin)</h3>
+                  <p className="text-sm text-slate-500">تعديل بيانات الدخول الخاصة بك لهذا الخادم فقط.</p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 dark:text-slate-200">اسم المستخدم الجديد</label>
+                    <Input
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      placeholder="admin_new"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700 dark:text-slate-200">كلمة المرور الجديدة</label>
+                      <Input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700 dark:text-slate-200">تأكيد كلمة المرور</label>
+                      <Input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                    <div className="flex gap-3 text-amber-700 dark:text-amber-400">
+                      <History size={20} className="shrink-0" />
+                      <p className="text-xs leading-relaxed">
+                        ⚠️ تنبيه: تغيير كلمة المرور سيؤدي إلى إنهاء الجلسة الحالية. سيتعين عليك تسجيل الدخول مرة أخرى بالبيانات الجديدة.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button onClick={() => void doUpdateServerUser()} isLoading={busy} className="w-full py-6 text-lg">
+                    <Save size={18} className="ml-2" />
+                    حفظ وتحديث الحساب
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Server Info / Token Area */}
+              <Card className="p-6 rounded-3xl space-y-4">
+                <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <Key size={18} className="text-indigo-600" />
+                  توكن الأمان للسيرفر (Admin Token)
+                </h4>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    value={serverAdminToken}
+                    onChange={(e) => setServerAdminToken(e.target.value)}
+                    placeholder="الصق التوكن هنا..."
+                  />
+                  <Button onClick={() => void doSaveAdminToken()} isLoading={busy} variant="secondary">حفظ التوكن</Button>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  * هذا التوكن يستخدم للمصادقة بين تطبيقك وسيرفر التراخيص المركزي. تأكد من تطابقه مع توكن السيرفر.
+                </p>
+              </Card>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
+
+export default LicenseAdmin;

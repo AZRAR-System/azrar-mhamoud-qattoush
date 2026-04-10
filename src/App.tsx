@@ -84,21 +84,8 @@ const Logout = React.lazy(() =>
 const Activation = React.lazy(() =>
   import('./pages/Activation').then((module) => ({ default: module.Activation }))
 );
-const LicenseAdminDashboard = React.lazy(() =>
-  import('./pages/LicenseAdminDashboard').then((module) => ({
-    default: module.LicenseAdminDashboard,
-  }))
-);
 const LicenseAdmin = React.lazy(() =>
   import('./pages/LicenseAdmin').then((module) => ({ default: module.LicenseAdmin }))
-);
-const LicenseAdminUsers = React.lazy(() =>
-  import('./pages/LicenseAdminUsers').then((module) => ({ default: module.LicenseAdminUsers }))
-);
-const LicenseAdminCustomers = React.lazy(() =>
-  import('./pages/LicenseAdminCustomers').then((module) => ({
-    default: module.LicenseAdminCustomers,
-  }))
 );
 const NotFound = React.lazy(() =>
   import('./pages/NotFound').then((module) => ({ default: module.NotFound }))
@@ -118,9 +105,8 @@ const Documents = React.lazy(() =>
 const ComprehensiveTests = React.lazy(() =>
   import('./pages/ComprehensiveTests').then((module) => ({ default: module.ComprehensiveTests }))
 );
-const DatabaseReset = React.lazy(() => import('./pages/DatabaseReset'));
-const AuditLog = React.lazy(() =>
-  import('./pages/AuditLog').then((module) => ({ default: module.AuditLog }))
+const SystemSetup = React.lazy(() =>
+  import('./pages/SystemSetup').then((module) => ({ default: module.SystemSetup }))
 );
 
 // Loading Fallback
@@ -225,6 +211,36 @@ const DiagnosticsStartupNotice: React.FC = () => {
       // ignore
     }
   }, [isAuthenticated, toast]);
+
+  return null;
+};
+
+/**
+ * Redirects to System Setup if SQL Server is not configured.
+ */
+const SqlSetupGuard: React.FC = () => {
+  const location = useLocation();
+  const navigationStarted = React.useRef(false);
+
+  useEffect(() => {
+    if (navigationStarted.current) return;
+    if (location.pathname === ROUTE_PATHS.SYSTEM_SETUP) return;
+
+    void (async () => {
+      try {
+        if (typeof window !== 'undefined' && window.desktopDb?.sqlStatus) {
+          const status = (await window.desktopDb.sqlStatus()) as { configured: boolean };
+          // If not configured, and not currently on the setup page, redirect.
+          if (!status.configured && location.pathname !== ROUTE_PATHS.SYSTEM_SETUP) {
+            navigationStarted.current = true;
+            window.location.hash = ROUTE_PATHS.SYSTEM_SETUP;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to check SQL status during startup:', err);
+      }
+    })();
+  }, [location.pathname]);
 
   return null;
 };
@@ -403,10 +419,8 @@ const AppRoutes: React.FC = () => {
       <Routes>
         {/* Public */}
         <Route path={ROUTE_PATHS.ACTIVATION} element={<Activation />} />
-        <Route path={ROUTE_PATHS.LICENSE_ADMIN} element={<LicenseAdminDashboard />} />
-        <Route path={ROUTE_PATHS.LICENSE_ADMIN_LICENSES} element={<LicenseAdmin />} />
-        <Route path={ROUTE_PATHS.LICENSE_ADMIN_USERS} element={<LicenseAdminUsers />} />
-        <Route path={ROUTE_PATHS.LICENSE_ADMIN_CUSTOMERS} element={<LicenseAdminCustomers />} />
+        <Route path={ROUTE_PATHS.LICENSE_ADMIN} element={<LicenseAdmin />} />
+        <Route path={ROUTE_PATHS.SYSTEM_SETUP} element={<SystemSetup />} />
 
         {/* Everything else requires activation */}
         <Route element={<RequireActivation />}>
@@ -431,14 +445,6 @@ const AppRoutes: React.FC = () => {
               <Route path={ROUTE_PATHS.BUILDER} element={<DynamicBuilder />} />
               <Route path={ROUTE_PATHS.ALERTS} element={<Alerts />} />
               <Route path={ROUTE_PATHS.OPERATIONS} element={<Operations />} />
-              <Route
-                path={ROUTE_PATHS.AUDIT_LOG}
-                element={
-                  <RequireSuperAdmin>
-                    <AuditLog />
-                  </RequireSuperAdmin>
-                }
-              />
               <Route path={ROUTE_PATHS.SETTINGS} element={<Settings />} />
               <Route path={ROUTE_PATHS.BACKUP} element={<BackupManager />} />
               <Route path={ROUTE_PATHS.REPORTS} element={<Reports />} />
@@ -450,7 +456,6 @@ const AppRoutes: React.FC = () => {
               <Route path={ROUTE_PATHS.DOCUMENTS} element={<Documents />} />
               <Route path={ROUTE_PATHS.OWNER_PORTAL} element={<OwnerPortal />} />
               <Route path={ROUTE_PATHS.COMPREHENSIVE_TESTS} element={<ComprehensiveTests />} />
-              <Route path={ROUTE_PATHS.RESET_DATABASE} element={<DatabaseReset />} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
@@ -470,6 +475,7 @@ function App() {
           <AutorunDesktopTestBootstrap />
           <ToastProvider>
             <ModalProvider>
+              <SqlSetupGuard />
               <Suspense fallback={<PageLoader />}>
                 <AppRoutes />
               </Suspense>
