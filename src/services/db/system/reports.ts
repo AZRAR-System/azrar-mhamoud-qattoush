@@ -116,6 +116,7 @@ export const runReport = (id: string): any => {
       let propCode = '—';
       let opportunity = c.رقم_الفرصة || '—';
       let clientName = '—';
+      let ownerName = '—';
 
       if (type === 'Rental') {
         const contractId = norm(c.رقم_العقد);
@@ -124,6 +125,13 @@ export const runReport = (id: string): any => {
           const propId = norm(contract.رقم_العقار);
           const prop = properties.find((p) => norm(p.رقم_العقار) === propId);
           propCode = prop ? prop.الكود_الداخلي : '—';
+          
+          if (prop) {
+            const oid = norm(prop.رقم_المالك);
+            const owner = people.find((p) => norm(p.رقم_الشخص) === oid);
+            ownerName = owner ? owner.الاسم : '—';
+          }
+
           const tenantId = norm(contract.رقم_المستاجر);
           const tenant = people.find((p) => norm(p.رقم_الشخص) === tenantId);
           clientName = tenant ? tenant.الاسم : '—';
@@ -135,6 +143,13 @@ export const runReport = (id: string): any => {
           const propId = norm(agreement.رقم_العقار);
           const prop = properties.find((p) => norm(p.رقم_العقار) === propId);
           propCode = prop ? prop.الكود_الداخلي : '—';
+          
+          if (prop) {
+            const sid = norm(prop.رقم_المالك);
+            const seller = people.find((p) => norm(p.رقم_الشخص) === sid);
+            ownerName = seller ? seller.الاسم : '—';
+          }
+
           const buyerId = norm(agreement.رقم_المشتري);
           const buyer = people.find((p) => norm(p.رقم_الشخص) === buyerId);
           clientName = buyer ? buyer.الاسم : '—';
@@ -170,6 +185,7 @@ export const runReport = (id: string): any => {
         property: propCode,
         opportunity: opportunity,
         client: clientName,
+        ownerName: ownerName,
         officeCommission: officeCommission,
         tier: isRental ? rentalTier.tierId : 'N/A',
         employeeBase: employeeBase,
@@ -185,6 +201,8 @@ export const runReport = (id: string): any => {
         { key: 'date', header: 'التاريخ' },
         { key: 'type', header: 'النوع' },
         { key: 'property', header: 'العقار' },
+        { key: 'ownerName', header: 'المالك / البائع' },
+        { key: 'client', header: 'المستأجر / المشتري' },
         { key: 'employee', header: 'الموظف' },
         { key: 'officeCommission', header: 'عمولة المكتب', type: 'currency' },
         { key: 'employeeTotal', header: 'حصة الموظف', type: 'currency' },

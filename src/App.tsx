@@ -16,6 +16,7 @@ import { ROUTE_PATHS } from '@/routes/paths';
 import { isSuperAdmin } from '@/utils/roles';
 import { validateRoutes } from '@/routes/validate';
 import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
+import { TabsProvider } from './context/TabsContext';
 
 // Lazy Load Pages
 const Dashboard = React.lazy(() =>
@@ -414,56 +415,53 @@ const LayoutRoute: React.FC = () => {
 
 const AppRoutes: React.FC = () => {
   return (
-    <HashRouter>
-      <DevRouteValidation />
-      <Routes>
-        {/* Public */}
-        <Route path={ROUTE_PATHS.ACTIVATION} element={<Activation />} />
-        <Route path={ROUTE_PATHS.LICENSE_ADMIN} element={<LicenseAdmin />} />
-        <Route path={ROUTE_PATHS.SYSTEM_SETUP} element={<SystemSetup />} />
+    <Routes>
+      {/* Public */}
+      <Route path={ROUTE_PATHS.ACTIVATION} element={<Activation />} />
+      <Route path={ROUTE_PATHS.LICENSE_ADMIN} element={<LicenseAdmin />} />
+      <Route path={ROUTE_PATHS.SYSTEM_SETUP} element={<SystemSetup />} />
 
-        {/* Everything else requires activation */}
-        <Route element={<RequireActivation />}>
-          <Route path={ROUTE_PATHS.LOGOUT} element={<Logout />} />
-          <Route path={ROUTE_PATHS.LOGIN} element={<Login />} />
+      {/* Everything else requires activation */}
+      <Route element={<RequireActivation />}>
+        <Route path={ROUTE_PATHS.LOGOUT} element={<Logout />} />
+        <Route path={ROUTE_PATHS.LOGIN} element={<Login />} />
 
-          {/* Protected */}
-          <Route element={<RequireAuth />}>
-            <Route element={<LayoutRoute />}>
-              <Route index element={<Dashboard />} />
+        {/* Protected */}
+        <Route element={<RequireAuth />}>
+          <Route element={<LayoutRoute />}>
+            <Route index element={<Dashboard />} />
 
-              <Route path={ROUTE_PATHS.SALES} element={<Sales />} />
-              <Route path={ROUTE_PATHS.PEOPLE} element={<People />} />
-              <Route path={ROUTE_PATHS.PROPERTIES} element={<Properties />} />
-              <Route path={ROUTE_PATHS.CONTRACTS} element={<Contracts />} />
-              <Route path={ROUTE_PATHS.INSTALLMENTS} element={<Installments />} />
-              <Route path={ROUTE_PATHS.COMMISSIONS} element={<Commissions />} />
-              <Route path={ROUTE_PATHS.MAINTENANCE} element={<Maintenance />} />
-              <Route path={ROUTE_PATHS.SYS_MAINTENANCE} element={<SystemMaintenance />} />
-              <Route path={ROUTE_PATHS.ADMIN_PANEL} element={<AdminControlPanel />} />
+            <Route path={ROUTE_PATHS.SALES} element={<Sales />} />
+            <Route path={ROUTE_PATHS.PEOPLE} element={<People />} />
+            <Route path={ROUTE_PATHS.PROPERTIES} element={<Properties />} />
+            <Route path={ROUTE_PATHS.CONTRACTS} element={<Contracts />} />
+            <Route path={ROUTE_PATHS.INSTALLMENTS} element={<Installments />} />
+            <Route path={ROUTE_PATHS.COMMISSIONS} element={<Commissions />} />
+            <Route path={ROUTE_PATHS.MAINTENANCE} element={<Maintenance />} />
+            <Route path={ROUTE_PATHS.SYS_MAINTENANCE} element={<SystemMaintenance />} />
+            <Route path={ROUTE_PATHS.ADMIN_PANEL} element={<AdminControlPanel />} />
 
-              <Route path={ROUTE_PATHS.BUILDER} element={<DynamicBuilder />} />
-              <Route path={ROUTE_PATHS.ALERTS} element={<Alerts />} />
-              <Route path={ROUTE_PATHS.OPERATIONS} element={<Operations />} />
-              <Route path={ROUTE_PATHS.SETTINGS} element={<Settings />} />
-              <Route path={ROUTE_PATHS.BACKUP} element={<BackupManager />} />
-              <Route path={ROUTE_PATHS.REPORTS} element={<Reports />} />
-              <Route path={ROUTE_PATHS.LEGAL} element={<LegalHub />} />
-              <Route path={ROUTE_PATHS.SMART_TOOLS} element={<SmartTools />} />
-              <Route path={ROUTE_PATHS.DOCS} element={<Documentation />} />
-              <Route path={ROUTE_PATHS.CONTACTS} element={<Contacts />} />
-              <Route path={ROUTE_PATHS.BULK_WHATSAPP} element={<BulkWhatsApp />} />
-              <Route path={ROUTE_PATHS.DOCUMENTS} element={<Documents />} />
-              <Route path={ROUTE_PATHS.OWNER_PORTAL} element={<OwnerPortal />} />
-              <Route path={ROUTE_PATHS.COMPREHENSIVE_TESTS} element={<ComprehensiveTests />} />
+            <Route path={ROUTE_PATHS.BUILDER} element={<DynamicBuilder />} />
+            <Route path={ROUTE_PATHS.ALERTS} element={<Alerts />} />
+            <Route path={ROUTE_PATHS.OPERATIONS} element={<Operations />} />
+            <Route path={ROUTE_PATHS.SETTINGS} element={<Settings />} />
+            <Route path={ROUTE_PATHS.BACKUP} element={<BackupManager />} />
+            <Route path={ROUTE_PATHS.REPORTS} element={<Reports />} />
+            <Route path={ROUTE_PATHS.LEGAL} element={<LegalHub />} />
+            <Route path={ROUTE_PATHS.SMART_TOOLS} element={<SmartTools />} />
+            <Route path={ROUTE_PATHS.DOCS} element={<Documentation />} />
+            <Route path={ROUTE_PATHS.CONTACTS} element={<Contacts />} />
+            <Route path={ROUTE_PATHS.BULK_WHATSAPP} element={<BulkWhatsApp />} />
+            <Route path={ROUTE_PATHS.DOCUMENTS} element={<Documents />} />
+            <Route path={ROUTE_PATHS.OWNER_PORTAL} element={<OwnerPortal />} />
+            <Route path={ROUTE_PATHS.COMPREHENSIVE_TESTS} element={<ComprehensiveTests />} />
 
-              {/* 404 */}
-              <Route path="*" element={<NotFound />} />
-            </Route>
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Route>
-      </Routes>
-    </HashRouter>
+      </Route>
+    </Routes>
   );
 };
 
@@ -472,15 +470,20 @@ function App() {
     <GlobalErrorBoundary>
       <ActivationProvider>
         <AuthProvider>
-          <AutorunDesktopTestBootstrap />
-          <ToastProvider>
-            <ModalProvider>
-              <SqlSetupGuard />
-              <Suspense fallback={<PageLoader />}>
-                <AppRoutes />
-              </Suspense>
-            </ModalProvider>
-          </ToastProvider>
+          <HashRouter>
+            <AutorunDesktopTestBootstrap />
+            <DevRouteValidation />
+            <ToastProvider>
+              <ModalProvider>
+                <TabsProvider>
+                  <SqlSetupGuard />
+                  <Suspense fallback={<PageLoader />}>
+                    <AppRoutes />
+                  </Suspense>
+                </TabsProvider>
+              </ModalProvider>
+            </ToastProvider>
+          </HashRouter>
         </AuthProvider>
       </ActivationProvider>
     </GlobalErrorBoundary>

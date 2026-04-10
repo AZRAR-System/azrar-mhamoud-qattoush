@@ -69,6 +69,7 @@ export const NAV_ITEMS: NavItem[] = [
         role: 'SuperAdmin',
       },
       { label: 'صيانة النظام', path: ROUTE_PATHS.SYS_MAINTENANCE, icon: ServerCog },
+      { label: 'إعدادات السيرفر والربط', path: ROUTE_PATHS.SYSTEM_SETUP, icon: Database },
       { label: 'منشئ النظام', path: ROUTE_PATHS.BUILDER, icon: Database },
       { label: 'التوثيق التقني', path: ROUTE_PATHS.DOCS, icon: BookOpen },
       {
@@ -141,4 +142,20 @@ export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.RESET_DATABASE]: 'حذف البيانات وإعادة تهيئة النظام',
   [ROUTE_PATHS.AUDIT_LOG]: 'من فعل ماذا ومتى — آخر 500 عملية',
   [ROUTE_PATHS.OWNER_PORTAL]: 'لوحة تحكم مخصصة لمالكي العقارات لعرض إيراداتهم وعقودهم',
+  [ROUTE_PATHS.SYSTEM_SETUP]: 'إعدادات الاتصال بقاعدة البيانات SQL Server وتخصيص العلامة التجارية',
 };
+
+export const ROUTE_ICONS: Record<string, LucideIcon> = (() => {
+  const icons: Record<string, LucideIcon> = {};
+  const visit = (item: NavItem) => {
+    if (typeof item.path === 'string' && item.path.startsWith('/')) icons[item.path] = item.icon;
+    item.children?.forEach(visit);
+  };
+  NAV_ITEMS.forEach(visit);
+  
+  // Extra icons for utility paths if not in NAV_ITEMS
+  icons[ROUTE_PATHS.LOGOUT] = Lock;
+  icons[ROUTE_PATHS.LOGIN] = Lock;
+  
+  return icons;
+})();

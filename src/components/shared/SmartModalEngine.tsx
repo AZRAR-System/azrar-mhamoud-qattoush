@@ -258,6 +258,8 @@ export const SmartModalEngine: React.FC = () => {
         const Component = PANEL_COMPONENTS[panel.type];
         if (!Component && panel.type !== 'CONFIRM_MODAL') return null;
 
+        const dynamicZIndex = 2000 + index * 100;
+
         // Bulk WhatsApp: in-app popup with minimize-to-bottom
         if (panel.type === 'BULK_WHATSAPP') {
           const isTop = index === activePanels.length - 1;
@@ -316,6 +318,7 @@ export const SmartModalEngine: React.FC = () => {
             <div
               key={panel.id}
               className={`modal-overlay app-modal-overlay animate-fade-in ${isTop ? '' : 'hidden'}`}
+              style={{ zIndex: dynamicZIndex }}
               onClick={doClose}
             >
               <div
@@ -372,6 +375,7 @@ export const SmartModalEngine: React.FC = () => {
               key={panel.id}
               open
               onClose={handleClose}
+              zIndex={dynamicZIndex}
               title={
                 <span className="flex items-center gap-3">
                   <span
@@ -420,6 +424,7 @@ export const SmartModalEngine: React.FC = () => {
               open
               onClose={handleCancel}
               title={panel.props?.title || 'تأكيد'}
+              zIndex={dynamicZIndex}
               size="sm"
               closeOnBackdrop={false}
               showCloseButton={false}
@@ -464,6 +469,7 @@ export const SmartModalEngine: React.FC = () => {
             <div
               key={panel.id}
               className="modal-overlay app-modal-overlay animate-fade-in"
+              style={{ zIndex: dynamicZIndex }}
               onClick={handleClose}
             >
               <div
@@ -505,12 +511,12 @@ export const SmartModalEngine: React.FC = () => {
             <div
               key={panel.id}
               className={`panel-overlay app-panel-overlay fixed inset-0 flex animate-fade-in ${isTop ? '' : 'hidden'}`}
+              style={{ zIndex: dynamicZIndex }}
               onClick={handleClose}
               role="presentation"
             >
               <aside
                 className={`panel-content app-surface-pulse-primary relative flex h-full w-full flex-col overflow-hidden border border-slate-200/80 bg-white shadow-2xl ring-1 ring-black/5 animate-slide-left dark:border-slate-800 dark:bg-slate-900 dark:ring-white/10 ${drawerMaxClass}`}
-                style={{ zIndex: 'var(--z-panel-content)' }}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
@@ -549,6 +555,7 @@ export const SmartModalEngine: React.FC = () => {
             key={panel.id}
             open={isTop}
             onClose={handleClose}
+            zIndex={dynamicZIndex}
             title={panel.props?.title ?? PANEL_TITLES[panel.type] ?? ''}
             size={size}
             className="items-center p-4"

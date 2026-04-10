@@ -574,7 +574,7 @@ export const Commissions: FC = () => {
       return 'Owner';
     })();
 
-    const whoRaw = (await (dialogs as any).prompt({
+    const whoRaw = (await dialogs.prompt({
       title: 'تأجيل التحصيل',
       message: `من هو المطلوب تأجيل تحصيل العمولة منه؟`,
       inputType: 'select',
@@ -844,7 +844,7 @@ export const Commissions: FC = () => {
       const rowUser = asTrimmedString(r.employeeUsername);
       const matchEmployee = employeeUserFilter ? rowUser === employeeUserFilter : true;
       const matchSearch = searchTerm
-        ? [r.reference, r.property, r.opportunity].some((v) =>
+        ? [r.reference, r.property, r.opportunity, r.client, r.ownerName].some((v) =>
             asString(v).toLowerCase().includes(searchTerm.toLowerCase())
           )
         : true;
@@ -1213,11 +1213,11 @@ export const Commissions: FC = () => {
         icon={<HandCoins size={26} className="text-indigo-600 dark:text-indigo-400" />}
         iconVariant="inline"
         title="إدارة العمولات والإيرادات"
-        subtitle="عمولات العقود، والدخل الخارجي، وتقرير عمولات الموظفين — كلها مرتبطة بالشهر المحاسبي الذي تختاره أعلاه."
+        subtitle="عمولات العقود، والدخل الخارجي، وتقرير عمولات الموظفين — مرتبطة بالشهر المحاسبي."
         actions={
-          <>
+          <div className="flex flex-wrap items-center gap-3">
             <div
-              className="inline-flex items-center gap-1 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-1 dark:border-slate-800 dark:bg-slate-950/40"
+              className="inline-flex items-center gap-1 rounded-2xl border border-slate-200/70 bg-white/50 p-1 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/40"
               role="tablist"
               aria-label="أقسام صفحة العمولات"
             >
@@ -1229,6 +1229,7 @@ export const Commissions: FC = () => {
                 size="sm"
                 variant={activeTab === 'contracts' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('contracts')}
+                className={activeTab === 'contracts' ? 'shadow-sm' : ''}
               >
                 عمولات العقود
               </Button>
@@ -1240,6 +1241,7 @@ export const Commissions: FC = () => {
                 size="sm"
                 variant={activeTab === 'external' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('external')}
+                className={activeTab === 'external' ? 'shadow-sm' : ''}
               >
                 عمولات خارجية
               </Button>
@@ -1251,25 +1253,26 @@ export const Commissions: FC = () => {
                 size="sm"
                 variant={activeTab === 'employee' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('employee')}
+                className={activeTab === 'employee' ? 'shadow-sm' : ''}
               >
                 عمولات الموظفين
               </Button>
             </div>
 
-            <div className="app-card flex items-center gap-2 px-3 py-2">
-              <Filter size={16} className="shrink-0 text-gray-400" aria-hidden />
+            <div className="app-card flex items-center gap-2 px-3 py-1.5 shadow-sm border-slate-200/60 dark:border-slate-800/60">
+              <Filter size={15} className="shrink-0 text-indigo-500/70" aria-hidden />
               <label className="sr-only" htmlFor="commissions-month-filter">
                 الشهر المحاسبي
               </label>
               <input
                 id="commissions-month-filter"
                 type="month"
-                className="bg-transparent text-sm font-bold text-slate-700 outline-none dark:text-white"
+                className="bg-transparent text-sm font-bold text-slate-700 outline-none dark:text-white cursor-pointer"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
               />
             </div>
-          </>
+          </div>
         }
       />
 
@@ -1513,9 +1516,22 @@ export const Commissions: FC = () => {
 
                         <div className="text-sm text-slate-600 dark:text-slate-400">
                           رقم الفرصة:{' '}
-                          <b className="text-slate-900 dark:text-white text-lg" dir="ltr">
+                          <b className="text-slate-900 dark:text-white" dir="ltr">
                             {String(r.opportunity || '—')}
                           </b>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold border-t border-slate-100 dark:border-slate-800 pt-2">
+                          <div className="flex items-center gap-1.5">
+                            <Briefcase size={14} className="text-indigo-500" />
+                            <span className="text-slate-500 dark:text-slate-400">المالك/البائع:</span>
+                            <span className="text-indigo-600 dark:text-indigo-400">{String(r.ownerName || '—')}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 border-r border-slate-200 dark:border-slate-700 pr-4">
+                            <Users size={14} className="text-emerald-500" />
+                            <span className="text-slate-500 dark:text-slate-400">المستأجر/المشتري:</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">{String(r.client || '—')}</span>
+                          </div>
                         </div>
                       </div>
 
@@ -1692,26 +1708,40 @@ export const Commissions: FC = () => {
                           </b>
                         </div>
 
-                        <div className="text-sm font-bold text-orange-500">
+                        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 py-2.5 px-4 rounded-xl bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60">
                           {(() => {
                             const names = getNames(c);
                             const isSale = c.نوع_العمولة === 'Sale';
                             return (
-                              <span>
-                                {isSale ? (
-                                  <>
-                                    <span className="text-orange-600 dark:text-orange-400">البائع</span>: {names.p1} 
-                                    <span className="mx-2 text-slate-300">|</span>
-                                    <span className="text-orange-600 dark:text-orange-400">المشتري</span>: {names.p2}
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="text-orange-600 dark:text-orange-400">المالك</span>: {names.p1} 
-                                    <span className="mx-2 text-slate-300">|</span>
-                                    <span className="text-orange-600 dark:text-orange-400">المستأجر</span>: {names.p2}
-                                  </>
-                                )}
-                              </span>
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                    <Briefcase size={16} />
+                                  </div>
+                                  <div>
+                                    <span className="block text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                                      {isSale ? 'البائع' : 'المالك'}
+                                    </span>
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                      {names.p1}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-2 border-r border-slate-200 dark:border-slate-800 pr-6">
+                                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                                    <Users size={16} />
+                                  </div>
+                                  <div>
+                                    <span className="block text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                                      {isSale ? 'المشتري' : 'المستأجر'}
+                                    </span>
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                      {names.p2}
+                                    </span>
+                                  </div>
+                                </div>
+                              </>
                             );
                           })()}
                         </div>

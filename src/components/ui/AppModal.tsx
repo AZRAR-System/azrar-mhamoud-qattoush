@@ -39,6 +39,7 @@ type AppModalProps = {
   hideHeader?: boolean;
   showCloseButton?: boolean;
   labelledById?: string;
+  zIndex?: number;
 };
 
 const SIZE_CLASS: Record<ModalSize, string> = {
@@ -73,6 +74,7 @@ export const AppModal: React.FC<AppModalProps> = ({
   hideHeader = false,
   showCloseButton = true,
   labelledById,
+  zIndex,
 }) => {
   const reactId = useId();
   const modalInstanceId = useMemo(() => `app-modal-${reactId}`, [reactId]);
@@ -201,6 +203,7 @@ export const AppModal: React.FC<AppModalProps> = ({
   return createPortal(
     <div
       className={`modal-overlay app-modal-overlay animate-fade-in items-center p-4 bg-slate-900/40 backdrop-blur-sm ${className ?? ''}`}
+      style={zIndex ? { zIndex } : undefined}
       onClick={closeOnBackdrop ? () => onCloseRef.current() : undefined}
     >
       <div

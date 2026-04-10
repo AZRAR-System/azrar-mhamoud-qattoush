@@ -3,7 +3,7 @@ import { useAutoLock } from '@/hooks/useAutoLock';
 import { SessionLockOverlay } from '@/components/SessionLockOverlay';
 import { getSettings } from '@/services/db/settings';
 import { KEYS } from '@/services/db/keys';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants';
 import {
   Bell,
@@ -24,7 +24,7 @@ import { GlobalSearch } from '@/components/shared/GlobalSearch';
 import { OnboardingGuide } from '@/components/shared/OnboardingGuide';
 import { useSmartModal } from '@/context/ModalContext';
 import { useAuth } from '@/context/AuthContext';
-import { ROUTE_SUBTITLES, ROUTE_TITLES, type NavItem } from '@/routes/registry';
+import { ROUTE_SUBTITLES, ROUTE_TITLES } from '@/routes/registry';
 import { storage } from '@/services/storage';
 import { isRole } from '@/utils/roles';
 import { formatTimeHM } from '@/utils/format';
@@ -32,8 +32,12 @@ import { useInAppReminderNotifier } from '@/hooks/useInAppReminderNotifier';
 import { getDatabaseStats } from '@/services/resetDatabase';
 import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
-import { useNotificationCenter } from '@/hooks/useNotificationCenter';
 import type { NotificationCenterItem } from '@/services/notificationCenter';
+import { useTabs } from '@/context/TabsContext';
+import { TabBar } from './TabBar/TabBar';
+import { TabContent } from './TabBar/TabContent';
+import { PageSelector } from './TabBar/PageSelector';
+import { useNotificationCenter } from '@/hooks/useNotificationCenter';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -117,6 +121,353 @@ const Breadcrumbs = memo(({ pathname }: { pathname: string }) => {
   );
 });
 
+// --- Sidebar Skeleton - Memoized to prevent re-renders on layout state changes ---
+const Sidebar = memo(({ 
+  isOpen, 
+  isDesktop, 
+  user, 
+  appVersion, 
+  tabs, 
+  activeTabId, 
+  expandedMenus, 
+  onClose, 
+  onToggleMenu, 
+  onOpenTab,
+  onSetOpen
+}: { 
+  isOpen: boolean; 
+  isDesktop: boolean; 
+  user: any; 
+  appVersion: string;
+  tabs: any[];
+  activeTabId: string;
+  expandedMenus: string[];
+  onClose: () => void;
+  onToggleMenu: (label: string) => void;
+  onOpenTab: (path: string, label: string, icon: string) => void;
+  onSetOpen: (open: boolean) => void;
+}) => {
+  return (
+    <aside
+      className={`
+        fixed lg:static inset-y-0 right-0 z-[100]
+        w-72 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl
+        text-slate-800 dark:text-slate-100 transition-all duration-500 ease-out
+        flex flex-col shadow-2xl lg:shadow-none border-l border-white/20 dark:border-slate-800/50
+        ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0 lg:w-24'}
+      `}
+    >
+      {/* Modern Logo Header */}
+      <div className="h-24 flex items-center justify-between px-6">
+        {isOpen || !isDesktop ? (
+          <div className="flex items-center gap-4 animate-fade-in">
+            <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 via-indigo-500 to-indigo-400 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/30 text-white font-black text-xl transform hover:rotate-6 transition-transform">
+              A
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xl font-black tracking-tight text-gradient">AZRAR</span>
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                v{appVersion || '—'} Real Estate
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full flex justify-center">
+            <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20">
+              A
+            </div>
+          </div>
+        )}
+
+        {!isDesktop && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all"
+            aria-label="إغلاق"
+          >
+            <X size={22} />
+          </button>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 no-scrollbar">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const showFull = isOpen || !isDesktop;
+          const hasChildren = !!(item.children && item.children.length > 0);
+          const isExpanded = expandedMenus.includes(item.label);
+
+          const activeTabObj = tabs.find(t => t.id === activeTabId);
+          const activePath = activeTabObj?.path || window.location.hash.replace('#', '') || '/';
+
+          const isSelfActive = activePath === item.path;
+          const isChildActive = !!item.children?.some((c) => c.path === activePath);
+          const isActive = isSelfActive || isChildActive;
+
+          if (hasChildren) {
+             const visibleChildren = (item.children ?? []).filter((child) => {
+                if (child?.role && !isRole(user?.الدور, child.role)) return false;
+                return true;
+              });
+
+            return (
+              <div key={item.label} className="mb-2">
+                <button
+                  onClick={() => {
+                    if (!showFull) onSetOpen(true);
+                    onToggleMenu(item.label);
+                  }}
+                  className={`
+                    w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
+                    ${isActive ? 'bg-indigo-50/80 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 shadow-soft' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40'}
+                    ${!showFull ? 'justify-center' : ''}
+                  `}
+                >
+                  <Icon
+                    size={22}
+                    strokeWidth={isActive ? 2.5 : 2}
+                    className={`transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : ''}`}
+                  />
+                  {showFull && (
+                    <>
+                      <span className="text-sm font-bold flex-1 text-right">{item.label}</span>
+                      <ChevronDown
+                        size={18}
+                        className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </>
+                  )}
+                  {isActive && !showFull && (
+                    <div className="absolute left-0 w-1.5 h-8 bg-indigo-600 rounded-r-full shadow-lg shadow-indigo-600/50" />
+                  )}
+                </button>
+
+                {showFull && isExpanded && (
+                  <div className="mt-2 mr-6 border-r-2 border-indigo-100 dark:border-indigo-900/30 pr-4 space-y-1.5 animate-slide-up">
+                    {visibleChildren.map((child) => {
+                      const ChildIcon = child.icon;
+                      const isChildActiveInTabs = activeTabObj?.path === child.path;
+                      return (
+                        <button
+                          key={child.path}
+                          onClick={() => onOpenTab(child.path, child.label, '📄')}
+                          className={`
+                            w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all
+                            ${isChildActiveInTabs
+                              ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/25'
+                              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/40'}
+                          `}
+                        >
+                          <ChildIcon size={16} />
+                          <span>{child.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <button
+              key={item.path}
+              onClick={() => onOpenTab(item.path, item.label, '📄')}
+              className={`
+                w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
+                ${isActive
+                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xl shadow-indigo-600/30'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-white'}
+                ${!showFull ? 'justify-center' : ''}
+              `}
+            >
+              <Icon
+                size={22}
+                strokeWidth={isActive ? 2.5 : 2}
+                className="transition-transform group-hover:scale-110"
+              />
+              {showFull && <span className="text-sm font-bold">{item.label}</span>}
+              {isActive && !showFull && (
+                <div className="absolute left-0 w-1.5 h-8 bg-white rounded-r-full" />
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* User Block */}
+      {(isOpen || !isDesktop) && (
+        <div className="mx-4 mb-6 p-4 rounded-3xl bg-slate-50/50 dark:bg-slate-950/40 border border-white/20 dark:border-slate-800/50 shadow-soft">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-200 to-white dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border border-white dark:border-slate-800 shadow-inner">
+                <UserCircle size={32} className="text-slate-400" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-4 border-white dark:border-slate-900 rounded-full shadow-lg"></div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate">
+                {user?.اسم_للعرض || user?.اسم_المستخدم || 'مستخدم'}
+              </p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                {user?.الدور || '—'}
+              </p>
+            </div>
+          </div>
+          <a
+            href="#/logout"
+            className="mt-4 w-full inline-flex items-center justify-center gap-3 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-red-100 dark:hover:border-red-900/30 hover:shadow-lg text-xs font-black"
+          >
+            <LogOut size={18} />
+            <span>تسجيل الخروج</span>
+          </a>
+        </div>
+      )}
+    </aside>
+  );
+});
+
+// --- Header - Memoized ---
+const Header = memo(({
+  pathname,
+  title,
+  subtitle,
+  onOpenSidebar,
+  isDark,
+  toggleTheme,
+  unreadCount,
+  hasUnreadUrgent,
+  headerBadgeVariant,
+  sqlStatus,
+  hasDesktopBridge,
+  onOpenPanel
+}: {
+  pathname: string;
+  title: string;
+  subtitle: string;
+  onOpenSidebar: () => void;
+  isDark: boolean;
+  toggleTheme: () => void;
+  unreadCount: number;
+  hasUnreadUrgent: boolean;
+  headerBadgeVariant: 'urgent' | 'collection' | 'default';
+  sqlStatus: any;
+  hasDesktopBridge: boolean;
+  onOpenPanel: (type: string, id?: any, options?: any) => void;
+}) => {
+  return (
+    <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft z-[90] transition-all">
+      <div className="flex items-center gap-6">
+        <button
+          type="button"
+          onClick={onOpenSidebar}
+          className="lg:hidden p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl hover:scale-105 active:scale-95 transition-all"
+        >
+          <Menu size={24} />
+        </button>
+
+        <div className="flex flex-col">
+          <Breadcrumbs pathname={pathname} />
+          <h1 className="text-xl lg:text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+            <span className="w-2 h-8 bg-indigo-500 rounded-full" />
+            {title}
+          </h1>
+          {subtitle ? (
+            <p className="text-[11px] lg:text-xs font-bold text-slate-400 dark:text-slate-500 leading-snug mt-1 max-w-[48rem]">
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 lg:gap-6">
+        <div className="hidden xl:block">
+          <LiveClock />
+        </div>
+
+        <div className="flex items-center bg-slate-100/50 dark:bg-slate-800/40 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+          <GlobalSearch />
+        </div>
+
+        <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></div>
+
+        <div className="flex items-center gap-2">
+          {hasDesktopBridge && sqlStatus && (
+            <button
+              onClick={() =>
+                onOpenPanel('SERVER_DRAWER', undefined, {
+                  title: 'إعدادات المخدم',
+                  initialSection: 'server',
+                })
+              }
+              className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 transition-all hover:scale-105 active:scale-95 ${
+                sqlStatus?.enabled
+                  ? sqlStatus?.connected
+                    ? 'text-emerald-600 dark:text-emerald-400 shadow-emerald-500/10'
+                    : 'text-red-600 dark:text-red-400 shadow-red-500/10'
+                  : 'text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              <Server size={20} />
+              {sqlStatus?.enabled && (
+                <span
+                  className={`absolute top-2 right-2 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 animate-pulse ${
+                    sqlStatus?.connected ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}
+                />
+              )}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-yellow-300 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm active:rotate-12"
+          >
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenPanel('NOTIFICATION_CENTER')}
+            className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm ${
+              unreadCount === 0
+                ? 'text-slate-500 dark:text-slate-400 hover:text-indigo-600'
+                : headerBadgeVariant === 'urgent'
+                  ? 'text-red-600 dark:text-red-400 hover:text-red-700'
+                  : headerBadgeVariant === 'collection'
+                    ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+            }`}
+          >
+            <Bell size={20} />
+            <span className="pointer-events-none absolute -top-1 -right-1 flex h-[26px] min-w-[26px] items-center justify-center">
+              {hasUnreadUrgent && unreadCount > 0 && (
+                <span
+                  className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"
+                />
+              )}
+              <span
+                className={`relative flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white shadow-lg ring-4 ring-white transition-all duration-300 ease-out dark:ring-slate-900 ${
+                  headerBadgeVariant === 'urgent'
+                    ? 'bg-red-600 shadow-red-500/35'
+                    : headerBadgeVariant === 'collection'
+                      ? 'bg-blue-600 shadow-blue-500/30'
+                      : 'bg-slate-500 shadow-slate-500/25 dark:bg-slate-600'
+                } ${unreadCount > 0 ? 'scale-100 opacity-100' : 'pointer-events-none scale-0 opacity-0'}`}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount > 0 ? unreadCount : ''}
+              </span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+});
+
 export const Layout = ({ children }: { children: ReactNode }) => {
   type SqlStatus = {
     configured: boolean;
@@ -138,7 +489,47 @@ export const Layout = ({ children }: { children: ReactNode }) => {
 
   const { openPanel } = useSmartModal();
   const { user, isAuthenticated, sessionLocked, lockSession } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const toast = useToast();
+  const { tabs, openTab, closeTab, activeTabId, switchToNext, switchToPrev } = useTabs();
+
+  // Sync URL -> Tabs (Handles legacy redirects and direct URL changes)
+  useEffect(() => {
+    const title = ROUTE_TITLES[location.pathname];
+    if (title && location.pathname !== '/') {
+      openTab(location.pathname, title, '📄');
+    }
+  }, [location.pathname, openTab]);
+
+  // Sync Tabs -> URL (Updates address bar when switching tabs)
+  useEffect(() => {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (activeTab && activeTab.path !== location.pathname) {
+      navigate(activeTab.path, { replace: true });
+    }
+  }, [activeTabId, tabs, location.pathname, navigate]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('azrar:open-page-selector'));
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        closeTab(activeTabId);
+      }
+      if (e.ctrlKey && e.key === 'Tab') {
+          e.preventDefault();
+          if (e.shiftKey) switchToPrev();
+          else switchToNext();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [activeTabId, closeTab, switchToNext, switchToPrev]);
 
   const [autoLockMinutes, setAutoLockMinutes] = useState(() => getSettings().autoLockMinutes ?? 30);
   useEffect(() => {
@@ -421,7 +812,6 @@ export const Layout = ({ children }: { children: ReactNode }) => {
     };
   }, [openPanel]);
 
-  const location = { pathname }; // Compatibility shim
 
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
@@ -534,325 +924,55 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       {/* ================================ */}
       {!isDesktop && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-md layer-sidebar animate-fade-in"
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-[95] animate-fade-in"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ================================ */}
-      {/* Sidebar - Modern & Sleek */}
+      {/* Sidebar - Memoized */}
       {/* ================================ */}
-      <aside
-        className={`
-          fixed lg:static inset-y-0 right-0 layer-sidebar
-          w-72 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl
-          text-slate-800 dark:text-slate-100 transition-all duration-500 ease-out
-          flex flex-col shadow-2xl lg:shadow-none border-l border-white/20 dark:border-slate-800/50
-          ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0 lg:w-24'}
-        `}
-      >
-        {/* Modern Logo Header */}
-        <div className="h-24 flex items-center justify-between px-6">
-          {sidebarOpen || !isDesktop ? (
-            <div className="flex items-center gap-4 animate-fade-in">
-              <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 via-indigo-500 to-indigo-400 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/30 text-white font-black text-xl transform hover:rotate-6 transition-transform">
-                A
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-black tracking-tight text-gradient">AZRAR</span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                  v{appVersion || '—'} Real Estate
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full flex justify-center">
-              <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20">
-                A
-              </div>
-            </div>
-          )}
-
-          {!isDesktop && (
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all"
-              aria-label="إغلاق"
-            >
-              <X size={22} />
-            </button>
-          )}
-        </div>
-
-        {/* Navigation - Glass & Modern Style */}
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 no-scrollbar">
-          {NAV_ITEMS.map((item: NavItem) => {
-            const Icon = item.icon;
-            const isOpenState = sidebarOpen || !isDesktop;
-            const hasChildren = item.children && item.children.length > 0;
-            const isExpanded = expandedMenus.includes(item.label);
-
-            const isSelfActive = location.pathname === item.path;
-            const isChildActive = !!item.children?.some((c) => c.path === location.pathname);
-            const isActive = isSelfActive || isChildActive;
-
-            if (hasChildren) {
-              const visibleChildren = (item.children ?? []).filter((child) => {
-                if (child?.role && !isRole(user?.الدور, child.role)) return false;
-                return true;
-              });
-
-              return (
-                <div key={item.label} className="mb-2">
-                  <button
-                    onClick={() => {
-                      if (!isOpenState) setSidebarOpen(true);
-                      toggleMenu(item.label);
-                    }}
-                    className={`
-                                w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
-                              ${isActive ? 'bg-indigo-50/80 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 shadow-soft' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40'}
-                                ${!isOpenState ? 'justify-center' : ''}
-                            `}
-                  >
-                    <Icon
-                      size={22}
-                      strokeWidth={isActive ? 2.5 : 2}
-                      className={`transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : ''}`}
-                    />
-                    {isOpenState && (
-                      <>
-                        <span className="text-sm font-bold flex-1 text-right">{item.label}</span>
-                        <ChevronDown
-                          size={18}
-                          className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                        />
-                      </>
-                    )}
-                    {isActive && !isOpenState && (
-                      <div className="absolute left-0 w-1.5 h-8 bg-indigo-600 rounded-r-full shadow-lg shadow-indigo-600/50" />
-                    )}
-                  </button>
-
-                  {isOpenState && isExpanded && (
-                    <div className="mt-2 mr-6 border-r-2 border-indigo-100 dark:border-indigo-900/30 pr-4 space-y-1.5 animate-slide-up">
-                      {visibleChildren.map((child) => {
-                        const ChildIcon = child.icon;
-                        const isChildActive = location.pathname === child.path;
-                        return (
-                          <a
-                            key={child.path}
-                            href={`#${child.path}`}
-                            className={`
-                                              flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all
-                                                ${
-                                                  isChildActive
-                                                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/25'
-                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/40'
-                                                }
-                                            `}
-                          >
-                            <ChildIcon size={16} />
-                            <span>{child.label}</span>
-                          </a>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <a
-                key={item.path}
-                href={`#${item.path}`}
-                className={`
-                  flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
-                  ${
-                    isActive
-                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xl shadow-indigo-600/30'
-                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-white'
-                  }
-                  ${!isOpenState ? 'justify-center' : ''}
-                `}
-              >
-                <Icon
-                  size={22}
-                  strokeWidth={isActive ? 2.5 : 2}
-                  className="transition-transform group-hover:scale-110"
-                />
-                {isOpenState && <span className="text-sm font-bold">{item.label}</span>}
-                {isActive && !isOpenState && (
-                  <div className="absolute left-0 w-1.5 h-8 bg-white rounded-r-full" />
-                )}
-              </a>
-            );
-          })}
-        </nav>
-
-        {/* User Block - Enhanced Glass Style */}
-        {(sidebarOpen || !isDesktop) && (
-          <div className="mx-4 mb-6 p-4 rounded-3xl bg-slate-50/50 dark:bg-slate-950/40 border border-white/20 dark:border-slate-800/50 shadow-soft">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-200 to-white dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border border-white dark:border-slate-800 shadow-inner">
-                  <UserCircle size={32} className="text-slate-400" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-4 border-white dark:border-slate-900 rounded-full shadow-lg"></div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate">
-                  {user?.اسم_للعرض || user?.اسم_المستخدم || 'مستخدم'}
-                </p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                  {user?.الدور || '—'}
-                </p>
-              </div>
-            </div>
-
-            <a
-              href="#/logout"
-              className="mt-4 w-full inline-flex items-center justify-center gap-3 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-red-100 dark:hover:border-red-900/30 hover:shadow-lg text-xs font-black"
-            >
-              <LogOut size={18} />
-              <span>تسجيل الخروج</span>
-            </a>
-          </div>
-        )}
-      </aside>
+      <Sidebar 
+          isOpen={sidebarOpen}
+          isDesktop={isDesktop}
+          user={user}
+          appVersion={appVersion}
+          tabs={tabs}
+          activeTabId={activeTabId}
+          expandedMenus={expandedMenus}
+          onClose={() => setSidebarOpen(false)}
+          onToggleMenu={toggleMenu}
+          onOpenTab={openTab}
+          onSetOpen={setSidebarOpen}
+      />
 
       {/* ================================ */}
       {/* Main Content Area */}
       {/* ================================ */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full layer-content">
-        {/* Floating Modern Header */}
-        <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft layer-header transition-all">
-          <div className="flex items-center gap-6">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl hover:scale-105 active:scale-95 transition-all"
-            >
-              <Menu size={24} />
-            </button>
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full z-10 transition-all">
+        {/* Floating Modern Header - Memoized */}
+        <Header 
+            pathname={pathname}
+            title={getPageTitle()}
+            subtitle={getPageSubtitle()}
+            isDark={isDark}
+            toggleTheme={toggleTheme}
+            unreadCount={unreadCount}
+            hasUnreadUrgent={hasUnreadUrgent}
+            headerBadgeVariant={headerBadgeVariant}
+            sqlStatus={sqlStatus}
+            hasDesktopBridge={hasDesktopBridge}
+            onOpenSidebar={() => setSidebarOpen(true)}
+            onOpenPanel={openPanel}
+        />
 
-            <div className="flex flex-col">
-              <Breadcrumbs pathname={pathname} />
-              <h1 className="text-xl lg:text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-                <span className="w-2 h-8 bg-indigo-500 rounded-full" />
-                {getPageTitle()}
-              </h1>
-              {getPageSubtitle() ? (
-                <p className="text-[11px] lg:text-xs font-bold text-slate-400 dark:text-slate-500 leading-snug mt-1 max-w-[48rem]">
-                  {getPageSubtitle()}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 lg:gap-6">
-            <div className="hidden xl:block">
-              <LiveClock />
-            </div>
-
-            <div className="flex items-center bg-slate-100/50 dark:bg-slate-800/40 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
-              <GlobalSearch />
-            </div>
-
-            <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></div>
-
-            <div className="flex items-center gap-2">
-              {hasDesktopBridge && window.desktopDb?.sqlStatus && (
-                <button
-                  onClick={() =>
-                    openPanel('SERVER_DRAWER', undefined, {
-                      title: 'إعدادات المخدم',
-                      initialSection: 'server',
-                    })
-                  }
-                  className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 transition-all hover:scale-105 active:scale-95 ${
-                    sqlStatus?.enabled
-                      ? sqlStatus?.connected
-                        ? 'text-emerald-600 dark:text-emerald-400 shadow-emerald-500/10'
-                        : 'text-red-600 dark:text-red-400 shadow-red-500/10'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  <Server size={20} />
-                  {sqlStatus?.enabled && (
-                    <span
-                      className={`absolute top-2 right-2 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 animate-pulse ${
-                        sqlStatus?.connected ? 'bg-emerald-500' : 'bg-red-500'
-                      }`}
-                    />
-                  )}
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-yellow-300 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm active:rotate-12"
-              >
-                {isDark ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => openPanel('NOTIFICATION_CENTER')}
-                title={
-                  unreadCount > 0
-                    ? `${unreadCount} إشعار غير مقروء`
-                    : 'مركز الإشعارات — لا توجد غير مقروءة'
-                }
-                aria-label={
-                  unreadCount > 0
-                    ? `${unreadCount} إشعار غير مقروء، فتح مركز الإشعارات`
-                    : 'فتح مركز الإشعارات'
-                }
-                className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm ${
-                  unreadCount === 0
-                    ? 'text-slate-500 dark:text-slate-400 hover:text-indigo-600'
-                    : headerBadgeVariant === 'urgent'
-                      ? 'text-red-600 dark:text-red-400 hover:text-red-700'
-                      : headerBadgeVariant === 'collection'
-                        ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
-                }`}
-              >
-                <Bell size={20} aria-hidden />
-                <span className="pointer-events-none absolute -top-1 -right-1 flex h-[26px] min-w-[26px] items-center justify-center">
-                  {hasUnreadUrgent && unreadCount > 0 && (
-                    <span
-                      className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"
-                      aria-hidden
-                    />
-                  )}
-                  <span
-                    className={`relative flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white shadow-lg ring-4 ring-white transition-all duration-300 ease-out dark:ring-slate-900 ${
-                      headerBadgeVariant === 'urgent'
-                        ? 'bg-red-600 shadow-red-500/35'
-                        : headerBadgeVariant === 'collection'
-                          ? 'bg-blue-600 shadow-blue-500/30'
-                          : 'bg-slate-500 shadow-slate-500/25 dark:bg-slate-600'
-                    } ${unreadCount > 0 ? 'scale-100 opacity-100' : 'pointer-events-none scale-0 opacity-0'}`}
-                  >
-                    {unreadCount > 99 ? '99+' : unreadCount > 0 ? unreadCount : ''}
-                  </span>
-                </span>
-              </button>
-            </div>
-          </div>
-        </header>
+        <TabBar />
 
         {/* Content Container - Modern Layout */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-transparent no-scrollbar scroll-smooth">
-          <div
-            key={pathname}
-            className="max-w-[1600px] mx-auto w-full page-transition pb-24 lg:pb-12 min-h-full"
-          >
+        <main className="flex-1 overflow-hidden relative w-full h-full bg-transparent pt-4">
+          <div className="h-full w-full page-transition pb-2 lg:pb-0 min-h-full flex flex-col px-4 lg:px-8">
+            <TabContent />
+            {/* Background System Components */}
             {children}
           </div>
 
@@ -875,6 +995,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         </main>
 
         {/* Engine Layers */}
+        <PageSelector />
         <SmartModalEngine />
         <OnboardingGuide />
         <SessionLockOverlay />

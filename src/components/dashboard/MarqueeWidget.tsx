@@ -283,10 +283,10 @@ export const MarqueeWidget: FC<{
     <div
       role="region"
       aria-label="شريط الإعلانات والتنبيهات"
-      className={`app-card dark:bg-slate-800 relative flex items-center h-12 overflow-hidden ${
+      className={`relative flex items-center bg-slate-900/40 backdrop-blur-md border border-white/5 h-12 overflow-hidden shadow-2xl shadow-black/20 ${
         edgeToEdge
-          ? 'w-full mb-0 rounded-none rounded-b-2xl border-x-0 border-t-0 shadow-sm'
-          : 'mb-6 rounded-2xl'
+          ? 'w-full mb-0 rounded-none rounded-b-2xl border-x-0 border-t-0'
+          : 'mx-4 lg:mx-8 mb-6 mt-4 rounded-2xl'
       }`}
     >
       {/* Inject Keyframes Locally to ensure it works */}
@@ -338,11 +338,12 @@ export const MarqueeWidget: FC<{
       `}</style>
 
       {/* Fixed Icon Area */}
-      <div className="px-3 h-full flex items-center gap-2 z-20 shrink-0 border-l border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-900/20">
-        <Megaphone size={18} className="text-indigo-600 dark:text-indigo-300" />
+      <div className="px-3 h-full flex items-center gap-2 z-20 shrink-0 border-l border-white/10 bg-white/5 backdrop-blur-md">
+        <Megaphone size={18} className="text-indigo-400" />
 
         <Button
           variant="secondary"
+          className="bg-white/5 border-white/10 text-slate-300 hover:bg-indigo-600/20 hover:text-white"
           onClick={() => openPanel('MARQUEE_ADS')}
           title="تخصيص الإعلانات"
           aria-label="تخصيص الإعلانات"
@@ -352,6 +353,7 @@ export const MarqueeWidget: FC<{
 
         <Button
           variant="secondary"
+          className="bg-white/5 border-white/10 text-slate-300 hover:bg-indigo-600/20 hover:text-white"
           onClick={handleAddAd}
           title="إضافة إعلان"
           aria-label="إضافة إعلان"
@@ -364,7 +366,7 @@ export const MarqueeWidget: FC<{
       <div
         ref={marqueeViewportRef}
         dir="ltr"
-        className="flex-1 overflow-hidden relative h-full flex items-center justify-start px-2 mask-image-gradient"
+        className="flex-1 overflow-hidden relative h-full flex items-center justify-start px-2"
       >
         {/* Hidden measurer: measures width of ONE copy of the messages */}
         {hasMessages && (
@@ -382,7 +384,7 @@ export const MarqueeWidget: FC<{
             {displayMessages.map((msg) => (
               <div
                 key={`m-${String(msg.id)}`}
-                className="text-sm font-bold flex items-center gap-2 px-4 py-1 rounded-xl border"
+                className="text-[13px] font-bold flex items-center gap-2.5 px-5 py-1.5 rounded-xl border border-white/10 bg-white/5 shadow-sm"
               >
                 {getIcon(msg.type)}
                 <span dir="rtl">{msg.content}</span>
@@ -394,9 +396,9 @@ export const MarqueeWidget: FC<{
         {!hasMessages ? (
           <div
             dir="rtl"
-            className="px-4 py-1 rounded-xl bg-gray-50 dark:bg-slate-900/30 border border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold"
+            className="px-5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-[13px] font-bold"
           >
-            لا توجد تنبيهات/مهام عاجلة حالياً — يمكنك إضافة إعلان من زر +
+            لا توجد تنبيهات عاجلة حالاً — أضف إعلاناً من زر +
           </div>
         ) : prefersReducedMotion ? (
           <div className="flex items-center gap-6 min-h-full py-1 pe-2" role="list">
@@ -406,7 +408,11 @@ export const MarqueeWidget: FC<{
                 key={`static-${String(msg.id)}`}
                 role="listitem"
                 onClick={() => handleClick(msg)}
-                className={`text-sm font-bold flex items-center gap-2 px-4 py-1 rounded-xl border shrink-0 ${msg.priority === 'High' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-200' : 'bg-gray-50 dark:bg-slate-900/30 border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'} ${msg.action ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+                className={`text-[13px] font-bold flex items-center gap-2.5 px-5 py-1.5 rounded-xl border transition-all shrink-0 shadow-lg ${
+                    msg.priority === 'High' 
+                    ? 'bg-red-500/20 border-red-500/30 text-red-100 hover:bg-red-500/30' 
+                    : 'bg-white/5 border-white/10 text-slate-100 hover:bg-white/10'
+                } ${msg.action ? 'cursor-pointer' : 'cursor-default'}`}
                 title={msg.action ? 'اضغط لفتح التفاصيل' : undefined}
               >
                 {getIcon(msg.type)}
@@ -422,7 +428,11 @@ export const MarqueeWidget: FC<{
                   type="button"
                   key={`${idx}-${String(msg.id)}`}
                   onClick={() => handleClick(msg)}
-                  className={`text-sm font-bold flex items-center gap-2 px-4 py-1 rounded-xl border ${msg.priority === 'High' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-200' : 'bg-gray-50 dark:bg-slate-900/30 border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'} ${msg.action ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+                  className={`text-[13px] font-bold flex items-center gap-2.5 px-5 py-1.5 rounded-xl border transition-all shadow-lg ${
+                    msg.priority === 'High' 
+                    ? 'bg-red-500/20 border-red-500/30 text-red-100 hover:bg-red-500/30' 
+                    : 'bg-white/5 border-white/10 text-slate-100 hover:bg-white/10'
+                  } ${msg.action ? 'cursor-pointer' : 'cursor-default'}`}
                   title={msg.action ? 'اضغط لفتح التفاصيل' : undefined}
                 >
                   {getIcon(msg.type)}
@@ -431,7 +441,7 @@ export const MarqueeWidget: FC<{
               ))}
             </div>
 
-            {/* Second copy to make the loop seamless (not focusable to avoid duplicate keyboard navigation) */}
+            {/* Second copy for seamless loop */}
             <div className="marquee-group" ref={marqueeSecondGroupRef} aria-hidden="true">
               {repeatedMessages.map((msg, idx) => (
                 <button
@@ -440,7 +450,11 @@ export const MarqueeWidget: FC<{
                   tabIndex={-1}
                   aria-hidden="true"
                   onClick={() => handleClick(msg)}
-                  className={`text-sm font-bold flex items-center gap-2 px-4 py-1 rounded-xl border ${msg.priority === 'High' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-200' : 'bg-gray-50 dark:bg-slate-900/30 border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'} ${msg.action ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+                  className={`text-[13px] font-bold flex items-center gap-2.5 px-5 py-1.5 rounded-xl border transition-all shadow-lg ${
+                    msg.priority === 'High' 
+                    ? 'bg-red-500/20 border-red-500/30 text-red-100 hover:bg-red-500/30' 
+                    : 'bg-white/5 border-white/10 text-slate-100 hover:bg-white/10'
+                  } ${msg.action ? 'cursor-pointer' : 'cursor-default'}`}
                   title={msg.action ? 'اضغط لفتح التفاصيل' : undefined}
                 >
                   {getIcon(msg.type)}
