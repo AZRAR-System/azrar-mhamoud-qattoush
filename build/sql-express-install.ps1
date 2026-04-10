@@ -89,43 +89,6 @@ try {
         Write-Log 'Downloading SQL Server 2022 Express bootstrapper...'
         Invoke-WebRequest -Uri $downloadUrl -OutFile $bootstrapper -UseBasicParsing
 
-        $mediaPath = Join-Path $env:TEMP 'AZRAR_SQL2022_MEDIA'
-        if (Test-Path $mediaPath) { Remove-Item -LiteralPath $mediaPath -Recurse -Force -ErrorAction SilentlyContinue }
-        New-Item -ItemType Directory -Path $mediaPath -Force | Out-Null
-
-        Write-Log 'Downloading SQL Server media (may take several minutes)...'
-        $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('-ACTION=Download', "-MEDIAPATH=$mediaPath", '-MEDIATYPE=Core', '-QUIET') -Wait -PassThru -NoNewWindow
-
-        if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) {
-            Write-Log "Download with MEDIATYPE=Core failed ($($dl.ExitCode)); retrying without MEDIATYPE..."
-            $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('-ACTION=Download', "-MEDIAPATH=$mediaPath", '-QUIET') -Wait -PassThru -NoNewWindow
-        }
-
-        if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) { throw "SQL media download failed (exit $($dl.ExitCode))." }
-
-        $setupExe = Get-ChildItem -Path $mediaPath -Filter 'setup.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-
-        if (-not $setupExe) {
-            Write-Log 'setup.exe not found directly. Checking for compressed media EXE...'
-            $compressedExe = Get-ChildItem -Path $mediaPath -Filter '*.exe' | Select-Object -First 1
-            if ($compressedExe) {
-                Write-Log "Found compressed media: $($compressedExe.Name). Extracting to subfolder..."
-                $extractPath = Join-Path $mediaPath 'extracted'
-                # Ensure extractPath exists
-                $null = New-Item -ItemType Directory -Path $extractPath -Force -ErrorAction SilentlyContinue
-                
-                # Run the self-extracting EXE
-                # /Q for quiet, /X: for extract path (colon is required for some extractors)
-                $proc = Start-Process -FilePath $compressedExe.FullName -ArgumentList @('/Q', "/X:$extractPath") -Wait -PassThru -NoNewWindow
-                if ($proc.ExitCode -ne 0) { throw "Extraction of $($compressedExe.Name) failed (exit $($proc.ExitCode))." }
-                
-                # Search again in the extracted folder
-                $setupExe = Get-ChildItem -Path $extractPath -Filter 'setup.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-            }
-        }
-
-        if (-not $setupExe) { throw "setup.exe not found under $mediaPath even after extraction attempt." }
-
         $iniPath = Join-Path $env:TEMP 'azrar-sql-configuration.ini'
         $saEsc = $saPwd -replace '"', '""'
         $iniLines = @(
@@ -141,18 +104,17 @@ try {
             'SQLSYSAdminAccounts="BUILTIN\Administrators"',
             'IACCEPTSQLSERVERLICENSETERMS="True"',
             'QUIET="True"',
-            'MEDIALAYOUT="Core"',
             'UPDATEENABLED="False"',
             'USESQLRECOMMENDEDMEMORYLIMITS="True"'
         )
         Set-Content -Path $iniPath -Value ($iniLines -join "`r`n") -Encoding Unicode
 
-        Write-Log "Running setup: $setupExe -ConfigurationFile=..."
+        Write-Log "Running SQL installation via bootstrapper: $bootstrapper"
         # Use Hyphen prefix (-) instead of Slash (/) to avoid PowerShell argument mangling (// error)
-        # MEDIALAYOUT is now specified inside the INI file for maximum reliability
-        $ins = Start-Process -FilePath $setupExe -ArgumentList "-ConfigurationFile=`"$iniPath`"" -Wait -PassThru -NoNewWindow
+        # Running the bootstrapper directly in Install mode is more robust than manual extraction
+        $ins = Start-Process -FilePath $bootstrapper -ArgumentList @("-ACTION=Install", "-ConfigurationFile=`"$iniPath`"", "-IACCEPTSQLSERVERLICENSETERMS=True", "-QUIET") -Wait -PassThru -NoNewWindow
         
-        if ($ins.ExitCode -ne 0 -and $ins.ExitCode -ne 3010) { throw "SQL Server setup failed (exit $($ins.ExitCode))." }
+        if ($ins.ExitCode -ne 0 -and $ins.ExitCode -ne 3010) { throw "SQL Server installation failed (exit $($ins.ExitCode))." }
     }
     else {
         Write-Log "Instance $InstanceName already present."
