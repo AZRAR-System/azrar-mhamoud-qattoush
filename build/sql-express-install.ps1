@@ -115,8 +115,8 @@ try {
                 $null = New-Item -ItemType Directory -Path $extractPath -Force -ErrorAction SilentlyContinue
                 
                 # Run the self-extracting EXE
-                # -Q for quiet, -X for extract path
-                $proc = Start-Process -FilePath $compressedExe.FullName -ArgumentList @('-Q', "-X:$extractPath") -Wait -PassThru -NoNewWindow
+                # /Q for quiet, /X: for extract path (colon is required for some extractors)
+                $proc = Start-Process -FilePath $compressedExe.FullName -ArgumentList @('/Q', "/X:$extractPath") -Wait -PassThru -NoNewWindow
                 if ($proc.ExitCode -ne 0) { throw "Extraction of $($compressedExe.Name) failed (exit $($proc.ExitCode))." }
                 
                 # Search again in the extracted folder
