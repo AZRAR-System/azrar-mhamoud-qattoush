@@ -94,11 +94,11 @@ try {
         New-Item -ItemType Directory -Path $mediaPath -Force | Out-Null
 
         Write-Log 'Downloading SQL Server media (may take several minutes)...'
-        $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('/ACTION=Download', "/MEDIAPATH=$mediaPath", '/MEDIATYPE=Core', '/QUIET') -Wait -PassThru -NoNewWindow
+        $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('-ACTION=Download', "-MEDIAPATH=$mediaPath", '-MEDIATYPE=Core', '-QUIET') -Wait -PassThru -NoNewWindow
 
         if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) {
             Write-Log "Download with MEDIATYPE=Core failed ($($dl.ExitCode)); retrying without MEDIATYPE..."
-            $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('/ACTION=Download', "/MEDIAPATH=$mediaPath", '/QUIET') -Wait -PassThru -NoNewWindow
+            $dl = Start-Process -FilePath $bootstrapper -ArgumentList @('-ACTION=Download', "-MEDIAPATH=$mediaPath", '-QUIET') -Wait -PassThru -NoNewWindow
         }
 
         if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) { throw "SQL media download failed (exit $($dl.ExitCode))." }
@@ -115,8 +115,8 @@ try {
                 $null = New-Item -ItemType Directory -Path $extractPath -Force -ErrorAction SilentlyContinue
                 
                 # Run the self-extracting EXE
-                # /Q for quiet, /X for extract path
-                $proc = Start-Process -FilePath $compressedExe.FullName -ArgumentList @('/Q', "/X:$extractPath") -Wait -PassThru -NoNewWindow
+                # -Q for quiet, -X for extract path
+                $proc = Start-Process -FilePath $compressedExe.FullName -ArgumentList @('-Q', "-X:$extractPath") -Wait -PassThru -NoNewWindow
                 if ($proc.ExitCode -ne 0) { throw "Extraction of $($compressedExe.Name) failed (exit $($proc.ExitCode))." }
                 
                 # Search again in the extracted folder
@@ -146,10 +146,9 @@ try {
         )
         Set-Content -Path $iniPath -Value ($iniLines -join "`r`n") -Encoding Unicode
 
-        Write-Log "Running setup: $setupExe /ConfigurationFile=..."
-        # Use cmd /c to ensure arguments reach the setup engine unmodified (bypassing PowerShell's / mangling)
-        $cmdArgs = "/c ""$setupExe"" /ConfigurationFile=""$iniPath"""
-        $ins = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -Wait -PassThru -NoNewWindow
+        Write-Log "Running setup: $setupExe -ConfigurationFile=..."
+        # Use Hyphen prefix (-) instead of Slash (/) to avoid PowerShell argument mangling (// error)
+        $ins = Start-Process -FilePath $setupExe -ArgumentList "-ConfigurationFile=`"$iniPath`"" -Wait -PassThru -NoNewWindow
         
         if ($ins.ExitCode -ne 0 -and $ins.ExitCode -ne 3010) { throw "SQL Server setup failed (exit $($ins.ExitCode))." }
     }
