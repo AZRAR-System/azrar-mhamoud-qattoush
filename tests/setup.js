@@ -58,7 +58,10 @@ if (typeof globalThis.window.matchMedia === 'undefined') {
   });
 }
 
-// Mock IntersectionObserver
+  // Disable desktop sync mode for tests
+  globalThis.window.desktopDb = undefined;
+
+  // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
   constructor() {}
   disconnect() {}

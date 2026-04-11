@@ -20,7 +20,7 @@ describe('Notification Center Service', () => {
 
   it('markAsRead: should remove notif from active list (or mark read)', () => {
     notificationCenter.add({ id: 'N1', title: 'Test', message: 'H', type: 'info' });
-    notificationCenter.markAsRead('N1');
+    notificationCenter.markRead('N1');
     
     expect(notificationCenter.getItems().find(n => n.id === 'N1')).toBeUndefined();
   });
