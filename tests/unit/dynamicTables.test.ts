@@ -23,11 +23,11 @@ describe('Dynamic Tables Service', () => {
 
   it('addDynamicRecord: should store records for a custom table', () => {
     createDynamicTable('ExtraData', [{ name: 'Notes', type: 'text' }]);
+    const table = getDynamicTables()[0];
     
-    const res = addDynamicRecord('ExtraData', { Notes: 'Some info' });
-    expect(res.success).toBe(true);
+    addDynamicRecord({ tableId: table.id, Notes: 'Some info' });
     
-    const records = getDynamicRecords('ExtraData');
+    const records = getDynamicRecords(table.id);
     expect(records).toHaveLength(1);
     expect(records[0].Notes).toBe('Some info');
   });
