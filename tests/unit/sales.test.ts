@@ -45,6 +45,12 @@ describe('Sales Service Logic - Fixed', () => {
       رقم_العقار: 'PR1',
       isCompleted: false
     }]);
+    
+    // اضافة مرفقات مطلوبة لتجاوز الفحص
+    save(KEYS.ATTACHMENTS, [
+      { referenceType: 'Property', referenceId: 'PR1', name: 'عقد البيع.pdf' },
+      { referenceType: 'Person', referenceId: 'NEW_OWNER', name: 'هوية المشتري.pdf' }
+    ]);
 
     // Implementation expects (id: string, data: { transactionId: string })
     const res = await DbService.finalizeOwnershipTransfer('AG1', { transactionId: 'TX1' });
