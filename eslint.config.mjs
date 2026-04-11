@@ -43,7 +43,6 @@ export default [
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
       'react/jsx-uses-react': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
         {
@@ -64,4 +63,16 @@ export default [
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
+  {
+    files: ['electron/**/*.ts', 'electron/**/*.tsx'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    }
+  },
+  {
+    files: ['**/*'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    }
+  }
 ];
