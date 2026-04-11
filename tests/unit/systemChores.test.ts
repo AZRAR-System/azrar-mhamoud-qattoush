@@ -33,7 +33,8 @@ describe('System Chores Logic - Fixed', () => {
       id: 'N1',
       title: 'Alert',
       message: 'Test Message',
-      type: 'info'
+      type: 'info',
+      category: 'system'
     });
 
     const all = notificationCenter.getItems();
