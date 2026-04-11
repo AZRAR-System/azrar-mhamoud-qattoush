@@ -10,7 +10,8 @@ describe('Notification Center Service', () => {
       id: 'N1',
       title: 'Test',
       message: 'Hello',
-      type: 'info'
+      type: 'info',
+      category: 'general'
     });
 
     const items = notificationCenter.getItems();
@@ -19,10 +20,11 @@ describe('Notification Center Service', () => {
   });
 
   it('markAsRead: should remove notif from active list (or mark read)', () => {
-    notificationCenter.add({ id: 'N1', title: 'Test', message: 'H', type: 'info' });
+    notificationCenter.add({ id: 'N1', title: 'Test', message: 'H', type: 'info', category: 'general' });
     notificationCenter.markRead('N1');
     
-    expect(notificationCenter.getItems().find(n => n.id === 'N1')).toBeUndefined();
+    const item = notificationCenter.getItems().find(n => n.id === 'N1');
+    expect(item?.read).toBe(true);
   });
 
   it('clear: should empty the center', () => {
