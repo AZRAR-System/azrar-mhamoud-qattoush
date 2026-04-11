@@ -16,10 +16,31 @@ if (typeof globalThis.TextDecoder === 'undefined') {
   globalThis.TextDecoder = TextDecoder;
 }
 
-// Mock window.matchMedia
+// Mock window.desktopDb (Enables storage.isDesktop() and migration logic)
 if (typeof globalThis.window === 'undefined') {
   globalThis.window = {};
 }
+globalThis.window.desktopDb = {
+  domainMigrate: jest.fn(() => Promise.resolve()),
+  get: jest.fn((key) => Promise.resolve(globalThis.localStorage.getItem(key))),
+  set: jest.fn((key, val) => {
+    globalThis.localStorage.setItem(key, val);
+    return Promise.resolve();
+  }),
+  delete: jest.fn((key) => {
+    globalThis.localStorage.removeItem(key);
+    return Promise.resolve();
+  }),
+  keys: jest.fn(() => Promise.resolve(Object.keys(globalThis.localStorage))),
+  onRemoteUpdate: jest.fn(() => (() => {})),
+  
+  // Smart Query Stubs (Unlocks domainQueries.ts and reports.ts)
+  domainSearch: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
+  domainCounts: jest.fn(() => Promise.resolve({ ok: true, data: { properties: 0, contracts: 0, people: 0 } })),
+  dashboardSummary: jest.fn(() => Promise.resolve({ ok: true, data: {} })),
+  domainGet: jest.fn(() => Promise.resolve({ ok: true, data: null })),
+  domainPropertyContracts: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
+};
 
 if (typeof globalThis.window.matchMedia === 'undefined') {
   Object.defineProperty(globalThis.window, 'matchMedia', {
@@ -57,22 +78,26 @@ global.ResizeObserver = class ResizeObserver {
 };
 
 // Mock localStorage
-const localStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
+let localStore = {};
+global.localStorage = {
+  getItem: jest.fn((key) => localStore[key] ? String(localStore[key]) : null),
+  setItem: jest.fn((key, value) => { localStore[key] = String(value); }),
+  removeItem: jest.fn((key) => { delete localStore[key]; }),
+  clear: jest.fn(() => { localStore = {}; }),
+  get length() { return Object.keys(localStore).length; },
+  key: jest.fn((i) => Object.keys(localStore)[i] || null),
 };
-global.localStorage = localStorageMock;
 
 // Mock sessionStorage
-const sessionStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
+let sessionStore = {};
+global.sessionStorage = {
+  getItem: jest.fn((key) => sessionStore[key] ? String(sessionStore[key]) : null),
+  setItem: jest.fn((key, value) => { sessionStore[key] = String(value); }),
+  removeItem: jest.fn((key) => { delete sessionStore[key]; }),
+  clear: jest.fn(() => { sessionStore = {}; }),
+  get length() { return Object.keys(sessionStore).length; },
+  key: jest.fn((i) => Object.keys(sessionStore)[i] || null),
 };
-global.sessionStorage = sessionStorageMock;
 
 // Mock Electron IPC
 if (typeof globalThis.window.electron === 'undefined') {

@@ -6,14 +6,13 @@ export const TabContent: React.FC = () => {
   const { tabs, activeTabId } = useTabs();
 
   return (
-    <div className="flex-1 relative w-full h-full overflow-hidden">
+    <div className="w-full h-auto">
       {tabs.map((tab) => (
         <div
           key={tab.id}
-          className="absolute inset-0 w-full h-full overflow-auto bg-slate-50 dark:bg-slate-950"
+          className="w-full h-auto"
           style={{ 
-            display: tab.id === activeTabId ? 'block' : 'none',
-            zIndex: tab.id === activeTabId ? 10 : 0 
+            display: tab.id === activeTabId ? 'block' : 'none'
           }}
         >
           <RouterPage path={tab.path} />

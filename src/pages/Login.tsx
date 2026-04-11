@@ -18,6 +18,9 @@ import {
   ServerCog,
   Sparkles,
   KeyRound,
+  Wrench,
+  HelpCircle,
+  LifeBuoy,
 } from 'lucide-react';
 import { storage } from '@/services/storage';
 import { ROUTE_PATHS } from '@/routes/paths';
@@ -446,14 +449,14 @@ export const Login = () => {
       setPassword(trimmed);
       setNotice('تم تعديل كلمة مرور حساب المدير بنجاح.');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(toRecord(e).message || '').trim();
+      const msg = e instanceof Error ? e.message : String((e as any)?.message || '').trim();
       setError(msg || 'تعذر تعديل كلمة مرور admin');
     }
   };
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors duration-300 relative overflow-x-hidden">
-      <div className="min-h-screen flex flex-col lg:flex-row items-center justify-center gap-6 p-4 py-8">
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 md:p-8 font-tajawal rtl transition-colors duration-500 overflow-x-hidden overflow-y-auto" dir="rtl">
+      <div className="w-full max-w-5xl flex flex-col items-center justify-center gap-6">
       {/* دوائر نابضة في الخلفية */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
@@ -909,6 +912,59 @@ export const Login = () => {
                 )}
               </form>
             )}
+          </div>
+        </div>
+
+        {/* Technical Sidebar */}
+        <div className="fixed left-6 top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-5 p-3 rounded-3xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/20 dark:border-slate-700/30 shadow-2xl z-50 animate-slide-in-left">
+          <div className="flex flex-col gap-3">
+             <button
+               onClick={() => {
+                 setSqlFeedback(null);
+                 setShowDbSettings(true);
+               }}
+               className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-white hover:text-indigo-600 dark:hover:bg-slate-700 dark:hover:text-indigo-400 shadow-lg shadow-slate-900/5 transition-all hover:-translate-y-1 active:scale-95"
+               title="إعدادات قاعدة البيانات"
+             >
+               <ServerCog size={24} />
+               <div className="absolute left-16 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all pointer-events-none whitespace-nowrap shadow-xl">
+                 إعدادات SQL Server
+               </div>
+             </button>
+
+             <button
+               onClick={() => window.location.hash = ROUTE_PATHS.SYSTEM_SETUP}
+               className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all shadow-lg shadow-indigo-600/5 hover:-translate-y-1 active:scale-95"
+               title="معالج تثبيت النظام"
+             >
+               <Wrench size={24} />
+               <div className="absolute left-16 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all pointer-events-none whitespace-nowrap shadow-xl">
+                 معالج تثبيت النظام (كامل)
+               </div>
+             </button>
+
+             <button
+               onClick={() => window.location.hash = ROUTE_PATHS.ACTIVATION}
+               className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all shadow-lg shadow-emerald-600/5 hover:-translate-y-1 active:scale-95"
+               title="صفحة التفعيل"
+             >
+               <KeyRound size={24} />
+               <div className="absolute left-16 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all pointer-events-none whitespace-nowrap shadow-xl">
+                 تفعيل النظام والترخيص
+               </div>
+             </button>
+
+             <div className="h-px w-full bg-slate-200 dark:bg-slate-700/50 my-2" />
+
+             <button
+               className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-white hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white shadow-lg transition-all hover:-translate-y-1 active:scale-95"
+               onClick={() => toast.info('جاري الاتصال بمركز المساعدة...')}
+             >
+               <LifeBuoy size={24} />
+               <div className="absolute left-16 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all pointer-events-none whitespace-nowrap shadow-xl">
+                 مركز الدعم الفني
+               </div>
+             </button>
           </div>
         </div>
 

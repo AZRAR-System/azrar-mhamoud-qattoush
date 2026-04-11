@@ -5,6 +5,14 @@ module.exports = {
 	testPathIgnorePatterns: ['/node_modules/'],
 	setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
 	extensionsToTreatAsEsm: ['.ts', '.tsx'],
+	collectCoverage: true,
+	collectCoverageFrom: [
+		'src/**/*.{ts,tsx}',
+		'!src/**/*.d.ts',
+		'!src/main.tsx',
+		'!src/types/**'
+	],
+	coverageReporters: ['text-summary', 'lcov', 'json-summary'],
 	transform: {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',

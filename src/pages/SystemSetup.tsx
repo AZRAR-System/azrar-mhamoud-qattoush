@@ -26,9 +26,25 @@ export const SystemSetup: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [isInstalling, setIsInstalling] = useState(false);
   const [installResult, setInstallResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [detection, setDetection] = useState<{ installed: boolean; connected: boolean; message?: string } | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
+  // Detect existing installation
+  useEffect(() => {
+    if (currentStep === 'welcome') {
+      void (async () => {
+        try {
+          const res = await window.desktopDb.sqlIsAlreadyInstalled();
+          setDetection(res);
+        } catch (err) {
+          console.error('Failed to detect SQL installation:', err);
+        }
+      })();
+    }
+  }, [currentStep]);
+
   // Auto-scroll logs
+
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
@@ -57,13 +73,41 @@ export const SystemSetup: React.FC = () => {
   }, []);
 
   const handleStartInstallation = async () => {
+    const db = window.desktopDb;
+    if (!db) {
+      setInstallResult({ ok: false, message: 'خطأ: جسر الاتصال بالنظام غير متاح.' });
+      return;
+    }
+
     setIsInstalling(true);
     setLogs([]);
     try {
-      const res = await window.desktopDb.startInstallation();
+      const res = await db.startInstallation();
       setInstallResult(res);
+      
       if (res.ok) {
-        setCurrentStep('success');
+        // Post-install: Auto-configure and connect
+        setLogs(prev => [...prev, '[SYSTEM] Installation successful! Finalizing connection...']);
+        
+        const bootstrap = await db.sqlApplyBootstrapCredentials();
+        if (bootstrap.ok) {
+          setLogs(prev => [...prev, '[SYSTEM] Local credentials applied successfully.']);
+          setLogs(prev => [...prev, '[SYSTEM] Connecting to local Database...']);
+          
+          const conn = await db.sqlConnect();
+          if (conn.ok) {
+            setLogs(prev => [...prev, '[SYSTEM] Database connection established. Registration complete!']);
+            setCurrentStep('success');
+          } else {
+            setLogs(prev => [...prev, `[ERROR] Connection failed: ${conn.message}`]);
+            setInstallResult({ ok: false, message: 'فشل الاتصال التلقائي بقاعدة البيانات. يرجى التحقق من لوحة التحكم.' });
+          }
+        } else {
+          const errorMessage = !bootstrap.ok ? bootstrap.message : 'Unknown error';
+          setLogs(prev => [...prev, `[ERROR] Failed to apply credentials: ${errorMessage}`]);
+          setCurrentStep('success');
+        }
+
       }
     } catch (err) {
       setInstallResult({ ok: false, message: String(err) });
@@ -71,6 +115,44 @@ export const SystemSetup: React.FC = () => {
       setIsInstalling(false);
     }
   };
+
+  const handleFastLink = async () => {
+    const db = window.desktopDb;
+    if (!db) return;
+
+    setIsInstalling(true);
+    setLogs(['[SYSTEM] بدء عملية الربط السريع بالمحرك المكتشف...']);
+    setCurrentStep('install');
+
+    try {
+      setLogs(prev => [...prev, '[SYSTEM] استرجاع بيانات المحرك المحلي...']);
+      const bootstrap = await db.sqlApplyBootstrapCredentials();
+      
+      if (bootstrap.ok) {
+        setLogs(prev => [...prev, '[SYSTEM] تم تطبيق الإعدادات بنجاح.']);
+        setLogs(prev => [...prev, '[SYSTEM] جاري اختبار الاتصال بقاعدة البيانات...']);
+        
+        const conn = await db.sqlConnect();
+        if (conn.ok) {
+          setLogs(prev => [...prev, '[SYSTEM] تم الاتصال بنجاح!']);
+          setTimeout(() => setCurrentStep('success'), 1000);
+        } else {
+          setLogs(prev => [...prev, `[ERROR] فشل الاتصال: ${conn.message}`]);
+          setInstallResult({ ok: false, message: 'فشل الربط التلقائي. يرجى المحاولة يدوياً.' });
+        }
+      } else {
+        setLogs(prev => [...prev, `[ERROR] فشل تطبيق البيانات: ${bootstrap.message}`]);
+        setInstallResult({ ok: false, message: 'فشل قراءة ملف التهيئة المسبق.' });
+      }
+    } catch (err) {
+      setLogs(prev => [...prev, `[ERROR] خطأ غير متوقع: ${String(err)}`]);
+      setInstallResult({ ok: false, message: String(err) });
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
+
 
   const renderContent = () => {
     switch (currentStep) {
@@ -94,23 +176,76 @@ export const SystemSetup: React.FC = () => {
               <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 leading-relaxed font-bold">
                 سنقوم الآن بتهيئة بيئة النظام وتثبيت محرك قواعد البيانات لضمان عمل التطبيق بأقصى سرعة ممكنة على جهازك.
               </p>
+              
+              {detection?.installed && (
+                <div className="mt-4 flex items-center justify-center gap-3 py-2 px-6 bg-emerald-500/10 border border-emerald-500/20 rounded-full animate-in zoom-in duration-500">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">تم اكتشاف محرك SQL مثبت بالفعل على هذا الجهاز</span>
+                </div>
+              )}
             </div>
 
             <div className="mt-12 flex flex-col items-center gap-6 w-full">
-              <button
-                onClick={() => setCurrentStep('requirements')}
-                className="group relative flex items-center gap-4 bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-500 hover:from-indigo-600 hover:to-indigo-400 text-white px-12 py-5 rounded-[2rem] text-xl font-black transition-all shadow-[0_20px_50px_rgba(79,70,229,0.3)] hover:shadow-[0_20px_50px_rgba(79,70,229,0.5)] hover:-translate-y-1 active:scale-95 overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                ابدأ رحلة الإعداد
-                <ChevronRight size={24} className="group-hover:translate-x-2 transition-transform" />
-              </button>
+              <div className="flex flex-col md:flex-row gap-4 w-full max-w-lg">
+                {detection?.installed ? (
+                  <>
+                    <button
+                      onClick={handleFastLink}
+                      className="flex-[2] group relative bg-emerald-600 text-white px-8 py-5 rounded-[3xl] font-black text-xl transition-all shadow-2xl shadow-emerald-600/30 hover:bg-emerald-700 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Database size={24} className="group-hover:scale-110 transition-transform" />
+                      ربط المحرك والمتابعة
+                      <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentStep('requirements')}
+                      className="flex-1 group relative bg-slate-100 dark:bg-slate-800 text-slate-500 px-6 py-5 rounded-[3xl] font-bold text-sm transition-all border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      إعادة الإعداد
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setCurrentStep('requirements')}
+                    className="flex-1 group relative bg-indigo-600 text-white px-8 py-5 rounded-[3xl] font-black text-xl transition-all shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    بدء الإعداد
+                    <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+                )}
+
+                <button
+                  onClick={() => window.location.hash = ROUTE_PATHS.LOGIN}
+                  className="flex-1 group relative bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-8 py-5 rounded-[3xl] font-bold text-lg transition-all border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  تخطي للدخول
+                  <Layout size={20} className="opacity-60 group-hover:rotate-12 transition-transform" />
+                </button>
+              </div>
+              
+              <div className="flex flex-row gap-4">
+                <button
+                  onClick={async () => {
+                    try {
+                      await window.desktopDb?.quitApp?.();
+                    } catch {
+                      window.close();
+                    }
+                  }}
+                  className="md:w-auto bg-rose-500/10 hover:bg-rose-500 text-rose-600 hover:text-white px-6 py-3 rounded-2xl font-black text-sm transition-all border border-rose-500/20 flex items-center justify-center gap-2 group"
+                  title="إغلاق البرنامج"
+                >
+                  <XCircle size={18} className="group-hover:scale-110 transition-transform" />
+                  خروج من النظام
+                </button>
+              </div>
               
               <div className="flex items-center gap-2 text-slate-400 dark:text-slate-600 font-bold text-xs uppercase tracking-widest">
                 <Layout size={14} />
                 <span>بروفيشنال إيديشن 2025</span>
               </div>
             </div>
+
           </div>
         );
 
@@ -266,21 +401,45 @@ export const SystemSetup: React.FC = () => {
 
             <div className="mt-10 flex justify-center">
               {!isInstalling && !installResult && (
-                <button
-                  onClick={handleStartInstallation}
-                  className="group bg-indigo-600 hover:bg-indigo-700 text-white px-12 py-5 rounded-[2rem] font-black transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-4 hover:-translate-y-1 active:scale-95"
-                >
-                  <Globe size={24} className="group-hover:rotate-12 transition-transform" />
-                  بدء عملية التثبيت الشاملة
-                </button>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <button
+                    onClick={handleStartInstallation}
+                    className="group bg-indigo-600 hover:bg-indigo-700 text-white px-12 py-5 rounded-[2rem] font-black transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-4 hover:-translate-y-1 active:scale-95"
+                  >
+                    <Globe size={24} className="group-hover:rotate-12 transition-transform" />
+                    بدء عملية التثبيت الشاملة
+                  </button>
+                  <button
+                    onClick={() => setCurrentStep('welcome')}
+                    className="bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 px-8 py-5 rounded-[2rem] font-bold transition-all border border-slate-200 dark:border-slate-700 hover:shadow-lg"
+                  >
+                    إلغاء والعودة
+                  </button>
+                </div>
               )}
               {installResult && !installResult.ok && (
-                <button
-                  onClick={handleStartInstallation}
-                  className="bg-rose-600 hover:bg-rose-700 text-white px-10 py-4 rounded-2xl font-black transition-all shadow-xl shadow-rose-600/20 flex items-center gap-3 animate-bounce"
-                >
-                   إعادة المحاولة
-                </button>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <button
+                    onClick={handleStartInstallation}
+                    className="bg-rose-600 hover:bg-rose-700 text-white px-10 py-4 rounded-2xl font-black transition-all shadow-xl shadow-rose-600/20 flex items-center gap-3 animate-bounce"
+                  >
+                     إعادة المحاولة
+                  </button>
+                  <button
+                    onClick={() => setCurrentStep('welcome')}
+                    className="bg-white dark:bg-slate-800 text-slate-500 px-8 py-4 rounded-2xl font-bold transition-all border border-slate-200 dark:border-slate-700"
+                  >
+                    تراجع للبداية
+                  </button>
+                </div>
+              )}
+              {isInstalling && (
+                 <button
+                    onClick={() => setCurrentStep('welcome')}
+                    className="text-slate-400 hover:text-slate-600 underline text-sm font-bold opacity-50 hover:opacity-100 transition-opacity"
+                  >
+                    إيقاف والعودة للبداية (سيستمر التثبيت في الخلفية)
+                  </button>
               )}
             </div>
           </div>
@@ -319,7 +478,7 @@ export const SystemSetup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 md:p-8 font-tajawal rtl transition-colors duration-500 overflow-x-hidden" dir="rtl">
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 md:p-8 font-tajawal rtl transition-colors duration-500 overflow-x-hidden overflow-y-auto" dir="rtl">
       
       {/* Dynamic Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -340,6 +499,15 @@ export const SystemSetup: React.FC = () => {
               <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">إعداد النظام</h2>
               <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">Setup Wizard Engine</p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => window.location.hash = ROUTE_PATHS.LOGIN}
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 px-6 py-3 rounded-2xl transition-all hover:bg-white dark:hover:bg-slate-800 shadow-sm"
+            >
+              خروج والعودة للنظام
+            </button>
           </div>
 
           <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-white/5 p-1.5 rounded-2xl border border-slate-200/50 dark:border-white/5 overflow-x-auto no-scrollbar scroll-smooth">
@@ -387,7 +555,7 @@ export const SystemSetup: React.FC = () => {
           
           <div className="flex items-center gap-4 order-1 md:order-2">
             <div className="flex items-center gap-2 group cursor-help">
-              <span className="text-[10px] font-black text-indigo-500/60 dark:text-indigo-400/40">VER. 3.2.66 PRO</span>
+              <span className="text-[10px] font-black text-indigo-500/60 dark:text-indigo-400/40">VER. 3.2.80 PRO</span>
               <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
             </div>
           </div>

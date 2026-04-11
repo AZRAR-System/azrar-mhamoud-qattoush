@@ -1,0 +1,1222 @@
+node : PASS tests/unit/installmentsUtils.test.ts
+At line:1 char:1
++ node --no-warnings --experimental-vm-modules node_modules/jest/bin/je ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS tests/unit...tsUtils.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  installmentsUtils
+    getPaidAndRemaining
+      ??? returns zero remaining when status is PAID (4 ms)
+      ??? uses ????????????_???????????????? when set (partial state) (1 ms)
+      ??? derives from ??????_?????????????? when no reliable ???????????????? (1 ms)
+      ??? ignores non-positive entries in ??????_?????????????? for paid sum
+    getLastPositivePaymentAmount
+      ??? returns null when no payments
+      ??? returns last positive amount scanning from end (1 ms)
+      ??? skips trailing reversal (negative) to find previous positive
+    getNextUnpaidDueSummary / formatNextDuePaymentLabel
+      ??? picks earliest unpaid due date (1 ms)
+      ??? returns null when all paid (1 ms)
+      ??? formatNextDuePaymentLabel covers future, today, overdue (1 ms)
+
+PASS tests/unit/dbInstallments.test.ts
+  db/installments payment handlers
+    ??? markInstallmentPaid marks paid when amount covers balance (53 ms)
+    ??? markInstallmentPaid sets PARTIAL then PAID on second payment (27 ms)
+    ??? markInstallmentPaid rejects Employee role (34 ms)
+    ??? markInstallmentPaid rejects unknown installment id (2 ms)
+    ??? markInstallmentPaid rejects zero or negative amount (1 ms)
+    ??? markInstallmentPaid rejects overpayment vs remaining (4 ms)
+    ??? markInstallmentPaid rejects paying already PAID installment (2 ms)
+    ??? reversePayment restores unpaid after full payment (SuperAdmin) (5 ms)
+    ??? reversePayment rejects non-SuperAdmin (2 ms)
+    ??? reversePayment rejects empty reason (3 ms)
+    ??? reversePayment rejects when installment unpaid (1 ms)
+    ??? reversePayment after partial restores UNPAID and full remaining (2 ms)
+    ??? setInstallmentLateFee records amount and rejects invalid role (3 ms)
+
+FAIL tests/unit/installmentsSorting.test.ts
+  installmentsContractsPagedSmart sorting (web/non-desktop parity)
+    ?? due-asc sorts by most relevant due date (unpaid first, then last paid) (301 ms)
+    ?? defaults to due-asc when sort is omitted (3 ms)
+    ?? due-desc sorts by most relevant due date descending (2 ms)
+    ??? amount-asc / amount-desc sort by annual value (4 ms)
+    ??? filtering by amount and date (1 ms)
+    ??? filtering by payment method
+    ?? tenant-asc / tenant-desc sort by tenant name (4 ms)
+
+  ??? installmentsContractsPagedSmart sorting (web/non-desktop parity) ??? due-asc sorts by most relevant due date 
+(unpaid first, then last paid)
+
+    expect(received).toBeUndefined()
+
+    Received: "???????????????? ?????? ?????????? ???? ?????????????????? ?????? ???????? (Desktop)"
+
+    [0m [90m 103 |[39m
+     [90m 104 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m installmentsContractsPagedSmart({ 
+sort[33m:[39m [32m'due-asc'[39m[33m,[39m offset[33m:[39m [35m0[39m[33m,[39m limit[33m:[39m [35m50[39m 
+})[33m;[39m
+    [31m[1m>[22m[39m[90m 105 |[39m     expect(res[33m.[39merror)[33m.[39mtoBeUndefined()[33m;[39m
+     [90m     |[39m                       [31m[1m^[22m[39m
+     [90m 106 |[39m
+     [90m 107 |[39m     [36mconst[39m ids [33m=[39m res[33m.[39mitems[33m.[39mmap((x[33m:[39m 
+[33mInstallmentsContractsItem[39m) [33m=>[39m
+     [90m 108 |[39m       [33mString[39m(x[33m.[39mcontract[33m?[39m[33m.[39m??????_?????????? 
+[33m?[39m[33m?[39m [32m''[39m)[0m
+
+      at Object.<anonymous> (tests/unit/installmentsSorting.test.ts:105:23)
+
+  ??? installmentsContractsPagedSmart sorting (web/non-desktop parity) ??? defaults to due-asc when sort is omitted
+
+    expect(received).toBeUndefined()
+
+    Received: "???????????????? ?????? ?????????? ???? ?????????????????? ?????? ???????? (Desktop)"
+
+    [0m [90m 116 |[39m
+     [90m 117 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m installmentsContractsPagedSmart({ 
+offset[33m:[39m [35m0[39m[33m,[39m limit[33m:[39m [35m50[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 118 |[39m     expect(res[33m.[39merror)[33m.[39mtoBeUndefined()[33m;[39m
+     [90m     |[39m                       [31m[1m^[22m[39m
+     [90m 119 |[39m
+     [90m 120 |[39m     [36mconst[39m ids [33m=[39m res[33m.[39mitems[33m.[39mmap((x[33m:[39m 
+[33mInstallmentsContractsItem[39m) [33m=>[39m
+     [90m 121 |[39m       [33mString[39m(x[33m.[39mcontract[33m?[39m[33m.[39m??????_?????????? 
+[33m?[39m[33m?[39m [32m''[39m)[0m
+
+      at Object.<anonymous> (tests/unit/installmentsSorting.test.ts:118:23)
+
+  ??? installmentsContractsPagedSmart sorting (web/non-desktop parity) ??? due-desc sorts by most relevant due date 
+descending
+
+    expect(received).toBeUndefined()
+
+    Received: "???????????????? ?????? ?????????? ???? ?????????????????? ?????? ???????? (Desktop)"
+
+    [0m [90m 128 |[39m
+     [90m 129 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m installmentsContractsPagedSmart({ 
+sort[33m:[39m [32m'due-desc'[39m[33m,[39m offset[33m:[39m [35m0[39m[33m,[39m limit[33m:[39m [35m50[39m 
+})[33m;[39m
+    [31m[1m>[22m[39m[90m 130 |[39m     expect(res[33m.[39merror)[33m.[39mtoBeUndefined()[33m;[39m
+     [90m     |[39m                       [31m[1m^[22m[39m
+     [90m 131 |[39m
+     [90m 132 |[39m     [36mconst[39m ids [33m=[39m res[33m.[39mitems[33m.[39mmap((x[33m:[39m 
+[33mInstallmentsContractsItem[39m) [33m=>[39m
+     [90m 133 |[39m       [33mString[39m(x[33m.[39mcontract[33m?[39m[33m.[39m??????_?????????? 
+[33m?[39m[33m?[39m [32m''[39m)[0m
+
+      at Object.<anonymous> (tests/unit/installmentsSorting.test.ts:130:23)
+
+  ??? installmentsContractsPagedSmart sorting (web/non-desktop parity) ??? tenant-asc / tenant-desc sort by tenant name
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "????????"
+    Received: undefined
+
+    [0m [90m 224 |[39m     [36mconst[39m asc [33m=[39m [36mawait[39m installmentsContractsPagedSmart({ 
+sort[33m:[39m [32m'tenant-asc'[39m[33m,[39m offset[33m:[39m [35m0[39m[33m,[39m limit[33m:[39m 
+[35m50[39m })[33m;[39m
+     [90m 225 |[39m     [36mconst[39m ascNames [33m=[39m asc[33m.[39mitems[33m.[39mmap((x[33m:[39m 
+[33mInstallmentsContractsItem[39m) [33m=>[39m [33mString[39m(x[33m.[39mtenant[33m?[39m[33m.[39m?????????? 
+[33m?[39m[33m?[39m [32m''[39m))[33m;[39m
+    [31m[1m>[22m[39m[90m 226 |[39m     
+expect(ascNames[[35m0[39m])[33m.[39mtoBe([32m'????????'[39m)[33m;[39m
+     [90m     |[39m                         [31m[1m^[22m[39m
+     [90m 227 |[39m     expect(ascNames[ascNames[33m.[39mlength [33m-[39m 
+[35m1[39m])[33m.[39mtoBe([32m'??????'[39m)[33m;[39m
+     [90m 228 |[39m
+     [90m 229 |[39m     [36mconst[39m desc [33m=[39m [36mawait[39m installmentsContractsPagedSmart({[0m
+
+      at Object.<anonymous> (tests/unit/installmentsSorting.test.ts:226:25)
+
+PASS tests/unit/properties.test.ts
+  Properties Service
+    ??? addProperty: should create a record with PROP- ID (13 ms)
+    ??? updateProperty: should link IsRented to status if patched (15 ms)
+    ??? deleteProperty: should block if active contracts exist (3 ms)
+    ??? getPropertyDetails: should return full aggregate (owner, tenant, contract) (14 ms)
+
+PASS tests/unit/ipcContract.preloadToMain.test.js
+  IPC contract: preload -> main handlers
+    ??? all ipcRenderer channels used in preload are handled in main process (52 ms)
+
+PASS tests/unit/activationClockRollback.test.js
+  activation anti-rollback (clock rollback hardening)
+    ??? accepts valid license when no lastSeen exists (and records lastSeen) (62 ms)
+    ??? rejects license validation if clock rolled back more than tolerance (1 ms)
+    ??? allows small backward drift within tolerance (1 ms)
+
+PASS tests/unit/reports.test.ts
+  Reports Service Logic
+    ??? runReport: financial_summary: should calculate correct totals (9 ms)
+    ??? runReport: employee_commissions: should link users and properties correctly (3 ms)
+    ??? runReport: fallback: should handle unknown IDs gracefully (1 ms)
+
+FAIL tests/unit/contracts.test.ts
+  Contracts Service Logic
+    ?? createContract: should add a contract and update property status (7 ms)
+    ?? terminateContract: should cancel contract and release property (46 ms)
+    ?? renewContract: should create a new contract from existing one (4 ms)
+    ?? renewContract: should handle complex frequencies and archive old contract (3 ms)
+    ??? terminateContract: should handle already cancelled contracts gracefully (2 ms)
+
+  ??? Contracts Service Logic ??? createContract: should add a contract and update property status
+
+    TypeError: DbService.addContract is not a function
+
+    [0m [90m 13 |[39m
+     [90m 14 |[39m   it([32m'createContract: should add a contract and update property status'[39m[33m,[39m () 
+[33m=>[39m {
+    [31m[1m>[22m[39m[90m 15 |[39m     [36mconst[39m res [33m=[39m [33mDbService[39m[33m.[39maddContract({
+     [90m    |[39m                           [31m[1m^[22m[39m
+     [90m 16 |[39m       ??????_????????????????[33m:[39m [32m'P1'[39m[33m,[39m
+     [90m 17 |[39m       ??????_????????????[33m:[39m [32m'PR1'[39m[33m,[39m
+     [90m 18 |[39m       ??????????_??????????????[33m:[39m [32m'2024-01-01'[39m[33m,[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:15:27)
+
+  ??? Contracts Service Logic ??? terminateContract: should cancel contract and release property
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "????????"
+    Received: "??????????"
+
+    [0m [90m 38 |[39m     
+     [90m 39 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+    [31m[1m>[22m[39m[90m 40 |[39m     
+expect(contracts[[35m0[39m][33m.[39m????????_??????????)[33m.[39mtoBe([32m'????????'[39m)[33m;[39m
+     [90m    |[39m                                     [31m[1m^[22m[39m
+     [90m 41 |[39m     
+     [90m 42 |[39m     [36mconst[39m props [33m=[39m 
+[33mJSON[39m[33m.[39mparse(localStorage[33m.[39mgetItem([33mKEYS[39m[33m.[39m[33mPROPERTIES[39m) 
+[33m||[39m [32m'[]'[39m)[33m;[39m
+     [90m 43 |[39m     
+expect(props[[35m0[39m][33m.[39m[33mIsRented[39m)[33m.[39mtoBe([36mfalse[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:40:37)
+
+  ??? Contracts Service Logic ??? renewContract: should create a new contract from existing one
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 56 |[39m
+     [90m 57 |[39m     [36mconst[39m res [33m=[39m 
+[33mDbService[39m[33m.[39mrenewContract([32m'C1'[39m[33m,[39m [32m'2024-01-01'[39m[33m,[39m 
+[32m'2024-12-31'[39m[33m,[39m [35m5000[39m[33m,[39m [35m12[39m[33m,[39m [35m100[39m[33m,[39m 
+[35m100[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 58 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 59 |[39m     
+     [90m 60 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+     [90m 61 |[39m     expect(contracts)[33m.[39mtoHaveLength([35m2[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:58:25)
+
+  ??? Contracts Service Logic ??? renewContract: should handle complex frequencies and archive old contract
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 74 |[39m     [90m// Renew with 6 months frequency and 12 months duration[39m
+     [90m 75 |[39m     [36mconst[39m res [33m=[39m 
+[33mDbService[39m[33m.[39mrenewContract([32m'C-OLD'[39m[33m,[39m [32m'2024-01-01'[39m[33m,[39m 
+[32m'2024-12-31'[39m[33m,[39m [35m6000[39m[33m,[39m [35m6[39m[33m,[39m [35m120[39m[33m,[39m 
+[35m120[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 76 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 77 |[39m
+     [90m 78 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+     [90m 79 |[39m     [36mconst[39m old [33m=[39m contracts[33m.[39mfind(c [33m=>[39m 
+c[33m.[39m??????_?????????? [33m===[39m [32m'C-OLD'[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:76:25)
+
+  console.warn
+    [db/people] domainMigrate attempt 1/3
+
+    [0m [90m 38 |[39m       [36mfor[39m ([36mlet[39m i [33m=[39m [35m1[39m[33m;[39m i [33m<=[39m retries[33m;[39m i[33m++[39m) {
+     [90m 39 |[39m         [36mtry[39m {
+    [31m[1m>[22m[39m[90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+     [90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m[0m
+
+      at src/services/db/people.ts:40:19
+      at requestDomainMigrate (src/services/db/people.ts:50:7)
+      at Object.deletePerson (src/services/db/people.ts:118:3)
+      at Module.deletePersonSmart (src/services/domainQueries.ts:823:27)
+      at tests/unit/bruteForceQueries.test.ts:44:52
+      at sweep (tests/unit/bruteForceQueries.test.ts:11:19)
+      at Object.<anonymous> (tests/unit/bruteForceQueries.test.ts:44:11)
+
+  console.warn
+    [db/people] domainMigrate succeeded
+
+    [0m [90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+    [31m[1m>[22m[39m[90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m
+     [90m 44 |[39m         } [36mcatch[39m (err) {
+     [90m 45 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate failed attempt ${i}/${retries}`[39m[33m,[39m err)[33m;[39m[0m
+
+      at src/services/db/people.ts:42:19
+
+PASS tests/unit/bruteForceQueries.test.ts
+  Domain Queries - Crash-Proof Sweep
+    ??? Sequential Logic Sweep: should call all exported smart functions with fail-safes (124 ms)
+
+PASS tests/unit/dbContracts.test.ts
+  db/contracts
+    ??? getContracts returns empty when none (22 ms)
+    ??? createContract appends contract and getContracts sees it (10 ms)
+
+PASS tests/unit/whatsapp.test.ts
+  WhatsApp Utils
+    normalizeWhatsAppPhone
+      ??? strips international 00 prefix by default (1 ms)
+      ??? prepends default country code to local numbers (leading 0) (1 ms)
+      ??? correctly handles Jordan mobile format starts with 7 (9 digits)
+      ??? returns empty string for invalid input (1 ms)
+    buildWhatsAppLink
+      ??? generates a web link by default (2 ms)
+      ??? generates a desktop deep link if target is desktop (1 ms)
+    collectWhatsAppPhones
+      ??? uniquifies and filters phones (1 ms)
+    buildWhatsAppLinks
+      ??? generates multiple links for a list of phones (3 ms)
+
+FAIL tests/unit/backgroundScans.test.ts
+  Background Scans Service - Semantic Fix
+    ??? runDailyScheduler: should detect upcoming installments and create specific alerts (36 ms)
+    ?? runDailyScheduler: should catch missing contract data quality issues (5 ms)
+    ?? runAutoRenewContractsInternal: should trigger renewal alerts for upcoming expirations (19 ms)
+
+  ??? Background Scans Service - Semantic Fix ??? runDailyScheduler: should catch missing contract data quality issues
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 43 |[39m
+     [90m 44 |[39m     [36mconst[39m alerts [33m=[39m 
+[36mget[39m[33m<[39m[33many[39m[][33m>[39m([32m'db_alerts'[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 45 |[39m     expect(alerts[33m.[39msome(a [33m=>[39m 
+a[33m.[39m??????_?????????????? [33m===[39m [32m'???????? 
+????????????????'[39m))[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                                                                 [31m[1m^[22m[39m
+     [90m 46 |[39m   })[33m;[39m
+     [90m 47 |[39m
+     [90m 48 |[39m   it([32m'runAutoRenewContractsInternal: should trigger renewal alerts for upcoming 
+expirations'[39m[33m,[39m () [33m=>[39m {[0m
+
+      at Object.<anonymous> (tests/unit/backgroundScans.test.ts:45:65)
+
+  ??? Background Scans Service - Semantic Fix ??? runAutoRenewContractsInternal: should trigger renewal alerts for 
+upcoming expirations
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 62 |[39m     [36mconst[39m alerts [33m=[39m 
+[36mget[39m[33m<[39m[33many[39m[][33m>[39m([32m'db_alerts'[39m)[33m;[39m
+     [90m 63 |[39m     [90m// Check for "?????????? ?????????????? ??????" alert[39m
+    [31m[1m>[22m[39m[90m 64 |[39m     expect(alerts[33m.[39msome(a [33m=>[39m 
+a[33m.[39m??????_??????????????[33m.[39mincludes([32m'???????????? 
+??????'[39m)))[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                                                                    [31m[1m^[22m[39m
+     [90m 65 |[39m     
+     [90m 66 |[39m     jest[33m.[39museRealTimers()[33m;[39m
+     [90m 67 |[39m   })[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/backgroundScans.test.ts:64:68)
+
+PASS tests/unit/updaterInstallValidation.test.js
+  updater install-from-file validation
+    ??? rejects empty path (2 ms)
+    ??? rejects UNC paths
+    ??? rejects non-exe extension
+    ??? accepts .EXE extension case-insensitively
+    ??? rejects non-file
+    ??? rejects zero/invalid size
+    ??? rejects too-large size
+    ??? accepts valid candidate (1 ms)
+
+PASS tests/unit/dataValidation.test.ts
+  Data Validation Service
+    ??? checkPrimaryKeyDuplicates: should identify rows with same ID in a table (23 ms)
+    ??? checkForeignKeyIntegrity: should identify missing entity references (1 ms)
+    ??? checkBusinessLogic: should flag rented properties without active contracts (1 ms)
+    ??? validateNewPerson: should validate required fields (1 ms)
+
+PASS tests/unit/salesAgreements.test.ts
+  Sales Agreements Service Logic - DI Fix
+    ??? addSalesAgreement: should save a new agreement (82 ms)
+    ??? updateSalesAgreement: should persist changes (35 ms)
+
+PASS tests/searchNormalize.test.ts
+  searchNormalize (strict/lenient)
+    ??? strict normalizes alef variants and alif wasla + yaa maksura (3 ms)
+    ??? strict keeps ??/?? distinct (no over-matching) (1 ms)
+    ??? lenient folds ??->?? and removes hamza (1 ms)
+    ??? digits normalization supports Arabic/Persian digits and separators
+
+FAIL tests/unit/installments.test.ts
+  Installments Service Logic
+    ??? previewContractInstallments: should generate monthly installments (5 ms)
+    ??? markInstallmentPaid: should handle partial payments and status updates (84 ms)
+    ?? reversePayment: should allow SuperAdmin to undo a payment (5 ms)
+
+  ??? Installments Service Logic ??? reversePayment: should allow SuperAdmin to undo a payment
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 2
+    Received length: 1
+    Received array:  [{"??????????????": "2026-04-11", "??????????": "SuperAdmin", "????????????": -1000, 
+"????????????????": "super1", "??????????????????": "???? ??????: Error in entry | ????????: ???1,000.00????.??.??? 
+???????????? 2024-01-01", "??????????": "PARTIAL", "??????_??????????????": "REVERSAL_1775940445474_ydd5xj1rr"}]
+
+    [0m [90m 57 |[39m     [36mconst[39m inst [33m=[39m 
+([36mget[39m[33m<[39m[33many[39m[][33m>[39m([33mKEYS[39m[33m.[39m[33mINSTALLMENTS[39m))[33m.[39mfind(i 
+[33m=>[39m i[33m.[39m??????_?????????????????? [33m===[39m [32m'I1'[39m)[33m;[39m
+     [90m 58 |[39m     expect(inst[33m.[39m????????_??????????????????)[33m.[39mtoBe([33mINSTALLMENT_STATUS[39m
+[33m.[39m[33mUNPAID[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 59 |[39m     
+expect(inst[33m.[39m??????_??????????????)[33m.[39mtoHaveLength([35m2[39m)[33m;[39m [90m// Original + 
+Reversal record[39m
+     [90m    |[39m                              [31m[1m^[22m[39m
+     [90m 60 |[39m   })[33m;[39m
+     [90m 61 |[39m })[33m;[39m
+     [90m 62 |[39m[0m
+
+      at Object.<anonymous> (tests/unit/installments.test.ts:59:30)
+
+PASS tests/unit/dbSales.test.ts
+  db/sales
+    ??? getSalesListings returns seeded rows (21 ms)
+    ??? createSalesAgreement persists agreement and sets listing Pending (2 ms)
+
+FAIL tests/unit/maintenance.test.ts
+  Maintenance Service
+    ?? addMaintenanceTicket: should create a new ticket (16 ms)
+    ??? updateMaintenanceTicket: should change status and details (3 ms)
+    ??? deleteMaintenanceTicket: should remove ticket (12 ms)
+
+  ??? Maintenance Service ??? addMaintenanceTicket: should create a new ticket
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "??????????"
+    Received: undefined
+
+    [0m [90m 24 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m 25 |[39m     expect(getMaintenanceTickets())[33m.[39mtoHaveLength([35m1[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 26 |[39m     
+expect(getMaintenanceTickets()[[35m0[39m][33m.[39m????????????)[33m.[39mtoBe([32m'??????????'[39m)[33m;[39m
+     [90m    |[39m                                               [31m[1m^[22m[39m
+     [90m 27 |[39m   })[33m;[39m
+     [90m 28 |[39m
+     [90m 29 |[39m   it([32m'updateMaintenanceTicket: should change status and details'[39m[33m,[39m () 
+[33m=>[39m {[0m
+
+      at Object.<anonymous> (tests/unit/maintenance.test.ts:26:47)
+
+PASS tests/searchEngineFilters.test.ts
+  SearchEngine.applyFilters (normalized text + numbers)
+    ??? contains uses strict Arabic normalization (??/??/??/?? and ??) (14 ms)
+    ??? strict mode does not fold ??/?? by default (13 ms)
+    ??? numeric comparisons accept Arabic/Indic digits (5 ms)
+    ??? between handles numeric strings robustly (2 ms)
+
+FAIL tests/unit/sales.test.ts
+  Sales Service Logic - Fixed
+    ??? addSalesListing: should create a listing and persist it (5 ms)
+    ??? submitSalesOffer: should record a buyer offer linked to listing (2 ms)
+    ?? finalizeOwnershipTransfer: should update property owner (13 ms)
+
+  ??? Sales Service Logic - Fixed ??? finalizeOwnershipTransfer: should update property owner
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 49 |[39m     [90m// Implementation expects (id: string, data: { transactionId: string })[39m
+     [90m 50 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m 
+[33mDbService[39m[33m.[39mfinalizeOwnershipTransfer([32m'AG1'[39m[33m,[39m { transactionId[33m:[39m 
+[32m'TX1'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 51 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 52 |[39m
+     [90m 53 |[39m     [36mconst[39m props [33m=[39m 
+[36mget[39m[33m<[39m[33many[39m[][33m>[39m([33mKEYS[39m[33m.[39m[33mPROPERTIES[39m)[33m;[39m
+     [90m 54 |[39m     expect(props[33m.[39mfind(p [33m=>[39m p[33m.[39m??????_???????????? [33m===[39m 
+[32m'PR1'[39m)[33m.[39m??????_????????????)[33m.[39mtoBe([32m'NEW_OWNER'[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/sales.test.ts:51:25)
+
+FAIL tests/unit/followUps.test.ts
+  Follow-up Service Logic
+    ??? addFollowUp: should create a task and automatically add a reminder (5 ms)
+    ?? completeFollowUp: should mark as Done and sync with reminder (3 ms)
+
+  ??? Follow-up Service Logic ??? completeFollowUp: should mark as Done and sync with reminder
+
+    TypeError: Cannot read properties of undefined (reading 'isDone')
+
+    [0m [90m 42 |[39m     
+     [90m 43 |[39m     [36mconst[39m reminders [33m=[39m [33mDbService[39m[33m.[39mgetReminders()[33m;[39m
+    [31m[1m>[22m[39m[90m 44 |[39m     
+expect(reminders[[35m0[39m][33m.[39misDone)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 45 |[39m   })[33m;[39m
+     [90m 46 |[39m })[33m;[39m
+     [90m 47 |[39m[0m
+
+      at Object.<anonymous> (tests/unit/followUps.test.ts:44:25)
+
+  console.warn
+    [db/people] domainMigrate attempt 1/3
+
+    [0m [90m 38 |[39m       [36mfor[39m ([36mlet[39m i [33m=[39m [35m1[39m[33m;[39m i [33m<=[39m retries[33m;[39m i[33m++[39m) {
+     [90m 39 |[39m         [36mtry[39m {
+    [31m[1m>[22m[39m[90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+     [90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m[0m
+
+      at src/services/db/people.ts:40:19
+      at requestDomainMigrate (src/services/db/people.ts:50:7)
+      at addPerson (src/services/db/people.ts:90:3)
+      at Object.<anonymous> (tests/unit/people.test.ts:21:17)
+
+  console.warn
+    [db/people] domainMigrate succeeded
+
+    [0m [90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+    [31m[1m>[22m[39m[90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m
+     [90m 44 |[39m         } [36mcatch[39m (err) {
+     [90m 45 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate failed attempt ${i}/${retries}`[39m[33m,[39m err)[33m;[39m[0m
+
+      at src/services/db/people.ts:42:19
+
+  console.warn
+    [db/people] domainMigrate attempt 1/3
+
+    [0m [90m 38 |[39m       [36mfor[39m ([36mlet[39m i [33m=[39m [35m1[39m[33m;[39m i [33m<=[39m retries[33m;[39m i[33m++[39m) {
+     [90m 39 |[39m         [36mtry[39m {
+    [31m[1m>[22m[39m[90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+     [90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m[0m
+
+      at src/services/db/people.ts:40:19
+      at requestDomainMigrate (src/services/db/people.ts:50:7)
+      at addPerson (src/services/db/people.ts:90:3)
+      at Object.<anonymous> (tests/unit/dbPeople.test.ts:24:17)
+
+  console.warn
+    [db/people] domainMigrate succeeded
+
+    [0m [90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+    [31m[1m>[22m[39m[90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m
+     [90m 44 |[39m         } [36mcatch[39m (err) {
+     [90m 45 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate failed attempt ${i}/${retries}`[39m[33m,[39m err)[33m;[39m[0m
+
+      at src/services/db/people.ts:42:19
+
+  console.warn
+    [db/people] domainMigrate attempt 1/3
+
+    [0m [90m 38 |[39m       [36mfor[39m ([36mlet[39m i [33m=[39m [35m1[39m[33m;[39m i [33m<=[39m retries[33m;[39m i[33m++[39m) {
+     [90m 39 |[39m         [36mtry[39m {
+    [31m[1m>[22m[39m[90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+     [90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m[0m
+
+      at src/services/db/people.ts:40:19
+      at requestDomainMigrate (src/services/db/people.ts:50:7)
+      at addPerson (src/services/db/people.ts:90:3)
+      at Object.<anonymous> (tests/unit/dbPeople.test.ts:33:22)
+
+  console.warn
+    [db/people] domainMigrate attempt 1/3
+
+    [0m [90m 38 |[39m       [36mfor[39m ([36mlet[39m i [33m=[39m [35m1[39m[33m;[39m i [33m<=[39m retries[33m;[39m i[33m++[39m) {
+     [90m 39 |[39m         [36mtry[39m {
+    [31m[1m>[22m[39m[90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+     [90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m[0m
+
+      at src/services/db/people.ts:40:19
+      at requestDomainMigrate (src/services/db/people.ts:50:7)
+      at updatePerson (src/services/db/people.ts:100:5)
+      at Object.<anonymous> (tests/unit/dbPeople.test.ts:35:17)
+
+  console.warn
+    [db/people] domainMigrate succeeded
+
+    [0m [90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+    [31m[1m>[22m[39m[90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m
+     [90m 44 |[39m         } [36mcatch[39m (err) {
+     [90m 45 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate failed attempt ${i}/${retries}`[39m[33m,[39m err)[33m;[39m[0m
+
+      at src/services/db/people.ts:42:19
+
+  console.warn
+    [db/people] domainMigrate attempt 1/3
+
+    [0m [90m 38 |[39m       [36mfor[39m ([36mlet[39m i [33m=[39m [35m1[39m[33m;[39m i [33m<=[39m retries[33m;[39m i[33m++[39m) {
+     [90m 39 |[39m         [36mtry[39m {
+    [31m[1m>[22m[39m[90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+     [90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m[0m
+
+      at src/services/db/people.ts:40:19
+      at requestDomainMigrate (src/services/db/people.ts:50:7)
+      at updatePerson (src/services/db/people.ts:100:5)
+      at Object.<anonymous> (tests/unit/people.test.ts:38:17)
+
+  console.warn
+    [db/people] domainMigrate succeeded
+
+    [0m [90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+    [31m[1m>[22m[39m[90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m
+     [90m 44 |[39m         } [36mcatch[39m (err) {
+     [90m 45 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate failed attempt ${i}/${retries}`[39m[33m,[39m err)[33m;[39m[0m
+
+      at src/services/db/people.ts:42:19
+
+PASS tests/unit/dbPeople.test.ts
+  db/people
+    ??? getPersonById returns undefined when missing (4 ms)
+    ??? addPerson then getPersonById returns the record (17 ms)
+    ??? updatePerson mutates stored person (26 ms)
+    ??? addPerson rejects invalid payload (1 ms)
+
+  console.warn
+    [db/people] domainMigrate succeeded
+
+    [0m [90m 40 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate attempt ${i}/${retries}`[39m)[33m;[39m
+     [90m 41 |[39m           [36mawait[39m db[33m.[39mdomainMigrate()[33m;[39m
+    [31m[1m>[22m[39m[90m 42 |[39m           console[33m.[39mwarn([32m'[db/people] domainMigrate succeeded'[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 43 |[39m           [36mreturn[39m[33m;[39m
+     [90m 44 |[39m         } [36mcatch[39m (err) {
+     [90m 45 |[39m           console[33m.[39mwarn([32m`[db/people] domainMigrate failed attempt ${i}/${retries}`[39m[33m,[39m err)[33m;[39m[0m
+
+      at src/services/db/people.ts:42:19
+
+PASS tests/unit/people.test.ts
+  People Service Logic - Arabic Field Fix
+    ??? addPerson: should create a person when valid Arabic fields are provided (88 ms)
+    ??? updatePerson: should persist changes in localStorage (22 ms)
+
+PASS tests/unit/PaymentModal.test.tsx (6.415 s)
+  PaymentModal
+    ??? does not call markInstallmentPaid when amount is zero (385 ms)
+    ??? calls markInstallmentPaid with full amount when using ???????? then confirm (274 ms)
+
+PASS tests/unit/messageTemplates.test.ts
+  Message Templates Service - Fixed IDs
+    ??? saveTemplate: should override builtin template and resolve it correctly (4 ms)
+    ??? addCustomTemplate: should create a new template with unique ID (34 ms)
+    ??? resetTemplate: should remove override and revert to builtin (2 ms)
+
+PASS tests/unit/kvInvariants.test.js
+  kv invariants
+    ??? no-op for other keys (2 ms)
+    ??? no-op for non-array JSON (1 ms)
+    ??? defaults ??????????_?????????? to 12 when invalid (1 ms)
+    ??? keeps value unchanged when already valid
+
+PASS tests/unit/alerts.test.ts
+  Alerts Core Logic - Corrected
+    ??? createAlert: should deduplicate alerts with the same stableId (5 ms)
+    ??? markAlertsReadByPrefix: should update bulk read status (2 ms)
+
+FAIL tests/unit/systemChores.test.ts
+  System Chores Logic - Fixed
+    ?? Followups: completeFollowUp should mark task as Done (5 ms)
+    ?? NotificationCenter: should add a notification to the list (1 ms)
+
+  ??? System Chores Logic - Fixed ??? Followups: completeFollowUp should mark task as Done
+
+    TypeError: Cannot read properties of undefined (reading 'isDone')
+
+    [0m [90m 24 |[39m     
+     [90m 25 |[39m     [36mconst[39m reminders [33m=[39m [33mDbService[39m[33m.[39mgetReminders()[33m;[39m
+    [31m[1m>[22m[39m[90m 26 |[39m     
+expect(reminders[[35m0[39m][33m.[39misDone)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 27 |[39m   })[33m;[39m
+     [90m 28 |[39m
+     [90m 29 |[39m   it([32m'NotificationCenter: should add a notification to the list'[39m[33m,[39m () 
+[33m=>[39m {[0m
+
+      at Object.<anonymous> (tests/unit/systemChores.test.ts:26:25)
+
+  ??? System Chores Logic - Fixed ??? NotificationCenter: should add a notification to the list
+
+    TypeError: DbService.addNotification is not a function
+
+    [0m [90m 28 |[39m
+     [90m 29 |[39m   it([32m'NotificationCenter: should add a notification to the list'[39m[33m,[39m () 
+[33m=>[39m {
+    [31m[1m>[22m[39m[90m 30 |[39m     [36mconst[39m res [33m=[39m 
+[33mDbService[39m[33m.[39maddNotification({
+     [90m    |[39m                           [31m[1m^[22m[39m
+     [90m 31 |[39m       title[33m:[39m [32m'Alert'[39m[33m,[39m
+     [90m 32 |[39m       body[33m:[39m [32m'Test Message'[39m[33m,[39m
+     [90m 33 |[39m       category[33m:[39m [32m'Financial'[39m[0m
+
+      at Object.<anonymous> (tests/unit/systemChores.test.ts:30:27)
+
+PASS tests/unit/dbCache.test.ts
+  Database Cache Service - Semantic Fix
+    ??? buildCache: should correctly aggregate dashboard statistics using real field names (7 ms)
+    ??? buildCache: should handle empty database gracefully (4 ms)
+
+PASS tests/unit/financial.test.ts
+  Financial Service - Sales & Recalcs
+    ??? upsertCommissionForSale: should create sale record and sync legacy fields (3 ms)
+    ??? updateCommission: should handle various commission types (2 ms)
+
+PASS tests/unit/utils.test.ts
+  Utility Functions - Format
+    ??? formatCurrencyJOD: should format amount as JOD (51 ms)
+    ??? formatNumber: should format with thousands separator
+    ??? formatDateYMD: should format date as YYYY-MM-DD (7 ms)
+  Utility Functions - Tenancy
+    ??? isTenancyRelevant: should return true for active/renewed contracts (9 ms)
+
+PASS tests/unit/domainQueries_logic.test.ts
+  Domain Queries Logic - Global Bridge Coverage
+    ??? domainCountsSmart: should correctly count entities using bridge (3 ms)
+    ??? propertyContractsSmart: should return items from bridge (1 ms)
+
+FAIL tests/unit/dynamicTables.test.ts
+  Dynamic Tables Service
+    ??? createDynamicTable: should add a new table definition (13 ms)
+    ?? addDynamicRecord: should store records for a custom table (1 ms)
+
+  ??? Dynamic Tables Service ??? addDynamicRecord: should store records for a custom table
+
+    TypeError: Cannot read properties of undefined (reading 'success')
+
+    [0m [90m 26 |[39m     
+     [90m 27 |[39m     [36mconst[39m res [33m=[39m addDynamicRecord([32m'ExtraData'[39m[33m,[39m { 
+[33mNotes[39m[33m:[39m [32m'Some info'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 28 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                [31m[1m^[22m[39m
+     [90m 29 |[39m     
+     [90m 30 |[39m     [36mconst[39m records [33m=[39m getDynamicRecords([32m'ExtraData'[39m)[33m;[39m
+     [90m 31 |[39m     expect(records)[33m.[39mtoHaveLength([35m1[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/dynamicTables.test.ts:28:16)
+
+FAIL tests/unit/notificationCenter.test.ts
+  Notification Center Service
+    ?? add: should add a notification to the list (5 ms)
+    ?? markAsRead: should remove notif from active list (or mark read) (4 ms)
+    ?? clearAll: should empty the center
+
+  ??? Notification Center Service ??? add: should add a notification to the list
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+    [0m [90m 15 |[39m
+     [90m 16 |[39m     [36mconst[39m items [33m=[39m notificationCenter[33m.[39mgetItems()[33m;[39m
+    [31m[1m>[22m[39m[90m 17 |[39m     expect(items)[33m.[39mtoHaveLength([35m1[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 18 |[39m     expect(items[[35m0[39m][33m.[39mtitle)[33m.[39mtoBe([32m'Test'[39m)[33m;[39m
+     [90m 19 |[39m   })[33m;[39m
+     [90m 20 |[39m[0m
+
+      at Object.<anonymous> (tests/unit/notificationCenter.test.ts:17:19)
+
+  ??? Notification Center Service ??? markAsRead: should remove notif from active list (or mark read)
+
+    TypeError: notificationCenter.markAsRead is not a function
+
+    [0m [90m 21 |[39m   it([32m'markAsRead: should remove notif from active list (or mark read)'[39m[33m,[39m 
+() [33m=>[39m {
+     [90m 22 |[39m     notificationCenter[33m.[39madd({ id[33m:[39m [32m'N1'[39m[33m,[39m title[33m:[39m 
+[32m'Test'[39m[33m,[39m message[33m:[39m [32m'H'[39m[33m,[39m type[33m:[39m [32m'info'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 23 |[39m     notificationCenter[33m.[39mmarkAsRead([32m'N1'[39m)[33m;[39m
+     [90m    |[39m                        [31m[1m^[22m[39m
+     [90m 24 |[39m     
+     [90m 25 |[39m     expect(notificationCenter[33m.[39mgetItems()[33m.[39mfind(n [33m=>[39m n[33m.[39mid 
+[33m===[39m [32m'N1'[39m))[33m.[39mtoBeUndefined()[33m;[39m
+     [90m 26 |[39m   })[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/notificationCenter.test.ts:23:24)
+
+  ??? Notification Center Service ??? clearAll: should empty the center
+
+    TypeError: notificationCenter.clearAll is not a function
+
+    [0m [90m 28 |[39m   it([32m'clearAll: should empty the center'[39m[33m,[39m () [33m=>[39m {
+     [90m 29 |[39m     notificationCenter[33m.[39madd({ id[33m:[39m [32m'N1'[39m[33m,[39m title[33m:[39m 
+[32m'T'[39m[33m,[39m message[33m:[39m [32m'H'[39m[33m,[39m type[33m:[39m [32m'info'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 30 |[39m     notificationCenter[33m.[39mclearAll()[33m;[39m
+     [90m    |[39m                        [31m[1m^[22m[39m
+     [90m 31 |[39m     expect(notificationCenter[33m.[39mgetItems())[33m.[39mtoHaveLength([35m0[39m)[33m;[39m
+     [90m 32 |[39m   })[33m;[39m
+     [90m 33 |[39m })[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/notificationCenter.test.ts:30:24)
+
+PASS tests/unit/marquee.test.ts
+  Marquee Service Logic - API Fix
+    ??? getMarqueeMessages: should return empty list initially (3 ms)
+    ??? addMarqueeAd: should create an ad that appears in messages (3 ms)
+
+PASS tests/integration/example.integration.test.ts
+  Integration Tests Example
+    ??? should handle user interaction flow (2 ms)
+    ??? should make API calls correctly
+
+PASS tests/unit/logger.test.ts
+  Logger Service
+    ??? logOperationInternal: should persist log entries (3 ms)
+    ??? getSystemLogs: should return all entries (1 ms)
+
+PASS tests/unit/example.test.js
+  Example Test Suite
+    ??? should pass basic test (2 ms)
+    ??? should perform simple math
+
+Summary of all failing tests
+FAIL tests/unit/installmentsSorting.test.ts
+  ??? installmentsContractsPagedSmart sorting (web/non-desktop parity) ??? due-asc sorts by most relevant due date 
+(unpaid first, then last paid)
+
+    expect(received).toBeUndefined()
+
+    Received: "???????????????? ?????? ?????????? ???? ?????????????????? ?????? ???????? (Desktop)"
+
+    [0m [90m 103 |[39m
+     [90m 104 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m installmentsContractsPagedSmart({ 
+sort[33m:[39m [32m'due-asc'[39m[33m,[39m offset[33m:[39m [35m0[39m[33m,[39m limit[33m:[39m [35m50[39m 
+})[33m;[39m
+    [31m[1m>[22m[39m[90m 105 |[39m     expect(res[33m.[39merror)[33m.[39mtoBeUndefined()[33m;[39m
+     [90m     |[39m                       [31m[1m^[22m[39m
+     [90m 106 |[39m
+     [90m 107 |[39m     [36mconst[39m ids [33m=[39m res[33m.[39mitems[33m.[39mmap((x[33m:[39m 
+[33mInstallmentsContractsItem[39m) [33m=>[39m
+     [90m 108 |[39m       [33mString[39m(x[33m.[39mcontract[33m?[39m[33m.[39m??????_?????????? 
+[33m?[39m[33m?[39m [32m''[39m)[0m
+
+      at Object.<anonymous> (tests/unit/installmentsSorting.test.ts:105:23)
+
+  ??? installmentsContractsPagedSmart sorting (web/non-desktop parity) ??? defaults to due-asc when sort is omitted
+
+    expect(received).toBeUndefined()
+
+    Received: "???????????????? ?????? ?????????? ???? ?????????????????? ?????? ???????? (Desktop)"
+
+    [0m [90m 116 |[39m
+     [90m 117 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m installmentsContractsPagedSmart({ 
+offset[33m:[39m [35m0[39m[33m,[39m limit[33m:[39m [35m50[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 118 |[39m     expect(res[33m.[39merror)[33m.[39mtoBeUndefined()[33m;[39m
+     [90m     |[39m                       [31m[1m^[22m[39m
+     [90m 119 |[39m
+     [90m 120 |[39m     [36mconst[39m ids [33m=[39m res[33m.[39mitems[33m.[39mmap((x[33m:[39m 
+[33mInstallmentsContractsItem[39m) [33m=>[39m
+     [90m 121 |[39m       [33mString[39m(x[33m.[39mcontract[33m?[39m[33m.[39m??????_?????????? 
+[33m?[39m[33m?[39m [32m''[39m)[0m
+
+      at Object.<anonymous> (tests/unit/installmentsSorting.test.ts:118:23)
+
+  ??? installmentsContractsPagedSmart sorting (web/non-desktop parity) ??? due-desc sorts by most relevant due date 
+descending
+
+    expect(received).toBeUndefined()
+
+    Received: "???????????????? ?????? ?????????? ???? ?????????????????? ?????? ???????? (Desktop)"
+
+    [0m [90m 128 |[39m
+     [90m 129 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m installmentsContractsPagedSmart({ 
+sort[33m:[39m [32m'due-desc'[39m[33m,[39m offset[33m:[39m [35m0[39m[33m,[39m limit[33m:[39m [35m50[39m 
+})[33m;[39m
+    [31m[1m>[22m[39m[90m 130 |[39m     expect(res[33m.[39merror)[33m.[39mtoBeUndefined()[33m;[39m
+     [90m     |[39m                       [31m[1m^[22m[39m
+     [90m 131 |[39m
+     [90m 132 |[39m     [36mconst[39m ids [33m=[39m res[33m.[39mitems[33m.[39mmap((x[33m:[39m 
+[33mInstallmentsContractsItem[39m) [33m=>[39m
+     [90m 133 |[39m       [33mString[39m(x[33m.[39mcontract[33m?[39m[33m.[39m??????_?????????? 
+[33m?[39m[33m?[39m [32m''[39m)[0m
+
+      at Object.<anonymous> (tests/unit/installmentsSorting.test.ts:130:23)
+
+  ??? installmentsContractsPagedSmart sorting (web/non-desktop parity) ??? tenant-asc / tenant-desc sort by tenant name
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "????????"
+    Received: undefined
+
+    [0m [90m 224 |[39m     [36mconst[39m asc [33m=[39m [36mawait[39m installmentsContractsPagedSmart({ 
+sort[33m:[39m [32m'tenant-asc'[39m[33m,[39m offset[33m:[39m [35m0[39m[33m,[39m limit[33m:[39m 
+[35m50[39m })[33m;[39m
+     [90m 225 |[39m     [36mconst[39m ascNames [33m=[39m asc[33m.[39mitems[33m.[39mmap((x[33m:[39m 
+[33mInstallmentsContractsItem[39m) [33m=>[39m [33mString[39m(x[33m.[39mtenant[33m?[39m[33m.[39m?????????? 
+[33m?[39m[33m?[39m [32m''[39m))[33m;[39m
+    [31m[1m>[22m[39m[90m 226 |[39m     
+expect(ascNames[[35m0[39m])[33m.[39mtoBe([32m'????????'[39m)[33m;[39m
+     [90m     |[39m                         [31m[1m^[22m[39m
+     [90m 227 |[39m     expect(ascNames[ascNames[33m.[39mlength [33m-[39m 
+[35m1[39m])[33m.[39mtoBe([32m'??????'[39m)[33m;[39m
+     [90m 228 |[39m
+     [90m 229 |[39m     [36mconst[39m desc [33m=[39m [36mawait[39m installmentsContractsPagedSmart({[0m
+
+      at Object.<anonymous> (tests/unit/installmentsSorting.test.ts:226:25)
+
+FAIL tests/unit/contracts.test.ts
+  ??? Contracts Service Logic ??? createContract: should add a contract and update property status
+
+    TypeError: DbService.addContract is not a function
+
+    [0m [90m 13 |[39m
+     [90m 14 |[39m   it([32m'createContract: should add a contract and update property status'[39m[33m,[39m () 
+[33m=>[39m {
+    [31m[1m>[22m[39m[90m 15 |[39m     [36mconst[39m res [33m=[39m [33mDbService[39m[33m.[39maddContract({
+     [90m    |[39m                           [31m[1m^[22m[39m
+     [90m 16 |[39m       ??????_????????????????[33m:[39m [32m'P1'[39m[33m,[39m
+     [90m 17 |[39m       ??????_????????????[33m:[39m [32m'PR1'[39m[33m,[39m
+     [90m 18 |[39m       ??????????_??????????????[33m:[39m [32m'2024-01-01'[39m[33m,[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:15:27)
+
+  ??? Contracts Service Logic ??? terminateContract: should cancel contract and release property
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "????????"
+    Received: "??????????"
+
+    [0m [90m 38 |[39m     
+     [90m 39 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+    [31m[1m>[22m[39m[90m 40 |[39m     
+expect(contracts[[35m0[39m][33m.[39m????????_??????????)[33m.[39mtoBe([32m'????????'[39m)[33m;[39m
+     [90m    |[39m                                     [31m[1m^[22m[39m
+     [90m 41 |[39m     
+     [90m 42 |[39m     [36mconst[39m props [33m=[39m 
+[33mJSON[39m[33m.[39mparse(localStorage[33m.[39mgetItem([33mKEYS[39m[33m.[39m[33mPROPERTIES[39m) 
+[33m||[39m [32m'[]'[39m)[33m;[39m
+     [90m 43 |[39m     
+expect(props[[35m0[39m][33m.[39m[33mIsRented[39m)[33m.[39mtoBe([36mfalse[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:40:37)
+
+  ??? Contracts Service Logic ??? renewContract: should create a new contract from existing one
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 56 |[39m
+     [90m 57 |[39m     [36mconst[39m res [33m=[39m 
+[33mDbService[39m[33m.[39mrenewContract([32m'C1'[39m[33m,[39m [32m'2024-01-01'[39m[33m,[39m 
+[32m'2024-12-31'[39m[33m,[39m [35m5000[39m[33m,[39m [35m12[39m[33m,[39m [35m100[39m[33m,[39m 
+[35m100[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 58 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 59 |[39m     
+     [90m 60 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+     [90m 61 |[39m     expect(contracts)[33m.[39mtoHaveLength([35m2[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:58:25)
+
+  ??? Contracts Service Logic ??? renewContract: should handle complex frequencies and archive old contract
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 74 |[39m     [90m// Renew with 6 months frequency and 12 months duration[39m
+     [90m 75 |[39m     [36mconst[39m res [33m=[39m 
+[33mDbService[39m[33m.[39mrenewContract([32m'C-OLD'[39m[33m,[39m [32m'2024-01-01'[39m[33m,[39m 
+[32m'2024-12-31'[39m[33m,[39m [35m6000[39m[33m,[39m [35m6[39m[33m,[39m [35m120[39m[33m,[39m 
+[35m120[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 76 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 77 |[39m
+     [90m 78 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+     [90m 79 |[39m     [36mconst[39m old [33m=[39m contracts[33m.[39mfind(c [33m=>[39m 
+c[33m.[39m??????_?????????? [33m===[39m [32m'C-OLD'[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:76:25)
+
+FAIL tests/unit/backgroundScans.test.ts
+  ??? Background Scans Service - Semantic Fix ??? runDailyScheduler: should catch missing contract data quality issues
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 43 |[39m
+     [90m 44 |[39m     [36mconst[39m alerts [33m=[39m 
+[36mget[39m[33m<[39m[33many[39m[][33m>[39m([32m'db_alerts'[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 45 |[39m     expect(alerts[33m.[39msome(a [33m=>[39m 
+a[33m.[39m??????_?????????????? [33m===[39m [32m'???????? 
+????????????????'[39m))[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                                                                 [31m[1m^[22m[39m
+     [90m 46 |[39m   })[33m;[39m
+     [90m 47 |[39m
+     [90m 48 |[39m   it([32m'runAutoRenewContractsInternal: should trigger renewal alerts for upcoming 
+expirations'[39m[33m,[39m () [33m=>[39m {[0m
+
+      at Object.<anonymous> (tests/unit/backgroundScans.test.ts:45:65)
+
+  ??? Background Scans Service - Semantic Fix ??? runAutoRenewContractsInternal: should trigger renewal alerts for 
+upcoming expirations
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 62 |[39m     [36mconst[39m alerts [33m=[39m 
+[36mget[39m[33m<[39m[33many[39m[][33m>[39m([32m'db_alerts'[39m)[33m;[39m
+     [90m 63 |[39m     [90m// Check for "?????????? ?????????????? ??????" alert[39m
+    [31m[1m>[22m[39m[90m 64 |[39m     expect(alerts[33m.[39msome(a [33m=>[39m 
+a[33m.[39m??????_??????????????[33m.[39mincludes([32m'???????????? 
+??????'[39m)))[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                                                                    [31m[1m^[22m[39m
+     [90m 65 |[39m     
+     [90m 66 |[39m     jest[33m.[39museRealTimers()[33m;[39m
+     [90m 67 |[39m   })[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/backgroundScans.test.ts:64:68)
+
+FAIL tests/unit/installments.test.ts
+  ??? Installments Service Logic ??? reversePayment: should allow SuperAdmin to undo a payment
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 2
+    Received length: 1
+    Received array:  [{"??????????????": "2026-04-11", "??????????": "SuperAdmin", "????????????": -1000, 
+"????????????????": "super1", "??????????????????": "?????? ??????: Error in entry | ????????: ???1,000.00????.??.??? 
+???????????? 2024-01-01", "??????????": "PARTIAL", "??????_??????????????": "REVERSAL_1775940445474_ydd5xj1rr"}]
+
+    [0m [90m 57 |[39m     [36mconst[39m inst [33m=[39m 
+([36mget[39m[33m<[39m[33many[39m[][33m>[39m([33mKEYS[39m[33m.[39m[33mINSTALLMENTS[39m))[33m.[39mfind(i 
+[33m=>[39m i[33m.[39m??????_?????????????????? [33m===[39m [32m'I1'[39m)[33m;[39m
+     [90m 58 |[39m     expect(inst[33m.[39m????????_??????????????????)[33m.[39mtoBe([33mINSTALLMENT_STATUS[39m
+[33m.[39m[33mUNPAID[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 59 |[39m     
+expect(inst[33m.[39m??????_??????????????)[33m.[39mtoHaveLength([35m2[39m)[33m;[39m [90m// Original + 
+Reversal record[39m
+     [90m    |[39m                              [31m[1m^[22m[39m
+     [90m 60 |[39m   })[33m;[39m
+     [90m 61 |[39m })[33m;[39m
+     [90m 62 |[39m[0m
+
+      at Object.<anonymous> (tests/unit/installments.test.ts:59:30)
+
+FAIL tests/unit/maintenance.test.ts
+  ??? Maintenance Service ??? addMaintenanceTicket: should create a new ticket
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "??????????"
+    Received: undefined
+
+    [0m [90m 24 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m 25 |[39m     expect(getMaintenanceTickets())[33m.[39mtoHaveLength([35m1[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 26 |[39m     
+expect(getMaintenanceTickets()[[35m0[39m][33m.[39m????????????)[33m.[39mtoBe([32m'??????????'[39m)[33m;[39m
+     [90m    |[39m                                               [31m[1m^[22m[39m
+     [90m 27 |[39m   })[33m;[39m
+     [90m 28 |[39m
+     [90m 29 |[39m   it([32m'updateMaintenanceTicket: should change status and details'[39m[33m,[39m () 
+[33m=>[39m {[0m
+
+      at Object.<anonymous> (tests/unit/maintenance.test.ts:26:47)
+
+FAIL tests/unit/sales.test.ts
+  ??? Sales Service Logic - Fixed ??? finalizeOwnershipTransfer: should update property owner
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 49 |[39m     [90m// Implementation expects (id: string, data: { transactionId: string })[39m
+     [90m 50 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m 
+[33mDbService[39m[33m.[39mfinalizeOwnershipTransfer([32m'AG1'[39m[33m,[39m { transactionId[33m:[39m 
+[32m'TX1'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 51 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 52 |[39m
+     [90m 53 |[39m     [36mconst[39m props [33m=[39m 
+[36mget[39m[33m<[39m[33many[39m[][33m>[39m([33mKEYS[39m[33m.[39m[33mPROPERTIES[39m)[33m;[39m
+     [90m 54 |[39m     expect(props[33m.[39mfind(p [33m=>[39m p[33m.[39m??????_???????????? [33m===[39m 
+[32m'PR1'[39m)[33m.[39m??????_????????????)[33m.[39mtoBe([32m'NEW_OWNER'[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/sales.test.ts:51:25)
+
+FAIL tests/unit/followUps.test.ts
+  ??? Follow-up Service Logic ??? completeFollowUp: should mark as Done and sync with reminder
+
+    TypeError: Cannot read properties of undefined (reading 'isDone')
+
+    [0m [90m 42 |[39m     
+     [90m 43 |[39m     [36mconst[39m reminders [33m=[39m [33mDbService[39m[33m.[39mgetReminders()[33m;[39m
+    [31m[1m>[22m[39m[90m 44 |[39m     
+expect(reminders[[35m0[39m][33m.[39misDone)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 45 |[39m   })[33m;[39m
+     [90m 46 |[39m })[33m;[39m
+     [90m 47 |[39m[0m
+
+      at Object.<anonymous> (tests/unit/followUps.test.ts:44:25)
+
+FAIL tests/unit/systemChores.test.ts
+  ??? System Chores Logic - Fixed ??? Followups: completeFollowUp should mark task as Done
+
+    TypeError: Cannot read properties of undefined (reading 'isDone')
+
+    [0m [90m 24 |[39m     
+     [90m 25 |[39m     [36mconst[39m reminders [33m=[39m [33mDbService[39m[33m.[39mgetReminders()[33m;[39m
+    [31m[1m>[22m[39m[90m 26 |[39m     
+expect(reminders[[35m0[39m][33m.[39misDone)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 27 |[39m   })[33m;[39m
+     [90m 28 |[39m
+     [90m 29 |[39m   it([32m'NotificationCenter: should add a notification to the list'[39m[33m,[39m () 
+[33m=>[39m {[0m
+
+      at Object.<anonymous> (tests/unit/systemChores.test.ts:26:25)
+
+  ??? System Chores Logic - Fixed ??? NotificationCenter: should add a notification to the list
+
+    TypeError: DbService.addNotification is not a function
+
+    [0m [90m 28 |[39m
+     [90m 29 |[39m   it([32m'NotificationCenter: should add a notification to the list'[39m[33m,[39m () 
+[33m=>[39m {
+    [31m[1m>[22m[39m[90m 30 |[39m     [36mconst[39m res [33m=[39m 
+[33mDbService[39m[33m.[39maddNotification({
+     [90m    |[39m                           [31m[1m^[22m[39m
+     [90m 31 |[39m       title[33m:[39m [32m'Alert'[39m[33m,[39m
+     [90m 32 |[39m       body[33m:[39m [32m'Test Message'[39m[33m,[39m
+     [90m 33 |[39m       category[33m:[39m [32m'Financial'[39m[0m
+
+      at Object.<anonymous> (tests/unit/systemChores.test.ts:30:27)
+
+FAIL tests/unit/dynamicTables.test.ts
+  ??? Dynamic Tables Service ??? addDynamicRecord: should store records for a custom table
+
+    TypeError: Cannot read properties of undefined (reading 'success')
+
+    [0m [90m 26 |[39m     
+     [90m 27 |[39m     [36mconst[39m res [33m=[39m addDynamicRecord([32m'ExtraData'[39m[33m,[39m { 
+[33mNotes[39m[33m:[39m [32m'Some info'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 28 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                [31m[1m^[22m[39m
+     [90m 29 |[39m     
+     [90m 30 |[39m     [36mconst[39m records [33m=[39m getDynamicRecords([32m'ExtraData'[39m)[33m;[39m
+     [90m 31 |[39m     expect(records)[33m.[39mtoHaveLength([35m1[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/dynamicTables.test.ts:28:16)
+
+FAIL tests/unit/notificationCenter.test.ts
+  ??? Notification Center Service ??? add: should add a notification to the list
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+    [0m [90m 15 |[39m
+     [90m 16 |[39m     [36mconst[39m items [33m=[39m notificationCenter[33m.[39mgetItems()[33m;[39m
+    [31m[1m>[22m[39m[90m 17 |[39m     expect(items)[33m.[39mtoHaveLength([35m1[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 18 |[39m     expect(items[[35m0[39m][33m.[39mtitle)[33m.[39mtoBe([32m'Test'[39m)[33m;[39m
+     [90m 19 |[39m   })[33m;[39m
+     [90m 20 |[39m[0m
+
+      at Object.<anonymous> (tests/unit/notificationCenter.test.ts:17:19)
+
+  ??? Notification Center Service ??? markAsRead: should remove notif from active list (or mark read)
+
+    TypeError: notificationCenter.markAsRead is not a function
+
+    [0m [90m 21 |[39m   it([32m'markAsRead: should remove notif from active list (or mark read)'[39m[33m,[39m 
+() [33m=>[39m {
+     [90m 22 |[39m     notificationCenter[33m.[39madd({ id[33m:[39m [32m'N1'[39m[33m,[39m title[33m:[39m 
+[32m'Test'[39m[33m,[39m message[33m:[39m [32m'H'[39m[33m,[39m type[33m:[39m [32m'info'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 23 |[39m     notificationCenter[33m.[39mmarkAsRead([32m'N1'[39m)[33m;[39m
+     [90m    |[39m                        [31m[1m^[22m[39m
+     [90m 24 |[39m     
+     [90m 25 |[39m     expect(notificationCenter[33m.[39mgetItems()[33m.[39mfind(n [33m=>[39m n[33m.[39mid 
+[33m===[39m [32m'N1'[39m))[33m.[39mtoBeUndefined()[33m;[39m
+     [90m 26 |[39m   })[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/notificationCenter.test.ts:23:24)
+
+  ??? Notification Center Service ??? clearAll: should empty the center
+
+    TypeError: notificationCenter.clearAll is not a function
+
+    [0m [90m 28 |[39m   it([32m'clearAll: should empty the center'[39m[33m,[39m () [33m=>[39m {
+     [90m 29 |[39m     notificationCenter[33m.[39madd({ id[33m:[39m [32m'N1'[39m[33m,[39m title[33m:[39m 
+[32m'T'[39m[33m,[39m message[33m:[39m [32m'H'[39m[33m,[39m type[33m:[39m [32m'info'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 30 |[39m     notificationCenter[33m.[39mclearAll()[33m;[39m
+     [90m    |[39m                        [31m[1m^[22m[39m
+     [90m 31 |[39m     expect(notificationCenter[33m.[39mgetItems())[33m.[39mtoHaveLength([35m0[39m)[33m;[39m
+     [90m 32 |[39m   })[33m;[39m
+     [90m 33 |[39m })[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/notificationCenter.test.ts:30:24)
+
+
+Test Suites: 10 failed, 29 passed, 39 total
+Tests:       20 failed, 117 passed, 137 total
+Snapshots:   0 total
+Time:        9.783 s
+Ran all test suites.

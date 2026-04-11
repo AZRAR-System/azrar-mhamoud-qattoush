@@ -61,7 +61,10 @@ export function registerSql(deps: IpcDeps): void {
       if (!fs.existsSync(filePath)) {
         return { ok: false as const, reason: 'missing' as const };
       }
-      const raw = fs.readFileSync(filePath, 'utf8');
+      let raw = fs.readFileSync(filePath, 'utf8');
+      if (raw.charCodeAt(0) === 0xFEFF) {
+        raw = raw.slice(1);
+      }
       const j = JSON.parse(raw) as Record<string, unknown>;
       const server = typeof j.server === 'string' ? j.server.trim() : '';
       const port = Number(j.port || 1433) || 1433;
@@ -89,7 +92,41 @@ export function registerSql(deps: IpcDeps): void {
     }
   });
   
+  ipcMain.handle('sql:applyBootstrapCredentials', async () => {
+    try {
+      const base = process.env.ProgramData || path.join(process.env.SystemDrive || 'C:', 'ProgramData');
+      const filePath = path.join(base, 'AZRAR', 'sql-local-credentials.json');
+      const fs = await import('node:fs');
+      if (!fs.existsSync(filePath)) {
+        return { ok: false, message: 'ملف الإعدادات المحلية غير موجود' };
+      }
+      let raw = fs.readFileSync(filePath, 'utf8');
+      if (raw.charCodeAt(0) === 0xFEFF) {
+        raw = raw.slice(1);
+      }
+      const j = JSON.parse(raw);
+      
+      const settings = {
+        enabled: true,
+        server: String(j.server || '127.0.0.1'),
+        port: Number(j.port || 1433),
+        database: String(j.database || 'AZRAR'),
+        authMode: j.authMode === 'windows' ? 'windows' : 'sql',
+        user: String(j.user || ''),
+        password: String(j.password || ''),
+        encrypt: true,
+        trustServerCertificate: true,
+      };
+
+      await saveSqlSettings(settings as any);
+      return { ok: true, settings };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
   ipcMain.handle('sql:saveSettings', async (_e, settings: unknown) => {
+
     try {
       const saved = await loadSqlSettings();
       const enabled = Boolean(ipc.getField(settings, 'enabled'));
@@ -1391,4 +1428,55 @@ export function registerSql(deps: IpcDeps): void {
       event.sender.send('sql:setup-log', line);
     });
   });
+
+  ipcMain.handle('sql:isAlreadyInstalled', async () => {
+    try {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const { exec } = await import('node:child_process');
+      const { promisify } = await import('node:util');
+      const execAsync = promisify(exec);
+
+      // 1. Check for local bootstrap file
+      const base = process.env.ProgramData || path.join(process.env.SystemDrive || 'C:', 'ProgramData');
+      const filePath = path.join(base, 'AZRAR', 'sql-local-credentials.json');
+      const hasBootstrap = fs.existsSync(filePath);
+
+      // 2. Check if SQL Express or Default service exists via PowerShell
+      let hasService = false;
+      try {
+        const { stdout } = await execAsync('powershell -NoProfile -Command "Get-Service MSSQLSERVER, MSSQL$SQLEXPRESS -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq \'Running\' }"');
+        if (stdout.trim()) {
+          hasService = true;
+        }
+      } catch {
+        // Service check failed or service not found
+      }
+
+      // 3. Try a quick connection test if settings exist
+      // Since loadSqlSettings and connectAndEnsureDatabase are defined in the same file or imported, 
+      // I can use them.
+      const settings = await loadSqlSettings();
+      let isConnected = false;
+      if (settings.enabled && settings.server) {
+        try {
+          const res = await connectAndEnsureDatabase(settings);
+          isConnected = res.ok;
+        } catch {
+          // connection failed
+        }
+      }
+
+      return {
+        installed: hasBootstrap || hasService,
+        connected: isConnected,
+        hasBootstrap,
+        hasService,
+        message: isConnected ? 'متصل بالفعل' : (hasService ? 'محرك SQL مكتشف (غير مكون)' : 'غير مكتشف')
+      };
+    } catch (e) {
+      return { installed: false, error: String(e) };
+    }
+  });
 }
+

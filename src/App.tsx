@@ -216,35 +216,7 @@ const DiagnosticsStartupNotice: React.FC = () => {
   return null;
 };
 
-/**
- * Redirects to System Setup if SQL Server is not configured.
- */
-const SqlSetupGuard: React.FC = () => {
-  const location = useLocation();
-  const navigationStarted = React.useRef(false);
 
-  useEffect(() => {
-    if (navigationStarted.current) return;
-    if (location.pathname === ROUTE_PATHS.SYSTEM_SETUP) return;
-
-    void (async () => {
-      try {
-        if (typeof window !== 'undefined' && window.desktopDb?.sqlStatus) {
-          const status = (await window.desktopDb.sqlStatus()) as { configured: boolean };
-          // If not configured, and not currently on the setup page, redirect.
-          if (!status.configured && location.pathname !== ROUTE_PATHS.SYSTEM_SETUP) {
-            navigationStarted.current = true;
-            window.location.hash = ROUTE_PATHS.SYSTEM_SETUP;
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to check SQL status during startup:', err);
-      }
-    })();
-  }, [location.pathname]);
-
-  return null;
-};
 
 const AutorunSystemTests: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -476,7 +448,6 @@ function App() {
             <ToastProvider>
               <ModalProvider>
                 <TabsProvider>
-                  <SqlSetupGuard />
                   <Suspense fallback={<PageLoader />}>
                     <AppRoutes />
                   </Suspense>

@@ -1,9 +1,4 @@
 #Requires -Version 5.1
-<#
-  Optional SQL Server 2022 Express for AZRAR (elevated; invoked from NSIS).
-  Flow: download Microsoft bootstrapper -> download media -> setup.exe + ConfigurationFile.ini
-  Instance AZRARSQL, mixed auth, TCP 1433, DB AZRAR, login azrar_app. Credentials -> ProgramData.
-#>
 $ErrorActionPreference = 'Stop'
 
 function Write-Log([string]$m) {
@@ -28,7 +23,7 @@ $null = New-Item -ItemType Directory -Path $ProgramDataAzrar -Force -ErrorAction
 $script:LogFile = Join-Path $ProgramDataAzrar 'sql-express-install.log'
 $CredPath = Join-Path $ProgramDataAzrar 'sql-local-credentials.json'
 
-$InstanceName = 'AZRARSQL'
+$InstanceName = "MSSQLSERVER"
 $DbName = 'AZRAR'
 $AppLogin = 'azrar_app'
 $TcpPort = 1433
@@ -38,12 +33,10 @@ function New-SqlPassword {
     return ($g.Substring(0, 10) + 'Aa1!')
 }
 
-$saPwd = New-SqlPassword
 $appPwd = New-SqlPassword
 
 function Test-InstanceExists([string]$name) {
-    $svc = "MSSQL`$$name"
-    return [bool](Get-Service -Name $svc -ErrorAction SilentlyContinue)
+    return [bool](Get-Service -Name $name -ErrorAction SilentlyContinue)
 }
 
 function Find-SqlCmd {
@@ -59,7 +52,7 @@ function Invoke-SqlCmdBatch([string]$sqlcmdExe, [string]$server, [string]$user, 
     $tmp = [System.IO.Path]::GetTempFileName() + '.sql'
     try {
         Set-Content -Path $tmp -Value $sql -Encoding UTF8
-        $arg = if ($user -eq '-E') { @('-S', $server, '-E', '-b', '-i', $tmp) } else { @('-S', $server, '-U', $user, '-P', $pass, '-b', '-i', $tmp) }
+        $arg = if ($user -eq '-E') { @('-S', $server, '-E', '-C', '-b', '-i', $tmp) } else { @('-S', $server, '-U', $user, '-P', $pass, '-C', '-b', '-i', $tmp) }
         $p = Start-Process -FilePath $sqlcmdExe -ArgumentList $arg -Wait -PassThru -NoNewWindow
         if ($p.ExitCode -ne 0) { throw "sqlcmd failed (exit $($p.ExitCode))" }
     }
@@ -68,129 +61,42 @@ function Invoke-SqlCmdBatch([string]$sqlcmdExe, [string]$server, [string]$user, 
     }
 }
 
-function Wait-SqlService([string]$name, [int]$maxSec = 120) {
-    $svc = "MSSQL`$$name"
-    $dead = (Get-Date).AddSeconds($maxSec)
-    while ((Get-Date) -lt $dead) {
-        $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
-        if ($s -and $s.Status -eq 'Running') { return }
-        Start-Sleep -Seconds 2
-    }
-    throw "Service $svc did not become Running within ${maxSec}s."
-}
-
 try {
-    Write-Log 'AZRAR SQL bootstrap starting'
+    Write-Log "AZRAR SQL adoption starting (Target: $InstanceName)"
 
     if (-not (Test-InstanceExists $InstanceName)) {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $downloadUrl = 'https://go.microsoft.com/fwlink/?linkid=2216019'
-        $bootstrapper = Join-Path $env:TEMP 'SQL2022-SSEI-Expr.exe'
-        Write-Log 'Downloading SQL Server 2022 Express bootstrapper...'
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $bootstrapper -UseBasicParsing
-
-        $mediaPath = Join-Path $env:TEMP 'AZRAR_SQL2022_MEDIA'
-        if (Test-Path $mediaPath) { Remove-Item -LiteralPath $mediaPath -Recurse -Force -ErrorAction SilentlyContinue }
-        New-Item -ItemType Directory -Path $mediaPath -Force | Out-Null
-
-        Write-Log "Downloading SQL Server media to: $mediaPath"
-        # Download media using the bootstrapper's internal downloader
-        $dl = Start-Process -FilePath $bootstrapper -ArgumentList @("-ACTION=Download", "-MEDIAPATH=$mediaPath", "-MEDIATYPE=Core", "-QUIET") -Wait -PassThru -NoNewWindow
-        
-        if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) {
-            Write-Log "Download with MEDIATYPE=Core failed ($($dl.ExitCode)); retrying without MEDIATYPE..."
-            $dl = Start-Process -FilePath $bootstrapper -ArgumentList @("-ACTION=Download", "-MEDIAPATH=$mediaPath", "-QUIET") -Wait -PassThru -NoNewWindow
-        }
-
-        if ($dl.ExitCode -ne 0 -and $dl.ExitCode -ne 3010) { throw "SQL media download failed (exit $($dl.ExitCode))." }
-
-        # Check for compressed media and extract it
-        $compressedExe = Get-ChildItem -Path $mediaPath -Filter '*.exe' | Select-Object -First 1
-        if ($compressedExe) {
-            $extractPath = Join-Path $mediaPath 'extracted'
-            $null = New-Item -ItemType Directory -Path $extractPath -Force -ErrorAction SilentlyContinue
-            Write-Log "Extracting $($compressedExe.Name) to $extractPath..."
-            # Self-extracting EXEs require /Q /X: syntax
-            $proc = Start-Process -FilePath $compressedExe.FullName -ArgumentList @("/Q", "/X:$extractPath") -Wait -PassThru -NoNewWindow
-            if ($proc.ExitCode -ne 0) { throw "Extraction failed (exit $($proc.ExitCode))." }
-            
-            # CRITICAL: Find setup.exe in the ROOT of the extracted folder. 
-            # Running from the x64 subfolder causes MEDIALAYOUT invalid errors.
-            $setupExe = Get-ChildItem -Path $extractPath -Filter 'setup.exe' | Select-Object -First 1 -ExpandProperty FullName
-            if (-not $setupExe) {
-                # Fallback to recursive if not in root, but try root first
-                $setupExe = Get-ChildItem -Path $extractPath -Filter 'setup.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
-            }
-        }
-        else {
-            # Check if it was already an extracted folder layout
-            $setupExe = Get-ChildItem -Path $mediaPath -Filter 'setup.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
-        }
-
-        if (-not $setupExe) { throw "setup.exe not found under $mediaPath." }
-
-        Write-Log "Running SQL installation: $setupExe ..."
-        $sapwdEsc = $saPwd -replace '"', '""'
-        $installArgs = @(
-            "/ACTION=Install",
-            "/FEATURES=SQLEngine",
-            "/INSTANCENAME=$InstanceName",
-            "/SECURITYMODE=SQL",
-            "/SAPWD=`"$sapwdEsc`"",
-            "/SQLSVCACCOUNT=`"NT AUTHORITY\SYSTEM`"",
-            "/SQLSYSADMINACCOUNTS=`"BUILTIN\Administrators`"",
-            "/TCPENABLED=1",
-            "/NPENABLED=0",
-            "/IAcceptSqlServerLicenseTerms",
-            "/UPDATEENABLED=False",
-            "/QS" # Quiet Simple UI (shows progress but no interaction)
-        )
-        
-        # Use Hyphen prefix (-) to avoid PowerShell argument mangling (// error)
-        $ins = Start-Process -FilePath $setupExe -ArgumentList $installArgs -Wait -PassThru -NoNewWindow
-        
-        if ($ins.ExitCode -ne 0 -and $ins.ExitCode -ne 3010) { throw "SQL Server installation failed (exit $($ins.ExitCode))." }
-    }
-    else {
-        Write-Log "Instance $InstanceName already present."
+        throw "Target instance $InstanceName not found on this machine."
     }
 
-    Wait-SqlService -name $InstanceName
+    $svc = Get-Service -Name $InstanceName
+    if ($svc.Status -ne 'Running') {
+        Write-Log "Starting $InstanceName service..."
+        Start-Service -Name $InstanceName
+    }
 
+    # Connectivity Check & Configuration
     $regRoot = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
     $instId = (Get-ItemProperty -Path $regRoot -Name $InstanceName -ErrorAction SilentlyContinue).$InstanceName
-    if (-not $instId) { throw 'Could not read SQL instance id from registry.' }
-    $tcpKey = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instId\MSSQLServer\SuperSocketNetLib\Tcp\IPAll"
-    if (Test-Path $tcpKey) {
-        Set-ItemProperty -Path $tcpKey -Name 'TcpPort' -Value $TcpPort -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path $tcpKey -Name 'TcpDynamicPorts' -Value '' -ErrorAction SilentlyContinue
-        Write-Log "TCP port set to $TcpPort"
-        Restart-Service -Name "MSSQL`$$InstanceName" -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 4
+    if ($instId) {
+        $tcpKey = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instId\MSSQLServer\SuperSocketNetLib\Tcp\IPAll"
+        if (Test-Path $tcpKey) {
+            Set-ItemProperty -Path $tcpKey -Name 'TcpPort' -Value $TcpPort -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $tcpKey -Name 'TcpDynamicPorts' -Value '' -ErrorAction SilentlyContinue
+            Write-Log "TCP port verified/set to $TcpPort"
+        }
     }
 
+    # Firewall
     try {
-        New-NetFirewallRule -DisplayName "AZRAR SQL Server (TCP 1433)" -Direction Inbound -Protocol TCP -LocalPort $TcpPort -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
         netsh advfirewall firewall add rule name="AZRAR SQL Server (TCP 1433)" dir=in action=allow protocol=TCP localport=$TcpPort description="SQL Server for AZRAR Real Estate System" profile=any
-        Write-Log "Firewall rule configured for SQL port $TcpPort (TCP)."
-    }
-    catch {
-        Write-Log "Firewall SQL Warning: $($_.Exception.Message)."
-    }
-
-    try {
-        netsh advfirewall firewall add rule name="AZRAR License Server" dir=in action=allow protocol=TCP localport=5056 description="AZRAR Real Estate License Server"
-        Write-Log 'Firewall rule added for License Server port 5056.'
-    }
-    catch {
-        Write-Log "Firewall License Server: $($_.Exception.Message)"
-    }
+        Write-Log "Firewall rule configured for SQL port $TcpPort."
+    } catch { }
 
     $sqlcmd = Find-SqlCmd
     if (-not $sqlcmd) { throw 'sqlcmd.exe not found.' }
 
-    $serverConn = "127.0.0.1,$TcpPort"
-    $serverNamed = "localhost\$InstanceName"
+    # Use '.' for local connection during provisioning to avoid SSPI context errors on networking
+    $serverConn = "."
     $sqlBatch = @(
         "IF DB_ID(N'$DbName') IS NULL CREATE DATABASE [$DbName];",
         "GO",
@@ -206,11 +112,13 @@ try {
 
     Write-Log 'Creating database and login...'
     try {
-        Invoke-SqlCmdBatch -sqlcmdExe $sqlcmd -server $serverConn -user 'sa' -pass $saPwd -sql $sqlBatch
+        # Try dynamic password if we managed to reset SA in previous turns, 
+        # but most likely we need Integrated Security since it's an existing instance.
+        Invoke-SqlCmdBatch -sqlcmdExe $sqlcmd -server $serverConn -user '-E' -pass '' -sql $sqlBatch
     }
     catch {
-        Write-Log "SA connection failed ($($_.Exception.Message)); trying integrated security..."
-        Invoke-SqlCmdBatch -sqlcmdExe $sqlcmd -server $serverNamed -user '-E' -pass '' -sql $sqlBatch
+        Write-Log "Integrated security failed: $($_.Exception.Message). Ensure current user is sysadmin."
+        throw "Provisioning failed."
     }
 
     $cred = [ordered]@{
@@ -222,35 +130,14 @@ try {
         password     = $appPwd
         instanceName = $InstanceName
         installedAt  = (Get-Date).ToString('o')
-        logFile      = $LogFile
     }
-    $json = $cred | ConvertTo-Json -Depth 6
-    Set-Content -Path $CredPath -Value $json -Encoding UTF8
+    Set-Content -Path $CredPath -Value ($cred | ConvertTo-Json) -Encoding ASCII
     Write-Log "Saved: $CredPath"
-
-    $txtPath = Join-Path $ProgramDataAzrar 'database-info.txt'
-    $txtLines = @(
-        "=== AZRAR DATABASE INFO ===",
-        "",
-        "Server: $env:COMPUTERNAME\$InstanceName",
-        "Connection: 127.0.0.1,$TcpPort",
-        "Database: $DbName",
-        "User: $AppLogin",
-        "Password: $appPwd",
-        "Port: $TcpPort",
-        "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm')",
-        "",
-        "Note: You can use this info to connect via SSMS."
-    )
-    Set-Content -Path $txtPath -Value ($txtLines -join "`r`n") -Encoding UTF8
-    Write-Log "Saved reference file: $txtPath"
 
     Write-Log 'Done.'
     exit 0
 }
 catch {
     Write-Log "ERROR: $($_.Exception.Message)"
-    $errStr = $_ | Out-String
-    Add-Content -Path $script:LogFile -Value $errStr -Encoding UTF8
     exit 1
 }

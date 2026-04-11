@@ -418,8 +418,8 @@ export const Commissions: FC = () => {
       يوجد_ادخال_عقار: !!editingContractComm.يوجد_ادخال_عقار,
       اسم_المستخدم: asTrimmedString(editingContractComm.اسم_المستخدم) || undefined,
       ...(isSale 
-        ? { عمولة_البائع: c1, عمولة_المشتري: c2 }
-        : { عمولة_المالك: c1, عمولة_المستأجر: c2 }
+        ? { عمولة_البائع: c1, عمولة_المشتري: c2, المجموع: c1 + c2 + (Number(editingContractComm.عمولة_إدخال_عقار) || 0) }
+        : { عمولة_المالك: c1, عمولة_المستأجر: c2, المجموع: c1 + c2 }
       )
     });
 

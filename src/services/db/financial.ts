@@ -17,7 +17,32 @@ export const updateCommission = (id: string, patch: Partial<العمولات_tbl
   const idx = all.findIndex((c) => c.رقم_العمولة === id);
   if (idx === -1) return fail('العمولة غير موجودة');
 
-  const next: العمولات_tbl = { ...all[idx], ...patch };
+  const current = all[idx];
+  const next: العمولات_tbl = { ...current, ...patch };
+
+  // Recalculate Total if any constituent part was modified
+  const changedAny = [
+    'عمولة_المالك',
+    'عمولة_المستأجر',
+    'عمولة_البائع',
+    'عمولة_المشتري',
+    'عمولة_إدخال_عقار',
+  ].some((key) => key in patch);
+
+  if (changedAny) {
+    const isSale = next.نوع_العمولة === 'Sale';
+    if (isSale) {
+      next.المجموع = 
+        Number(next.عمولة_البائع || 0) + 
+        Number(next.عمولة_المشتري || 0) + 
+        Number(next.عمولة_إدخال_عقار || 0);
+    } else {
+      next.المجموع = 
+        Number(next.عمولة_المالك || 0) + 
+        Number(next.عمولة_المستأجر || 0);
+    }
+  }
+
   const updated = [...all];
   updated[idx] = next;
   save(KEYS.COMMISSIONS, updated);

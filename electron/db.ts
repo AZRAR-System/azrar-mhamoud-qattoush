@@ -220,76 +220,49 @@ function resolveDbPathSync(): string {
 
   // When DB encryption is enabled, always keep the DB under userData.
   // This avoids Program Files write restrictions and reduces accidental exposure.
-  if (isSqlcipherEnabled()) {
+  if (isSqlcipherEnabled() || app.isPackaged) {
+    if (app.isPackaged) {
+      try {
+        const exeDir = path.dirname(app.getPath('exe'));
+        const exeAdjacentPath = path.join(exeDir, 'khaberni.sqlite');
+        // If a legacy DB exists in the EXE folder, migrate it to the safe userData folder.
+        if (fsSync.existsSync(exeAdjacentPath) && !fsSync.existsSync(userDataPath)) {
+          _maybeMigrateLegacyDbSync(exeAdjacentPath, userDataPath);
+        }
+      } catch {
+        // Migration is best-effort.
+      }
+    }
     resolvedDbPath = userDataPath;
     return resolvedDbPath;
   }
 
-  // Prefer the legacy behavior (DB next to the executable) when packaged AND writable.
-  // Fall back to userData if the install directory is not writable (common for Program Files).
-  if (app.isPackaged) {
+  // Developer / Debug mode adjustments.
+  try {
+    const exeDir = path.dirname(app.getPath('exe'));
+    const exeAdjacentPath = path.join(exeDir, 'khaberni.sqlite');
+
+    if (fsSync.existsSync(exeAdjacentPath)) {
+      resolvedDbPath = exeAdjacentPath;
+      return resolvedDbPath;
+    }
+
+    // Attempt to use exe-adjacent if writable (legacy behavior for standalone devs).
     try {
-      const exeDir = path.dirname(app.getPath('exe'));
-      const exeAdjacentPath = path.join(exeDir, 'khaberni.sqlite');
-
-      // If the DB does not exist in the new location yet, try to recover it from a legacy userData folder.
-      // This handles upgrades where Electron's userData folder name changed.
-      if (!safeExistsFileSync(exeAdjacentPath) && !safeExistsFileSync(userDataPath)) {
-        const legacy = findLegacyDbCandidateSync({
-          currentTargetPath: userDataPath,
-          exeAdjacentPath,
-        });
-        if (legacy) {
-          // Prefer keeping the "next to exe" legacy behavior when possible.
-          _maybeMigrateLegacyDbSync(legacy.path, exeAdjacentPath);
-          // Also seed userData as a fallback (best-effort).
-          _maybeMigrateLegacyDbSync(legacy.path, userDataPath);
-        }
-      }
-
-      // If a legacy DB exists there already, keep using it.
-      if (fsSync.existsSync(exeAdjacentPath)) {
-        resolvedDbPath = exeAdjacentPath;
-        return resolvedDbPath;
-      }
-
-      // If we can write next to the exe, use the legacy path.
-      try {
-        ensureWritableDirSync(exeDir);
-
-        // If we are switching to exe-adjacent but a legacy DB exists somewhere else, migrate it.
-        if (!safeExistsFileSync(exeAdjacentPath)) {
-          const legacy = findLegacyDbCandidateSync({
-            currentTargetPath: userDataPath,
-            exeAdjacentPath,
-          });
-          if (legacy) {
-            _maybeMigrateLegacyDbSync(legacy.path, exeAdjacentPath);
-          }
-        }
-
-        resolvedDbPath = exeAdjacentPath;
-        return resolvedDbPath;
-      } catch {
-        // Not writable: fall back to userData.
-      }
+      ensureWritableDirSync(exeDir);
+      resolvedDbPath = exeAdjacentPath;
+      return resolvedDbPath;
     } catch {
-      // Ignore and fall back to userData.
+      // Not writable, fall back to userData.
     }
-  }
-
-  // Not packaged (or not writable next to exe): use userData. If the file doesn't exist yet,
-  // try to recover it from legacy folders so an upgrade doesn't look like a fresh install.
-  if (!safeExistsFileSync(userDataPath)) {
-    const legacy = findLegacyDbCandidateSync({ currentTargetPath: userDataPath });
-    if (legacy) {
-      _maybeMigrateLegacyDbSync(legacy.path, userDataPath);
-    }
+  } catch {
+    // Ignore and fall back to userData.
   }
 
   resolvedDbPath = userDataPath;
   return resolvedDbPath;
 }
+
 
 export function getDbPath() {
   return resolveDbPathSync();

@@ -671,6 +671,8 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   }, [hasDesktopBridge]);
 
   // First-run: if local DB empty, show server drawer and attempt auto-restore if configured
+  // DISABLED: Removed automatic onset of server drawer per user request to cancel auto-setup.
+  /*
   useEffect(() => {
     if (!hasDesktopBridge) return;
     if (serverOnboardingGuard.current) return;
@@ -720,6 +722,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       cancelled = true;
     };
   }, [hasDesktopBridge, openPanel]);
+  */
 
   useEffect(() => {
     let cancelled = false;
@@ -949,7 +952,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       {/* ================================ */}
       {/* Main Content Area */}
       {/* ================================ */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full z-10 transition-all">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative w-full z-10 transition-all">
         {/* Floating Modern Header - Memoized */}
         <Header 
             pathname={pathname}
@@ -969,29 +972,29 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         <TabBar />
 
         {/* Content Container - Modern Layout */}
-        <main className="flex-1 overflow-hidden relative w-full h-full bg-transparent pt-4">
-          <div className="h-full w-full page-transition pb-2 lg:pb-0 min-h-full flex flex-col px-4 lg:px-8">
+        <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4">
+          <div className="w-full page-transition pb-20 lg:pb-10 flex flex-col px-4 lg:px-8 min-h-full">
             <TabContent />
             {/* Background System Components */}
             {children}
-          </div>
 
-          {/* Elegant Footer */}
-          <footer className="mt-auto py-10 text-center">
-            <div className="inline-flex flex-col items-center gap-2 px-6 py-3 rounded-2xl bg-white/30 dark:bg-slate-900/30 backdrop-blur-sm border border-white/10 dark:border-slate-800/30">
-              <p dir="ltr" className="text-[10px] font-bold text-slate-400 dark:text-slate-600">
-                &copy; 2025 — PRO EDITION — DEVELOPED BY{' '}
-                <span className="text-indigo-500/80 dark:text-indigo-400/80">MAHMOUD QATTOUSH</span>
-              </p>
-              <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
-              <p
-                dir="ltr"
-                className="text-[9px] text-slate-300 dark:text-slate-700 tracking-[0.2em] uppercase"
-              >
-                AZRAR Real Estate Management
-              </p>
-            </div>
-          </footer>
+            {/* Elegant Footer */}
+            <footer className="mt-auto py-10 text-center shrink-0">
+              <div className="inline-flex flex-col items-center gap-2 px-6 py-3 rounded-2xl bg-white/30 dark:bg-slate-900/30 backdrop-blur-sm border border-white/10 dark:border-slate-800/30">
+                <p dir="ltr" className="text-[10px] font-bold text-slate-400 dark:text-slate-600">
+                  &copy; 2025 — PRO EDITION — DEVELOPED BY{' '}
+                  <span className="text-indigo-500/80 dark:text-indigo-400/80">MAHMOUD QATTOUSH</span>
+                </p>
+                <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
+                <p
+                  dir="ltr"
+                  className="text-[9px] text-slate-300 dark:text-slate-700 tracking-[0.2em] uppercase"
+                >
+                  AZRAR Real Estate Management
+                </p>
+              </div>
+            </footer>
+          </div>
         </main>
 
         {/* Engine Layers */}

@@ -1,0 +1,96 @@
+﻿node : FAIL tests/unit/contracts.test.ts
+At line:1 char:1
++ node --no-warnings --experimental-vm-modules node_modules/jest/bin/je ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL tests/unit/contracts.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Contracts Service Logic
+    ├ù createContract: should add a contract and update property status (3 ms)
+    ├ù terminateContract: should cancel contract and release property (7 ms)
+    ├ù renewContract: should create a new contract from existing one (3 ms)
+    ├ù renewContract: should handle complex frequencies and archive old contract (2 ms)
+    ΓêÜ terminateContract: should handle already cancelled contracts gracefully (1 ms)
+
+  ΓùÅ Contracts Service Logic ΓÇ║ createContract: should add a contract and update property status
+
+    TypeError: DbService.addContract is not a function
+
+    [0m [90m 13 |[39m
+     [90m 14 |[39m   it([32m'createContract: should add a contract and update property status'[39m[33m,[39m () 
+[33m=>[39m {
+    [31m[1m>[22m[39m[90m 15 |[39m     [36mconst[39m res [33m=[39m [33mDbService[39m[33m.[39maddContract({
+     [90m    |[39m                           [31m[1m^[22m[39m
+     [90m 16 |[39m       ╪▒┘é┘à_╪º┘ä┘à╪│╪¬╪º╪¼╪▒[33m:[39m [32m'P1'[39m[33m,[39m
+     [90m 17 |[39m       ╪▒┘é┘à_╪º┘ä╪╣┘é╪º╪▒[33m:[39m [32m'PR1'[39m[33m,[39m
+     [90m 18 |[39m       ╪¬╪º╪▒┘è╪«_╪º┘ä╪¿╪»╪º┘è╪⌐[33m:[39m [32m'2024-01-01'[39m[33m,[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:15:27)
+
+  ΓùÅ Contracts Service Logic ΓÇ║ terminateContract: should cancel contract and release property
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "┘à┘ä╪║┘è"
+    Received: "┘à┘ü╪│┘ê╪«"
+
+    [0m [90m 38 |[39m     
+     [90m 39 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+    [31m[1m>[22m[39m[90m 40 |[39m     
+expect(contracts[[35m0[39m][33m.[39m╪¡╪º┘ä╪⌐_╪º┘ä╪╣┘é╪»)[33m.[39mtoBe([32m'┘à┘ä╪║┘è'[39m)[33m;[39m
+     [90m    |[39m                                     [31m[1m^[22m[39m
+     [90m 41 |[39m     
+     [90m 42 |[39m     [36mconst[39m props [33m=[39m 
+[33mJSON[39m[33m.[39mparse(localStorage[33m.[39mgetItem([33mKEYS[39m[33m.[39m[33mPROPERTIES[39m) 
+[33m||[39m [32m'[]'[39m)[33m;[39m
+     [90m 43 |[39m     
+expect(props[[35m0[39m][33m.[39m[33mIsRented[39m)[33m.[39mtoBe([36mfalse[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:40:37)
+
+  ΓùÅ Contracts Service Logic ΓÇ║ renewContract: should create a new contract from existing one
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 56 |[39m
+     [90m 57 |[39m     [36mconst[39m res [33m=[39m 
+[33mDbService[39m[33m.[39mrenewContract([32m'C1'[39m[33m,[39m [32m'2024-01-01'[39m[33m,[39m 
+[32m'2024-12-31'[39m[33m,[39m [35m5000[39m[33m,[39m [35m12[39m[33m,[39m [35m100[39m[33m,[39m 
+[35m100[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 58 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 59 |[39m     
+     [90m 60 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+     [90m 61 |[39m     expect(contracts)[33m.[39mtoHaveLength([35m2[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:58:25)
+
+  ΓùÅ Contracts Service Logic ΓÇ║ renewContract: should handle complex frequencies and archive old contract
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    [0m [90m 74 |[39m     [90m// Renew with 6 months frequency and 12 months duration[39m
+     [90m 75 |[39m     [36mconst[39m res [33m=[39m 
+[33mDbService[39m[33m.[39mrenewContract([32m'C-OLD'[39m[33m,[39m [32m'2024-01-01'[39m[33m,[39m 
+[32m'2024-12-31'[39m[33m,[39m [35m6000[39m[33m,[39m [35m6[39m[33m,[39m [35m120[39m[33m,[39m 
+[35m120[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 76 |[39m     expect(res[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 77 |[39m
+     [90m 78 |[39m     [36mconst[39m contracts [33m=[39m [33mDbService[39m[33m.[39mgetContracts()[33m;[39m
+     [90m 79 |[39m     [36mconst[39m old [33m=[39m contracts[33m.[39mfind(c [33m=>[39m 
+c[33m.[39m╪▒┘é┘à_╪º┘ä╪╣┘é╪» [33m===[39m [32m'C-OLD'[39m)[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/contracts.test.ts:76:25)
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 1 passed, 5 total
+Snapshots:   0 total
+Time:        1.656 s
+Ran all test suites matching tests/unit/contracts.test.ts.

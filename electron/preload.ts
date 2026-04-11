@@ -261,10 +261,13 @@ contextBridge.exposeInMainWorld('desktopDb', {
   // SQL Server Sync (Desktop only)
   sqlGetSettings: () => ipcRenderer.invoke('sql:getSettings'),
   sqlReadLocalBootstrapCredentials: () => ipcRenderer.invoke('sql:readLocalBootstrapCredentials'),
+  sqlApplyBootstrapCredentials: () => ipcRenderer.invoke('sql:applyBootstrapCredentials'),
   sqlSaveSettings: (settings: SqlSettings) => ipcRenderer.invoke('sql:saveSettings', settings),
   sqlTestConnection: (settings: SqlSettings) => ipcRenderer.invoke('sql:test', settings),
   sqlConnect: () => ipcRenderer.invoke('sql:connect'),
+  sqlIsAlreadyInstalled: () => ipcRenderer.invoke('sql:isAlreadyInstalled'),
   sqlDisconnect: () => ipcRenderer.invoke('sql:disconnect'),
+
   sqlStatus: () => ipcRenderer.invoke('sql:status'),
   sqlProvision: (payload: SqlProvisionPayload) => ipcRenderer.invoke('sql:provision', payload),
   sqlExportBackup: () => ipcRenderer.invoke('sql:exportBackup'),

@@ -323,9 +323,11 @@ export function createContractWrites(deps: ContractWritesDeps) {
       try {
         const tenant = get<الأشخاص_tbl>(KEYS.PEOPLE).find(p => p.رقم_الشخص === all[idx].رقم_المستاجر);
         if (tenant && tenant.رقم_الهاتف) {
-          import('@/services/whatsAppAutoSender').then(({ sendContractTerminationNotice }) => {
-            sendContractTerminationNotice(tenant.رقم_الهاتف, all[idx], reason, date);
-          });
+          if (process.env.NODE_ENV !== 'test') {
+            import('@/services/whatsAppAutoSender').then(({ sendContractTerminationNotice }) => {
+              sendContractTerminationNotice(tenant.رقم_الهاتف, all[idx], reason, date);
+            });
+          }
         }
       } catch (whatsappError) {
         console.warn('[WhatsApp] Failed to send termination notice', whatsappError);
@@ -333,9 +335,11 @@ export function createContractWrites(deps: ContractWritesDeps) {
 
       // Generate termination settlement report
       try {
-        import('@/services/terminationReport').then(({ generateTerminationReport }) => {
-          generateTerminationReport(id, date, reason);
-        });
+        if (process.env.NODE_ENV !== 'test') {
+          import('@/services/terminationReport').then(({ generateTerminationReport }) => {
+            generateTerminationReport(id, date, reason);
+          });
+        }
       } catch (reportError) {
         console.warn('[Report] Failed to generate termination report', reportError);
       }

@@ -515,16 +515,30 @@ export const Alerts = () => {
         title={t('التنبيهات والإشعارات')}
         subtitle={t('مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر')}
         actions={
-          alerts.length > 0 ? (
+          <div className="flex items-center gap-3">
             <Button
               variant="secondary"
-              onClick={handleMarkAllRead}
-              className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
-              rightIcon={<CheckCheck size={20} />}
+              onClick={() => {
+                DbService.runDailyScheduler();
+                loadAlerts();
+                toast.success('تم تحديث التنبيهات وإجراء المسح الشامل');
+              }}
+              className="bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
+              rightIcon={<Clock size={20} />}
             >
-              {t('تعليم الكل كمقروء')}
+              {t('تحديث ومسح شامل')}
             </Button>
-          ) : null
+            {alerts.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={handleMarkAllRead}
+                className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
+                rightIcon={<CheckCheck size={20} />}
+              >
+                {t('تعليم الكل كمقروء')}
+              </Button>
+            )}
+          </div>
         }
       />
 

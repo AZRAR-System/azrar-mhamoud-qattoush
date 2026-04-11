@@ -34,8 +34,8 @@
 
 /* Modern Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -45,14 +45,19 @@
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 .dark ::-webkit-scrollbar-thumb {
   background: #475569;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+  background-clip: content-box;
 }
 
 /* صنف اختياري للمناطق القابلة للتمرير (لا يُستخدم مع @apply إلا بعد تعريفه هنا) */

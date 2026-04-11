@@ -15,6 +15,9 @@ jest.unstable_mockModule('@/services/mockDb', () => ({
   DbService: DbServiceMock,
 }));
 
+// We need to import the service AFTER the mock is hoisted in ESM
+const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
+
 describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () => {
   const baseNow = new Date('2026-02-02T10:00:00.000Z');
 
@@ -99,7 +102,6 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
   });
 
   test('due-asc sorts by most relevant due date (unpaid first, then last paid)', async () => {
-    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     const res = await installmentsContractsPagedSmart({ sort: 'due-asc', offset: 0, limit: 50 });
     expect(res.error).toBeUndefined();
@@ -112,7 +114,6 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
   });
 
   test('defaults to due-asc when sort is omitted', async () => {
-    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     const res = await installmentsContractsPagedSmart({ offset: 0, limit: 50 });
     expect(res.error).toBeUndefined();
@@ -124,7 +125,6 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
   });
 
   test('due-desc sorts by most relevant due date descending', async () => {
-    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     const res = await installmentsContractsPagedSmart({ sort: 'due-desc', offset: 0, limit: 50 });
     expect(res.error).toBeUndefined();
@@ -137,7 +137,6 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
   });
 
   test('amount-asc / amount-desc sort by annual value', async () => {
-    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     const resAsc = await installmentsContractsPagedSmart({
       sort: 'amount-asc',
@@ -165,7 +164,6 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
   });
 
   test('filtering by amount and date', async () => {
-    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     // Amount range
     const resAmount = await installmentsContractsPagedSmart({
@@ -197,7 +195,6 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
   });
 
   test('filtering by payment method', async () => {
-    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     const resPrepaid = await installmentsContractsPagedSmart({
       filterPaymentMethod: 'Prepaid',
@@ -219,7 +216,6 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
   });
 
   test('tenant-asc / tenant-desc sort by tenant name', async () => {
-    const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
 
     const asc = await installmentsContractsPagedSmart({ sort: 'tenant-asc', offset: 0, limit: 50 });
     const ascNames = asc.items.map((x: InstallmentsContractsItem) => String(x.tenant?.الاسم ?? ''));

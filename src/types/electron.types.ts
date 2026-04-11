@@ -11,7 +11,20 @@ import type {
 } from '@/types/domain.types';
 import type { الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types/types';
 
+export interface StoredSqlSettings {
+  enabled: boolean;
+  server: string;
+  port?: number;
+  database: string;
+  authMode: 'sql' | 'windows';
+  user?: string;
+  password?: string;
+  encrypt?: boolean;
+  trustServerCertificate?: boolean;
+}
+
 export interface DesktopDbBridge {
+
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<boolean>;
   delete(key: string): Promise<boolean>;
@@ -481,17 +494,11 @@ export interface DesktopDbBridge {
     | { ok: false; reason: 'missing' | 'invalid' | 'error' }
     | unknown
   >;
-  sqlSaveSettings?: (settings: {
-    enabled: boolean;
-    server: string;
-    port?: number;
-    database: string;
-    authMode: 'sql' | 'windows';
-    user?: string;
-    password?: string;
-    encrypt?: boolean;
-    trustServerCertificate?: boolean;
-  }) => Promise<{ success: boolean; message?: string } | unknown>;
+  sqlApplyBootstrapCredentials: () => Promise<
+    | { ok: true; settings: StoredSqlSettings; message?: string }
+    | { ok: false; message: string }
+  >;
+  sqlSaveSettings?: (settings: StoredSqlSettings) => Promise<{ success: boolean; message?: string }>;
   sqlTestConnection?: (settings: {
     server: string;
     port?: number;
@@ -501,9 +508,11 @@ export interface DesktopDbBridge {
     password?: string;
     encrypt?: boolean;
     trustServerCertificate?: boolean;
-  }) => Promise<{ ok: boolean; message: string } | unknown>;
-  sqlConnect?: () => Promise<{ ok: boolean; message: string } | unknown>;
-  sqlDisconnect?: () => Promise<{ success: boolean; message?: string } | unknown>;
+  }) => Promise<{ ok: boolean; message: string }>;
+  sqlConnect?: () => Promise<{ ok: boolean; message: string }>;
+  sqlIsAlreadyInstalled: () => Promise<{ installed: boolean; connected: boolean; hasBootstrap?: boolean; hasService?: boolean; message?: string; error?: string }>;
+  sqlDisconnect?: () => Promise<{ success: boolean; message?: string }>;
+
   sqlStatus?: () => Promise<
     | {
         configured: boolean;

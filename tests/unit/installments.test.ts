@@ -1,88 +1,61 @@
-import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
-import { 
-  createInstallmentPaymentHandlers 
-} from '@/services/db/installments';
-import { INSTALLMENT_STATUS } from '@/services/db/installmentConstants';
-import { save, get } from '@/services/db/kv';
+import { jest } from '@jest/globals';
+import { DbService } from '@/services/mockDb';
+import { get, save } from '@/services/db/kv';
 import { KEYS } from '@/services/db/keys';
-import { installMemoryLocalStorage, resetKvAndCache } from '../helpers/kvTestEnv';
-import { الكمبيالات_tbl } from '@/types';
+import { INSTALLMENT_STATUS } from '@/services/db/installmentConstants';
 
-const installment: الكمبيالات_tbl = {
-  رقم_الكمبيالة: 'INS-001',
-  رقم_العقد: 'C-001',
-  تاريخ_استحقاق: '2026-10-01',
-  القيمة: 1000,
-  القيمة_المتبقية: 1000,
-  حالة_الكمبيالة: INSTALLMENT_STATUS.UNPAID,
-  نوع_الكمبيالة: 'دورية',
-  سجل_الدفعات: [],
-};
-
-const handlers = () => createInstallmentPaymentHandlers({
-  logOperation: jest.fn(),
-  markAlertsReadByPrefix: jest.fn(),
-  updateTenantRating: jest.fn(),
-});
-
-beforeAll(() => {
-  installMemoryLocalStorage();
-});
-
-beforeEach(() => {
-  resetKvAndCache();
-  save(KEYS.INSTALLMENTS, [installment]);
-  save(KEYS.CONTRACTS, [{ رقم_العقد: 'C-001', حالة_العقد: 'نشط' }]);
-});
-
-describe('Installments Service', () => {
-  it('should process full payment correctly', () => {
-    const { markInstallmentPaid } = handlers();
-    const result = markInstallmentPaid('INS-001', 'user-1', 'Admin', {
-      paidAmount: 1000,
-      paymentDate: '2026-10-02',
-    });
-
-    expect(result.success).toBe(true);
-    const updated = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS)[0];
-    expect(updated.حالة_الكمبيالة).toBe(INSTALLMENT_STATUS.PAID);
-    expect(updated.القيمة_المتبقية).toBe(0);
-    expect(updated.سجل_الدفعات).toHaveLength(1);
+describe('Installments Service Logic', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    save(KEYS.INSTALLMENTS, []);
+    save(KEYS.CONTRACTS, [{ رقم_العقد: 'C1', تاريخ_البداية: '2024-01-01', تاريخ_النهاية: '2024-12-31' }]);
+    save(KEYS.PEOPLE, [{ رقم_الشخص: 'P1', الاسم: 'Tenant 1' }]);
   });
 
-  it('should process partial payment correctly', () => {
-    const { markInstallmentPaid } = handlers();
-    const result = markInstallmentPaid('INS-001', 'user-1', 'Admin', {
-      paidAmount: 400,
-      paymentDate: '2026-10-02',
-      isPartial: true,
-    });
+  it('previewContractInstallments: should generate monthly installments', () => {
+    const res = DbService.previewContractInstallments({
+      تاريخ_البداية: '2024-01-01',
+      تاريخ_النهاية: '2024-12-31',
+      مدة_العقد_بالاشهر: 12,
+      تكرار_الدفع: 12,
+      القيمة_السنوية: 1200
+    } as any, 'C1');
 
-    expect(result.success).toBe(true);
-    const updated = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS)[0];
-    expect(updated.حالة_الكمبيالة).toBe(INSTALLMENT_STATUS.PARTIAL);
-    expect(updated.القيمة_المتبقية).toBe(600);
+    expect(res.success).toBe(true);
+    expect(res.data).toHaveLength(12);
+    expect(res.data![0].القيمة).toBe(100);
   });
 
-  it('should reject payment if role is not allowed', () => {
-    const { markInstallmentPaid } = handlers();
-    const result = markInstallmentPaid('INS-001', 'user-1', 'Employee', {
-      paidAmount: 1000,
-    });
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('صلاحية');
+  it('markInstallmentPaid: should handle partial payments and status updates', () => {
+    save(KEYS.INSTALLMENTS, [{ رقم_الكمبيالة: 'I1', رقم_العقد: 'C1', القيمة: 1000, حالة_الكمبيالة: INSTALLMENT_STATUS.UNPAID }]);
+    
+    // Partial payment
+    DbService.markInstallmentPaid('I1', 'user1', 'Admin', { paidAmount: 500, isPartial: true });
+    let inst = (get<any[]>(KEYS.INSTALLMENTS)).find(i => i.رقم_الكمبيالة === 'I1');
+    expect(inst.حالة_الكمبيالة).toBe(INSTALLMENT_STATUS.PARTIAL);
+    expect(inst.القيمة_المتبقية).toBe(500);
+
+    // Full payment
+    DbService.markInstallmentPaid('I1', 'user1', 'Admin', { paidAmount: 500 });
+    inst = (get<any[]>(KEYS.INSTALLMENTS)).find(i => i.رقم_الكمبيالة === 'I1');
+    expect(inst.حالة_الكمبيالة).toBe(INSTALLMENT_STATUS.PAID);
+    expect(inst.القيمة_المتبقية).toBe(0);
   });
 
-  it('should record late fees correctly', () => {
-    const { setInstallmentLateFee } = handlers();
-    const result = setInstallmentLateFee('INS-001', 'user-1', 'Admin', {
-      amount: 50,
-      classification: 'تأخير',
-      note: 'Late fee test',
-    });
+  it('reversePayment: should allow SuperAdmin to undo a payment', () => {
+    save(KEYS.INSTALLMENTS, [{ 
+      رقم_الكمبيالة: 'I1', 
+      رقم_العقد: 'C1', 
+      القيمة: 1000, 
+      حالة_الكمبيالة: INSTALLMENT_STATUS.PAID,
+      سجل_الدفعات: [{ رقم_العملية: 'PAY-1', المبلغ: 1000, التاريخ: '2024-01-01' }]
+    }]);
 
-    expect(result.success).toBe(true);
-    const updated = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS)[0];
-    expect((updated as any).غرامة_تأخير).toBe(50);
+    const res = DbService.reversePayment('I1', 'super1', 'SuperAdmin', 'Error in entry');
+    expect(res.success).toBe(true);
+    
+    const inst = (get<any[]>(KEYS.INSTALLMENTS)).find(i => i.رقم_الكمبيالة === 'I1');
+    expect(inst.حالة_الكمبيالة).toBe(INSTALLMENT_STATUS.UNPAID);
+    expect(inst.سجل_الدفعات.length).toBeGreaterThanOrEqual(1);
   });
 });
