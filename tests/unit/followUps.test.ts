@@ -40,7 +40,7 @@ describe('Follow-up Service Logic', () => {
     const followups = DbService.getAllFollowUps();
     expect(followups[0].status).toBe('Done');
     
-    const reminders = DbService.getReminders();
+    const reminders = get(KEYS.REMINDERS);
     expect(reminders[0].isDone).toBe(true);
   });
 });
