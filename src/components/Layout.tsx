@@ -38,7 +38,7 @@ import { TabBar } from './TabBar/TabBar';
 import { TabContent } from './TabBar/TabContent';
 import { PageSelector } from './TabBar/PageSelector';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
-import { الأشخاص_tbl } from '@/types';
+import { المستخدمين_tbl } from '@/types';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -138,9 +138,9 @@ const Sidebar = memo(({
 }: { 
   isOpen: boolean; 
   isDesktop: boolean; 
-  user: الأشخاص_tbl | null; 
+  user: المستخدمين_tbl | null; 
   appVersion: string;
-  tabs: unknown[];
+  tabs: { id: string; path: string; title: string; icon: string }[];
   activeTabId: string;
   expandedMenus: string[];
   onClose: () => void;
@@ -200,7 +200,7 @@ const Sidebar = memo(({
           const hasChildren = !!(item.children && item.children.length > 0);
           const isExpanded = expandedMenus.includes(item.label);
 
-          const activeTabObj = tabs.find(t => t.id === activeTabId);
+          const activeTabObj = tabs.find((t) => t.id === activeTabId);
           const activePath = activeTabObj?.path || window.location.hash.replace('#', '') || '/';
 
           const isSelfActive = activePath === item.path;

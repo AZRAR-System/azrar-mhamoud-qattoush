@@ -7,16 +7,12 @@ import {
   العقارات_tbl, 
   العمولات_tbl, 
   اتفاقيات_البيع_tbl, 
-  عروض_البيع_tbl, 
-  تذاكر_الصيانة_tbl, 
-  شخص_دور_tbl, 
-  المستخدمين_tbl 
+  المستخدمين_tbl,
+  ReportResult
 } from '@/types';
 import { INSTALLMENT_STATUS } from '../installmentConstants';
 import { getInstallmentPaidAndRemaining } from '../installments';
-import { isTenancyRelevant, pickBestTenancyContract } from '@/utils/tenancy';
-import { toDateOnly, parseDateOnly, daysBetweenDateOnly } from '../utils/dates';
-import { formatCurrencyJOD } from '@/utils/format';
+import { toDateOnly, parseDateOnly } from '../utils/dates';
 import { computeEmployeeCommission, getRentalTier } from '@/utils/employeeCommission';
 import { MOCK_REPORTS } from '../mockDbConstants';
 
@@ -31,7 +27,7 @@ const asUnknownRecord = (value: unknown): Record<string, unknown> =>
 
 export const getAvailableReports = () => MOCK_REPORTS;
 
-export const runReport = (id: string): any => {
+export const runReport = (id: string): ReportResult => {
   const generatedAt = new Date().toLocaleString('ar-JO', { dateStyle: 'full', timeStyle: 'short' });
   const today = new Date();
   const todayDateOnly = toDateOnly(today);
@@ -53,7 +49,8 @@ export const runReport = (id: string): any => {
 
     const totalExpected = installments.reduce((sum, inst) => sum + (Number(inst.القيمة) || 0), 0);
     const totalPaid = withAmounts.reduce((sum, x) => sum + (Number(x.paid) || 0), 0);
-    const totalLate = withAmounts.filter(x => x.remaining > 0 && x.due!.getTime() < todayDateOnly.getTime()).reduce((sum, x) => sum + x.remaining, 0);
+    // x.due is guaranteed by the .filter((x) => !!x.due) on line 53
+    const totalLate = withAmounts.filter(x => x.remaining > 0 && x.due.getTime() < todayDateOnly.getTime()).reduce((sum, x) => sum + x.remaining, 0);
 
     return {
       title: 'الملخص المالي',
@@ -114,7 +111,7 @@ export const runReport = (id: string): any => {
       const monthlyRentalTotal = monthlyUserRentalTotals[aggKey] || 0;
 
       let propCode = '—';
-      let opportunity = c.رقم_الفرصة || '—';
+      const opportunity = c.رقم_الفرصة || '—';
       let clientName = '—';
       let ownerName = '—';
 
@@ -158,7 +155,7 @@ export const runReport = (id: string): any => {
 
       // Calculate breakdown using AGGREGATED total for rentals
       const officeCommission = Number(c.المجموع || 0);
-      const breakdown = computeEmployeeCommission({
+      const _breakdown = computeEmployeeCommission({
         rentalOfficeCommissionTotal: type === 'Rental' ? monthlyRentalTotal : 0,
         saleOfficeCommissionTotal: type === 'Sale' ? officeCommission : 0,
         propertyIntroEnabled: !!c.يوجد_ادخال_عقار,
@@ -173,7 +170,7 @@ export const runReport = (id: string): any => {
       const rate = isSale ? 0.4 : rentalTier.rate;
       
       const employeeBase = officeCommission * rate;
-      const introEarned = !!c.يوجد_ادخال_عقار ? officeCommission * 0.05 : 0;
+      const introEarned = c.يوجد_ادخال_عقار ? officeCommission * 0.05 : 0;
 
       return {
         id: c.رقم_العمولة,
@@ -212,5 +209,5 @@ export const runReport = (id: string): any => {
   }
 
   // Fallback for other reports
-  return { title: 'تقرير غير مكتمل', generatedAt, data: [] };
+  return { title: 'تقرير غير مكتمل', generatedAt, columns: [], data: [] };
 };

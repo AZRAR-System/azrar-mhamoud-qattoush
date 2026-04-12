@@ -1,20 +1,21 @@
 import { get, save } from '../kv';
 import { KEYS } from '../keys';
 import { dbOk } from '@/services/localDbStorage';
+import { WordTemplate } from '@/types';
 
 /**
  * Service to manage Word document templates and mail-merge operations.
  */
 
-export const listWordTemplates = (type?: string) => {
-  const all = get<any>(KEYS.WORD_TEMPLATES) || [];
-  if (type) return all.filter((t: any) => t.type === type);
+export const listWordTemplates = (type?: string): WordTemplate[] => {
+  const all = get<WordTemplate>(KEYS.WORD_TEMPLATES) || [];
+  if (type) return all.filter((t) => t.type === type);
   return all;
 };
 
 export const listWordTemplatesDetailed = (type?: string) => {
   const all = listWordTemplates(type);
-  const items = all.map((t: any) => ({
+  const items = all.map((t) => ({
     id: t.id,
     name: t.name,
     createdAt: t.createdAt,
@@ -35,13 +36,13 @@ export const importWordTemplate = async (name: string, content?: string) => {
 
 export const readWordTemplate = (id: string, type?: string) => {
   const all = listWordTemplates(type);
-  const data = all.find((t: any) => String(t.id) === String(id) || String(t.name) === String(id));
+  const data = all.find((t) => String(t.id) === String(id) || String(t.name) === String(id));
   return dbOk(data?.content ? new Uint8Array(Buffer.from(data.content, 'base64')) : null);
 };
 
-export const deleteWordTemplate = (id: string, type?: string) => {
-  const all = get<any>(KEYS.WORD_TEMPLATES) || [];
-  save(KEYS.WORD_TEMPLATES, all.filter((t: any) => (String(t.id) !== String(id) && String(t.name) !== String(id))));
+export const deleteWordTemplate = (id: string, _type?: string) => {
+  const all = get<WordTemplate>(KEYS.WORD_TEMPLATES) || [];
+  save(KEYS.WORD_TEMPLATES, all.filter((t) => (String(t.id) !== String(id) && String(t.name) !== String(id))));
   return dbOk(null, 'تم حذف القالب');
 };
 

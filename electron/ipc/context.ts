@@ -1472,7 +1472,7 @@ export function formatBackupStamp(d = new Date()): string {
 }
 
 export async function chooseJsonFileViaDialog(): Promise<string | null> {
-  const result: any = await dialog.showOpenDialog({
+  const result = await dialog.showOpenDialog({
     title: 'اختر ملف النسخة الاحتياطية',
     properties: ['openFile'],
     filters: [
@@ -1505,7 +1505,7 @@ export async function chooseJsonFileViaDialog(): Promise<string | null> {
 }
 
 export async function chooseBackupDirViaDialog(): Promise<string | null> {
-  const result: any = await dialog.showOpenDialog({
+  const result = await dialog.showOpenDialog({
     title: 'اختر مجلد النسخ الاحتياطي',
     properties: ['openDirectory', 'createDirectory'],
   });

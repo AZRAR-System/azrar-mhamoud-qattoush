@@ -2,7 +2,6 @@ import React from 'react';
 import { Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 
-const t = (s: string) => s;
 
 interface SalesFilterBarProps {
   searchQuery: string;

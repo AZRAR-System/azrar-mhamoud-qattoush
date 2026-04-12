@@ -1,6 +1,6 @@
 import { get, save } from './kv';
 import { KEYS } from './keys';
-import { العمولات_tbl, العقود_tbl, الكمبيالات_tbl, DbResult, tbl_Alerts } from '@/types';
+import { العمولات_tbl, العقود_tbl, DbResult, tbl_Alerts } from '@/types';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 
 const fail = dbFail;
@@ -52,8 +52,8 @@ export const updateCommission = (id: string, patch: Partial<العمولات_tbl
 export const postponeCommissionCollection = (
   commissionId: string,
   newDate: string,
-  target?: 'Owner' | 'Tenant',
-  note?: string
+  _target?: 'Owner' | 'Tenant',
+  _note?: string
 ): DbResult<العمولات_tbl> => {
   const date = String(newDate || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail('تاريخ غير صالح');

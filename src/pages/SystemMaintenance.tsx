@@ -8,11 +8,11 @@ import { SystemHealth, PredictiveInsight } from '@/types';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { isTenancyRelevant } from '@/utils/tenancy';
 import { getErrorMessage } from '@/utils/errors';
-import { validateAllData, type ValidationResult } from '@/services/dataValidation';
+import { validateAllData } from '@/services/dataValidation';
 import { runSystemScenarioTests, UiTestResult } from '@/services/integrationTests';
 import { clearAllData, resetToFreshState, getDatabaseStats } from '@/services/resetDatabase';
 import { storage } from '@/services/storage';
-import { buildCache, DbCache } from '@/services/dbCache';
+import { buildCache } from '@/services/dbCache';
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
@@ -1170,12 +1170,10 @@ const HIDDEN_KEYS = new Set(['demo_data_loaded']);
 
 const DatabaseView = memo(() => {
   const toast = useToast();
-  const { openPanel } = useSmartModal();
   const [dbPath, setDbPath] = useState<string>('');
   const [appVersion, setAppVersion] = useState<string>('');
   const [installingFromFile, setInstallingFromFile] = useState<boolean>(false);
   const [rebuilding, setRebuilding] = useState(false);
-  const [cacheTick, setCacheTick] = useState(0);
   const [tables, setTables] = useState<Array<{ key: string; name: string; icon: LucideIcon; kind: 'db' | 'system' }>>([]);
   const [tablesPage, setTablesPage] = useState(1);
   const [dbStats, setDbStats] = useState<Record<string, number>>({});
@@ -1226,7 +1224,6 @@ const DatabaseView = memo(() => {
     setRebuilding(true);
     setTimeout(() => {
       buildCache();
-      setCacheTick((t) => t + 1);
       setRebuilding(false);
       toast.success('تم إعادة بناء الفهارس بنجاح');
     }, 1000);
@@ -1247,7 +1244,6 @@ const DatabaseView = memo(() => {
         localStorage.removeItem(key);
       }
       buildCache();
-      setCacheTick((t) => t + 1);
       refreshLocalStorageList();
       toast.success('تم مسح البيانات بنجاح');
     }

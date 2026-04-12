@@ -4,7 +4,7 @@ import { FollowUpTask, ClientInteraction } from '@/types';
 
 export type FollowUpDeps = {
   addReminder: (reminder: { title: string; date: string; type: string; time?: string }) => string;
-  updateReminder: (id: string, patch: any) => void;
+  updateReminder: (id: string, patch: Partial<{ title: string; date: string; time?: string; type: string }>) => void;
   setReminderDone: (id: string, isDone: boolean) => void;
 };
 
@@ -35,7 +35,7 @@ export function createFollowUpHandlers(deps: FollowUpDeps) {
 
     let reminderId: string | undefined = task.reminderId;
     if (!reminderId && task.type === 'Task' && task.dueDate && task.task) {
-      const dueTime = (task as any).dueTime;
+      const dueTime = task.dueTime;
       reminderId = addReminder({
         title: task.task,
         date: task.dueDate,
@@ -70,7 +70,7 @@ export function createFollowUpHandlers(deps: FollowUpDeps) {
       if (next.reminderId) {
         if (typeof patch.task === 'string') updateReminder(next.reminderId, { title: next.task });
         if (typeof patch.dueDate === 'string') updateReminder(next.reminderId, { date: next.dueDate });
-        const dueTime = (patch as any).dueTime;
+        const dueTime = patch.dueTime;
         if (typeof dueTime === 'string') updateReminder(next.reminderId, { time: dueTime });
         if (patch.status === 'Pending' || patch.status === 'Done')
           setReminderDone(next.reminderId, next.status === 'Done');

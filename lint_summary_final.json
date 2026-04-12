@@ -1,0 +1,120 @@
+﻿[
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\App.tsx",
+    "warnings": [
+      "L261:14 [@typescript-eslint/no-unused-vars] '_err' is defined but never used.",
+      "L333:7 [@typescript-eslint/no-unused-vars] 'RequireSuperAdmin' is assigned a value but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\AdminControlPanel.tsx",
+    "warnings": [
+      "L2:18 [@typescript-eslint/no-unused-vars] 'RouterLink' is defined but never used. Allowed unused vars must match /^_/u.",
+      "L37:25 [@typescript-eslint/no-unused-vars] 'AuditLogRecord' is defined but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\LicenseAdmin.tsx",
+    "warnings": [
+      "L85:7 [@typescript-eslint/no-unused-vars] 'followUpStatusOptions' is assigned a value but never used. Allowed unused vars must match /^_/u.",
+      "L175:32 [@typescript-eslint/no-unused-vars] 'setStatusCheckDeviceId' is assigned a value but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\Login.tsx",
+    "warnings": [
+      "L22:3 [@typescript-eslint/no-unused-vars] 'HelpCircle' is defined but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\Reports.tsx",
+    "warnings": [
+      "L16:3 [@typescript-eslint/no-unused-vars] 'Download' is defined but never used. Allowed unused vars must match /^_/u.",
+      "L255:23 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\SystemMaintenance.tsx",
+    "warnings": [
+      "L11:32 [@typescript-eslint/no-unused-vars] 'ValidationResult' is defined but never used. Allowed unused vars must match /^_/u.",
+      "L15:22 [@typescript-eslint/no-unused-vars] 'DbCache' is defined but never used. Allowed unused vars must match /^_/u.",
+      "L1173:11 [@typescript-eslint/no-unused-vars] 'openPanel' is assigned a value but never used. Allowed unused vars must match /^_/u.",
+      "L1178:10 [@typescript-eslint/no-unused-vars] 'cacheTick' is assigned a value but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\SystemSetup.tsx",
+    "warnings": [
+      "L13:3 [@typescript-eslint/no-unused-vars] 'ArrowLeft' is defined but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\sales\\components\\SalesFilterBar.tsx",
+    "warnings": [
+      "L5:7 [@typescript-eslint/no-unused-vars] 't' is assigned a value but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\sales\\components\\SalesListingsTab.tsx",
+    "warnings": [
+      "L30:3 [@typescript-eslint/no-unused-vars] 'statusFilter' is defined but never used. Allowed unused args must match /^_/u.",
+      "L31:3 [@typescript-eslint/no-unused-vars] 'searchQuery' is defined but never used. Allowed unused args must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\sales\\components\\SalesOffersTab.tsx",
+    "warnings": [
+      "L2:10 [@typescript-eslint/no-unused-vars] 'Button' is defined but never used. Allowed unused vars must match /^_/u.",
+      "L83:59 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.",
+      "L90:59 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\sales\\components\\modals\\AgreementModal.tsx",
+    "warnings": [
+      "L135:6 [react-hooks/exhaustive-deps] React Hook useEffect has missing dependencies: 'formData.Γò¬┬║Γöÿ├ñΓò¬ΓòúΓöÿ├áΓöÿ├¬Γöÿ├ñΓò¬ΓîÉ_Γò¬┬║Γöÿ├ñΓò¬├æΓò¬┬╝Γöÿ├áΓò¬┬║Γöÿ├ñΓöÿ├¿Γò¬ΓîÉ' and 'formData.Γò¬ΓòúΓöÿ├áΓöÿ├¬Γöÿ├ñΓò¬ΓîÉ_Γò¬├æΓò¬┬╗Γò¬┬½Γò¬┬║Γöÿ├ñ_Γò¬ΓòúΓöÿ├⌐Γò¬┬║Γò¬ΓûÆ'. Either include them or remove the dependency array."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\pages\\sales\\components\\modals\\NewListingModal.tsx",
+    "warnings": [
+      "L1:17 [@typescript-eslint/no-unused-vars] 'useState' is defined but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\services\\db\\financial.ts",
+    "warnings": [
+      "L3:36 [@typescript-eslint/no-unused-vars] 'Γò¬┬║Γöÿ├ñΓöÿ├óΓöÿ├áΓò¬┬┐Γöÿ├¿Γò¬┬║Γöÿ├ñΓò¬┬║Γò¬┬¼_tbl' is defined but never used. Allowed unused vars must match /^_/u.",
+      "L55:3 [@typescript-eslint/no-unused-vars] 'target' is defined but never used. Allowed unused args must match /^_/u.",
+      "L56:3 [@typescript-eslint/no-unused-vars] 'note' is defined but never used. Allowed unused args must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\services\\db\\system\\attachments.ts",
+    "warnings": [
+      "L4:10 [@typescript-eslint/no-unused-vars] 'isDesktop' is defined but never used. Allowed unused vars must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\services\\db\\system\\marquee.ts",
+    "warnings": [
+      "L152:12 [@typescript-eslint/no-unused-vars] 'e' is defined but never used.",
+      "L198:12 [@typescript-eslint/no-unused-vars] 'e' is defined but never used.",
+      "L239:12 [@typescript-eslint/no-unused-vars] 'e' is defined but never used.",
+      "L254:12 [@typescript-eslint/no-unused-vars] 'e' is defined but never used.",
+      "L266:12 [@typescript-eslint/no-unused-vars] 'e' is defined but never used."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\services\\db\\system\\wordTemplates.ts",
+    "warnings": [
+      "L43:48 [@typescript-eslint/no-unused-vars] 'type' is defined but never used. Allowed unused args must match /^_/u."
+    ]
+  },
+  {
+    "path": "g:\\pk\\pk\\azrar-mhamoud-qattoush-recovered\\src\\services\\mockDb.ts",
+    "warnings": [
+      "L66:15 [@typescript-eslint/no-unused-vars] 'DbResult' is defined but never used. Allowed unused vars must match /^_/u."
+    ]
+  }
+]

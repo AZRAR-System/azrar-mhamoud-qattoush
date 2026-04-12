@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+
 import { DbService } from '@/services/mockDb';
 import {
   العمليات_tbl,
@@ -103,7 +103,7 @@ export const AdminControlPanel: React.FC = () => {
 
   // Data States
   const [analytics, setAnalytics] = useState<DashboardStats | null>(null);
-  const [logs, setLogs] = useState<العمليات_tbl[]>([]);
+  const [logs, setLogs] = useState<AuditLogRecord[]>([]);
   const [users, setUsers] = useState<المستخدمين_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]); // To link employees
   const [allPermissions, setAllPermissions] = useState<صلاحيات_المستخدمين_tbl[]>([]);
@@ -134,8 +134,8 @@ export const AdminControlPanel: React.FC = () => {
   const [usersPage, setUsersPage] = useState(1);
 
   const filteredLogs = useMemo(() => {
-    return logs.filter((log: unknown) => {
-      const r = log as AuditLogRecord;
+    return logs.filter((log: AuditLogRecord) => {
+      const r = log;
       if (logFilter.user && r.userName !== logFilter.user) return false;
       if (logFilter.action && r.action !== logFilter.action) return false;
       
@@ -892,7 +892,7 @@ export const AdminControlPanel: React.FC = () => {
                     <p className="text-xs text-slate-500">{user.الدور}</p>
                     {linkedName && (
                       <p className="text-xs text-indigo-500 mt-1 flex items-center gap-1">
-                        <Link size={10} /> {linkedName}
+            <span style={{ fontSize: 10 }}>🔗</span> {linkedName}
                       </p>
                     )}
                   </div>
@@ -1066,7 +1066,7 @@ export const AdminControlPanel: React.FC = () => {
                     ))}
                   </select>
                   <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500 dark:text-slate-400">
-                    <Link size={16} />
+                    <span style={{ fontSize: 16 }}>🔗</span>
                   </div>
                 </div>
               )}

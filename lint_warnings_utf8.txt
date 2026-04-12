@@ -1,0 +1,137 @@
+﻿
+> azrar-real-estate-desktop@3.2.90 lint
+> node scripts/lint.mjs
+
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\db.ts
+  121:7   warning  'safeExistsFileSync' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  130:10  warning  'findLegacyDbCandidateSync' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  353:12  warning  'err' is defined but never used                                                                @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\App.tsx
+  261:14  warning  '_err' is defined but never used                                                              @typescript-eslint/no-unused-vars
+  333:7   warning  'RequireSuperAdmin' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\AdminControlPanel.tsx
+   2:18  warning  'RouterLink' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  37:25  warning  'AuditLogRecord' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\LicenseAdmin.tsx
+    1:40  warning  'useCallback' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+    1:53  warning  'memo' is defined but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+    2:10  warning  'Link' is defined but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+    9:10  warning  'ROUTE_PATHS' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+   14:12  warning  'UsersIcon' is defined but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+   22:3   warning  'FileText' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+   42:10  warning  'fmtDateTime' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+   87:7   warning  'followUpStatusOptions' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  141:10  warning  'serverAdminTokenConfigured' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  147:10  warning  'info' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+  158:29  warning  'setIssueFeaturesJson' is assigned a value but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  167:10  warning  'activateMeta' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  168:10  warning  'savePath' is assigned a value but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+  177:31  warning  'setStatusCheckDeviceId' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  178:10  warning  'statusCheckResult' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  242:9   warning  'selectedItem' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  560:9   warning  'doSetStatus' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  653:9   warning  'refreshFpItems' is assigned a value but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  655:9   warning  'doSaveFingerprint' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  671:9   warning  'doCancelFingerprint' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  682:9   warning  'doDeleteFingerprint' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  693:9   warning  'doSaveLicenseFile' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  727:9   warning  'doUnbindDeviceFromLicense' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  811:9   warning  'doCheckDeviceStatus' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\Login.tsx
+  22:3  warning  'HelpCircle' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\Reports.tsx
+   16:3   warning  'Download' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  255:23  warning  Forbidden non-null assertion                                                @typescript-eslint/no-non-null-assertion
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\SystemMaintenance.tsx
+    11:32  warning  'ValidationResult' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+    15:22  warning  'DbCache' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  1173:11  warning  'openPanel' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  1178:10  warning  'cacheTick' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\SystemSetup.tsx
+  13:3  warning  'ArrowLeft' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\SalesFilterBar.tsx
+  5:7  warning  't' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\SalesListingsTab.tsx
+  30:3  warning  'statusFilter' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  31:3  warning  'searchQuery' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\SalesOffersTab.tsx
+   2:10  warning  'Button' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  83:59  warning  Forbidden non-null assertion                                              @typescript-eslint/no-non-null-assertion
+  90:59  warning  Forbidden non-null assertion                                              @typescript-eslint/no-non-null-assertion
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\modals\AgreementModal.tsx
+  135:6  warning  React Hook useEffect has missing dependencies: 'formData.╪º┘ä╪╣┘à┘ê┘ä╪⌐_╪º┘ä╪Ñ╪¼┘à╪º┘ä┘è╪⌐' and 'formData.╪╣┘à┘ê┘ä╪⌐_╪Ñ╪»╪«╪º┘ä_╪╣┘é╪º╪▒'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\modals\NewListingModal.tsx
+  1:17  warning  'useState' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\modals\TransferOwnershipModal.tsx
+  108:6   warning  React Hook useEffect has missing dependencies: 'formData.listingComm' and 'formData.totalComm'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  115:76  warning  Forbidden non-null assertion                                                                                                                        @typescript-eslint/no-non-null-assertion
+  136:54  warning  Forbidden non-null assertion                                                                                                                        @typescript-eslint/no-non-null-assertion
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\index.tsx
+  139:48  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\financial.ts
+   3:36  warning  '╪º┘ä┘â┘à╪¿┘è╪º┘ä╪º╪¬_tbl' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  55:3   warning  'target' is defined but never used. Allowed unused args must match /^_/u          @typescript-eslint/no-unused-vars
+  56:3   warning  'note' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\attachments.ts
+  4:21  warning  'getDesktopBridge' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\legal.ts
+  26:11  warning  'logOperation' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  27:9   warning  'fail' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  53:5   warning  'ctx' is defined but never used. Allowed unused args must match /^_/u                            @typescript-eslint/no-unused-vars
+  65:11  warning  'owner' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  77:11  warning  'overdueCount' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  79:11  warning  'overdueOldestDueDate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  80:11  warning  'overdueMaxDaysLate' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\marquee.ts
+  151:12  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+  197:12  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+  238:12  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+  253:12  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+  265:12  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\reports.ts
+   10:3   warning  '╪╣╪▒┘ê╪╢_╪º┘ä╪¿┘è╪╣_tbl' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   11:3   warning  '╪¬╪░╪º┘â╪▒_╪º┘ä╪╡┘è╪º┘å╪⌐_tbl' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   12:3   warning  '╪┤╪«╪╡_╪»┘ê╪▒_tbl' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   18:10  warning  'isTenancyRelevant' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   18:29  warning  'pickBestTenancyContract' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   19:37  warning  'daysBetweenDateOnly' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   20:10  warning  'formatCurrencyJOD' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   57:66  warning  Forbidden non-null assertion                                                               @typescript-eslint/no-non-null-assertion
+  118:11  warning  'opportunity' is never reassigned. Use 'const' instead                                     prefer-const
+  162:13  warning  'breakdown' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\wordTemplates.ts
+  43:48  warning  'type' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\mockDb.ts
+    9:15  warning  'save' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   10:27  warning  'RoleType' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   10:37  warning  '╪º┘ä┘â┘à╪¿┘è╪º┘ä╪º╪¬_tbl' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   11:16  warning  'dbFail' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   66:15  warning  'DbResult' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  121:25  warning  'templateId' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  121:45  warning  'contractId' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+
+Γ£û 85 problems (0 errors, 85 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+ESLint summary: 0 error(s), 85 warning(s)

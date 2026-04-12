@@ -23,8 +23,8 @@ export const getLegalTemplates = () => get<LegalNoticeTemplate>(KEYS.LEGAL_TEMPL
 export const getLegalNoticeHistory = () => get<LegalNoticeRecord>(KEYS.LEGAL_HISTORY);
 
 export function createLegalHandlers(deps: LegalDeps) {
-  const { logOperation } = deps;
-  const fail = dbFail;
+  const { logOperation: _logOperation } = deps;
+  const _fail = dbFail;
   const ok = dbOk;
 
   const addLegalTemplate = (t: Partial<LegalNoticeTemplate>): DbResult<null> => {
@@ -50,7 +50,7 @@ export function createLegalHandlers(deps: LegalDeps) {
   const generateLegalNotice = (
     tmplId: string,
     contractId: string,
-    ctx?: {
+    _ctx?: {
       date?: string;
       time?: string;
       extra?: Record<string, string | number | null | undefined>;
@@ -62,7 +62,7 @@ export function createLegalHandlers(deps: LegalDeps) {
 
     const property = get<العقارات_tbl>(KEYS.PROPERTIES).find((p) => p.رقم_العقار === contract.رقم_العقار);
     const tenant = get<الأشخاص_tbl>(KEYS.PEOPLE).find((p) => p.رقم_الشخص === contract.رقم_المستاجر);
-    const owner = property?.رقم_المالك ? get<الأشخاص_tbl>(KEYS.PEOPLE).find((p) => p.رقم_الشخص === property.رقم_المالك) : undefined;
+    const _owner = property?.رقم_المالك ? get<الأشخاص_tbl>(KEYS.PEOPLE).find((p) => p.رقم_الشخص === property.رقم_المالك) : undefined;
 
     const today = toDateOnly(new Date());
     const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).filter((i) => i.رقم_العقد === contractId);
@@ -74,10 +74,10 @@ export function createLegalHandlers(deps: LegalDeps) {
 
     const overdue = installmentsWithRemaining.filter((x) => x.due && daysBetweenDateOnly(x.due, today) > 0).sort((a, b) => (a.due?.getTime() || 0) - (b.due?.getTime() || 0));
     const totalRemaining = Math.round(installmentsWithRemaining.reduce((sum, x) => sum + (x.remaining || 0), 0));
-    const overdueCount = overdue.length;
+    const _overdueCount = overdue.length;
     const overdueTotal = Math.round(overdue.reduce((sum, x) => sum + (x.remaining || 0), 0));
-    const overdueOldestDueDate = overdue[0]?.inst?.تاريخ_استحقاق || '';
-    const overdueMaxDaysLate = overdue.length ? Math.max(0, ...overdue.map((x) => (x.due ? daysBetweenDateOnly(x.due, today) : 0))) : 0;
+    const _overdueOldestDueDate = overdue[0]?.inst?.تاريخ_استحقاق || '';
+    const _overdueMaxDaysLate = overdue.length ? Math.max(0, ...overdue.map((x) => (x.due ? daysBetweenDateOnly(x.due, today) : 0))) : 0;
 
     const replacements: Record<string, string> = {
       ...getMessageGlobalContext(),

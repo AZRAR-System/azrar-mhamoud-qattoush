@@ -13,7 +13,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivationProvider, useActivation } from './context/ActivationContext';
 import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
-import { isSuperAdmin } from '@/utils/roles';
 import { validateRoutes } from '@/routes/validate';
 import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
 import { TabsProvider } from './context/TabsContext';
@@ -166,7 +165,7 @@ const DailyAutomation: React.FC = () => {
           const { DbService } = await import('./services/mockDb');
           DbService.runDailyScheduler();
         } catch (_err) {
-          console.warn('Failed to run daily scheduler:', err);
+          console.warn('Failed to run daily scheduler:', _err);
         }
       })();
     }, 2000);
@@ -330,13 +329,7 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
   return null;
 };
 
-const RequireSuperAdmin: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  if (!isSuperAdmin(user?.الدور)) {
-    return <Navigate to={ROUTE_PATHS.DASHBOARD} replace />;
-  }
-  return <>{children}</>;
-};
+
 
 const RequireAuth: React.FC = () => {
   const { isAuthenticated } = useAuth();

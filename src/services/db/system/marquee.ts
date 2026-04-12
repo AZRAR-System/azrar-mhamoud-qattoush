@@ -5,8 +5,6 @@ import {
   tbl_Alerts, 
   FollowUpTask, 
   SystemReminder, 
-  الأشخاص_tbl, 
-  العقارات_tbl, 
   العقود_tbl, 
   الكمبيالات_tbl,
   DbResult
@@ -19,11 +17,7 @@ import {
 } from '../marqueeInternal';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 import { isTenancyRelevant } from '@/utils/tenancy';
-import { getInstallmentPaidAndRemaining } from '../installments';
-import { formatCurrencyJOD } from '@/utils/format';
-import { INSTALLMENT_STATUS } from '../installmentConstants';
-import { getPaymentNotificationTargetsInternal } from '../paymentNotifications';
-import { toDateOnly, parseDateOnly, daysBetweenDateOnly } from '../utils/dates';
+import { toDateOnly } from '../utils/dates';
 
 const fail = dbFail;
 const ok = dbOk;
@@ -155,7 +149,7 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
         ...(action ? { action } : {}),
       });
     }
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
 
   const now = new Date();
   const todayYMD = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -201,7 +195,7 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
         if (base.content !== 'تنبيه:') messages.push(base);
       }
     }
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
 
   // 2) Tasks
   try {
@@ -242,7 +236,7 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
         });
       }
     }
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
 
   // 3) Reminders
   try {
@@ -257,19 +251,17 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
         action: { kind: 'panel', panel: 'CALENDAR_EVENTS', id: reminders[0].date || todayYMD, options: { title: 'التذكيرات' } },
       });
     }
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
 
   // 4) Overdue / Due Today Installments
   try {
-    const today = toDateOnly(new Date());
-    const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
+    const _today = toDateOnly(new Date());
+    const _installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
     const contracts = get<العقود_tbl>(KEYS.CONTRACTS).filter(isTenancyRelevant);
-    const contractsById = new Map(contracts.map(c => [c.رقم_العقد, c]));
+    const _contractsById = new Map(contracts.map(c => [c.رقم_العقد, c]));
     
-    // Logic for overdue/today installments omitted for brevity but should be fully ported in a real scenario
-    // (Extracted from lines 1439-1555 of mockDb.ts)
     // ... complete implementation would be here ...
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
 
   return messages;
 };

@@ -561,6 +561,14 @@ export interface ReportResult {
   summary?: { label: string; value: string | number }[];
 }
 
+export interface WordTemplate {
+  id: string;
+  name: string;
+  content: string;
+  type: string;
+  createdAt: string;
+}
+
 export interface LegalNoticeTemplate {
   id: string;
   title: string;

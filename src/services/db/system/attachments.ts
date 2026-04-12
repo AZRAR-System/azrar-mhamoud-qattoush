@@ -1,7 +1,7 @@
 import { get, save } from '../kv';
 import { KEYS } from '../keys';
 import { Attachment, ReferenceType, DbResult } from '@/types';
-import { isDesktop, getDesktopBridge } from '../refs';
+import { getDesktopBridge } from '../refs';
 import { buildAttachmentEntityFolder } from '../attachmentPaths';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 
@@ -29,7 +29,7 @@ export const uploadAttachment = async (
   id: string,
   file: File
 ): Promise<DbResult<Attachment>> => {
-  const desktopDb = isDesktop() ? (window as any).desktopDb : undefined;
+  const desktopDb = getDesktopBridge();
   if (desktopDb?.saveAttachmentFile) {
     try {
       const entityFolder = buildAttachmentEntityFolder(type, id);
@@ -62,8 +62,8 @@ export const uploadAttachment = async (
 
       save(KEYS.ATTACHMENTS, [...all, att]);
       return ok(att);
-    } catch (e: any) {
-      return fail(e.message || 'فشل حفظ الملف');
+    } catch (e) {
+      return fail(e instanceof Error ? e.message : 'فشل حفظ الملف');
     }
   }
 
@@ -99,7 +99,7 @@ export const deleteAttachment = async (id: string): Promise<DbResult<null>> => {
   const all = get<Attachment>(KEYS.ATTACHMENTS);
   const att = all.find((a) => a.id === id);
 
-  const desktopDb = isDesktop() ? (window as any).desktopDb : undefined;
+  const desktopDb = getDesktopBridge();
   if (att?.filePath && desktopDb?.deleteAttachmentFile) {
     try {
       await desktopDb.deleteAttachmentFile(att.filePath);
@@ -114,7 +114,7 @@ export const readWordTemplate = async (
   templateName: string,
   templateType?: 'contracts' | 'installments' | 'handover'
 ): Promise<DbResult<ArrayBuffer>> => {
-  const desktopDb = isDesktop() ? (window as any).desktopDb : undefined;
+  const desktopDb = getDesktopBridge();
   if (!desktopDb?.readTemplateFile) return fail('ميزة قوالب Word متاحة في نسخة سطح المكتب فقط');
 
   try {
@@ -132,15 +132,15 @@ export const readWordTemplate = async (
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return ok(bytes.buffer);
-  } catch (e: any) {
-    return fail(e.message || 'فشل تحميل قالب Word');
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : 'فشل تحميل قالب Word');
   }
 };
 
 export const listWordTemplates = async (
   templateType?: 'contracts' | 'installments' | 'handover'
 ): Promise<DbResult<string[]>> => {
-  const desktopDb = isDesktop() ? (window as any).desktopDb : undefined;
+  const desktopDb = getDesktopBridge();
   if (!desktopDb?.listTemplates) return fail('ميزة قوالب Word متاحة في نسخة سطح المكتب فقط');
 
   try {
@@ -149,18 +149,18 @@ export const listWordTemplates = async (
     if (res['success'] !== true) return fail(String(res['message'] || 'تعذر قراءة قائمة القوالب'));
     const items = res['items'];
     return ok(Array.isArray(items) ? items.filter((x) => typeof x === 'string') : []);
-  } catch (e: any) {
-    return fail(e.message || 'تعذر قراءة قائمة القوالب');
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : 'تعذر قراءة قائمة القوالب');
   }
 };
 
 export const downloadAttachment = async (id: string): Promise<string | null> => {
-  const bridge = isDesktop() ? (window as any).desktopDb : undefined;
+  const bridge = getDesktopBridge();
   if (bridge && typeof bridge.get === 'function') {
     try {
       const raw = await bridge.get(KEYS.ATTACHMENTS);
       const parsed = JSON.parse(String(raw || '[]'));
-      const match = parsed.find((x: any) => x.id === id);
+      const match = parsed.find((x: Attachment) => x.id === id);
       if (match && match.filePath && typeof bridge.readAttachmentFile === 'function') {
         const res = await bridge.readAttachmentFile(match.filePath);
         if (res && res.success) return res.dataUri;

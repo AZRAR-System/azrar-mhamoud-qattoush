@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useState, useCallback, memo } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { safeCopyToClipboard } from '@/utils/clipboard';
-import { ROUTE_PATHS } from '@/routes/paths';
+
 import {
   Activity,
   LayoutDashboard,
   Key,
-  Users as UsersIcon,
   Users2 as CustomersIcon,
   Settings as SettingsIcon,
   LogOut,
@@ -19,7 +18,6 @@ import {
   Search,
   Plus,
   Trash2,
-  FileText,
   Save,
   ShieldCheck,
   Smartphone,
@@ -39,7 +37,7 @@ import {
   type FingerprintRegistryRecord,
   upsertFingerprintRecord,
 } from '@/features/licenseAdmin/fingerprintRegistry';
-import { fmtDateTime, getErrorMessage, licenseStatusToArabic } from '@/features/licenseAdmin/utils';
+import { getErrorMessage, licenseStatusToArabic } from '@/features/licenseAdmin/utils';
 import { useToast } from '@/context/ToastContext';
 
 type AdminListItem = {
@@ -84,14 +82,7 @@ type AdminRecord = {
   audit?: AuditEntry[];
 };
 
-const followUpStatusOptions = [
-  { value: '', label: 'بدون' },
-  { value: 'new', label: 'جديد' },
-  { value: 'needs-followup', label: 'يحتاج متابعة' },
-  { value: 'in-progress', label: 'قيد المتابعة' },
-  { value: 'done', label: 'تم' },
-  { value: 'cancelled', label: 'ملغي' },
-];
+
 
 type IssueDuration = '' | 'trial14d' | '1m' | '3m' | '6m' | '1y' | 'custom';
 
@@ -138,13 +129,13 @@ export const LicenseAdmin: React.FC = () => {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [serverAdminToken, setServerAdminToken] = useState('');
-  const [serverAdminTokenConfigured, setServerAdminTokenConfigured] = useState<boolean | null>(
+  const [_serverAdminTokenConfigured, setServerAdminTokenConfigured] = useState<boolean | null>(
     null
   );
   const [loggedIn, setLoggedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
+  const [_info, setInfo] = useState('');
 
   // Licensing State
   const [q, setQ] = useState('');
@@ -155,7 +146,7 @@ export const LicenseAdmin: React.FC = () => {
   const [issueMaxActivations, setIssueMaxActivations] = useState('1');
   const [issueExpiresAt, setIssueExpiresAt] = useState('');
   const [issueDuration, setIssueDuration] = useState<IssueDuration>('custom');
-  const [issueFeaturesJson, setIssueFeaturesJson] = useState('');
+  const [issueFeaturesJson, _setIssueFeaturesJson] = useState('');
 
   const [setStatusValue, setSetStatusValue] = useState<'active' | 'suspended' | 'revoked'>(
     'active'
@@ -164,8 +155,8 @@ export const LicenseAdmin: React.FC = () => {
 
   const [activateDeviceId, setActivateDeviceId] = useState('');
   const [activateResultJson, setActivateResultJson] = useState('');
-  const [activateMeta, setActivateMeta] = useState('');
-  const [savePath, setSavePath] = useState('');
+  const [_activateMeta, setActivateMeta] = useState('');
+  const [_savePath, setSavePath] = useState('');
   
   // Customers State
   const [customerSearch, setCustomerSearch] = useState('');
@@ -174,8 +165,8 @@ export const LicenseAdmin: React.FC = () => {
   const [fpComment, setFpComment] = useState('');
   const [fpItems, setFpItems] = useState<FingerprintRegistryRecord[]>([]);
 
-  const [statusCheckDeviceId, setStatusCheckDeviceId] = useState('');
-  const [statusCheckResult, setStatusCheckResult] = useState('');
+  const [statusCheckDeviceId] = useState('');
+  const [_statusCheckResult, setStatusCheckResult] = useState('');
 
   const [customerName, setCustomerName] = useState('');
   const [customerCompany, setCustomerCompany] = useState('');
@@ -239,7 +230,7 @@ export const LicenseAdmin: React.FC = () => {
     toast.success('تم حذف السيرفر');
   };
 
-  const selectedItem = useMemo(
+  const _selectedItem = useMemo(
     () => items.find((x) => x.licenseKey === selectedKey) || null,
     [items, selectedKey]
   );
@@ -557,7 +548,7 @@ export const LicenseAdmin: React.FC = () => {
     }
   };
 
-  const doSetStatus = async () => {
+  const _doSetStatus = async () => {
     if (!canUseBridge) return;
     const licenseKey = selectedKey.trim();
     if (!licenseKey) {
@@ -650,9 +641,9 @@ export const LicenseAdmin: React.FC = () => {
     }
   };
 
-  const refreshFpItems = () => setFpItems(loadFingerprintRegistry());
+  const _refreshFpItems = () => setFpItems(loadFingerprintRegistry());
 
-  const doSaveFingerprint = () => {
+  const _doSaveFingerprint = () => {
     const fp = activateDeviceId.trim();
     if (!fp) {
       setError('يرجى إدخال بصمة جهاز العميل أولاً');
@@ -668,7 +659,7 @@ export const LicenseAdmin: React.FC = () => {
     setInfo('تم حفظ بيانات البصمة');
   };
 
-  const doCancelFingerprint = () => {
+  const _doCancelFingerprint = () => {
     const fp = activateDeviceId.trim();
     if (!fp) {
       setError('يرجى إدخال/اختيار بصمة أولاً');
@@ -679,7 +670,7 @@ export const LicenseAdmin: React.FC = () => {
     setInfo('تم إلغاء البصمة (لن تُستخدم إلا إذا فعلتها مرة أخرى)');
   };
 
-  const doDeleteFingerprint = () => {
+  const _doDeleteFingerprint = () => {
     const fp = activateDeviceId.trim();
     if (!fp) {
       setError('يرجى إدخال/اختيار بصمة أولاً');
@@ -690,7 +681,7 @@ export const LicenseAdmin: React.FC = () => {
     setInfo('تم حذف البصمة من السجل');
   };
 
-  const doSaveLicenseFile = async () => {
+  const _doSaveLicenseFile = async () => {
     if (!canUseBridge) return;
     if (!activateResultJson.trim()) {
       setError('لا يوجد ملف ترخيص جاهز للحفظ');
@@ -724,7 +715,7 @@ export const LicenseAdmin: React.FC = () => {
     }
   };
 
-  const doUnbindDeviceFromLicense = async () => {
+  const _doUnbindDeviceFromLicense = async () => {
     if (!canUseBridge) return;
     const licenseKey = selectedKey.trim();
     const deviceId = activateDeviceId.trim();
@@ -808,7 +799,7 @@ export const LicenseAdmin: React.FC = () => {
     }
   };
 
-  const doCheckDeviceStatus = async () => {
+  const _doCheckDeviceStatus = async () => {
     if (!canUseBridge) return;
     const licenseKey = selectedKey.trim();
     const deviceId = statusCheckDeviceId.trim();
@@ -1239,7 +1230,7 @@ export const LicenseAdmin: React.FC = () => {
                             <Select
                               className="w-32 !py-1 !px-2 !text-xs"
                               value={setStatusValue}
-                              onChange={(e) => setSetStatusValue(e.target.value as LicenseStatus)}
+                          onChange={(e) => setSetStatusValue(e.target.value as 'active' | 'suspended' | 'revoked')}
                               options={[
                                 { value: 'active', label: 'فعال' },
                                 { value: 'suspended', label: 'معلق' },

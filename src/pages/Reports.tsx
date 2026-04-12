@@ -13,7 +13,6 @@ import {
   AlertCircle,
   Printer,
   FileSpreadsheet,
-  Download,
   type LucideIcon,
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
@@ -252,7 +251,8 @@ export const Reports: React.FC = () => {
       const sheets: ExtraSheet[] = results
         .filter((r) => r.res && r.res.data)
         .map((r) => {
-          const rep = r.res!;
+          const rep = r.res;
+          if (!rep) return null;
           const headers = rep.columns.map((c) => c.header);
           const dataRows = (rep.data || []).map((row: Record<string, unknown>) =>
             rep.columns.map((col) => row[col.key] ?? '')

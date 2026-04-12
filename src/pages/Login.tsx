@@ -19,7 +19,6 @@ import {
   Sparkles,
   KeyRound,
   Wrench,
-  HelpCircle,
   LifeBuoy,
 } from 'lucide-react';
 import { storage } from '@/services/storage';

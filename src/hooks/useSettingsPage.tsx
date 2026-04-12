@@ -1209,7 +1209,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
           setWordTemplatesDir(String(res.data.dir || ''));
 
           const kvMap: Record<string, string> = {};
-          const details = (res.data.details as Array<Record<string, unknown>> | undefined) || [];
+          const details = (res.data.details as unknown as Array<Record<string, unknown>> | undefined) || [];
           for (const d of details) {
             const fileName = String(d?.name || '').trim();
             const kvKey = String(d?.id || '').trim();
@@ -1223,7 +1223,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
           }
         } else {
           const res = await DbService.listWordTemplates(t);
-          if (res?.success) setWordTemplates(res.data || []);
+          if (res?.success) setWordTemplates((res.data || []).map((t: any) => t.name));
           else setWordTemplates([]);
           setWordTemplatesDir('');
           setWordTemplateKvKeysByName({});
@@ -1292,7 +1292,8 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
         return;
       }
 
-      setSelectedWordTemplateName(activeWordTemplateType, (res.data?.name || (typeof res.data === 'string' ? res.data : '')) || '');
+      const importData = res.data as any;
+      setSelectedWordTemplateName(activeWordTemplateType, (importData?.name || (typeof importData === 'string' ? importData : '')) || '');
       await refreshWordTemplates(activeWordTemplateType);
       toast.success(
         `تم استيراد ${templateTypeLabel(activeWordTemplateType)} وتعيينه كقالب افتراضي`

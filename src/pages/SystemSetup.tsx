@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Database,
   Globe,
-  ArrowLeft,
   Settings,
   Sparkles,
   Command,

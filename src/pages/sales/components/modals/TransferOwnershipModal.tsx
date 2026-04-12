@@ -101,18 +101,19 @@ export const TransferOwnershipModal: React.FC<TransferOwnershipModalProps> = ({
     const seller = Number(formData.sellerComm) || 0;
     const buyer = Number(formData.buyerComm) || 0;
     const total = seller + buyer;
-    const intake = total * 0.05;
+    const intake = total * 0.05; // 5% Rule
+
     if (formData.totalComm !== total || formData.listingComm !== intake) {
       setFormData(prev => ({ ...prev, totalComm: total, listingComm: intake }));
     }
-  }, [formData.sellerComm, formData.buyerComm]);
+  }, [formData.sellerComm, formData.buyerComm, formData.totalComm, formData.listingComm]);
 
   const propertyLabel = agreement ? getPropertyLabel(agreement.listingId || '') : '';
   const buyerName = agreement ? getPersonName(agreement.رقم_المشتري) : '';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFormData(prev => ({ ...prev, files: [...prev.files, ...Array.from(e.target.files!)] }));
+      setFormData(prev => ({ ...prev, files: [...prev.files, ...Array.from(e.target.files)] }));
     }
   };
 
@@ -133,7 +134,9 @@ export const TransferOwnershipModal: React.FC<TransferOwnershipModalProps> = ({
     // 2. Upload files
     if (formData.files.length > 0) {
       for (const file of formData.files) {
-        await DbService.uploadAttachment('Property', agreement.رقم_العقار!, file);
+        if (agreement.رقم_العقار) {
+          await DbService.uploadAttachment('Property', agreement.رقم_العقار, file);
+        }
         await DbService.uploadAttachment('Person', agreement.رقم_المشتري, file);
       }
     }

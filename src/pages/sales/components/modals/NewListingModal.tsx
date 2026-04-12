@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BadgeDollarSign } from 'lucide-react';
@@ -16,24 +16,24 @@ interface NewListingModalProps {
 }
 
 export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
-  const [formData, setFormData] = React.useState<any>({
+  const [formData, setFormData] = useState<Partial<عروض_البيع_tbl>>({
     رقم_العقار: '',
-    السعر_المطلوب: '',
+    السعر_المطلوب: 0,
     ملاحظات: '',
     متاح_للإيجار_أيضا: false
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       if (initialData) {
         setFormData({
           ...initialData,
-          السعر_المطلوب: initialData.السعر_المطلوب?.toString() || ''
+          السعر_المطلوب: Number(initialData.السعر_المطلوب) || 0
         });
       } else {
         setFormData({
           رقم_العقار: '',
-          السعر_المطلوب: '',
+          السعر_المطلوب: 0,
           ملاحظات: '',
           متاح_للإيجار_أيضا: false
         });

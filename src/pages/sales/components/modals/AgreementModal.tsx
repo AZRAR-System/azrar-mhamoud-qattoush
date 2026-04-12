@@ -32,7 +32,7 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
   initialData
 }) => {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<any>({
+  const [formData, setFormData] = useState<Partial<اتفاقيات_البيع_tbl>>({
     listingId: '',
     عرض_الشراء_الرقم: '',
     رقم_المشتري: '',
@@ -132,7 +132,7 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
         عمولة_إدخال_عقار: intake
       }));
     }
-  }, [formData.عمولة_البائع, formData.عمولة_المشتري]);
+  }, [formData.عمولة_البائع, formData.عمولة_المشتري, formData.العمولة_الإجمالية, formData.عمولة_إدخال_عقار]);
 
   const steps = [
     { id: 1, label: t('ربط العروض'), icon: Check },
@@ -269,7 +269,7 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
                     <Input 
                       type="number" 
                       value={formData.السعر_النهائي} 
-                      onChange={(e) => setFormData({...formData, السعر_النهائي: e.target.value})} 
+                      onChange={(e) => setFormData({...formData, السعر_النهائي: Number(e.target.value)})} 
                       className="text-xl font-black text-indigo-600 h-14"
                     />
                   </div>
@@ -328,7 +328,7 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
                     <Input 
                       type="number" 
                       value={formData.إجمالي_المصاريف} 
-                      onChange={(e) => setFormData({...formData, إجمالي_المصاريف: e.target.value})}
+                      onChange={(e) => setFormData({...formData, إجمالي_المصاريف: Number(e.target.value)})}
                       placeholder="0.00"
                     />
                   </div>
@@ -357,7 +357,7 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
                         <Input 
                           type="number" 
                           value={formData.عمولة_إدخال_عقار} 
-                          onChange={(e) => setFormData({...formData, عمولة_إدخال_عقار: e.target.value})}
+                          onChange={(e) => setFormData({...formData, عمولة_إدخال_عقار: Number(e.target.value)})}
                           placeholder="0.00"
                         />
                       </div>

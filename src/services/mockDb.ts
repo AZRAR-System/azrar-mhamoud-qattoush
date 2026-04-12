@@ -6,9 +6,9 @@
  */
 
 import { KEYS } from './db/keys';
-import { get, save } from './db/kv';
-import { ClearanceRecord, RoleType, الكمبيالات_tbl, العمليات_tbl, tbl_Alerts, الأشخاص_tbl, العقارات_tbl, العقود_tbl } from '@/types';
-import { dbOk, dbFail } from '@/services/localDbStorage';
+import { get } from './db/kv';
+import { ClearanceRecord, العمليات_tbl, tbl_Alerts, الأشخاص_tbl, العقارات_tbl, العقود_tbl, ActivityRecord, NotificationSendLog, المستخدمين_tbl } from '@/types';
+import { dbOk } from '@/services/localDbStorage';
 import { resetOperationalData } from './db/resetOperationalData';
 import { buildCache, DbCache } from './dbCache';
 
@@ -63,7 +63,6 @@ import { createHandleSmartEngine } from './db/smartEngineBridge';
 import { addDaysIso, addMonthsDateOnly } from './db/utils/dates';
 import { formatDateOnly, toDateOnly, parseDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { createBackgroundScansRuntime } from './db/backgroundScans';
-import type { DbResult } from '@/types';
 
 const backgroundScansRuntime = createBackgroundScansRuntime({
   asUnknownRecord,
@@ -112,18 +111,18 @@ export const DbService = {
   ...Sales,
   ...Settings,
   ...Activities,
-  exportActivitiesToPdf: (activities: any[], referenceId: string, referenceType: string) => {},
+  exportActivitiesToPdf: (_activities: ActivityRecord[], _referenceId: string, _referenceType: string) => {},
   validateInstallmentsData: () => [],
   previewContractInstallments: Installments.generateContractInstallmentsInternal,
   getContacts: People.getContactsBook,
   upsertContact: People.upsertContactBookInternal,
   getContactsDirectory: People.getContactsDirectoryInternal,
-  generateLegalNotice: (templateId: string, contractId: string) => { return ''; },
+  generateLegalNotice: (_templateId: string, _contractId: string) => { return ''; },
   getPropertiesQuick: Properties.getProperties,
-  previewRestore: async (file: any) => { return { people: 0, contracts: 0, properties: 0 } as any; },
-  restoreSystem: async (data: any) => ({ success: true, message: '' }),
+  previewRestore: async (_file: File | Blob) => { return { people: 0, contracts: 0, properties: 0 } as { people: number, contracts: number, properties: number }; },
+  restoreSystem: async (_data: unknown) => ({ success: true, message: '' }),
   backupSystem: () => { return ''; },
-  importLookups: async (cat: string, data: any) => ({ success: true }),
+  importLookups: async (_cat: string, _data: unknown[]) => ({ success: true }),
   listWordTemplatesDetailed: WordTemplates.listWordTemplatesDetailed,
   listWordTemplates: (type?: string) => dbOk(WordTemplates.listWordTemplates(type)),
   importWordTemplate: WordTemplates.importWordTemplate,
@@ -132,9 +131,9 @@ export const DbService = {
   getMergePlaceholderCatalog: WordTemplates.getMergePlaceholderCatalog,
   deleteContract: (id: string) => contractWrites.deleteContract(id),
   getMarqueeAds: Marquee.getNonExpiredMarqueeAds,
-  updateInstallmentDynamicFields: (id: string, fields: any) =>
+  updateInstallmentDynamicFields: (id: string, fields: Record<string, unknown>) =>
     Installments.updateInstallmentDynamicFields(id, fields),
-  updateNotificationSendLog: (id: string, patch: any) =>
+  updateNotificationSendLog: (id: string, patch: Partial<NotificationSendLog>) =>
     PaymentNotifications.updateNotificationSendLogInternal(id, patch),
   deleteNotificationSendLog: (id: string) =>
     PaymentNotifications.deleteNotificationSendLogInternal(id),
@@ -224,7 +223,7 @@ export const DbService = {
   addSystemUser: Users.addSystemUser,
   updateUserRole: Users.updateUserRole,
   updateUserStatus: Users.updateUserStatus,
-  updateSystemUser: (id: string, user: any) => ({ success: true, data: user }),
+  updateSystemUser: (id: string, user: Partial<المستخدمين_tbl>) => ({ success: true, data: user }),
   deleteSystemUser: Users.deleteSystemUser,
   changeUserPassword: Users.changeUserPassword,
   userHasPermission: Users.userHasPermission,
@@ -316,8 +315,8 @@ export const DbService = {
   // System Core & Analytics
   getPaymentNotificationTargets: (daysAhead: number) => 
     PaymentNotifications.getPaymentNotificationTargetsInternal(daysAhead),
-  getNotificationSendLogs: () => get<any>(KEYS.NOTIFICATION_SEND_LOGS),
-  addNotificationSendLog: (log: any) => 
+  getNotificationSendLogs: () => get<NotificationSendLog>(KEYS.NOTIFICATION_SEND_LOGS),
+  addNotificationSendLog: (log: Omit<NotificationSendLog, 'id'>) => 
     PaymentNotifications.addNotificationSendLogInternal(log),
   searchGlobal: (query: string) => {
     const lower = query.toLowerCase();

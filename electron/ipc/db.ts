@@ -474,7 +474,7 @@ export function registerDb(deps: IpcDeps): void {
   ipcMain.handle('db:import', async () => {
     if (dbMaintenanceMode)
       return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
-    const result = (await dialog.showOpenDialog({
+    const result = await dialog.showOpenDialog({
       title: 'استيراد قاعدة البيانات',
       filters: [
         { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] },

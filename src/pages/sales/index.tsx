@@ -13,9 +13,9 @@ import { AgreementModal } from './components/modals/AgreementModal';
 import { TransferOwnershipModal } from './components/modals/TransferOwnershipModal';
 import { NewListingModal } from './components/modals/NewListingModal';
 import { NewOfferModal } from './components/modals/NewOfferModal';
+import { عروض_البيع_tbl, عروض_الشراء_tbl, اتفاقيات_البيع_tbl } from '@/types';
 import { DbService } from '@/services/mockDb';
 import { useToast } from '@/context/ToastContext';
-import { عروض_البيع_tbl, اتفاقيات_البيع_tbl } from '@/types';
 
 const t = (s: string) => s;
 
@@ -51,7 +51,7 @@ export const Sales: React.FC = () => {
   const [selectedListing, setSelectedListing] = useState<عروض_البيع_tbl | null>(null);
   const [selectedAgreement, setSelectedAgreement] = useState<اتفاقيات_البيع_tbl | null>(null);
 
-  const handleCreateListing = async (data: any) => {
+  const handleCreateListing = async (data: Partial<عروض_البيع_tbl>) => {
     const res = selectedListing?.id 
       ? DbService.updateSalesListing(selectedListing.id, data)
       : DbService.addSalesListing(data);
@@ -76,7 +76,7 @@ export const Sales: React.FC = () => {
     }
   };
 
-  const handleDeleteOffer = async (offer: any) => {
+  const handleDeleteOffer = async (offer: عروض_الشراء_tbl) => {
     const ok = await toast.confirm({
       title: 'تأكيد الحذف',
       message: 'هل أنت متأكد من حذف عرض الشراء هذا؟',
@@ -93,7 +93,7 @@ export const Sales: React.FC = () => {
     }
   };
 
-  const handleCreateOffer = async (data: any) => {
+  const handleCreateOffer = async (data: Partial<عروض_الشراء_tbl>) => {
     const res = DbService.addSalesOffer({ ...data, listingId: selectedListing?.id });
     if (res.success) {
       toast.success(res.message);
@@ -104,7 +104,7 @@ export const Sales: React.FC = () => {
     }
   };
 
-  const handleCreateAgreement = async (data: any) => {
+  const handleCreateAgreement = async (data: Partial<اتفاقيات_البيع_tbl>) => {
     const res = selectedAgreement?.id 
       ? DbService.updateSalesAgreement(selectedAgreement.id, data)
       : DbService.addSalesAgreement({ ...data, listingId: selectedListing?.id });
@@ -135,8 +135,8 @@ export const Sales: React.FC = () => {
       message: 'هل أنت متأكد من حذف عرض البيع هذا؟ سيتم إرجاع حالة العقار لوضعها الطبيعي.',
       isDangerous: true
     });
-    if (ok) {
-      const res = DbService.deleteSalesListing(listing.id!);
+    if (ok && listing.id) {
+      const res = DbService.deleteSalesListing(listing.id);
       if (res.success) {
         toast.success(res.message);
         loadData();

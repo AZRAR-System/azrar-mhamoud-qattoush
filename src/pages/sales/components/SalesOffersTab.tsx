@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from '@/components/ui/Button';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { عروض_الشراء_tbl, عروض_البيع_tbl } from '@/types';
 import { formatCurrencyJOD, formatDateYMD } from '@/utils/format';
@@ -80,14 +79,14 @@ export const SalesOffersTab: React.FC<SalesOffersTabProps> = ({
                     {offer.الحالة === 'Pending' && (
                       <>
                         <button
-                          onClick={() => onUpdateStatus?.(offer.id!, 'Accepted')}
+                          onClick={() => offer.id && onUpdateStatus?.(offer.id, 'Accepted')}
                           className="p-2 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg text-green-500 hover:text-green-600 transition-colors"
                           title={t('قبول')}
                         >
                           <CheckCircle size={18} />
                         </button>
                         <button
-                          onClick={() => onUpdateStatus?.(offer.id!, 'Rejected')}
+                          onClick={() => offer.id && onUpdateStatus?.(offer.id, 'Rejected')}
                           className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-red-500 hover:text-red-600 transition-colors"
                           title={t('رفض')}
                         >

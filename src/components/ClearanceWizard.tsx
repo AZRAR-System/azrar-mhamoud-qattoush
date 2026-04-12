@@ -121,7 +121,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({
       const generated = DbService.generateLegalNotice(preferred, contract.رقم_العقد, {
         date: clearanceDate,
       });
-      setLegalNoticeText(typeof generated === 'string' ? generated : generated?.text || '');
+      setLegalNoticeText(typeof generated === 'string' ? generated : (generated as { text: string })?.text || '');
     }
   }, [contract, clearanceDate]);
 
@@ -133,7 +133,7 @@ export const ClearanceWizard: React.FC<ClearanceWizardProps> = ({
     const generated = DbService.generateLegalNotice(selectedLegalTemplateId, contract.رقم_العقد, {
       date: clearanceDate,
     });
-    setLegalNoticeText(typeof generated === 'string' ? generated : generated?.text || '');
+    setLegalNoticeText(typeof generated === 'string' ? generated : (generated as { text: string })?.text || '');
   }, [selectedLegalTemplateId, contract.رقم_العقد, clearanceDate]);
 
   // --- CALCULATIONS ---

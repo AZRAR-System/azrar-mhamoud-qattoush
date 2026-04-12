@@ -390,7 +390,7 @@ const ConfirmButton: React.FC<{ options: DialogOptions; onConfirm: () => void }>
     if (!options.requireTextInput) return;
     const input = document.getElementById('confirm-text-input') as HTMLInputElement;
     if (input) {
-      const handler = (e: any) => setVal(e.target.value);
+      const handler = (e: Event) => setVal((e.target as HTMLInputElement).value);
       input.addEventListener('input', handler);
       return () => input.removeEventListener('input', handler);
     }

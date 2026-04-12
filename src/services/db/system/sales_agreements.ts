@@ -7,6 +7,7 @@ import {
   سجل_الملكية_tbl, 
   العقارات_tbl, 
   العقود_tbl, 
+  العمولات_tbl,
   Attachment, 
   DbResult 
 } from '@/types';
@@ -22,7 +23,17 @@ export type SalesDeps = {
   getPersonRoles: (personId: string) => string[];
   updatePersonRoles: (personId: string, roles: string[]) => void;
   terminateContract: (contractId: string, reason: string, date: string) => DbResult<null>;
-  upsertCommissionForSale: (agreementId: string, data: any) => DbResult<any>;
+  upsertCommissionForSale: (
+    agreementId: string,
+    data: {
+      sellerComm: number;
+      buyerComm: number;
+      listingComm?: number;
+      listingEmployee?: string;
+      closingEmployee?: string;
+      date?: string;
+    }
+  ) => DbResult<العمولات_tbl>;
 };
 
 /**

@@ -2510,11 +2510,11 @@ export function domainInstallmentsContractsSearch(payload: {
   const rawMin = payload?.filterMinAmount;
   const rawMax = payload?.filterMaxAmount;
   const filterMinNum =
-    rawMin !== undefined && rawMin !== null && (rawMin as any) !== '' && Number.isFinite(Number(rawMin))
+    rawMin !== undefined && rawMin !== null && String(rawMin) !== '' && Number.isFinite(Number(rawMin))
       ? Number(rawMin)
       : NaN;
   const filterMaxNum =
-    rawMax !== undefined && rawMax !== null && (rawMax as any) !== '' && Number.isFinite(Number(rawMax))
+    rawMax !== undefined && rawMax !== null && String(rawMax) !== '' && Number.isFinite(Number(rawMax))
       ? Number(rawMax)
       : NaN;
   const filterPaymentMethod = String(payload?.filterPaymentMethod || 'all').trim().toLowerCase();
