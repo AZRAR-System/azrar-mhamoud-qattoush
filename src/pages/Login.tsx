@@ -931,16 +931,6 @@ export const Login = () => {
                </div>
              </button>
 
-             <button
-               onClick={() => window.location.hash = ROUTE_PATHS.SYSTEM_SETUP}
-               className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all shadow-lg shadow-indigo-600/5 hover:-translate-y-1 active:scale-95"
-               title="معالج تثبيت النظام"
-             >
-               <Wrench size={24} />
-               <div className="absolute left-16 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all pointer-events-none whitespace-nowrap shadow-xl">
-                 معالج تثبيت النظام (كامل)
-               </div>
-             </button>
 
              <button
                onClick={() => window.location.hash = ROUTE_PATHS.ACTIVATION}

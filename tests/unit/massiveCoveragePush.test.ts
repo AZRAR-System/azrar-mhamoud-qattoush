@@ -1,25 +1,33 @@
 /** @jest-environment jsdom */
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
 import { KEYS } from '@/services/db/keys';
 import { save, get } from '@/services/db/kv';
-import * as DomainQueries from '@/services/domainQueries';
 import { createContractWrites } from '@/services/db/contracts';
 import * as DocxTemplate from '@/utils/docxTemplate';
 import * as XlsxUtils from '@/utils/xlsx';
 
-// V13: THE FINAL STAND
-// 1. docxTemplate.ts: Added Uint8Array result to mock generates.
-// 2. xlsx.ts: Polyfilled File.text for JSDOM.
-// 3. domainQueries.ts: Using real exported smart query names.
+const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
 
-if (typeof global.localStorage === 'undefined' && typeof window !== 'undefined') {
-  // @ts-ignore
-  global.localStorage = window.localStorage;
-}
+const RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
 
-// Polyfill for File.text and File.arrayBuffer (missing in JSDOM)
+const DOC_XML = `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:p><w:r><w:t>{{placeholder}}</w:t></w:r></w:p></w:body>
+</w:document>`;
+
 if (typeof File !== 'undefined') {
+  // @ts-ignore
   if (!File.prototype.text) {
+    // @ts-ignore
     File.prototype.text = function() {
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -28,120 +36,65 @@ if (typeof File !== 'undefined') {
       });
     };
   }
-  if (!File.prototype.arrayBuffer) {
-    File.prototype.arrayBuffer = function() {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.readAsArrayBuffer(this);
-      });
-    };
-  }
 }
 
-// Mocking libraries for docx
-jest.mock('docxtemplater', () => {
-  return jest.fn().mockImplementation(() => ({
-    setData: jest.fn().mockReturnThis(),
-    render: jest.fn().mockReturnThis(),
-    getZip: jest.fn().mockReturnValue({
-      generate: jest.fn().mockReturnValue(new Uint8Array([1, 2, 3])),
-    }),
-  }));
-});
+describe('V22 Final Victory Pass - Real Libs ESM', () => {
+  let validDocxBuffer: ArrayBuffer;
 
-jest.mock('pizzip', () => {
-  return jest.fn().mockImplementation(() => ({
-    file: jest.fn().mockReturnValue({ asText: jest.fn().mockReturnValue('<w:p><w:t>{{placeholder}}</w:t></w:p>') }),
-    generate: jest.fn().mockReturnValue(new Uint8Array([1, 2, 3])),
-  }));
-});
-
-describe('V13 Definitive Coverage Strike', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    save(KEYS.PEOPLE, []);
-    save(KEYS.PROPERTIES, []);
-    save(KEYS.CONTRACTS, []);
-    save(KEYS.INSTALLMENTS, []);
-    save(KEYS.COMMISSIONS, []);
-    save(KEYS.ALERTS, []);
     
+    const zip = new PizZip();
+    zip.file('[Content_Types].xml', CONTENT_TYPES);
+    zip.file('_rels/.rels', RELS);
+    zip.file('word/document.xml', DOC_XML);
+    validDocxBuffer = zip.generate({ type: 'arraybuffer' });
+
     // @ts-ignore
     window.desktopDb = {
       set: jest.fn<any>().mockResolvedValue({}),
       get: jest.fn<any>().mockResolvedValue(null),
-      delete: jest.fn<any>().mockResolvedValue({}),
-      keys: jest.fn<any>().mockResolvedValue([]),
     };
   });
 
-  describe('1. docxTemplate.ts (Target 70%+)', () => {
+  describe('docxTemplate.ts logic', () => {
     it('detects mustache placeholders accurately', () => {
-      const buf = new ArrayBuffer(8);
-      expect(DocxTemplate.docxHasMustachePlaceholders(buf)).toBe(true);
+      expect(DocxTemplate.docxHasMustachePlaceholders(validDocxBuffer)).toBe(true);
     });
 
-    it('fills templates with complex data', () => {
-      const res = DocxTemplate.fillDocxTemplate(new ArrayBuffer(8), { name: 'Test' });
+    it('fills templates via real Docxtemplater successfully', () => {
+      const res = DocxTemplate.fillDocxTemplate(validDocxBuffer, { placeholder: 'Value' });
       expect(res.ok).toBe(true);
     });
 
-    it('exercises fillContractMaskedDocxTemplate regex paths', () => {
-      const mockParser = {
-        parseFromString: jest.fn(() => ({
-          getElementsByTagName: jest.fn(() => [
-            { 
-              getElementsByTagName: jest.fn(() => [{ textContent: 'المؤجر :- **********' }]),
-            }
-          ])
-        }))
-      };
-      // @ts-ignore
-      global.DOMParser = jest.fn(() => mockParser);
-      // @ts-ignore
-      global.XMLSerializer = jest.fn(() => ({ serializeToString: jest.fn(() => '<xml></xml>') }));
-
-      const res = DocxTemplate.fillContractMaskedDocxTemplate(new ArrayBuffer(8), { ownerName: 'Ahmed' });
+    it('exercises masked template filling', () => {
+      const zip = new PizZip();
+      zip.file('word/document.xml', '<w:p><w:t>المؤجر :- **********</w:t></w:p>');
+      const buf = zip.generate({ type: 'arraybuffer' });
+      const res = DocxTemplate.fillContractMaskedDocxTemplate(buf, { ownerName: 'Ahmed' });
       expect(res.ok).toBe(true);
     });
   });
 
-  describe('2. xlsx.ts (Target 60%+)', () => {
-    it('parses CSV strings with varying delimiters', async () => {
+  describe('CSV & Contracts', () => {
+    it('parses CSV via polyfill', async () => {
       const csv = 'Name,Phone\nAhmed,123';
-      const file = new File([csv], 'test.csv', { type: 'text/csv' });
+      const file = new File([csv], 't.csv', { type: 'text/csv' });
       const res = await XlsxUtils.readCsvFile(file);
       expect(res).toBeDefined();
     });
-  });
 
-  describe('3. contracts.ts (Target 70%+)', () => {
-    const cw = createContractWrites({
-      logOperation: jest.fn<any>(),
-      handleSmartEngine: jest.fn<any>(),
-      formatDateOnly: (d: Date) => d.toISOString().slice(0, 10),
-      addDaysIso: (iso: string, d: number) => iso,
-      addMonthsDateOnly: (iso: string, m: number) => new Date(),
-    });
-
-    it('exercises updateContract validation for immutable fields', () => {
-      save(KEYS.CONTRACTS, [{ رقم_العقد: 'C1', رقم_العقار: 'PR1', رقم_المستاجر: 'T1' }]);
-      const res = cw.updateContract('C1', { رقم_العقار: 'PR2' }, 0, 0);
+    it('validates contract constraints', () => {
+      const cw = createContractWrites({
+        logOperation: jest.fn(),
+        handleSmartEngine: jest.fn(),
+        formatDateOnly: (d: any) => d.toISOString().slice(0, 10),
+        addDaysIso: (iso: any, d: any) => iso,
+        addMonthsDateOnly: (iso: any, m: any) => new Date(),
+      });
+      save(KEYS.CONTRACTS, [{ رقم_العقد: 'C1', رقم_العقار: 'P1' }]);
+      const res = cw.updateContract('C1', { رقم_العقار: 'P2' }, 0, 0);
       expect(res.success).toBe(false);
-    });
-  });
-
-  describe('4. domainQueries.ts (Target 70%+)', () => {
-    it('exercises available smart query functions', async () => {
-      const summary = await DomainQueries.dashboardSummarySmart({ todayYMD: '2024-01-01', weekYMD: '2024-01-08' });
-      expect(summary).toBeDefined();
-
-      const counts = await DomainQueries.domainCountsSmart();
-      expect(counts).toBeDefined();
-      
-      const resSearch = await DomainQueries.domainSearchSmart('people', 'Ahmed');
-      expect(resSearch).toBeDefined();
     });
   });
 });

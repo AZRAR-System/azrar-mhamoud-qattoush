@@ -90,5 +90,6 @@ export function sanitizeDocxHtml(dirtyHtml: string): string {
     ],
     // Remove inline styles to reduce attack surface (CSS URLs, etc.).
     FORBID_ATTR: ['style', 'srcset'],
+    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|whatsapp|blob|data):|[^a-z0-9+.-]|#)/i,
   });
 }
