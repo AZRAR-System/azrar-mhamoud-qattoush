@@ -906,10 +906,10 @@ const SystemTestView = memo(() => {
 
   const summary = results
     ? {
-        pass: results.filter((r) => r.status === 'PASS').length,
-        fail: results.filter((r) => r.status === 'FAIL').length,
-        skip: results.filter((r) => r.status === 'SKIP').length,
-      }
+      pass: results.filter((r) => r.status === 'PASS').length,
+      fail: results.filter((r) => r.status === 'FAIL').length,
+      skip: results.filter((r) => r.status === 'SKIP').length,
+    }
     : null;
 
   const resultsPageCount = Math.max(1, Math.ceil((results?.length ?? 0) / resultsPageSize));
@@ -1182,12 +1182,12 @@ const DatabaseView = memo(() => {
 
   useEffect(() => {
     if (window.desktopDb?.getPath) {
-      window.desktopDb.getPath().then(setDbPath).catch(() => {});
+      window.desktopDb.getPath().then(setDbPath).catch(() => { });
     }
     if (window.desktopUpdater?.getVersion) {
-      window.desktopUpdater.getVersion().then(setAppVersion).catch(() => {});
+      window.desktopUpdater.getVersion().then(setAppVersion).catch(() => { });
     }
-    getDatabaseStats().then(setDbStats).catch(() => {});
+    getDatabaseStats().then(setDbStats).catch(() => { });
   }, []);
 
   const refreshLocalStorageList = useCallback(() => {
@@ -1279,7 +1279,7 @@ const DatabaseView = memo(() => {
       setInstallingFromFile(false);
     }
   };
-  
+
   const handleResetToFresh = async () => {
     const ok = await toast.confirm({
       title: 'إعادة تهيئة النظام',
@@ -1289,7 +1289,7 @@ const DatabaseView = memo(() => {
       isDangerous: true,
       requireTextInput: 'إعادة تهيئة'
     });
-    
+
     if (ok) {
       setResetLoading(true);
       try {
@@ -1315,7 +1315,7 @@ const DatabaseView = memo(() => {
       isDangerous: true,
       requireTextInput: 'حذف نهائي'
     });
-    
+
     if (ok) {
       setResetLoading(true);
       try {
@@ -1466,7 +1466,7 @@ const DatabaseView = memo(() => {
             <div className="flex gap-3 text-indigo-800 dark:text-indigo-300">
               <Key size={20} className="shrink-0" />
               <div className="text-xs leading-relaxed">
-                <p className="font-bold mb-1">تلميح (إجمالي السجلات: {Object.values(dbStats).reduce((a,b)=>a+b, 0)}):</p>
+                <p className="font-bold mb-1">تلميح (إجمالي السجلات: {Object.values(dbStats).reduce((a, b) => a + b, 0)}):</p>
                 يتم مزامنة البيانات الأساسية مع المخدم تلقائياً إذا كان مفعل. إعدادات المخدم موجودة في "الإعدادات العامة".
               </div>
             </div>

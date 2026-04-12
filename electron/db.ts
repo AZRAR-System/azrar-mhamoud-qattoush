@@ -118,7 +118,7 @@ const safeStatSync = (filePath: string): fsSync.Stats | null => {
   }
 };
 
-const safeExistsFileSync = (filePath: string): boolean => {
+const _safeExistsFileSync = (filePath: string): boolean => {
   try {
     const st = fsSync.statSync(filePath);
     return st.isFile();
@@ -127,7 +127,7 @@ const safeExistsFileSync = (filePath: string): boolean => {
   }
 };
 
-function findLegacyDbCandidateSync(options: {
+function _findLegacyDbCandidateSync(options: {
   currentTargetPath: string;
   exeAdjacentPath?: string;
 }): DbCandidate | null {
@@ -350,7 +350,7 @@ function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
       buttons: ['موافق'],
     });
     return true;
-  } catch (err) {
+  } catch (_err) {
     return false;
   }
 }

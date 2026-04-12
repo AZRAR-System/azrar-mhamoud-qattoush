@@ -1223,7 +1223,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
           }
         } else {
           const res = await DbService.listWordTemplates(t);
-          if (res?.success) setWordTemplates((res.data || []).map((t: any) => t.name));
+          if (res?.success) setWordTemplates((res.data || []).map((t: { name: string }) => t.name));
           else setWordTemplates([]);
           setWordTemplatesDir('');
           setWordTemplateKvKeysByName({});
@@ -1292,8 +1292,9 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
         return;
       }
 
-      const importData = res.data as any;
-      setSelectedWordTemplateName(activeWordTemplateType, (importData?.name || (typeof importData === 'string' ? importData : '')) || '');
+      const importData = res.data;
+      const importName = typeof importData === 'string' ? importData : String((importData as Record<string, unknown>)?.name || '');
+      setSelectedWordTemplateName(activeWordTemplateType, importName);
       await refreshWordTemplates(activeWordTemplateType);
       toast.success(
         `تم استيراد ${templateTypeLabel(activeWordTemplateType)} وتعيينه كقالب افتراضي`
