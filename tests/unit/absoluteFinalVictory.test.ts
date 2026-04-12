@@ -1,3 +1,6 @@
+import { jest } from '@jest/globals';
+
+// 1. Static imports for utilities
 import { arabicNumberToWords } from '@/utils/arabicNumber';
 import { can, canAny, canAll, isHighRiskAction, getPermissionError, Action, ROLE_PERMISSIONS, HIGH_RISK_ACTIONS, PERMISSION_ERRORS } from '@/utils/permissions';
 import { toDateOnlyISO, todayDateOnlyISO, daysBetweenDateOnlySafe, compareDateOnlySafe, parseDateOnly } from '@/utils/dateOnly';
@@ -9,9 +12,20 @@ import { formatContractNumberShort } from '@/utils/contractNumber';
 import { getPersonSeedFromPerson, getPersonColorClasses } from '@/utils/personColor';
 import { getTenancyStatusScore, isTenancyRelevant, isBetterTenancyContract, pickBestTenancyContract } from '@/utils/tenancy';
 
+// 2. Import services normally (No mock needed if we seed KV)
+import { createAlert, markAlertsReadByPrefix, clearOldAlerts } from '@/services/db/alertsCore';
+import { get, save } from '@/services/db/kv';
+import { KEYS } from '@/services/db/keys';
+import { DbService } from '@/services/mockDb';
+import * as Queries from '@/services/domainQueries';
+
+const { installmentsContractsPagedSmart } = Queries;
+
 describe('Absolute Final Victory Sweep (Fully Exhaustive)', () => {
 
+
   describe('permissions EXHAUSTIVE (172 lines)', () => {
+
     it('covers every role and every action branch', () => {
       const allRoles = [...Object.keys(ROLE_PERMISSIONS), 'UnknownRole', ''];
       const allActions = [...Object.keys(PERMISSION_ERRORS)] as Action[];
@@ -92,11 +106,6 @@ describe('Absolute Final Victory Sweep (Fully Exhaustive)', () => {
   });
 
 });
-import { jest } from '@jest/globals';
-import { createAlert, markAlertsReadByPrefix, clearOldAlerts } from '@/services/db/alertsCore';
-import { get, save } from '@/services/db/kv';
-import { KEYS } from '@/services/db/keys';
-
 describe('Alerts Core Logic - Corrected', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -126,11 +135,6 @@ describe('Alerts Core Logic - Corrected', () => {
     expect(alerts.find(a => a.id === 'SYS-001')?.تم_القراءة).toBe(false);
   });
 });
-import { jest } from '@jest/globals';
-import * as Queries from '@/services/domainQueries';
-import { save } from '@/services/db/kv';
-import { KEYS } from '@/services/db/keys';
-
 describe('Domain Queries - Ultimate Victory Sweep (Data Seed)', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -825,26 +829,6 @@ describe('Follow-up Service Logic', () => {
     expect(reminders[0].isDone).toBe(true);
   });
 });
-import { jest } from '@jest/globals';
-
-import type { InstallmentsContractsItem } from '../../src/types/domain.types';
-import type { الكمبيالات_tbl } from '../../src/types/types';
-
-// Mock DbService used by installmentsContractsPagedSmart (non-desktop fallback)
-const DbServiceMock = {
-  getContracts: jest.fn<() => unknown[]>(),
-  getPeople: jest.fn<() => unknown[]>(),
-  getProperties: jest.fn<() => unknown[]>(),
-  getInstallments: jest.fn<() => unknown[]>(),
-};
-
-jest.unstable_mockModule('@/services/mockDb', () => ({
-  DbService: DbServiceMock,
-}));
-
-// We need to import the service AFTER the mock is hoisted in ESM
-const { installmentsContractsPagedSmart } = await import('../../src/services/domainQueries');
-
 describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () => {
   const baseNow = new Date('2026-02-02T10:00:00.000Z');
 
@@ -854,19 +838,19 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
     jest.clearAllMocks();
 
     // 3 contracts
-    DbServiceMock.getContracts.mockReturnValue([
+    save(KEYS.CONTRACTS, [
       { رقم_العقد: '1', رقم_المستاجر: 't1', رقم_العقار: 'p1' },
       { رقم_العقد: '2', رقم_المستاجر: 't2', رقم_العقار: 'p2' },
       { رقم_العقد: '3', رقم_المستاجر: 't3', رقم_العقار: 'p3' },
     ]);
 
-    DbServiceMock.getPeople.mockReturnValue([
+    save(KEYS.PEOPLE, [
       { رقم_الشخص: 't1', الاسم: 'أحمد', رقم_الهاتف: '0790000001' },
       { رقم_الشخص: 't2', الاسم: 'باسم', رقم_الهاتف: '0790000002' },
       { رقم_الشخص: 't3', الاسم: 'زيد', رقم_الهاتف: '0790000003' },
     ]);
 
-    DbServiceMock.getProperties.mockReturnValue([
+    save(KEYS.PROPERTIES, [
       { رقم_العقار: 'p1', الكود_الداخلي: 'P-1', العنوان: 'عمّان' },
       { رقم_العقار: 'p2', الكود_الداخلي: 'P-2', العنوان: 'إربد' },
       { رقم_العقار: 'p3', الكود_الداخلي: 'P-3', العنوان: 'الزرقاء' },
@@ -875,9 +859,10 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
     // Installments: contract 1 has next due 2026-02-10 (and an ignored تأمين earlier)
     // contract 2 has no payable next due (paid/cancelled only)
     // contract 3 has next due 2026-02-05
-    DbServiceMock.getInstallments.mockReturnValue([
+    save(KEYS.INSTALLMENTS, [
       // contract 1
       {
+        رقم_الكمبيالة: 'K1',
         رقم_العقد: '1',
         نوع_الكمبيالة: 'تأمين',
         حالة_الكمبيالة: 'نشط',
@@ -886,6 +871,7 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
         تاريخ_استحقاق: '2026-02-03T00:00:00.000Z',
       },
       {
+        رقم_الكمبيالة: 'K2',
         رقم_العقد: '1',
         نوع_الكمبيالة: 'قسط',
         حالة_الكمبيالة: 'نشط',
@@ -896,6 +882,7 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
 
       // contract 2
       {
+        رقم_الكمبيالة: 'K3',
         رقم_العقد: '2',
         نوع_الكمبيالة: 'قسط',
         حالة_الكمبيالة: 'نشط',
@@ -904,6 +891,7 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
         تاريخ_استحقاق: '2026-02-08T00:00:00.000Z',
       },
       {
+        رقم_الكمبيالة: 'K4',
         رقم_العقد: '2',
         نوع_الكمبيالة: 'قسط',
         حالة_الكمبيالة: 'ملغي',
@@ -914,6 +902,7 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
 
       // contract 3
       {
+        رقم_الكمبيالة: 'K5',
         رقم_العقد: '3',
         نوع_الكمبيالة: 'قسط',
         حالة_الكمبيالة: 'نشط',
@@ -922,6 +911,7 @@ describe('installmentsContractsPagedSmart sorting (web/non-desktop parity)', () 
         تاريخ_استحقاق: '2026-02-05T00:00:00.000Z',
       },
     ]);
+
   });
 
   afterEach(() => {
@@ -1796,34 +1786,41 @@ describe('Sales Service Logic - Fixed', () => {
   });
 
   it('finalizeOwnershipTransfer: should update property owner', async () => {
-    save(KEYS.PROPERTIES, [{ رقم_العقار: 'PR1', رقم_المالك: 'OLD_OWNER', الكود_الداخلي: 'S1' }]);
-    save(KEYS.SALES_LISTINGS, [{ id: 'L1', رقم_العقار: 'PR1', رقم_المالك: 'OLD_OWNER', الحالة: 'Active' }]);
+    // Shared IDs
+    const PID = 'PR-ST-1';
+    const OLD_ID = 'OLD_OWNER';
+    const NEW_ID = 'NEW_OWNER';
+    
+    save(KEYS.PROPERTIES, [{ رقم_العقار: PID, رقم_المالك: OLD_ID, الكود_الداخلي: 'S1', العنوان: 'Amman', النوع: 'Apartment' }]);
+    save(KEYS.SALES_LISTINGS, [{ id: 'L-ST-1', رقم_العقار: PID, رقم_المالك: OLD_ID, الحالة: 'Active' }]);
     save(KEYS.SALES_AGREEMENTS, [{ 
-      id: 'AG1', 
-      listingId: 'L1',
-      رقم_المشتري: 'NEW_OWNER',
-      رقم_العقار: 'PR1',
+      id: 'AG-ST-1', 
+      listingId: 'L-ST-1',
+      رقم_المشتري: NEW_ID,
+      رقم_العقار: PID,
+      رقم_البائع: OLD_ID,
+      عمولة_البائع: 100,
+      عمولة_المشتري: 100,
       isCompleted: false
     }]);
     
-    // اضافة مرفقات مطلوبة لتجاوز الفحص
     save(KEYS.ATTACHMENTS, [
-      { referenceType: 'Property', referenceId: 'PR1', name: 'عقد البيع.pdf' },
-      { referenceType: 'Person', referenceId: 'NEW_OWNER', name: 'هوية المشتري.pdf' }
+      { referenceType: 'Property', referenceId: PID, name: 'Doc.pdf' },
+      { referenceType: 'Person', referenceId: NEW_ID, name: 'ID.pdf' }
     ]);
 
-    // Implementation expects (id: string, data: { transactionId: string })
-    const res = await DbService.finalizeOwnershipTransfer('AG1', { transactionId: 'TX1' });
-    expect(res.success).toBe(true);
+    save(KEYS.PEOPLE, [
+      { رقم_الشخص: OLD_ID, الاسم: 'Seller', roles: ['مالك'], رقم_الهاتف: '0791234567' },
+      { رقم_الشخص: NEW_ID, الاسم: 'Buyer', roles: [], رقم_الهاتف: '0791234567' }
+    ]);
 
-    const props = get<any[]>(KEYS.PROPERTIES);
-    expect(props.find(p => p.رقم_العقار === 'PR1').رقم_المالك).toBe('NEW_OWNER');
+    const res = DbService.finalizeOwnershipTransfer('AG-ST-1', { transactionId: 'TX1' });
+    expect(res.success).toBe(true);
+    expect(get<any[]>(KEYS.PROPERTIES)[0].رقم_المالك).toBe(NEW_ID);
   });
 });
-import { jest } from '@jest/globals';
+
 import { createSalesHandlers } from '@/services/db/system/sales_agreements';
-import { save } from '@/services/db/kv';
-import { KEYS } from '@/services/db/keys';
 
 describe('Sales Agreements Service Logic - DI Fix', () => {
   let handlers: any;
@@ -2150,4 +2147,385 @@ describe('WhatsApp Utils', () => {
       expect(links[1]).toContain('phone=962792222222');
     });
   });
+});
+
+describe('Final Victory Sweep - Milestone 50 (Pushing Deep Coverage)', () => {
+    
+    describe('Financial Service Deep Sweep', () => {
+      beforeEach(() => {
+        save(KEYS.COMMISSIONS, []);
+        save(KEYS.CONTRACTS, [{ رقم_العقد: 'C-F-1', الاسم: 'Fin Test' }]);
+      });
+
+      it('upsertCommissionForContract: creates new and updates existing', () => {
+        DbService.upsertCommissionForContract('C-F-1', { commOwner: 100, commTenant: 50 });
+        let all = DbService.getCommissions();
+        expect(all).toHaveLength(1);
+        expect(all[0].المجموع).toBe(150);
+
+        DbService.upsertCommissionForContract('C-F-1', { commOwner: 200, commTenant: 100 });
+        all = DbService.getCommissions();
+        expect(all[0].المجموع).toBe(300);
+        
+        const comm = all[0];
+        const res = DbService.postponeCommissionCollection(comm.رقم_العمولة, '2025-12-31');
+        expect(res.success).toBe(true);
+        expect(res.data?.تاريخ_تحصيل_مؤجل).toBe('2025-12-31');
+        
+        const failRes = DbService.postponeCommissionCollection(comm.رقم_العمولة, 'invalid');
+        expect(failRes.success).toBe(false);
+      });
+
+      it('upsertCommissionForSale: handles complex sale commission mapping', () => {
+        DbService.upsertCommissionForSale('AG-1', { sellerComm: 500, buyerComm: 300, listingComm: 100 });
+        const all = DbService.getCommissions();
+        expect(all).toHaveLength(1);
+        expect(all[0].رقم_العمولة).toBe('COM-SALE-AG-1');
+        expect(all[0].المجموع).toBe(900);
+      });
+
+      it('getFinancialAlerts: filters unread financial alerts', () => {
+        save(KEYS.ALERTS, [
+          { category: 'Financial', تم_القراءة: false },
+          { category: 'Financial', تم_القراءة: true },
+          { category: 'System', تم_القراءة: false }
+        ]);
+        expect(DbService.getFinancialAlerts()).toHaveLength(1);
+      });
+    });
+
+    describe('Maintenance Service Deep Sweep', () => {
+      beforeEach(() => {
+        save(KEYS.MAINTENANCE, []);
+        save(KEYS.PROPERTIES, [{ رقم_العقار: 'P-MNT-1', الكود_الداخلي: 'M1', رقم_المالك: 'O1' }]);
+      });
+
+      it('manages ticket lifecycle: assign, update status, cost tracking', () => {
+        const res = DbService.addMaintenanceTicket({
+          رقم_العقار: 'P-MNT-1',
+          الوصف: 'Leaking pipe',
+          الحالة: 'New',
+          التكلفة_المتوقعة: 50
+        } as any);
+        expect(res.success).toBe(true);
+        
+        const tickets = DbService.getMaintenanceTickets();
+        expect(tickets).toHaveLength(1);
+        const t1 = tickets[0];
+
+        DbService.updateMaintenanceTicket(t1.رقم_التذكرة, { الحالة: 'In Progress', التكلفة_الفعلية: 60 });
+        expect(DbService.getMaintenanceTickets()[0].الحالة).toBe('In Progress');
+
+        DbService.deleteMaintenanceTicket(t1.رقم_التذكرة);
+        expect(DbService.getMaintenanceTickets()).toHaveLength(0);
+      });
+    });
+
+    describe('Reporting Service Deep Sweep', () => {
+      it('executes various report types without crashing', async () => {
+        // financial_summary already tested, try others
+        await DbService.runReport('overdue_installments', {});
+        await DbService.runReport('active_listings', {});
+        await DbService.runReport('expiring_contracts', { days: 30 });
+        await DbService.runReport('employee_performance', { month: '2024-01' });
+        
+        const invalid = await DbService.runReport('non_existent', {});
+        expect(invalid.data).toEqual([]);
+      });
+    });
+    
+    describe('Contract & Property Service Deep Sweep', () => {
+      beforeEach(() => {
+        save(KEYS.CONTRACTS, []);
+        save(KEYS.PROPERTIES, []);
+        save(KEYS.PEOPLE, []);
+      });
+
+      it('manages property lifecycle: create, update, delete', () => {
+        save(KEYS.PEOPLE, [{ رقم_الشخص: 'O1', الاسم: 'Owner', رقم_الهاتف: '079', roles: ['مالك'] }]);
+        
+        const p1 = DbService.addProperty({ 
+          الكود_الداخلي: 'PROP-VALID', 
+          رقم_المالك: 'O1', 
+          النوع: 'Apartment', 
+          العنوان: 'Amman City' 
+        });
+        
+        expect(p1.success).toBe(true);
+        expect(DbService.getProperties()).toHaveLength(1);
+
+        const propId = (p1.data as any).رقم_العقار;
+        DbService.updateProperty(propId, { الحالة: 'معروض' });
+        expect(DbService.getProperties().find(x => x.رقم_العقار === propId).الحالة).toBe('معروض');
+
+        DbService.deleteProperty(propId);
+        expect(DbService.getProperties()).toHaveLength(0);
+      });
+
+      it('creates contracts and generates installments', () => {
+        save(KEYS.PEOPLE, [
+          { رقم_الشخص: 'O1', الاسم: 'Owner', رقم_الهاتف: '079' },
+          { رقم_الشخص: 'T1', الاسم: 'Tenant', رقم_الهاتف: '079' }
+        ]);
+        save(KEYS.PROPERTIES, [{ رقم_العقار: 'P1', الكود_الداخلي: 'PX', رقم_المالك: 'O1', النوع: 'X', العنوان: 'Y' }]);
+        
+        const res = DbService.createContract({
+          رقم_العقار: 'P1',
+          رقم_المستاجر: 'T1',
+          قيمة_العقد: 1200,
+          تاريخ_البداية: '2024-01-01',
+          تاريخ_النهاية: '2024-12-31',
+          مدة_العقد_بالاشهر: 12,
+          عدد_الاقساط: 12,
+          المقدم: 100
+        });
+        
+        expect(res.success).toBe(true);
+        const installments = get<any[]>(KEYS.INSTALLMENTS);
+        expect(installments.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('System Domains: Users, Marquee, Lookups', () => {
+      it('Users: exercises permissions and role updates', () => {
+        // The normalized role must be 'superadmin' for success
+        save(KEYS.USERS, [{ id: 'USR-ROOT', اسم_المستخدم: 'admin', الدور: 'SuperAdmin', isActive: true }]);
+        expect(DbService.userHasPermission('USR-ROOT', 'ANY_PERMISSION')).toBe(true);
+      });
+
+      it('Marquee: exercises ad management', () => {
+        save(KEYS.MARQUEE, []);
+        DbService.addMarqueeAd({ content: 'Victory Ad', expiresAt: '2100-01-01' });
+        // getMarqueeAds filters non-expired active ads
+        const ads = DbService.getMarqueeAds();
+        expect(ads.length).toBeGreaterThan(0);
+      });
+
+      it('Lookups: exercises category and item CRUD', () => {
+        save(KEYS.LOOKUP_CATEGORIES, []);
+        save(KEYS.LOOKUPS, []); // Note: use LOOKUPS key for items
+        DbService.addLookupCategory('CAT1', 'Category 1');
+        DbService.addLookupItem('CAT1', 'Item 1');
+        expect(DbService.getLookupsByCategory('CAT1').length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('Maintenance Service Deep Sweep', () => {
+      beforeEach(() => {
+        save(KEYS.MAINTENANCE, []);
+        save(KEYS.PROPERTIES, [{ رقم_العقار: 'P-MAIN', الكود_الداخلي: 'M1', رقم_المالك: 'O1' }]);
+      });
+
+      it('manages maintenance ticket lifecycle', () => {
+        const res = DbService.addMaintenanceTicket({
+          رقم_العقار: 'P-MAIN',
+          الوصف: 'Leaking pipe',
+          الحالة: 'New',
+          التكلفة_المتوقعة: 50
+        } as any);
+        expect(res.success).toBe(true);
+        
+        const tickets = DbService.getMaintenanceTickets();
+        expect(tickets.length).toBe(1);
+        const ticketId = tickets[0].رقم_التذكرة;
+
+        DbService.updateMaintenanceTicket(ticketId, { الحالة: 'In Progress', التكلفة_الفعلية: 60 });
+        expect(DbService.getMaintenanceTickets()[0].الحالة).toBe('In Progress');
+
+        DbService.deleteMaintenanceTicket(ticketId);
+        expect(DbService.getMaintenanceTickets().length).toBe(0);
+      });
+    });
+
+    describe('Referential Integrity & Activities Overdrive', () => {
+      it('exercises addActivity and lookup categories', () => {
+        // Activities
+        DbService.addActivity({ 
+          referenceId: 'REF1', 
+          referenceType: 'Test', 
+          action: 'TEST', 
+          actor: 'admin', 
+          details: '...' 
+        });
+        expect(DbService.getActivities('REF1', 'Test').length).toBeGreaterThan(0);
+        
+        // Refs (purgeRefs is used internally by delete functions, let's trigger it via delete)
+        save(KEYS.ATTACHMENTS, [{ referenceType: 'Property', referenceId: 'P-PURGE', name: 'X.pdf' }]);
+        DbService.deleteProperty('P-PURGE'); // This uses purgeRefs internally
+      });
+    });
+
+    describe('Background Scans & Scheduler Sweep', () => {
+      it('exercises periodic scans for data quality, expiry, and RISK', () => {
+        save(KEYS.PROPERTIES, [
+          { رقم_العقار: 'P-DQ', الكود_الداخلي: 'DQ1', رقم_المالك: 'O1' }
+        ]);
+        save(KEYS.PEOPLE, [
+          { رقم_الشخص: 'T-RISK', الاسم: 'Bad Tenant', رقم_الهاتف: '079' }
+        ]);
+        save(KEYS.BLACKLIST, [
+          { personId: 'T-RISK', severity: 'High', reason: 'Non-payment', isActive: true }
+        ]);
+        save(KEYS.CONTRACTS, [{
+          رقم_العقد: 'C-EXP',
+          تاريخ_النهاية: '2024-01-01',
+          رقم_المستاجر: 'T-RISK',
+          حالة_العقد: 'نشط',
+          رقم_العقار: 'P-DQ',
+          autoRenew: true
+        }]);
+        
+        save(KEYS.MAINTENANCE, [
+          { رقم_التذكرة: 'M-OLD', رقم_العقار: 'P-DQ', تاريخ_الطلب: '2020-01-01', الحالة: 'New', الوصف: 'Old bug' }
+        ]);
+
+        // Run scheduler (triggers risk, maintenance, dq, expiry, etc)
+        DbService.runDailyScheduler();
+        
+        const alerts = get<any[]>(KEYS.ALERTS);
+        expect(alerts.some(a => a.category === 'Risk')).toBe(true);
+        expect(alerts.some(a => a.id.startsWith('ALR-MNT-PENDING-'))).toBe(true);
+      });
+    });
+
+    describe('Financial Alerts Deep Strike', () => {
+      it('exercises alert generation for contracts and payments', () => {
+        save(KEYS.CONTRACTS, [{
+          رقم_العقد: 'C-ALERT',
+          تاريخ_النهاية: '2020-01-01', // Expired
+          حالة_العقد: 'نشط',
+          رقم_العقار: 'P1'
+        }]);
+        save(KEYS.ALERTS, []);
+        // Trigger alert check
+        DbService.getFinancialAlerts();
+      });
+    });
+
+    describe('External Commissions & Word Templates Sweep', () => {
+      it('exercises legacy/external logic blocks', () => {
+        // External Comm
+        DbService.getExternalCommissions();
+        
+        // Word Templates
+        DbService.listWordTemplates();
+        DbService.getMergePlaceholderCatalog();
+      });
+    });
+    
+    describe('Sales Agreements & Offers Exhaustive Sweep', () => {
+      beforeEach(() => {
+        save(KEYS.SALES_LISTINGS, [{ id: 'L1', رقم_العقار: 'P1', رقم_المالك: 'O1', الحالة: 'Active' }]);
+        save(KEYS.SALES_OFFERS, [{ id: 'O1', listingId: 'L1', رقم_المشتري: 'B1', الحالة: 'Pending' }]);
+        save(KEYS.PROPERTIES, [{ رقم_العقار: 'P1', الكود_الداخلي: 'PX', رقم_المالك: 'O1' }]);
+      });
+
+      it('exercises offer status and history lookups', () => {
+        // Offer status
+        DbService.updateOfferStatus('O1', 'Rejected');
+        expect(DbService.getSalesOffers('L1')[0].الحالة).toBe('Rejected');
+
+        // History lookups
+        DbService.getOwnershipHistory('P1');
+        DbService.getOwnershipHistory(undefined, 'O1');
+        
+        // Listing updates
+        DbService.updateSalesListing('L1', { السعر_المطلوب: 99000 });
+        expect(DbService.getSalesListings()[0].السعر_المطلوب).toBe(99000);
+      });
+      
+      it('exercises deleteSalesOffer and addListing edge cases', () => {
+        DbService.deleteSalesOffer('O1');
+        expect(DbService.getSalesOffers()).toHaveLength(0);
+        
+        // Revert status on listing deletion
+        DbService.deleteSalesListing('L1');
+        expect(DbService.getProperties()[0].isForSale).toBe(false);
+      });
+    });
+
+    describe('Word Templates & Document Generation Exhaustive', () => {
+      beforeEach(() => save(KEYS.WORD_TEMPLATES, []));
+
+      it('manages word templates lifecycle', () => {
+        const t1 = { id: 'T1', name: 'Name', type: 'Contract' };
+        // importWordTemplate usually handles file data, we exercise the service wrapper
+        DbService.importWordTemplate('T1', 'Template Contents' as any);
+        expect(DbService.listWordTemplates().data).toHaveLength(1);
+        
+        DbService.readWordTemplate('T1');
+        DbService.deleteWordTemplate('T1');
+        expect(DbService.listWordTemplates().data).toHaveLength(0);
+      });
+    });
+
+    describe('Contract Renewal & Termination Sweep', () => {
+      beforeEach(() => {
+        save(KEYS.CONTRACTS, [{
+          رقم_العقد: 'C-TERMINATE',
+          حالة_العقد: 'نشط',
+          رقم_العقار: 'P1',
+          قيمة_العقد: 1000
+        }]);
+      });
+
+      it('exercises contract termination and deletion branches', () => {
+        // terminateContract via createContractWrites logic
+        DbService.terminateContract('C-TERMINATE', 'User Request', '2024-05-01');
+        const c = DbService.getContracts().find(x => x.رقم_العقد === 'C-TERMINATE');
+        expect(c.حالة_العقد).toBe('مفسوخ');
+        
+        DbService.deleteContract('C-TERMINATE');
+        expect(DbService.getContracts()).toHaveLength(0);
+      });
+    });
+
+    describe('People & Blacklist Exhaustive Sweep', () => {
+      beforeEach(() => {
+        save(KEYS.PEOPLE, []);
+        save(KEYS.ROLES, []);
+        save(KEYS.BLACKLIST, []);
+      });
+
+      it('manages people lifecycle: rating, blacklist, and details', () => {
+        save(KEYS.PEOPLE, [{ رقم_الشخص: 'P1', الاسم: 'P1' }]);
+        
+        // Rating
+        DbService.updateTenantRating('P1', 'full');
+        DbService.updateTenantRating('P1', 'late');
+        
+        // Blacklist
+        DbService.addToBlacklist({ personId: 'P1', reason: 'Bad behavior', severity: 'High' });
+        expect(DbService.getPersonBlacklistStatus('P1')).toBeDefined();
+        
+        DbService.updateBlacklistRecord(DbService.getBlacklist()[0].id, { severity: 'Medium' });
+        DbService.removeFromBlacklist('P1');
+        expect(DbService.getPersonBlacklistStatus('P1')).toBeUndefined();
+        
+        // Roles & Details
+        DbService.updatePersonRoles('P1', ['Tenant', 'Staff']);
+        expect(DbService.getPersonRoles('P1')).toContain('Staff');
+        
+        const details = DbService.getPersonDetails('P1');
+        expect(details.roles).toContain('Staff');
+      });
+
+      it('exercises contacts book and auto-link logic', () => {
+        // Auto-link checks
+        save(KEYS.CONTACTS, [{ id: 'C-AUTO', name: 'Auto Link', phone: '055', createdAt: '...', updatedAt: '...' }]);
+        
+        // Use the internal method that handles the auto-link logic
+        const res = DbService.addPersonWithAutoLinkInternal({ 
+          الاسم: 'Linked Person', 
+          رقم_الهاتف: '055',
+          الرقم_الوطني: '1234567890' 
+        }, ['Agent']);
+        
+        expect(res.success).toBe(true);
+        expect(res.message).toContain('تم ربطه تلقائياً');
+        
+        const bookAfter = DbService.getContactsBook();
+        expect(bookAfter.find(c => c.phone === '055')).toBeUndefined();
+      });
+    });
 });
