@@ -362,49 +362,65 @@ export const Dashboard: React.FC = () => {
           <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-indigo-500/20 to-transparent skew-x-12 transform translate-x-24" />
           <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl animate-pulse" />
 
-          <div
-            className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 text-right"
-            dir="rtl"
-          >
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md">
-                <Activity size={14} className="text-indigo-400 animate-pulse" />
-                <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">
-                  حالة النظام: متصل
-                </span>
-              </div>
+           <div
+             className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 text-right"
+             dir="rtl"
+           >
+             <div className="space-y-4">
+               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md animate-fade-in animate-delay-300">
+                 <Activity size={14} className="text-indigo-400 animate-pulse" />
+                 <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">
+                   حالة النظام: متصل
+                 </span>
+               </div>
 
-              <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter leading-none">
-                أهلاً بك،{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-indigo-100">
-                  {String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}
-                </span>
-              </h1>
-              <p className="text-slate-400 font-bold max-w-xl text-lg leading-relaxed">
-                إليك نظرة سريعة على أداء نظام <span className="text-white">AZRAR</span> لهذا اليوم.
-                كافة البيانات محدثة ولحظية.
-              </p>
+               <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter leading-none animate-fade-in animate-delay-500 animate-slide-in-from-bottom-4">
+                 أهلاً بك،{' '}
+                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-indigo-100">
+                   {String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}
+                 </span>
+               </h1>
+               <p className="text-slate-400 font-bold max-w-xl text-lg leading-relaxed animate-fade-in animate-delay-700 animate-slide-in-from-bottom-2">
+                 إليك نظرة سريعة على أداء نظام <span className="text-white font-black">AZRAR</span> لهذا اليوم.
+                 كافة البيانات محدثة ولحظية وجاهزة للعمل.
+               </p>
 
-              <div className="flex items-center gap-4 pt-4">
-                <button
-                  onClick={handleManualRefresh}
-                  className="group flex items-center gap-3 bg-white text-slate-900 px-6 py-3 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10"
-                >
-                  <RefreshCw
-                    size={20}
-                    className={`group-hover:rotate-180 transition-transform duration-500 ${isRefreshing ? 'animate-spin' : ''}`}
-                  />
-                  تحديث البيانات
-                </button>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">آخر تحديث</span>
-                  <span className="text-xs font-black text-slate-300">
-                    {formatTimeHM(lastUpdatedAt)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+               <div className="flex items-center gap-4 pt-4 animate-fade-in animate-delay-900">
+                 <button
+                   onClick={handleManualRefresh}
+                   className="group flex items-center gap-3 bg-white text-slate-900 px-6 py-3 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10"
+                 >
+                   <RefreshCw
+                     size={20}
+                     className={`group-hover:rotate-180 transition-transform duration-500 ${isRefreshing ? 'animate-spin' : ''}`}
+                   />
+                   تحديث البيانات
+                 </button>
+                 <div className="flex flex-col">
+                   <span className="text-[10px] font-bold text-slate-500 uppercase">آخر تحديث</span>
+                   <span className="text-xs font-black text-slate-300">
+                     {formatTimeHM(lastUpdatedAt)}
+                   </span>
+                 </div>
+               </div>
+             </div>
+
+             <div className="hidden lg:flex flex-col items-center justify-center animate-scale-in animate-delay-800 animate-duration-1000">
+               <div className="relative">
+                 <div className="absolute -inset-4 bg-indigo-500/20 rounded-full blur-2xl animate-pulse" />
+                 <img 
+                   src="/icon 1.png" 
+                   alt="AZRAR System Logo" 
+                   className="relative w-36 h-36 object-contain drop-shadow-2xl animate-float"
+                   loading="eager"
+                 />
+               </div>
+               <div className="mt-4 text-center">
+                 <div className="text-lg font-black text-white tracking-wide">نظام أزرار</div>
+                 <div className="text-xs font-bold text-slate-400">النسخة الاحترافية</div>
+               </div>
+             </div>
+           </div>
         </div>
 
         {/* Main KPI Section — نفس هوامش الصفحة دون px إضافي */}
