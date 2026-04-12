@@ -44,7 +44,7 @@ interface RouterPageProps {
 }
 
 export const RouterPage: React.FC<RouterPageProps> = ({ path }) => {
-    let Component: React.LazyExoticComponent<React.FC<any>> | null = null;
+    let Component: React.LazyExoticComponent<React.FC<Record<string, unknown>>> | null = null;
 
     switch (path) {
         case ROUTE_PATHS.DASHBOARD: Component = Dashboard; break;

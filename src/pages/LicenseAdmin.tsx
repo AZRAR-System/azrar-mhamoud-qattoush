@@ -1239,7 +1239,7 @@ export const LicenseAdmin: React.FC = () => {
                             <Select
                               className="w-32 !py-1 !px-2 !text-xs"
                               value={setStatusValue}
-                              onChange={(e) => setSetStatusValue(e.target.value as any)}
+                              onChange={(e) => setSetStatusValue(e.target.value as LicenseStatus)}
                               options={[
                                 { value: 'active', label: 'فعال' },
                                 { value: 'suspended', label: 'معلق' },

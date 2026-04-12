@@ -95,11 +95,11 @@ export const generateDocxFromTemplate = async (
 
     const defaultName = `${rendered.fileStem}_${new Date().toISOString().slice(0, 10)}.docx`;
 
-    const save = (await dialog.showSaveDialog({
+    const save = await dialog.showSaveDialog({
       title: 'حفظ ملف Word',
       defaultPath: path.join(app.getPath('documents'), defaultName),
       filters: [{ name: 'Word (.docx)', extensions: ['docx'] }],
-    })) as any;
+    });
 
     if (save.canceled || !save.filePath)
       return { ok: false, code: 'CANCELED', message: 'تم إلغاء الحفظ' };

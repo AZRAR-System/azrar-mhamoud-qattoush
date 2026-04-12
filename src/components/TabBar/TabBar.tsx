@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { useTabs, Tab } from '@/context/TabsContext';
+import { useTabs } from '@/context/TabsContext';
 import { X, Pin, Plus } from 'lucide-react';
 import { ROUTE_ICONS } from '@/routes/registry';
 
@@ -43,7 +43,7 @@ export const TabBar: React.FC = () => {
             >
                 {tabs.map((tab, idx) => {
                     const isActive = tab.id === activeTabId;
-                    const Icon = (ROUTE_ICONS as any)[tab.path];
+                    const Icon = ROUTE_ICONS[tab.path];
                     
                     return (
                         <div

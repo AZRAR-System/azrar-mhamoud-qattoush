@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { DbService } from '@/services/mockDb';
 import {
   العمليات_tbl,
@@ -16,12 +17,9 @@ import {
   AlertTriangle,
   UserCheck,
   UserX,
-  Smartphone,
-  Globe,
   Settings,
   UserPlus,
   ChevronDown,
-  Link,
   ShieldAlert,
   Ban,
   ScrollText,
@@ -136,7 +134,7 @@ export const AdminControlPanel: React.FC = () => {
   const [usersPage, setUsersPage] = useState(1);
 
   const filteredLogs = useMemo(() => {
-    return logs.filter((log: any) => {
+    return logs.filter((log: unknown) => {
       const r = log as AuditLogRecord;
       if (logFilter.user && r.userName !== logFilter.user) return false;
       if (logFilter.action && r.action !== logFilter.action) return false;
@@ -234,7 +232,7 @@ export const AdminControlPanel: React.FC = () => {
     if (activeTab === 'analytics') {
       setAnalytics(DbService.getAdminAnalytics());
     } else if (activeTab === 'activity') {
-      setLogs(auditLog.getAll() as any);
+      setLogs(auditLog.getAll());
     } else if (activeTab === 'users') {
       setUsers(DbService.getSystemUsers());
       setPeople(isDesktopFast ? [] : DbService.getPeople());
@@ -344,11 +342,11 @@ export const AdminControlPanel: React.FC = () => {
 
         if (!alive) return;
         setEmployeeCommissionSummary(next);
-      } catch (e) {
+      } catch (_e) {
         if (!alive) return;
         setEmployeeCommissionSummary({
           loading: false,
-          error: (e as Error)?.message || 'فشل تحميل ملخص العمولات',
+          error: (_e as Error)?.message || 'فشل تحميل ملخص العمولات',
           monthKey: currentMonthKey,
           countThisMonth: 0,
           totalOfficeThisMonth: 0,
@@ -423,7 +421,7 @@ export const AdminControlPanel: React.FC = () => {
   }, [isDesktopFast, activeTab, users, blacklist]);
 
   const handleExportLogs = useCallback(() => {
-    const data = filteredLogs.map((r: any) => ({
+    const data = filteredLogs.map((r) => ({
       id: r.id,
       userName: r.userName,
       action: r.action,
@@ -779,7 +777,7 @@ export const AdminControlPanel: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  visibleLogs.map((log: any) => (
+                  visibleLogs.map((log) => (
                     <tr key={log.id} className="app-table-row group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="app-table-td font-mono text-[10px] text-slate-500 font-bold whitespace-nowrap" dir="ltr">
                         {log.timestamp ? new Date(log.timestamp).toLocaleString('ar-JO') : '—'}

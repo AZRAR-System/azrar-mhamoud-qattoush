@@ -254,7 +254,7 @@ export const Reports: React.FC = () => {
         .map((r) => {
           const rep = r.res!;
           const headers = rep.columns.map((c) => c.header);
-          const dataRows = (rep.data || []).map((row: any) =>
+          const dataRows = (rep.data || []).map((row: Record<string, unknown>) =>
             rep.columns.map((col) => row[col.key] ?? '')
           );
           return {
@@ -269,7 +269,7 @@ export const Reports: React.FC = () => {
       }
 
       // First sheet will be the Financial Summary KPIs if available
-      const kpiRows: any[][] = [['العقار/التصنيف', 'القيمة']];
+      const kpiRows: (string | number | boolean | null | undefined)[][] = [['العقار/التصنيف', 'القيمة']];
       if (kpis) {
         kpiRows.push(['إجمالي المتوقع', kpis.totalExpected]);
         kpiRows.push(['إجمالي المحصل', kpis.totalPaid]);

@@ -467,11 +467,11 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
         .replace(/[^a-zA-Z0-9._-]/g, '_')
         .slice(0, 120);
       const defaultPath = path.join(app.getPath('documents'), safeName || 'azrar-license.json');
-      const result = (await dialog.showSaveDialog({
+      const result = await dialog.showSaveDialog({
         title: 'حفظ ملف الترخيص',
         defaultPath,
         filters: [{ name: 'JSON', extensions: ['json'] }],
-      })) as any;
+      });
       if (result.canceled || !result.filePath) return { ok: false, error: 'Canceled' };
       await fsp.writeFile(result.filePath, content, 'utf8');
       return { ok: true, filePath: result.filePath };

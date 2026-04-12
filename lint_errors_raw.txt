@@ -1,0 +1,358 @@
+﻿
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\db.ts
+   121:7   warning  'safeExistsFileSync' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   130:10  warning  'findLegacyDbCandidateSync' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   353:12  warning  'err' is defined but never used                                                                @typescript-eslint/no-unused-vars
+  2513:59  error    Unexpected any. Specify a different type                                                       @typescript-eslint/no-explicit-any
+  2517:59  error    Unexpected any. Specify a different type                                                       @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\ipc\app.ts
+  48:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\ipc\attachments.ts
+  895:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\ipc\context.ts
+  1475:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1508:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\ipc\db.ts
+  149:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  352:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  485:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\ipc\licenseAdmin.ts
+  474:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\ipc\printing.ts
+  185:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\ipc\sql.ts
+  121:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  446:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  600:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  753:78  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\ipc\updaterHandlers.ts
+  202:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\licensegen-main.ts
+  474:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  555:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  659:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\printing\docx\docxTemplateEngine.ts
+  102:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\printing\htmlDocumentWindow.ts
+  232:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\electron\printing\preview\previewManager.ts
+  209:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\mockDb_old.ts
+  1:0  error  Parsing error: File appears to be binary
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\restored_mockDb.ts
+  1:0  error  Parsing error: File appears to be binary
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\scripts\bump-desktop-version.mjs
+  49:5  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  69:3  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\scripts\routes-check.mjs
+  121:3  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\scripts\smoke-test.mjs
+   48:43  warning  Expected '!==' and instead saw '!='  eqeqeq
+  187:33  warning  Expected '===' and instead saw '=='  eqeqeq
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\scripts\smoke-ui.mjs
+   14:7  warning  'ACTIVATION_STORAGE_KEY' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   15:7  warning  'ACTIVATION_LAST_SEEN_KEY' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  107:9  warning  'deviceId' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\scripts\sync-web-favicon.mjs
+  19:1  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\server\marquee-server.js
+  252:3  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\App.tsx
+  168:18  warning  '_err' is defined but never used                                                              @typescript-eslint/no-unused-vars
+  261:14  warning  '_err' is defined but never used                                                              @typescript-eslint/no-unused-vars
+  333:7   warning  'RequireSuperAdmin' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\components\ClearanceWizard.tsx
+  124:84  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:82  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\components\Layout.tsx
+   32:10  warning  'getDatabaseStats' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  140:9   error    Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  142:9   error    Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  356:14  error    Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  358:38  error    Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  358:54  error    Unexpected any. Specify a different type                                                          @typescript-eslint/no-explicit-any
+  479:8   warning  'DesktopOkMessage' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  550:9   warning  'serverOnboardingGuard' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  633:16  warning  '_e' is defined but never used                                                                    @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\components\TabBar\PageSelector.tsx
+  30:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\components\TabBar\RouterPage.tsx
+  47:55  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\components\TabBar\TabBar.tsx
+   2:19  warning  'Tab' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  46:65  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\components\panels\LegalNoticePanel.tsx
+  32:75  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\context\ToastContext.tsx
+  393:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\hooks\useSettingsPage.tsx
+  1207:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1211:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\AdminControlPanel.tsx
+   19:3   warning  'Smartphone' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   20:3   warning  'Globe' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  237:36  error    Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  347:16  warning  '_e' is defined but never used                                                @typescript-eslint/no-unused-vars
+  426:39  error    Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  782:41  error    Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\Alerts.tsx
+  291:86  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\Commissions.tsx
+  166:53  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\LegalHub.tsx
+  290:83  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\LicenseAdmin.tsx
+     1:40  warning  'useCallback' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+     1:53  warning  'memo' is defined but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+     2:10  warning  'Link' is defined but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+     9:10  warning  'ROUTE_PATHS' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+    14:12  warning  'UsersIcon' is defined but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+    22:3   warning  'FileText' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+    42:10  warning  'fmtDateTime' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+    87:7   warning  'followUpStatusOptions' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   141:10  warning  'serverAdminTokenConfigured' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   147:10  warning  'info' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   158:29  warning  'setIssueFeaturesJson' is assigned a value but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   167:10  warning  'activateMeta' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   168:10  warning  'savePath' is assigned a value but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   177:31  warning  'setStatusCheckDeviceId' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   178:10  warning  'statusCheckResult' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   242:9   warning  'selectedItem' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   560:9   warning  'doSetStatus' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   653:9   warning  'refreshFpItems' is assigned a value but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   655:9   warning  'doSaveFingerprint' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   671:9   warning  'doCancelFingerprint' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   682:9   warning  'doDeleteFingerprint' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   693:9   warning  'doSaveLicenseFile' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   727:9   warning  'doUnbindDeviceFromLicense' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   811:9   warning  'doCheckDeviceStatus' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  1242:84  error    Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\Login.tsx
+   22:3   warning  'HelpCircle' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  452:65  error    Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\OwnerPortal.tsx
+   11:29  warning  'formatDateYMD' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+   26:3   warning  'CalendarDays' is defined but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+  148:6   warning  React Hook useEffect has a missing dependency: 'selectedOwnerId'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  184:14  warning  'error' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\Reports.tsx
+   16:3   warning  'Download' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  255:23  warning  Forbidden non-null assertion                                                @typescript-eslint/no-non-null-assertion
+  257:55  error    Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  272:22  error    Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\SmartTools.tsx
+  331:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\SystemMaintenance.tsx
+    11:32  warning  'ValidationResult' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+    15:22  warning  'DbCache' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  1173:11  warning  'openPanel' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  1178:10  warning  'cacheTick' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\SystemSetup.tsx
+  13:3  warning  'ArrowLeft' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\SalesFilterBar.tsx
+  5:7  warning  't' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\SalesListingsTab.tsx
+  30:3  warning  'statusFilter' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  31:3  warning  'searchQuery' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\SalesOffersTab.tsx
+   2:10  warning  'Button' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  83:59  warning  Forbidden non-null assertion                                              @typescript-eslint/no-non-null-assertion
+  90:59  warning  Forbidden non-null assertion                                              @typescript-eslint/no-non-null-assertion
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\modals\AgreementModal.tsx
+   35:44  error    Unexpected any. Specify a different type                                                                                                                         @typescript-eslint/no-explicit-any
+  135:6   warning  React Hook useEffect has missing dependencies: 'formData.╪º┘ä╪╣┘à┘ê┘ä╪⌐_╪º┘ä╪Ñ╪¼┘à╪º┘ä┘è╪⌐' and 'formData.╪╣┘à┘ê┘ä╪⌐_╪Ñ╪»╪«╪º┘ä_╪╣┘é╪º╪▒'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\modals\NewListingModal.tsx
+   1:17  warning  'useState' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  19:50  error    Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\components\modals\TransferOwnershipModal.tsx
+  108:6   warning  React Hook useEffect has missing dependencies: 'formData.listingComm' and 'formData.totalComm'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  115:76  warning  Forbidden non-null assertion                                                                                                                        @typescript-eslint/no-non-null-assertion
+  136:54  warning  Forbidden non-null assertion                                                                                                                        @typescript-eslint/no-non-null-assertion
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\pages\sales\index.tsx
+   54:44  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   79:43  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:42  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:46  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:48  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\financial.ts
+   3:36  warning  '╪º┘ä┘â┘à╪¿┘è╪º┘ä╪º╪¬_tbl' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  55:3   warning  'target' is defined but never used. Allowed unused args must match /^_/u          @typescript-eslint/no-unused-vars
+  56:3   warning  'note' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\attachments.ts
+    4:21  warning  'getDesktopBridge' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   32:46  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+   65:17  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  102:46  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  117:46  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  135:15  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  143:46  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  152:15  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  158:43  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  163:37  error    Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\followups.ts
+   7:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  73:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\legal.ts
+  26:11  warning  'logOperation' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  27:9   warning  'fail' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  53:5   warning  'ctx' is defined but never used. Allowed unused args must match /^_/u                            @typescript-eslint/no-unused-vars
+  65:11  warning  'owner' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  77:11  warning  'overdueCount' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  79:11  warning  'overdueOldestDueDate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  80:11  warning  'overdueMaxDaysLate' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\marquee.ts
+    8:3   warning  '╪º┘ä╪ú╪┤╪«╪º╪╡_tbl' is defined but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+    9:3   warning  '╪º┘ä╪╣┘é╪º╪▒╪º╪¬_tbl' is defined but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+   22:10  warning  'getInstallmentPaidAndRemaining' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   23:10  warning  'formatCurrencyJOD' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   24:10  warning  'INSTALLMENT_STATUS' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   25:10  warning  'getPaymentNotificationTargetsInternal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   26:22  warning  'parseDateOnly' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+   26:37  warning  'daysBetweenDateOnly' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+  158:12  warning  'e' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+  204:12  warning  'e' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+  245:12  warning  'e' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+  260:12  warning  'e' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+  264:11  warning  'today' is assigned a value but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+  265:11  warning  'installments' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  267:11  warning  'contractsById' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  272:12  warning  'e' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\reports.ts
+   10:3   warning  '╪╣╪▒┘ê╪╢_╪º┘ä╪¿┘è╪╣_tbl' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   11:3   warning  '╪¬╪░╪º┘â╪▒_╪º┘ä╪╡┘è╪º┘å╪⌐_tbl' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   12:3   warning  '╪┤╪«╪╡_╪»┘ê╪▒_tbl' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   17:10  warning  'isTenancyRelevant' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   17:29  warning  'pickBestTenancyContract' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   18:37  warning  'daysBetweenDateOnly' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   19:10  warning  'formatCurrencyJOD' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   34:40  error    Unexpected any. Specify a different type                                                   @typescript-eslint/no-explicit-any
+   56:66  warning  Forbidden non-null assertion                                                               @typescript-eslint/no-non-null-assertion
+  117:11  warning  'opportunity' is never reassigned. Use 'const' instead                                     prefer-const
+  161:13  warning  'breakdown' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  176:27  error    Redundant double negation                                                                  no-extra-boolean-cast
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\sales_agreements.ts
+  25:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  25:73  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\db\system\wordTemplates.ts
+  10:19  error    Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  11:35  error    Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  17:29  error    Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  38:29  error    Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  42:48  warning  'type' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  43:19  error    Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  44:44  error    Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\src\services\mockDb.ts
+    9:15  warning  'save' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   10:27  warning  'RoleType' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   10:37  warning  '╪º┘ä┘â┘à╪¿┘è╪º┘ä╪º╪¬_tbl' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   11:16  warning  'dbFail' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   66:15  warning  'DbResult' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  115:27  warning  'activities' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  115:39  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  115:46  warning  'referenceId' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  115:67  warning  'referenceType' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+  121:25  warning  'templateId' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  121:45  warning  'contractId' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  123:26  warning  'file' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+  123:32  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  123:95  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  124:25  warning  'data' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+  124:31  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  126:25  warning  'cat' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+  126:38  warning  'data' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+  126:44  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  135:56  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  137:50  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  227:40  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  319:38  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  320:33  error    Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\tests\unit\absoluteFinalVictory.test.ts
+     5:95  warning  'HIGH_RISK_ACTIONS' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+     6:89  warning  'parseDateOnly' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    16:47  warning  'clearOldAlerts' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   225:3   warning  'checkUniqueConstraints' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   229:3   warning  'validateNewProperty' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+   608:16  warning  Forbidden non-null assertion                                                              @typescript-eslint/no-non-null-assertion
+   616:16  warning  Forbidden non-null assertion                                                              @typescript-eslint/no-non-null-assertion
+   677:3   warning  'dashboardSummarySmart' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  1240:16  warning  'e' is defined but never used                                                             @typescript-eslint/no-unused-vars
+  1240:19  warning  Empty block statement                                                                     no-empty
+  1441:50  warning  'updatePersonRoles' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  1469:34  warning  Forbidden non-null assertion                                                              @typescript-eslint/no-non-null-assertion
+  2451:15  warning  't1' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\tests\unit\coverageSeventy.test.ts
+   9:10  warning  'auditLog' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  11:13  warning  'Reports' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+
+G:\pk\pk\azrar-mhamoud-qattoush-recovered\tests\unit\ipcContract.preloadToMain.test.js
+  23:38  warning  Unnecessary escape character: \"  no-useless-escape
+  24:36  warning  Unnecessary escape character: \"  no-useless-escape
+  42:34  warning  Unnecessary escape character: \"  no-useless-escape
+  43:30  warning  Unnecessary escape character: \"  no-useless-escape
+  44:32  warning  Unnecessary escape character: \"  no-useless-escape
+  93:55  warning  Unnecessary escape character: \"  no-useless-escape
+  93:83  warning  Unnecessary escape character: \"  no-useless-escape
+
+Γ£û 234 problems (87 errors, 147 warnings)
+  1 error and 1 warning potentially fixable with the `--fix` option.
+

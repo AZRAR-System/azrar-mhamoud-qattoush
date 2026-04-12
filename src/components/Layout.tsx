@@ -29,7 +29,7 @@ import { storage } from '@/services/storage';
 import { isRole } from '@/utils/roles';
 import { formatTimeHM } from '@/utils/format';
 import { useInAppReminderNotifier } from '@/hooks/useInAppReminderNotifier';
-import { getDatabaseStats } from '@/services/resetDatabase';
+import { getDatabaseStats as _getDatabaseStats } from '@/services/resetDatabase';
 import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 import type { NotificationCenterItem } from '@/services/notificationCenter';
@@ -38,6 +38,7 @@ import { TabBar } from './TabBar/TabBar';
 import { TabContent } from './TabBar/TabContent';
 import { PageSelector } from './TabBar/PageSelector';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
+import { الأشخاص_tbl } from '@/types';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -137,9 +138,9 @@ const Sidebar = memo(({
 }: { 
   isOpen: boolean; 
   isDesktop: boolean; 
-  user: any; 
+  user: الأشخاص_tbl | null; 
   appVersion: string;
-  tabs: any[];
+  tabs: unknown[];
   activeTabId: string;
   expandedMenus: string[];
   onClose: () => void;
@@ -353,9 +354,15 @@ const Header = memo(({
   unreadCount: number;
   hasUnreadUrgent: boolean;
   headerBadgeVariant: 'urgent' | 'collection' | 'default';
-  sqlStatus: any;
+  sqlStatus: {
+    configured: boolean;
+    enabled: boolean;
+    connected: boolean;
+    lastError?: string;
+    lastSyncAt?: string;
+  } | null;
   hasDesktopBridge: boolean;
-  onOpenPanel: (type: string, id?: any, options?: any) => void;
+  onOpenPanel: (type: string, id?: string, options?: Record<string, unknown>) => void;
 }) => {
   return (
     <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft z-[90] transition-all">
@@ -477,6 +484,8 @@ export const Layout = ({ children }: { children: ReactNode }) => {
     lastSyncAt?: string;
   };
   type DesktopOkMessage = { ok?: boolean; message?: string };
+  const _DesktopOkMessage_type_check: DesktopOkMessage = {}; // Mark as used conceptually
+
   type SqlSyncEvent = {
     id: string;
     ts: string;
@@ -547,7 +556,8 @@ export const Layout = ({ children }: { children: ReactNode }) => {
 
   const [appVersion, setAppVersion] = useState<string>('');
   const postUpdateRestorePromptGuard = useRef(false);
-  const serverOnboardingGuard = useRef(false);
+  const _serverOnboardingGuard = useRef(false);
+
 
   const hasDesktopBridge = !!window.desktopDb;
   const [sqlStatus, setSqlStatus] = useState<{

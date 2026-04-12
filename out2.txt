@@ -1,0 +1,131 @@
+
+> azrar-real-estate-desktop@3.2.90 test
+> node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs tests/unit/coverageSeventy.test.ts
+
+  console.warn
+    ✅ تم مسح كامل البيانات التجريبية
+
+    [0m [90m 53 |[39m   buildCache()[33m;[39m
+     [90m 54 |[39m
+    [31m[1m>[22m[39m[90m 55 |[39m   console[33m.[39mwarn([32m'✅ تم مسح كامل البيانات التجريبية'[39m)[33m;[39m
+     [90m    |[39m           [31m[1m^[22m[39m
+     [90m 56 |[39m   console[33m.[39mwarn([32m'📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates'[39m)[33m;[39m
+     [90m 57 |[39m   console[33m.[39mwarn([32m'🗑️  البيانات المحذوفة: '[39m [33m+[39m [33mRESET_KEYS[39m[33m.[39mlength [33m+[39m [32m' جداول'[39m)[33m;[39m
+     [90m 58 |[39m[0m
+
+      at warn (src/services/db/resetOperationalData.ts:55:11)
+      at Object.resetOperationalData [as resetAllData] (src/services/mockDb.ts:340:23)
+      at tests/unit/coverageSeventy.test.ts:84:30
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:84:50)
+
+  console.warn
+    📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates
+
+    [0m [90m 54 |[39m
+     [90m 55 |[39m   console[33m.[39mwarn([32m'✅ تم مسح كامل البيانات التجريبية'[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 56 |[39m   console[33m.[39mwarn([32m'📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates'[39m)[33m;[39m
+     [90m    |[39m           [31m[1m^[22m[39m
+     [90m 57 |[39m   console[33m.[39mwarn([32m'🗑️  البيانات المحذوفة: '[39m [33m+[39m [33mRESET_KEYS[39m[33m.[39mlength [33m+[39m [32m' جداول'[39m)[33m;[39m
+     [90m 58 |[39m
+     [90m 59 |[39m   [36mreturn[39m {[0m
+
+      at warn (src/services/db/resetOperationalData.ts:56:11)
+      at Object.resetOperationalData [as resetAllData] (src/services/mockDb.ts:340:23)
+      at tests/unit/coverageSeventy.test.ts:84:30
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:84:50)
+
+  console.warn
+    🗑️  البيانات المحذوفة: 21 جداول
+
+    [0m [90m 55 |[39m   console[33m.[39mwarn([32m'✅ تم مسح كامل البيانات التجريبية'[39m)[33m;[39m
+     [90m 56 |[39m   console[33m.[39mwarn([32m'📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates'[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 57 |[39m   console[33m.[39mwarn([32m'🗑️  البيانات المحذوفة: '[39m [33m+[39m [33mRESET_KEYS[39m[33m.[39mlength [33m+[39m [32m' جداول'[39m)[33m;[39m
+     [90m    |[39m           [31m[1m^[22m[39m
+     [90m 58 |[39m
+     [90m 59 |[39m   [36mreturn[39m {
+     [90m 60 |[39m     success[33m:[39m [36mtrue[39m[33m,[39m[0m
+
+      at warn (src/services/db/resetOperationalData.ts:57:11)
+      at Object.resetOperationalData [as resetAllData] (src/services/mockDb.ts:340:23)
+      at tests/unit/coverageSeventy.test.ts:84:30
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:84:50)
+
+FAIL tests/unit/coverageSeventy.test.ts
+  Coverage Strike - 70% Final Push
+    Storage & UI Notifications
+      √ exercises async storage methods in Web Mode (4 ms)
+      × triggers UI change events for special keys
+    Data Validation & Local Storage
+      × exercises dbOk/dbFail and localDbStorage (1 ms)
+      √ performs exhaustive data audits (4 ms)
+    Domain Queries Helper & Fallbacks
+      √ exercises internal cast helpers
+      √ exercises search variants (2 ms)
+    MockDB & System Ops
+      √ exercises reset and optimization (47 ms)
+      × manages lookups (4 ms)
+
+  ● Coverage Strike - 70% Final Push › Storage & UI Notifications › triggers UI change events for special keys
+
+    ReferenceError: jest is not defined
+
+    [0m [90m 25 |[39m
+     [90m 26 |[39m     it([32m'triggers UI change events for special keys'[39m[33m,[39m [36masync[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 27 |[39m       [36mconst[39m spy [33m=[39m jest[33m.[39mfn()[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 28 |[39m       window[33m.[39maddEventListener([32m'azrar:marquee-changed'[39m[33m,[39m spy)[33m;[39m
+     [90m 29 |[39m       [36mawait[39m storage[33m.[39msetItem([32m'db_marquee'[39m[33m,[39m [32m'[]'[39m)[33m;[39m
+     [90m 30 |[39m       expect(spy)[33m.[39mtoHaveBeenCalled()[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:27:19)
+
+  ● Coverage Strike - 70% Final Push › Data Validation & Local Storage › exercises dbOk/dbFail and localDbStorage
+
+    ReferenceError: jest is not defined
+
+    [0m [90m 42 |[39m       expect(dbFail([32m'Err'[39m)[33m.[39msuccess)[33m.[39mtoBe([36mfalse[39m)[33m;[39m
+     [90m 43 |[39m
+    [31m[1m>[22m[39m[90m 44 |[39m       [36mconst[39m spySet [33m=[39m jest[33m.[39mspyOn([33mStorage[39m[33m.[39mprototype[33m,[39m [32m'setItem'[39m)[33m.[39mmockImplementation(() [33m=>[39m {})[33m;[39m
+     [90m    |[39m                      [31m[1m^[22m[39m
+     [90m 45 |[39m       localDbStorage[33m.[39msaveJson([32m'k'[39m[33m,[39m {v[33m:[39m[35m1[39m})[33m;[39m
+     [90m 46 |[39m       expect(spySet)[33m.[39mtoHaveBeenCalled()[33m;[39m
+     [90m 47 |[39m       spySet[33m.[39mmockRestore()[33m;[39m[0m
+
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:44:22)
+
+  ● Coverage Strike - 70% Final Push › MockDB & System Ops › manages lookups
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+    [0m [90m 92 |[39m       
+     [90m 93 |[39m       save([33mKEYS[39m[33m.[39m[33mLOOKUPS[39m[33m,[39m [{ id[33m:[39m [32m'L1'[39m[33m,[39m categoryId[33m:[39m [32m'CAT1'[39m[33m,[39m value[33m:[39m [32m'V'[39m }])[33m;[39m
+    [31m[1m>[22m[39m[90m 94 |[39m       expect([33mDbService[39m[33m.[39mgetLookupsByCategory([32m'CAT1'[39m))[33m.[39mtoHaveLength([35m1[39m)[33m;[39m
+     [90m    |[39m                                                      [31m[1m^[22m[39m
+     [90m 95 |[39m     })[33m;[39m
+     [90m 96 |[39m   })[33m;[39m
+     [90m 97 |[39m[0m
+
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:94:54)
+
+
+=============================== Coverage summary ===============================
+Statements   : 12.56% ( 676/5381 )
+Branches     : 2.22% ( 89/4001 )
+Functions    : 5.83% ( 58/994 )
+Lines        : 14.46% ( 659/4557 )
+================================================================================
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 5 passed, 8 total
+Snapshots:   0 total
+Time:        3.087 s
+Ran all test suites matching tests/unit/coverageSeventy.test.ts.

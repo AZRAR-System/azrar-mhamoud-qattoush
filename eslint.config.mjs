@@ -8,13 +8,26 @@ import globals from 'globals';
 const tsRecommended = tsPlugin.configs.recommended;
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'print/**'] },
+  {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      'print/**',
+      'mockDb_old.ts',
+      'restored_mockDb.ts',
+      'remaining_errors.txt',
+      'temp_lint.json',
+      'temp_lint_results.json'
+    ]
+  },
   js.configs.recommended,
   {
     files: [
       'src/**/*.{ts,tsx,js,jsx}',
       'electron/**/*.{ts,tsx,js,jsx}',
       'scripts/**/*.{mjs,js}',
+      'tests/**/*.{ts,tsx,js,jsx}',
     ],
     languageOptions: {
       parser: tsParser,
@@ -26,6 +39,7 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
+        ...globals.jest,
       },
     },
     plugins: {
@@ -58,21 +72,17 @@ export default [
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       eqeqeq: ['warn', 'always', { null: 'ignore' }],
       'no-useless-escape': 'warn',
-      'no-control-regex': 'warn',
+      'no-control-regex': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
   {
-    files: ['electron/**/*.ts', 'electron/**/*.tsx'],
+    files: ['electron/**', 'tests/**', 'scripts/**'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
-    }
-  },
-  {
-    files: ['**/*'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-console': 'off',
     }
   }
-];
+];

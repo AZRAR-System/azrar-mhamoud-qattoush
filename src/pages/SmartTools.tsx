@@ -328,7 +328,7 @@ export const SmartTools: React.FC = () => {
         hasDownPayment && splitDownPayment ? downPaymentSplitCount : undefined,
     };
 
-    const res = DbService.previewContractInstallments(draft as any, 'preview');
+    const res = DbService.previewContractInstallments(draft as العقود_tbl, 'preview');
 
     if (!res.success || !res.data) {
       toast.error(res.message || 'تعذر توليد الدفعات');

@@ -118,7 +118,7 @@ export function registerSql(deps: IpcDeps): void {
         trustServerCertificate: true,
       };
 
-      await saveSqlSettings(settings as any);
+      await saveSqlSettings(settings as Parameters<typeof saveSqlSettings>[0]);
       return { ok: true, settings };
     } catch (e) {
       return { ok: false, message: String(e) };
@@ -435,7 +435,7 @@ export function registerSql(deps: IpcDeps): void {
       }`;
       const defaultPath = path.join(backupDir, defaultName);
   
-      const result = (await dialog.showSaveDialog({
+      const result = await dialog.showSaveDialog({
         title: 'حفظ نسخة احتياطية من المخدم',
         defaultPath,
         filters: [
@@ -443,7 +443,7 @@ export function registerSql(deps: IpcDeps): void {
           { name: 'Encrypted Backup', extensions: ['enc'] },
           { name: 'JSON', extensions: ['json'] },
         ],
-      })) as any;
+      });
   
       if (result.canceled || !result.filePath) return { ok: false, message: 'تم الإلغاء' };
   
@@ -597,7 +597,7 @@ export function registerSql(deps: IpcDeps): void {
           'هذه العملية ستحذف بيانات المخدم الحالية وتستبدلها بالكامل من ملف النسخة الاحتياطية.',
         detail: 'استخدمها فقط عند الضرورة. هل تريد المتابعة؟',
       });
-      const response = typeof confirm === 'number' ? confirm : (confirm as any).response;
+      const response = confirm.response;
       if (response !== 1) return { ok: false, message: 'تم الإلغاء' };
   
       ipc.addSqlSyncLogEntry({
@@ -741,7 +741,7 @@ export function registerSql(deps: IpcDeps): void {
       if (!id) return { ok: false, message: 'معرف النسخة غير صالح' };
   
       if (mode === 'replace') {
-        const confirm = await dialog.showMessageBox({
+        const { response } = await dialog.showMessageBox({
           type: 'warning',
           buttons: ['إلغاء', 'نعم، استعادة كاملة'],
           defaultId: 0,
@@ -750,7 +750,6 @@ export function registerSql(deps: IpcDeps): void {
           message: 'هذه العملية ستحذف بيانات المخدم الحالية وتستبدلها بالكامل من النسخة المختارة.',
           detail: 'استخدمها فقط عند الضرورة. هل تريد المتابعة؟',
         });
-        const response = typeof confirm === 'number' ? confirm : (confirm as any).response;
         if (response !== 1) return { ok: false, message: 'تم الإلغاء' };
       }
   

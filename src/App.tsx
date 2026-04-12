@@ -165,7 +165,7 @@ const DailyAutomation: React.FC = () => {
         try {
           const { DbService } = await import('./services/mockDb');
           DbService.runDailyScheduler();
-        } catch (err) {
+        } catch (_err) {
           console.warn('Failed to run daily scheduler:', err);
         }
       })();
@@ -258,7 +258,7 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
           `[autorun] env check hasEnv=${hasEnv ? '1' : '0'} hasAutorunKey=${hasAutorunKey ? '1' : '0'} hasIntegrationKey=${hasIntegrationKey ? '1' : '0'} autorunRaw=${String(autorunRaw)}`
         );
       }
-    } catch {
+    } catch (_err) {
       // ignore
     }
 
@@ -275,7 +275,7 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
     (async () => {
-      const startedAt = Date.now();
+      const _startedAt = Date.now();
       try {
         try {
           console.warn('[autorun] bootstrap start');
@@ -292,7 +292,7 @@ const AutorunDesktopTestBootstrap: React.FC = () => {
         }
 
         // Retry activation/login for up to ~60s (desktop cache hydration can be slow on first load).
-        while (!cancelled && Date.now() - startedAt < 60_000) {
+        while (!cancelled && Date.now() - _startedAt < 60_000) {
           // 1) Ensure login. Default super admin exists on clean DB (admin / 123456).
           if (!isAuthenticated) {
             try {

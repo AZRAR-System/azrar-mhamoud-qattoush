@@ -2,6 +2,7 @@
  * AZRAR Coverage Strike: Pushing to 70%+ (Aggressive V3)
  * Target Modules: storage, domainQueries, mockDb, localDbStorage, dataValidation
  */
+import { jest, describe, it, expect } from '@jest/globals';
 import { DbService } from '@/services/mockDb';
 import { KEYS } from '@/services/db/keys';
 import { save } from '@/services/db/kv';
@@ -90,7 +91,7 @@ describe('Coverage Strike - 70% Final Push', () => {
       save(KEYS.LOOKUP_CATEGORIES, [{ id: 'CAT1', name: 'Cat' }]);
       expect(DbService.getLookupCategories()).toHaveLength(1);
       
-      save(KEYS.LOOKUPS, [{ id: 'L1', categoryId: 'CAT1', value: 'V' }]);
+      save(KEYS.LOOKUPS, [{ id: 'L1', category: 'CAT1', value: 'V' }]);
       expect(DbService.getLookupsByCategory('CAT1')).toHaveLength(1);
     });
   });

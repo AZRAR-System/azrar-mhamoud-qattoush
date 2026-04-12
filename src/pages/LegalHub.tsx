@@ -287,7 +287,7 @@ export const LegalHub: React.FC = () => {
 
     // Web/legacy behavior
     const result = DbService.generateLegalNotice(selectedTemplateId, selectedContractId);
-    if (result) setGeneratedText(typeof result === 'string' ? result : (result as any).text || '');
+    if (result) setGeneratedText(typeof result === 'string' ? result : (result as { text?: string }).text || '');
   };
 
   handleGenerateRef.current = handleGenerate;

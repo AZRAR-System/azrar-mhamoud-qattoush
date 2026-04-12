@@ -62,7 +62,7 @@ type EmployeeCommissionRow = {
   employeeBase?: number;
   intro?: number;
   employeeTotal?: number;
-  [key: string]: string | number | boolean | null | undefined | unknown;
+  [key: string]: string | number | boolean | null | undefined | Record<string, unknown> | unknown;
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -163,7 +163,7 @@ export const Commissions: FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     try {
       const saved = sessionStorage.getItem('commissions_selectedMonth');
-      if (/^\d{4}-\d{2}$/.test(saved || '')) return saved!;
+      if (saved && /^\d{4}-\d{2}$/.test(saved)) return saved;
     } catch { /* ignore */ }
     return new Date().toISOString().slice(0, 7);
   });
@@ -1447,7 +1447,7 @@ export const Commissions: FC = () => {
               <div>
                 <h3 className="font-bold text-slate-700 dark:text-white">عمليات عمولة الموظفين</h3>
                 <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                  الشهر {selectedMonth}
+                الشهر {selectedMonth}
                   {filteredEmployeeRows.length > 0 ? (
                     <>
                       {' · '}

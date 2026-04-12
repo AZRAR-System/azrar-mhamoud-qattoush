@@ -143,10 +143,10 @@ export function registerDb(deps: IpcDeps): void {
   });
   
   ipcMain.handle('db:chooseDirectory', async () => {
-    const result = (await dialog.showOpenDialog({
+    const result = await dialog.showOpenDialog({
       title: 'اختر مجلد',
       properties: ['openDirectory', 'createDirectory'],
-    })) as any;
+    });
     if (result.canceled || result.filePaths.length === 0) {
       return { success: false, message: 'تم الإلغاء' };
     }
@@ -346,10 +346,10 @@ export function registerDb(deps: IpcDeps): void {
       settings.backupDir && ipc.isExistingDirectory(settings.backupDir) ? settings.backupDir : null;
   
     if (!dir) {
-      const result = (await dialog.showOpenDialog({
+      const result = await dialog.showOpenDialog({
         title: 'اختر مجلد حفظ النسخة الاحتياطية (سيتم حفظه تلقائياً)',
         properties: ['openDirectory', 'createDirectory'],
-      })) as any;
+      });
   
       if (result.canceled || result.filePaths.length === 0) {
         return { success: false, message: 'تم الإلغاء' };
@@ -482,7 +482,7 @@ export function registerDb(deps: IpcDeps): void {
         { name: 'All Files', extensions: ['*'] },
       ],
       properties: ['openFile'],
-    })) as any;
+    });
   
     if (result.canceled || result.filePaths.length === 0) {
       return { success: false, message: 'تم الإلغاء' };

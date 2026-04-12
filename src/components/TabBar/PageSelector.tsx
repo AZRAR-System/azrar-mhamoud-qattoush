@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTabs } from '@/context/TabsContext';
 import { NAV_ITEMS } from '@/routes/registry';
-import { X, Search, LayoutGrid } from 'lucide-react';
+import { X, Search, LayoutGrid, LucideIcon } from 'lucide-react';
+
+interface NavItem {
+    path: string;
+    label: string;
+    icon: LucideIcon;
+    children?: NavItem[];
+}
 
 export const PageSelector: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -27,8 +34,8 @@ export const PageSelector: React.FC = () => {
     if (!isOpen) return null;
 
     // Flatten NAV_ITEMS to get all clickable pages
-    const allPages: { path: string; label: string; icon: any }[] = [];
-    const collect = (items: any[]) => {
+    const allPages: { path: string; label: string; icon: LucideIcon }[] = [];
+    const collect = (items: NavItem[]) => {
         items.forEach(item => {
             if (item.path && item.path.startsWith('/')) {
                 allPages.push({ path: item.path, label: item.label, icon: item.icon });

@@ -1204,17 +1204,18 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
         if (DbService.listWordTemplatesDetailed) {
           const res = await DbService.listWordTemplatesDetailed(t);
           if (res?.success && res.data) {
-            setWordTemplates((res.data.items || []).map((i: any) => i.name));
-            setWordTemplatesDir(String(res.data.dir || ''));
+          const items = (res.data.items as Array<{ name: string }> | undefined) || [];
+          setWordTemplates(items.map((i) => i.name));
+          setWordTemplatesDir(String(res.data.dir || ''));
 
-            const kvMap: Record<string, string> = {};
-            const details = (res.data.details as any[]) || [];
-            for (const d of details) {
-              const fileName = String(d?.name || '').trim();
-              const kvKey = String(d?.id || '').trim();
-              if (fileName && kvKey) kvMap[fileName] = kvKey;
-            }
-            setWordTemplateKvKeysByName(kvMap);
+          const kvMap: Record<string, string> = {};
+          const details = (res.data.details as Array<Record<string, unknown>> | undefined) || [];
+          for (const d of details) {
+            const fileName = String(d?.name || '').trim();
+            const kvKey = String(d?.id || '').trim();
+            if (fileName && kvKey) kvMap[fileName] = kvKey;
+          }
+          setWordTemplateKvKeysByName(kvMap);
           } else {
             setWordTemplates([]);
             setWordTemplatesDir('');

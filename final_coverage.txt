@@ -1,0 +1,353 @@
+
+> azrar-real-estate-desktop@3.2.90 test
+> node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --coverage
+
+PASS tests/searchNormalize.test.ts
+  searchNormalize (strict/lenient)
+    √ strict normalizes alef variants and alif wasla + yaa maksura (6 ms)
+    √ strict keeps ة/ه distinct (no over-matching) (1 ms)
+    √ lenient folds ة->ه and removes hamza (1 ms)
+    √ digits normalization supports Arabic/Persian digits and separators (1 ms)
+
+PASS tests/unit/activationClockRollback.test.js
+  activation anti-rollback (clock rollback hardening)
+    √ accepts valid license when no lastSeen exists (and records lastSeen) (132 ms)
+    √ rejects license validation if clock rolled back more than tolerance (3 ms)
+    √ allows small backward drift within tolerance (6 ms)
+
+PASS tests/unit/ipcContract.preloadToMain.test.js
+  IPC contract: preload -> main handlers
+    √ all ipcRenderer channels used in preload are handled in main process (31 ms)
+
+PASS tests/unit/updaterInstallValidation.test.js
+  updater install-from-file validation
+    √ rejects empty path (4 ms)
+    √ rejects UNC paths (1 ms)
+    √ rejects non-exe extension
+    √ accepts .EXE extension case-insensitively (1 ms)
+    √ rejects non-file
+    √ rejects zero/invalid size (1 ms)
+    √ rejects too-large size
+    √ accepts valid candidate (1 ms)
+
+  console.warn
+    ✅ تم مسح كامل البيانات التجريبية
+
+    [0m [90m 53 |[39m   buildCache()[33m;[39m
+     [90m 54 |[39m
+    [31m[1m>[22m[39m[90m 55 |[39m   console[33m.[39mwarn([32m'✅ تم مسح كامل البيانات التجريبية'[39m)[33m;[39m
+     [90m    |[39m           [31m[1m^[22m[39m
+     [90m 56 |[39m   console[33m.[39mwarn([32m'📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates'[39m)[33m;[39m
+     [90m 57 |[39m   console[33m.[39mwarn([32m'🗑️  البيانات المحذوفة: '[39m [33m+[39m [33mRESET_KEYS[39m[33m.[39mlength [33m+[39m [32m' جداول'[39m)[33m;[39m
+     [90m 58 |[39m[0m
+
+      at warn (src/services/db/resetOperationalData.ts:55:11)
+      at Object.resetOperationalData [as resetAllData] (src/services/mockDb.ts:340:23)
+      at tests/unit/coverageSeventy.test.ts:85:30
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:85:50)
+
+  console.warn
+    📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates
+
+    [0m [90m 54 |[39m
+     [90m 55 |[39m   console[33m.[39mwarn([32m'✅ تم مسح كامل البيانات التجريبية'[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 56 |[39m   console[33m.[39mwarn([32m'📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates'[39m)[33m;[39m
+     [90m    |[39m           [31m[1m^[22m[39m
+     [90m 57 |[39m   console[33m.[39mwarn([32m'🗑️  البيانات المحذوفة: '[39m [33m+[39m [33mRESET_KEYS[39m[33m.[39mlength [33m+[39m [32m' جداول'[39m)[33m;[39m
+     [90m 58 |[39m
+     [90m 59 |[39m   [36mreturn[39m {[0m
+
+      at warn (src/services/db/resetOperationalData.ts:56:11)
+      at Object.resetOperationalData [as resetAllData] (src/services/mockDb.ts:340:23)
+      at tests/unit/coverageSeventy.test.ts:85:30
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:85:50)
+
+  console.warn
+    🗑️  البيانات المحذوفة: 21 جداول
+
+    [0m [90m 55 |[39m   console[33m.[39mwarn([32m'✅ تم مسح كامل البيانات التجريبية'[39m)[33m;[39m
+     [90m 56 |[39m   console[33m.[39mwarn([32m'📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates'[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 57 |[39m   console[33m.[39mwarn([32m'🗑️  البيانات المحذوفة: '[39m [33m+[39m [33mRESET_KEYS[39m[33m.[39mlength [33m+[39m [32m' جداول'[39m)[33m;[39m
+     [90m    |[39m           [31m[1m^[22m[39m
+     [90m 58 |[39m
+     [90m 59 |[39m   [36mreturn[39m {
+     [90m 60 |[39m     success[33m:[39m [36mtrue[39m[33m,[39m[0m
+
+      at warn (src/services/db/resetOperationalData.ts:57:11)
+      at Object.resetOperationalData [as resetAllData] (src/services/mockDb.ts:340:23)
+      at tests/unit/coverageSeventy.test.ts:85:30
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at Object.<anonymous> (tests/unit/coverageSeventy.test.ts:85:50)
+
+PASS tests/unit/example.test.js
+  Example Test Suite
+    √ should pass basic test (2 ms)
+    √ should perform simple math (1 ms)
+
+PASS tests/unit/kvInvariants.test.js
+  kv invariants
+    √ no-op for other keys (4 ms)
+    √ no-op for non-array JSON
+    √ defaults تكرار_الدفع to 12 when invalid (1 ms)
+    √ keeps value unchanged when already valid
+
+PASS tests/unit/coverageSeventy.test.ts
+  Coverage Strike - 70% Final Push
+    Storage & UI Notifications
+      √ exercises async storage methods in Web Mode (61 ms)
+      √ triggers UI change events for special keys (69 ms)
+    Data Validation & Local Storage
+      √ exercises dbOk/dbFail and localDbStorage (5 ms)
+      √ performs exhaustive data audits (34 ms)
+    Domain Queries Helper & Fallbacks
+      √ exercises internal cast helpers
+      √ exercises search variants (4 ms)
+    MockDB & System Ops
+      √ exercises reset and optimization (191 ms)
+      √ manages lookups (2 ms)
+
+PASS tests/integration/example.integration.test.ts
+  Integration Tests Example
+    √ should handle user interaction flow (2 ms)
+    √ should make API calls correctly (1 ms)
+
+PASS tests/searchEngineFilters.test.ts
+  SearchEngine.applyFilters (normalized text + numbers)
+    √ contains uses strict Arabic normalization (أ/إ/آ/ٱ and ى) (4 ms)
+    √ strict mode does not fold ة/ه by default
+    √ numeric comparisons accept Arabic/Indic digits (2 ms)
+    √ between handles numeric strings robustly (1 ms)
+
+PASS tests/unit/PaymentModal.test.tsx
+  PaymentModal
+    √ does not call markInstallmentPaid when amount is zero (332 ms)
+    √ calls markInstallmentPaid with full amount when using كامل then confirm (160 ms)
+
+PASS tests/unit/absoluteFinalVictory.test.ts
+  Absolute Final Victory Sweep (Fully Exhaustive)
+    permissions EXHAUSTIVE (172 lines)
+      √ covers every role and every action branch (22 ms)
+    arabicNumber EXHAUSTIVE (107 lines)
+      √ covers all group labels and group sizes (6 ms)
+    tenancy EXHAUSTIVE (70 lines)
+      √ covers all score outcomes and relevance checks (20 ms)
+    whatsapp EXHAUSTIVE (60 lines)
+      √ covers all normalization and link build branches (11 ms)
+    Logic Utilities (Coerce, JSON, Unknown, etc.)
+      √ covers all branches in minor files (4 ms)
+  Alerts Core Logic - Corrected
+    √ createAlert: should deduplicate alerts with the same stableId (7 ms)
+    √ markAlertsReadByPrefix: should update bulk read status (7 ms)
+  Domain Queries - Ultimate Victory Sweep (Data Seed)
+    √ Sequential Logic Sweep: should call all exported smart functions with data-driven safe-guards (15 ms)
+  Data Validation Service
+    √ checkPrimaryKeyDuplicates: should identify rows with same ID in a table (4 ms)
+    √ checkForeignKeyIntegrity: should identify missing entity references (4 ms)
+    √ checkBusinessLogic: should flag rented properties without active contracts (3 ms)
+    √ validateNewPerson: should validate required fields (3 ms)
+  Database Cache Service - Semantic Fix
+    √ buildCache: should correctly aggregate dashboard statistics using real field names (5 ms)
+    √ buildCache: should handle empty database gracefully (6 ms)
+  db/contracts
+    √ getContracts returns empty when none (3 ms)
+    √ createContract appends contract and getContracts sees it (10 ms)
+  db/installments payment handlers
+    √ markInstallmentPaid marks paid when amount covers balance (18 ms)
+    √ markInstallmentPaid sets PARTIAL then PAID on second payment (7 ms)
+    √ markInstallmentPaid rejects Employee role (5 ms)
+    √ markInstallmentPaid rejects unknown installment id (2 ms)
+    √ markInstallmentPaid rejects zero or negative amount (4 ms)
+    √ markInstallmentPaid rejects overpayment vs remaining (5 ms)
+    √ markInstallmentPaid rejects paying already PAID installment (3 ms)
+    √ reversePayment restores unpaid after full payment (SuperAdmin) (6 ms)
+    √ reversePayment rejects non-SuperAdmin (6 ms)
+    √ reversePayment rejects empty reason (3 ms)
+    √ reversePayment rejects when installment unpaid (4 ms)
+    √ reversePayment after partial restores UNPAID and full remaining (5 ms)
+    √ setInstallmentLateFee records amount and rejects invalid role (5 ms)
+  db/people
+    √ getPersonById returns undefined when missing (5 ms)
+    √ addPerson then getPersonById returns the record (6 ms)
+    √ updatePerson mutates stored person (14 ms)
+    √ addPerson rejects invalid payload (2 ms)
+  db/sales
+    √ getSalesListings returns seeded rows (4 ms)
+    √ createSalesAgreement persists agreement and sets listing Pending (3 ms)
+  Domain Queries Logic - Global Bridge Coverage
+    √ domainCountsSmart: should correctly count entities using bridge (6 ms)
+    √ propertyContractsSmart: should return items from bridge (5 ms)
+  Dynamic Tables Service
+    √ createDynamicTable: should add a new table definition (8 ms)
+    √ addDynamicRecord: should store records for a custom table (3 ms)
+  Financial Service - Sales & Recalcs
+    √ upsertCommissionForSale: should create sale record and sync legacy fields (6 ms)
+    √ updateCommission: should handle various commission types (5 ms)
+  Follow-up Service Logic
+    √ addFollowUp: should create a task and automatically add a reminder (6 ms)
+    √ completeFollowUp: should mark as Done and sync with reminder (3 ms)
+  installmentsContractsPagedSmart sorting (web/non-desktop parity)
+    √ due-asc sorts by most relevant due date (unpaid first, then last paid) (27 ms)
+    √ defaults to due-asc when sort is omitted (12 ms)
+    √ due-desc sorts by most relevant due date descending (10 ms)
+    √ amount-asc / amount-desc sort by annual value (7 ms)
+    √ filtering by amount and date (11 ms)
+    √ filtering by payment method (7 ms)
+    √ tenant-asc / tenant-desc sort by tenant name (6 ms)
+  installmentsUtils
+    getPaidAndRemaining
+      √ returns zero remaining when status is PAID (3 ms)
+      √ uses القيمة_المتبقية when set (partial state) (4 ms)
+      √ derives from سجل_الدفعات when no reliable المتبقية (2 ms)
+      √ ignores non-positive entries in سجل_الدفعات for paid sum (2 ms)
+    getLastPositivePaymentAmount
+      √ returns null when no payments (2 ms)
+      √ returns last positive amount scanning from end (3 ms)
+      √ skips trailing reversal (negative) to find previous positive (4 ms)
+    getNextUnpaidDueSummary / formatNextDuePaymentLabel
+      √ picks earliest unpaid due date (2 ms)
+      √ returns null when all paid (3 ms)
+      √ formatNextDuePaymentLabel covers future, today, overdue (2 ms)
+  Logger Service
+    √ logOperationInternal: should persist log entries (4 ms)
+    √ getSystemLogs: should return all entries (3 ms)
+  Absolute 50% Coverage - Logic Strike
+    English Numerals Polyfill (~220 lines)
+      √ exercises the polyfill installation and wrapping logic (11 ms)
+    Permissions System (~170 lines)
+      √ exercises the entire RBAC matrix and helper functions (2 ms)
+    Docx Template Logic (~270 lines)
+      √ exercises string replacement and placeholder detection (6 ms)
+  Maintenance Service
+    √ addMaintenanceTicket: should create a new ticket (5 ms)
+    √ updateMaintenanceTicket: should change status and details (3 ms)
+    √ deleteMaintenanceTicket: should remove ticket (5 ms)
+  Marquee Service Logic - API Fix
+    √ getMarqueeMessages: should return empty list initially (4 ms)
+    √ addMarqueeAd: should create an ad that appears in messages (4 ms)
+  Message Templates Service - Fixed IDs
+    √ saveTemplate: should override builtin template and resolve it correctly (5 ms)
+    √ addCustomTemplate: should create a new template with unique ID (2 ms)
+    √ resetTemplate: should remove override and revert to builtin (5 ms)
+  Notification Center Service
+    √ add: should add a notification to the list (3 ms)
+    √ markAsRead: should remove notif from active list (or mark read) (4 ms)
+    √ clear: should empty the center (2 ms)
+  People Service Logic - Arabic Field Fix
+    √ addPerson: should create a person when valid Arabic fields are provided (17 ms)
+    √ updatePerson: should persist changes in localStorage (4 ms)
+  Properties Service
+    √ addProperty: should create a record with PROP- ID (7 ms)
+    √ updateProperty: should link IsRented to status if patched (7 ms)
+    √ deleteProperty: should block if active contracts exist (6 ms)
+    √ getPropertyDetails: should return full aggregate (owner, tenant, contract) (7 ms)
+  Pure Utility Logic Sweep
+    Tenancy Utils
+      √ getTenancyStatusScore: should rank statuses correctly (5 ms)
+      √ isTenancyRelevant: should filter out archived and inactive contracts (5 ms)
+      √ isBetterTenancyContract: should compare contracts by status and date (4 ms)
+      √ pickBestTenancyContract: should return the highest ranked contract (15 ms)
+    PersonColor Utils
+      √ getPersonSeedFromPerson: should extract seed from person object (3 ms)
+      √ getPersonColorClasses: should return color classes bundle (4 ms)
+    DateOnly Utils
+      √ toDateOnlyISO: should handle various inputs (3 ms)
+      √ todayDateOnlyISO: should return current date in ISO (2 ms)
+      √ daysBetweenDateOnlySafe: should calculate distance (3 ms)
+      √ compareDateOnlySafe: should return negative/zero/positive (2 ms)
+    ExternalLink Utils (Sanity)
+      √ openExternalUrl: should return null/window for invalid/mocked urls (4 ms)
+  Reports Service Logic
+    √ runReport: financial_summary: should calculate correct totals (7 ms)
+    √ runReport: employee_commissions: should link users and properties correctly (6 ms)
+    √ runReport: fallback: should handle unknown IDs gracefully (3 ms)
+  Sales Service Logic - Fixed
+    √ addSalesListing: should create a listing and persist it (5 ms)
+    √ submitSalesOffer: should record a buyer offer linked to listing (5 ms)
+    √ finalizeOwnershipTransfer: should update property owner (8 ms)
+  Sales Agreements Service Logic - DI Fix
+    √ addSalesAgreement: should save a new agreement (4 ms)
+    √ updateSalesAgreement: should persist changes (5 ms)
+  System Chores Logic - Fixed
+    √ Followups: completeFollowUp should mark task as Done (5 ms)
+    √ NotificationCenter: should add a notification to the list (3 ms)
+    √ NotificationCenter: should prevent adding duplicate items by ID (5 ms)
+    √ NotificationCenter: should accurately report counts (unread, urgent) (2 ms)
+    √ NotificationCenter: should support marking single item and all items as read (5 ms)
+    √ NotificationCenter: should handle subscriptions and fire listeners (3 ms)
+    √ NotificationCenter: should handle corrupt storage gracefully (invalid JSON) (4 ms)
+    √ NotificationCenter: should handle unexpected storage format (non-array, malformed objects) (3 ms)
+    √ NotificationCenter: should isolate listener failures (5 ms)
+  Utility Functions - Format
+    √ formatCurrencyJOD: should format amount as JOD (4 ms)
+    √ formatNumber: should format with thousands separator (3 ms)
+    √ formatDateYMD: should format date as YYYY-MM-DD (3 ms)
+  Utility Functions - Tenancy
+    √ isTenancyRelevant: should return true for active/renewed contracts (3 ms)
+  Absolute 50% Coverage Victory Sweep (The Utility 36)
+    √ has successfully imported and initiated all 36 utility files (3 ms)
+  WhatsApp Utils
+    normalizeWhatsAppPhone
+      √ strips international 00 prefix by default (4 ms)
+      √ prepends default country code to local numbers (leading 0) (2 ms)
+      √ correctly handles Jordan mobile format starts with 7 (9 digits) (4 ms)
+      √ returns empty string for invalid input (2 ms)
+    buildWhatsAppLink
+      √ generates a web link by default (5 ms)
+      √ generates a desktop deep link if target is desktop (2 ms)
+    collectWhatsAppPhones
+      √ uniquifies and filters phones (4 ms)
+    buildWhatsAppLinks
+      √ generates multiple links for a list of phones (4 ms)
+  Final Victory Sweep - Milestone 50 (Pushing Deep Coverage)
+    Financial Service Deep Sweep
+      √ upsertCommissionForContract: creates new and updates existing (5 ms)
+      √ upsertCommissionForSale: handles complex sale commission mapping (4 ms)
+      √ getFinancialAlerts: filters unread financial alerts (2 ms)
+    Maintenance Service Deep Sweep
+      √ manages ticket lifecycle: assign, update status, cost tracking (6 ms)
+      √ manages maintenance ticket lifecycle (6 ms)
+    Reporting Service Deep Sweep
+      √ executes various report types without crashing (5 ms)
+    Contract & Property Service Deep Sweep
+      √ manages property lifecycle: create, update, delete (4 ms)
+      √ creates contracts and generates installments (8 ms)
+    System Domains: Users, Marquee, Lookups
+      √ Users: exercises permissions and role updates (3 ms)
+      √ Marquee: exercises ad management (5 ms)
+      √ Lookups: exercises category and item CRUD (4 ms)
+    Referential Integrity & Activities Overdrive
+      √ exercises addActivity and lookup categories (5 ms)
+    Background Scans & Scheduler Sweep
+      √ exercises periodic scans for data quality, expiry, and RISK (14 ms)
+    Financial Alerts Deep Strike
+      √ exercises alert generation for contracts and payments (6 ms)
+    External Commissions & Word Templates Sweep
+      √ exercises legacy/external logic blocks (3 ms)
+    Sales Agreements & Offers Exhaustive Sweep
+      √ exercises offer status and history lookups (7 ms)
+      √ exercises deleteSalesOffer and addListing edge cases (6 ms)
+    Word Templates & Document Generation Exhaustive
+      √ manages word templates lifecycle (6 ms)
+    Contract Renewal & Termination Sweep
+      √ exercises contract termination and deletion branches (7 ms)
+    People & Blacklist Exhaustive Sweep
+      √ manages people lifecycle: rating, blacklist, and details (8 ms)
+      √ exercises contacts book and auto-link logic (7 ms)
+
+
+=============================== Coverage summary ===============================
+Statements   : 48.13% ( 3319/6895 )
+Branches     : 32.95% ( 1713/5198 )
+Functions    : 47.61% ( 600/1260 )
+Lines        : 51.66% ( 3029/5863 )
+================================================================================
+Test Suites: 11 passed, 11 total
+Tests:       182 passed, 182 total
+Snapshots:   0 total
+Time:        7.941 s
+Ran all test suites.

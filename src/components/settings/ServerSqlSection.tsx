@@ -1447,7 +1447,7 @@ export const ServerSqlSection: React.FC = () => {
 
           {/* Summary Stats Bar */}
           {sqlCoverage.items && sqlCoverage.items.length > 0 && (() => {
-            const items = sqlCoverage.items!;
+            const items = sqlCoverage.items?.filter(Boolean) || [];
             const inSync        = items.filter(i => i.status === 'inSync').length;
             const localAhead    = items.filter(i => i.status === 'localAhead').length;
             const remoteAhead   = items.filter(i => i.status === 'remoteAhead').length;

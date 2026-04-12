@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { getOwnerReport, exportOwnerReportPdf } from '@/services/ownerReport';
 import { getPeopleByRole } from '@/services/db/people';
-import { formatCurrencyJOD, formatDateYMD } from '@/utils/format';
+import { formatCurrencyJOD } from '@/utils/format';
 import {
   Home,
   FileText,
@@ -23,7 +23,6 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronLeft,
-  CalendarDays,
   Loader2,
   Printer,
   Download,
@@ -145,7 +144,7 @@ export function OwnerPortal() {
     } else if (ownersList.length === 0) {
       setLoading(false);
     }
-  }, []);
+  }, [selectedOwnerId]);
 
   const filteredOwners = useMemo(() => {
     if (!searchTerm.trim()) return owners;
@@ -181,7 +180,7 @@ export function OwnerPortal() {
       } else {
         toast.error('فشل تصدير التقرير', 'خطأ');
       }
-    } catch (error) {
+    } catch {
       toast.error('خطأ أثناء التصدير', 'خطأ');
     }
   };

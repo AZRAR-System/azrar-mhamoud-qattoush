@@ -471,7 +471,7 @@ ipcMain.handle('licensegen:pickPrivateKey', async () => {
 
     const result = (win
       ? await dialog.showOpenDialog(win, options)
-      : await dialog.showOpenDialog(options)) as any;
+      : await dialog.showOpenDialog(options));
     if (result.canceled || result.filePaths.length === 0) {
       return { ok: false, canceled: true };
     }
@@ -552,7 +552,7 @@ ipcMain.handle('licensegen:generateKeypairAndSave', async () => {
             { name: 'Key File', extensions: ['json'] },
             { name: 'All Files', extensions: ['*'] },
           ],
-        })) as any;
+        }));
 
     if (save.canceled || !save.filePath) {
       return { ok: false, canceled: true };
@@ -656,7 +656,7 @@ ipcMain.handle('licensegen:generateAndSave', async (_e, payload: unknown) => {
             { name: 'Activation / License', extensions: ['json', 'lic'] },
             { name: 'All Files', extensions: ['*'] },
           ],
-        })) as any;
+        }));
 
     if (save.canceled || !save.filePath) {
       return { ok: false, canceled: true };

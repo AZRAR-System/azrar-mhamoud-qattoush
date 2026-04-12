@@ -449,7 +449,7 @@ export const Login = () => {
       setPassword(trimmed);
       setNotice('تم تعديل كلمة مرور حساب المدير بنجاح.');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String((e as any)?.message || '').trim();
+      const msg = e instanceof Error ? e.message : String((e as { message?: string })?.message || '').trim();
       setError(msg || 'تعذر تعديل كلمة مرور admin');
     }
   };

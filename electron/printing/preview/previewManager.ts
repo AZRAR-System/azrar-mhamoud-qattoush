@@ -201,12 +201,12 @@ const saveTempPdfAs = async (
   if (!safe.ok) return { ok: false, code: 'INVALID', message: safe.message };
 
   try {
-    const res = (await dialog.showSaveDialog({
+    const res = await dialog.showSaveDialog({
       title: 'تصدير PDF',
       defaultPath: suggestedFileName || 'document.pdf',
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
       properties: ['createDirectory', 'showOverwriteConfirmation'],
-    })) as any;
+    });
 
     if (res.canceled || !res.filePath)
       return { ok: false, code: 'CANCELED', message: 'تم الإلغاء' };
