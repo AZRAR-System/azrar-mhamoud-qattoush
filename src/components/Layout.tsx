@@ -962,7 +962,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       {/* ================================ */}
       {/* Main Content Area */}
       {/* ================================ */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative w-full z-10 transition-all">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative w-full z-10 transition-all">
         {/* Floating Modern Header - Memoized */}
         <Header 
             pathname={pathname}

@@ -39,7 +39,7 @@ export const TabBar: React.FC = () => {
             <div 
                 ref={scrollRef}
                 onWheel={handleWheel}
-                className="flex-1 flex items-center overflow-x-auto no-scrollbar gap-2 h-full py-2"
+                className="flex-1 flex items-center overflow-x-auto no-scrollbar gap-2 h-full py-2 flex-nowrap min-w-0"
             >
                 {tabs.map((tab, idx) => {
                     const isActive = tab.id === activeTabId;
@@ -55,7 +55,7 @@ export const TabBar: React.FC = () => {
                             onDrop={(e) => handleDrop(e, idx)}
                             onClick={() => switchTab(tab.id)}
                             className={`
-                                group relative flex items-center gap-2.5 px-4 h-10 min-w-[140px] max-w-[220px] rounded-xl transition-all duration-300 cursor-pointer
+                                group relative flex items-center gap-2.5 px-3 h-10 min-w-[110px] max-w-[180px] rounded-xl transition-all duration-300 cursor-pointer flex-shrink-0
                                 ${isActive 
                                     ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/20' 
                                     : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'}
