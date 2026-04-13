@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 
 // Lazy Load Pages (Mirrored from App.tsx but accessible via path resolver)
 const Dashboard = React.lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const SystemSetup = React.lazy(() => import('@/pages/SystemSetup').then(m => ({ default: m.SystemSetup })));
 const People = React.lazy(() => import('@/pages/People').then(m => ({ default: m.People })));
 const Properties = React.lazy(() => import('@/pages/Properties').then(m => ({ default: m.Properties })));
 const Contracts = React.lazy(() => import('@/pages/Contracts').then(m => ({ default: m.Contracts })));
@@ -72,6 +73,7 @@ export const RouterPage: React.FC<RouterPageProps> = ({ path }) => {
         case ROUTE_PATHS.DOCUMENTS: Component = Documents; break;
         case ROUTE_PATHS.COMPREHENSIVE_TESTS: Component = ComprehensiveTests; break;
         case ROUTE_PATHS.LICENSE_ADMIN: Component = LicenseAdmin; break;
+        case ROUTE_PATHS.SYSTEM_SETUP: Component = SystemSetup; break;
         default: Component = NotFound; break;
     }
 
