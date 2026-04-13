@@ -983,10 +983,9 @@ export const Layout = ({ children }: { children: ReactNode }) => {
 
         {/* Content Container - Modern Layout */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4">
-          <div className="w-full page-transition pb-20 lg:pb-10 flex flex-col px-4 lg:px-8 min-h-full">
-            <TabContent />
-            {/* Background System Components */}
-            {children}
+            <div className="w-full page-transition pb-20 lg:pb-10 flex flex-col px-4 lg:px-8 min-h-full">
+              <TabContent />
+              {/* Background System Components */}
 
             {/* Elegant Footer */}
             <footer className="mt-auto py-10 text-center shrink-0">
