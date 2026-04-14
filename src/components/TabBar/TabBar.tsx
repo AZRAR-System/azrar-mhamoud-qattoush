@@ -7,6 +7,8 @@ export const TabBar: React.FC = () => {
     const { tabs, activeTabId, closeTab, switchTab, pinTab, reorderTabs } = useTabs();
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    const [draggingIdx, setDraggingIdx] = React.useState<number | null>(null);
+
     // Auto-scroll to active tab
     useEffect(() => {
         if (scrollRef.current) {
@@ -18,12 +20,22 @@ export const TabBar: React.FC = () => {
     }, [activeTabId]);
 
     const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggingIdx(index);
         e.dataTransfer.setData('tabIndex', index.toString());
+        // For visual polish
+        e.dataTransfer.effectAllowed = 'move';
+        
+        // Hide ghost image if needed, but standard is fine
+    };
+
+    const handleDragEnd = () => {
+        setDraggingIdx(null);
     };
 
     const handleDrop = (e: React.DragEvent, toIndex: number) => {
+        setDraggingIdx(null);
         const fromIndex = parseInt(e.dataTransfer.getData('tabIndex'), 10);
-        if (fromIndex !== toIndex) {
+        if (!isNaN(fromIndex) && fromIndex !== toIndex) {
             reorderTabs(fromIndex, toIndex);
         }
     };
@@ -43,6 +55,7 @@ export const TabBar: React.FC = () => {
             >
                 {tabs.map((tab, idx) => {
                     const isActive = tab.id === activeTabId;
+                    const isDragging = idx === draggingIdx;
                     const Icon = ROUTE_ICONS[tab.path];
                     
                     return (
@@ -51,6 +64,7 @@ export const TabBar: React.FC = () => {
                             data-id={tab.id}
                             draggable
                             onDragStart={(e) => handleDragStart(e, idx)}
+                            onDragEnd={handleDragEnd}
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => handleDrop(e, idx)}
                             onClick={() => switchTab(tab.id)}
@@ -59,6 +73,7 @@ export const TabBar: React.FC = () => {
                                 ${isActive 
                                     ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/20' 
                                     : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'}
+                                ${isDragging ? 'opacity-30 scale-95' : 'opacity-100'}
                             `}
                         >
                             <div className={`p-1 rounded-lg ${isActive ? 'bg-white/20' : 'bg-slate-800/40'}`}>
