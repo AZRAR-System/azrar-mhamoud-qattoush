@@ -64,9 +64,9 @@ export const getPersonRoles = (id: string): string[] =>
     .map((r) => r.الدور);
 
 export const updatePersonRoles = (id: string, roles: string[]) => {
-  const all = get<شخص_دور_tbl>(KEYS.ROLES).filter((r) => r.رقم_الشخص !== id);
-  roles.forEach((role) => all.push({ رقم_الشخص: id, الدور: role }));
-  save(KEYS.ROLES, all);
+  const others = get<شخص_دور_tbl>(KEYS.ROLES).filter((r) => r.رقم_الشخص !== id);
+  const nextRoles = roles.map((role) => ({ رقم_الشخص: id, الدور: role }));
+  save(KEYS.ROLES, [...others, ...nextRoles]);
 };
 
 export const addPerson = (
@@ -84,8 +84,8 @@ export const addPerson = (
   save(KEYS.PEOPLE, [...all, newPerson]);
 
   const allRoles = get<شخص_دور_tbl>(KEYS.ROLES);
-  roles.forEach((role) => allRoles.push({ رقم_الشخص: id, الدور: role }));
-  save(KEYS.ROLES, allRoles);
+  const newRoles = roles.map((role) => ({ رقم_الشخص: id, الدور: role }));
+  save(KEYS.ROLES, [...allRoles, ...newRoles]);
 
   requestDomainMigrate();
   return ok(newPerson);
@@ -209,11 +209,13 @@ export const addToBlacklist = (
   record: Omit<BlacklistRecord, 'id' | 'dateAdded' | 'addedBy' | 'isActive'>
 ) => {
   const all = get<BlacklistRecord>(KEYS.BLACKLIST);
-  all.forEach((b) => {
-    if (b.personId === record.personId) b.isActive = false;
-  });
+  // Immutable update: deactivate previous records for this person
+  const updatedAll = all.map((b) => 
+    b.personId === record.personId ? { ...b, isActive: false } : b
+  );
+  
   save(KEYS.BLACKLIST, [
-    ...all,
+    ...updatedAll,
     {
       ...record,
       id: `BL-${Date.now()}`,
