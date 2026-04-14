@@ -33,9 +33,14 @@ const categoryLabels: Record<string, string> = {
   'whatsapp_auto': 'واتساب تلقائي',
   'payments': 'دفعات',
   'collection': 'تحصيل',
+  'contracts': 'عقود',
+  'installments': 'أقساط',
+  'maintenance': 'صيانة',
+  'system': 'نظام',
+  'info': 'معلومات',
 };
 
-type FilterTab = 'all' | 'unread' | 'urgent' | 'reminders' | 'collection';
+type FilterTab = 'all' | 'unread' | 'urgent' | 'reminders' | 'collection' | 'contracts' | 'installments' | 'maintenance' | 'system';
 
 function formatRelativeTimeAr(ts: number): string {
   const now = Date.now();
@@ -79,8 +84,10 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
   { id: 'all', label: 'الكل' },
   { id: 'unread', label: 'غير مقروء' },
   { id: 'urgent', label: 'عاجل' },
-  { id: 'reminders', label: 'تذكيرات' },
-  { id: 'collection', label: 'تحصيل' },
+  { id: 'contracts', label: 'عقود' },
+  { id: 'installments', label: 'أقساط' },
+  { id: 'maintenance', label: 'صيانة' },
+  { id: 'system', label: 'نظام' },
 ];
 
 /** إشعارات تحصيل/دفعات أو متأخرات — تظهر زر واتساب */
@@ -120,6 +127,14 @@ function matchesFilter(item: NotificationCenterItem, tab: FilterTab): boolean {
              cat === 'payments' || 
              cat === 'collection' || 
              cat.includes('payment');
+    case 'contracts':
+      return cat === 'contracts' || cat.includes('contract');
+    case 'installments':
+      return cat === 'installments' || cat === 'payments' || cat === 'payment' || cat === 'overdue' || cat.includes('payment');
+    case 'maintenance':
+      return cat === 'maintenance';
+    case 'system':
+      return cat === 'system';
     default:
       return true;
   }

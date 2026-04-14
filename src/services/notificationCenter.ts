@@ -7,6 +7,21 @@ const MAX_ITEMS = 50;
 
 export type NotificationCenterType = 'success' | 'error' | 'warning' | 'info' | 'delete';
 
+export type NotificationCategory = 
+  | 'contracts' 
+  | 'installments' 
+  | 'maintenance' 
+  | 'system' 
+  | 'info'
+  | 'Financial'
+  | 'payment'
+  | 'overdue'
+  | 'reminders'
+  | 'scheduled_financial_report'
+  | 'whatsapp_auto'
+  | 'payments'
+  | 'collection';
+
 export interface NotificationCenterItem {
   id: string;
   type: NotificationCenterType;
@@ -15,7 +30,7 @@ export interface NotificationCenterItem {
   /** Unix ms */
   timestamp: number;
   read: boolean;
-  category: string;
+  category: NotificationCategory | string;
   /** للتنقل: معرّف كيان اختياري (عقد، كمبيالة، إلخ) */
   entityId?: string;
   /** عاجل — للتصفية ونبض الجرس */
@@ -84,6 +99,10 @@ function getItems(): NotificationCenterItem[] {
 
 export const notificationCenter = {
   getItems,
+  
+  getByCategory(category: NotificationCategory | string): NotificationCenterItem[] {
+    return getItems().filter((n) => n.category === category);
+  },
 
   getUnreadCount(): number {
     return getItems().filter((i) => !i.read).length;
