@@ -3,7 +3,8 @@
  */
 
 import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
+import * as fileSaver from 'file-saver';
+const saveAs = (fileSaver as any).saveAs || fileSaver;
 import { formatDateYMD, formatCurrencyJOD } from '@/utils/format';
 import { getPeople } from '@/services/db/people';
 import { getContracts } from '@/services/db/contracts';

@@ -1,0 +1,373 @@
+﻿
+> azrar-real-estate-desktop@3.2.93 test
+> node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --coverage
+
+node.exe : PASS tests/unit/utils_exhaust.test.ts
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS tests/unit/utils_exhaust.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Utility Exhaustive Coverage
+    safe.ts
+      ΓêÜ safeString handles various inputs (6 ms)
+      ΓêÜ safeNumber handles various inputs (1 ms)
+    errors.ts
+      ΓêÜ hasMessage identifies objects with message property (1 ms)
+      ΓêÜ getErrorMessage extracts message from various formats (2 ms)
+    companySheet.ts
+      ΓêÜ buildCompanyLetterheadSheet handles settings correctly (3 ms)
+    contractNumber.ts
+      ΓêÜ formatContractNumberShort handles various formats (2 ms)
+    dataGuards.ts
+      ΓêÜ guardPersonExists (1 ms)
+      ΓêÜ guardPropertyExists (1 ms)
+      ΓêÜ guardContractExists (1 ms)
+      ΓêÜ guardHasData (2 ms)
+      ΓêÜ specific guards (HasPeople, HasProperties, HasContracts) (14 ms)
+    desktopMessages.ts
+      ΓêÜ resolveDesktopMessage extracts correctly (1 ms)
+      ΓêÜ resolveDesktopError extracts correctly (1 ms)
+
+PASS tests/unit/massiveCoveragePush.test.ts
+  Corrected Targeted Logic Sweep V8 - Core Services & Branching
+    ΓêÜ Domain Queries Sweep (6 ms)
+    ΓêÜ Financial Service Sweep (4 ms)
+    ΓêÜ Data Validation Sweep (2 ms)
+    ΓêÜ Logger Sweep (2 ms)
+    ΓêÜ System Services Swell (28 ms)
+    ΓêÜ Utils Swell (65 ms)
+
+PASS tests/unit/security_sanitization.test.ts
+  Security Sanitization
+    ΓêÜ sanitizeDocxHtml strips dangerous tags (18 ms)
+    ΓêÜ sanitizeDocxHtml handles links correctly (37 ms)
+    ΓêÜ sanitizeDocxHtml allows mailto and tel links (22 ms)
+    ΓêÜ sanitizeDocxHtml allows image data and blob urls (4 ms)
+    ΓêÜ sanitizeDocxHtml handles empty or null input (2 ms)
+
+PASS tests/unit/updaterInstallValidation.test.js
+  updater install-from-file validation
+    ΓêÜ rejects empty path (1 ms)
+    ΓêÜ rejects UNC paths (1 ms)
+    ΓêÜ rejects non-exe extension
+    ΓêÜ accepts .EXE extension case-insensitively (1 ms)
+    ΓêÜ rejects non-file
+    ΓêÜ rejects zero/invalid size (8 ms)
+    ΓêÜ rejects too-large size
+    ΓêÜ accepts valid candidate (1 ms)
+
+PASS tests/unit/example.test.js
+  Example Test Suite
+    ΓêÜ should pass basic test (2 ms)
+    ΓêÜ should perform simple math (1 ms)
+
+PASS tests/unit/activationClockRollback.test.js
+  activation anti-rollback (clock rollback hardening)
+    ΓêÜ accepts valid license when no lastSeen exists (and records lastSeen) (21 ms)
+    ΓêÜ rejects license validation if clock rolled back more than tolerance (1 ms)
+    ΓêÜ allows small backward drift within tolerance (1 ms)
+
+PASS tests/unit/PaymentModal.test.tsx (5.32 s)
+  PaymentModal
+    ΓêÜ does not call markInstallmentPaid when amount is zero (651 ms)
+    ΓêÜ calls markInstallmentPaid with full amount when using ┘â╪º┘à┘ä then confirm (552 ms)
+
+PASS tests/unit/ipcContract.preloadToMain.test.js
+  IPC contract: preload -> main handlers
+    ΓêÜ all ipcRenderer channels used in preload are handled in main process (53 ms)
+
+PASS tests/searchEngineFilters.test.ts
+  SearchEngine.applyFilters (normalized text + numbers)
+    ΓêÜ contains uses strict Arabic normalization (╪ú/╪Ñ/╪ó/┘▒ and ┘ë) (4 ms)
+    ΓêÜ strict mode does not fold ╪⌐/┘ç by default (1 ms)
+    ΓêÜ numeric comparisons accept Arabic/Indic digits (1 ms)
+    ΓêÜ between handles numeric strings robustly
+
+PASS tests/unit/kvInvariants.test.js
+  kv invariants
+    ΓêÜ no-op for other keys (9 ms)
+    ΓêÜ no-op for non-array JSON (1 ms)
+    ΓêÜ defaults ╪¬┘â╪▒╪º╪▒_╪º┘ä╪»┘ü╪╣ to 12 when invalid (1 ms)
+    ΓêÜ keeps value unchanged when already valid (1 ms)
+
+PASS tests/searchNormalize.test.ts
+  searchNormalize (strict/lenient)
+    ΓêÜ strict normalizes alef variants and alif wasla + yaa maksura (3 ms)
+    ΓêÜ strict keeps ╪⌐/┘ç distinct (no over-matching) (1 ms)
+    ΓêÜ lenient folds ╪⌐->┘ç and removes hamza (1 ms)
+    ΓêÜ digits normalization supports Arabic/Persian digits and separators
+
+PASS tests/integration/example.integration.test.ts
+  Integration Tests Example
+    ΓêÜ should handle user interaction flow (1 ms)
+    ΓêÜ should make API calls correctly (1 ms)
+
+PASS tests/unit/absoluteFinalVictory.test.ts (6.057 s)
+  Absolute Final Victory Sweep (Fully Exhaustive)
+    permissions EXHAUSTIVE (172 lines)
+      ΓêÜ covers every role and every action branch (15 ms)
+    arabicNumber EXHAUSTIVE (107 lines)
+      ΓêÜ covers all group labels and group sizes (6 ms)
+    tenancy EXHAUSTIVE (70 lines)
+      ΓêÜ covers all score outcomes and relevance checks (83 ms)
+    whatsapp EXHAUSTIVE (60 lines)
+      ΓêÜ covers all normalization and link build branches (13 ms)
+    Logic Utilities (Coerce, JSON, Unknown, etc.)
+      ΓêÜ covers all branches in minor files (8 ms)
+  Alerts Core Logic - Corrected
+    ΓêÜ createAlert: should deduplicate alerts with the same stableId (13 ms)
+    ΓêÜ markAlertsReadByPrefix: should update bulk read status (79 ms)
+  Domain Queries - Ultimate Victory Sweep (Data Seed)
+    ΓêÜ Sequential Logic Sweep: should call all exported smart functions with data-driven safe-guards (71 ms)
+  Data Validation Service
+    ΓêÜ checkPrimaryKeyDuplicates: should identify rows with same ID in a table (7 ms)
+    ΓêÜ checkForeignKeyIntegrity: should identify missing entity references (51 ms)
+    ΓêÜ checkBusinessLogic: should flag rented properties without active contracts (3 ms)
+    ΓêÜ validateNewPerson: should validate required fields (33 ms)
+  Database Cache Service - Semantic Fix
+    ΓêÜ buildCache: should correctly aggregate dashboard statistics using real field names (7 ms)
+    ΓêÜ buildCache: should handle empty database gracefully (5 ms)
+  db/contracts
+    ΓêÜ getContracts returns empty when none (5 ms)
+    ΓêÜ createContract appends contract and getContracts sees it (17 ms)
+  db/installments payment handlers
+    ΓêÜ markInstallmentPaid marks paid when amount covers balance (31 ms)
+    ΓêÜ markInstallmentPaid sets PARTIAL then PAID on second payment (7 ms)
+    ΓêÜ markInstallmentPaid rejects Employee role (8 ms)
+    ΓêÜ markInstallmentPaid rejects unknown installment id (3 ms)
+    ΓêÜ markInstallmentPaid rejects zero or negative amount (3 ms)
+    ΓêÜ markInstallmentPaid rejects overpayment vs remaining (4 ms)
+    ΓêÜ markInstallmentPaid rejects paying already PAID installment (18 ms)
+    ΓêÜ reversePayment restores unpaid after full payment (SuperAdmin) (5 ms)
+    ΓêÜ reversePayment rejects non-SuperAdmin (4 ms)
+    ΓêÜ reversePayment rejects empty reason (3 ms)
+    ΓêÜ reversePayment rejects when installment unpaid (4 ms)
+    ΓêÜ reversePayment after partial restores UNPAID and full remaining (4 ms)
+    ΓêÜ setInstallmentLateFee records amount and rejects invalid role (21 ms)
+  db/people
+    ΓêÜ getPersonById returns undefined when missing (4 ms)
+    ΓêÜ addPerson then getPersonById returns the record (4 ms)
+    ΓêÜ updatePerson mutates stored person (4 ms)
+    ΓêÜ addPerson rejects invalid payload (4 ms)
+  db/sales
+    ΓêÜ getSalesListings returns seeded rows (3 ms)
+    ΓêÜ createSalesAgreement persists agreement and sets listing Pending (6 ms)
+  Domain Queries Logic - Global Bridge Coverage
+    ΓêÜ domainCountsSmart: should correctly count entities using bridge (6 ms)
+    ΓêÜ propertyContractsSmart: should return items from bridge (31 ms)
+  Dynamic Tables Service
+    ΓêÜ createDynamicTable: should add a new table definition (5 ms)
+    ΓêÜ addDynamicRecord: should store records for a custom table (5 ms)
+  Financial Service - Sales & Recalcs
+    ΓêÜ upsertCommissionForSale: should create sale record and sync legacy fields (5 ms)
+    ΓêÜ updateCommission: should handle various commission types (3 ms)
+  Follow-up Service Logic
+    ΓêÜ addFollowUp: should create a task and automatically add a reminder (5 ms)
+    ΓêÜ completeFollowUp: should mark as Done and sync with reminder (5 ms)
+  installmentsContractsPagedSmart sorting (web/non-desktop parity)
+    ΓêÜ due-asc sorts by most relevant due date (unpaid first, then last paid) (9 ms)
+    ΓêÜ defaults to due-asc when sort is omitted (10 ms)
+    ΓêÜ due-desc sorts by most relevant due date descending (50 ms)
+    ΓêÜ amount-asc / amount-desc sort by annual value (7 ms)
+    ΓêÜ filtering by amount and date (6 ms)
+    ΓêÜ filtering by payment method (5 ms)
+    ΓêÜ tenant-asc / tenant-desc sort by tenant name (4 ms)
+  installmentsUtils
+    getPaidAndRemaining
+      ΓêÜ returns zero remaining when status is PAID (5 ms)
+      ΓêÜ uses ╪º┘ä┘é┘è┘à╪⌐_╪º┘ä┘à╪¬╪¿┘é┘è╪⌐ when set (partial state) (16 ms)
+      ΓêÜ derives from ╪│╪¼┘ä_╪º┘ä╪»┘ü╪╣╪º╪¬ when no reliable ╪º┘ä┘à╪¬╪¿┘é┘è╪⌐ (3 ms)
+      ΓêÜ ignores non-positive entries in ╪│╪¼┘ä_╪º┘ä╪»┘ü╪╣╪º╪¬ for paid sum (5 ms)
+    getLastPositivePaymentAmount
+      ΓêÜ returns null when no payments (4 ms)
+      ΓêÜ returns last positive amount scanning from end (4 ms)
+      ΓêÜ skips trailing reversal (negative) to find previous positive (3 ms)
+    getNextUnpaidDueSummary / formatNextDuePaymentLabel
+      ΓêÜ picks earliest unpaid due date (4 ms)
+      ΓêÜ returns null when all paid (3 ms)
+      ΓêÜ formatNextDuePaymentLabel covers future, today, overdue (4 ms)
+  Logger Service
+    ΓêÜ logOperationInternal: should persist log entries (5 ms)
+    ΓêÜ getSystemLogs: should return all entries (43 ms)
+  Absolute 50% Coverage - Logic Strike
+    English Numerals Polyfill (~220 lines)
+      ΓêÜ exercises the polyfill installation and wrapping logic (15 ms)
+    Permissions System (~170 lines)
+      ΓêÜ exercises the entire RBAC matrix and helper functions (5 ms)
+    Docx Template Logic (~270 lines)
+      ΓêÜ exercises string replacement and placeholder detection (7 ms)
+  Maintenance Service
+    ΓêÜ addMaintenanceTicket: should create a new ticket (5 ms)
+    ΓêÜ updateMaintenanceTicket: should change status and details (54 ms)
+    ΓêÜ deleteMaintenanceTicket: should remove ticket (8 ms)
+  Marquee Service Logic - API Fix
+    ΓêÜ getMarqueeMessages: should return empty list initially (3 ms)
+    ΓêÜ addMarqueeAd: should create an ad that appears in messages (6 ms)
+  Message Templates Service - Fixed IDs
+    ΓêÜ saveTemplate: should override builtin template and resolve it correctly (5 ms)
+    ΓêÜ addCustomTemplate: should create a new template with unique ID (21 ms)
+    ΓêÜ resetTemplate: should remove override and revert to builtin (6 ms)
+  Notification Center Service
+    ΓêÜ add: should add a notification to the list (3 ms)
+    ΓêÜ markAsRead: should remove notif from active list (or mark read) (5 ms)
+    ΓêÜ clear: should empty the center (2 ms)
+  People Service Logic - Arabic Field Fix
+    ΓêÜ addPerson: should create a person when valid Arabic fields are provided (26 ms)
+    ΓêÜ updatePerson: should persist changes in localStorage (5 ms)
+  Properties Service
+    ΓêÜ addProperty: should create a record with PROP- ID (3 ms)
+    ΓêÜ updateProperty: should link IsRented to status if patched (4 ms)
+    ΓêÜ deleteProperty: should block if active contracts exist (4 ms)
+    ΓêÜ getPropertyDetails: should return full aggregate (owner, tenant, contract) (4 ms)
+  Pure Utility Logic Sweep
+    Tenancy Utils
+      ΓêÜ getTenancyStatusScore: should rank statuses correctly (33 ms)
+      ΓêÜ isTenancyRelevant: should filter out archived and inactive contracts (9 ms)
+      ΓêÜ isBetterTenancyContract: should compare contracts by status and date (4 ms)
+      ΓêÜ pickBestTenancyContract: should return the highest ranked contract (3 ms)
+    PersonColor Utils
+      ΓêÜ getPersonSeedFromPerson: should extract seed from person object (4 ms)
+      ΓêÜ getPersonColorClasses: should return color classes bundle (2 ms)
+    DateOnly Utils
+      ΓêÜ toDateOnlyISO: should handle various inputs (3 ms)
+      ΓêÜ todayDateOnlyISO: should return current date in ISO (3 ms)
+      ΓêÜ daysBetweenDateOnlySafe: should calculate distance (20 ms)
+      ΓêÜ compareDateOnlySafe: should return negative/zero/positive (5 ms)
+    ExternalLink Utils (Sanity)
+      ΓêÜ openExternalUrl: should return null/window for invalid/mocked urls (12 ms)
+  Reports Service Logic
+    ΓêÜ runReport: financial_summary: should calculate correct totals (6 ms)
+    ΓêÜ runReport: employee_commissions: should link users and properties correctly (6 ms)
+    ΓêÜ runReport: fallback: should handle unknown IDs gracefully (5 ms)
+  Sales Service Logic - Fixed
+    ΓêÜ addSalesListing: should create a listing and persist it (4 ms)
+    ΓêÜ submitSalesOffer: should record a buyer offer linked to listing (5 ms)
+    ΓêÜ finalizeOwnershipTransfer: should update property owner (7 ms)
+  Sales Agreements Service Logic - DI Fix
+    ΓêÜ addSalesAgreement: should save a new agreement (7 ms)
+    ΓêÜ updateSalesAgreement: should persist changes (5 ms)
+  System Chores Logic - Fixed
+    ΓêÜ Followups: completeFollowUp should mark task as Done (4 ms)
+    ΓêÜ NotificationCenter: should add a notification to the list (6 ms)
+    ΓêÜ NotificationCenter: should prevent adding duplicate items by ID (3 ms)
+    ΓêÜ NotificationCenter: should accurately report counts (unread, urgent) (5 ms)
+    ΓêÜ NotificationCenter: should support marking single item and all items as read (5 ms)
+    ΓêÜ NotificationCenter: should handle subscriptions and fire listeners (12 ms)
+    ΓêÜ NotificationCenter: should handle corrupt storage gracefully (invalid JSON) (16 ms)
+    ΓêÜ NotificationCenter: should handle unexpected storage format (non-array, malformed objects) (17 ms)
+    ΓêÜ NotificationCenter: should isolate listener failures (6 ms)
+  Utility Functions - Format
+    ΓêÜ formatCurrencyJOD: should format amount as JOD (3 ms)
+    ΓêÜ formatNumber: should format with thousands separator (4 ms)
+    ΓêÜ formatDateYMD: should format date as YYYY-MM-DD (2 ms)
+  Utility Functions - Tenancy
+    ΓêÜ isTenancyRelevant: should return true for active/renewed contracts (4 ms)
+  Absolute 50% Coverage Victory Sweep (The Utility 36)
+    ΓêÜ has successfully imported and initiated all 36 utility files (3 ms)
+  WhatsApp Utils
+    normalizeWhatsAppPhone
+      ΓêÜ strips international 00 prefix by default (5 ms)
+      ΓêÜ prepends default country code to local numbers (leading 0) (14 ms)
+      ΓêÜ correctly handles Jordan mobile format starts with 7 (9 digits) (53 ms)
+      ΓêÜ returns empty string for invalid input (3 ms)
+    buildWhatsAppLink
+      ΓêÜ generates a web link by default (6 ms)
+      ΓêÜ generates a desktop deep link if target is desktop (7 ms)
+    collectWhatsAppPhones
+      ΓêÜ uniquifies and filters phones (4 ms)
+    buildWhatsAppLinks
+      ΓêÜ generates multiple links for a list of phones (6 ms)
+  Final Victory Sweep - Milestone 50 (Pushing Deep Coverage)
+    Financial Service Deep Sweep
+      ΓêÜ upsertCommissionForContract: creates new and updates existing (7 ms)
+      ΓêÜ upsertCommissionForSale: handles complex sale commission mapping (27 ms)
+      ΓêÜ getFinancialAlerts: filters unread financial alerts (3 ms)
+    Maintenance Service Deep Sweep
+      ΓêÜ manages ticket lifecycle: assign, update status, cost tracking (7 ms)
+      ΓêÜ manages maintenance ticket lifecycle (7 ms)
+    Reporting Service Deep Sweep
+      ΓêÜ executes various report types without crashing (5 ms)
+    Contract & Property Service Deep Sweep
+      ΓêÜ manages property lifecycle: create, update, delete (6 ms)
+      ΓêÜ creates contracts and generates installments (9 ms)
+    System Domains: Users, Marquee, Lookups
+      ΓêÜ Users: exercises permissions and role updates (6 ms)
+      ΓêÜ Marquee: exercises ad management (28 ms)
+      ΓêÜ Lookups: exercises category and item CRUD (6 ms)
+    Referential Integrity & Activities Overdrive
+      ΓêÜ exercises addActivity and lookup categories (8 ms)
+    Background Scans & Scheduler Sweep
+      ΓêÜ exercises periodic scans for data quality, expiry, and RISK (18 ms)
+    Financial Alerts Deep Strike
+      ΓêÜ exercises alert generation for contracts and payments (6 ms)
+    External Commissions & Word Templates Sweep
+      ΓêÜ exercises legacy/external logic blocks (4 ms)
+    Sales Agreements & Offers Exhaustive Sweep
+      ΓêÜ exercises offer status and history lookups (7 ms)
+      ΓêÜ exercises deleteSalesOffer and addListing edge cases (11 ms)
+    Word Templates & Document Generation Exhaustive
+      ΓêÜ manages word templates lifecycle (6 ms)
+    Contract Renewal & Termination Sweep
+      ΓêÜ exercises contract termination and deletion branches (16 ms)
+    People & Blacklist Exhaustive Sweep
+      ΓêÜ manages people lifecycle: rating, blacklist, and details (14 ms)
+      ΓêÜ exercises contacts book and auto-link logic (9 ms)
+
+PASS tests/unit/coverageSeventy.test.tsx (6.225 s)
+  Coverage Strike - 70% Final Push
+    Storage & UI Notifications
+      ΓêÜ exercises async storage methods in Web Mode (7 ms)
+      ΓêÜ triggers UI change events for special keys (2 ms)
+    Legal Service Operations
+      ΓêÜ manages legal templates (13 ms)
+      ΓêÜ generates legal notices with replacements (17 ms)
+    Background Scans Logic
+      ΓêÜ exercises all scan types (23 ms)
+      ΓêÜ exercises interval-based logic manually (4 ms)
+    Contract Write Operations
+      ΓêÜ creates, updates, and renews contracts (38 ms)
+      ΓêÜ fails on invalid contract data (3 ms)
+    Maintenance Ticket Strike
+      ΓêÜ manages maintenance lifecycle (6 ms)
+    Docx & Xlsx Utilities
+      ΓêÜ exercises docx placeholders and masking (22 ms)
+      ΓêÜ exercises xlsx and csv parsing (3 ms)
+    Domain Queries High-Level Sweep
+      ΓêÜ exercises domainCounts and dashboardSummary (6 ms)
+      ΓêÜ exercises payment notification targets (4 ms)
+    Reporting Service Strike
+      ΓêÜ runs financial and employee reports with complex scenarios (27 ms)
+      ΓêÜ returns available reports (1 ms)
+    Excel Export Strike
+      ΓêÜ exercises all export functions (mocked saveAs) (15 ms)
+    DbCache & Indexing
+      ΓêÜ maintains dashboard stats consistency (1 ms)
+    Sales UI Components - React Render
+      ΓêÜ renders SalesListingsTab and handles filters (59 ms)
+    Data Validation Hardening
+      ΓêÜ validates new person data (2 ms)
+    SearchEngine Strike
+      ΓêÜ applies complex filters to data (4 ms)
+    Smart Services & Notifications
+      ΓêÜ exercises SmartEngine tracking and prediction (37 ms)
+      ΓêÜ exercises notificationService (2 ms)
+      ΓêÜ exercises WhatsAppAutoSender (2 ms)
+      ΓêÜ exercises SmartEngineBridge (1 ms)
+    MockDb Orchestrator Strike
+      ΓêÜ exercises various re-exported handlers (3 ms)
+      ΓêÜ handles scheduler safely (2 ms)
+
+
+=============================== Coverage summary ===============================
+Statements   : 56.95% ( 3964/6960 )
+Branches     : 42.95% ( 2245/5227 )
+Functions    : 55.4% ( 712/1285 )
+Lines        : 60.36% ( 3573/5919 )
+================================================================================
+Test Suites: 14 passed, 14 total
+Tests:       224 passed, 224 total
+Snapshots:   0 total
+Time:        9.679 s
+Ran all test suites.

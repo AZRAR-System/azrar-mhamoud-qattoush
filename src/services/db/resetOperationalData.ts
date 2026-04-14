@@ -52,9 +52,9 @@ export function resetOperationalData() {
 
   buildCache();
 
-  console.warn('✅ تم مسح كامل البيانات التجريبية');
-  console.warn('📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates');
-  console.warn('🗑️  البيانات المحذوفة: ' + RESET_KEYS.length + ' جداول');
+  // console.warn('✅ تم مسح كامل البيانات التجريبية');
+  // console.warn('📊 البيانات المحفوظة: Users, UserPermissions, Lookups, Templates');
+  // console.warn('🗑️  البيانات المحذوفة: ' + RESET_KEYS.length + ' جداول');
 
   return {
     success: true,

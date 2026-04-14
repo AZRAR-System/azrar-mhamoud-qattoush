@@ -1,4 +1,4 @@
-﻿/**
+/**
  * © 2025 - Developed by Mahmoud Qattoush
  * Audio Service - Professional Sound System
  */
@@ -116,7 +116,7 @@ class AudioService {
         osc.frequency.exponentialRampToValueAtTime(soundSettings.frequency * 0.5, now + duration);
       }
     } catch (error) {
-      console.warn('Audio playback failed:', error);
+      // console.warn('Audio playback failed:', error);
     }
   }
 

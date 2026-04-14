@@ -13,7 +13,7 @@ const hasUnknownProp = <K extends string>(
 ): obj is Record<string, unknown> & Record<K, unknown> =>
   Object.prototype.hasOwnProperty.call(obj, key);
 
-const toExcelCellValue = (v: unknown): ExcelJS.CellValue => {
+export const toExcelCellValue = (v: unknown): ExcelJS.CellValue => {
   if (v === null || v === undefined) return '';
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v;
   if (v instanceof Date) return v;
@@ -30,7 +30,7 @@ const toExcelCellValue = (v: unknown): ExcelJS.CellValue => {
   return String(v);
 };
 
-const toCellString = (v: unknown): string => {
+export const toCellString = (v: unknown): string => {
   if (v === null || v === undefined) return '';
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);

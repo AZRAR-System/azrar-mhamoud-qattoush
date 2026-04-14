@@ -22,6 +22,19 @@ import * as Queries from '@/services/domainQueries';
 const { installmentsContractsPagedSmart } = Queries;
 
 describe('Absolute Final Victory Sweep (Fully Exhaustive)', () => {
+  let originalDesktopDb: any;
+
+  beforeAll(() => {
+    // Force web mode for this file to test in-memory DbService logic exhaustion
+    originalDesktopDb = (window as any).desktopDb;
+    delete (window as any).desktopDb;
+  });
+
+  afterAll(() => {
+    (window as any).desktopDb = originalDesktopDb;
+  });
+
+
 
 
   describe('permissions EXHAUSTIVE (172 lines)', () => {

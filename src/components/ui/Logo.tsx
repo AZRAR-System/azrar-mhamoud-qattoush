@@ -1,5 +1,7 @@
 import React from 'react';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '../../hooks/useTheme';
+import logoLight from '@/assets/logo/icon 1.png';
+import logoDark from '@/assets/logo/icon 1.png';
 
 interface LogoProps {
     className?: string;
@@ -9,7 +11,7 @@ interface LogoProps {
 export const Logo: React.FC<LogoProps> = ({ className = '', size = 144 }) => {
     const { isDark } = useTheme();
 
-    const logoSrc = isDark ? '/src/assets/logo/logo-light.png' : '/src/assets/logo/logo-dark.png';
+    const logoSrc = isDark ? logoLight : logoDark;
 
     return (
         <img
