@@ -140,7 +140,20 @@ export async function readXlsxFile(file: File): Promise<Array<Record<string, str
 }
 
 export async function readCsvFile(file: File): Promise<Array<Record<string, string>>> {
-  const text = await file.text();
+  const buffer = await file.arrayBuffer();
+  let text = '';
+  
+  try {
+    // Try UTF-8 first with fatal error checking
+    const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+    text = utf8Decoder.decode(buffer);
+  } catch (err) {
+    // Fallback to Windows-1256 (Arabic Windows) if UTF-8 fails
+    console.warn('UTF-8 decoding failed, falling back to windows-1256 for Arabic support');
+    const win1256Decoder = new TextDecoder('windows-1256');
+    text = win1256Decoder.decode(buffer);
+  }
+
   const lines = text
     .replace(/^\uFEFF/, '')
     .split(/\r?\n/)

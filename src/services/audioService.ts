@@ -47,9 +47,13 @@ class AudioService {
   }
 
   private loadConfig() {
-    const saved = localStorage.getItem('audioConfig');
-    if (saved) {
-      this.config = JSON.parse(saved);
+    try {
+      const saved = localStorage.getItem('audioConfig');
+      if (saved) {
+        this.config = JSON.parse(saved);
+      }
+    } catch (error) {
+       console.warn('Audio config load failed, using defaults:', error);
     }
   }
 

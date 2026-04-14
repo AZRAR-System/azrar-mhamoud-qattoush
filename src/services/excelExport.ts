@@ -4,7 +4,9 @@
 
 import * as XLSX from 'xlsx';
 import * as fileSaver from 'file-saver';
-const saveAs = (fileSaver as any).saveAs || fileSaver;
+// Safely cast fileSaver to handle both CommonJS and ESM environments without using 'any'
+const fileSaverAny = fileSaver as unknown as { saveAs?: typeof fileSaver.saveAs };
+const saveAs = fileSaverAny.saveAs || fileSaver.saveAs;
 import { formatDateYMD, formatCurrencyJOD } from '@/utils/format';
 import { getPeople } from '@/services/db/people';
 import { getContracts } from '@/services/db/contracts';

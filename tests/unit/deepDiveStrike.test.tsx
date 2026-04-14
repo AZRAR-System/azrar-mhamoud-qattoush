@@ -136,7 +136,7 @@ describe('Deep Dive Strike - Final Push to 70%', () => {
             render(<AllProviders>
                 <ContractFormPanel id="new" />
                 <PropertyFormPanel id="new" />
-                <ClearanceReportPanel contractId="C1" />
+                <ClearanceReportPanel id="C1" />
             </AllProviders>);
         });
         

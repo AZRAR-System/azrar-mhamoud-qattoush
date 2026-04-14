@@ -164,7 +164,7 @@ describe('Corrected Targeted Logic Sweep V8 - Core Services & Branching', () => 
     followups.getAllFollowUps();
     reminders.getReminders();
     inspections.getPropertyInspections('PR-1');
-    activities.getActivities();
+    activities.getActivities('P-1', 'person');
     notes.getNotes();
     maintenance.getMaintenanceTickets();
   });

@@ -176,11 +176,26 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
     const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
     const norm = (v: unknown) => String(v ?? '').trim();
 
+    // O(1) Lookup Maps
+    const peopleMap = new Map<string, الأشخاص_tbl>();
+    for (const p of people) peopleMap.set(p.رقم_الشخص, p);
+
+    const propertiesMap = new Map<string, العقارات_tbl>();
+    for (const p of properties) propertiesMap.set(p.رقم_العقار, p);
+
+    const installmentsByContract = new Map<string, الكمبيالات_tbl[]>();
+    for (const inst of installments) {
+      const cId = inst.رقم_العقد;
+      if (!installmentsByContract.has(cId)) installmentsByContract.set(cId, []);
+      installmentsByContract.get(cId)!.push(inst);
+    }
+
     for (const contract of contracts) {
-      const tenant = people.find((p) => p.رقم_الشخص === contract.رقم_المستاجر);
-      const property = properties.find((p) => p.رقم_العقار === contract.رقم_العقار);
-      const contractInstallmentsAll = installments
-        .filter((i) => i.رقم_العقد === contract.رقم_العقد)
+      const tenant = peopleMap.get(contract.رقم_المستاجر);
+      const property = propertiesMap.get(contract.رقم_العقار);
+      const allInst = installmentsByContract.get(contract.رقم_العقد) || [];
+
+      const contractInstallmentsAll = allInst
         .filter((i) => i.نوع_الكمبيالة !== 'تأمين')
         .filter((i) => asUnknownRecord(i)['isArchived'] !== true)
         .filter((i) => norm(i.حالة_الكمبيالة) !== INSTALLMENT_STATUS.CANCELLED);
@@ -200,6 +215,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           ...getInstallmentPaidAndRemaining(i),
         }))
         .filter((x) => x.status === INSTALLMENT_STATUS.PAID || x.remaining <= 0);
+
       for (const p of nowPaid) {
         markAlertsReadByPrefix(`ALR-FIN-REM7-${p.inst.رقم_الكمبيالة}`);
         markAlertsReadByPrefix(`ALR-FIN-PAY-${p.inst.رقم_الكمبيالة}`);
@@ -491,17 +507,33 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
     const properties = get<العقارات_tbl>(KEYS.PROPERTIES);
     const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
     const blacklist = get<BlacklistRecord>(KEYS.BLACKLIST).filter((b) => b.isActive);
-    const blacklistByPerson = new Map<string, BlacklistRecord>();
-    for (const b of blacklist) blacklistByPerson.set(String(b.personId), b);
+    
+    // O(1) Lookup Maps
+    const peopleMap = new Map<string, الأشخاص_tbl>();
+    for (const p of people) peopleMap.set(p.رقم_الشخص, p);
+
+    const propertiesMap = new Map<string, العقارات_tbl>();
+    for (const p of properties) propertiesMap.set(p.رقم_العقار, p);
+
+    const blacklistMap = new Map<string, BlacklistRecord>();
+    for (const b of blacklist) blacklistMap.set(String(b.personId), b);
+
+    const installmentsByContract = new Map<string, الكمبيالات_tbl[]>();
+    for (const inst of installments) {
+      const cId = String(inst.رقم_العقد);
+      if (!installmentsByContract.has(cId)) installmentsByContract.set(cId, []);
+      installmentsByContract.get(cId)!.push(inst);
+    }
 
     const norm = (v: unknown) => String(v ?? '').trim();
     const alive = new Set<string>();
 
     for (const c of contracts) {
       const tenantId = String(asUnknownRecord(c)['رقم_المستاجر'] ?? '').trim();
-      const tenant = tenantId ? people.find((p) => String(p.رقم_الشخص) === tenantId) : undefined;
+      const tenant = tenantId ? peopleMap.get(tenantId) : undefined;
       const propertyId = String(asUnknownRecord(c)['رقم_العقار'] ?? '').trim();
-      const property = properties.find((p) => String(p.رقم_العقار) === propertyId);
+      const property = propertyId ? propertiesMap.get(propertyId) : undefined;
+      
       const ctx = {
         tenantName: tenant?.الاسم,
         phone: tenant?.رقم_الهاتف,
@@ -510,7 +542,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
         مرجع_المعرف: c.رقم_العقد,
       } as Partial<tbl_Alerts>;
 
-      const bl = tenantId ? blacklistByPerson.get(tenantId) : undefined;
+      const bl = tenantId ? blacklistMap.get(tenantId) : undefined;
       if (bl) {
         const id = `ALR-RISK-BL-${c.رقم_العقد}`;
         alive.add(id);
@@ -527,8 +559,9 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
       }
 
       const overdueThresholdDays = 14;
-      const contractInstallments = installments
-        .filter((i) => String(i.رقم_العقد) === String(c.رقم_العقد))
+      const allInst = installmentsByContract.get(String(c.رقم_العقد)) || [];
+
+      const contractInstallments = allInst
         .filter((i) => i.نوع_الكمبيالة !== 'تأمين')
         .filter((i) => asUnknownRecord(i)['isArchived'] !== true)
         .filter((i) => norm(i.حالة_الكمبيالة) !== INSTALLMENT_STATUS.CANCELLED);
