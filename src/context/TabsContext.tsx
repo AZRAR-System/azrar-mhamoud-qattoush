@@ -63,17 +63,39 @@ export const TabsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const openTab = useCallback((path: string, title: string, icon: string) => {
     setState((prev) => {
-      // Check if already open
-      const existing = prev.tabs.find((t) => t.path === path);
-      if (existing) {
-        return { ...prev, activeTabId: existing.id };
+      // 1. If page is already open, just switch to it
+      const existingIdx = prev.tabs.findIndex((t) => t.path === path);
+      if (existingIdx !== -1) {
+        return { ...prev, activeTabId: prev.tabs[existingIdx].id };
       }
 
-      // Check limit
-      if (prev.tabs.length >= MAX_TABS) {
-        // Find first unpinned tab to replace, or just don't open
-        return prev;
+      // 2. Look for a "preview" tab (the active tab if unpinned OR the first unpinned one)
+      // We prioritize replacing the active tab if it's unpinned and not being modified
+      const activeTab = prev.tabs.find(t => t.id === prev.activeTabId);
+      const canReplaceActive = activeTab && !activeTab.isPinned && !activeTab.isModified;
+      
+      const replaceIdx = canReplaceActive 
+        ? prev.tabs.findIndex(t => t.id === prev.activeTabId)
+        : prev.tabs.findIndex(t => !t.isPinned && !t.isModified);
+
+      if (replaceIdx !== -1) {
+        const newTabs = [...prev.tabs];
+        newTabs[replaceIdx] = {
+          ...newTabs[replaceIdx],
+          path,
+          title,
+          icon,
+          isPinned: false,
+        };
+        return {
+          ...prev,
+          tabs: newTabs,
+          activeTabId: newTabs[replaceIdx].id,
+        };
       }
+
+      // 3. Otherwise, create a new tab if within limits
+      if (prev.tabs.length >= MAX_TABS) return prev;
 
       const newTab: Tab = {
         id: Math.random().toString(36).substr(2, 9),
@@ -93,20 +115,24 @@ export const TabsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const closeTab = useCallback((id: string) => {
     setState((prev) => {
-      // Don't close home/pinned if it's the only one
-      if (id === 'home' || prev.tabs.find(t => t.id === id)?.isPinned) return prev;
+      const targetTab = prev.tabs.find(t => t.id === id);
+      if (!targetTab || targetTab.isPinned) return prev;
       
-      const newTabs = prev.tabs.filter((t) => t.id !== id);
-      let newActiveId = prev.activeTabId;
+      const filteredTabs = prev.tabs.filter((t) => t.id !== id);
 
+      // If no tabs left, reset to default home (but honor system choice)
+      if (filteredTabs.length === 0) {
+        return { tabs: DEFAULT_TABS, activeTabId: 'home' };
+      }
+
+      let newActiveId = prev.activeTabId;
       if (prev.activeTabId === id) {
-        // Switch to adjacent tab
         const idx = prev.tabs.findIndex((t) => t.id === id);
-        newActiveId = newTabs[Math.max(0, idx - 1)].id;
+        newActiveId = filteredTabs[Math.max(0, idx - 1)].id;
       }
 
       return {
-        tabs: newTabs,
+        tabs: filteredTabs,
         activeTabId: newActiveId,
       };
     });

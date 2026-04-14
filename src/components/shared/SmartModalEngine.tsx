@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useSmartModal, type PanelType } from '@/context/ModalContext';
-import { ChevronDown, ChevronUp, Loader2, ServerCog, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, ServerCog, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 
@@ -195,7 +195,7 @@ const PANEL_TITLES: Partial<Record<PanelType, string>> = {
 };
 
 export const SmartModalEngine: React.FC = () => {
-  const { activePanels, closePanel } = useSmartModal();
+  const { activePanels, closePanel, drawerHistory, historyIndex, navigateBack, navigateForward } = useSmartModal();
   const [minimized, setMinimized] = React.useState<Record<string, boolean>>({});
 
   const shouldLockScroll = React.useMemo(() => {
@@ -532,6 +532,28 @@ export const SmartModalEngine: React.FC = () => {
                   >
                     <X size={20} />
                   </button>
+
+                  <div className="flex items-center gap-1.5 px-1.5 border-r border-slate-200 dark:border-slate-700 ml-2">
+                    <button
+                      type="button"
+                      onClick={navigateBack}
+                      disabled={historyIndex <= 0}
+                      className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all disabled:opacity-20 disabled:pointer-events-none"
+                      title="رجوع"
+                    >
+                      <ArrowRight size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={navigateForward}
+                      disabled={historyIndex >= drawerHistory.length - 1}
+                      className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all disabled:opacity-20 disabled:pointer-events-none"
+                      title="أمام"
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+                  </div>
+
                   <h2
                     id={titleId}
                     className="min-w-0 flex-1 text-base font-black leading-snug text-slate-800 dark:text-white sm:text-lg"

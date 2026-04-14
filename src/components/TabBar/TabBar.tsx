@@ -96,7 +96,7 @@ export const TabBar: React.FC = () => {
                                     <Pin size={12} className={tab.isPinned ? 'fill-current' : ''} />
                                 </button>
                                 
-                                {(!tab.isPinned && tab.id !== 'home') && (
+                                {!tab.isPinned && (
                                     <button
                                         onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
                                         className={`p-1 rounded-lg transition-colors ${isActive ? 'hover:bg-white/20' : 'hover:bg-red-500/20 hover:text-red-400'}`}
@@ -106,7 +106,7 @@ export const TabBar: React.FC = () => {
                                 )}
                             </div>
 
-                            {tab.isPinned && !tab.id.includes('home') && (
+                            {tab.isPinned && (
                                 <div className="absolute -top-1 -left-1">
                                     <Pin size={10} className="text-indigo-400 fill-current" />
                                 </div>
