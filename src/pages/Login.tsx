@@ -18,7 +18,6 @@ import {
   ServerCog,
   Sparkles,
   KeyRound,
-  Wrench,
   LifeBuoy,
 } from 'lucide-react';
 import { storage } from '@/services/storage';

@@ -475,7 +475,7 @@ const Header = memo(({
   );
 });
 
-export const Layout = ({ children }: { children: ReactNode }) => {
+export const Layout = ({ _children }: { _children: ReactNode }) => {
   type SqlStatus = {
     configured: boolean;
     enabled: boolean;

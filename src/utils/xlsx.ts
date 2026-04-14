@@ -147,7 +147,7 @@ export async function readCsvFile(file: File): Promise<Array<Record<string, stri
     // Try UTF-8 first with fatal error checking
     const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
     text = utf8Decoder.decode(buffer);
-  } catch (err) {
+  } catch (_err) {
     // Fallback to Windows-1256 (Arabic Windows) if UTF-8 fails
     console.warn('UTF-8 decoding failed, falling back to windows-1256 for Arabic support');
     const win1256Decoder = new TextDecoder('windows-1256');

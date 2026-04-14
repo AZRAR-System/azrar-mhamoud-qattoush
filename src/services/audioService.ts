@@ -119,7 +119,7 @@ class AudioService {
         osc.frequency.setValueAtTime(soundSettings.frequency, now);
         osc.frequency.exponentialRampToValueAtTime(soundSettings.frequency * 0.5, now + duration);
       }
-    } catch (error) {
+    } catch (_error) {
       // console.warn('Audio playback failed:', error);
     }
   }

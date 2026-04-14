@@ -187,7 +187,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
     for (const inst of installments) {
       const cId = inst.رقم_العقد;
       if (!installmentsByContract.has(cId)) installmentsByContract.set(cId, []);
-      installmentsByContract.get(cId)!.push(inst);
+      installmentsByContract.get(cId)?.push(inst);
     }
 
     for (const contract of contracts) {
@@ -522,7 +522,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
     for (const inst of installments) {
       const cId = String(inst.رقم_العقد);
       if (!installmentsByContract.has(cId)) installmentsByContract.set(cId, []);
-      installmentsByContract.get(cId)!.push(inst);
+      installmentsByContract.get(cId)?.push(inst);
     }
 
     const norm = (v: unknown) => String(v ?? '').trim();
