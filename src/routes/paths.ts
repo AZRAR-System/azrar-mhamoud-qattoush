@@ -5,6 +5,7 @@ export const ROUTE_PATHS = {
   // Auth
   LOGIN: '/login',
   LOGOUT: '/logout',
+  WELCOME: '/welcome',
 
   // Activation / licensing
   ACTIVATION: '/activation',

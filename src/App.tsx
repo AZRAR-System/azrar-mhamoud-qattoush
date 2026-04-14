@@ -109,6 +109,10 @@ const SystemSetup = React.lazy(() =>
   import('./pages/SystemSetup').then((module) => ({ default: module.SystemSetup }))
 );
 
+const Welcome = React.lazy(() =>
+  import('./pages/Welcome').then((module) => ({ default: module.Welcome }))
+);
+
 // Loading Fallback
 const PageLoader = () => (
   <div className="flex h-full w-full items-center justify-center min-h-[400px]">
@@ -393,6 +397,7 @@ const AppRoutes: React.FC = () => {
 
         {/* Protected */}
         <Route element={<RequireAuth />}>
+          <Route path={ROUTE_PATHS.WELCOME} element={<Welcome />} />
           <Route element={<LayoutRoute />}>
             <Route index element={<Dashboard />} />
 
