@@ -37,7 +37,7 @@ import {
 } from '@/components/contracts/contractsConstants';
 import type { ContractsAdvFiltersState } from '@/components/contracts/contractsTypes';
 
-export function useContracts() {
+export function useContracts(isVisible = true) {
   const { t } = useTranslation();
   const pageSize = CONTRACTS_PAGE_SIZE;
 
@@ -108,6 +108,8 @@ export function useContracts() {
   const { openPanel } = useSmartModal();
   const toast = useToast();
   const dbSignal = useDbSignal();
+  const isStaleRef = useRef(false);
+  const fastStaleRef = useRef(false);
   const toastRef = useRef(toast);
 
   useEffect(() => {
@@ -239,12 +241,28 @@ export function useContracts() {
   }, [isDesktopFast]);
 
   useEffect(() => {
-    loadData();
-  }, [dbSignal, loadData]);
+    if (isVisible) {
+      if (isStaleRef.current) {
+        isStaleRef.current = false;
+        loadData();
+      } else {
+        loadData();
+      }
+    } else {
+      // background
+    }
+  }, [isVisible, dbSignal, loadData]);
+
+  useEffect(() => {
+    if (!isVisible && dbSignal) {
+      isStaleRef.current = true;
+      fastStaleRef.current = true;
+    }
+  }, [isVisible, dbSignal]);
 
   // Desktop counts for DataGuard
   useEffect(() => {
-    if (!isDesktopFast) return;
+    if (!isDesktopFast || !isVisible) return;
     let alive = true;
     const run = async () => {
       const c = await domainCountsSmart();
@@ -259,7 +277,7 @@ export function useContracts() {
 
   // Desktop paged rows (status tab + search)
   useEffect(() => {
-    if (!isDesktopFast) return;
+    if (!isDesktopFast || !isVisible) return;
     let alive = true;
     setFastLoading(true);
     setFastError('');

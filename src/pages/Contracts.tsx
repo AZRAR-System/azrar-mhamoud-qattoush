@@ -26,8 +26,10 @@
 import type { FC } from 'react';
 import { useContracts } from '@/hooks/useContracts';
 import { ContractsPageView } from '@/components/contracts/ContractsPageView';
+import { usePageVisibility } from '@/context/PageVisibilityContext';
 
 export const Contracts: FC = () => {
-  const page = useContracts();
+  const { isVisible } = usePageVisibility();
+  const page = useContracts(isVisible);
   return <ContractsPageView page={page} />;
 };

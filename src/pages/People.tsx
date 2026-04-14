@@ -25,8 +25,10 @@
 import type { FC } from 'react';
 import { usePeople } from '@/hooks/usePeople';
 import { PeoplePageView } from '@/components/people/PeoplePageView';
+import { usePageVisibility } from '@/context/PageVisibilityContext';
 
 export const People: FC = () => {
-  const page = usePeople();
+  const { isVisible } = usePageVisibility();
+  const page = usePeople(isVisible);
   return <PeoplePageView page={page} />;
 };

@@ -169,7 +169,7 @@ export function useInstallments() {
     }
   });
 
-  const saveCurrentFilter = (name: string) => {
+  const saveCurrentFilter = useCallback((name: string) => {
     if (!name.trim()) return;
     const newFavs = [
       ...favoriteFilters,
@@ -189,9 +189,9 @@ export function useInstallments() {
     setFavoriteFilters(newFavs);
     localStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
     toast.success('تم حفظ الفلتر في المفضلة');
-  };
+  }, [favoriteFilters, filter, search, filterStartDate, filterEndDate, filterMinAmount, filterMaxAmount, filterPaymentMethod, toast]);
 
-  const applyFavFilter = (fav: { filters: Record<string, unknown>; name: string }) => {
+  const applyFavFilter = useCallback((fav: { filters: Record<string, unknown>; name: string }) => {
     const f = fav.filters;
     setFilter((f.filter as 'all' | 'debt' | 'paid' | 'due') || 'all');
     setSearch((f.search as string) || '');
@@ -201,13 +201,13 @@ export function useInstallments() {
     setFilterMaxAmount((f.filterMaxAmount as number | '') || '');
     setFilterPaymentMethod((f.filterPaymentMethod as string) || 'all');
     toast.info(`تم تطبيق الفلتر: ${fav.name}`);
-  };
+  }, [toast]);
 
-  const deleteFavFilter = (name: string) => {
+  const deleteFavFilter = useCallback((name: string) => {
     const newFavs = favoriteFilters.filter((f) => f.name !== name);
     setFavoriteFilters(newFavs);
     localStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
-  };
+  }, [favoriteFilters]);
 
   const [selectedInstallment, setSelectedInstallment] = useState<الكمبيالات_tbl | null>(null);
 
@@ -501,7 +501,7 @@ export function useInstallments() {
   };
 
   // Handle Full Payment - Direct without modal
-  const handleFullPayment = async (installment: الكمبيالات_tbl) => {
+  const handleFullPayment = useCallback(async (installment: الكمبيالات_tbl) => {
     const tenantNameForDialog = await resolveTenantNameForInstallment(installment);
 
     // Calculate amount to pay (use remaining if partial, else full)
@@ -533,15 +533,13 @@ export function useInstallments() {
         loadData();
       },
     });
-  };
+  }, [userId, userRole, toast, loadData, resolveTenantNameForInstallment]);
 
-  // Handle Partial Payment - Open modal to input amount
-  const handlePartialPayment = (installment: الكمبيالات_tbl) => {
+  const handlePartialPayment = useCallback((installment: الكمبيالات_tbl) => {
     setSelectedInstallment(installment);
-  };
+  }, []);
 
-  // Handle Reverse Payment - Undo payment if clicked by mistake
-  const handleReversePayment = async (installment: الكمبيالات_tbl) => {
+  const handleReversePayment = useCallback(async (installment: الكمبيالات_tbl) => {
     // ✅ استخدام نظام الصلاحيات - INSTALLMENT_REVERSE
     if (!can(userRole, 'INSTALLMENT_REVERSE')) {
       toast.error(`غير مصرح لك بعكس السداد. فقط ذوي الصلاحية المناسبة يمكنهم إجراء هذا الإجراء.`);
@@ -581,9 +579,9 @@ export function useInstallments() {
         loadData();
       },
     });
-  };
+  }, [userRole, toast, userId, loadData, resolveTenantNameForInstallment]);
 
-  const handlePay = (id: string) => {
+  const handlePay = useCallback((id: string) => {
     if (isDesktopFast) {
       for (const row of desktopRows) {
         const list = Array.isArray(row?.installments) ? row.installments : [];
@@ -598,7 +596,7 @@ export function useInstallments() {
 
     const inst = installments.find((i) => i.رقم_الكمبيالة === id);
     if (inst) setSelectedInstallment(inst);
-  };
+  }, [isDesktopFast, desktopRows, installments]);
 
   // Group Data Structure
   const groupedData = useMemo(() => {

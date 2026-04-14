@@ -19,7 +19,7 @@ import { domainCountsSmart, peoplePickerSearchPagedSmart } from '@/services/doma
 import { PEOPLE_FAST_PAGE_SIZE, PEOPLE_PAGE_SIZE } from '@/components/people/peopleConstants';
 import type { DesktopDbPeopleBridge } from '@/components/people/peopleTypes';
 
-export function usePeople() {
+export function usePeople(isVisible = true) {
   const { t } = useTranslation();
   const pageSize = PEOPLE_PAGE_SIZE;
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
@@ -97,7 +97,7 @@ export function usePeople() {
   const importRef = useRef<HTMLInputElement | null>(null);
 
   const isArabicText = (text: string) => /[\u0600-\u06FF]/.test(text);
-  const tr = (text: string) => (isArabicText(text) ? t(text) : text);
+  const tr = useCallback((text: string) => (isArabicText(text) ? t(text) : text), [t]);
 
   const hasMessage = (value: unknown): value is { message: string } => {
     if (typeof value !== 'object' || value === null) return false;
@@ -117,6 +117,7 @@ export function usePeople() {
   }, []);
 
   const dbSignal = useDbSignal();
+  const isStaleRef = useRef(false);
 
   useEffect(() => {
     writeSessionFilterJson('people', {
@@ -247,8 +248,23 @@ export function usePeople() {
   }, [isDesktopFast, desktopUnsupported, t, toast]);
 
   useEffect(() => {
-    void loadData();
-  }, [dbSignal, loadData]);
+    if (isVisible) {
+      if (isStaleRef.current) {
+        isStaleRef.current = false;
+        void loadData();
+      } else {
+        void loadData();
+      }
+    } else {
+      // Background dbSignal marks as stale
+    }
+  }, [isVisible, dbSignal, loadData]);
+
+  useEffect(() => {
+    if (!isVisible && dbSignal) {
+      isStaleRef.current = true;
+    }
+  }, [isVisible, dbSignal]);
 
   const getRoles = (id: string) => DbService.getPersonRoles(id);
 
@@ -321,20 +337,20 @@ export function usePeople() {
 
   const isActiveContract = (c: العقود_tbl) => isTenancyRelevant(c);
 
-  const handleOpenForm = (id?: string) => {
+  const handleOpenForm = useCallback((id?: string) => {
     openPanel('PERSON_FORM', id || 'new', {
       onSuccess: () => setTimeout(() => void loadData(), 500),
     });
-  };
+  }, [openPanel, loadData]);
 
-  const handleOpenCompanyForm = () => {
+  const handleOpenCompanyForm = useCallback(() => {
     openPanel('PERSON_FORM', 'new', {
       initialType: 'منشأة',
       onSuccess: () => setTimeout(() => void loadData(), 500),
     });
-  };
+  }, [openPanel, loadData]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     const ok = await toast.confirm({
       title: t('حذف'),
       message: t('هل أنت متأكد من حذف هذا الملف؟'),
@@ -356,7 +372,7 @@ export function usePeople() {
         toast.error(res.message);
       }
     }, 1000);
-  };
+  }, [toast, t, loadData]);
 
   const clearFilters = useCallback(() => {
     setSearchTerm('');
@@ -369,13 +385,13 @@ export function usePeople() {
     setDesktopPage(0);
   }, []);
 
-  const handleBlacklist = (id: string) => {
+  const handleBlacklist = useCallback((id: string) => {
     openPanel('BLACKLIST_FORM', id, {
       onSuccess: () => void loadData(),
     });
-  };
+  }, [openPanel, loadData]);
 
-  const handleQuickReminderForPerson = async (person: الأشخاص_tbl) => {
+  const handleQuickReminderForPerson = useCallback(async (person: الأشخاص_tbl) => {
     const personId = String(person?.رقم_الشخص || '').trim();
     if (!personId) return;
 
@@ -425,7 +441,7 @@ export function usePeople() {
 
     dialogs.toast.success(t('تم حفظ التذكير'));
     openPanel('CALENDAR_EVENTS', dueDate, { title: t('مهام اليوم') });
-  };
+  }, [t, dialogs, todayYMD, toast, openPanel, loadData]);
 
   const handleExport = async () => {
     if (isDesktopFast) {

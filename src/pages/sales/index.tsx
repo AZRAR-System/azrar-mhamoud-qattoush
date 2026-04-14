@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { BadgeDollarSign, Plus, FileSignature } from 'lucide-react';
 import { PageHero } from '@/components/shared/PageHero';
 import { Button } from '@/components/ui/Button';
@@ -19,7 +19,7 @@ import { useToast } from '@/context/ToastContext';
 
 const t = (s: string) => s;
 
-export const Sales: React.FC = () => {
+const SalesComponent: React.FC = () => {
   const { 
     isLoading, 
     stats, 
@@ -51,7 +51,7 @@ export const Sales: React.FC = () => {
   const [selectedListing, setSelectedListing] = useState<عروض_البيع_tbl | null>(null);
   const [selectedAgreement, setSelectedAgreement] = useState<اتفاقيات_البيع_tbl | null>(null);
 
-  const handleCreateListing = async (data: Partial<عروض_البيع_tbl>) => {
+  const handleCreateListing = useCallback(async (data: Partial<عروض_البيع_tbl>) => {
     const res = selectedListing?.id 
       ? DbService.updateSalesListing(selectedListing.id, data)
       : DbService.addSalesListing(data);
@@ -64,9 +64,9 @@ export const Sales: React.FC = () => {
     } else {
       toast.error(res.message);
     }
-  };
+  }, [selectedListing, toast, loadData]);
 
-  const handleUpdateOfferStatus = async (offerId: string, status: 'Accepted' | 'Rejected') => {
+  const handleUpdateOfferStatus = useCallback(async (offerId: string, status: 'Accepted' | 'Rejected') => {
     const res = DbService.updateSalesOfferStatus(offerId, status);
     if (res.success) {
       toast.success(res.message);
@@ -74,9 +74,9 @@ export const Sales: React.FC = () => {
     } else {
       toast.error(res.message);
     }
-  };
+  }, [toast, loadData]);
 
-  const handleDeleteOffer = async (offer: عروض_الشراء_tbl) => {
+  const handleDeleteOffer = useCallback(async (offer: عروض_الشراء_tbl) => {
     const ok = await toast.confirm({
       title: 'تأكيد الحذف',
       message: 'هل أنت متأكد من حذف عرض الشراء هذا؟',
@@ -91,9 +91,9 @@ export const Sales: React.FC = () => {
         toast.error(res.message);
       }
     }
-  };
+  }, [toast, loadData]);
 
-  const handleCreateOffer = async (data: Partial<عروض_الشراء_tbl>) => {
+  const handleCreateOffer = useCallback(async (data: Partial<عروض_الشراء_tbl>) => {
     const res = DbService.addSalesOffer({ ...data, listingId: selectedListing?.id });
     if (res.success) {
       toast.success(res.message);
@@ -102,9 +102,9 @@ export const Sales: React.FC = () => {
     } else {
       toast.error(res.message);
     }
-  };
+  }, [selectedListing, toast, loadData]);
 
-  const handleCreateAgreement = async (data: Partial<اتفاقيات_البيع_tbl>) => {
+  const handleCreateAgreement = useCallback(async (data: Partial<اتفاقيات_البيع_tbl>) => {
     const res = selectedAgreement?.id 
       ? DbService.updateSalesAgreement(selectedAgreement.id, data)
       : DbService.addSalesAgreement({ ...data, listingId: selectedListing?.id });
@@ -117,19 +117,19 @@ export const Sales: React.FC = () => {
     } else {
       toast.error(res.message);
     }
-  };
+  }, [selectedAgreement, selectedListing, toast, loadData]);
 
-  const handleEditAgreement = (agreement: اتفاقيات_البيع_tbl) => {
+  const handleEditAgreement = useCallback((agreement: اتفاقيات_البيع_tbl) => {
     setSelectedAgreement(agreement);
     setIsAgreementModalOpen(true);
-  };
+  }, []);
 
-  const handleEditListing = (listing: عروض_البيع_tbl) => {
+  const handleEditListing = useCallback((listing: عروض_البيع_tbl) => {
     setSelectedListing(listing);
     setIsListingModalOpen(true);
-  };
+  }, []);
 
-  const handleDeleteListing = async (listing: عروض_البيع_tbl) => {
+  const handleDeleteListing = useCallback(async (listing: عروض_البيع_tbl) => {
     const ok = await toast.confirm({
       title: 'تأكيد الحذف',
       message: 'هل أنت متأكد من حذف عرض البيع هذا؟ سيتم إرجاع حالة العقار لوضعها الطبيعي.',
@@ -144,7 +144,7 @@ export const Sales: React.FC = () => {
         toast.error(res.message);
       }
     }
-  };
+  }, [toast, loadData]);
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">
@@ -297,3 +297,5 @@ export const Sales: React.FC = () => {
     </div>
   );
 };
+
+export const Sales = React.memo(SalesComponent);

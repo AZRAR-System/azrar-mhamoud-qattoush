@@ -46,6 +46,7 @@ import { PageHero } from '@/components/shared/PageHero';
 import { Input } from '@/components/ui/Input';
 import { MoneyInput } from '@/components/ui/MoneyInput';
 import { exportToXlsx, type XlsxColumn } from '@/utils/xlsx';
+import { usePageVisibility } from '@/context/PageVisibilityContext';
 
 type Tab = 'contracts' | 'external' | 'employee';
 
@@ -176,6 +177,8 @@ export const Commissions: FC = () => {
   const dialogs = useAppDialogs();
   const dbSignal = useDbSignal();
   const { user } = useAuth();
+  const { isVisible } = usePageVisibility();
+  const isStaleRef = useRef(false);
 
   // Support deep-linking from Dashboard: #/commissions?tab=employee&month=YYYY-MM&user=username
   useEffect(() => {
@@ -264,8 +267,27 @@ export const Commissions: FC = () => {
   }, [isDesktopFast]);
 
   useEffect(() => {
-    loadData();
-  }, [activeTab, dbSignal, loadData]);
+    if (isVisible) {
+      if (isStaleRef.current) {
+        // We were hidden and data changed; refresh now.
+        isStaleRef.current = false;
+        loadData();
+      } else {
+        // Standard load
+        loadData();
+      }
+    } else {
+      // We are hidden; if db changes, we just mark as stale.
+      // Note: dbSignal itself will trigger this effect again if it changes.
+    }
+  }, [isVisible, dbSignal, loadData, activeTab]);
+
+  // Separate effect to handle background dbSignal when hidden
+  useEffect(() => {
+    if (!isVisible && dbSignal) {
+      isStaleRef.current = true;
+    }
+  }, [dbSignal, isVisible]);
 
   useEffect(() => {
     // Info used to disappear here; now we keep filters fixed across tabs.

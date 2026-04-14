@@ -41,6 +41,7 @@ import { useSmartModal } from '@/context/ModalContext';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { runWithSqlSyncBlocking } from '@/utils/sqlSyncBlockingUi';
 import { clearCommissionsDesktopEntityCache } from '@/services/commissionsDesktopEntityCache';
+import { usePageVisibility } from '@/context/PageVisibilityContext';
 
 type LayerTab = 'overview' | 'sales' | 'calendar' | 'monitoring' | 'performance';
 
@@ -102,6 +103,7 @@ export const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { openPanel: _openPanel } = useSmartModal();
   const toast = useToast();
+  const { isVisible } = usePageVisibility();
   const [activeLayer, setActiveLayer] = useState<LayerTab>('overview');
   const [autoRefresh, _setAutoRefresh] = useState(true);
   const [, setTasksTick] = useState(0);
@@ -117,6 +119,7 @@ export const Dashboard: React.FC = () => {
     refresh,
   } = useDashboardData({
     autoRefresh,
+    isVisible,
     refreshIntervalMs: 30_000,
   });
 

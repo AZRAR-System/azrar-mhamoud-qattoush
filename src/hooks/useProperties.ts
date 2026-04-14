@@ -343,7 +343,7 @@ export function useProperties() {
   ]);
 
   const peopleMap = useMemo(() => new Map(people.map((p) => [String(p.رقم_الشخص), p])), [people]);
-  const getOwnerName = (id: string) => peopleMap.get(String(id))?.الاسم || t('غير معروف');
+  const getOwnerName = useCallback((id: string) => peopleMap.get(String(id))?.الاسم || t('غير معروف'), [peopleMap, t]);
 
   const activeContractByPropertyId = useMemo(() => {
     const m = new Map<string, العقود_tbl>();
@@ -596,13 +596,13 @@ export function useProperties() {
     }
   };
 
-  const handleOpenForm = (id?: string) => {
+  const handleOpenForm = useCallback((id?: string) => {
     openPanel('PROPERTY_FORM', id || 'new', {
       onSuccess: () => setTimeout(loadData, 500),
     });
-  };
+  }, [openPanel, loadData]);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     openPanel('CONFIRM_MODAL', id, {
       title: t('حذف العقار'),
       message: t('هل أنت متأكد من حذف هذا العقار؟ سيتم منع الحذف إذا كان العقار مؤجراً.'),
@@ -622,14 +622,14 @@ export function useProperties() {
         }, 1000);
       },
     });
-  };
+  }, [openPanel, t, tr, toast, loadData]);
 
   const normalizeKey = (v: unknown) =>
     String(v ?? '')
       .trim()
       .toLowerCase();
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadTemplate = useCallback(async () => {
     const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
     await exportToXlsx(
       'Properties',
@@ -671,9 +671,9 @@ export function useProperties() {
       }
     );
     toast.success(t('تم تنزيل قالب العقارات'));
-  };
+  }, [t, toast]);
 
-  const handlePickImportFile = () => importRef.current?.click();
+  const handlePickImportFile = useCallback(() => importRef.current?.click(), []);
 
   const handleImportFile = useCallback(
     async (file: File) => {

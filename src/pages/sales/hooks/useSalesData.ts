@@ -59,22 +59,31 @@ export const useSalesData = () => {
     return map;
   }, [people]);
 
-  const getPropertyLabel = (id: string) => {
+  const getPropertyLabel = useCallback((id: string) => {
     const p = propertyMap.get(id);
     return p ? `${p.الكود_الداخلي} - ${p.العنوان}` : id;
-  };
+  }, [propertyMap]);
 
-  const getPersonName = (id: string) => {
+  const getPersonName = useCallback((id: string) => {
     return personMap.get(id)?.الاسم || id;
-  };
+  }, [personMap]);
 
-  const totalSales = agreements
-    .filter((a) => a.isCompleted)
-    .reduce((sum, a) => sum + a.السعر_النهائي, 0);
+  const stats = useMemo(() => {
+    const totalSales = agreements
+      .filter((a) => a.isCompleted)
+      .reduce((sum, a) => sum + a.السعر_النهائي, 0);
 
-  const activeListings = listings.filter((l) => l.الحالة === 'Active');
-  const pendingOffers = offers.filter((o) => o.الحالة === 'Pending');
-  const pendingAgreements = agreements.filter((a) => !a.isCompleted);
+    const activeListingsCount = listings.filter((l) => l.الحالة === 'Active').length;
+    const pendingOffersCount = offers.filter((o) => o.الحالة === 'Pending').length;
+    const pendingAgreementsCount = agreements.filter((a) => !a.isCompleted).length;
+
+    return {
+      totalSales,
+      activeListings: activeListingsCount,
+      pendingOffers: pendingOffersCount,
+      pendingAgreements: pendingAgreementsCount,
+    };
+  }, [agreements, listings, offers]);
 
   return {
     isLoading,

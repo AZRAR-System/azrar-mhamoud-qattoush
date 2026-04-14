@@ -29,6 +29,8 @@ import {
 
 export interface UseDashboardDataOptions {
   autoRefresh?: boolean;
+  /** Pass false to pause background updates (hibernation) */
+  isVisible?: boolean;
   refreshIntervalMs?: number;
 }
 
@@ -619,6 +621,13 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
   }, [toast]);
 
   useEffect(() => {
+    const isVisible = options?.isVisible ?? true;
+    if (!isVisible) {
+      // Mark as stale if we're hidden but data changed (optional, but good for UX)
+      // For now, we'll just not refresh while hidden.
+      return;
+    }
+
     refreshData();
 
     // Update immediately when underlying db_ keys change (Desktop sync and in-app edits).
@@ -648,7 +657,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('focus', onFocus);
     };
-  }, [options?.autoRefresh, options?.refreshIntervalMs, refreshData]);
+  }, [options?.autoRefresh, options?.refreshIntervalMs, options?.isVisible, refreshData]);
 
   return {
     data,
