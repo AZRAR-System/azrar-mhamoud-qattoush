@@ -104,12 +104,12 @@ export function usePeople(isVisible = true) {
     return typeof (value as Record<string, unknown>).message === 'string';
   };
 
-  const getErrorMessage = (error: unknown): string | undefined => {
+  const getErrorMessage = useCallback((error: unknown): string | undefined => {
     if (error instanceof Error) return error.message;
     if (typeof error === 'string') return error;
     if (hasMessage(error)) return error.message;
     return undefined;
-  };
+  }, []);
 
   const todayYMD = useMemo(() => {
     const d = new Date();
@@ -441,7 +441,7 @@ export function usePeople(isVisible = true) {
 
     dialogs.toast.success(t('تم حفظ التذكير'));
     openPanel('CALENDAR_EVENTS', dueDate, { title: t('مهام اليوم') });
-  }, [t, dialogs, todayYMD, toast, openPanel, loadData]);
+  }, [t, dialogs, todayYMD, toast, openPanel, getErrorMessage]);
 
   const handleExport = async () => {
     if (isDesktopFast) {

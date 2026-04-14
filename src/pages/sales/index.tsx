@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { BadgeDollarSign, Plus, FileSignature } from 'lucide-react';
 import { PageHero } from '@/components/shared/PageHero';
 import { Button } from '@/components/ui/Button';

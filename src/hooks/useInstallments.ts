@@ -465,7 +465,7 @@ export function useInstallments() {
     void loadDesktopDataRef.current();
   }, [desktopPage, isDesktopFast]);
 
-  const resolveTenantNameForInstallment = async (installment: الكمبيالات_tbl): Promise<string> => {
+  const resolveTenantNameForInstallment = useCallback(async (installment: الكمبيالات_tbl): Promise<string> => {
     const fallback = 'المستأجر';
     const contractId = String(installment?.رقم_العقد || '').trim();
     if (!contractId) return fallback;
@@ -498,7 +498,7 @@ export function useInstallments() {
     const allPeople = DbService.getPeople();
     const tenant = allPeople.find((p) => p.رقم_الشخص === contract.رقم_المستاجر);
     return String(tenant?.الاسم || '').trim() || fallback;
-  };
+  }, [isDesktopFast, desktopRows]);
 
   // Handle Full Payment - Direct without modal
   const handleFullPayment = useCallback(async (installment: الكمبيالات_tbl) => {

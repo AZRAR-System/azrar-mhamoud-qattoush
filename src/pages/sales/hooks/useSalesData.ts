@@ -94,11 +94,6 @@ export const useSalesData = () => {
     getPropertyLabel,
     getPersonName,
     loadData,
-    stats: {
-      totalSales,
-      activeListings: activeListings.length,
-      pendingOffers: pendingOffers.length,
-      pendingAgreements: pendingAgreements.length,
-    }
+    stats,
   };
 };

@@ -260,7 +260,6 @@ export function useContracts(isVisible = true) {
     }
   }, [isVisible, dbSignal]);
 
-  // Desktop counts for DataGuard
   useEffect(() => {
     if (!isDesktopFast || !isVisible) return;
     let alive = true;
@@ -273,7 +272,7 @@ export function useContracts(isVisible = true) {
     return () => {
       alive = false;
     };
-  }, [isDesktopFast, dbSignal, fastReload]);
+  }, [isDesktopFast, dbSignal, fastReload, isVisible]);
 
   // Desktop paged rows (status tab + search)
   useEffect(() => {
@@ -337,6 +336,7 @@ export function useContracts(isVisible = true) {
     dbSignal,
     fastReload,
     tr,
+    isVisible,
   ]);
 
   useEffect(() => {
@@ -643,14 +643,14 @@ export function useContracts(isVisible = true) {
 
   const normalize = (v: unknown) => String(v ?? '').trim();
 
-  const toDateOnly = (d: Date) => {
+  const toDateOnly = useCallback((d: Date) => {
     const y = d.getUTCFullYear();
     const m = String(d.getUTCMonth() + 1).padStart(2, '0');
     const day = String(d.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
-  };
+  }, []);
 
-  const computeEndDate = (startIso: string, durationMonths: number) => {
+  const computeEndDate = useCallback((startIso: string, durationMonths: number) => {
     // end = start + durationMonths months - 1 day
     const parts = String(startIso || '')
       .split('-')
@@ -663,7 +663,7 @@ export function useContracts(isVisible = true) {
     endCandidate.setUTCMonth(endCandidate.getUTCMonth() + Number(durationMonths || 0));
     endCandidate.setUTCDate(endCandidate.getUTCDate() - 1);
     return toDateOnly(endCandidate);
-  };
+  }, [toDateOnly]);
 
   const mapPaymentMethod = (raw: unknown): PaymentMethodType => {
     const v = String(raw ?? '')
@@ -680,7 +680,7 @@ export function useContracts(isVisible = true) {
     return 'Postpaid';
   };
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadTemplate = useCallback(async () => {
     const companySheet = buildCompanyLetterheadSheet(DbService.getSettings?.());
     await exportToXlsx(
       'Contracts',
@@ -716,11 +716,11 @@ export function useContracts(isVisible = true) {
       }
     );
     toast.success(t('تم تنزيل قالب العقود'));
-  };
+  }, [t, toast]);
 
-  const handlePickImportFile = () => importRef.current?.click();
+  const handlePickImportFile = useCallback(() => importRef.current?.click(), []);
 
-  const handleImportFile = async (file: File) => {
+  const handleImportFile = useCallback(async (file: File) => {
     const ok = await toast.confirm({
       title: t('استيراد العقود'),
       message: t(
@@ -990,9 +990,9 @@ export function useContracts(isVisible = true) {
 
     loadData();
     toast.success(t('تم الاستيراد: إضافة {{created}} • تخطي {{skipped}}', { created, skipped }));
-  };
+  }, [t, toast, loadData, isDesktopFast, tr, computeEndDate]);
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (isDesktopFast) {
       if (fastTotal === 0) return toast.warning(t('لا توجد بيانات للتصدير'));
 
@@ -1134,7 +1134,7 @@ export function useContracts(isVisible = true) {
       `Exported ${filteredContracts.length} contracts`
     );
     toast.success(t('تم التصدير'));
-  };
+  }, [isDesktopFast, fastTotal, toast, t, createdMonthApplied, advFilters, showAdvanced, debouncedSearchTerm, activeStatus, sortMode, filteredContracts, peopleMap, propsCodeMap]);
 
   const desktopHasAnyAdvFilter = useMemo(() => {
     // Excluding createdMonth, since it's now a top-level quick filter.
