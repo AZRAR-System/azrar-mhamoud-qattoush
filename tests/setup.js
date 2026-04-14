@@ -41,20 +41,65 @@ const desktopDbMock = {
   keys: jest.fn(() => Promise.resolve(Object.keys(globalThis.localStorage))),
   onRemoteUpdate: jest.fn(() => (() => {})),
   
-  // Smart Query Stubs (Unlocks domainQueries.ts and reports.ts)
-  domainSearchGlobal: jest.fn(() => Promise.resolve({ ok: true, people: [], properties: [], contracts: [] })),
-  domainSearch: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
-  domainCounts: jest.fn(() => Promise.resolve({ ok: true, counts: { properties: 0, contracts: 0, people: 0 } })),
-  domainDashboardSummary: jest.fn(() => Promise.resolve({ ok: true, data: {} })),
-  domainDashboardPerformance: jest.fn(() => Promise.resolve({ ok: true, data: {} })),
-  domainDashboardHighlights: jest.fn(() => Promise.resolve({ ok: true, data: {} })),
+  // Enriched relational data for "Glory Strike Reloaded"
+  domainSearchGlobal: jest.fn(() => Promise.resolve({
+    ok: true,
+    people: [{ رقم_الشخص: 'U1', الاسم: 'Test User' }, { رقم_الشخص: 'U2', الاسم: 'Another User' }],
+    properties: [{ رقم_العقار: 'P1', الكود_الداخلي: 'P101', العنوان: 'Main St' }, { رقم_العقار: 'P2', الكود_الداخلي: 'P102', العنوان: 'Side St' }],
+    contracts: [{ رقم_العقد: 'C1', رقم_العقار: 'P1', رقم_المستاجر: 'U1' }],
+  })),
+  domainSearch: jest.fn(({ entity }) => {
+    if (entity === 'people') return Promise.resolve({ ok: true, items: [{ رقم_الشخص: 'U1', الاسم: 'Test User' }] });
+    if (entity === 'properties') return Promise.resolve({ ok: true, items: [{ رقم_العقار: 'P1', الكود_الداخلي: 'P101' }] });
+    return Promise.resolve({ ok: true, items: [] });
+  }),
+  domainCounts: jest.fn(() => Promise.resolve({ ok: true, counts: { properties: 50, contracts: 100, people: 200 } })),
+  domainDashboardSummary: jest.fn(() => Promise.resolve({
+    ok: true,
+    data: {
+      totalPeople: 200, totalProperties: 50, occupiedProperties: 40, totalContracts: 100, activeContracts: 80,
+      dueNext7Payments: 5, paymentsToday: 2, revenueToday: 1500, contractsExpiring30: 3, maintenanceOpen: 1,
+      propertyTypeCounts: [{ name: 'Apartment', value: 30 }, { name: 'Villa', value: 20 }],
+      contractStatusCounts: [{ name: 'Active', value: 80 }, { name: 'Expired', value: 20 }]
+    }
+  })),
+  domainDashboardPerformance: jest.fn(() => Promise.resolve({
+    ok: true,
+    data: { currentMonthCollections: 5000, previousMonthCollections: 4500, paidCountThisMonth: 10, dueUnpaidThisMonth: 2 }
+  })),
+  domainDashboardHighlights: jest.fn(() => Promise.resolve({
+    ok: true,
+    data: { dueInstallmentsToday: [], expiringContracts: [], incompleteProperties: [] }
+  })),
   domainPaymentNotificationTargets: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
-  domainPersonDetails: jest.fn(() => Promise.resolve({ ok: true, data: {} })),
-  domainPersonTenancyContracts: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
-  domainContractDetails: jest.fn(() => Promise.resolve({ ok: true, data: {} })),
-  domainContractPickerSearch: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
-  domainPropertyPickerSearch: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
-  domainPropertyPickerSearchPaged: jest.fn(() => Promise.resolve({ ok: true, items: [], total: 0 })),
+  domainPersonDetails: jest.fn(() => Promise.resolve({
+    ok: true,
+    data: { رقم_الشخص: 'U1', الاسم: 'Test User', رقم_الهاتف: '0790000000', الرقم_الوطني: '123' }
+  })),
+  domainPersonTenancyContracts: jest.fn(() => Promise.resolve({
+    ok: true,
+    items: [{ contract: { رقم_العقد: 'C1', تاريخ_البداية: '2025-01-01' }, propertyCode: 'P101', propertyAddress: 'Main St' }]
+  })),
+  domainContractDetails: jest.fn(() => Promise.resolve({
+    ok: true,
+    data: {
+      contract: { رقم_العقد: 'C1', رقم_العقار: 'P1', رقم_المستاجر: 'U1', القيمة_السنوية: 1200, مدة_العقد_بالاشهر: 12, تكرار_الدفع: 12 },
+      installments: [{ رقم_الكمبيالة: 'I1', تاريخ_الاستحقاق: '2025-02-01', القيمة: 100, حالة_الكمبيالة: 'مستحق' }]
+    }
+  })),
+  domainContractPickerSearch: jest.fn(() => Promise.resolve({
+    ok: true,
+    items: [{ contract: { رقم_العقد: 'C1', رقم_العقار: 'P1' } }]
+  })),
+  domainPropertyPickerSearch: jest.fn(() => Promise.resolve({
+    ok: true,
+    items: [{ property: { رقم_العقار: 'P1', الكود_الداخلي: 'P101' } }]
+  })),
+  domainPropertyPickerSearchPaged: jest.fn(() => Promise.resolve({
+    ok: true,
+    items: [{ property: { رقم_العقار: 'P1', الكود_الداخلي: 'P101' } }],
+    total: 1
+  })),
   domainOwnershipHistory: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
   domainPropertyInspections: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
   domainPropertyContracts: jest.fn(() => Promise.resolve({ ok: true, items: [] })),
@@ -62,9 +107,18 @@ const desktopDbMock = {
   domainSalesForProperty: jest.fn(() => Promise.resolve({ ok: true, listings: [], agreements: [] })),
   domainBlacklistRemove: jest.fn(() => Promise.resolve({ ok: true })),
   domainUpdateProperty: jest.fn(() => Promise.resolve({ ok: true })),
-  domainGet: jest.fn(() => Promise.resolve({ ok: true, data: null })),
+  domainGet: jest.fn((id) => Promise.resolve({ ok: true, data: { id, name: 'Mock Record' } })),
   installmentsContractsPagedSmart: jest.fn(() => Promise.resolve({ ok: true, items: [], total: 0 })),
+  // Commissions (Reloaded)
+  getCommissions: jest.fn(() => [{ رقم_العمولة: 'CM1', رقم_العقد: 'C1', عمولة_المالك: 50, عمولة_المستأجر: 50, المجموع: 100, تاريخ_دفع_العمولة: '2025-01-01' }]),
+  getExternalCommissions: jest.fn(() => [{ id: 'EX1', التاريخ: '2025-01-01', العنوان: 'Test', القيمة: 500, النوع: 'Bonus' }]),
+  getProperties: jest.fn(() => [{ رقم_العقار: 'P1', الكود_الداخلي: 'P101', رقم_المالك: 'U1' }]),
+  getPeople: jest.fn(() => [{ رقم_الشخص: 'U1', الاسم: 'Owner' }, { رقم_الشخص: 'U2', الاسم: 'Tenant' }]),
+  getContracts: jest.fn(() => [{ رقم_العقد: 'C1', رقم_العقار: 'P1', رقم_المستاجر: 'U2' }]),
+  getSalesAgreements: jest.fn(() => []),
+  getSystemUsers: jest.fn(() => [{ اسم_المستخدم: 'admin', الاسم_العربي: 'Admin' }]),
 };
+
 // Optional: If you want to force desktop mode in a test, use: (window as any).desktopDb = desktopDbMock;
 
 
