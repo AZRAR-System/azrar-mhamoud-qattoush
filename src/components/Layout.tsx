@@ -475,7 +475,7 @@ const Header = memo(({
   );
 });
 
-export const Layout = ({ _children }: { _children: ReactNode }) => {
+export const Layout = ({ children }: { children: ReactNode }) => {
   type SqlStatus = {
     configured: boolean;
     enabled: boolean;
@@ -985,6 +985,7 @@ export const Layout = ({ _children }: { _children: ReactNode }) => {
         <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4">
             <div className="w-full page-transition pb-20 lg:pb-10 flex flex-col px-4 lg:px-8 min-h-full">
               <TabContent />
+              {children}
               {/* Background System Components */}
 
             {/* Elegant Footer */}

@@ -107,6 +107,7 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
   titles[ROUTE_PATHS.RESET_DATABASE] = 'إعادة ضبط المصنع';
   titles[ROUTE_PATHS.AUDIT_LOG] = 'سجل التدقيق';
   titles[ROUTE_PATHS.OWNER_PORTAL] = 'لوحة المالك';
+  titles[ROUTE_PATHS.WELCOME] = 'شاشة الترحيب';
 
   return titles;
 })();
