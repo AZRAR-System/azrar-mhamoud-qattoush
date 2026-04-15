@@ -3978,6 +3978,8 @@ function syncInstallmentsKvPayload(dbh: SqliteDb, value: string, nowIso: string)
   if (installments.length === 0) {
     console.warn('[db] syncInstallmentsKvPayload: payload فارغ — تم التجاهل');
     return;
+  }
+
   const upsertInstallment = dbh.prepare(
     'INSERT INTO installments (id, contractId, dueDate, amount, paid, remaining, status, type, isArchived, paidAt, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET contractId=excluded.contractId, dueDate=excluded.dueDate, amount=excluded.amount, paid=excluded.paid, remaining=excluded.remaining, status=excluded.status, type=excluded.type, isArchived=excluded.isArchived, paidAt=excluded.paidAt, data=excluded.data, updatedAt=excluded.updatedAt'
   );

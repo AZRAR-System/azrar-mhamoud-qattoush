@@ -298,6 +298,12 @@ contextBridge.exposeInMainWorld('desktopDb', {
     return () => ipcRenderer.removeListener('db:remoteUpdate', listener);
   },
 
+  on: (channel: string, handler: (evt: unknown) => void) => {
+    const listener = (_e: IpcRendererEvent, payload: unknown) => handler(payload);
+    ipcRenderer.on(channel, listener);
+    return () => ipcRenderer.removeListener(channel, listener);
+  },
+
   onSqlSyncEvent: (handler: (evt: unknown) => void) => {
     const listener = (_e: IpcRendererEvent, payload: unknown) => handler(payload);
     ipcRenderer.on('sql:syncEvent', listener);

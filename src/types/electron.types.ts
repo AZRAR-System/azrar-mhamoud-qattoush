@@ -661,6 +661,8 @@ export interface DesktopDbBridge {
   onRemoteUpdate?: (
     handler: (evt: { key: string; value?: string; isDeleted?: boolean; updatedAt?: string }) => void
   ) => () => void;
+  /** Generic IPC event listener (Main -> Renderer) */
+  on?: (channel: string, handler: (evt: unknown) => void) => () => void;
 
   onSqlSyncEvent?: (
     handler: (evt: {

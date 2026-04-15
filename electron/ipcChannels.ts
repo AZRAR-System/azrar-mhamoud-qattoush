@@ -137,4 +137,4 @@ export type IpcInvokeChannel =
   | 'updater:clearPendingRestore'
   | 'updater:restorePending';
 
-export type IpcEventChannel = 'db:remoteUpdate' | 'sql:syncEvent' | 'updater:event';
+export type IpcEventChannel = 'db:remoteUpdate' | 'sql:syncEvent' | 'updater:event' | 'system:background-pulse';

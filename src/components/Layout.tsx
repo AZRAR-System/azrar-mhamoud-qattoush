@@ -1,4 +1,4 @@
-import { useEffect, useState, memo, useRef, Fragment, type ReactNode } from 'react';
+import { useEffect, useState, memo, useRef, Fragment } from 'react';
 import { useAutoLock } from '@/hooks/useAutoLock';
 import { SessionLockOverlay } from '@/components/SessionLockOverlay';
 import { getSettings } from '@/services/db/settings';
@@ -475,7 +475,7 @@ const Header = memo(({
   );
 });
 
-export const Layout = ({ children }: { children: ReactNode }) => {
+export const Layout = () => {
   type SqlStatus = {
     configured: boolean;
     enabled: boolean;
@@ -1016,8 +1016,6 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4">
             <div className="w-full page-transition pb-20 lg:pb-10 flex flex-col px-4 lg:px-8 min-h-full">
               <TabContent />
-              {children}
-              {/* Background System Components */}
 
             {/* Elegant Footer */}
             <footer className="mt-auto py-10 text-center shrink-0">

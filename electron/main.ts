@@ -507,6 +507,40 @@ async function createMainWindow() {
   }
 }
 
+/**
+ * Periodically notifies the renderer to perform background maintenance/scans.
+ * This ensures orchestrations (like contract renewals or alert cleanup) 
+ * are triggered by the Main process lifecycle.
+ */
+function startBackgroundPulse() {
+  const PULSE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+  const INITIAL_DELAY_MS = 30 * 1000;      // 30 seconds after startup
+
+  const sendPulse = () => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('system:background-pulse', {
+          ts: new Date().toISOString(),
+          source: 'main-orchestrator'
+        });
+      }
+    }
+  };
+
+  // Initial pulse shortly after startup
+  const initialTimer = setTimeout(sendPulse, INITIAL_DELAY_MS);
+
+  // Periodic pulse
+  const pulseInterval = setInterval(sendPulse, PULSE_INTERVAL_MS);
+
+  // Ensure timers are cleared on app shutdown to prevent silent background activity
+  app.on('before-quit', () => {
+    clearTimeout(initialTimer);
+    clearInterval(pulseInterval);
+  });
+}
+
 app.whenReady().then(async () => {
   logger.info('[Electron] App ready');
   await installContentSecurityPolicy();
@@ -580,6 +614,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
   startOnlineStatusMonitor();
   startAutoMaintenance();
+  startBackgroundPulse();
 
   await maybeStartEmbeddedLicenseServer();
   await createMainWindow();

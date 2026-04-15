@@ -2,11 +2,7 @@ import React from 'react';
 import { QuickActionsBar } from '@/components/dashboard/layers/QuickActionsBar';
 import { Plus } from 'lucide-react';
 
-interface Props {
-  onClose: () => void;
-}
-
-export const QuickAddPanel: React.FC<Props> = ({ onClose }) => {
+export const QuickAddPanel: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950/20" dir="rtl">
       <div className="p-8">

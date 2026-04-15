@@ -3,7 +3,7 @@
  * AZRAR Real Estate Management System — All Rights Reserved
  */
 
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, useCallback, Fragment } from 'react';
 import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ModalProvider } from './context/ModalContext';
@@ -158,22 +158,35 @@ const DevRouteValidation: React.FC = () => {
 
 const DailyAutomation: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  
+  const runScheduler = useCallback(async () => {
+    try {
+      const { DbService } = await import('./services/mockDb');
+      DbService.runDailyScheduler();
+    } catch (_err) {
+      console.warn('Failed to run daily scheduler:', _err);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const { DbService } = await import('./services/mockDb');
-          DbService.runDailyScheduler();
-        } catch (_err) {
-          console.warn('Failed to run daily scheduler:', _err);
-        }
-      })();
-    }, 2000);
+    // 1. Initial run on login/mount
+    const timer = window.setTimeout(runScheduler, 2000);
 
-    return () => window.clearTimeout(timer);
-  }, [isAuthenticated]);
+    // 2. Listen for pulses from Electron Main
+    let offPulse: (() => void) | undefined;
+    if (window.desktopDb?.on) {
+      offPulse = window.desktopDb.on('system:background-pulse', () => {
+        void runScheduler();
+      });
+    }
+
+    return () => {
+      window.clearTimeout(timer);
+      offPulse?.();
+    };
+  }, [isAuthenticated, runScheduler]);
 
   return null;
 };
@@ -367,15 +380,34 @@ const RequireActivation: React.FC = () => {
   return <Outlet />;
 };
 
+/** 
+ * Headless logic layer that runs in the background but doesn't render UI.
+ * This is the correct home for daily automation, diagnostics, and startup tests.
+ */
+const HeadlessLogicLayer: React.FC = () => {
+  return (
+    <Fragment>
+      <DailyAutomation />
+      <DiagnosticsStartupNotice />
+      <AutorunSystemTests />
+    </Fragment>
+  );
+};
+
 const LayoutRoute: React.FC = () => {
   return (
     <AppShellErrorBoundary>
-      <Layout>
-        <DailyAutomation />
-        <DiagnosticsStartupNotice />
-        <AutorunSystemTests />
-        <Outlet />
-      </Layout>
+      {/* 1. Background Logic (Maintains state/maintenance without UI duplication) */}
+      <HeadlessLogicLayer />
+
+      {/* 2. Main UI Frame (Handles Tabs rendering internally via TabContent) */}
+      <Layout />
+
+      {/* 
+          3. We NO LONGER render <Outlet /> here. 
+          The active page is rendered by <Layout /> -> <TabContent />.
+          This eliminates the root cause of page duplication in the DOM.
+      */}
     </AppShellErrorBoundary>
   );
 };

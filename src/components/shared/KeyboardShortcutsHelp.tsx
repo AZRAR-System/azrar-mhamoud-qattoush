@@ -1,11 +1,7 @@
 import React from 'react';
-import { Command, Keyboard, X } from 'lucide-react';
+import { Command } from 'lucide-react';
 
-interface Props {
-  onClose: () => void;
-}
-
-export const KeyboardShortcutsHelp: React.FC<Props> = ({ onClose }) => {
+export const KeyboardShortcutsHelp: React.FC = () => {
   const shortcutGroups = [
     {
       title: 'عام',
