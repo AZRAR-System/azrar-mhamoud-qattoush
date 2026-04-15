@@ -126,6 +126,7 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
 }) => {
   const [targets, setTargets] = useState<PaymentNotificationTarget[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [selectedGuarantors, setSelectedGuarantors] = useState<Record<string, boolean>>({});
   const [isSending, setIsSending] = useState(false);
 
   const loadTargets = useCallback(async () => {
@@ -191,13 +192,23 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
   };
 
   const sendForTarget = async (t: PaymentNotificationTarget) => {
-    if (!t.phone && !t.extraPhone) {
-      notificationService.warning(`لا يوجد رقم هاتف للمستأجر: ${t.tenantName}`);
+    const phones: string[] = [];
+    
+    // المستأجر دائماً بشكل افتراضي
+    if (t.phone) phones.push(t.phone);
+    if (t.extraPhone) phones.push(t.extraPhone);
+    
+    // اضافة رقم الكفيل اذا كان موجود ومحدد
+    if (selectedGuarantors[t.key] && t.guarantorPhone) {
+      phones.push(t.guarantorPhone);
+    }
+
+    if (phones.length === 0) {
+      notificationService.warning(`لا يوجد ارقام هاتف متاحة: ${t.tenantName}`);
       return;
     }
 
     const message = buildWhatsAppMessage(t);
-    const phones = [t.phone, t.extraPhone].filter(isNonEmptyString);
 
     DbService.addNotificationSendLog({
       category: 'installment_reminder',
@@ -375,6 +386,24 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
                           </div>
                         )}
                       </div>
+
+                      {t.guarantorName && t.guarantorPhone && (
+                        <div className="mt-3 flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
+                          <input
+                            type="checkbox"
+                            checked={!!selectedGuarantors[t.key]}
+                            onChange={(e) =>
+                              setSelectedGuarantors((prev) => ({ ...prev, [t.key]: e.target.checked }))
+                            }
+                            id={`guarantor-${t.key}`}
+                          />
+                          <label htmlFor={`guarantor-${t.key}`} className="text-xs flex-1 cursor-pointer">
+                            <span className="font-semibold text-amber-700 dark:text-amber-400">إرسال أيضاً للكفيل: </span>
+                            <span className="text-amber-700 dark:text-amber-400">{t.guarantorName}</span>
+                            <span className="text-amber-600 dark:text-amber-500 ml-2" dir="ltr">{t.guarantorPhone}</span>
+                          </label>
+                        </div>
+                      )}
 
                       <div className="mt-3 flex items-center justify-between">
                         <div className="text-xs">

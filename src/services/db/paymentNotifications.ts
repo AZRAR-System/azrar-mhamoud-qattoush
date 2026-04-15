@@ -52,6 +52,9 @@ export interface PaymentNotificationTarget {
   propertyId?: string;
   propertyCode?: string;
   items: PaymentDueItem[];
+  guarantorId?: string;
+  guarantorName?: string;
+  guarantorPhone?: string;
 }
 
 export interface NotificationSendLogRecord {
@@ -85,6 +88,7 @@ export const getPaymentNotificationTargetsInternal = (daysAhead: number) => {
 
   for (const contract of contracts) {
     const tenant = people.find((p) => p.رقم_الشخص === contract.رقم_المستاجر);
+    const guarantor = people.find((p) => p.رقم_الشخص === contract.رقم_الكفيل);
     const property = properties.find((p) => p.رقم_العقار === contract.رقم_العقار);
 
     const contractInstallments = installments
@@ -133,6 +137,9 @@ export const getPaymentNotificationTargetsInternal = (daysAhead: number) => {
         propertyId: property?.رقم_العقار,
         propertyCode: property?.الكود_الداخلي,
         items: dueItems,
+        guarantorId: guarantor?.رقم_الشخص,
+        guarantorName: guarantor?.الاسم,
+        guarantorPhone: guarantor?.رقم_الهاتف,
       });
     } else {
       existing.items.push(...dueItems);
