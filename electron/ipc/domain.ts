@@ -495,9 +495,11 @@ export function registerDomain(deps: IpcDeps): void {
       if (!id) return { ok: false, message: 'معرف غير صالح' };
   
       const agreements = ipc.kvGetArray(ipc.DB_KEYS.SALES_AGREEMENTS);
-      const nextAgreements = agreements.filter(
-        (row) => !(isRecord(row) && String(row['id'] ?? '').trim() === id)
-      );
+      const nowIso = new Date().toISOString();
+      const nextAgreements = agreements.map((row) => {
+        if (!(isRecord(row) && String(row['id'] ?? '').trim() === id)) return row;
+        return { ...row, isArchived: true, archivedAt: nowIso };
+      });
       ipc.kvSetArray(ipc.DB_KEYS.SALES_AGREEMENTS, nextAgreements);
   
       // Best-effort cleanup: remove associated external commission records if present.
