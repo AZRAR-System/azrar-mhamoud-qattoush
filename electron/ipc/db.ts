@@ -325,6 +325,8 @@ export function registerDb(deps: IpcDeps): void {
       setDbMaintenanceMode(true);
       try {
         await ipc.importDatabaseFrom(filePath, password);
+        app.relaunch();
+        app.exit(0);
         return { success: true, message: 'تم استعادة البيانات بنجاح. سيتم إعادة تشغيل البرنامج.' };
       } finally {
         setDbMaintenanceMode(false);
