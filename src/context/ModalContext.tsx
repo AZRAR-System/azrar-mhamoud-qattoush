@@ -41,7 +41,9 @@ export type PanelType =
   | 'SERVER_DRAWER'
   | 'SQL_SYNC_LOG'
   | 'MARQUEE_ADS'
-  | 'FINANCIAL_REPORT_PRINT';
+  | 'FINANCIAL_REPORT_PRINT'
+  | 'SHORTCUTS_HELP'
+  | 'QUICK_ADD';
 
 export interface Panel {
   id: string;

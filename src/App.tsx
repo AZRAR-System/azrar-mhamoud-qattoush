@@ -105,13 +105,11 @@ const Documents = React.lazy(() =>
 const ComprehensiveTests = React.lazy(() =>
   import('./pages/ComprehensiveTests').then((module) => ({ default: module.ComprehensiveTests }))
 );
-const SystemSetup = React.lazy(() =>
-  import('./pages/SystemSetup').then((module) => ({ default: module.SystemSetup }))
-);
 
 const Welcome = React.lazy(() =>
   import('./pages/Welcome').then((module) => ({ default: module.Welcome }))
 );
+
 
 // Loading Fallback
 const PageLoader = () => (
@@ -388,7 +386,6 @@ const AppRoutes: React.FC = () => {
       {/* Public */}
       <Route path={ROUTE_PATHS.ACTIVATION} element={<Activation />} />
       <Route path={ROUTE_PATHS.LICENSE_ADMIN} element={<LicenseAdmin />} />
-      <Route path={ROUTE_PATHS.SYSTEM_SETUP} element={<SystemSetup />} />
 
       {/* Everything else requires activation */}
       <Route element={<RequireActivation />}>

@@ -496,7 +496,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
     message?: string;
   };
 
-  const { openPanel } = useSmartModal();
+  const { openPanel, activePanels, closePanel } = useSmartModal();
   const { user, isAuthenticated, sessionLocked, lockSession } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -519,26 +519,57 @@ export const Layout = ({ children }: { children: ReactNode }) => {
     }
   }, [activeTabId, tabs, location.pathname, navigate]);
 
-  // Keyboard Shortcuts
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key.toLowerCase() === 't') {
+      // 1. Global Search (Ctrl+K)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent('azrar:open-page-selector'));
+        window.dispatchEvent(new Event('azrar:global-search:open'));
       }
-      if (e.ctrlKey && e.key.toLowerCase() === 'w') {
+
+      // 2. New Item / Quick Add (Ctrl+N)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        openPanel('QUICK_ADD');
+      }
+
+      // 3. Tab Management (Ctrl+Tab, Ctrl+W, Ctrl+T)
+      if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) switchToPrev();
+        else switchToNext();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
         closeTab(activeTabId);
       }
-      if (e.ctrlKey && e.key === 'Tab') {
-          e.preventDefault();
-          if (e.shiftKey) switchToPrev();
-          else switchToNext();
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('azrar:open-page-selector'));
+      }
+
+      // 4. Help & Escape
+      if ((e.ctrlKey || e.metaKey) && (e.key === '?' || e.key === '/')) {
+        e.preventDefault();
+        openPanel('SHORTCUTS_HELP');
+      }
+      if (e.key === 'Escape') {
+        // If there are active modals/drawers, close the top-most one
+        if (activePanels.length > 0) {
+          const topPanel = activePanels[activePanels.length - 1];
+          // We let ConfirmModal handle its own ESC logic if possible, 
+          // but for general panels we close them here.
+          if (topPanel.type !== 'CONFIRM_MODAL') {
+            closePanel(topPanel.id);
+          }
+        }
       }
     };
+
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activeTabId, closeTab, switchToNext, switchToPrev]);
+  }, [activeTabId, activePanels, closePanel, closeTab, openPanel, switchToNext, switchToPrev]);
 
   const [autoLockMinutes, setAutoLockMinutes] = useState(() => getSettings().autoLockMinutes ?? 30);
   useEffect(() => {

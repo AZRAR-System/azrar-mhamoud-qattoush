@@ -102,6 +102,9 @@ const ContractWhatsAppSendPanel = React.lazy(() =>
     default: m.ContractWhatsAppSendPanel,
   }))
 );
+const ShortcutsHelpPanel = React.lazy(() => import('@/components/shared/KeyboardShortcutsHelp').then(m => ({ default: m.KeyboardShortcutsHelp })));
+const QuickAddPanel = React.lazy(() => import('@/components/panels/QuickAddPanel').then(m => ({ default: m.QuickAddPanel })));
+
 
 const panelChunkFallback = (
   <div className="flex items-center justify-center min-h-[200px] p-8">
@@ -139,6 +142,8 @@ const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   SQL_SYNC_LOG: SqlSyncLogPanel as unknown as PanelComponent,
   MARQUEE_ADS: MarqueeAdsPanel as unknown as PanelComponent,
   FINANCIAL_REPORT_PRINT: FinancialReportPrintPanel as unknown as PanelComponent,
+  SHORTCUTS_HELP: ShortcutsHelpPanel as unknown as PanelComponent,
+  QUICK_ADD: QuickAddPanel as unknown as PanelComponent,
 };
 
 /** لوحات عرض تفاصيل (ليست نماذج إدخال) — تُعرض كمنزلق جانبي بدل النافذة المنبثقة المركزية */
@@ -192,6 +197,8 @@ const PANEL_TITLES: Partial<Record<PanelType, string>> = {
   FINANCIAL_REPORT_PRINT: 'تقرير مالي مجدول',
   CONFIRM_MODAL: 'تأكيد',
   INSPECTION_FORM: 'الكشف',
+  SHORTCUTS_HELP: 'اختصارات لوحة المفاتيح',
+  QUICK_ADD: 'إضافة جديد',
 };
 
 export const SmartModalEngine: React.FC = () => {
