@@ -3973,6 +3973,11 @@ export function domainSyncAfterKvSet(key: string, value: string): { ok: boolean;
 
 function syncInstallmentsKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
   const installments = safeJsonParseArray(value);
+
+  // Guard: Avoid deleting all data if payload is empty/malformed
+  if (installments.length === 0) {
+    console.warn('[db] syncInstallmentsKvPayload: payload فارغ — تم التجاهل');
+    return;
   const upsertInstallment = dbh.prepare(
     'INSERT INTO installments (id, contractId, dueDate, amount, paid, remaining, status, type, isArchived, paidAt, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET contractId=excluded.contractId, dueDate=excluded.dueDate, amount=excluded.amount, paid=excluded.paid, remaining=excluded.remaining, status=excluded.status, type=excluded.type, isArchived=excluded.isArchived, paidAt=excluded.paidAt, data=excluded.data, updatedAt=excluded.updatedAt'
   );
@@ -4024,6 +4029,13 @@ function syncInstallmentsKvPayload(dbh: SqliteDb, value: string, nowIso: string)
 
 function syncContractsKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
   const contracts = safeJsonParseArray(value);
+
+  // Guard: Avoid deleting all data if payload is empty/malformed
+  if (contracts.length === 0) {
+    console.warn('[db] syncContractsKvPayload: payload فارغ — تم التجاهل');
+    return;
+  }
+
   const upsertContract = dbh.prepare(
     'INSERT INTO contracts (id, propertyId, tenantId, guarantorId, status, startDate, endDate, annualValue, paymentFrequency, paymentMethod, isArchived, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET propertyId=excluded.propertyId, tenantId=excluded.tenantId, guarantorId=excluded.guarantorId, status=excluded.status, startDate=excluded.startDate, endDate=excluded.endDate, annualValue=excluded.annualValue, paymentFrequency=excluded.paymentFrequency, paymentMethod=excluded.paymentMethod, isArchived=excluded.isArchived, data=excluded.data, updatedAt=excluded.updatedAt'
   );
@@ -4054,6 +4066,13 @@ function syncContractsKvPayload(dbh: SqliteDb, value: string, nowIso: string): v
 
 function syncPeopleKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
   const people = safeJsonParseArray(value);
+
+  // Guard: Avoid deleting all data if payload is empty/malformed
+  if (people.length === 0) {
+    console.warn('[db] syncPeopleKvPayload: payload فارغ — تم التجاهل');
+    return;
+  }
+
   const upsertPeople = dbh.prepare(
     'INSERT INTO people (id, name, nationalId, phone, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, nationalId=excluded.nationalId, phone=excluded.phone, data=excluded.data, updatedAt=excluded.updatedAt'
   );
@@ -4081,6 +4100,13 @@ function syncPeopleKvPayload(dbh: SqliteDb, value: string, nowIso: string): void
 
 function syncPropertiesKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
   const properties = safeJsonParseArray(value);
+
+  // Guard: Avoid deleting all data if payload is empty/malformed
+  if (properties.length === 0) {
+    console.warn('[db] syncPropertiesKvPayload: payload فارغ — تم التجاهل');
+    return;
+  }
+
   const upsertProperty = dbh.prepare(
     'INSERT INTO properties (id, internalCode, ownerId, type, status, address, city, area, isRented, isForSale, isForRent, salePrice, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET internalCode=excluded.internalCode, ownerId=excluded.ownerId, type=excluded.type, status=excluded.status, address=excluded.address, city=excluded.city, area=excluded.area, isRented=excluded.isRented, isForSale=excluded.isForSale, isForRent=excluded.isForRent, salePrice=excluded.salePrice, data=excluded.data, updatedAt=excluded.updatedAt'
   );
@@ -4114,6 +4140,13 @@ function syncPropertiesKvPayload(dbh: SqliteDb, value: string, nowIso: string): 
 
 function syncMaintenanceKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
   const maintenance = safeJsonParseArray(value);
+
+  // Guard: Avoid deleting all data if payload is empty/malformed
+  if (maintenance.length === 0) {
+    console.warn('[db] syncMaintenanceKvPayload: payload فارغ — تم التجاهل');
+    return;
+  }
+
   const upsertTicket = dbh.prepare(
     'INSERT INTO maintenance_tickets (id, propertyId, tenantId, createdDate, status, priority, issue, closedDate, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET propertyId=excluded.propertyId, tenantId=excluded.tenantId, createdDate=excluded.createdDate, status=excluded.status, priority=excluded.priority, issue=excluded.issue, closedDate=excluded.closedDate, data=excluded.data, updatedAt=excluded.updatedAt'
   );
@@ -4141,6 +4174,13 @@ function syncMaintenanceKvPayload(dbh: SqliteDb, value: string, nowIso: string):
 
 function syncRolesKvPayload(dbh: SqliteDb, value: string, _nowIso: string): void {
   const roles = safeJsonParseArray(value);
+
+  // Guard: Avoid deleting all data if payload is empty/malformed
+  if (roles.length === 0) {
+    console.warn('[db] syncRolesKvPayload: payload فارغ — تم التجاهل');
+    return;
+  }
+
   const insertRole = dbh.prepare('INSERT OR IGNORE INTO person_roles (personId, role) VALUES (?, ?)');
   const tx = dbh.transaction(() => {
     dbh.exec('DELETE FROM person_roles');
@@ -4157,6 +4197,13 @@ function syncRolesKvPayload(dbh: SqliteDb, value: string, _nowIso: string): void
 
 function syncBlacklistKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
   const blacklist = safeJsonParseArray(value);
+
+  // Guard: Avoid deleting all data if payload is empty/malformed
+  if (blacklist.length === 0) {
+    console.warn('[db] syncBlacklistKvPayload: payload فارغ — تم التجاهل');
+    return;
+  }
+
   const upsertBlacklist = dbh.prepare(
     'INSERT INTO blacklist (personId, isActive, data, updatedAt) VALUES (?, ?, ?, ?) ON CONFLICT(personId) DO UPDATE SET isActive=excluded.isActive, data=excluded.data, updatedAt=excluded.updatedAt'
   );
@@ -4815,11 +4862,13 @@ export async function exportDatabase(destinationPath: string): Promise<void> {
     db = null;
   }
 
-  // Copy file
-  await fs.copyFile(sourcePath, destinationPath);
-
-  // Reopen DB
-  getDb();
+  try {
+    // Copy file
+    await fs.copyFile(sourcePath, destinationPath);
+  } finally {
+    // Reopen DB always
+    getDb();
+  }
 }
 
 export async function exportDatabaseToMany(destinationPaths: string[]): Promise<void> {
@@ -4838,7 +4887,7 @@ export async function exportDatabaseToMany(destinationPaths: string[]): Promise<
       await fs.copyFile(sourcePath, destinationPath);
     }
   } finally {
-    // Reopen DB
+    // Reopen DB always
     getDb();
   }
 }
@@ -4852,17 +4901,31 @@ export async function importDatabase(sourcePath: string): Promise<void> {
     db = null;
   }
 
-  // Backup current database
-  const backupPath = destPath + `.backup-${Date.now()}`;
   try {
-    await fs.copyFile(destPath, backupPath);
-  } catch {
-    // Ignore if no existing DB
+    // Backup current database
+    const backupPath = destPath + `.backup-${Date.now()}`;
+    try {
+      await fs.copyFile(destPath, backupPath);
+    } catch {
+      // Ignore if no existing DB
+    }
+
+    // Copy imported file over current DB
+    await fs.copyFile(sourcePath, destPath);
+  } finally {
+    // Reopen DB always
+    getDb();
   }
-
-  // Copy imported file over current DB
-  await fs.copyFile(sourcePath, destPath);
-
-  // Reopen DB
-  getDb();
 }
+
+// Ensure database connection is closed cleanly on app shutdown to allow WAL commit
+app.on('before-quit', () => {
+  if (db) {
+    try {
+      db.close();
+      db = null;
+    } catch {
+      // Ignore errors during shutdown
+    }
+  }
+});

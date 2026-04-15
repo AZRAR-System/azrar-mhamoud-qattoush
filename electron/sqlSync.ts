@@ -2021,6 +2021,7 @@ export async function importServerBackupFromFile(
 
 type State = {
   lastPullAt?: string;
+  lastPullKey?: string;
 };
 
 async function loadState(): Promise<State> {
@@ -2165,7 +2166,8 @@ export type SqlKvPullRow = {
 /** One incremental pull from dbo.KvStore (used by background loop and sql:syncNow). */
 export async function pullKvStoreOnce(
   applyRemoteChange: (row: SqlKvPullRow) => Promise<void>,
-  sinceOverride?: Date
+  sinceOverride?: Date,
+  sinceKeyOverride?: string
 ): Promise<void> {
   const settings = await loadSqlSettings();
   if (!settings.enabled) return;
@@ -2173,15 +2175,17 @@ export async function pullKvStoreOnce(
   const st = await loadState();
   const parsedSince = st.lastPullAt ? new Date(st.lastPullAt) : new Date(0);
   const since = sinceOverride ?? (Number.isNaN(parsedSince.getTime()) ? new Date(0) : parsedSince);
+  const sinceKey = sinceKeyOverride ?? (sinceOverride ? '' : (st.lastPullKey ?? ''));
 
   const p = await ensureConnected(settings);
   const result = await p
     .request()
     .input('since', sql.DateTime2(3), since)
+    .input('sinceKey', sql.NVarChar(300), sinceKey)
     .query(
       `SELECT k, v, updatedAt, isDeleted
        FROM dbo.KvStore
-       WHERE updatedAt > @since
+       WHERE (updatedAt > @since OR (updatedAt = @since AND k > @sinceKey))
          AND k LIKE N'db\\_%' ESCAPE '\\'
        ORDER BY updatedAt ASC, k ASC
        OFFSET 0 ROWS FETCH NEXT 500 ROWS ONLY;`
@@ -2194,6 +2198,7 @@ export async function pullKvStoreOnce(
     isDeleted: boolean;
   }>;
   let maxUpdatedAt = since;
+  let lastKey = sinceKey;
 
   for (const r of rows) {
     const updatedAtIso = new Date(r.updatedAt).toISOString();
@@ -2203,11 +2208,16 @@ export async function pullKvStoreOnce(
       updatedAt: updatedAtIso,
       isDeleted: !!r.isDeleted,
     });
-    if (r.updatedAt > maxUpdatedAt) maxUpdatedAt = r.updatedAt;
+    if (r.updatedAt > maxUpdatedAt) {
+      maxUpdatedAt = r.updatedAt;
+      lastKey = r.k;
+    } else if (r.updatedAt.getTime() === maxUpdatedAt.getTime() && r.k > lastKey) {
+      lastKey = r.k;
+    }
   }
 
-  if (maxUpdatedAt > since) {
-    await saveState({ ...st, lastPullAt: maxUpdatedAt.toISOString() });
+  if (maxUpdatedAt > since || (maxUpdatedAt >= since && lastKey > sinceKey)) {
+    await saveState({ ...st, lastPullAt: maxUpdatedAt.toISOString(), lastPullKey: lastKey });
     currentStatus = {
       ...currentStatus,
       lastSyncAt: new Date().toISOString(),
