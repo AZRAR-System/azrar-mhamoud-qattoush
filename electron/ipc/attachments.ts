@@ -568,7 +568,11 @@ export function registerAttachments(deps: IpcDeps): void {
       const safeRel = assertSafeIpcString(relativePath, 'relativePath');
       const abs = await resolveExistingAttachmentAbsPath(safeRel);
       await assertSafeAttachmentFile(abs);
-      await fsp.unlink(abs);
+      const root = await getAttachmentsRoot();
+      const trashDir = path.join(root, '_deleted_');
+      await fsp.mkdir(trashDir, { recursive: true });
+      const trashPath = path.join(trashDir, `${Date.now()}__${path.basename(abs)}`);
+      await fsp.rename(abs, trashPath);
       return { success: true };
     } catch (err: unknown) {
       logger.warn(
