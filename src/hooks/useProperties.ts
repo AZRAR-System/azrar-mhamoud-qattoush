@@ -63,6 +63,7 @@ export function useProperties() {
   const [uiPage, setUiPage] = useState(0);
 
   const importRef = useRef<HTMLInputElement>(null);
+  const deleteTimerRef = useRef<number | null>(null);
 
   const tr = useCallback((text: string) => (/[\u0600-\u06FF]/.test(text) ? t(text) : text), [t]);
 
@@ -610,7 +611,9 @@ export function useProperties() {
       onConfirm: () => {
         const sid = String(id);
         setDeletingPropertyId(sid);
-        window.setTimeout(() => {
+        if (deleteTimerRef.current) window.clearTimeout(deleteTimerRef.current);
+        deleteTimerRef.current = window.setTimeout(() => {
+          deleteTimerRef.current = null;
           const res = DbService.deleteProperty(sid);
           setDeletingPropertyId(null);
           if (res.success) {
