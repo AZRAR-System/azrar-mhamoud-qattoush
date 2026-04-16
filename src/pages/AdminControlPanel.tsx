@@ -37,6 +37,8 @@ import { auditLog, type AuditLogRecord } from '@/services/auditLog';
 import { exportToXlsx } from '@/utils/xlsx';
 import { Tooltip as ChartTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useSmartModal } from '@/context/ModalContext';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { DS } from '@/constants/designSystem';
@@ -80,6 +82,8 @@ const StatCard = ({ title, value, sub, icon: Icon, color }: StatCardProps) => (
 // --- MAIN PAGE ---
 
 export const AdminControlPanel: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'analytics' | 'activity' | 'users' | 'blacklist'>(
     'analytics'
   );
@@ -103,6 +107,11 @@ export const AdminControlPanel: React.FC = () => {
   // Data States
   const [analytics, setAnalytics] = useState<DashboardStats | null>(null);
   const [logs, setLogs] = useState<AuditLogRecord[]>([]);
+  useEffect(() => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    const role = String(user?.الدور ?? '').trim().toLowerCase();
+    if (role !== 'superadmin' && role !== 'admin') navigate('/');
+  }, [isAuthenticated, user, navigate]);
   const [users, setUsers] = useState<المستخدمين_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]); // To link employees
   const [allPermissions, setAllPermissions] = useState<صلاحيات_المستخدمين_tbl[]>([]);
