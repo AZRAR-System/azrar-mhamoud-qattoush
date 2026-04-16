@@ -160,12 +160,15 @@ export async function sendReminder(p: SendReminderParams): Promise<void> {
   const target = settings.whatsAppTarget ?? 'auto';
   const delayMs = Math.max(0, Number(settings.whatsAppDelayMs ?? 10_000));
 
-  await openWhatsAppForPhones(message, phones, {
-    defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
-    delayMs,
-    target,
-  });
-
+  try {
+    await openWhatsAppForPhones(message, phones, {
+      defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
+      delayMs,
+      target,
+    });
+  } catch (err: unknown) {
+    console.warn('[WhatsApp] فشل فتح واتساب:', err);
+  }
   addNotificationSendLogInternal({
     category: categoryForKind(kind),
     tenantId: tenant?.رقم_الشخص,
