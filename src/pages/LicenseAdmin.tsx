@@ -39,6 +39,8 @@ import {
 } from '@/features/licenseAdmin/fingerprintRegistry';
 import { getErrorMessage, licenseStatusToArabic } from '@/features/licenseAdmin/utils';
 import { useToast } from '@/context/ToastContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 
 type AdminListItem = {
   licenseKey: string;
@@ -121,6 +123,18 @@ const computeExpiresAtFromDuration = (duration: IssueDuration): string => {
 type TabKey = 'dashboard' | 'licenses' | 'customers' | 'settings';
 
 export const LicenseAdmin: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  // RBAC guard — إدارة التراخيص حصرية لـ SuperAdmin
+  useEffect(() => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    const role = String(user?.الدور ?? '').trim().toLowerCase();
+    if (role !== 'superadmin') {
+      navigate('/');
+    }
+  }, [isAuthenticated, user, navigate]);
+
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [serverUrl, setServerUrl] = useState('http://127.0.0.1:5056');
