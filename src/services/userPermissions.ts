@@ -8,7 +8,9 @@ import type { المستخدمين_tbl, مستخدم_صلاحية_tbl } from '@/
 import { isSuperAdmin, normalizeRole } from '@/utils/roles';
 
 export function userHasPermission(userId: string, permission: string): boolean {
-  const user = get<المستخدمين_tbl>(KEYS.USERS).find((u) => u.id === userId);
+  const normalizedUserId = String(userId ?? '').trim();
+  if (!normalizedUserId) return false;
+  const user = get<المستخدمين_tbl>(KEYS.USERS).find((u) => u.id === normalizedUserId);
   if (!user) return false;
   if (isSuperAdmin(normalizeRole(user.الدور))) return true;
   const perms = get<مستخدم_صلاحية_tbl>(KEYS.USER_PERMISSIONS)
