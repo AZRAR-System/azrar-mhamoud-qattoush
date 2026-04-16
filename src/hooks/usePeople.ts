@@ -118,6 +118,7 @@ export function usePeople(isVisible = true) {
 
   const dbSignal = useDbSignal();
   const isStaleRef = useRef(false);
+  const deleteTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     writeSessionFilterJson('people', {
@@ -362,7 +363,9 @@ export function usePeople(isVisible = true) {
 
     const sid = String(id);
     setDeletingPersonId(sid);
-    window.setTimeout(() => {
+    if (deleteTimerRef.current) window.clearTimeout(deleteTimerRef.current);
+    deleteTimerRef.current = window.setTimeout(() => {
+      deleteTimerRef.current = null;
       const res = DbService.deletePerson(sid);
       setDeletingPersonId(null);
       if (res.success) {
