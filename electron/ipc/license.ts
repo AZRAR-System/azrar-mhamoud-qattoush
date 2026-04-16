@@ -81,19 +81,27 @@ export function registerLicense(deps: IpcDeps): void {
   });
   
   ipcMain.handle('license:activateFromContent', async (_e, raw: unknown) => {
-    const res = await licenseActivateWithLicenseContent(String(raw || ''));
-    if ((res as { ok?: boolean }).ok) return { ok: true };
-    return { ok: false, error: (res as { error?: string }).error || 'فشل التفعيل' };
+    try {
+      const res = await licenseActivateWithLicenseContent(String(raw || ''));
+      if ((res as { ok?: boolean }).ok) return { ok: true };
+      return { ok: false, error: (res as { error?: string }).error || 'فشل التفعيل' };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'فشل تفعيل الترخيص من الملف') };
+    }
   });
   
   ipcMain.handle('license:activateOnline', async (_e, payload: unknown) => {
-    const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
-    const res = await licenseActivateOnline({
-      licenseKey: String(p.licenseKey || ''),
-      ...(p.serverUrl ? { serverUrl: String(p.serverUrl) } : {}),
-    });
-    if ((res as { ok?: boolean }).ok) return { ok: true };
-    return { ok: false, error: (res as { error?: string }).error || 'فشل التفعيل عبر الإنترنت' };
+    try {
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+      const res = await licenseActivateOnline({
+        licenseKey: String(p.licenseKey || ''),
+        ...(p.serverUrl ? { serverUrl: String(p.serverUrl) } : {}),
+      });
+      if ((res as { ok?: boolean }).ok) return { ok: true };
+      return { ok: false, error: (res as { error?: string }).error || 'فشل التفعيل عبر الإنترنت' };
+    } catch (e: unknown) {
+      return { ok: false, error: toErrorMessage(e, 'فشل التفعيل عبر الإنترنت') };
+    }
   });
   
   ipcMain.handle('license:getServerUrl', async () => {
