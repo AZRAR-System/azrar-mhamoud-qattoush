@@ -3,7 +3,7 @@ module.exports = {
 	roots: ['<rootDir>/tests'],
 	testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],
 	testPathIgnorePatterns: ['/node_modules/'],
-	setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+	setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
 	extensionsToTreatAsEsm: ['.ts', '.tsx'],
 	collectCoverage: true,
 	collectCoverageFrom: [
