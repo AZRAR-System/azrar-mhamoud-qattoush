@@ -1,3 +1,4 @@
+export {};
 /**
  * Tests for RBAC auth layer
  * Covers: normalizeRole, isSuperAdmin, userHasPermission userId normalization

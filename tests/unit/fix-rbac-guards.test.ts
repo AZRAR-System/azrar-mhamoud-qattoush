@@ -1,3 +1,4 @@
+export {};
 /**
  * Tests for RBAC guard logic applied to sensitive pages
  * Covers: BulkWhatsApp, AdminControlPanel, LicenseAdmin,
