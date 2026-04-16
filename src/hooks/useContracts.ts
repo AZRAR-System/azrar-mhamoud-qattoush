@@ -109,6 +109,7 @@ export function useContracts(isVisible = true) {
   const toast = useToast();
   const dbSignal = useDbSignal();
   const isStaleRef = useRef(false);
+  const deleteTimerRef = useRef<number | null>(null);
   const fastStaleRef = useRef(false);
   const toastRef = useRef(toast);
 
@@ -579,7 +580,9 @@ export function useContracts(isVisible = true) {
 
       const sid = String(id);
       setDeletingContractId(sid);
-      window.setTimeout(() => {
+      if (deleteTimerRef.current) window.clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = window.setTimeout(() => {
+        deleteTimerRef.current = null;
         const res = DbService.deleteContract(sid);
         setDeletingContractId(null);
         if (res.success) {
