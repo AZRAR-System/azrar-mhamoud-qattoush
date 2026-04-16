@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import { 
   Server, 
   ShieldCheck, 
@@ -20,6 +22,13 @@ import { ROUTE_PATHS } from '@/routes/paths';
 type Step = 'welcome' | 'requirements' | 'install' | 'success';
 
 export const SystemSetup: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    const role = String(user?.الدور ?? '').trim().toLowerCase();
+    if (role !== 'superadmin' && role !== 'admin') navigate('/');
+  }, [isAuthenticated, user, navigate]);
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [logs, setLogs] = useState<string[]>([]);

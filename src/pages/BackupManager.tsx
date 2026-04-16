@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import {
   History,
@@ -78,6 +80,13 @@ type EncryptionSettings = {
 // --- Components ---
 
 export const BackupManager: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    const role = String(user?.الدور ?? '').trim().toLowerCase();
+    if (role !== 'superadmin' && role !== 'admin') navigate('/');
+  }, [isAuthenticated, user, navigate]);
   useTranslation();
   const toast = useToast();
   useSmartModal();
