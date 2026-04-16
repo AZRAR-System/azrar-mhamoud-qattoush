@@ -809,8 +809,12 @@ export function registerSql(deps: IpcDeps): void {
     }
   };
   
-  setTimeout(() => void runDailyBackupTick('startup'), 10_000);
-  setInterval(() => void runDailyBackupTick('hourly'), 60 * 60 * 1000);
+  const _startupTimer = setTimeout(() => void runDailyBackupTick('startup'), 10_000);
+  const _hourlyTimer = setInterval(() => void runDailyBackupTick('hourly'), 60 * 60 * 1000);
+  app.on('before-quit', () => {
+    clearTimeout(_startupTimer);
+    clearInterval(_hourlyTimer);
+  });
   
   ipcMain.handle('sql:syncNow', async () => {
     try {
