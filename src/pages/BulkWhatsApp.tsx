@@ -10,6 +10,8 @@ import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { buildWhatsAppLink, collectWhatsAppPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { openExternalUrl } from '@/utils/externalLink';
@@ -106,6 +108,18 @@ const applyTemplateVars = (template: string, vars: Record<string, string | numbe
 
 export const BulkWhatsApp: React.FC = () => {
   const toast = useToast();
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  // RBAC guard — منع الوصول لغير المديرين
+  useEffect(() => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    const role = String(user?.الدور ?? '').trim().toLowerCase();
+    const allowed = ['superadmin', 'admin', 'manager'];
+    if (!allowed.includes(role)) {
+      navigate('/');
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const dbSignal = useDbSignal();
 
