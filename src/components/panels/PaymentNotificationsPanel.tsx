@@ -33,8 +33,6 @@ const getOptionalNumberProp = (value: unknown, key: string): number | undefined 
   return undefined;
 };
 
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0;
 
 const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
   const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
