@@ -36,7 +36,10 @@ export const authenticateUser = async (u: string, p: string): Promise<DbResult<�
 
   const stored = String(user.كلمة_المرور || '');
   const okPass = await verifyPassword(password, stored);
-  if (!okPass) return fail('Invalid credentials');
+  if (!okPass) {
+    logAuthAttempt({ username, result: 'FAILED', reason: 'wrong password' });
+    return fail('Invalid credentials');
+  }
 
   // Opportunistic upgrade: if we matched a legacy plaintext password, replace with a hash.
   try {
@@ -47,6 +50,7 @@ export const authenticateUser = async (u: string, p: string): Promise<DbResult<�
     }
   } catch { /* ignore */ }
 
+  logAuthAttempt({ username, result: 'SUCCESS', userId: String(user.id || '') });
   return ok(user);
 };
 
