@@ -3,6 +3,7 @@ import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 import { DbService } from '@/services/mockDb';
 import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useSmartModal } from '@/context/ModalContext';
 import { SystemHealth, PredictiveInsight } from '@/types';
 import { useDbSignal } from '@/hooks/useDbSignal';
@@ -1494,7 +1495,15 @@ export const SystemMaintenance: React.FC = () => {
     return enabled ? 'testing' : 'diagnostics';
   });
 
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const toast = useToast();
+
+  useEffect(() => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    const role = String(user?.الدور ?? '').trim().toLowerCase();
+    if (role !== 'superadmin') navigate('/');
+  }, [isAuthenticated, user, navigate]);
 
   const dbSignal = useDbSignal();
 
