@@ -205,7 +205,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'financial' || cat === 'installment' ||
           cat === 'installments'
         ) {
-          navigate(`${ROUTE_PATHS.INSTALLMENTS}?id=${eid}`);
+          navigate(`${ROUTE_PATHS.INSTALLMENTS}?highlight=${eid}`);
           onClose();
           return;
         }

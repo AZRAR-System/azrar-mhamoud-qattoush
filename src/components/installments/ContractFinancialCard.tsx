@@ -119,6 +119,18 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
   }, [initiallyExpanded, isExpanded]);
 
   useEffect(() => {
+    if (isExpanded && highlightInstallmentId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`inst-row-${highlightInstallmentId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [isExpanded, highlightInstallmentId]);
+
+  useEffect(() => {
     onOpenStateChange?.(isExpanded);
   }, [isExpanded, onOpenStateChange]);
   const [invoicePrintCtx, setInvoicePrintCtx] = useState<{

@@ -290,10 +290,13 @@ export function useInstallments() {
         const q = params.get('q');
         const s = params.get('search');
         const instId = params.get('id') || params.get('installmentId');
+        const highlightId = params.get('highlight');
         const cId = params.get('contractId') || params.get('contract_id');
 
+        const effectiveTargetId = instId || highlightId;
+
         // If we have a search or a specific ID, reset ALL advanced filters to ensure visibility
-        if (q || s || instId || cId) {
+        if (q || s || effectiveTargetId || cId) {
           setFilter('all');
           setFilterStartDate('');
           setFilterEndDate('');
@@ -317,12 +320,15 @@ export function useInstallments() {
         else if (s !== null) setSearch(String(s));
 
         // Deep link to specific installment
-        if (instId) {
-          setHighlightInstallmentId(instId);
+        if (effectiveTargetId) {
+          setHighlightInstallmentId(effectiveTargetId);
           const allInst = DbService.getInstallments();
-          const target = allInst.find((i) => String(i.رقم_الكمبيالة) === String(instId));
+          const target = allInst.find((i) => String(i.رقم_الكمبيالة) === String(effectiveTargetId));
           if (target) {
-            setSelectedInstallment(target);
+            setSelectedContractId(String(target.رقم_العقد));
+            if (instId) {
+              setSelectedInstallment(target);
+            }
             // If we didn't have a search, but we have a target, try to filter by its tenant to give context
             if (!q && !s) {
               const contract = DbService.getContracts().find((c) => c.رقم_العقد === target.رقم_العقد);
