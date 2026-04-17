@@ -54,14 +54,14 @@ describe('toDateOnlyISO', () => {
 
 describe('parseDateOnly', () => {
   it('parses ISO date string correctly', () => {
-    const d = parseDateOnly('2026-04-15');
+    const d = parseDateOnly('2026-04-15')!;
     expect(d.getFullYear()).toBe(2026);
     expect(d.getMonth()).toBe(3);
     expect(d.getDate()).toBe(15);
   });
 
   it('month is 0-indexed internally', () => {
-    const d = parseDateOnly('2026-01-01');
+    const d = parseDateOnly('2026-01-01')!;
     expect(d.getMonth()).toBe(0);
   });
 });
