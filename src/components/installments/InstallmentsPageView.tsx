@@ -100,9 +100,13 @@ export function InstallmentsPageView({ page }: Props) {
                         ?.رقم_المستاجر
                   )
             }
-            onClose={() => setSelectedInstallment(null)}
+            onClose={() => {
+              setSelectedInstallment(null);
+              page.clearDeepLink();
+            }}
             onSuccess={() => {
               setSelectedInstallment(null);
+              page.clearDeepLink();
             }}
             onMessageClick={() => {
               const contract = contracts.find((c) => c.رقم_العقد === selectedInstallment.رقم_العقد);

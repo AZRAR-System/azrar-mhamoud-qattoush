@@ -1116,6 +1116,14 @@ export function useInstallments() {
     deleteFavFilter,
     confirmDialogRef,
     dbSignal,
+    clearDeepLink: () => {
+      setHighlightInstallmentId(null);
+      const raw = String(window.location.hash || '');
+      if (raw.includes('?')) {
+        const [base] = raw.split('?');
+        window.history.replaceState(null, '', base);
+      }
+    },
     legacyLoadData,
     loadDesktopData,
     loadData,

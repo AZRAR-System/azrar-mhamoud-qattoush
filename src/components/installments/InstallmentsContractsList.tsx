@@ -171,6 +171,9 @@ export function InstallmentsContractsList({ page }: Props) {
                   if (!isOpen && page.selectedContractId === contractId) {
                     page.setSelectedContractId(null);
                   }
+                  if (!isOpen && page.highlightInstallmentId) {
+                    page.clearDeepLink();
+                  }
                 }}
               />
             );
@@ -238,6 +241,9 @@ export function InstallmentsContractsList({ page }: Props) {
             onOpenStateChange={(isOpen) => {
               if (!isOpen && page.selectedContractId === item.contract.رقم_العقد) {
                 page.setSelectedContractId(null);
+              }
+              if (!isOpen && page.highlightInstallmentId) {
+                page.clearDeepLink();
               }
             }}
           />
