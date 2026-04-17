@@ -176,7 +176,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
 
       if (eid) {
         if (cat.includes('contract') || cat === 'contracts' || cat === 'contract_renewal') {
-          navigate(`${ROUTE_PATHS.CONTRACTS}?id=${eid}`);
+          openPanel('CONTRACT_DETAILS', eid);
           onClose();
           return;
         }
@@ -189,12 +189,12 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
         ) {
           // If the entityId is a Contract but the category is Risk, we might still want the Person page.
           // However, backgroundScans will be updated to use PersonID for person-risks.
-          navigate(`${ROUTE_PATHS.PEOPLE}?id=${eid}`);
+          openPanel('PERSON_DETAILS', eid);
           onClose();
           return;
         }
         if (cat.includes('propert')) {
-          navigate(`${ROUTE_PATHS.PROPERTIES}?id=${eid}`);
+          openPanel('PROPERTY_DETAILS', eid);
           onClose();
           return;
         }
@@ -224,12 +224,12 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
 
           const searchParam = tenantName ? `&search=${encodeURIComponent(tenantName)}` : '';
           const contractParam = contractId ? `&contractId=${contractId}` : '';
-          navigate(`${ROUTE_PATHS.INSTALLMENTS}?id=${eid}${searchParam}${contractParam}`);
+          openPanel('INSTALLMENT_DETAILS', eid);
           onClose();
           return;
         }
         if (cat === 'maintenance') {
-          navigate(`${ROUTE_PATHS.MAINTENANCE}?id=${eid}`);
+          openPanel('MAINTENANCE_DETAILS', eid);
           onClose();
           return;
         }
