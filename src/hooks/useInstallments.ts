@@ -339,9 +339,13 @@ export function useInstallments() {
       }
     };
 
-    applyFromHash();
+    // تأخير بسيط لضمان تحميل البيانات قبل تطبيق الـ deep link
+    const timer = setTimeout(() => applyFromHash(), 300);
     window.addEventListener('hashchange', applyFromHash);
-    return () => window.removeEventListener('hashchange', applyFromHash);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('hashchange', applyFromHash);
+    };
   }, []);
 
   const legacyLoadData = useCallback(() => {
