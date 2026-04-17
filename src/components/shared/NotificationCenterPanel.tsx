@@ -205,7 +205,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'financial' || cat === 'installment' ||
           cat === 'installments'
         ) {
-          openPanel('PAYMENT_NOTIFICATIONS', undefined, { highlightId: eid, daysAhead: 30 });
+          navigate(`${ROUTE_PATHS.INSTALLMENTS}?highlight=${eid}`);
           onClose();
           return;
         }
@@ -408,7 +408,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
                         onClick={(e) => {
                           e.stopPropagation();
                           markRead(item.id);
-                          openPanel('PAYMENT_NOTIFICATIONS', undefined, { highlightId: item.entityId ?? '', daysAhead: 30 });
+                          navigate(`${ROUTE_PATHS.INSTALLMENTS}?highlight=${item.entityId ?? ''}`);
                           onClose();
                         }}
                       >
