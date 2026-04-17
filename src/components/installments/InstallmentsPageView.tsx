@@ -14,6 +14,7 @@ import { InstallmentsChartsPanel } from '@/components/installments/InstallmentsC
 import { InstallmentsContractsList } from '@/components/installments/InstallmentsContractsList';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { DbService } from '@/services/mockDb';
+import { العقود_tbl, الأشخاص_tbl, العقارات_tbl } from '@/types';
 
 /** موحّد مع Dashboard / Commissions — عرض مريح على الشاشات الواسعة */
 const INSTALLMENTS_PAGE_WRAP = 'max-w-[1600px] mx-auto w-full px-4 sm:px-6';

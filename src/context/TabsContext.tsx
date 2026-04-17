@@ -50,6 +50,11 @@ export const TabsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [state, setState] = useState<TabsState>({ tabs: DEFAULT_TABS, activeTabId: 'home' });
 
+  // تنظيف الكاش القديم من النسخ السابقة
+  useEffect(() => {
+    localStorage.removeItem('azrar_tabs_state_v1');
+  }, []);
+
   // Load user-specific tabs on login
   useEffect(() => {
     if (STORAGE_KEY) {
