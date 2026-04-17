@@ -13,7 +13,7 @@ type SpawnResult = { code: number | null; stdout: string; stderr: string };
 const spawnCollect = async (
   command: string,
   args: string[],
-  opts?: { cwd?: string }
+  opts?: { cwd?: string; timeoutMs?: number }
 ): Promise<SpawnResult> =>
   new Promise((resolve) => {
     const child = spawn(command, args, {
@@ -24,6 +24,23 @@ const spawnCollect = async (
 
     let stdout = '';
     let stderr = '';
+    let settled = false;
+
+    const settle = (result: SpawnResult) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    const timeoutMs = opts?.timeoutMs ?? 60_000;
+    const timer = setTimeout(() => {
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        /* ignore */
+      }
+      settle({ code: -1, stdout, stderr: 'انتهت مهلة تشغيل محول PDF' });
+    }, timeoutMs);
 
     child.stdout?.on('data', (d) => {
       stdout += String(d ?? '');
@@ -33,8 +50,15 @@ const spawnCollect = async (
       stderr += String(d ?? '');
     });
 
-    child.on('close', (code) => resolve({ code, stdout, stderr }));
-    child.on('error', () => resolve({ code: -1, stdout, stderr: stderr || 'فشل تشغيل محول PDF' }));
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      settle({ code, stdout, stderr });
+    });
+
+    child.on('error', () => {
+      clearTimeout(timer);
+      settle({ code: -1, stdout, stderr: stderr || 'فشل تشغيل محول PDF' });
+    });
   });
 
 const fileExists = async (p: string): Promise<boolean> => {
