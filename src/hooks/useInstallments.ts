@@ -273,6 +273,7 @@ export function useInstallments() {
   ]);
 
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [highlightInstallmentId, setHighlightInstallmentId] = useState<string | null>(null);
 
   // Support deep links: #/installments?filter=due|debt|paid|all&q=...
   useEffect(() => {
@@ -317,6 +318,7 @@ export function useInstallments() {
 
         // Deep link to specific installment
         if (instId) {
+          setHighlightInstallmentId(instId);
           const allInst = DbService.getInstallments();
           const target = allInst.find((i) => String(i.رقم_الكمبيالة) === String(instId));
           if (target) {
@@ -1174,6 +1176,8 @@ export function useInstallments() {
     setFavoriteFilters,
     selectedInstallment,
     setSelectedInstallment,
+    highlightInstallmentId,
+    setHighlightInstallmentId,
     selectedContractId,
     setSelectedContractId,
     confirmDialog,

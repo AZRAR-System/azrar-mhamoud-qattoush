@@ -82,12 +82,15 @@ export interface ContractCardProps {
   openPanel: (panelId: string, payload?: unknown) => void;
   initiallyExpanded?: boolean;
   onOpenStateChange?: (isOpen: boolean) => void;
+  highlightInstallmentId?: string | null;
 }
 
 export const ContractFinancialCard: React.FC<ContractCardProps> = ({
   contract,
   tenant,
   property,
+  // @ts-ignore will be used below
+  highlightInstallmentId,
   installments,
   isAdmin: _isAdmin,
   userId,
@@ -502,10 +505,17 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
                       rowBgColor =
                         'bg-green-50/20 dark:bg-green-900/10 border-l-4 border-green-500';
 
+                    const isHighlighted = highlightInstallmentId &&
+                      String(inst.رقم_الكمبيالة) === String(highlightInstallmentId);
                     return (
                       <tr
                         key={inst.رقم_الكمبيالة}
-                        className={`${DS.components.table.row} ${rowBgColor}`}
+                        id={`inst-row-${inst.رقم_الكمبيالة}`}
+                        className={`${DS.components.table.row} ${rowBgColor} ${
+                          isHighlighted
+                            ? 'ring-2 ring-indigo-500 ring-inset bg-indigo-50/30 dark:bg-indigo-950/30 animate-pulse'
+                            : ''
+                        }`}
                       >
                         <td className="p-3 font-mono text-slate-400">{idx + 1}</td>
                         <td

@@ -166,6 +166,7 @@ export function InstallmentsContractsList({ page }: Props) {
                 }}
                 openPanel={openPanel}
                 initiallyExpanded={page.selectedContractId === contractId}
+                highlightInstallmentId={page.highlightInstallmentId}
                 onOpenStateChange={(isOpen) => {
                   if (!isOpen && page.selectedContractId === contractId) {
                     page.setSelectedContractId(null);
@@ -233,6 +234,7 @@ export function InstallmentsContractsList({ page }: Props) {
             }}
             openPanel={openPanel}
             initiallyExpanded={page.selectedContractId === item.contract.رقم_العقد}
+            highlightInstallmentId={page.highlightInstallmentId}
             onOpenStateChange={(isOpen) => {
               if (!isOpen && page.selectedContractId === item.contract.رقم_العقد) {
                 page.setSelectedContractId(null);
