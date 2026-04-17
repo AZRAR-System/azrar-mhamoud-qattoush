@@ -10,6 +10,7 @@ import {
   Bell,
   CreditCard,
   MessageCircle,
+  FileText,
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { ROUTE_PATHS } from '@/routes/paths';
@@ -374,21 +375,57 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
                       </div>
                     </div>
                   </button>
-                  {shouldShowWhatsAppButton(item) && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="h-auto shrink-0 flex-col gap-0.5 px-2 py-1.5 text-[10px] font-bold leading-tight sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"
-                      title="إرسال واتساب"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleWhatsApp(item);
-                      }}
-                    >
-                      <MessageCircle size={16} className="shrink-0 sm:size-[18px]" aria-hidden />
-                      <span className="max-w-[4.5rem] sm:max-w-none">إرسال واتساب</span>
-                    </Button>
-                  )}
+                  <div className="flex flex-col gap-1 shrink-0">
+                    {shouldShowWhatsAppButton(item) && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="h-auto flex-col gap-0.5 px-2 py-1.5 text-[10px] font-bold leading-tight sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"
+                        title="إرسال واتساب"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleWhatsApp(item);
+                        }}
+                      >
+                        <MessageCircle size={16} className="shrink-0 sm:size-[18px]" aria-hidden />
+                        <span className="max-w-[4.5rem] sm:max-w-none">واتساب</span>
+                      </Button>
+                    )}
+                    {(item.category === 'payment' || item.category === 'overdue' || item.category === 'installment') && item.entityId && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto flex-col gap-0.5 px-2 py-1.5 text-[10px] font-bold leading-tight text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20"
+                        title="تسجيل دفع"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markRead(item.id);
+                          openPanel('INSTALLMENT_DETAILS', item.entityId ?? '');
+                          onClose();
+                        }}
+                      >
+                        <CreditCard size={16} className="shrink-0" aria-hidden />
+                        <span>دفع</span>
+                      </Button>
+                    )}
+                    {(item.category === 'contracts' || item.category === 'contract_renewal') && item.entityId && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto flex-col gap-0.5 px-2 py-1.5 text-[10px] font-bold leading-tight text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
+                        title="فتح العقد"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markRead(item.id);
+                          openPanel('CONTRACT_DETAILS', item.entityId ?? '');
+                          onClose();
+                        }}
+                      >
+                        <FileText size={16} className="shrink-0" aria-hidden />
+                        <span>العقد</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </li>
             ))}
