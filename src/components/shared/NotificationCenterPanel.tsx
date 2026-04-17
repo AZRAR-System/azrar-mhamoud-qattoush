@@ -339,11 +339,19 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
             {filtered.map((item) => (
               <li key={item.id}>
                 <div
-                  className={`flex w-full gap-2 rounded-xl border p-2 text-right transition hover:bg-slate-50 dark:hover:bg-slate-800/80 sm:gap-3 sm:p-3 ${
+                  className={`flex w-full gap-2 rounded-xl border p-2 text-right transition sm:gap-3 sm:p-3 ${
                     item.read
-                      ? 'border-slate-100 bg-white/50 opacity-80 dark:border-slate-800 dark:bg-slate-900/40'
-                      : 'border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/40 dark:bg-indigo-950/20'
-                  } ${item.urgent ? 'ring-1 ring-amber-400/50' : ''}`}
+                      ? 'border-slate-100 bg-white/50 opacity-70 dark:border-slate-800 dark:bg-slate-900/40 hover:opacity-100'
+                      : item.urgent
+                        ? 'border-red-200 bg-red-50/60 dark:border-red-900/50 dark:bg-red-950/30 ring-1 ring-red-400/40 hover:bg-red-50 dark:hover:bg-red-950/50'
+                        : item.type === 'error'
+                          ? 'border-red-100 bg-red-50/40 dark:border-red-900/30 dark:bg-red-950/20 hover:bg-red-50/60 dark:hover:bg-red-950/30'
+                          : item.type === 'warning'
+                            ? 'border-amber-100 bg-amber-50/40 dark:border-amber-900/30 dark:bg-amber-950/20 hover:bg-amber-50/60 dark:hover:bg-amber-950/30'
+                            : item.type === 'success'
+                              ? 'border-green-100 bg-green-50/40 dark:border-green-900/30 dark:bg-green-950/20 hover:bg-green-50/60 dark:hover:bg-green-950/30'
+                              : 'border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/40 dark:bg-indigo-950/20 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30'
+                  }`}
                 >
                   <button
                     type="button"
