@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 /**
  * Tests for deleteTimer ref pattern
  * Ensures setTimeout is properly managed to prevent setState on unmounted components

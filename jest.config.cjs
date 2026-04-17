@@ -4,7 +4,6 @@ module.exports = {
 	testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],
 	testPathIgnorePatterns: ['/node_modules/'],
 	setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-	extensionsToTreatAsEsm: ['.ts', '.tsx'],
 	collectCoverage: true,
 	collectCoverageFrom: [
 		'src/**/*.{ts,tsx}',
@@ -17,7 +16,6 @@ module.exports = {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',
 			{
-				useESM: true,
 				tsconfig: '<rootDir>/tsconfig.json',
 			},
 		],
