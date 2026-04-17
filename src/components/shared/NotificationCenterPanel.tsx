@@ -205,7 +205,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'financial' || cat === 'installment' ||
           cat === 'installments'
         ) {
-          openPanel('INSTALLMENT_DETAILS', eid);
+          openPanel('PAYMENT_NOTIFICATIONS', undefined, { highlightId: eid, daysAhead: 30 });
           onClose();
           return;
         }
@@ -408,7 +408,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
                         onClick={(e) => {
                           e.stopPropagation();
                           markRead(item.id);
-                          openPanel('INSTALLMENT_DETAILS', item.entityId ?? '');
+                          openPanel('PAYMENT_NOTIFICATIONS', undefined, { highlightId: item.entityId ?? '', daysAhead: 30 });
                           onClose();
                         }}
                       >
