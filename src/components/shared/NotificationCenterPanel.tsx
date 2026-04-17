@@ -38,6 +38,7 @@ const categoryLabels: Record<string, string> = {
   'maintenance': 'صيانة',
   'system': 'نظام',
   'info': 'معلومات',
+  'contract_renewal': 'تجديد عقد',
 };
 
 type FilterTab = 'all' | 'unread' | 'urgent' | 'reminders' | 'collection' | 'contracts' | 'installments' | 'maintenance' | 'system';
@@ -175,17 +176,25 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
 
       if (eid) {
         if (cat.includes('contract') || cat === 'contracts' || cat === 'contract_renewal') {
-          openPanel('CONTRACT_DETAILS', eid);
+          navigate(`${ROUTE_PATHS.CONTRACTS}?id=${eid}`);
           onClose();
           return;
         }
-        if (cat.includes('person') || cat === 'people' || cat === 'blacklist') {
-          openPanel('PERSON_DETAILS', eid);
+        if (
+          cat.includes('person') ||
+          cat === 'people' ||
+          cat === 'blacklist' ||
+          cat === 'risk' ||
+          cat === 'risk_alert'
+        ) {
+          // If the entityId is a Contract but the category is Risk, we might still want the Person page.
+          // However, backgroundScans will be updated to use PersonID for person-risks.
+          navigate(`${ROUTE_PATHS.PEOPLE}?id=${eid}`);
           onClose();
           return;
         }
         if (cat.includes('propert')) {
-          openPanel('PROPERTY_DETAILS', eid);
+          navigate(`${ROUTE_PATHS.PROPERTIES}?id=${eid}`);
           onClose();
           return;
         }
@@ -195,15 +204,41 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'financial' || cat === 'installment' ||
           cat === 'installments'
         ) {
-          openPanel('INSTALLMENT_DETAILS', eid);
+          // Check if this specific user wants payments to go to Person page?
+          // For now, keep the optimized Installments view but ensure easy jump to Profile.
+          let tenantName = '';
+          let contractId = '';
+          try {
+            const inst = DbService.getInstallments().find((i) => i.رقم_الكمبيالة === eid);
+            if (inst) {
+              contractId = String(inst.رقم_العقد || '');
+              const contract = DbService.getContracts().find((c) => c.رقم_العقد === inst.رقم_العقد);
+              const tenant = DbService.getPeople().find(
+                (p) => p.رقم_الشخص === contract?.رقم_المستاجر
+              );
+              tenantName = tenant?.الاسم || '';
+            }
+          } catch {
+            // ignore
+          }
+
+          const searchParam = tenantName ? `&search=${encodeURIComponent(tenantName)}` : '';
+          const contractParam = contractId ? `&contractId=${contractId}` : '';
+          navigate(`${ROUTE_PATHS.INSTALLMENTS}?id=${eid}${searchParam}${contractParam}`);
           onClose();
           return;
         }
         if (cat === 'maintenance') {
-          openPanel('MAINTENANCE_DETAILS', eid);
+          navigate(`${ROUTE_PATHS.MAINTENANCE}?id=${eid}`);
           onClose();
           return;
         }
+      }
+
+      if (cat === 'risk' || cat === 'risk_alert' || cat === 'blacklist') {
+        navigate(`${ROUTE_PATHS.PEOPLE}${eid ? `?id=${eid}` : ''}`);
+        onClose();
+        return;
       }
 
       if (cat === 'reminders' || cat.includes('reminder')) {

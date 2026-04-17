@@ -686,6 +686,18 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             </button>
           </RBACGuard>
           <button
+            onClick={handleOpenWhatsAppSendPanel}
+            disabled={isOpeningWhatsAppPanel}
+            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 rounded-2xl text-[11px] font-black border border-emerald-100 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95 disabled:opacity-50"
+          >
+            {isOpeningWhatsAppPanel ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <MessageCircle size={14} />
+            )}
+            {t('إرسال إشعار')}
+          </button>
+          <button
             onClick={handleQuickFollowUpForContract}
             className="flex items-center gap-2 px-5 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-2xl text-[11px] font-black border border-amber-100 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-95"
           >

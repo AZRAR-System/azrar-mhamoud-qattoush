@@ -13,6 +13,7 @@ import { InstallmentsFiltersPanel } from '@/components/installments/Installments
 import { InstallmentsChartsPanel } from '@/components/installments/InstallmentsChartsPanel';
 import { InstallmentsContractsList } from '@/components/installments/InstallmentsContractsList';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
+import { DbService } from '@/services/mockDb';
 
 /** موحّد مع Dashboard / Commissions — عرض مريح على الشاشات الواسعة */
 const INSTALLMENTS_PAGE_WRAP = 'max-w-[1600px] mx-auto w-full px-4 sm:px-6';
@@ -100,6 +101,23 @@ export function InstallmentsPageView({ page }: Props) {
             }
             onClose={() => setSelectedInstallment(null)}
             onSuccess={() => {
+              setSelectedInstallment(null);
+            }}
+            onMessageClick={() => {
+              const contract = contracts.find((c) => c.رقم_العقد === selectedInstallment.رقم_العقد);
+              const tenant = people.find((p) => p.رقم_الشخص === contract?.رقم_المستاجر);
+              const prop = DbService.getProperties().find(
+                (pr) => pr.رقم_العقار === contract?.رقم_العقار
+              );
+
+              setMessageContext({
+                installment: selectedInstallment,
+                contract: contract || ({} as العقود_tbl),
+                tenant: tenant || ({} as الأشخاص_tbl),
+                property: prop || ({} as العقارات_tbl),
+                category: 'reminder',
+              });
+              setMessageModalOpen(true);
               setSelectedInstallment(null);
             }}
             userId={userId}

@@ -22,6 +22,7 @@ import { getInstallmentPaidAndRemaining } from './installments';
 import { buildContractAlertContext, markAlertsReadByPrefix, upsertAlert } from './alertsCore';
 import { getSettings } from './settings';
 import { tryAutoSendIfEligible } from '@/services/whatsAppAutoSender';
+import { notificationCenter } from '@/services/notificationCenter';
 
 export type CreateContractFn = (
   data: Partial<العقود_tbl>,
@@ -245,6 +246,15 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
             مرجع_الجدول: 'الكمبيالات_tbl',
             مرجع_المعرف: u.inst.رقم_الكمبيالة,
           });
+
+          notificationCenter.add({
+            id: `nc-rem7-${u.inst.رقم_الكمبيالة}`,
+            type: 'info',
+            title: 'تذكير بالاستحقاق',
+            message: `دفعة ستستحق خلال ${daysUntilDue} أيام. المستأجر: ${tenant?.الاسم || 'غير معروف'}`,
+            category: 'payment',
+            entityId: u.inst.رقم_الكمبيالة,
+          });
         }
 
         void tryAutoSendIfEligible({
@@ -323,6 +333,15 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
             c.رقم_العقد,
             `تم التجديد التلقائي وإنشاء عقد جديد: ${newId}`
           );
+
+          notificationCenter.add({
+            id: `nc-renew-success-${newId}`,
+            type: 'success',
+            title: 'تم التجديد التلقائي',
+            message: `تم إنشاء العقد الجديد ${newId} بنجاح بدلاً من العقد المنتهي ${c.رقم_العقد}.`,
+            category: 'contracts',
+            entityId: newId,
+          });
         }
       } catch (e) {
         console.warn('Auto renew failed', e);
@@ -474,16 +493,14 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           مرجع_المعرف: c.رقم_العقد,
         });
         
-        import('@/services/notificationCenter').then(({ notificationCenter }) => {
-          notificationCenter.add({
-            id: `nc-renewal-${c.رقم_العقد}`,
-            type: 'warning',
-            title: 'تجديد تلقائي قادم',
-            message: `عقد ${c.رقم_العقد} سيتجدد تلقائياً خلال ${daysLeft} يوم`,
-            category: 'contract_renewal',
-            entityId: c.رقم_العقد,
-            urgent: daysLeft <= 7,
-          });
+        notificationCenter.add({
+          id: `nc-renewal-${c.رقم_العقد}`,
+          type: 'warning',
+          title: 'تجديد تلقائي قادم',
+          message: `عقد ${c.رقم_العقد} سيتجدد تلقائياً خلال ${daysLeft} يوم`,
+          category: 'contract_renewal',
+          entityId: c.رقم_العقد,
+          urgent: daysLeft <= 7,
         });
       }
     }
@@ -556,6 +573,8 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           تم_القراءة: false,
           details: tenant ? [{ id: tenantId, name: tenant.الاسم, note: bl.reason }] : undefined,
           ...ctx,
+          مرجع_المعرف: tenantId, // Primary reference is the tenant
+          مرجع_الجدول: 'الأشخاص_tbl',
         });
       }
 
@@ -604,6 +623,16 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           })),
           ...ctx,
         });
+
+        notificationCenter.add({
+          id: `nc-overdue-${c.رقم_العقد}`,
+          type: 'error',
+          title: 'مخاطر تحصيل (تأخير)',
+          message: `يوجد ${overdue.length} دفعات متأخرة للعقد ${c.رقم_العقد}. الإجمالي: ${formatCurrencyJOD(total)}`,
+          category: 'overdue',
+          entityId: overdue[0].inst.رقم_الكمبيالة,
+          urgent: true,
+        });
       }
     }
 
@@ -637,6 +666,15 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           تم_القراءة: false,
           مرجع_الجدول: 'تذاكر_الصيانة_tbl',
           مرجع_المعرف: t.رقم_التذكرة,
+        });
+        
+        notificationCenter.add({
+          id: `nc-mnt-late-${t.رقم_التذكرة}`,
+          type: 'warning',
+          title: 'تأخر صيانة',
+          message: `تذكرة الصيانة #${t.رقم_التذكرة} معلقة منذ ${daysOpen} أيام`,
+          category: 'maintenance',
+          entityId: t.رقم_التذكرة,
         });
       }
     }

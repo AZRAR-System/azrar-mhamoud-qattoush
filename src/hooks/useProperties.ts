@@ -147,6 +147,24 @@ export function useProperties() {
     });
   }, [searchTerm, filters, sortMode, occupancy, showAdvanced, advFilters]);
 
+  // Support deep links: #/properties?occupancy=rented|vacant&q=...&id=ID
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search || window.location.hash.split('?')[1]);
+    const q = params.get('q') || params.get('search');
+    const occ = params.get('occupancy');
+    const id = params.get('id');
+
+    if (q) setSearchTerm(q);
+    if (occ === 'rented' || occ === 'vacant') setOccupancy(occ);
+
+    if (id) {
+      // Clear ID from URL
+      const newUrl = window.location.pathname + window.location.hash.split('?')[0];
+      window.history.replaceState({}, '', newUrl);
+      openPanel('PROPERTY_DETAILS', id);
+    }
+  }, [setSearchTerm, setOccupancy, openPanel]);
+
   // Support deep links: #/properties?occupancy=rented|vacant&q=...
   useEffect(() => {
     const applyFromHash = () => {

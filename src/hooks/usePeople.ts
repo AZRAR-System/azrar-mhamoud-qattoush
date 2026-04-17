@@ -131,6 +131,24 @@ export function usePeople(isVisible = true) {
     });
   }, [searchTerm, activeRoleTab, showOnlyIdleOwners, sortMode, showAdvanced, advFilters]);
 
+  // URL Deep-Linking
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    const search = params.get('search');
+
+    if (id) {
+      // Clear ID from URL to prevent reopening on subsequent renders
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
+      openPanel('PERSON_DETAILS', id);
+    }
+
+    if (search) {
+      setSearchTerm(search);
+    }
+  }, [openPanel]);
+
   const queryRef = useRef({
     searchTerm,
     activeRoleTab,

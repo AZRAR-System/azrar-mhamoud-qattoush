@@ -17,6 +17,7 @@ export interface PaymentModalProps {
   tenant: الأشخاص_tbl | undefined;
   onClose: () => void;
   onSuccess: () => void;
+  onMessageClick?: () => void;
   userId: string;
   userRole: string;
 }
@@ -26,6 +27,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   tenant,
   onClose,
   onSuccess,
+  onMessageClick,
   userId,
   userRole,
 }) => {
@@ -180,6 +182,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           <Button variant="ghost" className="flex-1" onClick={onClose}>
             إلغاء
           </Button>
+          {onMessageClick && (
+            <Button
+              variant="outline"
+              className="flex-1 gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+              onClick={onMessageClick}
+            >
+              <MessageSquare size={16} />
+              إرسال تنبيه
+            </Button>
+          )}
           <Button
             variant="primary"
             className="flex-1 bg-green-600 hover:bg-green-700"

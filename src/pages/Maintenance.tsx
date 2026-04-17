@@ -188,7 +188,7 @@ export const Maintenance: FC = () => {
     };
   }, [isDesktopFast, tickets, formData?.رقم_العقار, fastCtxTick]);
 
-  const handleOpenModal = (ticket?: تذاكر_الصيانة_tbl) => {
+  const handleOpenModal = useCallback((ticket?: تذاكر_الصيانة_tbl) => {
     if (ticket) {
       setFormData(ticket);
       setDynamicValues(ticket.حقول_ديناميكية || {});
@@ -200,12 +200,12 @@ export const Maintenance: FC = () => {
         الجهة_المسؤولة: 'المالك',
         الحالة: 'مفتوح',
         رقم_العقار: '',
-      });
+      } as unknown as تذاكر_الصيانة_tbl);
       setDynamicValues({});
       setEditingId(null);
     }
     setIsModalOpen(true);
-  };
+  }, []);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -391,6 +391,21 @@ export const Maintenance: FC = () => {
     const start = (page - 1) * pageSize;
     return filteredTickets.slice(start, start + pageSize);
   }, [filteredTickets, page, pageSize]);
+
+  // Deep-Linking: open specific ticket modal automatically
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id && tickets.length > 0) {
+      const ticket = tickets.find((t) => t.رقم_التذكرة === id);
+      if (ticket) {
+        // Clear ID from URL
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', newUrl);
+        handleOpenModal(ticket);
+      }
+    }
+  }, [tickets, handleOpenModal]);
 
   const selectClass =
     'w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 text-slate-800 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer';
@@ -636,9 +651,29 @@ export const Maintenance: FC = () => {
                 إلغاء
               </Button>
               <RBACGuard requiredPermission="EDIT_MAINTENANCE">
-                <Button type="submit" variant="primary" form="maintenance-ticket-form">
-                  حفظ التذكرة
-                </Button>
+                <div className="flex gap-2">
+                  {editingId && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        const reporterId = formData.رقم_المستاجر;
+                        const reporter = people.find((p) => p.رقم_الشخص === reporterId);
+                        openPanel('CONTRACT_WHATSAPP_SEND', undefined, {
+                          personId: reporterId,
+                          messageContext: `بخصوص طلب الصيانة (تذكرة رقم ${editingId}): ${formData.الوصف}`,
+                          prefilledPhone: reporter?.رقم_الهاتف,
+                        });
+                        setIsModalOpen(false);
+                      }}
+                    >
+                      إرسال إشعار
+                    </Button>
+                  )}
+                  <Button type="submit" variant="primary" form="maintenance-ticket-form">
+                    حفظ التذكرة
+                  </Button>
+                </div>
               </RBACGuard>
             </div>
           }

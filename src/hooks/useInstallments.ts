@@ -272,6 +272,8 @@ export function useInstallments() {
     showCharts,
   ]);
 
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+
   // Support deep links: #/installments?filter=due|debt|paid|all&q=...
   useEffect(() => {
     const applyFromHash = () => {
@@ -284,6 +286,23 @@ export function useInstallments() {
         const params = new URLSearchParams(searchPart);
 
         const nextFilter = String(params.get('filter') || '').trim();
+        const q = params.get('q');
+        const s = params.get('search');
+        const instId = params.get('id') || params.get('installmentId');
+        const cId = params.get('contractId') || params.get('contract_id');
+
+        // If we have a search or a specific ID, reset ALL advanced filters to ensure visibility
+        if (q || s || instId || cId) {
+          setFilter('all');
+          setFilterStartDate('');
+          setFilterEndDate('');
+          setFilterMinAmount('');
+          setFilterMaxAmount('');
+          setFilterPaymentMethod('all');
+          // Important: also expand the list view if it was collapsed by some chart view
+          setShowCharts(false);
+        }
+
         if (
           nextFilter === 'all' ||
           nextFilter === 'debt' ||
@@ -293,10 +312,28 @@ export function useInstallments() {
           setFilter(nextFilter);
         }
 
-        const q = params.get('q');
-        const s = params.get('search');
         if (q !== null) setSearch(String(q));
         else if (s !== null) setSearch(String(s));
+
+        // Deep link to specific installment
+        if (instId) {
+          const allInst = DbService.getInstallments();
+          const target = allInst.find((i) => String(i.رقم_الكمبيالة) === String(instId));
+          if (target) {
+            setSelectedInstallment(target);
+            // If we didn't have a search, but we have a target, try to filter by its tenant to give context
+            if (!q && !s) {
+              const contract = DbService.getContracts().find((c) => c.رقم_العقد === target.رقم_العقد);
+              const tenant = DbService.getPeople().find((p) => p.رقم_الشخص === contract?.رقم_المستاجر);
+              if (tenant?.الاسم) setSearch(tenant.الاسم);
+            }
+          }
+        }
+
+        // Deep link to specific contract modal (Comprehensive Collection Info)
+        if (cId) {
+          setSelectedContractId(cId);
+        }
       } catch {
         // ignore
       }
@@ -1133,6 +1170,8 @@ export function useInstallments() {
     setFavoriteFilters,
     selectedInstallment,
     setSelectedInstallment,
+    selectedContractId,
+    setSelectedContractId,
     confirmDialog,
     setConfirmDialog,
     messageModalOpen,

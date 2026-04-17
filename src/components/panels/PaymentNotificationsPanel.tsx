@@ -7,6 +7,7 @@ import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { NotificationTemplates } from '@/services/notificationTemplates';
 import { paymentNotificationTargetsSmart } from '@/services/domainQueries';
+import { useSmartModal } from '@/context/ModalContext';
 
 interface PaymentNotificationsPanelProps {
   onClose: () => void;
@@ -126,6 +127,7 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [selectedGuarantors, setSelectedGuarantors] = useState<Record<string, boolean>>({});
   const [isSending, setIsSending] = useState(false);
+  const { openPanel } = useSmartModal();
 
   const loadTargets = useCallback(async () => {
     const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
@@ -328,7 +330,13 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                            {t.tenantName}
+                            <button
+                              onClick={() => openPanel('PERSON_DETAILS', t.tenantId)}
+                              className="hover:text-indigo-600 hover:underline transition-colors text-right"
+                              title="عرض ملف المستأجر"
+                            >
+                              {t.tenantName}
+                            </button>
                             {t.phone && (
                               <span
                                 className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1"

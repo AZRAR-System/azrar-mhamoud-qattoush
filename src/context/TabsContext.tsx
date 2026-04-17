@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { useAuth } from './AuthContext';
 
 export type Tab = {
   id: string;
@@ -28,8 +29,7 @@ type TabsActions = {
 
 const TabsContext = createContext<(TabsState & TabsActions) | undefined>(undefined);
 
-const STORAGE_KEY = 'azrar_tabs_state_v1';
-const MAX_TABS = 8;
+const MAX_TABS = 10;
 const HOME_PATH = ROUTE_PATHS.DASHBOARD;
 
 const DEFAULT_TABS: Tab[] = [
@@ -44,22 +44,45 @@ const DEFAULT_TABS: Tab[] = [
 ];
 
 export const TabsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<TabsState>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.tabs && parsed.tabs.length > 0) return parsed;
-      } catch {
-        // ignore
+  const { user } = useAuth();
+  const userId = user ? String(user.id || (user as unknown as { اسم_المستخدم: string }).اسم_المستخدم || '').trim() : null;
+  const STORAGE_KEY = userId ? `azrar_tabs_v2_${userId}` : null;
+
+  const [state, setState] = useState<TabsState>({ tabs: DEFAULT_TABS, activeTabId: 'home' });
+
+  // Load user-specific tabs on login
+  useEffect(() => {
+    if (STORAGE_KEY) {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.tabs && parsed.tabs.length > 0) {
+            setState(parsed);
+            return;
+          }
+        } catch {
+          // ignore
+        }
       }
     }
-    return { tabs: DEFAULT_TABS, activeTabId: 'home' };
-  });
+    // If no storage key (logged out) or no saved data, reset to default
+    setState({ tabs: DEFAULT_TABS, activeTabId: 'home' });
+  }, [STORAGE_KEY]);
 
+  // Save pinned tabs on change
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    if (STORAGE_KEY && state.tabs.length > 0) {
+      // Per user request: Only pinned tabs are permanently stored
+      const stateToSave = {
+        ...state,
+        tabs: state.tabs.filter(t => t.isPinned)
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    }
+  }, [state, STORAGE_KEY]);
+
 
   const openTab = useCallback((path: string, title: string, icon: string) => {
     setState((prev) => {

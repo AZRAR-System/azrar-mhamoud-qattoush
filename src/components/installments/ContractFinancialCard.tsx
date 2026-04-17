@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useMemo, useState, useEffect, type MouseEvent } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -80,6 +80,8 @@ export interface ContractCardProps {
     overdueInstallmentsDetails?: string;
   }) => void;
   openPanel: (panelId: string, payload?: unknown) => void;
+  initiallyExpanded?: boolean;
+  onOpenStateChange?: (isOpen: boolean) => void;
 }
 
 export const ContractFinancialCard: React.FC<ContractCardProps> = ({
@@ -99,11 +101,23 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
   onReversePayment,
   onOpenMessageModal,
   openPanel,
+  initiallyExpanded = false,
+  onOpenStateChange,
 }) => {
   void _isAdmin;
   void _onPay;
   void _onSelectInstallment;
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
+
+  useEffect(() => {
+    if (initiallyExpanded && !isExpanded) {
+      setIsExpanded(true);
+    }
+  }, [initiallyExpanded, isExpanded]);
+
+  useEffect(() => {
+    onOpenStateChange?.(isExpanded);
+  }, [isExpanded, onOpenStateChange]);
   const [invoicePrintCtx, setInvoicePrintCtx] = useState<{
     inst: الكمبيالات_tbl;
     installmentIndex: number;
@@ -189,7 +203,21 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
         .join('\n')
     : '';
 
-  const detailsModalTitle = `${tenant?.الاسم || 'مستأجر'} — عقد ${formatContractNumberShort(contract.رقم_العقد)}`;
+  const detailsModalTitle = (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => openPanel('PERSON_DETAILS', tenant?.رقم_الشخص)}
+        className="hover:text-indigo-600 hover:underline transition-colors decoration-indigo-300 underline-offset-4"
+        title="عرض ملف المستأجر"
+      >
+        {tenant?.الاسم || 'مستأجر'}
+      </button>
+      <span className="text-slate-400 dark:text-slate-600">/</span>
+      <span className="text-slate-500 dark:text-slate-400 font-medium">
+        عقد {formatContractNumberShort(contract.رقم_العقد)}
+      </span>
+    </div>
+  );
 
   const handlePrintAccountStatement = async (e: MouseEvent) => {
     e.stopPropagation();

@@ -165,6 +165,12 @@ export function InstallmentsContractsList({ page }: Props) {
                   setMessageModalOpen(true);
                 }}
                 openPanel={openPanel}
+                initiallyExpanded={page.selectedContractId === contractId}
+                onOpenStateChange={(isOpen) => {
+                  if (!isOpen && page.selectedContractId === contractId) {
+                    page.setSelectedContractId(null);
+                  }
+                }}
               />
             );
             })}
@@ -226,6 +232,12 @@ export function InstallmentsContractsList({ page }: Props) {
               setMessageModalOpen(true);
             }}
             openPanel={openPanel}
+            initiallyExpanded={page.selectedContractId === item.contract.رقم_العقد}
+            onOpenStateChange={(isOpen) => {
+              if (!isOpen && page.selectedContractId === item.contract.رقم_العقد) {
+                page.setSelectedContractId(null);
+              }
+            }}
           />
         ))
       )}

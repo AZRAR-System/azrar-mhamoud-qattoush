@@ -576,6 +576,17 @@ export const PersonPanel: React.FC<{ id: string; onClose?: () => void }> = ({ id
               </div>
 
               <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() =>
+                    openPanel('CONTRACT_WHATSAPP_SEND', undefined, {
+                      personId: id,
+                      messageContext: `تحية طيبة السيد/ة ${safeString(p.الاسم)}،`,
+                    })
+                  }
+                  className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 text-white rounded-2xl transition-all text-[11px] font-black shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 active:scale-95"
+                >
+                  <FileText size={14} /> {t('إرسال رسالة')}
+                </button>
                 <RBACGuard requiredPermission="PRINT_EXECUTE">
                   <button
                     onClick={handlePrint}

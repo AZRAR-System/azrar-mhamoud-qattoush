@@ -608,6 +608,25 @@ export const PropertyPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => {
+                    const recipientId = currentTenant?.رقم_الشخص || owner?.رقم_الشخص;
+                    const recipientName = currentTenant?.الاسم || owner?.الاسم;
+                    const context = currentTenant ? 'المستأجر' : 'المالك';
+                    
+                    if (recipientId) {
+                      openPanel('CONTRACT_WHATSAPP_SEND', undefined, {
+                        personId: recipientId,
+                        messageContext: `تحية طيبة السيد/ة ${recipientName} (${context})، بخصوص عقاركم ${p.الكود_الداخلي}:`,
+                      });
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                >
+                  <FileText size={14} /> إرسال رسالة
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => void handleQuickReminderForProperty()}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
                 >
