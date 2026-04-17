@@ -174,7 +174,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
       }
 
       if (eid) {
-        if (cat.includes('contract') || cat === 'contracts') {
+        if (cat.includes('contract') || cat === 'contracts' || cat === 'contract_renewal') {
           openPanel('CONTRACT_DETAILS', eid);
           onClose();
           return;
@@ -184,8 +184,23 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           onClose();
           return;
         }
-        if (cat.includes('propert') || cat === 'maintenance') {
+        if (cat.includes('propert')) {
           openPanel('PROPERTY_DETAILS', eid);
+          onClose();
+          return;
+        }
+        if (
+          cat.includes('payment') || cat === 'payments' ||
+          cat === 'overdue' || cat === 'collection' ||
+          cat === 'financial' || cat === 'installment' ||
+          cat === 'installments'
+        ) {
+          openPanel('INSTALLMENT_DETAILS', eid);
+          onClose();
+          return;
+        }
+        if (cat === 'maintenance') {
+          openPanel('MAINTENANCE_DETAILS', eid);
           onClose();
           return;
         }

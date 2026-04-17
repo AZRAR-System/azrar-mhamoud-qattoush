@@ -80,7 +80,11 @@ class NotificationService {
       }
     }
 
+    const ncId = options.entityId
+      ? `nc-${cat}-${options.entityId}`
+      : `nc-${cat}-${displayTitle}-${message.slice(0, 60)}`.replace(/\s+/g, '-');
     notificationCenter.add({
+      id: ncId,
       type,
       title: displayTitle,
       message,

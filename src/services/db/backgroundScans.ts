@@ -476,6 +476,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
         
         import('@/services/notificationCenter').then(({ notificationCenter }) => {
           notificationCenter.add({
+            id: `nc-renewal-${c.رقم_العقد}`,
             type: 'warning',
             title: 'تجديد تلقائي قادم',
             message: `عقد ${c.رقم_العقد} سيتجدد تلقائياً خلال ${daysLeft} يوم`,
