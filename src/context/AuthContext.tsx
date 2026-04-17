@@ -29,15 +29,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [sessionLocked, setSessionLocked] = useState<boolean>(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('khaberni_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-        setIsAuthenticated(true);
-      } catch {
-        localStorage.removeItem('khaberni_user');
-      }
-    }
+    // عند بدء التطبيق — امسح أي جلسة محفوظة لإجبار المستخدم على تسجيل الدخول
+    // هذا يحمي من: انقطاع الكهرباء، السبات، الإغلاق المفاجئ
+    localStorage.removeItem('khaberni_user');
   }, []);
 
   useEffect(() => {
@@ -81,6 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setSessionLocked(false);
     setUser(null);
     setIsAuthenticated(false);
+    sessionStorage.removeItem('khaberni_user');
     localStorage.removeItem('khaberni_user');
     try {
       buildCache();
@@ -102,7 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(response.data);
         setIsAuthenticated(true);
         setSessionLocked(false);
-        localStorage.setItem('khaberni_user', JSON.stringify(response.data));
+        sessionStorage.setItem('khaberni_user', JSON.stringify(response.data));
         try {
           const id = String((response.data as unknown as Record<string, unknown>)?.id ?? '').trim();
           if (id) void window.desktopAuth?.setSessionUser(id);
