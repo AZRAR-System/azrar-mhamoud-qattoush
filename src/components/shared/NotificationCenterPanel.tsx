@@ -204,26 +204,6 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'financial' || cat === 'installment' ||
           cat === 'installments'
         ) {
-          // Check if this specific user wants payments to go to Person page?
-          // For now, keep the optimized Installments view but ensure easy jump to Profile.
-          let tenantName = '';
-          let contractId = '';
-          try {
-            const inst = DbService.getInstallments().find((i) => i.رقم_الكمبيالة === eid);
-            if (inst) {
-              contractId = String(inst.رقم_العقد || '');
-              const contract = DbService.getContracts().find((c) => c.رقم_العقد === inst.رقم_العقد);
-              const tenant = DbService.getPeople().find(
-                (p) => p.رقم_الشخص === contract?.رقم_المستاجر
-              );
-              tenantName = tenant?.الاسم || '';
-            }
-          } catch {
-            // ignore
-          }
-
-          const searchParam = tenantName ? `&search=${encodeURIComponent(tenantName)}` : '';
-          const contractParam = contractId ? `&contractId=${contractId}` : '';
           openPanel('INSTALLMENT_DETAILS', eid);
           onClose();
           return;
