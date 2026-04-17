@@ -87,6 +87,19 @@ const openPreviewWindow = async (sessionId: string): Promise<BrowserWindow> => {
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.on('will-redirect', (e) => e.preventDefault());
 
+  // Clean up session and temp files when window is closed
+  win.on('closed', () => {
+    const s = sessions.get(sessionId);
+    if (s) {
+      sessions.delete(sessionId);
+      if (s.pdfTempPath) {
+        fsp.rm(s.pdfTempPath, { force: true }).catch(() => {
+          // ignore file cleanup errors
+        });
+      }
+    }
+  });
+
   await win.loadFile(getPreviewHtmlPath(), { query: { sid: sessionId } });
 
   return win;
