@@ -34,10 +34,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Split vendor chunks for better caching
           vendor: ['react', 'react-dom', 'react-router-dom'],
           charts: ['recharts'],
           icons: ['lucide-react'],
+          docx: ['docxtemplater', 'pizzip'],
+          pdf: ['pdfjs-dist'],
         },
         // Naming pattern for better debugging
         chunkFileNames: 'assets/js/[name]-[hash].js',
