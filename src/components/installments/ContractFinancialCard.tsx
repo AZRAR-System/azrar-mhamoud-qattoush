@@ -89,7 +89,6 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
   contract,
   tenant,
   property,
-  // @ts-ignore will be used below
   highlightInstallmentId,
   installments,
   isAdmin: _isAdmin,
