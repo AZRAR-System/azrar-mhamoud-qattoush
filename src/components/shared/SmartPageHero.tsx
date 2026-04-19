@@ -5,48 +5,64 @@ import { DS } from '@/constants/designSystem';
 interface SmartPageHeroProps {
   title: string;
   description?: string;
-  subtitle?: string; // Additional subtitle if needed
+  subtitle?: string;
   icon?: LucideIcon;
   iconColor?: string;
+  iconBg?: string;
   actions?: React.ReactNode;
+  stats?: { label: string; value: string | number; color?: string }[];
 }
 
-/**
- * SmartPageHero
- * A standardized, premium header component for administrative pages.
- * Supports consistent layout, iconography, and action buttons.
- */
 export const SmartPageHero: React.FC<SmartPageHeroProps> = ({
   title,
   description,
   subtitle,
   icon: Icon,
-  iconColor = 'text-indigo-600',
+  iconColor = 'text-indigo-600 dark:text-indigo-400',
+  iconBg = 'bg-indigo-50 dark:bg-indigo-950/40',
   actions,
+  stats,
 }) => {
   return (
     <div className={`${DS.components.pageHeader} animate-in fade-in slide-in-from-top-4 duration-500`}>
-      <div className="space-y-1">
-        <h2 className={`${DS.components.pageTitle} flex items-center gap-3`}>
-          {Icon && <Icon className={`${iconColor} drop-shadow-sm`} size={32} />}
-          <span>{title}</span>
-        </h2>
-        
-        {subtitle && (
-          <p className={DS.components.pageSubtitleUppercase}>
-            {subtitle}
-          </p>
+      <div className="flex items-start gap-4 min-w-0">
+        {Icon && (
+          <div className={`p-3 rounded-2xl ${iconBg} shrink-0 ring-1 ring-black/5 dark:ring-white/10`}>
+            <Icon className={iconColor} size={28} strokeWidth={2} />
+          </div>
         )}
-        
-        {description && (
-          <p className={DS.components.pageSubtitle}>
-            {description}
-          </p>
-        )}
+        <div className="min-w-0 space-y-1">
+          <h2 className={DS.components.pageTitle}>
+            {title}
+          </h2>
+          {subtitle && (
+            <p className={DS.components.pageSubtitleUppercase}>
+              {subtitle}
+            </p>
+          )}
+          {description && (
+            <p className={DS.components.pageSubtitle}>
+              {description}
+            </p>
+          )}
+          {stats && stats.length > 0 && (
+            <div className="flex flex-wrap gap-4 mt-3">
+              {stats.map((s, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <span className={`text-lg font-black ${s.color ?? 'text-indigo-600 dark:text-indigo-400'}`}>
+                    {s.value}
+                  </span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {s.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-
       {actions && (
-        <div className="flex flex-wrap items-center justify-end gap-3 lg:gap-4 mt-4 lg:mt-0">
+        <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-3 shrink-0">
           {actions}
         </div>
       )}
