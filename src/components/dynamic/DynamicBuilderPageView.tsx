@@ -2,6 +2,7 @@ import { type FC } from 'react';
 import { Plus, Database, Table, Type, CheckCircle, Trash2, Wrench } from 'lucide-react';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PaginationControls } from '@/components/shared/PaginationControls';
+import { StatCard } from '@/components/shared/StatCard';
 import { DS } from '@/constants/designSystem';
 import type { UseDynamicBuilderReturn } from '@/hooks/useDynamicBuilder';
 import type { FieldType } from '@/types';
@@ -38,6 +39,22 @@ export const DynamicBuilderPageView: FC<{ page: UseDynamicBuilderReturn }> = ({ 
           </h2>
           <p className={DS.components.pageSubtitle}>إدارة الحقول + الجداول + النماذج الديناميكية</p>
         </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard
+          label="الجداول المخصصة"
+          value={tables.length}
+          icon={Database}
+          color="indigo"
+        />
+        <StatCard
+          label="الحقول الإضافية"
+          value={formFields.length}
+          icon={Wrench}
+          color="amber"
+        />
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 flex-1" dir="rtl">

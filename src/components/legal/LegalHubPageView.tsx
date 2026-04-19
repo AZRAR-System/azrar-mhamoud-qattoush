@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatCard } from '@/components/shared/StatCard';
 import {
   Scale,
   FileText,
@@ -82,6 +83,28 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
         iconColor="text-purple-600 dark:text-purple-400"
         iconBg="bg-purple-50 dark:bg-purple-950/40"
       />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <StatCard
+          label="النماذج المتاحة"
+          value={templates.length}
+          icon={FileText}
+          color="purple"
+        />
+        <StatCard
+          label="إجمالي الإخطارات المرسلة"
+          value={filteredHistory.length}
+          icon={Clock}
+          color="indigo"
+        />
+        <StatCard
+          label="واتساب / طباعة"
+          value={`${filteredHistory.filter((h) => h.sentMethod === 'WhatsApp').length} / ${filteredHistory.filter((h) => h.sentMethod !== 'WhatsApp').length}`}
+          icon={MessageCircle}
+          color="emerald"
+        />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-200px)]">
         {/* LEFT PANEL: GENERATOR */}

@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/Input';
 import { MoneyInput } from '@/components/ui/MoneyInput';
 import { DynamicSelect } from '@/components/ui/DynamicSelect';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatCard } from '@/components/shared/StatCard';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { formatCurrencyJOD } from '@/utils/format';
 import { formatContractNumberShort } from '@/utils/contractNumber';
@@ -168,6 +169,34 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
           </div>
         }
       />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="عمولات العقود"
+          value={formatCurrencyJOD(grandTotalContracts)}
+          icon={HandCoins}
+          color="emerald"
+        />
+        <StatCard
+          label="عمولات خارجية"
+          value={formatCurrencyJOD(totalExternal)}
+          icon={Globe}
+          color="blue"
+        />
+        <StatCard
+          label="عمولات الموظفين"
+          value={formatCurrencyJOD(employeeTotals.totalEmployee)}
+          icon={Users}
+          color="indigo"
+        />
+        <StatCard
+          label="عمليات الشهر"
+          value={employeeTotals.count}
+          icon={ArrowUp}
+          color="amber"
+        />
+      </div>
 
       {/* View 3: Employee Commissions */}
       {activeTab === 'employee' && (

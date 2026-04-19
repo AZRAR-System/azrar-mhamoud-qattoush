@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatCard } from '@/components/shared/StatCard';
 import { FinancialReportPrintPreview } from '@/components/printing/templates/FinancialReportTemplate';
 import { DbService } from '@/services/mockDb';
 import { formatCurrencyJOD, formatNumber } from '@/utils/format';
@@ -168,6 +169,34 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
           </div>
         }
       />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="المحصّل"
+          value={formatCurrencyJOD(kpis?.totalPaid ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          icon={Wallet}
+          color="emerald"
+        />
+        <StatCard
+          label="المتأخر"
+          value={formatCurrencyJOD(kpis?.totalLate ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          icon={AlertCircle}
+          color="rose"
+        />
+        <StatCard
+          label="العقود النشطة"
+          value={kpis?.activeContracts ?? 0}
+          icon={FileText}
+          color="indigo"
+        />
+        <StatCard
+          label="عدد التقارير"
+          value={reportsCount}
+          icon={BarChart3}
+          color="slate"
+        />
+      </div>
 
       <Card className="p-0 border-none shadow-soft overflow-hidden">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">

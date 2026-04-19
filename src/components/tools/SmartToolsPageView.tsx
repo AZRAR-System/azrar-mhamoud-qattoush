@@ -10,6 +10,7 @@ import { PersonPicker } from '@/components/shared/PersonPicker';
 import { ContractPicker } from '@/components/shared/ContractPicker';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { PageHero } from '@/components/shared/PageHero';
+import { StatCard } from '@/components/shared/StatCard';
 import { formatNumber } from '@/utils/format';
 import { parseIntOrUndefined } from '@/utils/numberInput';
 import { PaymentMethodType } from '@/types';
@@ -84,6 +85,22 @@ export const SmartToolsPageView: FC<SmartToolsPageViewProps> = ({ page }) => {
         title="أدوات ذكية"
         subtitle='أدوات مساعدة للعمل. لا يتم حفظ أي نتيجة داخل النظام إلا بعد الضغط على "اعتماد".'
       />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard
+          label="دفعات المعاينة"
+          value={previewInstallments.length}
+          icon={CheckCircle}
+          color="indigo"
+        />
+        <StatCard
+          label="إجمالي العمولة"
+          value={`${formatNumber(commissionTotal)} د.أ`}
+          icon={ServerCog}
+          color="emerald"
+        />
+      </div>
 
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">

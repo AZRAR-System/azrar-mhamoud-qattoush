@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatCard } from '@/components/shared/StatCard';
 import { FileText, Eye, Image as ImageIcon } from 'lucide-react';
 import type { Attachment, ReferenceType } from '@/types';
 import { FileViewer } from '@/components/shared/FileViewer';
@@ -91,6 +92,22 @@ export const DocumentsPageView: FC<{ page: UseDocumentsReturn }> = ({ page }) =>
           { label: 'الإجمالي', value: attachments.length }
         ]}
       />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard
+          label="إجمالي المرفقات"
+          value={attachments.length}
+          icon={FileText}
+          color="orange"
+        />
+        <StatCard
+          label="أنواع المستندات"
+          value={Object.keys(grouped).length}
+          icon={ImageIcon}
+          color="indigo"
+        />
+      </div>
 
       {desktopUnsupported && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-4 text-sm text-yellow-800 dark:text-yellow-200">
