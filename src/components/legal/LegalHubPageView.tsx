@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import {
   Scale,
   FileText,
@@ -22,7 +23,6 @@ import { ContractPicker } from '@/components/shared/ContractPicker';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { MergeVariablesCatalog } from '@/components/shared/MergeVariablesCatalog';
 import { formatNumber, formatDateYMD } from '@/utils/format';
-import { DS } from '@/constants/designSystem';
 import type { useLegalHub } from '@/hooks/useLegalHub';
 
 interface LegalHubPageViewProps {
@@ -75,18 +75,13 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Header */}
-      <div className={DS.components.pageHeader}>
-        <div>
-          <h2 className={`${DS.components.pageTitle} flex items-center gap-2`}>
-            <Scale size={22} />
-            المركز القانوني والإخطارات
-          </h2>
-          <p className={DS.components.pageSubtitle}>
-            توليد وإدارة الإنذارات والإشعارات القانونية للمستأجرين.
-          </p>
-        </div>
-      </div>
+      <SmartPageHero
+        title="المركز القانوني والإخطارات"
+        description="توليد وإدارة الإنذارات والإشعارات القانونية للمستأجرين."
+        icon={Scale}
+        iconColor="text-purple-600 dark:text-purple-400"
+        iconBg="bg-purple-50 dark:bg-purple-950/40"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-200px)]">
         {/* LEFT PANEL: GENERATOR */}

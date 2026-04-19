@@ -1,4 +1,5 @@
 import React from 'react';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import {
   Home,
   FileText,
@@ -7,18 +8,15 @@ import {
   Search,
   User,
   Building2,
-  TrendingUp,
   Clock,
-  CheckCircle2,
-  AlertCircle,
-  ChevronLeft,
   Loader2,
   Printer,
   Download,
-  Smartphone,
-  ShieldCheck,
-  FileSpreadsheet,
-  Filter
+  Filter,
+  AlertCircle,
+  ChevronLeft,
+  TrendingUp,
+  CheckCircle2
 } from 'lucide-react';
 import { formatCurrencyJOD } from '@/utils/format';
 import { getOwnerReport } from '@/services/ownerReport';
@@ -149,70 +147,59 @@ export const OwnerPortalPageView: React.FC<OwnerPortalPageViewProps> = ({ page }
   return (
     <div className="space-y-8 page-transition" dir="rtl">
 
-      {/* ── رأس الصفحة الاحترافي ── */}
-      <div className="app-card overflow-hidden !p-0 shadow-lg border-slate-200/60 dark:border-slate-700/50">
-        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-slate-900 p-8 text-white relative">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none overflow-hidden text-white/20">
-            <Building2 size={240} className="absolute -top-12 -left-12 rotate-12" />
+      <SmartPageHero
+        title="لوحة المالك الذكية"
+        description={`تتبع الاستثمارات العقارية والتحصيلات الصافية للمالك: ${report.owner.الاسم}`}
+        subtitle={report.owner.الاسم}
+        icon={User}
+        iconColor="text-white"
+        iconBg="bg-white/10 backdrop-blur-md border border-white/20"
+        className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-slate-900 text-white rounded-b-none mb-0"
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-black text-xs transition-all border border-white/10"
+            >
+              <Printer size={16} /> طباعة
+            </button>
+            <button
+              onClick={handleExportPdf}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-black text-xs transition-all shadow-xl shadow-indigo-900/20"
+            >
+              <Download size={16} /> تصدير PDF
+            </button>
           </div>
+        }
+      />
 
-          <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
-                <User size={40} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-black tracking-tight mb-2">لوحة المالك الذكية</h1>
-                <div className="flex flex-wrap items-center gap-4 text-white/80 text-sm font-bold">
-                  <span className="flex items-center gap-1.5"><ShieldCheck size={14} /> {report.owner.الاسم}</span>
-                  {report.owner.الرقم_الوطني && (
-                    <span className="flex items-center gap-1.5 opacity-70"><FileSpreadsheet size={14} /> {report.owner.الرقم_الوطني}</span>
-                  )}
-                  {report.owner.رقم_الهاتف && (
-                    <span className="flex items-center gap-1.5 opacity-70"><Smartphone size={14} /> {report.owner.رقم_الهاتف}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button 
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-black text-xs transition-all border border-white/10"
-              >
-                <Printer size={16} /> طباعة
-              </button>
-              <button 
-                onClick={handleExportPdf}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-black text-xs transition-all shadow-xl shadow-indigo-900/20"
-              >
-                <Download size={16} /> تصدير PDF
-              </button>
-            </div>
-          </div>
-        </div>
-
+      <div className="app-card rounded-t-none border-t-0 !p-0 overflow-hidden shadow-lg border-slate-200/60 dark:border-slate-700/50">
         <div className="bg-slate-50 dark:bg-slate-900/40 p-4 border-t border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row items-center gap-4">
           <div className="relative flex-1 w-full">
-            <Search size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search
+              size={16}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+            />
             <input
               type="text"
               placeholder="ابحث عن مالك آخر..."
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pr-12 pl-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all"
             />
           </div>
           <select
             value={selectedOwnerId || ''}
-            onChange={e => {
+            onChange={(e) => {
               setSelectedOwnerId(e.target.value);
               setFilterContractId(null);
             }}
             className="w-full lg:w-72 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-black outline-none focus:border-indigo-500 transition-all cursor-pointer"
           >
-            {filteredOwners.map(o => (
-              <option key={o.رقم_الشخص} value={o.رقم_الشخص}>{o.الاسم}</option>
+            {filteredOwners.map((o) => (
+              <option key={o.رقم_الشخص} value={o.رقم_الشخص}>
+                {o.الاسم}
+              </option>
             ))}
           </select>
           <div className="shrink-0 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 px-4 border-r border-slate-200 dark:border-slate-700 h-8">
@@ -222,34 +209,33 @@ export const OwnerPortalPageView: React.FC<OwnerPortalPageViewProps> = ({ page }
 
         {/* ── شريط التصفية حسب العقد ── */}
         <div className="bg-white dark:bg-slate-800/80 p-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center gap-3 overflow-x-auto no-scrollbar">
-           <div className="flex items-center gap-2 shrink-0 ml-4 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-              <Filter size={14} /> تصفية العقد:
-           </div>
-           <button
-              onClick={() => setFilterContractId(null)}
+          <div className="flex items-center gap-2 shrink-0 ml-4 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+            <Filter size={14} /> تصفية العقد:
+          </div>
+          <button
+            onClick={() => setFilterContractId(null)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap ${
+              filterContractId === null
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                : 'bg-slate-50 dark:bg-slate-900/40 text-slate-500 hover:bg-white dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700'
+            }`}
+          >
+            كافة العقود
+          </button>
+
+          {getOwnerReport(selectedOwnerId || '')?.activeContracts.map((c) => (
+            <button
+              key={c.رقم_العقد}
+              onClick={() => setFilterContractId(c.رقم_العقد)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap ${
-                filterContractId === null 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' 
+                filterContractId === c.رقم_العقد
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
                   : 'bg-slate-50 dark:bg-slate-900/40 text-slate-500 hover:bg-white dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700'
               }`}
             >
-              كافة العقود
+              {c.tenantName} - {c.internalCode}
             </button>
-
-            {/* نجلب قائمة كل العقود للمالك الحالي (بدون فلترة) لعرض خيارات الفلترة */}
-            {getOwnerReport(selectedOwnerId || '')?.activeContracts.map(c => (
-              <button
-                key={c.رقم_العقد}
-                onClick={() => setFilterContractId(c.رقم_العقد)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap ${
-                  filterContractId === c.رقم_العقد 
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' 
-                    : 'bg-slate-50 dark:bg-slate-900/40 text-slate-500 hover:bg-white dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700'
-                }`}
-              >
-                {c.tenantName} - {c.internalCode}
-              </button>
-            ))}
+          ))}
         </div>
       </div>
 

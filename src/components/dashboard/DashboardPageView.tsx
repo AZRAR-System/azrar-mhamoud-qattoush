@@ -23,6 +23,7 @@ import { MarqueeWidget } from '@/components/dashboard/MarqueeWidget';
 import type { UseDashboardReturn, LayerConfig } from '@/hooks/useDashboard';
 import { getPaymentMonth } from '@/hooks/useDashboard';
 import type { الكمبيالات_tbl } from '@/types';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 
 const DASHBOARD_PAGE_WRAP = 'max-w-[1600px] mx-auto w-full px-4 sm:px-6';
 
@@ -48,55 +49,68 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
       </div>
 
       <div className={`${DASHBOARD_PAGE_WRAP} space-y-8 md:space-y-10`}>
-        {/* Dynamic Hero Header */}
-        <div className="relative overflow-hidden rounded-2xl md:rounded-[2.5rem] bg-slate-900 dark:bg-slate-900 p-6 sm:p-8 lg:p-12 shadow-2xl">
-          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-indigo-500/20 to-transparent skew-x-12 transform translate-x-24" />
-          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl animate-pulse" />
+        <SmartPageHero
+          title={`أهلاً بك، ${String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}`}
+          description={`إليك نظرة سريعة على أداء نظام AZRAR لهذا اليوم.`}
+          className="relative overflow-hidden !rounded-2xl md:!rounded-[2.5rem] bg-slate-900 dark:bg-slate-900 !p-6 sm:!p-8 lg:!p-12 shadow-2xl text-white border-none"
+          topContent={
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md animate-fade-in animate-delay-300">
+              <Activity size={14} className="text-indigo-400 animate-pulse" />
+              <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">
+                حالة النظام: متصل
+              </span>
+            </div>
+          }
+          actions={
+            <div
+              className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 text-right w-full"
+              dir="rtl"
+            >
+              <div className="flex items-center gap-4 animate-fade-in animate-delay-900">
+                <button
+                  onClick={handleManualRefresh}
+                  className="group flex items-center gap-3 bg-white text-slate-900 px-6 py-3 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10"
+                >
+                  <RefreshCw
+                    size={20}
+                    className={`group-hover:rotate-180 transition-transform duration-500 ${
+                      isRefreshing ? 'animate-spin' : ''
+                    }`}
+                  />
+                  تحديث البيانات
+                </button>
+                <div className="flex flex-col text-right">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">
+                    آخر تحديث
+                  </span>
+                  <span className="text-xs font-black text-slate-300">
+                    {formatTimeHM(lastUpdatedAt)}
+                  </span>
+                </div>
+              </div>
 
-           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 text-right" dir="rtl">
-             <div className="space-y-4">
-               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md animate-fade-in animate-delay-300">
-                 <Activity size={14} className="text-indigo-400 animate-pulse" />
-                 <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">حالة النظام: متصل</span>
-               </div>
-
-               <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter leading-none animate-fade-in animate-delay-500 animate-slide-in-from-bottom-4">
-                 أهلاً بك،{' '}
-                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-indigo-100">
-                   {String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}
-                 </span>
-               </h1>
-               <p className="text-slate-400 font-bold max-w-xl text-lg leading-relaxed animate-fade-in animate-delay-700 animate-slide-in-from-bottom-2">
-                 إليك نظرة سريعة على أداء نظام <span className="text-white font-black">AZRAR</span> لهذا اليوم.
-               </p>
-
-               <div className="flex items-center gap-4 pt-4 animate-fade-in animate-delay-900">
-                 <button
-                   onClick={handleManualRefresh}
-                   className="group flex items-center gap-3 bg-white text-slate-900 px-6 py-3 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10"
-                 >
-                   <RefreshCw size={20} className={`group-hover:rotate-180 transition-transform duration-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-                   تحديث البيانات
-                 </button>
-                 <div className="flex flex-col text-right">
-                   <span className="text-[10px] font-bold text-slate-500 uppercase">آخر تحديث</span>
-                   <span className="text-xs font-black text-slate-300">{formatTimeHM(lastUpdatedAt)}</span>
-                 </div>
-               </div>
-             </div>
-
-             <div className="hidden lg:flex flex-col items-center justify-center animate-scale-in animate-delay-800 animate-duration-1000">
+              <div className="hidden lg:flex flex-col items-center justify-center animate-scale-in animate-delay-800 animate-duration-1000">
                 <div className="relative">
                   <div className="absolute -inset-4 bg-indigo-500/20 rounded-full blur-2xl animate-pulse" />
-                  <img src="/icon 1.png" alt="AZRAR System Logo" className="relative w-36 h-36 object-contain drop-shadow-2xl animate-float" loading="eager" />
+                  <img
+                    src="/icon 1.png"
+                    alt="AZRAR System Logo"
+                    className="relative w-36 h-36 object-contain drop-shadow-2xl animate-float"
+                    loading="eager"
+                  />
                 </div>
                 <div className="mt-4 text-center">
-                  <div className="text-lg font-black text-white tracking-wide">نظام أزرار</div>
-                  <div className="text-xs font-bold text-slate-400">النسخة الاحترافية</div>
+                  <div className="text-lg font-black text-white tracking-wide">
+                    نظام أزرار
+                  </div>
+                  <div className="text-xs font-bold text-slate-400">
+                    النسخة الاحترافية
+                  </div>
                 </div>
-             </div>
-           </div>
-        </div>
+              </div>
+            </div>
+          }
+        />
 
         {/* Main KPI Section */}
         <section>

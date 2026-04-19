@@ -11,6 +11,8 @@ interface SmartPageHeroProps {
   iconBg?: string;
   actions?: React.ReactNode;
   stats?: { label: string; value: string | number; color?: string }[];
+  className?: string; // Add this
+  topContent?: React.ReactNode; // Add this
 }
 
 export const SmartPageHero: React.FC<SmartPageHeroProps> = ({
@@ -22,16 +24,19 @@ export const SmartPageHero: React.FC<SmartPageHeroProps> = ({
   iconBg = 'bg-indigo-50 dark:bg-indigo-950/40',
   actions,
   stats,
+  className, // Add this
+  topContent, // Add this
 }) => {
   return (
-    <div className={`${DS.components.pageHeader} animate-in fade-in slide-in-from-top-4 duration-500`}>
+    <div className={`${DS.components.pageHeader} ${className || ''} animate-in fade-in slide-in-from-top-4 duration-500`}>
       <div className="flex items-start gap-4 min-w-0">
         {Icon && (
           <div className={`p-3 rounded-2xl ${iconBg} shrink-0 ring-1 ring-black/5 dark:ring-white/10`}>
-            <Icon className={iconColor} size={28} strokeWidth={2} />
+            <Icon className={`w-6 h-6 lg:w-7 lg:h-7 ${iconColor}`} />
           </div>
         )}
-        <div className="min-w-0 space-y-1">
+        <div className="flex-1 min-w-0">
+          {topContent && <div className="mb-4">{topContent}</div>}
           <h2 className={DS.components.pageTitle}>
             {title}
           </h2>

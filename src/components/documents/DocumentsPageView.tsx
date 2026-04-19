@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { FileText, Eye, Image as ImageIcon } from 'lucide-react';
 import type { Attachment, ReferenceType } from '@/types';
 import { FileViewer } from '@/components/shared/FileViewer';
-import { DS } from '@/constants/designSystem';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import type { UseDocumentsReturn } from '@/hooks/useDocuments';
@@ -81,16 +81,16 @@ export const DocumentsPageView: FC<{ page: UseDocumentsReturn }> = ({ page }) =>
 
   return (
     <div className="space-y-6" dir="rtl">
-      <div className={DS.components.pageHeader}>
-        <div>
-          <h2 className={DS.components.pageTitle + " text-right"}>مستندات</h2>
-          <p className={DS.components.pageSubtitle}>عرض مجمّع للمرفقات حسب الصنف والصفة</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <FileText className="text-orange-500" />
-          <span className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {attachments.length}</span>
-        </div>
-      </div>
+      <SmartPageHero
+        title="مستندات"
+        description="عرض مجمّع للمرفقات حسب الصنف والصفة"
+        icon={FileText}
+        iconColor="text-orange-500"
+        iconBg="bg-orange-50 dark:bg-orange-950/40"
+        stats={[
+          { label: 'الإجمالي', value: attachments.length }
+        ]}
+      />
 
       {desktopUnsupported && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-4 text-sm text-yellow-800 dark:text-yellow-200">
