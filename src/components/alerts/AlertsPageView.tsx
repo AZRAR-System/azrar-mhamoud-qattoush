@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/Input';
 import { AppModal } from '@/components/ui/AppModal';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatCard } from '@/components/shared/StatCard';
 import type { useAlerts } from '@/hooks/useAlerts';
 import type { tbl_Alerts, AlertDetail } from '@/types';
 
@@ -121,6 +122,28 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
           </>
         }
       />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <StatCard
+          label="إجمالي التنبيهات"
+          value={alerts.length}
+          icon={Bell}
+          color="indigo"
+        />
+        <StatCard
+          label="غير مقروء"
+          value={alerts.filter((a) => !a.تم_القراءة).length}
+          icon={AlertTriangle}
+          color="rose"
+        />
+        <StatCard
+          label="تنبيهات اليوم"
+          value={alerts.filter((a) => new Date(a.تاريخ_الانشاء).toDateString() === new Date().toDateString()).length}
+          icon={Clock}
+          color="amber"
+        />
+      </div>
 
       <div className="app-card p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">

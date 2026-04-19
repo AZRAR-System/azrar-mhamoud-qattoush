@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/Input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatCard } from '@/components/shared/StatCard';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import type { useOperations } from '@/hooks/useOperations';
 import type { العقود_tbl, الكمبيالات_tbl } from '@/types';
@@ -156,6 +157,22 @@ export const OperationsPageView: React.FC<OperationsPageViewProps> = ({ page }) 
           </Button>
         }
       />
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <StatCard
+          label="إجمالي العقود"
+          value={contractsTotal}
+          icon={FileText}
+          color="indigo"
+        />
+        <StatCard
+          label="دفعات معلقة بالعقد المختار"
+          value={pendingInstallments.length}
+          icon={Wallet}
+          color="amber"
+        />
+      </div>
 
       {/* Progress Indicator */}
       {currentStep !== 'select-contract' && currentStep !== 'complete' && (

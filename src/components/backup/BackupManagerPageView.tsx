@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatCard } from '@/components/shared/StatCard';
 import type { useBackupManager, BackupFile } from '@/hooks/useBackupManager';
 
 interface BackupManagerPageViewProps {
@@ -126,75 +127,41 @@ export const BackupManagerPageView: React.FC<BackupManagerPageViewProps> = ({ pa
                 </button>
               </div>
             }
-          />
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto no-scrollbar p-8">
-        <div className="max-w-[1600px] mx-auto space-y-10">
-          {/* Stats Overview Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="glass-card p-6 flex items-center gap-5 group hover:scale-[1.02]">
-              <div className="w-14 h-14 rounded-2xl bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:rotate-12 transition-transform duration-500">
-                <Database size={28} />
-              </div>
-              <div>
-                <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">
-                  إجمالي النسخ
-                </div>
-                <div className="text-3xl font-black text-slate-800 dark:text-white">
-                  {stats ? stats.dbArchivesCount + stats.attachmentsArchivesCount : '—'}
-                </div>
-              </div>
+              />
             </div>
+          </header>
 
-            <div className="glass-card p-6 flex items-center gap-5 group hover:scale-[1.02]">
-              <div className="w-14 h-14 rounded-2xl bg-purple-500 text-white flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:rotate-12 transition-transform duration-500">
-                <HardDrive size={28} />
+          {/* Main Content Area */}
+          <main className="flex-1 overflow-y-auto no-scrollbar p-8">
+            <div className="max-w-[1600px] mx-auto space-y-10">
+              {/* Standardized Stats Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                  label="إجمالي النسخ"
+                  value={stats ? stats.dbArchivesCount + stats.attachmentsArchivesCount : '—'}
+                  icon={Database}
+                  color="blue"
+                />
+                <StatCard
+                  label="المساحة المستخدمة"
+                  value={stats ? formatSize(stats.totalBytes) : '—'}
+                  icon={HardDrive}
+                  color="purple"
+                />
+                <StatCard
+                  label="حالة التشفير"
+                  value={encryption?.enabled ? 'مفعل ومحمي' : 'غير مفعل'}
+                  icon={ShieldCheck}
+                  color="emerald"
+                />
+                <StatCard
+                  label="آخر نسخ تلقائي"
+                  value={automation?.lastRunAt ? new Date(automation.lastRunAt).toLocaleDateString() : 'لم يتم'}
+                  icon={Clock}
+                  color="orange"
+                />
               </div>
-              <div>
-                <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">
-                  المساحة المستخدمة
-                </div>
-                <div className="text-3xl font-black text-slate-800 dark:text-white">
-                  {stats ? formatSize(stats.totalBytes) : '—'}
-                </div>
-              </div>
-            </div>
 
-            <div className="glass-card p-6 flex items-center gap-5 group hover:scale-[1.02]">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:rotate-12 transition-transform duration-500">
-                <ShieldCheck size={28} />
-              </div>
-              <div>
-                <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">
-                  حالة التشفير
-                </div>
-                <div
-                  className={`text-xl font-black ${encryption?.enabled ? 'text-emerald-500' : 'text-amber-500'}`}
-                >
-                  {encryption?.enabled ? 'مفعل ومحمي' : 'غير مفعل'}
-                </div>
-              </div>
-            </div>
-
-            <div className="glass-card p-6 flex items-center gap-5 group hover:scale-[1.02]">
-              <div className="w-14 h-14 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:rotate-12 transition-transform duration-500">
-                <Clock size={28} />
-              </div>
-              <div>
-                <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">
-                  آخر نسخ تلقائي
-                </div>
-                <div className="text-sm font-black text-slate-800 dark:text-white truncate max-w-[150px]">
-                  {automation?.lastRunAt
-                    ? new Date(automation.lastRunAt).toLocaleString('ar-JO')
-                    : 'لم يتم بعد'}
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Main Content Sections Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">

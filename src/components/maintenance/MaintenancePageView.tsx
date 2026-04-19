@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Wrench,
   Plus,
@@ -9,6 +8,7 @@ import {
   ChevronDown,
   Key,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
@@ -23,6 +23,7 @@ import { PaginationControls } from '@/components/shared/PaginationControls';
 import type { useMaintenance } from '@/hooks/useMaintenance';
 import { تذاكر_الصيانة_tbl } from '@/types';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatCard } from '@/components/shared/StatCard';
 
 interface MaintenancePageViewProps {
   page: ReturnType<typeof useMaintenance>;
@@ -79,6 +80,28 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
           </RBACGuard>
         }
       />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <StatCard
+          label="إجمالي التذاكر"
+          value={page.tickets.length}
+          icon={Wrench}
+          color="indigo"
+        />
+        <StatCard
+          label="مفتوحة"
+          value={page.tickets.filter(t => t.الحالة !== 'مغلق').length}
+          icon={AlertTriangle}
+          color="amber"
+        />
+        <StatCard
+          label="مغلقة"
+          value={page.tickets.filter(t => t.الحالة === 'مغلق').length}
+          icon={CheckCircle}
+          color="emerald"
+        />
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 mb-4 app-card p-2 w-fit">
