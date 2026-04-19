@@ -13,6 +13,7 @@ interface SmartPageHeroProps {
   stats?: { label: string; value: string | number; color?: string }[];
   className?: string; // Add this
   topContent?: React.ReactNode; // Add this
+  bottomContent?: React.ReactNode; // Add this
 }
 
 export const SmartPageHero: React.FC<SmartPageHeroProps> = ({
@@ -26,6 +27,7 @@ export const SmartPageHero: React.FC<SmartPageHeroProps> = ({
   stats,
   className, // Add this
   topContent, // Add this
+  bottomContent, // Add this
 }) => {
   return (
     <div className={`${DS.components.pageHeader} ${className || ''} animate-in fade-in slide-in-from-top-4 duration-500`}>
@@ -69,6 +71,11 @@ export const SmartPageHero: React.FC<SmartPageHeroProps> = ({
       {actions && (
         <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-3 shrink-0">
           {actions}
+        </div>
+      )}
+      {bottomContent && (
+        <div className="w-full mt-6 pt-6 border-t border-slate-100/50 dark:border-white/5">
+          {bottomContent}
         </div>
       )}
     </div>

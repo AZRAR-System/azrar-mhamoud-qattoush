@@ -15,6 +15,7 @@ import {
   Command,
   Layout
 } from 'lucide-react';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import type { UseSystemSetupReturn, Step } from '@/hooks/useSystemSetup';
 
 interface SystemSetupPageViewProps {
@@ -361,56 +362,65 @@ export const SystemSetupPageView: React.FC<SystemSetupPageViewProps> = ({ page }
 
       <div className="w-full max-w-5xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl border border-white/40 dark:border-slate-800/50 rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-14 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.15)] dark:shadow-[0_40px_100px_-20px_rgba(0,0,0,0.4)] relative z-10 flex flex-col min-h-[auto] md:min-h-[700px] transition-all duration-500">
         
-        {/* Modern Header Navigation */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 bg-gradient-to-tr from-indigo-700 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-indigo-500/40">
-              A
-            </div>
-            <div className="flex flex-col">
-              <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">إعداد النظام</h2>
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">Setup Wizard Engine</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
+        <SmartPageHero
+          title="إعداد النظام"
+          description="Setup Wizard Engine"
+          icon={Settings}
+          iconColor="text-white"
+          iconBg="bg-gradient-to-tr from-indigo-700 to-indigo-500"
+          actions={
             <button
               onClick={handleGoToLogin}
               className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 px-6 py-3 rounded-2xl transition-all hover:bg-white dark:hover:bg-slate-800 shadow-sm"
             >
               خروج والعودة للنظام
             </button>
-          </div>
+          }
+          bottomContent={
+            <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-white/5 p-1.5 rounded-2xl border border-slate-200/50 dark:border-white/5 overflow-x-auto no-scrollbar scroll-smooth">
+              {(['welcome', 'requirements', 'install', 'success'] as Step[]).map((step, i) => {
+                const steps: Step[] = ['welcome', 'requirements', 'install', 'success'];
+                const stepIndex = steps.indexOf(currentStep);
+                const active = steps.indexOf(step) <= stepIndex;
+                const isCurrent = step === currentStep;
 
-          <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-white/5 p-1.5 rounded-2xl border border-slate-200/50 dark:border-white/5 overflow-x-auto no-scrollbar scroll-smooth">
-            {(['welcome', 'requirements', 'install', 'success'] as Step[]).map((step, i) => {
-              const steps: Step[] = ['welcome', 'requirements', 'install', 'success'];
-              const stepIndex = steps.indexOf(currentStep);
-              const active = steps.indexOf(step) <= stepIndex;
-              const isCurrent = step === currentStep;
+                return (
+                  <div
+                    key={step}
+                    className={`relative flex items-center justify-center h-10 transition-all duration-500 rounded-xl px-4 shrink-0 overflow-hidden ${
+                      isCurrent
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 w-auto min-w-[5rem] px-6'
+                        : active
+                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-10 md:w-12'
+                          : 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 w-10 md:w-12 border border-transparent'
+                    }`}
+                  >
+                    <span
+                      className={`text-[11px] font-black transition-all duration-500 whitespace-nowrap ${
+                        isCurrent
+                          ? 'opacity-100 scale-100 translate-x-0'
+                          : 'opacity-0 scale-50 absolute translate-x-4'
+                      }`}
+                    >
+                      {step === 'welcome'
+                        ? 'ترحيب'
+                        : step === 'requirements'
+                          ? 'فحص جاهزية'
+                          : step === 'install'
+                            ? 'تثبيت النظام'
+                            : 'نجاح الإعداد'}
+                    </span>
+                    {!isCurrent && <span className="text-xs font-bold">{i + 1}</span>}
 
-              return (
-                <div 
-                  key={step}
-                  className={`relative flex items-center justify-center h-10 transition-all duration-500 rounded-xl px-4 shrink-0 overflow-hidden ${
-                    isCurrent ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 w-auto min-w-[5rem] px-6' : 
-                    active ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-10 md:w-12' : 
-                    'bg-slate-100 dark:bg-slate-800/50 text-slate-400 w-10 md:w-12 border border-transparent'
-                  }`}
-                >
-                  <span className={`text-[11px] font-black transition-all duration-500 whitespace-nowrap ${isCurrent ? 'opacity-100 scale-100 translate-x-0' : 'opacity-0 scale-50 absolute translate-x-4'}`}>
-                    {step === 'welcome' ? 'ترحيب' : step === 'requirements' ? 'فحص جاهزية' : step === 'install' ? 'تثبيت النظام' : 'نجاح الإعداد'}
-                  </span>
-                  {!isCurrent && <span className="text-xs font-bold">{i + 1}</span>}
-                  
-                  {isCurrent && (
-                    <div className="absolute bottom-0 left-0 h-0.5 bg-white/30 animate-progress-fast" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                    {isCurrent && (
+                      <div className="absolute bottom-0 left-0 h-0.5 bg-white/30 animate-progress-fast" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          }
+        />
 
         <div className="flex-1 flex flex-col items-center justify-center py-4">
           {renderContent()}

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { DbService } from '@/services/mockDb';
 import type { StatementTemplateData } from '@/components/printing/templates/StatementTemplate';
 import { StatementPrintPreview } from '@/components/printing/templates/StatementTemplate';
-import { PageHero } from '@/components/shared/PageHero';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 
 type Props = { page: InstallmentsPageModel };
 
@@ -42,11 +42,12 @@ export function InstallmentsPageHeader({ page }: Props) {
 
   return (
     <>
-      <PageHero
-        icon={<CreditCard size={26} className="text-indigo-600 dark:text-indigo-400" />}
-        iconVariant="inline"
+      <SmartPageHero
+        icon={CreditCard}
+        iconColor="text-indigo-600 dark:text-indigo-400"
+        iconBg="bg-indigo-50 dark:bg-indigo-950/40"
         title="الدفعات المالية"
-        subtitle="إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات"
+        description="إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات"
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-3">
             {isDesktop ? (
