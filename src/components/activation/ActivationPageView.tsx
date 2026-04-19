@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -15,10 +16,15 @@ export const ActivationPageView: FC<{ page: UseActivationReturn }> = ({ page }) 
   } = page;
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
-      <div className="w-full max-w-lg">
-        <Card
-          title={t('تفعيل النظام')}
+    <div className="space-y-6">
+    <SmartPageHero
+      title="تفعيل النظام"
+      description="إدخال رمز التفعيل لتفعيل النظام"
+      icon={KeyRound}
+      iconColor="text-emerald-600 dark:text-emerald-400"
+      iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+    />
+    <Card title={t('تفعيل النظام')}
           action={
             <Button
               variant="secondary"
@@ -143,6 +149,5 @@ export const ActivationPageView: FC<{ page: UseActivationReturn }> = ({ page }) 
           </div>
         </Card>
       </div>
-    </div>
-  );
+    );
 };

@@ -1,5 +1,5 @@
-import React from 'react';
 import { Button } from '@/components/ui/Button';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -49,19 +49,19 @@ export const LicenseAdminPageView: React.FC<LicenseAdminPageViewProps> = ({ page
   return (
     <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-6" dir="rtl">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-              <Globe className="text-indigo-600" size={28} />
-              مركز إدارة التراخيص (Hub)
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              إدارة تفعيل الأنظمة، متابعة العملاء، وإعدادات خادم الترخيص المركزي.
-            </p>
-          </div>
+      <SmartPageHero
+        title="مركز إدارة التراخيص"
+        description="إدارة تفعيل الأنظمة، متابعة العملاء، وإعدادات خادم الترخيص المركزي."
+        icon={ShieldCheck}
+        iconColor="text-indigo-600 dark:text-indigo-400"
+        iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+        actions={
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => void refreshList()} disabled={busy || !loggedIn}>
+            <Button
+              variant="secondary"
+              onClick={() => void refreshList()}
+              disabled={busy || !loggedIn}
+            >
               <Activity size={16} className={busy ? 'animate-spin' : ''} />
               تحديث البيانات
             </Button>
@@ -72,7 +72,8 @@ export const LicenseAdminPageView: React.FC<LicenseAdminPageViewProps> = ({ page
               </Button>
             )}
           </div>
-        </div>
+        }
+      />
 
         {/* Tabs Switcher */}
         <div className="flex flex-wrap gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
