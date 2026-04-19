@@ -642,6 +642,12 @@ export interface PredictiveInsight {
   recommendations: string[];
 }
 
+export interface PerformanceRow {
+  name: string;
+  before: number;
+  after: number;
+}
+
 // Interfaces for complex return types in DbService
 export interface PersonDetailsResult {
   person: الأشخاص_tbl;
