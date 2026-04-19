@@ -1,4 +1,5 @@
 import { type FC } from 'react';
+import logoLight from '@/assets/logo/icon1.png';
 import {
   BarChart3,
   TrendingUp,
@@ -93,7 +94,7 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
                 <div className="relative">
                   <div className="absolute -inset-4 bg-indigo-500/20 rounded-full blur-2xl animate-pulse" />
                   <img
-                    src="/icon 1.png"
+                    src={logoLight}
                     alt="AZRAR System Logo"
                     className="relative w-36 h-36 object-contain drop-shadow-2xl animate-float"
                     loading="eager"
