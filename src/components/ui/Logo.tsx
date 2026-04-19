@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import logoLight from '@/assets/logo/icon 1.png';
-import logoDark from '@/assets/logo/icon 1.png';
+import logoLight from '@/assets/logo/icon1.png';
+import logoDark from '@/assets/logo/icon2.png';
 
 interface LogoProps {
     className?: string;
@@ -12,6 +12,7 @@ export const Logo: React.FC<LogoProps> = ({ className = '', size = 144 }) => {
     const { isDark } = useTheme();
 
     const logoSrc = isDark ? logoLight : logoDark;
+    // dark mode → icon1 (أبيض) | light mode → icon2 (أسود)
 
     return (
         <img
