@@ -146,21 +146,28 @@ jobs:
     - name: Desktop build
       run: npm run desktop:build
 
-    # البناء بدون توقيع (للـ PRs والفروع)
+    # البناء بدون توقيع (للـ PRs والفروع العادية)
     - name: Build Installer (Unsigned)
       if: github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
       run: npm run desktop:dist:skipWU
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # البناء مع التوقيع (للـ Tags فقط)
-    - name: Build Installer (Signed)
-      if: startsWith(github.ref, 'refs/tags/v')
+    # البناء مع التوقيع على Tags (إذا توفر سر التوقيع)
+    - name: Build Installer (Signed - Tags with cert)
+      if: startsWith(github.ref, 'refs/tags/v') && secrets.CSC_LINK != ''
       run: npm run desktop:dist:signed
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSC_LINK: ${{ secrets.CSC_LINK }}
         CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+    # البناء بدون توقيع على Tags (إذا لم يتوفر سر التوقيع)
+    - name: Build Installer (Unsigned - Tags without cert)
+      if: startsWith(github.ref, 'refs/tags/v') && secrets.CSC_LINK == ''
+      run: npm run desktop:dist:skipWU
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Note — no GitHub artifact on branch/PR
       if: success() && !startsWith(github.ref, 'refs/tags/v')
@@ -168,11 +175,19 @@ jobs:
       run: |
         Write-Host "Skipping actions/upload-artifact on non-tag builds (saves org storage quota). Installer was still built under release2_build on this runner."
 
-    # GitHub Actions artifact storage is limited per org/account. Do NOT upload on every push/PR —
-    # only on version tags (releases). Skipped steps = no quota use + green CI on main/develop.
+    - name: Calculate File Hashes
+      if: startsWith(github.ref, 'refs/tags/v')
+      shell: pwsh
+      run: |
+        $files = Get-ChildItem release2_build -Filter "*.exe"
+        foreach ($file in $files) {
+          $hash = Get-FileHash $file.FullName -Algorithm SHA256
+          Write-Output "$($file.Name): $($hash.Hash)" >> release2_build/checksums.txt
+        }
+
+    # رفع الـ Artifacts على GitHub لتمريرها إلى Job الـ Release
     - name: Upload Artifacts
-      if: success() && startsWith(github.ref, 'refs/tags/v')
-      continue-on-error: true
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: actions/upload-artifact@v7
       with:
         name: azrar-desktop-windows
@@ -182,19 +197,8 @@ jobs:
           release2_build/latest.yml
         retention-days: 3
 
-    - name: Calculate File Hashes
-      if: success() && startsWith(github.ref, 'refs/tags/v')
-      shell: pwsh
-      run: |
-        $files = Get-ChildItem release2_build -Filter "*.exe"
-        foreach ($file in $files) {
-          $hash = Get-FileHash $file.FullName -Algorithm SHA256
-          Write-Output "$($file.Name): $($hash.Hash)" >> release2_build/checksums.txt
-        }
-
     - name: Upload Checksums
-      if: success() && startsWith(github.ref, 'refs/tags/v')
-      continue-on-error: true
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: actions/upload-artifact@v7
       with:
         name: checksums
