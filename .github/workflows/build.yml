@@ -55,22 +55,17 @@ jobs:
       run: npm run lint
       continue-on-error: true
 
-    - name: Typecheck & routes
-      run: |
-        npm run typecheck
-        npm run routes:check
-
     - name: Run Tests
       run: npm test
       continue-on-error: true
 
-    - name: Full desktop verify (typecheck + routes + desktop:build)
+    - name: Verify Build integrity (Typecheck + Routes + Desktop Build)
       run: npm run verify
 
     # Desktop E2E omitted: needs a real Electron/desktop environment; run locally: npm run desktop:e2e
 
     - name: Upload coverage
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         files: ./coverage/lcov.info
         flags: unittests
@@ -223,13 +218,13 @@ jobs:
       uses: actions/checkout@v6
 
     - name: Download Artifacts
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: azrar-desktop-windows
         path: ./artifacts
 
     - name: Download Checksums
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: checksums
         path: ./artifacts
