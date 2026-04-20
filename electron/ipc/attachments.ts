@@ -15,7 +15,8 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
-import { pushKvDelete, pushKvUpsert, logSyncError } from '../sqlSync';
+import { pushKvDelete, pushKvUpsert, logSyncError, pullAttachmentFilesForAttachmentsJson } from '../sqlSync';
+import { desktopUserHasPermission } from '../printing/permissions';
 import logger from '../logger';
 import { ensureInsideRoot } from '../utils/pathSafety';
 import { toErrorMessage } from '../utils/errors';
@@ -892,11 +893,11 @@ export function registerAttachments(deps: IpcDeps): void {
         desktopUserHasPermission(userId, 'SETTINGS_ADMIN');
       if (!allowed) return { success: false, message: 'ليس لديك صلاحية إدارة قوالب الطباعة' };
   
-      const result = await dialog.showOpenDialog({
+      const result = (await dialog.showOpenDialog({
         title: `اختر قالب Word لـ ${templateTypeLabelAr(templateType)}`,
         properties: ['openFile'],
         filters: [{ name: 'Word (.docx)', extensions: ['docx'] }],
-      });
+      })) as unknown as Electron.OpenDialogReturnValue;
       if (result.canceled || result.filePaths.length === 0)
         return { success: false, message: 'تم الإلغاء' };
   

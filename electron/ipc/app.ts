@@ -45,7 +45,7 @@ export function registerApp(deps: IpcDeps): void {
   
     const result = (win
       ? await dialog.showOpenDialog(win, options)
-      : await dialog.showOpenDialog(options));
+      : await dialog.showOpenDialog(options)) as unknown as Electron.OpenDialogReturnValue;
   
     if (result.canceled || result.filePaths.length === 0) {
       return { ok: false, canceled: true };

@@ -224,12 +224,12 @@ export async function htmlToPdfFromHtml(
         ? `${options.defaultFileName}.pdf`
         : 'document.pdf';
 
-    const res = await dialog.showSaveDialog({
+    const res = (await dialog.showSaveDialog({
       title: 'تصدير PDF',
       defaultPath: suggested,
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
       properties: ['createDirectory', 'showOverwriteConfirmation'],
-    });
+    })) as unknown as Electron.SaveDialogReturnValue;
 
     if (res.canceled || !res.filePath) {
       return { ok: false, code: 'CANCELED', message: 'تم الإلغاء' };

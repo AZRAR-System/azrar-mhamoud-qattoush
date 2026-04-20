@@ -146,7 +146,7 @@ export function registerDb(deps: IpcDeps): void {
     const result = (await dialog.showOpenDialog({
       title: 'اختر مجلد',
       properties: ['openDirectory', 'createDirectory'],
-    })) as Electron.OpenDialogReturnValue;
+    })) as unknown as Electron.OpenDialogReturnValue;
     if (result.canceled || result.filePaths.length === 0) {
       return { success: false, message: 'تم الإلغاء' };
     }
@@ -351,7 +351,7 @@ export function registerDb(deps: IpcDeps): void {
       const result = (await dialog.showOpenDialog({
         title: 'اختر مجلد حفظ النسخة الاحتياطية (سيتم حفظه تلقائياً)',
         properties: ['openDirectory', 'createDirectory'],
-      })) as Electron.OpenDialogReturnValue;
+      })) as unknown as Electron.OpenDialogReturnValue;
   
       if (result.canceled || result.filePaths.length === 0) {
         return { success: false, message: 'تم الإلغاء' };
@@ -486,7 +486,7 @@ export function registerDb(deps: IpcDeps): void {
         { name: 'All Files', extensions: ['*'] },
       ],
       properties: ['openFile'],
-    })) as Electron.OpenDialogReturnValue;
+    })) as unknown as Electron.OpenDialogReturnValue;
   
     if (result.canceled || result.filePaths.length === 0) {
       return { success: false, message: 'تم الإلغاء' };

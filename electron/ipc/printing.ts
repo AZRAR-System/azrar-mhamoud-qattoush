@@ -52,10 +52,11 @@ export function registerPrinting(deps: IpcDeps): void {
   
   // Automatic update check on startup (packaged app only).
   if (app.isPackaged && ipc.autoUpdater && (currentFeedUrl || ipc.hasEmbeddedUpdaterConfig())) {
+    const updater = ipc.autoUpdater;
     setTimeout(() => {
       void (async () => {
         try {
-          await ipc.autoUpdater.checkForUpdates();
+          await updater.checkForUpdates();
         } catch (e: unknown) {
           ipc.broadcastUpdaterEvent({
             type: 'error',
@@ -178,11 +179,11 @@ export function registerPrinting(deps: IpcDeps): void {
   });
   
   ipcMain.handle('updater:installFromFile', async () => {
-    const result = await dialog.showOpenDialog({
+    const result = (await dialog.showOpenDialog({
       title: 'اختر ملف تحديث (مثبت البرنامج)',
       filters: [{ name: 'Installer', extensions: ['exe'] }],
       properties: ['openFile'],
-    });
+    })) as unknown as Electron.OpenDialogReturnValue;
   
     if (result.canceled || result.filePaths.length === 0) {
       return { success: false, message: 'تم الإلغاء' };
