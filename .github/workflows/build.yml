@@ -12,8 +12,8 @@ on:
       - main
       - develop
 
-# env:
-#   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # =====================================
@@ -42,7 +42,7 @@ jobs:
         python-version: '3.12'
 
     - name: Setup MSVC (node-gyp / native modules)
-      uses: ilammy/msvc-dev-cmd@v1
+      uses: ilammy/msvc-dev-cmd@v1.13.0
       with:
         arch: x64
 
@@ -133,7 +133,7 @@ jobs:
         python-version: '3.12'
 
     - name: Setup MSVC (node-gyp / native modules)
-      uses: ilammy/msvc-dev-cmd@v1
+      uses: ilammy/msvc-dev-cmd@v1.13.0
       with:
         arch: x64
 
