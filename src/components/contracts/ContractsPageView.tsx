@@ -1,5 +1,6 @@
 import { FileText } from 'lucide-react';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { PageLayout } from '@/components/shared/PageLayout';
 import { ContractsImportInput } from '@/components/contracts/ContractsImportInput';
 import { ContractsSmartFilterBar } from '@/components/contracts/ContractsSmartFilterBar';
 import { ContractsAdvancedFiltersCard } from '@/components/contracts/ContractsAdvancedFiltersCard';
@@ -19,13 +20,12 @@ export function ContractsPageView({ page }: Props) {
   const listVisible = !showEmptyNoContracts && !showEmptyNoResults;
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <PageLayout>
       <SmartPageHero
+        variant="premium"
         title="إدارة العقود"
-        description="إدارة وتتبع عقود الإيجار والتحصيلات والالتزامات القانونية."
-        icon={FileText}
-        iconColor="text-indigo-600 dark:text-indigo-400"
-        iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+        description="إدارة وتتبع عقود الإيجار والتحصيلات والالتزامات القانونية بنظام أزرار."
+        icon={<FileText size={32} />}
         stats={[
           {
             label: 'إجمالي العقود',
@@ -34,24 +34,29 @@ export function ContractsPageView({ page }: Props) {
           {
             label: 'النتائج الحالية',
             value: page.filteredContracts.length,
-            color: 'text-indigo-600',
+            color: 'text-indigo-200',
           },
         ]}
       />
-      <ContractsImportInput page={page} />
-      <ContractsSmartFilterBar page={page} />
-      <ContractsAdvancedFiltersCard page={page} />
+      
+      <div className="space-y-6">
+        <ContractsImportInput page={page} />
+        <ContractsSmartFilterBar page={page} />
+        <ContractsAdvancedFiltersCard page={page} />
 
-      {!listVisible ? <ContractsEmptyStates page={page} /> : null}
+        <div className="page-transition">
+          {!listVisible ? <ContractsEmptyStates page={page} /> : null}
 
-      {listVisible ? (
-        <>
-          <ContractsWebListToolbar page={page} />
-          <ContractsCardsGrid page={page} />
-        </>
-      ) : null}
+          {listVisible ? (
+            <>
+              <ContractsWebListToolbar page={page} />
+              <ContractsCardsGrid page={page} />
+            </>
+          ) : null}
 
-      {isDesktopFast ? <ContractsFastPaginationFooter page={page} /> : null}
-    </div>
+          {isDesktopFast ? <ContractsFastPaginationFooter page={page} /> : null}
+        </div>
+      </div>
+    </PageLayout>
   );
 }

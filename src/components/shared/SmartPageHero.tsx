@@ -1,12 +1,11 @@
 import React from 'react';
-import type { LucideIcon } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 
 interface SmartPageHeroProps {
   title: string;
   description?: string;
   subtitle?: string;
-  icon?: LucideIcon;
+  icon?: React.ComponentType<{ className?: string }> | React.ReactNode;
   iconColor?: string;
   iconBg?: string;
   actions?: React.ReactNode;
@@ -29,7 +28,7 @@ export const SmartPageHero: React.FC<SmartPageHeroProps> = ({
   title,
   description,
   subtitle,
-  icon: Icon,
+  icon: iconProp,
   iconColor = 'text-white',
   iconBg = 'bg-white/10 backdrop-blur-md border border-white/20',
   actions,
@@ -46,12 +45,23 @@ export const SmartPageHero: React.FC<SmartPageHeroProps> = ({
   const subtitleClass = DS.components.pageSubtitleUppercase;
   const descriptionClass = isPremium ? DS.components.pageSubtitleWhite : DS.components.pageSubtitle;
 
+  const renderIcon = () => {
+    if (!iconProp) return null;
+    
+    if (React.isValidElement(iconProp)) {
+      return iconProp;
+    }
+
+    const Icon = iconProp as React.ComponentType<{ className?: string }>;
+    return <Icon className={`w-6 h-6 lg:w-8 lg:h-8 ${iconColor}`} />;
+  };
+
   return (
     <div className={`${containerClass} ${className || ''} animate-in fade-in slide-in-from-top-4 duration-500`} dir="rtl">
       <div className="flex items-start gap-4 lg:gap-6 min-w-0">
-        {Icon && (
-          <div className={`p-4 rounded-2xl ${iconBg} shrink-0 ring-1 ring-white/10 shadow-lg`}>
-            <Icon className={`w-6 h-6 lg:w-8 lg:h-8 ${iconColor}`} />
+        {iconProp && (
+          <div className={`p-4 rounded-2xl ${iconBg} shrink-0 ring-1 ring-white/10 shadow-lg flex items-center justify-center`}>
+            {renderIcon()}
           </div>
         )}
         <div className="flex-1 min-w-0">

@@ -6,6 +6,9 @@ import type { Attachment, ReferenceType } from '@/types';
 import { FileViewer } from '@/components/shared/FileViewer';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { StatsCardRow } from '@/components/shared/StatsCardRow';
+import { DS } from '@/constants/designSystem';
 import type { UseDocumentsReturn } from '@/hooks/useDocuments';
 
 const DocumentsKindSection: React.FC<{
@@ -81,20 +84,15 @@ export const DocumentsPageView: FC<{ page: UseDocumentsReturn }> = ({ page }) =>
   const kindOrder: Array<'PDF' | 'صور' | 'مستندات'> = ['PDF', 'صور', 'مستندات'];
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <PageLayout>
       <SmartPageHero
-        title="مستندات"
-        description="عرض مجمّع للمرفقات حسب الصنف والصفة"
-        icon={FileText}
-        iconColor="text-orange-500"
-        iconBg="bg-orange-50 dark:bg-orange-950/40"
-        stats={[
-          { label: 'الإجمالي', value: attachments.length }
-        ]}
+        variant="premium"
+        title="مركز المستندات والمرفقات"
+        description="عرض مجمّع لكافة المرفقات في النظام، مصنفة حسب العقارات، الأشخاص، والعقود."
+        icon={<FileText size={32} />}
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4">
+      <StatsCardRow cols={2}>
         <StatCard
           label="إجمالي المرفقات"
           value={attachments.length}
@@ -107,7 +105,9 @@ export const DocumentsPageView: FC<{ page: UseDocumentsReturn }> = ({ page }) =>
           icon={ImageIcon}
           color="indigo"
         />
-      </div>
+      </StatsCardRow>
+
+      <div className="space-y-6">
 
       {desktopUnsupported && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-4 text-sm text-yellow-800 dark:text-yellow-200">
@@ -147,6 +147,7 @@ export const DocumentsPageView: FC<{ page: UseDocumentsReturn }> = ({ page }) =>
       {viewingFile && (
         <FileViewer fileId={viewingFile.id} fileName={viewingFile.fileName} fileExtension={viewingFile.fileExtension} onClose={() => setViewingFile(null)} />
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 };

@@ -54,19 +54,19 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
   const shouldShowBar = shouldShowSearch || (Array.isArray(filters) && filters.length > 0);
 
   return (
-    <div className="mb-6">
-      <div className="bg-white/90 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5 relative p-4 lg:p-6">
+    <div className="mb-8">
+      <div className={DS.components.filterBar + ' flex-col !items-stretch !p-6 lg:!p-8'}>
         {/* Header Section */}
         <div
-          className={`flex flex-col lg:flex-row lg:items-center gap-4 ${omitTitle ? '' : 'justify-between'}`}
+          className={`flex flex-col lg:flex-row lg:items-center gap-6 ${omitTitle ? '' : 'justify-between'}`}
         >
           {!omitTitle ? (
             <div className="min-w-0 text-right">
-              <h2 className="text-xl lg:text-2xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">
+              <h2 className="text-xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
                 {title}
               </h2>
               {subtitle && (
-                <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium leading-relaxed">
                   {subtitle}
                 </p>
               )}
@@ -76,21 +76,32 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
           <div
             className={
               omitTitle
-                ? 'flex flex-wrap items-center justify-end gap-2 w-full'
-                : 'flex items-center justify-end gap-2 overflow-x-auto no-scrollbar flex-nowrap w-full lg:w-auto lg:flex-wrap lg:overflow-visible'
+                ? 'flex flex-wrap items-center justify-end gap-3 w-full'
+                : 'flex items-center justify-end gap-3 overflow-x-auto no-scrollbar flex-nowrap w-full lg:w-auto lg:flex-wrap lg:overflow-visible'
             }
           >
             {extraActions}
 
             {onRefresh && (
-              <Button variant="secondary" onClick={onRefresh} title="تحديث البيانات" size="md">
+              <Button 
+                variant="secondary" 
+                onClick={onRefresh} 
+                title="تحديث البيانات" 
+                size="md"
+                className="!rounded-2xl"
+              >
                 <RefreshCcw size={18} />
               </Button>
             )}
 
             {onAddClick && (
               <RBACGuard requiredRole={['Admin', 'SuperAdmin', 'Employee']}>
-                <Button variant="primary" onClick={onAddClick} rightIcon={<Plus size={18} />}>
+                <Button 
+                  variant="primary" 
+                  onClick={onAddClick} 
+                  rightIcon={<Plus size={18} />}
+                  className="!rounded-2xl !px-6"
+                >
                   {addLabel}
                 </Button>
               </RBACGuard>
@@ -100,8 +111,8 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
 
         {/* Filter & Search Bar */}
         {shouldShowBar && (
-          <div className="mt-4 pt-4 border-t border-slate-200/70 dark:border-slate-800">
-            <div className="flex flex-col gap-3 md:flex-row md:flex-nowrap md:overflow-x-auto md:no-scrollbar lg:flex-wrap lg:overflow-visible">
+          <div className="mt-6 pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
+            <div className="flex flex-col gap-4 md:flex-row md:flex-nowrap md:overflow-x-auto md:no-scrollbar lg:flex-wrap lg:overflow-visible">
               {/* Search */}
               {shouldShowSearch && (
                 <div className="flex-1 min-w-[16rem] md:shrink-0 lg:shrink">
@@ -110,26 +121,34 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = ({
                     placeholder={searchPlaceholder}
                     value={searchValue}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    icon={<Search size={18} />}
+                    icon={<Search size={18} className="text-indigo-500" />}
+                    className="!rounded-2xl !py-3.5 !border-slate-200 focus:!border-indigo-500"
                   />
                 </div>
               )}
 
               {/* Dynamic Filters */}
               {filters.map((filter) => (
-                <div key={filter.key} className="w-full md:w-auto md:min-w-[12rem] shrink-0">
+                <div key={filter.key} className="w-full md:w-auto md:min-w-[14rem] shrink-0">
                   <Select
                     options={filter.options}
                     value={activeFilters[filter.key] || ''}
                     onChange={(e) => onFilterChange && onFilterChange(filter.key, e.target.value)}
                     placeholder={filter.label}
+                    className="!rounded-2xl !py-3 !bg-slate-50/50 dark:!bg-slate-800/30"
                   />
                 </div>
               ))}
 
               {typeof onClearFilters === 'function' ? (
                 <div className="flex items-center shrink-0">
-                  <Button type="button" variant="outline" size="md" onClick={onClearFilters}>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="md" 
+                    onClick={onClearFilters}
+                    className="text-slate-500 hover:text-indigo-600 font-black h-12"
+                  >
                     {clearFiltersLabel}
                   </Button>
                 </div>

@@ -1,10 +1,11 @@
 import React from 'react';
 import { MessageCircle, PauseCircle, PlayCircle, Users } from 'lucide-react';
-import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { UseBulkWhatsAppReturn, normalizePhoneLoose } from '@/hooks/useBulkWhatsApp';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 
 interface BulkWhatsAppPageViewProps {
   page: UseBulkWhatsAppReturn;
@@ -20,19 +21,24 @@ export const BulkWhatsAppPageView: React.FC<BulkWhatsAppPageViewProps> = ({ page
   } = page;
 
   return (
-    <div className="space-y-6" dir="rtl">
-      <div className={DS.components.pageHeader}>
-        <div>
-          <h2 className={DS.components.pageTitle}>إرسال واتساب جماعي</h2>
-          <p className={DS.components.pageSubtitle}>
-            اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-          <Users size={16} />
-          {selectedIds.length} / {contacts.length}
-        </div>
-      </div>
+    <PageLayout>
+      <SmartPageHero
+        variant="premium"
+        title="إرسال واتساب جماعي"
+        description="اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح"
+        icon={<MessageCircle size={32} />}
+        actions={
+          <div className="flex items-center gap-3 bg-white/10 px-4 py-2 rounded-2xl border border-white/20 backdrop-blur-md shadow-soft">
+            <Users size={18} className="text-white/70" />
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-black text-white">{selectedIds.length}</span>
+              <span className="text-xs font-bold text-white/50">/ {contacts.length} جهة اتصال</span>
+            </div>
+          </div>
+        }
+      />
+
+      <div className="mt-6 space-y-6">
 
       <div className="app-card p-4 space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -250,7 +256,8 @@ export const BulkWhatsAppPageView: React.FC<BulkWhatsAppPageViewProps> = ({ page
             })}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </PageLayout>
   );
 };

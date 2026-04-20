@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { FC } from 'react';
 import { Search, Filter as FilterIcon } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 
@@ -16,14 +16,13 @@ interface FilterBarProps {
  * شريط الفلاتر الموحد - يدمج البحث والتصفية في مكون زجاجي واحد
  * البحث على اليمين (RTL) والفلاتر/الإجراءات على اليسار
  */
-export const FilterBar: React.FC<FilterBarProps> = ({
+export const FilterBar: FC<FilterBarProps> = ({
   searchTerm,
   onSearchChange,
   searchPlaceholder = 'ابحث هنا...',
   filters,
   actions,
   className,
-  title
 }) => {
   return (
     <div className={`${DS.components.filterBar} ${className || ''}`}>

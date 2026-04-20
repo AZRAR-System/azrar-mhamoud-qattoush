@@ -24,6 +24,8 @@ import type { useMaintenance } from '@/hooks/useMaintenance';
 import { تذاكر_الصيانة_tbl } from '@/types';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatCard } from '@/components/shared/StatCard';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { StatsCardRow } from '@/components/shared/StatsCardRow';
 
 interface MaintenancePageViewProps {
   page: ReturnType<typeof useMaintenance>;
@@ -67,8 +69,9 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
     'absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500 dark:text-slate-400';
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <PageLayout>
       <SmartPageHero
+        variant="premium"
         title="الصيانة والدعم الفني"
         description="إدارة طلبات الصيانة وتكاليف الإصلاح"
         icon={Wrench}
@@ -81,8 +84,7 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <StatsCardRow>
         <StatCard
           label="إجمالي التذاكر"
           value={page.tickets.length}
@@ -91,17 +93,19 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
         />
         <StatCard
           label="مفتوحة"
-          value={page.tickets.filter(t => t.الحالة !== 'مغلق').length}
+          value={page.tickets.filter((t) => t.الحالة !== 'مغلق').length}
           icon={AlertTriangle}
           color="amber"
         />
         <StatCard
           label="مغلقة"
-          value={page.tickets.filter(t => t.الحالة === 'مغلق').length}
+          value={page.tickets.filter((t) => t.الحالة === 'مغلق').length}
           icon={CheckCircle}
           color="emerald"
         />
-      </div>
+      </StatsCardRow>
+
+      <div className="space-y-6">
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 mb-4 app-card p-2 w-fit">
@@ -558,6 +562,7 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
           </form>
         </AppModal>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 };

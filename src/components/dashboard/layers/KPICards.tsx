@@ -26,6 +26,7 @@ import {
   KpiCalculatorCard,
   KpiQuickCommissionCard,
 } from '@/components/dashboard/layers/KpiQuickTools';
+import { StatsCardRow } from '@/components/shared/StatsCardRow';
 
 interface KPICardsProps {
   data: DashboardData;
@@ -196,8 +197,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     },
   ];
 
-  const gridClass =
-    'grid gap-4 sm:gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr))]';
+// Removed manual gridClass as we use StatsCardRow
 
   const renderMetricCard = (card: KPICard, index: number) => {
     const Icon = card.icon;
@@ -252,13 +252,18 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   };
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-5" dir="rtl">
-      <div className={gridClass}>{cards.slice(0, 6).map((c, i) => renderMetricCard(c, i))}</div>
-      <div className={gridClass}>
-        {cards.slice(6, 10).map((c, i) => renderMetricCard(c, i + 6))}
+    <div className="flex flex-col gap-6" dir="rtl">
+      <StatsCardRow>
+        {cards.slice(0, 4).map((c, i) => renderMetricCard(c, i))}
+      </StatsCardRow>
+      <StatsCardRow>
+        {cards.slice(4, 8).map((c, i) => renderMetricCard(c, i + 4))}
+      </StatsCardRow>
+      <StatsCardRow>
+        {cards.slice(8, 10).map((c, i) => renderMetricCard(c, i + 8))}
         <KpiCalculatorCard />
         <KpiQuickCommissionCard />
-      </div>
+      </StatsCardRow>
     </div>
   );
 };
