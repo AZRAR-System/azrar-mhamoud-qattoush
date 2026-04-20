@@ -67,6 +67,13 @@ export const DS = {
     pageWrap: 'space-y-8 page-transition',
     sectionGap: 'space-y-6',
   },
+  /** تخطيط صفحة الإعدادات (محتوى يمين الشريط الجانبي) */
+  settingsLayout: {
+    shell: 'settings-main-shell',
+    scroll: 'settings-main-scroll',
+    inner: 'settings-main-inner page-transition',
+    sectionPanel: 'settings-section-panel',
+  },
   durations: {
     fast: '150ms',
     normal: '300ms',
