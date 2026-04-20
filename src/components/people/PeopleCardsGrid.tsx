@@ -1,5 +1,6 @@
 import { DbService } from '@/services/mockDb';
 import type { الأشخاص_tbl, العقود_tbl } from '@/types';
+import { DS } from '@/constants/designSystem';
 import { Button } from '@/components/ui/Button';
 import {
   PersonListingCardWeb,
@@ -28,30 +29,36 @@ function PeopleResultsToolbar({ page }: Props) {
 
   if (isDesktopFast) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-4 py-3 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/60 shadow-sm backdrop-blur-sm">
-        <div className="text-sm font-bold text-slate-600 dark:text-slate-300">
-          {desktopLoading ? '...' : desktopTotal.toLocaleString()}{' '}
-          <span className="font-medium text-slate-500 dark:text-slate-400">{t('نتيجة')}</span>
+      <div className={`${DS.components.filterBar} !p-3 mb-4`}>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+            <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+              {desktopLoading ? '...' : desktopTotal}
+            </span>
+          </div>
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('نتيجة')}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button
             size="sm"
-            variant="secondary"
+            variant="ghost"
             disabled={desktopLoading || desktopPage <= 0}
             onClick={() => setDesktopPage((p) => Math.max(0, p - 1))}
+            className="font-black text-xs"
           >
             {t('السابق')}
           </Button>
-          <div className="text-sm text-slate-600 dark:text-slate-300">
+          <div className="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-600 dark:text-slate-300">
             {desktopPage + 1} / {desktopPageCount}
           </div>
           <Button
             size="sm"
-            variant="secondary"
+            variant="ghost"
             disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
             onClick={() =>
               setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))
             }
+            className="font-black text-xs"
           >
             {t('التالي')}
           </Button>
@@ -61,28 +68,34 @@ function PeopleResultsToolbar({ page }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-4 py-3 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/60 shadow-sm backdrop-blur-sm">
-      <div className="text-sm font-bold text-slate-600 dark:text-slate-300">
-        {filtered.length.toLocaleString()}{' '}
-        <span className="font-medium text-slate-500 dark:text-slate-400">{t('نتيجة')}</span>
+    <div className={`${DS.components.filterBar} !p-3 mb-4`}>
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+            {filtered.length}
+          </span>
+        </div>
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('نتيجة')}</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <Button
           size="sm"
-          variant="secondary"
+          variant="ghost"
           disabled={uiPage <= 0}
           onClick={() => setUiPage((p) => Math.max(0, p - 1))}
+          className="font-black text-xs"
         >
           {t('السابق')}
         </Button>
-        <div className="text-sm text-slate-600 dark:text-slate-300">
+        <div className="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-600 dark:text-slate-300">
           {uiPage + 1} / {uiPageCount}
         </div>
         <Button
           size="sm"
-          variant="secondary"
+          variant="ghost"
           disabled={uiPage + 1 >= uiPageCount}
           onClick={() => setUiPage((p) => Math.min(Math.max(0, uiPageCount - 1), p + 1))}
+          className="font-black text-xs"
         >
           {t('التالي')}
         </Button>

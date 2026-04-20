@@ -25,8 +25,8 @@ import type { UseDashboardReturn, LayerConfig } from '@/hooks/useDashboard';
 import { getPaymentMonth } from '@/hooks/useDashboard';
 import type { الكمبيالات_tbl } from '@/types';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
-
-const DASHBOARD_PAGE_WRAP = 'max-w-[1600px] mx-auto w-full px-4 sm:px-6';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { DS } from '@/constants/designSystem';
 
 const layerConfigs: LayerConfig[] = [
   { id: 'overview', label: 'نظرة عامة', icon: <BarChart3 size={20} />, description: 'التحليلات والملخصات المالية' },
@@ -49,15 +49,15 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
         <MarqueeWidget edgeToEdge />
       </div>
 
-      <div className={`${DASHBOARD_PAGE_WRAP} space-y-8 md:space-y-10`}>
+      <PageLayout className="max-w-[1600px] mx-auto">
         <SmartPageHero
+          variant="premium"
           title={`أهلاً بك، ${String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}`}
           description={`إليك نظرة سريعة على أداء نظام AZRAR لهذا اليوم.`}
-          className="relative overflow-hidden !rounded-2xl md:!rounded-[2.5rem] bg-slate-900 dark:bg-slate-900 !p-6 sm:!p-8 lg:!p-12 shadow-2xl text-white border-none"
           topContent={
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md animate-fade-in animate-delay-300">
-              <Activity size={14} className="text-indigo-400 animate-pulse" />
-              <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md animate-fade-in animate-delay-300">
+              <Activity size={14} className="text-indigo-200 animate-pulse" />
+              <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
                 حالة النظام: متصل
               </span>
             </div>
@@ -70,21 +70,23 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
               <div className="flex items-center gap-4 animate-fade-in animate-delay-900">
                 <button
                   onClick={handleManualRefresh}
-                  className="group flex items-center gap-3 bg-white text-slate-900 px-6 py-3 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10"
+                  className={DS.colors.heroPrimary}
                 >
-                  <RefreshCw
-                    size={20}
-                    className={`group-hover:rotate-180 transition-transform duration-500 ${
-                      isRefreshing ? 'animate-spin' : ''
-                    }`}
-                  />
-                  تحديث البيانات
+                  <div className="flex items-center gap-3 px-6 py-3">
+                    <RefreshCw
+                      size={20}
+                      className={`group-hover:rotate-180 transition-transform duration-500 ${
+                        isRefreshing ? 'animate-spin' : ''
+                      }`}
+                    />
+                    تحديث البيانات
+                  </div>
                 </button>
                 <div className="flex flex-col text-right">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">
+                  <span className="text-[10px] font-bold text-white/50 uppercase">
                     آخر تحديث
                   </span>
-                  <span className="text-xs font-black text-slate-300">
+                  <span className="text-xs font-black text-white">
                     {formatTimeHM(lastUpdatedAt)}
                   </span>
                 </div>
@@ -120,8 +122,8 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
 
         {/* Content Layers */}
         <div className="space-y-6">
-          <div className="app-card p-4 sm:p-5 rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-700/80 shadow-sm">
-            <div className="flex flex-col lg:flex-row lg:items-stretch gap-4 lg:gap-0" dir="rtl">
+          <div className={`${DS.components.filterBar} !p-5`}>
+            <div className="flex flex-col lg:flex-row lg:items-stretch gap-4 lg:gap-0 w-full" dir="rtl">
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 lg:pb-0 lg:flex-1 lg:min-w-0 lg:pl-3">
                 {layerConfigs.map((layer) => (
                   <button
@@ -146,7 +148,7 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
             {activeLayer === 'calendar' && <CalendarTasksLayer data={dashboardData} />}
             {activeLayer === 'monitoring' && <MonitoringLayer data={dashboardData} />}
             {activeLayer === 'performance' && (
-              <div className="app-card p-6" dir="rtl">
+              <div className={DS.components.card + ' p-6'} dir="rtl">
                 <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">الأداء المالي</h2>
                 {(() => {
                   const now = new Date();
@@ -207,11 +209,11 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
             <DailySummaryWidget data={dashboardData} isDesktopFast={isDesktopFast} />
           </div>
           <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6 min-w-0 order-2">
-            <div className="glass-card p-6 sm:p-8" dir="rtl">
+            <div className={`${DS.components.filterBar} flex-col !items-start p-6 sm:p-8`} dir="rtl">
               <h4 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                 <Search size={20} className="text-indigo-500" /> الوصول السريع للروابط
               </h4>
-              <div className="relative mb-6">
+              <div className="relative mb-6 w-full">
                 <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   type="text"
@@ -221,7 +223,7 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
                   className="w-full bg-slate-100/50 dark:bg-slate-800/50 border-none rounded-2xl py-3 pr-12 pl-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all text-right"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3 max-h-[min(320px,50vh)] overflow-y-auto no-scrollbar pr-1">
+              <div className="grid grid-cols-2 gap-3 max-h-[min(320px,50vh)] overflow-y-auto no-scrollbar pr-1 w-full">
                 {pagesLinks.slice(0, 10).map((link, idx) => (
                   <a key={idx} href={`#${link.path}`} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-all text-[11px] font-black border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/50">
                     {link.label}
@@ -231,10 +233,10 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
             </div>
           </div>
         </div>
+      </PageLayout>
 
-        <div className="mt-6 md:mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          <p>نظام أزرار العقاري © 2025 - جميع الحقوق محفوظة</p>
-        </div>
+      <div className="mt-8 md:mt-12 text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+        <p>نظام أزرار العقاري © 2025 - جميع الحقوق محفوظة</p>
       </div>
     </div>
   );

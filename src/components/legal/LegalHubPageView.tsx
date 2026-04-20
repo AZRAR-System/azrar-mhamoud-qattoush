@@ -26,6 +26,10 @@ import { MergeVariablesCatalog } from '@/components/shared/MergeVariablesCatalog
 import { formatNumber, formatDateYMD } from '@/utils/format';
 import type { useLegalHub } from '@/hooks/useLegalHub';
 
+import { PageLayout } from '@/components/shared/PageLayout';
+import { StatsCardRow } from '@/components/shared/StatsCardRow';
+import { formatCurrencyJOD } from '@/utils/format';
+
 interface LegalHubPageViewProps {
   page: ReturnType<typeof useLegalHub>;
 }
@@ -75,17 +79,15 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
   } = page;
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <PageLayout>
       <SmartPageHero
+        variant="premium"
         title="المركز القانوني والإخطارات"
         description="توليد وإدارة الإنذارات والإشعارات القانونية للمستأجرين."
-        icon={Scale}
-        iconColor="text-purple-600 dark:text-purple-400"
-        iconBg="bg-purple-50 dark:bg-purple-950/40"
+        icon={<Scale size={32} />}
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <StatsCardRow cols={3}>
         <StatCard
           label="النماذج المتاحة"
           value={templates.length}
@@ -93,7 +95,7 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
           color="purple"
         />
         <StatCard
-          label="إجمالي الإخطارات المرسلة"
+          label="إجمالي الإخطارات"
           value={filteredHistory.length}
           icon={Clock}
           color="indigo"
@@ -104,7 +106,9 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
           icon={MessageCircle}
           color="emerald"
         />
-      </div>
+      </StatsCardRow>
+
+      <div className="space-y-6">
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-200px)]">
         {/* LEFT PANEL: GENERATOR */}
@@ -514,6 +518,7 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
           />
         </AppModal>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 };

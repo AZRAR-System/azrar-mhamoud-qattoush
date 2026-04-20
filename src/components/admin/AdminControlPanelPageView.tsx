@@ -30,6 +30,10 @@ import { RBACGuard } from '@/components/shared/RBACGuard';
 import { DS } from '@/constants/designSystem';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { AppModal } from '@/components/ui/AppModal';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { StatsCardRow } from '@/components/shared/StatsCardRow';
+import { StatCard as DSStatCard } from '@/components/shared/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatCurrencyJOD } from '@/utils/format';
 import { PaginationControls } from '@/components/shared/PaginationControls';
@@ -37,28 +41,6 @@ import { safeNumber } from '@/utils/safe';
 import type { RoleType } from '@/types';
 import type { useAdminControlPanel } from '@/hooks/useAdminControlPanel';
 
-// --- SUB-COMPONENTS ---
-
-type StatCardProps = {
-  title: string;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-  icon: LucideIcon;
-  color: string;
-};
-
-const StatCard = ({ title, value, sub, icon: Icon, color }: StatCardProps) => (
-  <div className="app-card p-6 flex items-center gap-4">
-    <div className={`p-4 rounded-xl ${color}`}>
-      <Icon size={24} className="text-white" />
-    </div>
-    <div>
-      <p className="text-sm text-slate-500 dark:text-slate-400 font-bold mb-1">{title}</p>
-      <h3 className="text-2xl font-black text-slate-800 dark:text-white">{value}</h3>
-      {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
-    </div>
-  </div>
-);
 
 // --- MAIN VIEW ---
 
@@ -88,36 +70,36 @@ export const AdminControlPanelPageView: React.FC<AdminControlPanelPageViewProps>
 
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="العقود النشطة"
+        <StatsCardRow>
+          <DSStatCard
+            label="العقود النشطة"
             value={safeNumber(analytics.activeContracts)}
-            sub={`${safeNumber(analytics.expiredContracts)} منتهي`}
+            subtitle={`${safeNumber(analytics.expiredContracts)} منتهي`}
             icon={Shield}
-            color="bg-indigo-500"
+            color="indigo"
           />
-          <StatCard
-            title="إجمالي التحصيل"
+          <DSStatCard
+            label="إجمالي التحصيل"
             value={`${safeNumber(analytics.totalCollected).toLocaleString()} د.أ`}
-            sub={`${safeNumber(analytics.totalDue).toLocaleString()} د.أ متأخرات`}
+            subtitle={`${safeNumber(analytics.totalDue).toLocaleString()} د.أ متأخرات`}
             icon={BarChart3}
-            color="bg-emerald-500"
+            color="emerald"
           />
-          <StatCard
-            title="المرفقات الشهرية"
+          <DSStatCard
+            label="المرفقات الشهرية"
             value={safeNumber(analytics.monthlyAttachments)}
-            sub="ملفات تم رفعها هذا الشهر"
+            subtitle="ملفات تم رفعها هذا الشهر"
             icon={Download}
-            color="bg-indigo-500"
+            color="blue"
           />
-          <StatCard
-            title="التنبيهات المفتوحة"
+          <DSStatCard
+            label="التنبيهات المفتوحة"
             value={safeNumber(analytics.openAlerts)}
-            sub="تتطلب إجراء"
+            subtitle="تتطلب إجراء"
             icon={AlertTriangle}
-            color="bg-amber-500"
+            color="amber"
           />
-        </div>
+        </StatsCardRow>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="app-card p-6">
@@ -577,31 +559,43 @@ export const AdminControlPanelPageView: React.FC<AdminControlPanelPageViewProps>
   );
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-slate-900 overflow-hidden">
-      <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-6 flex justify-between items-center shadow-sm z-10">
-        <div>
-          <div className={DS.components.pageHeader}>
-            <div>
-              <h2 className={`${DS.components.pageTitle} flex items-center gap-2`}><Shield size={22} className="text-indigo-600" /> لوحة التحكم المركزية</h2>
-              <p className={DS.components.pageSubtitle}>إدارة المستخدمين، الصلاحيات، ومراقبة النظام</p>
-            </div>
+    <PageLayout>
+      <SmartPageHero
+        variant="premium"
+        title="لوحة التحكم المركزية"
+        description="إدارة المستخدمين، الصلاحيات، ومراقبة النظام"
+        icon={<Shield size={32} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2 bg-white/10 p-1 rounded-2xl border border-white/20 backdrop-blur-md">
+            {[
+              { id: 'analytics', label: 'التحليلات', icon: BarChart3, color: 'text-white' },
+              { id: 'activity', label: 'سجل النشاط', icon: Activity, color: 'text-white' },
+              { id: 'users', label: 'المستخدمين', icon: UsersIcon, color: 'text-white' },
+              { id: 'blacklist', label: 'القائمة السوداء', icon: ShieldAlert, color: 'text-rose-300' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as 'analytics' | 'activity' | 'users' | 'blacklist')}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                  activeTab === tab.id
+                    ? 'bg-white text-indigo-700 shadow-soft scale-100'
+                    : `text-white/70 hover:text-white hover:bg-white/10 scale-95`
+                }`}
+              >
+                <tab.icon size={16} className={activeTab === tab.id ? 'text-indigo-600' : tab.color} />
+                {tab.label}
+              </button>
+            ))}
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-6 flex gap-8 overflow-x-auto no-scrollbar">
-        <button onClick={() => setActiveTab('analytics')} className={`py-4 text-sm font-bold border-b-2 transition flex items-center gap-2 whitespace-nowrap ${activeTab === 'analytics' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><BarChart3 size={18} /> التحليلات</button>
-        <button onClick={() => setActiveTab('activity')} className={`py-4 text-sm font-bold border-b-2 transition flex items-center gap-2 whitespace-nowrap ${activeTab === 'activity' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><Activity size={18} /> سجل النشاط</button>
-        <button onClick={() => setActiveTab('users')} className={`py-4 text-sm font-bold border-b-2 transition flex items-center gap-2 whitespace-nowrap ${activeTab === 'users' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><UsersIcon size={18} /> المستخدمين والصلاحيات</button>
-        <button onClick={() => setActiveTab('blacklist')} className={`py-4 text-sm font-bold border-b-2 transition flex items-center gap-2 whitespace-nowrap ${activeTab === 'blacklist' ? 'border-red-600 text-red-600 dark:text-red-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><ShieldAlert size={18} /> القائمة السوداء</button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="mt-6 flex-1 space-y-8">
         {activeTab === 'analytics' && renderAnalytics()}
         {activeTab === 'activity' && renderActivity()}
         {activeTab === 'users' && renderUsers()}
         {activeTab === 'blacklist' && renderBlacklist()}
       </div>
-    </div>
+    </PageLayout>
   );
 };

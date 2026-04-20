@@ -28,6 +28,10 @@ import { formatCurrencyJOD } from '@/utils/format';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import type { useCommissions } from '@/hooks/useCommissions';
 
+import { PageLayout } from '@/components/shared/PageLayout';
+import { StatsCardRow } from '@/components/shared/StatsCardRow';
+import { DS } from '@/constants/designSystem';
+
 interface CommissionsPageViewProps {
   page: ReturnType<typeof useCommissions>;
 }
@@ -102,16 +106,16 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
   } = page;
 
   return (
-    <div className="animate-fade-in space-y-6">
-      {/* Header & Tabs */}
+    <PageLayout>
       <SmartPageHero
-        icon={HandCoins}
+        variant="premium"
+        icon={<HandCoins size={32} />}
         title="إدارة العمولات والإيرادات"
-        description="عمولات العقود، والدخل الخارجي، وتقرير عمولات الموظفين — مرتبطة بالشهر المحاسبي."
+        description="تتبع عمولات العقود، الدخل الخارجي، وتقرير عمولات الموظفين بنظام أزرار."
         actions={
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <div
-              className="inline-flex items-center gap-1 rounded-2xl border border-slate-200/70 bg-white/50 p-1 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/40"
+              className="inline-flex items-center gap-1 rounded-2xl border border-white/20 bg-white/10 p-1 backdrop-blur-md"
               role="tablist"
               aria-label="أقسام صفحة العمولات"
             >
@@ -123,7 +127,7 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
                 size="sm"
                 variant={activeTab === 'contracts' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('contracts')}
-                className={activeTab === 'contracts' ? 'shadow-sm' : ''}
+                className={activeTab === 'contracts' ? 'shadow-sm bg-white/20 text-white border-none' : 'text-white/80 hover:bg-white/10 hover:text-white'}
               >
                 عمولات العقود
               </Button>
@@ -135,7 +139,7 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
                 size="sm"
                 variant={activeTab === 'external' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('external')}
-                className={activeTab === 'external' ? 'shadow-sm' : ''}
+                className={activeTab === 'external' ? 'shadow-sm bg-white/20 text-white border-none' : 'text-white/80 hover:bg-white/10 hover:text-white'}
               >
                 عمولات خارجية
               </Button>
@@ -147,21 +151,21 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
                 size="sm"
                 variant={activeTab === 'employee' ? 'secondary' : 'ghost'}
                 onClick={() => setActiveTab('employee')}
-                className={activeTab === 'employee' ? 'shadow-sm' : ''}
+                className={activeTab === 'employee' ? 'shadow-sm bg-white/20 text-white border-none' : 'text-white/80 hover:bg-white/10 hover:text-white'}
               >
                 عمولات الموظفين
               </Button>
             </div>
 
-            <div className="app-card flex items-center gap-2 px-3 py-1.5 shadow-sm border-slate-200/60 dark:border-slate-800/60">
-              <Filter size={15} className="shrink-0 text-indigo-500/70" aria-hidden />
+            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md">
+              <Filter size={15} className="shrink-0 text-white/70" aria-hidden />
               <label className="sr-only" htmlFor="commissions-month-filter">
                 الشهر المحاسبي
               </label>
               <input
                 id="commissions-month-filter"
                 type="month"
-                className="bg-transparent text-sm font-bold text-slate-700 outline-none dark:text-white cursor-pointer"
+                className="bg-transparent text-sm font-black text-white outline-none cursor-pointer [color-scheme:dark]"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
               />
@@ -170,8 +174,7 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <StatsCardRow>
         <StatCard
           label="عمولات العقود"
           value={formatCurrencyJOD(grandTotalContracts)}
@@ -196,9 +199,9 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
           icon={ArrowUp}
           color="amber"
         />
-      </div>
+      </StatsCardRow>
 
-      {/* View 3: Employee Commissions */}
+      <div className="space-y-6">
       {activeTab === 'employee' && (
         <div
           className="animate-slide-up space-y-6"
@@ -274,40 +277,46 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white shadow-lg shadow-indigo-600/25 ring-1 ring-white/10">
+          <StatsCardRow>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white shadow-xl shadow-indigo-600/25 ring-1 ring-white/10">
               <div className="relative z-10">
-                <p className="mb-1 font-bold text-indigo-100">عدد العمليات</p>
-                <h3 className="text-3xl font-bold">
+                <p className="mb-1 font-black text-indigo-100 flex items-center gap-2">
+                   <Users size={16} /> عدد العمليات
+                </p>
+                <h3 className="text-3xl font-black tabular-nums">
                   {employeeTotals.count.toLocaleString()}{' '}
-                  <span className="text-lg opacity-80">عملية</span>
+                  <span className="text-lg font-medium opacity-80">عملية</span>
                 </h3>
               </div>
-              <HandCoins className="absolute -bottom-4 -left-4 text-white opacity-20 w-32 h-32" />
+              <HandCoins className="absolute -bottom-6 -left-6 text-white opacity-10 w-36 h-36" />
             </div>
-            <div className="app-card p-6">
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">
+            
+            <div className={DS.components.card + " p-6"}>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-widest mb-2">
                 إجمالي عمولة الموظفين
               </p>
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                 {formatCurrencyJOD(employeeTotals.totalEmployee)}
               </h3>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                 يشمل إدخال العقار (إن وجد)
               </div>
             </div>
-            <div className="app-card p-6">
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">
-                إجمالي عمولات العمليات (للمكتب)
+
+            <div className={DS.components.card + " p-6"}>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-widest mb-2">
+                إجمالي عمولات العمليات (المكتب)
               </p>
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                 {formatCurrencyJOD(employeeTotals.totalOffice)}
               </h3>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
                 إدخال العقار: {formatCurrencyJOD(employeeTotals.totalIntro)}
               </div>
             </div>
-          </div>
+          </StatsCardRow>
 
           <div className="app-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -484,48 +493,58 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
       {activeTab === 'contracts' && (
         <div className="animate-slide-up space-y-6" role="tabpanel" id="comm-panel-contracts" aria-labelledby="comm-tab-contracts">
           {/* Financial Cards */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 text-white shadow-lg shadow-emerald-500/25 ring-1 ring-white/10">
+          <StatsCardRow>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 p-6 text-white shadow-xl shadow-emerald-500/25 ring-1 ring-white/10">
               <div className="relative z-10">
-                <p className="mb-1 flex items-center gap-2 font-bold text-emerald-100">
+                <p className="mb-1 flex items-center gap-2 font-black text-emerald-100">
                   <ArrowUp size={16} aria-hidden /> إجمالي العمولات
                 </p>
-                <h3 className="text-3xl font-bold tracking-tight">{formatCurrencyJOD(grandTotalContracts)}</h3>
-                <p className="mt-2 text-xs font-medium text-emerald-100/90">مجموع المالك + المستأجر للشهر</p>
+                <h3 className="text-3xl font-black tracking-tight tabular-nums">{formatCurrencyJOD(grandTotalContracts)}</h3>
+                <p className="mt-2 text-[10px] font-black uppercase text-emerald-100/70">مجموع المالك + المستأجر للشهر</p>
               </div>
-              <Briefcase className="absolute -bottom-4 -left-4 h-32 w-32 text-white opacity-20" aria-hidden />
+              <Briefcase className="absolute -bottom-6 -left-6 h-36 w-36 text-white opacity-10" aria-hidden />
             </div>
-            <div className="app-card p-6">
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">من الملاك</p>
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
+
+            <div className={DS.components.card + " p-6"}>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-widest mb-2 flex items-center justify-between">
+                من الملاك
+                <span className="text-[10px] font-black text-indigo-500">
+                  {grandTotalContracts > 0 ? ((totalOwner / grandTotalContracts) * 100).toFixed(0) : 0}%
+                </span>
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                 {formatCurrencyJOD(totalOwner)}
               </h3>
-              <div className="h-1 w-full bg-gray-100 dark:bg-slate-700 mt-4 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 mt-4 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-indigo-500"
+                  className="h-full bg-indigo-500 transition-all duration-500"
                   style={{
                     width: `${grandTotalContracts > 0 ? (totalOwner / grandTotalContracts) * 100 : 0}%`,
                   }}
                 ></div>
               </div>
             </div>
-            <div className="app-card p-6">
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-bold mb-1">
+
+            <div className={DS.components.card + " p-6"}>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-widest mb-2 flex items-center justify-between">
                 من المستأجرين
+                <span className="text-[10px] font-black text-purple-500">
+                  {grandTotalContracts > 0 ? ((totalTenant / grandTotalContracts) * 100).toFixed(0) : 0}%
+                </span>
               </p>
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                 {formatCurrencyJOD(totalTenant)}
               </h3>
-              <div className="h-1 w-full bg-gray-100 dark:bg-slate-700 mt-4 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 mt-4 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-purple-500"
+                  className="h-full bg-purple-500 transition-all duration-500"
                   style={{
                     width: `${grandTotalContracts > 0 ? (totalTenant / grandTotalContracts) * 100 : 0}%`,
                   }}
                 ></div>
               </div>
             </div>
-          </div>
+          </StatsCardRow>
 
           <div className="app-card p-4">
             <div className="relative flex-1">
@@ -791,32 +810,33 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white shadow-lg shadow-indigo-600/25 ring-1 ring-white/10">
+          <StatsCardRow cols={2}>
+            <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white shadow-xl shadow-indigo-600/25 ring-1 ring-white/10">
               <div className="relative z-10">
-                <p className="mb-1 flex items-center gap-2 font-bold text-indigo-100">
+                <p className="mb-1 flex items-center gap-2 font-black text-indigo-100">
                   <Globe size={16} aria-hidden /> مجموع العمولات الخارجية (المفلترة)
                 </p>
-                <h3 className="text-3xl font-bold tracking-tight">{formatCurrencyJOD(totalExternal)}</h3>
+                <h3 className="text-3xl font-black tracking-tight tabular-nums">{formatCurrencyJOD(totalExternal)}</h3>
               </div>
-              <Globe className="absolute -bottom-4 -left-4 h-32 w-32 text-white opacity-20" aria-hidden />
+              <Globe className="absolute -bottom-6 -left-6 h-36 w-36 text-white opacity-10" aria-hidden />
             </div>
-            <div className="app-card p-6 flex flex-col justify-center">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl">
-                  <Tags size={24} />
+
+            <div className={DS.components.card + " p-6 flex flex-col justify-center"}>
+              <div className="flex items-center gap-4">
+                <div className="p-3.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-2xl">
+                  <Tags size={28} />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-bold">
+                  <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
                     عدد العمليات (المفلترة)
                   </p>
-                  <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                     {filteredExternal.length} عملية
                   </h3>
                 </div>
               </div>
             </div>
-          </div>
+          </StatsCardRow>
 
           {/* External Commissions List (Cards) */}
           <div className="app-card">
@@ -1131,6 +1151,7 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
           </form>
         </AppModal>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 };

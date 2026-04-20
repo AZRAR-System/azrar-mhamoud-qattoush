@@ -22,6 +22,9 @@ import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatCard } from '@/components/shared/StatCard';
 import { FinancialReportPrintPreview } from '@/components/printing/templates/FinancialReportTemplate';
 import { DbService } from '@/services/mockDb';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { StatsCardRow } from '@/components/shared/StatsCardRow';
+import { DS } from '@/constants/designSystem';
 import { formatCurrencyJOD, formatNumber } from '@/utils/format';
 import type { useReports } from '@/hooks/useReports';
 import type { ReportDefinition, ReportCategory } from '@/types';
@@ -139,28 +142,29 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
   const reportsCount = filteredReports.length;
 
   return (
-    <div className="animate-fade-in space-y-8 pb-10">
+    <PageLayout>
       <SmartPageHero
+        variant="premium"
         title="مركز التقارير المتقدم"
         description="توليد تقارير تفصيلية عن جميع عمليات النظام مع إمكانية التصدير والطباعة."
-        icon={BarChart3}
+        icon={<BarChart3 size={32} />}
         actions={
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
              <div className="relative group min-w-[300px] print:hidden">
               <Search
                 size={18}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 group-focus-within:text-white transition-colors"
               />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="ابحث عن تقرير مالي أو إداري..."
-                className="pr-12 py-3 bg-white dark:bg-slate-900 border-none rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold shadow-soft"
+                className="pr-12 py-3 bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-2xl outline-none focus:ring-4 focus:ring-white/10 transition-all font-bold shadow-soft backdrop-blur-md"
               />
             </div>
             <Button
               variant="secondary"
-              className="bg-white dark:bg-slate-800 border-none text-slate-600 dark:text-slate-400 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95 print:hidden"
+              className="bg-white/10 border-white/20 text-white font-black px-6 py-3 rounded-2xl shadow-soft hover:bg-white/20 transition-all active:scale-95 print:hidden backdrop-blur-md"
               onClick={handlePrintDashboard}
               leftIcon={<Printer size={20} />}
             >
@@ -170,8 +174,7 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <StatsCardRow>
         <StatCard
           label="المحصّل"
           value={formatCurrencyJOD(kpis?.totalPaid ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -196,7 +199,7 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
           icon={BarChart3}
           color="slate"
         />
-      </div>
+      </StatsCardRow>
 
       <Card className="p-0 border-none shadow-soft overflow-hidden">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
@@ -306,6 +309,6 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
           defaultFileName={`تقرير_مالي_${new Date().toISOString().slice(0, 10)}`}
         />
       )}
-    </div>
+    </PageLayout>
   );
 };

@@ -9,7 +9,9 @@ import { PropertyPicker } from '@/components/shared/PropertyPicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { ContractPicker } from '@/components/shared/ContractPicker';
 import { PaginationControls } from '@/components/shared/PaginationControls';
-import { PageHero } from '@/components/shared/PageHero';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { StatsCardRow } from '@/components/shared/StatsCardRow';
 import { StatCard } from '@/components/shared/StatCard';
 import { formatNumber } from '@/utils/format';
 import { parseIntOrUndefined } from '@/utils/numberInput';
@@ -78,16 +80,15 @@ export const SmartToolsPageView: FC<SmartToolsPageViewProps> = ({ page }) => {
   } = page;
 
   return (
-    <div className="space-y-6">
-      <PageHero
-        icon={<ServerCog size={26} className="text-indigo-600 dark:text-indigo-400" />}
-        iconVariant="inline"
+    <PageLayout>
+      <SmartPageHero
+        variant="premium"
+        icon={<ServerCog size={32} />}
         title="أدوات ذكية"
-        subtitle='أدوات مساعدة للعمل. لا يتم حفظ أي نتيجة داخل النظام إلا بعد الضغط على "اعتماد".'
+        description='أدوات مساعدة للعمل. لا يتم حفظ أي نتيجة داخل النظام إلا بعد الضغط على "اعتماد".'
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4">
+      <StatsCardRow cols={2}>
         <StatCard
           label="دفعات المعاينة"
           value={previewInstallments.length}
@@ -100,7 +101,9 @@ export const SmartToolsPageView: FC<SmartToolsPageViewProps> = ({ page }) => {
           icon={ServerCog}
           color="emerald"
         />
-      </div>
+      </StatsCardRow>
+
+      <div className="space-y-6">
 
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">
@@ -623,6 +626,7 @@ export const SmartToolsPageView: FC<SmartToolsPageViewProps> = ({ page }) => {
           </Button>
         </div>
       </Card>
-    </div>
+      </div>
+    </PageLayout>
   );
 };

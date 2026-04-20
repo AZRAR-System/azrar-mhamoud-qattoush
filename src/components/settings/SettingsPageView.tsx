@@ -1,5 +1,7 @@
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, Settings as SettingsIcon } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { AppModal } from '@/components/ui/AppModal';
 import type { SettingsPageModel } from '@/hooks/useSettingsPage';
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar';
@@ -37,36 +39,35 @@ export function SettingsPageView({ page }: Props) {
     activeWordTemplateType,
   } = page;
 
-  return (
+  const content = (
     <div className="flex flex-col h-full animate-fade-in">
       {!embedded && (
-        <div className={`${DS.components.pageHeader} mb-6`}>
-          <div>
-            <h2 className={DS.components.pageTitle}>إعدادات النظام</h2>
-            <p className={DS.components.pageSubtitleUppercase}>
-              تخصيص البيانات، القوائم، الطباعة، والنسخ الاحتياطي
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {(activeSection === 'general' ||
-              activeSection === 'messages' ||
-              activeSection === 'printingHub') &&
-              settings &&
-              !settingsLoading && (
-                <div
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${saveStatus === 'saving' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}
-                >
-                  {saveStatus === 'saving' ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <Check size={12} />
-                  )}
-                  {saveStatus === 'saving' ? 'جاري الحفظ...' : 'تم الحفظ'}
-                </div>
-              )}
-          </div>
-        </div>
+        <SmartPageHero
+          variant="premium"
+          title="إعدادات النظام"
+          description="تخصيص البيانات، القوائم، الطباعة، والنسخ الاحتياطي"
+          icon={<SettingsIcon size={32} />}
+          actions={
+            <div className="flex items-center gap-2">
+              {(activeSection === 'general' ||
+                activeSection === 'messages' ||
+                activeSection === 'printingHub') &&
+                settings &&
+                !settingsLoading && (
+                  <div
+                    className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black transition-all bg-white/10 border border-white/20 text-white backdrop-blur-md shadow-soft`}
+                  >
+                    {saveStatus === 'saving' ? (
+                      <Loader2 size={14} className="animate-spin text-white/70" />
+                    ) : (
+                      <Check size={14} className="text-emerald-400" />
+                    )}
+                    {saveStatus === 'saving' ? 'جاري الحفظ...' : 'تم حفظ التغييرات'}
+                  </div>
+                )}
+            </div>
+          }
+        />
       )}
 
       <div className={`flex flex-1 overflow-hidden h-full ${embedded ? '' : 'gap-6'}`}>
@@ -186,4 +187,6 @@ export function SettingsPageView({ page }: Props) {
       )}
     </div>
   );
+
+  return embedded ? content : <PageLayout>{content}</PageLayout>;
 }

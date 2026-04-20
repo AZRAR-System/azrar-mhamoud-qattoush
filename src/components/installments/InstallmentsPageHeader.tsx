@@ -43,15 +43,14 @@ export function InstallmentsPageHeader({ page }: Props) {
   return (
     <>
       <SmartPageHero
-        icon={CreditCard}
-        iconColor="text-indigo-600 dark:text-indigo-400"
-        iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+        variant="premium"
+        icon={<CreditCard size={32} />}
         title="الدفعات المالية"
-        description="إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات"
+        description="إدارة الدفعات حسب العقود، السداد، ومتابعة المتأخرات بنظام أزرار."
         actions={
-          <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3 lg:gap-4">
             {isDesktop ? (
-              <div className="app-card px-3 py-2 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md">
                 <label htmlFor="installments-stmt-month" className="sr-only">
                   شهر كشف الحساب
                 </label>
@@ -60,7 +59,7 @@ export function InstallmentsPageHeader({ page }: Props) {
                   type="month"
                   value={statementMonth}
                   onChange={(e) => setStatementMonth(e.target.value)}
-                  className="bg-transparent text-slate-700 dark:text-white outline-none text-sm font-bold min-w-[9rem]"
+                  className="bg-transparent text-white outline-none text-sm font-black min-w-[9rem] [color-scheme:dark]"
                 />
                 <Button
                   variant="secondary"
@@ -68,7 +67,7 @@ export function InstallmentsPageHeader({ page }: Props) {
                   size="sm"
                   disabled={statementBusy}
                   onClick={() => void openStatement()}
-                  className="gap-2 rounded-xl font-black"
+                  className="gap-2 rounded-xl font-black bg-white/20 hover:bg-white/30 border-none text-white"
                 >
                   <Printer size={16} />
                   كشف حساب
@@ -76,18 +75,24 @@ export function InstallmentsPageHeader({ page }: Props) {
               </div>
             ) : null}
 
-            <Button variant="secondary" type="button" onClick={loadData} className="gap-2 rounded-2xl h-[46px] px-4 font-black" title="تحديث البيانات">
+            <Button 
+                variant="secondary" 
+                type="button" 
+                onClick={() => void loadData()} 
+                className="gap-2 rounded-2xl h-[48px] px-6 font-black bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-md" 
+                title="تحديث البيانات"
+            >
               <Clock size={18} />
               تحديث
             </Button>
 
-            <div className="inline-flex items-center gap-1 bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800 p-1.5 rounded-2xl">
+            <div className="inline-flex items-center gap-1 bg-white/10 border border-white/20 p-1.5 rounded-2xl backdrop-blur-md">
               <Button
                 variant="ghost"
                 size="sm"
                 type="button"
                 onClick={handleExportExcel}
-                className="rounded-xl hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+                className="rounded-xl hover:bg-white/20 text-white"
                 title="تصدير Excel"
               >
                 <FileSpreadsheet size={18} />
@@ -97,7 +102,7 @@ export function InstallmentsPageHeader({ page }: Props) {
                 size="sm"
                 type="button"
                 onClick={handleExportPdf}
-                className="rounded-xl hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+                className="rounded-xl hover:bg-white/20 text-white"
                 title="طباعة / PDF"
               >
                 <FilePdf size={18} />

@@ -17,11 +17,16 @@ module.exports = {
           border: '#334155',
         },
       },
+      boxShadow: {
+        soft: '0 2px 20px -5px rgba(0, 0, 0, 0.05)',
+        premium: '0 20px 50px -12px rgba(0, 0, 0, 0.08)',
+      },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
         'slide-up': 'slideUp 0.4s ease-out',
         'scale-up': 'scaleUp 0.2s ease-out',
         marquee: 'marquee 40s linear infinite',
+        'pulse-subtle': 'pulseSubtle 2s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -35,6 +40,10 @@ module.exports = {
         scaleUp: {
           '0%': { transform: 'scale(0.95)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        pulseSubtle: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
         },
         marquee: {
           '0%': { transform: 'translateX(100%)' },
