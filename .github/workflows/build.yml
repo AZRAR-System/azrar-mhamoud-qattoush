@@ -33,7 +33,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: '22'
+        node-version: '24'
         cache: 'npm'
 
     # better-sqlite3 rebuild (postinstall → electron-builder install-app-deps) needs MSVC + Python for node-gyp
@@ -96,7 +96,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: '22'
+        node-version: '24'
         cache: 'npm'
 
     - name: Install dependencies
@@ -130,7 +130,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: '22'
+        node-version: '24'
         cache: 'npm'
 
     - name: Setup Python for node-gyp
@@ -272,7 +272,7 @@ jobs:
         echo "NOTES_FILE=release_notes.md" >> $env:GITHUB_OUTPUT
 
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         name: AZRAR v${{ steps.version.outputs.VERSION }}
         body_path: ${{ steps.notes.outputs.NOTES_FILE }}
