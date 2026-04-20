@@ -22,12 +22,10 @@ import {
   Activity,
   Users as UsersIcon,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { Tooltip as ChartTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { RBACGuard } from '@/components/shared/RBACGuard';
-import { DS } from '@/constants/designSystem';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { AppModal } from '@/components/ui/AppModal';
 import { PageLayout } from '@/components/shared/PageLayout';

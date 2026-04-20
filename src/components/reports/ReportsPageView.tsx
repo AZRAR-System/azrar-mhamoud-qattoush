@@ -24,7 +24,6 @@ import { FinancialReportPrintPreview } from '@/components/printing/templates/Fin
 import { DbService } from '@/services/mockDb';
 import { PageLayout } from '@/components/shared/PageLayout';
 import { StatsCardRow } from '@/components/shared/StatsCardRow';
-import { DS } from '@/constants/designSystem';
 import { formatCurrencyJOD, formatNumber } from '@/utils/format';
 import type { useReports } from '@/hooks/useReports';
 import type { ReportDefinition, ReportCategory } from '@/types';

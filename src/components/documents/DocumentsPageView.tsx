@@ -8,7 +8,6 @@ import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { PageLayout } from '@/components/shared/PageLayout';
 import { StatsCardRow } from '@/components/shared/StatsCardRow';
-import { DS } from '@/constants/designSystem';
 import type { UseDocumentsReturn } from '@/hooks/useDocuments';
 
 const DocumentsKindSection: React.FC<{

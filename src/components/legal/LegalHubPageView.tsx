@@ -28,7 +28,6 @@ import type { useLegalHub } from '@/hooks/useLegalHub';
 
 import { PageLayout } from '@/components/shared/PageLayout';
 import { StatsCardRow } from '@/components/shared/StatsCardRow';
-import { formatCurrencyJOD } from '@/utils/format';
 
 interface LegalHubPageViewProps {
   page: ReturnType<typeof useLegalHub>;

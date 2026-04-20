@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Plus, RefreshCcw } from 'lucide-react';
+import { DS } from '@/constants/designSystem';
 import { RBACGuard } from './RBACGuard';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
