@@ -1,5 +1,11 @@
 import { ActivityRecord, Attachment, DbResult, NoteRecord, ReferenceType } from '@/types';
 import { DbService } from '@/services/mockDb';
+import {
+  uploadAttachment as uploadAttachmentSystem,
+  deleteAttachment as deleteAttachmentSystem,
+  getAttachments as getAttachmentsSystem,
+} from '@/services/db/system/attachments';
+import { getDesktopBridge } from '@/services/db/refs';
 
 type DesktopDb = {
   get: (key: string) => Promise<unknown>;
@@ -116,20 +122,24 @@ export const listAttachmentsSmart = async (
   referenceType: ReferenceType,
   referenceId: string
 ): Promise<Attachment[]> => {
+  // Desktop mode: use the real system service (reads from Electron KV via IPC)
+  if (getDesktopBridge()) {
+    return getAttachmentsSystem(referenceType, referenceId);
+  }
+  // Web/mock mode: fallback to desktopDb bridge if available, else mockDb
   const db = getDesktopDb();
-  if (!db) {
-    return DbService.getAttachments(referenceType, referenceId);
+  if (db) {
+    const raw = await db.get(KV_KEYS.ATTACHMENTS);
+    const arr = parseJsonArray(raw);
+    const out: Attachment[] = [];
+    for (const it of arr) {
+      const att = asAttachment(it);
+      if (!att) continue;
+      if (att.referenceType === referenceType && att.referenceId === referenceId) out.push(att);
+    }
+    return out;
   }
-
-  const raw = await db.get(KV_KEYS.ATTACHMENTS);
-  const arr = parseJsonArray(raw);
-  const out: Attachment[] = [];
-  for (const it of arr) {
-    const att = asAttachment(it);
-    if (!att) continue;
-    if (att.referenceType === referenceType && att.referenceId === referenceId) out.push(att);
-  }
-  return out;
+  return DbService.getAttachments(referenceType, referenceId);
 };
 
 export const uploadAttachmentSmart = async (
@@ -137,7 +147,12 @@ export const uploadAttachmentSmart = async (
   referenceId: string,
   file: File
 ): Promise<DbResult<Attachment>> => {
-  // Keep original behavior (folder naming + cache updates), then ensure desktop KV is flushed.
+  // Desktop mode: use the REAL service that saves to disk via Electron IPC
+  // and automatically syncs the KV store (which then gets pushed to SQL Server)
+  if (getDesktopBridge()) {
+    return uploadAttachmentSystem(referenceType, referenceId, file);
+  }
+  // Web/mock fallback
   const res = await DbService.uploadAttachment(referenceType, referenceId, file);
   if (res.success) {
     await flushLocalStorageKeyToDesktopKv(KV_KEYS.ATTACHMENTS);
@@ -146,6 +161,11 @@ export const uploadAttachmentSmart = async (
 };
 
 export const deleteAttachmentSmart = async (attachmentId: string): Promise<DbResult<null>> => {
+  // Desktop mode: use the REAL service that deletes from disk via Electron IPC
+  if (getDesktopBridge()) {
+    return deleteAttachmentSystem(attachmentId);
+  }
+  // Web/mock fallback
   const res = await DbService.deleteAttachment(attachmentId);
   if (res.success) {
     await flushLocalStorageKeyToDesktopKv(KV_KEYS.ATTACHMENTS);
