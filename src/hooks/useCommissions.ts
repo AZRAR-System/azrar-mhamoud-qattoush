@@ -1253,5 +1253,6 @@ export const useCommissions = (isVisible: boolean) => {
     getNames,
     availableTypes,
     user,
+    loadData,
   };
 };

@@ -10,6 +10,7 @@ import { PersonPicker } from '@/components/shared/PersonPicker';
 import { ContractPicker } from '@/components/shared/ContractPicker';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { ToolsSmartFilterBar } from './ToolsSmartFilterBar';
 import { PageLayout } from '@/components/shared/PageLayout';
 import { StatsCardRow } from '@/components/shared/StatsCardRow';
 import { StatCard } from '@/components/shared/StatCard';
@@ -88,6 +89,15 @@ export const SmartToolsPageView: FC<SmartToolsPageViewProps> = ({ page }) => {
         description='أدوات مساعدة للعمل. لا يتم حفظ أي نتيجة داخل النظام إلا بعد الضغط على "اعتماد".'
       />
 
+      <ToolsSmartFilterBar
+        onApproveContract={handleApproveContract}
+        onApproveCommission={handleApproveCommission}
+        previewCount={previewInstallments.length}
+        totalCommission={`${formatNumber(commissionTotal)} د.أ`}
+        hasContractData={!!propertyId && !!tenantId && previewInstallments.length > 0}
+        hasCommissionData={!!commissionContractId && commissionTotal > 0}
+      />
+
       <StatsCardRow cols={2}>
         <StatCard
           label="دفعات المعاينة"
@@ -96,14 +106,15 @@ export const SmartToolsPageView: FC<SmartToolsPageViewProps> = ({ page }) => {
           color="indigo"
         />
         <StatCard
-          label="إجمالي العمولة"
+          label="إجمالي العمولة المتوقعة"
           value={`${formatNumber(commissionTotal)} د.أ`}
           icon={ServerCog}
           color="emerald"
         />
       </StatsCardRow>
 
-      <div className="space-y-6">
+      <div className="space-y-8">
+
 
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">
@@ -404,11 +415,8 @@ export const SmartToolsPageView: FC<SmartToolsPageViewProps> = ({ page }) => {
         )}
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={handleGeneratePreview}>
-            توليد الدفعات (معاينة)
-          </Button>
-          <Button variant="primary" onClick={handleApproveContract}>
-            اعتماد العقد
+          <Button variant="secondary" onClick={handleGeneratePreview} className="w-full sm:w-auto">
+            توليد الدفعات (معاينة الحساب)
           </Button>
         </div>
 
@@ -620,11 +628,6 @@ export const SmartToolsPageView: FC<SmartToolsPageViewProps> = ({ page }) => {
           </div>
         </div>
 
-        <div className="mt-5">
-          <Button variant="primary" onClick={handleApproveCommission}>
-            اعتماد العمولة
-          </Button>
-        </div>
       </Card>
       </div>
     </PageLayout>

@@ -117,6 +117,7 @@ export function useBulkWhatsApp() {
   }, [isAuthenticated, user, navigate]);
 
   const [contactsList, setContactsList] = useState<ContactItem[]>([]);
+  const [q, setQ]              = useState<string>('');
   const [message, setMessage]              = useState<string>('');
   const [delaySeconds, setDelaySeconds]    = useState<number>(10);
   const [useJitter, setUseJitter]          = useState<boolean>(true);
@@ -162,7 +163,7 @@ export function useBulkWhatsApp() {
   }, [message]);
 
   const contacts = useMemo(() => {
-    return (contactsList || [])
+    const raw = (contactsList || [])
       .map((c: unknown) => {
         const idLike = getValue(c, 'id') ?? getValue(c, 'phone') ?? getValue(c, 'name') ?? '';
         const nameLike = getValue(c, 'name') ?? '';
@@ -177,7 +178,15 @@ export function useBulkWhatsApp() {
         } as ContactItem;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [contactsList]);
+
+    if (!q.trim()) return raw;
+    const search = q.toLowerCase().trim();
+    return raw.filter(c => 
+      c.name.toLowerCase().includes(search) || 
+      (c.phone && c.phone.includes(search)) || 
+      (c.extraPhone && c.extraPhone.includes(search))
+    );
+  }, [contactsList, q]);
 
   const contactsPageSize = useResponsivePageSize({
     base: 10, sm: 14, md: 20, lg: 24, xl: 30, '2xl': 40,
@@ -368,7 +377,7 @@ export function useBulkWhatsApp() {
   };
 
   return {
-    contacts, selectedIds, selected, toggleSelect, toggleSelectAll, visibleContacts,
+    contacts, q, setQ, selectedIds, selected, toggleSelect, toggleSelectAll, visibleContacts,
     message, setMessage, delaySeconds, setDelaySeconds, useJitter, setUseJitter, maxPerRun, setMaxPerRun,
     templates, selectedTemplateId, handleSelectTemplate, templateName, setTemplateName,
     isRunning, progress, handleStart, handleStop, handleInsertToken, handleSaveTemplate, handleNewMessage,

@@ -51,6 +51,7 @@ const contactRoleLabelKey = (roleRaw: unknown): string => {
 export function useContacts() {
   const { t, i18n } = useTranslation();
   const [directory, setDirectory] = useState<PersonRow[]>([]);
+  const [q, setQ] = useState('');
   const importRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
   const { openPanel } = useSmartModal();
@@ -68,7 +69,7 @@ export function useContacts() {
   useEffect(() => { reload(); }, [dbSignal]);
 
   const rows = useMemo(() => {
-    return (directory || [])
+    const raw = (directory || [])
       .map((r) => {
         const rec = toRecord(r);
         const sourceRaw = String(rec.source || '').trim();
@@ -87,7 +88,16 @@ export function useContacts() {
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [directory, t]);
+
+    if (!q.trim()) return raw;
+    const search = q.toLowerCase().trim();
+    return raw.filter((r) => {
+      if (r.name.toLowerCase().includes(search)) return true;
+      if (r.phone && r.phone.includes(search)) return true;
+      if (r.extraPhone && r.extraPhone.includes(search)) return true;
+      return false;
+    });
+  }, [directory, t, q]);
 
   const grouped = useMemo(() => {
     const locals: PersonRow[] = [];
@@ -214,7 +224,7 @@ export function useContacts() {
   const handleOpenBulkWhatsApp = () => { openPanel('BULK_WHATSAPP'); };
 
   return {
-    t, i18n, rows, grouped, importRef,
+    t, i18n, q, setQ, rows, grouped, importRef,
     handleCall, handleWhatsApp, handleExport, handleDownloadTemplate, handlePickImportFile, handleImportChange, handleOpenBulkWhatsApp,
   };
 }

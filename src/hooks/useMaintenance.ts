@@ -239,17 +239,40 @@ export const useMaintenance = (isVisible: boolean) => {
     return { prop, owner, tenant, ownerName: owner?.الاسم || 'غير معروف', tenantName: tenant?.الاسم || null };
   }, [isDesktopFast, properties, people, contracts]);
 
-  const filteredTickets = useMemo(() => tickets.filter((t) => {
-    if (filter === 'open') return t.الحالة !== 'مغلق';
-    if (filter === 'closed') return t.الحالة === 'مغلق';
-    return true;
-  }), [tickets, filter]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const filteredTickets = useMemo(() => {
+    return tickets.filter((t) => {
+      // Status Filter
+      const matchesStatus =
+        filter === 'open' ? t.الحالة !== 'مغلق' :
+        filter === 'closed' ? t.الحالة === 'مغلق' :
+        true;
+      
+      if (!matchesStatus) return false;
+
+      // Search Filter
+      const q = searchTerm.trim().toLowerCase();
+      if (!q) return true;
+
+      const propName = getPropName(t.رقم_العقار).toLowerCase();
+      const desc = (t.الوصف || '').toLowerCase();
+      const priority = (t.الأولوية || '').toLowerCase();
+      const responsible = (t.الجهة_المسؤولة || '').toLowerCase();
+
+      return (
+        propName.includes(q) ||
+        desc.includes(q) ||
+        priority.includes(q) ||
+        responsible.includes(q)
+      );
+    });
+  }, [tickets, filter, searchTerm, getPropName]);
 
   const pageSize = useResponsivePageSize({ base: 6, sm: 6, md: 8, lg: 9, xl: 12, '2xl': 15 });
   const [page, setPage] = useState(1);
   const pageCount = useMemo(() => Math.max(1, Math.ceil((filteredTickets.length || 0) / pageSize)), [filteredTickets.length, pageSize]);
 
-  useEffect(() => { setPage(1); }, [filter, pageSize]);
+  useEffect(() => { setPage(1); }, [filter, searchTerm, pageSize]);
   useEffect(() => { setPage((p) => Math.min(Math.max(1, p), pageCount)); }, [pageCount]);
 
   const visibleTickets = useMemo(() => {
@@ -282,6 +305,7 @@ export const useMaintenance = (isVisible: boolean) => {
     canEdit, canClose, canDelete,
     openPanel,
     page, setPage, pageCount,
+    searchTerm, setSearchTerm,
     refreshData,
     handleOpenModal, handleSubmit,
     handleFinishTicket, handleDeleteTicket,

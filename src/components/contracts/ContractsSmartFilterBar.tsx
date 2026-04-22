@@ -1,20 +1,15 @@
-import {
-  CheckCircle,
-  Clock,
-  AlertTriangle,
-  Ban,
-  Archive,
-  Download,
-  SlidersHorizontal,
-  Filter,
-  X,
+import { 
+    CheckCircle, 
+    Clock, 
+    AlertTriangle, 
+    Ban, 
+    Archive, 
+    Upload, 
+    FileText, 
+    SlidersHorizontal,
+    CalendarDays
 } from 'lucide-react';
-import { CalendarDays } from 'lucide-react';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
-import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
-import { RBACGuard } from '@/components/shared/RBACGuard';
-import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import type { ContractsPageModel } from '@/hooks/useContracts';
 
 type Props = { page: ContractsPageModel };
@@ -32,7 +27,6 @@ export function ContractsSmartFilterBar({ page }: Props) {
     setSortMode,
     advFilters,
     setAdvFilters,
-    createdMonthApplied,
     currentMonthKey,
     setShowAdvanced,
     showAdvanced,
@@ -40,130 +34,104 @@ export function ContractsSmartFilterBar({ page }: Props) {
     handlePickImportFile,
     handleExport,
     clearFilters,
+    isDesktopFast,
+    fastTotal,
+    fastPage,
+    setFastPage,
+    filteredContracts,
+    uiPage,
+    setUiPage,
+    uiPageCount,
+    fastPageCount
   } = page;
+
+  const totalResults = isDesktopFast ? fastTotal : filteredContracts.length;
+  const currentPage = isDesktopFast ? Math.max(0, fastPage - 1) : uiPage;
+  const totalPages = isDesktopFast ? fastPageCount : uiPageCount;
+  const onPageChange = isDesktopFast ? (p: number) => setFastPage(p + 1) : setUiPage;
 
   return (
     <SmartFilterBar
-      title={t('إدارة العقود')}
-      subtitle={t('دورة حياة كاملة للعقود: إنشاء، تجديد، مخالصات، وأرشفة.')}
+      addButton={{
+        label: t('عقد جديد'),
+        onClick: handleCreate,
+        permission: 'CREATE_CONTRACT'
+      }}
+      searchPlaceholder={t('بحث برقم العقد، المستأجر، العقار...')}
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
-      onClearFilters={clearFilters}
-      onAddClick={handleCreate}
-      addLabel={t('عقد جديد')}
       onRefresh={loadData}
-      extraActions={
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <SegmentedTabs
-            tabs={[
-              { id: 'active', label: t('سارية'), icon: CheckCircle },
-              { id: 'expiring', label: t('قريبة الانتهاء'), icon: Clock },
-              { id: 'collection', label: t('تحصيل'), icon: AlertTriangle },
-              { id: 'expired', label: t('منتهية'), icon: AlertTriangle },
-              { id: 'terminated', label: t('مفسوخة'), icon: Ban },
-              { id: 'archived', label: t('الأرشيف'), icon: Archive },
-            ]}
-            activeId={activeStatus}
-            onChange={(id) => setActiveStatus(id)}
-          />
+      onExport={handleExport}
+      onClearFilters={clearFilters}
 
-          <div className="app-card px-3 py-2 flex items-center gap-2">
-            <Select
-              value={sortMode}
-              onChange={(e) =>
-                setSortMode(
-                  e.target.value as 'created-desc' | 'created-asc' | 'end-desc' | 'end-asc'
-                )
-              }
-              options={[
-                { value: 'created-desc', label: t('الأحدث (حسب الإنشاء)') },
-                { value: 'created-asc', label: t('الأقدم (حسب الإنشاء)') },
-                { value: 'end-desc', label: t('النهاية: تنازلي') },
-                { value: 'end-asc', label: t('النهاية: تصاعدي') },
-              ]}
-            />
-            <Filter size={16} className="text-gray-400" />
-            <input
-              type="text"
-              dir="ltr"
-              className="bg-transparent text-slate-700 dark:text-white outline-none text-sm font-bold"
-              value={advFilters.createdMonth}
-              inputMode="numeric"
-              placeholder="YYYY-MM"
-              aria-label={t('شهر إنشاء العقد (YYYY-MM)')}
-              onChange={(e) => {
-                const raw = e.target.value;
-                const digitsAndDash = raw.replace(/[^0-9-]/g, '');
+      // Tabs: lifecycle of contracts
+      tabs={[
+        { id: 'active', label: t('سارية'), icon: CheckCircle },
+        { id: 'expiring', label: t('قريبة الانتهاء'), icon: Clock },
+        { id: 'collection', label: t('تحصيل'), icon: AlertTriangle },
+        { id: 'expired', label: t('منتهية'), icon: AlertTriangle },
+        { id: 'terminated', label: t('مفسوخة'), icon: Ban },
+        { id: 'archived', label: t('الأرشيف'), icon: Archive },
+      ]}
+      activeTab={activeStatus}
+      onTabChange={(id) => setActiveStatus(id as 'active' | 'expiring' | 'expired' | 'terminated' | 'archived' | 'collection')}
 
-                let next = digitsAndDash;
-                if (next.length > 7) next = next.slice(0, 7);
-
-                const onlyDigits = next.replace(/-/g, '');
-                const yyyy = onlyDigits.slice(0, 4);
-                const mm = onlyDigits.slice(4, 6);
-
-                next = yyyy;
-                if (mm.length > 0) next += `-${mm}`;
-
-                setAdvFilters({ ...advFilters, createdMonth: next });
-              }}
-              title={t('تصفية حسب شهر إنشاء العقد')}
-            />
-            {createdMonthApplied && (
-              <button
-                type="button"
-                onClick={() => setAdvFilters({ ...advFilters, createdMonth: '' })}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
-                title={t('إلغاء فلتر الشهر')}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          <Button
-            size="sm"
-            variant={advFilters.createdMonth === currentMonthKey ? 'secondary' : 'ghost'}
-            leftIcon={<CalendarDays size={16} />}
-            onClick={() => {
-              const isThisMonth = String(advFilters.createdMonth || '').trim() === currentMonthKey;
+      // More Actions Dropdown
+      moreActions={[
+        {
+          label: showAdvanced ? t('إخفاء الفلاتر المتقدمة') : t('الفلاتر المتقدمة'),
+          icon: SlidersHorizontal,
+          onClick: () => setShowAdvanced(!showAdvanced)
+        },
+        {
+          label: t('عقود هذا الشهر'),
+          icon: CalendarDays,
+          onClick: () => {
+              const isThisMonth = advFilters.createdMonth === currentMonthKey;
               setAdvFilters({ ...advFilters, createdMonth: isThisMonth ? '' : currentMonthKey });
-            }}
-            title={
-              advFilters.createdMonth === currentMonthKey
-                ? t('إلغاء فلتر هذا الشهر')
-                : t('عرض العقود المُنشأة هذا الشهر')
-            }
-          >
-            {t('هذا الشهر')}
-          </Button>
+          }
+        },
+        {
+          label: t('قالب Excel'),
+          icon: FileText,
+          onClick: handleDownloadTemplate
+        },
+        {
+          label: t('استيراد'),
+          icon: Upload,
+          onClick: handlePickImportFile,
+          permission: 'CREATE_CONTRACT'
+        }
+      ]}
 
-          <Button
-            variant="secondary"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            leftIcon={<SlidersHorizontal size={18} />}
-          >
-            {showAdvanced ? t('إخفاء') : t('تصفية')}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleDownloadTemplate}
-            leftIcon={<Download size={18} />}
-          >
-            {t('قالب Excel')}
-          </Button>
-          <RBACGuard requiredPermission="CREATE_CONTRACT">
-            <Button
-              variant="secondary"
-              onClick={handlePickImportFile}
-              leftIcon={<Download size={18} />}
-            >
-              {t('استيراد')}
-            </Button>
-          </RBACGuard>
-          <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18} />} />
-        </div>
-      }
+      // Filter Chips
+      filters={[
+        ...(advFilters.createdMonth ? [{
+            id: 'month',
+            label: t('شهر الإنشاء'),
+            options: [
+                { value: advFilters.createdMonth, label: advFilters.createdMonth },
+                { value: '', label: t('الكل') }
+            ],
+            value: advFilters.createdMonth,
+            onChange: (v: string) => setAdvFilters({ ...advFilters, createdMonth: v })
+        }] : [])
+      ]}
+
+      // Sort Options
+      sortValue={sortMode}
+      onSortChange={(v) => setSortMode(v as 'created-desc' | 'created-asc' | 'end-desc' | 'end-asc')}
+      sortOptions={[
+        { value: 'created-desc', label: t('الأحدث (حسب الإنشاء)') },
+        { value: 'created-asc', label: t('الأقدم (حسب الإنشاء)') },
+        { value: 'end-desc', label: t('النهاية: تنازلي') },
+        { value: 'end-asc', label: t('النهاية: تصاعدي') },
+      ]}
+
+      totalResults={totalResults}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      onPageChange={onPageChange}
     />
   );
 }

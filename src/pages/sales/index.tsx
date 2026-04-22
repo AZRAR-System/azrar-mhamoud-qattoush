@@ -1,11 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { BadgeDollarSign, Plus, FileSignature } from 'lucide-react';
-import { PageHero } from '@/components/shared/PageHero';
-import { Button } from '@/components/ui/Button';
-import { useSalesData } from './hooks/useSalesData';
-import { useSalesFilters } from './hooks/useSalesFilters';
+import { BadgeDollarSign } from 'lucide-react';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { SalesSmartFilterBar } from './components/SalesSmartFilterBar';
 import { SalesDashboard } from './components/SalesDashboard';
-import { SalesFilterBar } from './components/SalesFilterBar';
 import { SalesListingsTab } from './components/SalesListingsTab';
 import { SalesOffersTab } from './components/SalesOffersTab';
 import { SalesAgreementsTab } from './components/SalesAgreementsTab';
@@ -16,7 +13,8 @@ import { NewOfferModal } from './components/modals/NewOfferModal';
 import { عروض_البيع_tbl, عروض_الشراء_tbl, اتفاقيات_البيع_tbl } from '@/types';
 import { DbService } from '@/services/mockDb';
 import { useToast } from '@/context/ToastContext';
-
+import { useSalesData } from './hooks/useSalesData';
+import { useSalesFilters } from './hooks/useSalesFilters';
 const t = (s: string) => s;
 
 const SalesComponent: React.FC = () => {
@@ -41,7 +39,6 @@ const SalesComponent: React.FC = () => {
     setSearchQuery,
     listingMarketingFilter,
     setListingMarketingFilter,
-    STATUS_FILTERS
   } = useSalesFilters();
 
   const [isListingModalOpen, setIsListingModalOpen] = useState(false);
@@ -147,66 +144,36 @@ const SalesComponent: React.FC = () => {
   }, [toast, loadData]);
 
   return (
-    <div className="space-y-8 animate-fade-in pb-10">
-      <PageHero
+    <div className="space-y-6">
+      <SmartPageHero
+        variant="premium"
         icon={<BadgeDollarSign size={28} />}
-        iconVariant="featured"
         title={t('إدارة المبيعات')}
-        subtitle={t('نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية')}
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
-              leftIcon={<FileSignature size={20} />}
-              onClick={() => setIsAgreementModalOpen(true)}
-            >
-              {t('إنشاء اتفاقية')}
-            </Button>
-            <Button
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-6 py-3 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
-              leftIcon={<Plus size={20} />}
-              onClick={() => setIsListingModalOpen(true)}
-            >
-              {t('عرض بيع جديد')}
-            </Button>
-          </>
+        description={t('نظام متكامل لإدارة عروض البيع، المفاوضات، ونقل الملكية')}
+      />
+
+      <SalesSmartFilterBar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        listingMarketingFilter={listingMarketingFilter}
+        setListingMarketingFilter={setListingMarketingFilter}
+        onNewListing={() => setIsListingModalOpen(true)}
+        onNewAgreement={() => setIsAgreementModalOpen(true)}
+        totalResults={
+          activeTab === 'listings' ? listings.length :
+          activeTab === 'offers' ? offers.length :
+          agreements.length
         }
       />
 
       <SalesDashboard stats={stats} />
 
       <div className="app-card overflow-hidden">
-        <div className="flex bg-slate-50/50 dark:bg-slate-950/20 p-2 border-b border-slate-100 dark:border-slate-800">
-          <button
-            onClick={() => setActiveTab('listings')}
-            className={`flex-1 py-4 font-black text-sm flex items-center justify-center gap-2 rounded-2xl transition-all duration-300 ${activeTab === 'listings' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft border border-slate-100 dark:border-slate-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
-            {t('عروض البيع')}
-          </button>
-          <button
-            onClick={() => setActiveTab('offers')}
-            className={`flex-1 py-4 font-black text-sm flex items-center justify-center gap-2 rounded-2xl transition-all duration-300 ${activeTab === 'offers' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft border border-slate-100 dark:border-slate-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
-            {t('عروض الشراء')}
-          </button>
-          <button
-            onClick={() => setActiveTab('agreements')}
-            className={`flex-1 py-4 font-black text-sm flex items-center justify-center gap-2 rounded-2xl transition-all duration-300 ${activeTab === 'agreements' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft border border-slate-100 dark:border-slate-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
-            {t('الاتفاقيات والعقود')}
-          </button>
-        </div>
-
-        <SalesFilterBar
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          STATUS_FILTERS={STATUS_FILTERS}
-        />
-
-        <div className="p-8">
+        <div className="p-0">
           {activeTab === 'listings' && (
             <SalesListingsTab
               listings={listings}

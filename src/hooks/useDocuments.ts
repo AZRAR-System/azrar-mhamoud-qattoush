@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   FileText,
@@ -15,6 +15,7 @@ import { domainGetSmart } from '@/services/domainQueries';
 
 export function useDocuments() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [search, setSearch] = useState('');
   const [viewingFile, setViewingFile] = useState<Attachment | null>(null);
 
   const isDesktop = typeof window !== 'undefined' && storage.isDesktop() && !!window.desktopDb;
@@ -146,7 +147,7 @@ export function useDocuments() {
     return FileText;
   };
 
-  const describeReference = (a: Attachment): { title: string; subtitle?: string; roles?: string[] } => {
+  const describeReference = useCallback((a: Attachment): { title: string; subtitle?: string; roles?: string[] } => {
     const id = String(a.referenceId || '');
     if (a.referenceType === 'Person') {
       const p = peopleById.get(id);
@@ -166,21 +167,33 @@ export function useDocuments() {
     if (a.referenceType === 'Maintenance') return { title: `صيانة #${id}` };
     if (a.referenceType === 'Sales') return { title: `مبيعات #${id}` };
     return { title: `${a.referenceType} #${id}` };
-  };
+  }, [peopleById, propertiesById, contractsById, desktopUnsupported]);
+
+  const filteredAttachments = useMemo(() => {
+    if (!search.trim()) return attachments;
+    const q = search.toLowerCase().trim();
+    return attachments.filter((a) => {
+      if (String(a.fileName || '').toLowerCase().includes(q)) return true;
+      const ref = describeReference(a);
+      if (ref.title.toLowerCase().includes(q)) return true;
+      if (ref.subtitle?.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [attachments, search, describeReference]);
 
   const grouped = useMemo(() => {
     const out: Record<string, Record<string, Attachment[]>> = {};
-    for (const a of attachments || []) {
+    for (const a of filteredAttachments || []) {
       const t = String(a.referenceType || 'Other');
       const k = fileKind(a);
       out[t] ||= {}; out[t][k] ||= []; out[t][k].push(a);
     }
     for (const t of Object.keys(out)) for (const k of Object.keys(out[t])) out[t][k].sort((a, b) => String(b.uploadDate || '').localeCompare(String(a.uploadDate || '')));
     return out;
-  }, [attachments]);
+  }, [filteredAttachments]);
 
   return {
-    attachments, grouped, viewingFile, setViewingFile, desktopUnsupported,
+    attachments, filteredAttachments, grouped, search, setSearch, viewingFile, setViewingFile, desktopUnsupported,
     formatSize, fileKind, typeLabel, typeIcon, describeReference,
   };
 }

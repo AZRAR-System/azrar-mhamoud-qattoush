@@ -1,9 +1,13 @@
-import { Home, Briefcase, Zap, SlidersHorizontal, Download, Upload } from 'lucide-react';
+import { 
+    Home, 
+    Briefcase, 
+    Zap, 
+    SlidersHorizontal, 
+    Upload, 
+    FileText, 
+    LayoutGrid 
+} from 'lucide-react';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
-import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
-import { RBACGuard } from '@/components/shared/RBACGuard';
-import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import type { PropertiesPageModel } from '@/hooks/useProperties';
 
 type Props = { page: PropertiesPageModel };
@@ -30,92 +34,100 @@ export function PropertiesSmartFilterBar({ page }: Props) {
     handlePickImportFile,
     handleExport,
     clearFilters,
+    isDesktopFast,
+    desktopTotal,
+    desktopPage,
+    setDesktopPage,
+    filteredProperties,
+    uiPage,
+    setUiPage,
+    uiPageCount,
+    desktopPageCount
   } = page;
+
+  // Metadata mapping for Row 3
+  const totalResults = isDesktopFast ? desktopTotal : filteredProperties.length;
+  const currentPage = isDesktopFast ? desktopPage : uiPage;
+  const totalPages = isDesktopFast ? desktopPageCount : uiPageCount;
+  const onPageChange = isDesktopFast ? setDesktopPage : setUiPage;
 
   return (
     <SmartFilterBar
-      title={t('إدارة العقارات')}
-      subtitle={t('سجل الوحدات السكنية والتجارية المفصل')}
+      addButton={{
+        label: t('عقار جديد'),
+        onClick: () => handleOpenForm(),
+        permission: 'ADD_PROPERTY'
+      }}
+      searchPlaceholder={t('بحث بالاسم، الرقم، الكود...')}
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
-      onClearFilters={clearFilters}
-      filters={filterOptions}
-      activeFilters={filters}
-      onFilterChange={(key, val) => setFilters((prev) => ({ ...prev, [key]: val }))}
-      onAddClick={() => handleOpenForm()}
-      addLabel={t('عقار جديد')}
       onRefresh={loadData}
-      extraActions={
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <SegmentedTabs
-            tabs={[
-              { id: 'all', label: t('الكل'), icon: Home },
-              { id: 'rented', label: t('مؤجر'), icon: Briefcase },
-              { id: 'vacant', label: t('شاغر'), icon: Zap },
-            ]}
-            activeId={occupancy}
-            onChange={(id) => {
-              setOccupancy(id);
-              if (id === 'rented')
-                setFilters((prev) => (prev.status ? prev : { ...prev, status: 'مؤجر' }));
-              if (id === 'vacant')
-                setFilters((prev) => (prev.status ? prev : { ...prev, status: 'شاغر' }));
-              if (id === 'all') {
-                setFilters((prev) =>
-                  prev.status === 'مؤجر' || prev.status === 'شاغر' ? { ...prev, status: '' } : prev
-                );
-              }
-            }}
-          />
+      onExport={handleExport}
+      onClearFilters={clearFilters}
+      
+      // Tabs: All, Rented, Vacant
+      tabs={[
+        { id: 'all', label: t('الكل'), icon: Home },
+        { id: 'rented', label: t('مؤجر'), icon: Briefcase },
+        { id: 'vacant', label: t('شاغر'), icon: Zap },
+      ]}
+      activeTab={occupancy}
+      onTabChange={(id) => {
+        setOccupancy(id as 'all' | 'rented' | 'vacant');
+        if (id === 'rented') setFilters(prev => ({ ...prev, status: 'مؤجر' }));
+        else if (id === 'vacant') setFilters(prev => ({ ...prev, status: 'شاغر' }));
+        else if (id === 'all') setFilters(prev => (prev.status === 'مؤجر' || prev.status === 'شاغر' ? { ...prev, status: '' } : prev));
+      }}
 
-          <Select
-            value={sortMode}
-            onChange={(e) =>
-              setSortMode(
-                e.target.value as 'code-asc' | 'code-desc' | 'updated-desc' | 'updated-asc'
-              )
-            }
-            options={[
-              { value: 'code-asc', label: t('الكود: تصاعدي') },
-              { value: 'code-desc', label: t('الكود: تنازلي') },
-              { value: 'updated-desc', label: t('الأحدث') },
-              { value: 'updated-asc', label: t('الأقدم') },
-            ]}
-          />
+      // More Actions Dropdown
+      moreActions={[
+        {
+          label: showAdvanced ? t('إخفاء الفلاتر المتقدمة') : t('الفلاتر المتقدمة'),
+          icon: SlidersHorizontal,
+          onClick: () => setShowAdvanced(!showAdvanced)
+        },
+        {
+          label: showDynamicColumns ? t('إخفاء الحقول الإضافية') : t('إظهار الحقول الإضافية'),
+          icon: LayoutGrid,
+          onClick: () => setShowDynamicColumns(v => !v)
+        },
+        {
+          label: t('قالب Excel'),
+          icon: FileText,
+          onClick: handleDownloadTemplate
+        },
+        {
+          label: t('استيراد'),
+          icon: Upload,
+          onClick: handlePickImportFile,
+          permission: 'ADD_PROPERTY'
+        }
+      ]}
 
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setShowAdvanced(!showAdvanced);
-            }}
-            leftIcon={<SlidersHorizontal size={18} />}
-          >
-            {showAdvanced ? t('إخفاء') : t('تصفية')}
-          </Button>
-          <Button variant="secondary" onClick={() => setShowDynamicColumns((v) => !v)}>
-            {showDynamicColumns ? t('إخفاء الحقول الإضافية') : t('إظهار الحقول الإضافية')}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleDownloadTemplate}
-            leftIcon={<Download size={18} />}
-          >
-            {t('قالب Excel')}
-          </Button>
-          <RBACGuard requiredPermission="ADD_PROPERTY">
-            <Button
-              variant="secondary"
-              onClick={handlePickImportFile}
-              leftIcon={<Upload size={18} />}
-            >
-              {t('استيراد')}
-            </Button>
-          </RBACGuard>
-          <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18} />}>
-            {t('تصدير')}
-          </Button>
-        </div>
-      }
+      // Filter Chips
+      filters={filterOptions.map(opt => ({
+        id: opt.key,
+        label: opt.label,
+        options: opt.options,
+        value: filters[opt.key as keyof typeof filters],
+        onChange: (val: string) => setFilters(prev => ({ ...prev, [opt.key]: val }))
+      }))}
+
+      // Sort Options
+      sortValue={sortMode}
+      onSortChange={(v) => setSortMode(v as 'code-asc' | 'code-desc' | 'updated-desc' | 'updated-asc')}
+      sortOptions={[
+        { value: 'code-asc', label: t('الكود: تصاعدي') },
+        { value: 'code-desc', label: t('الكود: تنازلي') },
+        { value: 'updated-desc', label: t('الأحدث') },
+        { value: 'updated-asc', label: t('الأقدم') },
+      ]}
+
+      // Row 3 Data
+      totalResults={totalResults}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      onPageChange={onPageChange}
     />
   );
 }

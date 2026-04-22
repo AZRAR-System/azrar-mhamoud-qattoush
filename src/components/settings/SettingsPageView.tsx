@@ -1,7 +1,8 @@
-import { Check, Loader2, Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon } from 'lucide-react';
 import { DS } from '@/constants/designSystem';
 import { PageLayout } from '@/components/shared/PageLayout';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { SettingsSmartFilterBar } from './SettingsSmartFilterBar';
 import { AppModal } from '@/components/ui/AppModal';
 import type { SettingsPageModel } from '@/hooks/useSettingsPage';
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar';
@@ -47,28 +48,16 @@ export function SettingsPageView({ page }: Props) {
           title="إعدادات النظام"
           description="تخصيص البيانات، القوائم، الطباعة، والنسخ الاحتياطي"
           icon={<SettingsIcon size={32} />}
-          actions={
-            <div className="flex items-center gap-2">
-              {(activeSection === 'general' ||
-                activeSection === 'messages' ||
-                activeSection === 'printingHub') &&
-                settings &&
-                !settingsLoading && (
-                  <div
-                    className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black transition-all bg-white/10 border border-white/20 text-white backdrop-blur-md shadow-soft`}
-                  >
-                    {saveStatus === 'saving' ? (
-                      <Loader2 size={14} className="animate-spin text-white/70" />
-                    ) : (
-                      <Check size={14} className="text-emerald-400" />
-                    )}
-                    {saveStatus === 'saving' ? 'جاري الحفظ...' : 'تم حفظ التغييرات'}
-                  </div>
-                )}
-            </div>
-          }
         />
       )}
+
+      {!embedded && (
+        <SettingsSmartFilterBar
+          saveStatus={saveStatus}
+          activeSectionLabel={page.visibleTabs.find(t => t.id === activeSection)?.label || 'الإعدادات'}
+        />
+      )}
+
 
       <div className={`flex flex-1 overflow-hidden h-full ${embedded ? '' : 'gap-6'}`}>
         {!embedded && <SettingsSidebar page={page} />}

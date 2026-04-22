@@ -53,7 +53,9 @@ export type PermissionCode =
   | 'PRINT_EXECUTE'
   | 'PRINT_EXPORT'
   | 'PRINT_SETTINGS_EDIT'
-  | 'PRINT_TEMPLATES_EDIT';
+  | 'PRINT_TEMPLATES_EDIT'
+  | 'EDIT_SALES'
+  | 'EXPORT_DATA';
 
 export interface الأشخاص_tbl {
   رقم_الشخص: string;

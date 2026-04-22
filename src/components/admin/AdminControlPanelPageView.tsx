@@ -13,18 +13,13 @@ import {
   ShieldAlert,
   Ban,
   ScrollText,
-  Filter,
-  RefreshCw,
   Shield,
   BarChart3,
-  Search,
   CheckCircle,
   Activity,
   Users as UsersIcon,
 } from 'lucide-react';
 import { Tooltip as ChartTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { AppModal } from '@/components/ui/AppModal';
@@ -33,8 +28,8 @@ import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatsCardRow } from '@/components/shared/StatsCardRow';
 import { StatCard as DSStatCard } from '@/components/shared/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { AdminSmartFilterBar } from './AdminSmartFilterBar';
 import { formatCurrencyJOD } from '@/utils/format';
-import { PaginationControls } from '@/components/shared/PaginationControls';
 import { safeNumber } from '@/utils/safe';
 import type { RoleType } from '@/types';
 import type { useAdminControlPanel } from '@/hooks/useAdminControlPanel';
@@ -145,77 +140,7 @@ export const AdminControlPanelPageView: React.FC<AdminControlPanelPageViewProps>
 
   const renderActivity = () => (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-200 rounded-2xl shadow-sm">
-            <ScrollText size={24} />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-white">سجل العمليات والتدقيق</h3>
-            <p className="text-sm text-slate-500 mt-1">مراقبة كافة تحركات المستخدمين والعمليات الحساسة في النظام.</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => loadData()} className="gap-2">
-            <RefreshCw size={16} /> تحديث
-          </Button>
-          <Button onClick={() => handleExportLogs()} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20">
-            <Download size={16} /> تصدير Excel
-          </Button>
-        </div>
-      </div>
-
-      <Card className="p-6">
-        <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">
-          <Filter size={16} /> تصفية السجلات
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase px-1">الموظف</label>
-            <input
-              placeholder="اسم المستخدم..."
-              className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
-              value={logFilter.user}
-              onChange={(e) => setLogFilter({ ...logFilter, user: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase px-1">نوع الإجراء</label>
-            <input
-              placeholder="مثلاً: تعديل، حذف..."
-              className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
-              value={logFilter.action}
-              onChange={(e) => setLogFilter({ ...logFilter, action: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase px-1">من تاريخ</label>
-            <input
-              type="date"
-              className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 outline-none"
-              value={logFilter.dateFrom}
-              onChange={(e) => setLogFilter({ ...logFilter, dateFrom: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase px-1">إلى تاريخ</label>
-            <input
-              type="date"
-              className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 outline-none"
-              value={logFilter.dateTo}
-              onChange={(e) => setLogFilter({ ...logFilter, dateTo: e.target.value })}
-            />
-          </div>
-        </div>
-      </Card>
-
       <div className="app-table-wrapper rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 bg-white dark:bg-slate-900 shadow-sm z-10">
-          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 border-r border-slate-200 dark:border-slate-800 ml-4 pl-4 shrink-0">
-            {filteredLogs.length.toLocaleString()} سجل
-          </div>
-          <PaginationControls page={logsPage} pageCount={logsPageCount} onPageChange={setLogsPage} />
-        </div>
         <div className="max-h-[700px] overflow-auto no-scrollbar bg-white dark:bg-slate-900/40">
           <table className="app-table">
             <thead className="app-table-thead !bg-slate-50/50 dark:!bg-slate-900/80 sticky top-0 backdrop-blur-md">
@@ -279,25 +204,6 @@ export const AdminControlPanelPageView: React.FC<AdminControlPanelPageViewProps>
 
   const renderUsers = () => (
     <div className="animate-fade-in space-y-6">
-      <div className="flex justify-between items-center">
-        <input
-          placeholder="بحث عن مستخدم..."
-          className="border p-2 rounded-xl text-sm w-64 bg-white dark:bg-slate-800 dark:border-slate-600 outline-none"
-          aria-label="بحث عن مستخدم"
-          title="بحث عن مستخدم"
-          value={userSearch}
-          onChange={(e) => setUserSearch(e.target.value)}
-        />
-        <PaginationControls page={usersPage} pageCount={usersPageCount} onPageChange={setUsersPage} />
-        <button
-          onClick={() => setIsAddUserModalOpen(true)}
-          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 flex items-center gap-2 transition shadow-lg shadow-indigo-600/20 font-bold text-sm"
-        >
-          <UserPlus size={18} /> مستخدم جديد
-        </button>
-      </div>
-
-      <div className="text-xs text-slate-600 dark:text-slate-400">الإجمالي: {filteredUsers.length.toLocaleString()} مستخدم</div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {visibleUsers.map((u) => {
@@ -496,18 +402,6 @@ export const AdminControlPanelPageView: React.FC<AdminControlPanelPageViewProps>
   const renderBlacklist = () => (
     <RBACGuard requiredPermission="BLACKLIST_VIEW" fallback={<div className="p-8 text-center text-gray-400">ليس لديك صلاحية الوصول</div>}>
       <div className="animate-fade-in space-y-6">
-        <div className="app-card p-4 rounded-xl flex justify-between items-center gap-4">
-          <div className="flex items-center gap-2 flex-1">
-            <Search className="text-gray-400" size={20} />
-            <input placeholder="بحث بالاسم..." className="bg-transparent outline-none flex-1 text-sm text-slate-700 dark:text-white" title="بحث بالاسم" value={blacklistSearch} onChange={(e) => setBlacklistSearch(e.target.value)} />
-          </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 dark:text-slate-300 select-none">
-              <input type="checkbox" className="w-4 h-4" checked={showArchivedBlacklist} onChange={(e) => setShowArchivedBlacklist(e.target.checked)} />
-              عرض الأرشيف
-            </label>
-          </div>
-        </div>
 
         <div className="grid grid-cols-1 gap-6">
           {blacklist.filter(b => {
@@ -588,7 +482,32 @@ export const AdminControlPanelPageView: React.FC<AdminControlPanelPageViewProps>
         }
       />
 
-      <div className="mt-6 flex-1 space-y-8">
+      <AdminSmartFilterBar
+        activeTab={activeTab}
+        logFilter={logFilter}
+        setLogFilter={setLogFilter}
+        onExportLogs={handleExportLogs}
+        onRefreshLogs={loadData}
+        logsCount={filteredLogs.length}
+        logsPage={logsPage}
+        logsPageCount={logsPageCount}
+        setLogsPage={setLogsPage}
+        userSearch={userSearch}
+        setUserSearch={setUserSearch}
+        onAddUser={() => setIsAddUserModalOpen(true)}
+        usersCount={filteredUsers.length}
+        usersPage={usersPage}
+        usersPageCount={usersPageCount}
+        setUsersPage={setUsersPage}
+        blacklistSearch={blacklistSearch}
+        setBlacklistSearch={setBlacklistSearch}
+        showArchivedBlacklist={showArchivedBlacklist}
+        setShowArchivedBlacklist={setShowArchivedBlacklist}
+        blacklistCount={blacklist.filter(b => b.isActive).length}
+        onRefreshAnalytics={loadData}
+      />
+
+      <div className="mt-8 flex-1 space-y-8">
         {activeTab === 'analytics' && renderAnalytics()}
         {activeTab === 'activity' && renderActivity()}
         {activeTab === 'users' && renderUsers()}

@@ -17,11 +17,10 @@ import {
   Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { AppModal } from '@/components/ui/AppModal';
-import { PaginationControls } from '@/components/shared/PaginationControls';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatCard } from '@/components/shared/StatCard';
+import { AlertsSmartFilterBar } from './AlertsSmartFilterBar';
 import type { useAlerts } from '@/hooks/useAlerts';
 import type { tbl_Alerts, AlertDetail } from '@/types';
 
@@ -60,7 +59,6 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
     isExpiryKind,
   } = page;
 
-  const t = (s: string) => s;
 
   const getAlertStyle = (alert: tbl_Alerts) => {
     if (alert.category === 'Financial')
@@ -99,28 +97,23 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
         title="التنبيهات والإشعارات"
         description="مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر"
         icon={Bell}
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              onClick={handleUpdateAndScan}
-              className="bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
-              leftIcon={<Clock size={20} />}
-            >
-              تحديث ومسح شامل
-            </Button>
-            {alerts.length > 0 && (
-              <Button
-                variant="secondary"
-                onClick={handleMarkAllRead}
-                className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
-                leftIcon={<CheckCheck size={20} />}
-              >
-                تعليم الكل كمقروء
-              </Button>
-            )}
-          </>
-        }
+      />
+
+      <AlertsSmartFilterBar
+        q={q}
+        setQ={setQ}
+        only={only}
+        setOnly={setOnly}
+        category={category}
+        setCategory={setCategory}
+        availableCategories={availableCategories}
+        totalCount={alerts.length}
+        currentPage={currentPage}
+        pageCount={pageCount}
+        onPageChange={setPage}
+        onRefresh={handleUpdateAndScan}
+        onMarkAllRead={handleMarkAllRead}
+        hasAlerts={alerts.length > 0}
       />
 
       {/* Stats */}
@@ -145,56 +138,6 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
         />
       </div>
 
-      <div className="app-card p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder={t('بحث في التنبيهات...')}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-10 pr-4 py-3 bg-slate-50/50 dark:bg-slate-950/30 border-slate-100 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-bold text-sm"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-slate-950/30 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800">
-            <button
-              onClick={() => setOnly('unread')}
-              className={`flex-1 py-2 rounded-xl font-black text-xs transition-all ${
-                only === 'unread'
-                  ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft'
-                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-              }`}
-            >
-              غير مقروء
-            </button>
-            <button
-              onClick={() => setOnly('all')}
-              className={`flex-1 py-2 rounded-xl font-black text-xs transition-all ${
-                only === 'all'
-                  ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-soft'
-                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-              }`}
-            >
-              الكل
-            </button>
-          </div>
-
-          <select
-            className="w-full text-xs font-black border-none bg-slate-50/50 dark:bg-slate-950/30 p-3 rounded-2xl outline-none ring-1 ring-slate-100 dark:ring-slate-800 focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">كل التصنيفات</option>
-            {availableCategories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 gap-6">
         {pagedAlerts.length === 0 ? (
           <div className="app-card p-20 flex flex-col items-center justify-center text-center">
@@ -210,16 +153,7 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between px-2">
-              <div className="text-xs font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                {alerts.length.toLocaleString()} تنبيه
-              </div>
-              <PaginationControls
-                page={currentPage}
-                pageCount={pageCount}
-                onPageChange={setPage}
-              />
-            </div>
+
 
             <div className="grid grid-cols-1 gap-4">
               {pagedAlerts.map((a) => (

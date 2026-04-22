@@ -1,20 +1,17 @@
 import type { FC } from 'react';
+import { CommissionsSmartFilterBar } from '@/components/commissions/CommissionsSmartFilterBar';
 import {
   HandCoins,
-  Filter,
-  Search,
+  Globe,
   Users,
-  Briefcase,
+  Plus,
   ArrowUp,
+  Briefcase,
   Inbox,
   Pencil,
   CornerDownRight,
   Trash2,
-  Globe,
   Tags,
-  Plus,
-  FileSpreadsheet,
-  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
@@ -23,7 +20,6 @@ import { MoneyInput } from '@/components/ui/MoneyInput';
 import { DynamicSelect } from '@/components/ui/DynamicSelect';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatCard } from '@/components/shared/StatCard';
-import { PaginationControls } from '@/components/shared/PaginationControls';
 import { formatCurrencyJOD } from '@/utils/format';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import type { useCommissions } from '@/hooks/useCommissions';
@@ -112,65 +108,46 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
         icon={<HandCoins size={32} />}
         title="إدارة العمولات والإيرادات"
         description="تتبع عمولات العقود، الدخل الخارجي، وتقرير عمولات الموظفين بنظام أزرار."
-        actions={
-          <div className="flex flex-wrap items-center gap-4">
-            <div
-              className="inline-flex items-center gap-1 rounded-2xl border border-white/20 bg-white/10 p-1 backdrop-blur-md"
-              role="tablist"
-              aria-label="أقسام صفحة العمولات"
-            >
-              <Button
-                type="button"
-                role="tab"
-                id="comm-tab-contracts"
-                aria-selected={activeTab === 'contracts'}
-                size="sm"
-                variant={activeTab === 'contracts' ? 'secondary' : 'ghost'}
-                onClick={() => setActiveTab('contracts')}
-                className={activeTab === 'contracts' ? 'shadow-sm bg-white/20 text-white border-none' : 'text-white/80 hover:bg-white/10 hover:text-white'}
-              >
-                عمولات العقود
-              </Button>
-              <Button
-                type="button"
-                role="tab"
-                id="comm-tab-external"
-                aria-selected={activeTab === 'external'}
-                size="sm"
-                variant={activeTab === 'external' ? 'secondary' : 'ghost'}
-                onClick={() => setActiveTab('external')}
-                className={activeTab === 'external' ? 'shadow-sm bg-white/20 text-white border-none' : 'text-white/80 hover:bg-white/10 hover:text-white'}
-              >
-                عمولات خارجية
-              </Button>
-              <Button
-                type="button"
-                role="tab"
-                id="comm-tab-employee"
-                aria-selected={activeTab === 'employee'}
-                size="sm"
-                variant={activeTab === 'employee' ? 'secondary' : 'ghost'}
-                onClick={() => setActiveTab('employee')}
-                className={activeTab === 'employee' ? 'shadow-sm bg-white/20 text-white border-none' : 'text-white/80 hover:bg-white/10 hover:text-white'}
-              >
-                عمولات الموظفين
-              </Button>
-            </div>
+      />
 
-            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md">
-              <Filter size={15} className="shrink-0 text-white/70" aria-hidden />
-              <label className="sr-only" htmlFor="commissions-month-filter">
-                الشهر المحاسبي
-              </label>
-              <input
-                id="commissions-month-filter"
-                type="month"
-                className="bg-transparent text-sm font-black text-white outline-none cursor-pointer [color-scheme:dark]"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-              />
-            </div>
-          </div>
+      <CommissionsSmartFilterBar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        selectedMonth={selectedMonth}
+        setSelectedMonth={setSelectedMonth}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        contractSearchTerm={contractSearchTerm}
+        setContractSearchTerm={setContractSearchTerm}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        employeeUserFilter={employeeUserFilter}
+        setEmployeeUserFilter={setEmployeeUserFilter}
+        systemUsers={systemUsers}
+        availableTypes={availableTypes}
+        onRefresh={() => page.loadData()}
+        onExportEmployeeXlsx={handleExportEmployeeXlsx}
+        onExportEmployeeCsv={handleExportEmployeeCsv}
+        onExportContractCommissionsXlsx={handleExportContractCommissionsXlsx}
+        totalResults={
+          activeTab === 'contracts' ? filteredCommissions.length :
+          activeTab === 'external' ? filteredExternal.length :
+          filteredEmployeeRows.length
+        }
+        currentPage={
+          activeTab === 'contracts' ? contractsPage :
+          activeTab === 'external' ? externalPage :
+          employeePage
+        }
+        totalPages={
+          activeTab === 'contracts' ? contractsPageCount :
+          activeTab === 'external' ? externalPageCount :
+          employeePageCount
+        }
+        onPageChange={
+          activeTab === 'contracts' ? setContractsPage :
+          activeTab === 'external' ? setExternalPage :
+          setEmployeePage
         }
       />
 
@@ -209,72 +186,6 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
           id="comm-panel-employee"
           aria-labelledby="comm-tab-employee"
         >
-          {/* Filter Bar */}
-          <div className="app-card p-4 flex flex-col sm:flex-row gap-4 justify-between items-center">
-            <div className="flex-1 flex flex-col sm:flex-row gap-3 w-full">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder="بحث (المرجع، العقار، رقم الفرصة)..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="absolute right-3 top-2.5 text-gray-400" size={18} />
-              </div>
-
-              <div className="min-w-[170px]">
-                <select
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm cursor-pointer"
-                  value={employeeUserFilter}
-                  onChange={(e) => setEmployeeUserFilter(e.target.value)}
-                  title="تصفية حسب الموظف"
-                >
-                  <option value="">كل الموظفين</option>
-                  {systemUsers
-                    .filter((u) => !!u?.isActive)
-                    .map((u) => {
-                      const username = String(u?.اسم_المستخدم || '').trim();
-                      const display = String(u?.اسم_للعرض || u?.اسم_المستخدم || '').trim();
-                      return (
-                        <option key={username} value={username}>
-                          {display || username}
-                        </option>
-                      );
-                    })}
-                </select>
-              </div>
-
-              <div className="min-w-[150px]">
-                <select
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm cursor-pointer"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                >
-                  <option value="All">كل الأنواع</option>
-                  <option value="إيجار">إيجار</option>
-                  <option value="بيع">بيع</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                المصدر: تقرير employee_commissions
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="primary"
-                onClick={() => void handleExportEmployeeXlsx()}
-              >
-                <FileSpreadsheet size={16} aria-hidden /> تصدير Excel
-              </Button>
-              <Button type="button" size="sm" variant="secondary" onClick={handleExportEmployeeCsv}>
-                <Download size={16} aria-hidden /> تصدير CSV
-              </Button>
-            </div>
-          </div>
 
           {/* Stats */}
           <StatsCardRow>
@@ -379,21 +290,8 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
                 <h3 className="font-bold text-slate-700 dark:text-white">عمليات عمولة الموظفين</h3>
                 <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                 الشهر {selectedMonth}
-                  {filteredEmployeeRows.length > 0 ? (
-                    <>
-                      {' · '}
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {filteredEmployeeRows.length} عملية
-                      </span>
-                    </>
-                  ) : null}
                 </p>
               </div>
-              <PaginationControls
-                page={employeePage}
-                pageCount={employeePageCount}
-                onPageChange={setEmployeePage}
-              />
             </div>
             <div className="space-y-3 p-4">
               {filteredEmployeeRows.length === 0 ? (
@@ -546,23 +444,6 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
             </div>
           </StatsCardRow>
 
-          <div className="app-card p-4">
-            <div className="relative flex-1">
-              <label htmlFor="contracts-comm-search" className="sr-only">
-                بحث في عمولات العقود
-              </label>
-              <input
-                id="contracts-comm-search"
-                type="search"
-                placeholder="بحث: رقم العقد، العقار، المالك، المستأجر، الفرصة..."
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pe-4 ps-10 text-sm outline-none transition focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                value={contractSearchTerm}
-                onChange={(e) => setContractSearchTerm(e.target.value)}
-                autoComplete="off"
-              />
-              <Search className="pointer-events-none absolute start-3 top-2.5 text-gray-400" size={18} aria-hidden />
-            </div>
-          </div>
 
           <div className="app-card">
             <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between">
@@ -570,31 +451,7 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
                 <h3 className="font-bold text-slate-700 dark:text-white">سجل عمولات العقود</h3>
                 <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                   الشهر {selectedMonth}
-                  {commissionsForSelectedMonth.length > 0 ? (
-                    <>
-                      {' · '}
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {filteredCommissions.length} من {commissionsForSelectedMonth.length} سجل
-                      </span>
-                    </>
-                  ) : null}
                 </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => void handleExportContractCommissionsXlsx()}
-                  title="تصدير كل عمولات الشهر المختار مع العقار والمالك والمستأجر والفرصة"
-                >
-                  <FileSpreadsheet size={16} aria-hidden /> تصدير Excel
-                </Button>
-                <PaginationControls
-                  page={contractsPage}
-                  pageCount={contractsPageCount}
-                  onPageChange={setContractsPage}
-                />
               </div>
             </div>
             <div className="space-y-3 p-4">
@@ -769,45 +626,6 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
           id="comm-panel-external"
           aria-labelledby="comm-tab-external"
         >
-          {/* Advanced Filter Bar */}
-          <div className="app-card p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
-            <div className="flex-1 flex gap-3 w-full">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder="بحث في العنوان..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="absolute right-3 top-2.5 text-gray-400" size={18} />
-              </div>
-
-              <div className="min-w-[150px]">
-                <select
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm cursor-pointer"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                >
-                  <option value="All">كل الأنواع</option>
-                  {availableTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="primary"
-              className="w-full justify-center md:w-auto"
-              onClick={openAddExternalModal}
-            >
-              <Plus size={18} /> عمولة جديدة
-            </Button>
-          </div>
 
           {/* Stats Cards */}
           <StatsCardRow cols={2}>
@@ -843,21 +661,7 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
             <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-bold text-slate-700 dark:text-white">سجل العمولات الخارجية</h3>
-                <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                  {filteredExternal.length > 0 ? (
-                    <span className="text-slate-700 dark:text-slate-300">
-                      {filteredExternal.length} سجل ضمن الفلاتر
-                    </span>
-                  ) : (
-                    'لا توجد نتائج ضمن الفلاتر'
-                  )}
-                </p>
               </div>
-              <PaginationControls
-                page={externalPage}
-                pageCount={externalPageCount}
-                onPageChange={setExternalPage}
-              />
             </div>
             <div className="space-y-3 p-4">
               {filteredExternal.length === 0 ? (

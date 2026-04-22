@@ -6,10 +6,10 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { MessageComposer } from '@/components/MessageComposer';
 import { AppModal } from '@/components/ui/AppModal';
 import { PaymentModal } from '@/components/installments/PaymentModal';
-import { InstallmentsPageHeader } from '@/components/installments/InstallmentsPageHeader';
+import { InstallmentsSmartFilterBar } from '@/components/installments/InstallmentsSmartFilterBar';
+
 import { InstallmentsQuickStats } from '@/components/installments/InstallmentsQuickStats';
 import { InstallmentsOverdueBanner } from '@/components/installments/InstallmentsOverdueBanner';
-import { InstallmentsFiltersPanel } from '@/components/installments/InstallmentsFiltersPanel';
 import { InstallmentsChartsPanel } from '@/components/installments/InstallmentsChartsPanel';
 import { InstallmentsContractsList } from '@/components/installments/InstallmentsContractsList';
 import { PageLayout } from '@/components/shared/PageLayout';
@@ -30,7 +30,6 @@ export function InstallmentsPageView({ page }: Props) {
     selectedInstallment,
     setSelectedInstallment,
     people,
-    loadData: _loadData,
     userId,
     userRole,
     confirmDialog,
@@ -75,17 +74,39 @@ export function InstallmentsPageView({ page }: Props) {
     >
       <PageLayout>
         <div className="space-y-6">
-          <InstallmentsPageHeader page={page} />
+          <InstallmentsSmartFilterBar
+            search={page.search}
+            setSearch={page.setSearch}
+            status={page.filter}
+            setStatus={(v) => page.setFilter(v as 'all' | 'due' | 'debt' | 'paid')}
+            startDate={page.filterStartDate}
+            setStartDate={page.setFilterStartDate}
+            endDate={page.filterEndDate}
+            setEndDate={page.setFilterEndDate}
+            minAmount={page.filterMinAmount}
+            setMinAmount={page.setFilterMinAmount}
+            maxAmount={page.filterMaxAmount}
+            setMaxAmount={page.setFilterMaxAmount}
+            paymentMethod={page.filterPaymentMethod}
+            setPaymentMethod={page.setFilterPaymentMethod}
+            onRefresh={page.loadData}
+            onExportXlsx={page.handleExportExcel}
+            totalResults={isDesktopFast ? desktopTotal : page.filteredList.length}
+            currentPage={page.desktopPage}
+            totalPages={page.desktopPageCount}
+            onPageChange={page.setDesktopPage}
+            isLoading={page.loading}
+          />
           <InstallmentsQuickStats page={page} />
           <InstallmentsOverdueBanner page={page} />
           
           <div className="page-transition min-h-[min(600px,80vh)]">
-            <InstallmentsFiltersPanel page={page} />
             <InstallmentsChartsPanel page={page} />
             <InstallmentsContractsList page={page} />
           </div>
         </div>
       </PageLayout>
+
 
       {selectedInstallment && (
         <PaymentModal

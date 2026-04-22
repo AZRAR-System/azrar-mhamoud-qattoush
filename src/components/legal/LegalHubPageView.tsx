@@ -1,11 +1,11 @@
 import type { FC } from 'react';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { LegalSmartFilterBar } from './LegalSmartFilterBar';
 import { StatCard } from '@/components/shared/StatCard';
 import {
   Scale,
   FileText,
   Copy,
-  Plus,
   ExternalLink,
   CheckCircle,
   Trash2,
@@ -13,7 +13,6 @@ import {
   Printer,
   Send,
   Clock,
-  Search,
   Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -23,7 +22,7 @@ import { RBACGuard } from '@/components/shared/RBACGuard';
 import { ContractPicker } from '@/components/shared/ContractPicker';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { MergeVariablesCatalog } from '@/components/shared/MergeVariablesCatalog';
-import { formatNumber, formatDateYMD } from '@/utils/format';
+import { formatDateYMD } from '@/utils/format';
 import type { useLegalHub } from '@/hooks/useLegalHub';
 
 import { PageLayout } from '@/components/shared/PageLayout';
@@ -86,6 +85,15 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
         icon={<Scale size={32} />}
       />
 
+      <LegalSmartFilterBar
+        historySearch={historySearch}
+        setHistorySearch={setHistorySearch}
+        onAddTemplate={() => setIsAddTemplateOpen(true)}
+        onOpenVariables={() => setIsVariablesOpen(true)}
+        templatesCount={templates.length}
+        historyCount={filteredHistory.length}
+      />
+
       <StatsCardRow cols={3}>
         <StatCard
           label="النماذج المتاحة"
@@ -108,33 +116,15 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
       </StatsCardRow>
 
       <div className="space-y-6">
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-200px)]">
-        {/* LEFT PANEL: GENERATOR */}
-        <div className="app-card flex flex-col">
-          <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-between items-center">
-            <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-              <FileText size={20} className="text-purple-500" /> إنشاء إخطار جديد
-            </h3>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsVariablesOpen(true)}
-                rightIcon={<Copy size={14} />}
-              >
-                المتغيرات
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsAddTemplateOpen(true)}
-                rightIcon={<Plus size={14} />}
-              >
-                نموذج جديد
-              </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-250px)]">
+          {/* LEFT PANEL: GENERATOR */}
+          <div className="app-card flex flex-col">
+            <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
+              <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                <FileText size={20} className="text-purple-500" /> إنشاء إخطار جديد
+              </h3>
             </div>
-          </div>
+
 
           <div className="p-6 flex-1 flex flex-col gap-4 overflow-y-auto">
             {/* Contract Select */}
@@ -271,21 +261,6 @@ export const LegalHubPageView: FC<LegalHubPageViewProps> = ({ page }) => {
               <Clock size={20} className="text-orange-500" /> سجل الإخطارات المرسلة
             </h3>
             <div className="flex items-center gap-2">
-              <div className="relative hidden sm:block">
-                <Search
-                  size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  placeholder="بحث..."
-                  className="w-44 pr-8 pl-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200"
-                />
-              </div>
-              <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-2 py-0.5 rounded text-xs font-bold">
-                {formatNumber(filteredHistory.length)}
-              </span>
               <PaginationControls
                 page={historyPage}
                 pageCount={historyPageCount}
