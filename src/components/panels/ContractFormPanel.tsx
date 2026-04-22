@@ -13,6 +13,7 @@ import { SmartAssistant } from '@/components/smart/SmartAssistant';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
 import { formatDateOnly, parseDateOnly, toDateOnly, todayDateOnlyISO, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { formatCurrencyJOD, roundCurrency } from '@/utils/format';
+import { ContractFinancialEngine } from '@/services/db/ContractFinancialEngine';
 import { CurrencySuffix } from '@/components/ui/CurrencySuffix';
 import {
   normalizeDigitsToLatin,
@@ -48,18 +49,6 @@ const addDaysDateOnly = (isoDate: string, days: number) => {
   return formatDateOnly(next);
 };
 
-const daysInMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-const calcDayDiffValue = (startIso: string, annualValue: number) => {
-  const start = parseDateOnly(startIso);
-  if (!start) return 0;
-  const day = start.getDate();
-  if (day <= 1) return 0;
-  const dim = daysInMonth(start);
-  const remainingDays = dim - day + 1;
-  const monthRent = annualValue / 12;
-  return roundCurrency((monthRent / dim) * remainingDays);
-};
-
 interface ContractFormProps {
   id?: string;
   onClose?: () => void;
@@ -90,6 +79,8 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     عدد_أقساط_الدفعة_الأولى: undefined,
     قيمة_الدفعة_الاولى: undefined,
     احتساب_فرق_ايام: false,
+    يوم_الدفع: 1,
+    مبلغ_الفرقية: undefined,
     رقم_العقار: '',
     رقم_المستاجر: '',
     القيمة_السنوية: undefined,
@@ -272,13 +263,15 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     }
 
     const annualValue = Math.max(0, Number(contract.القيمة_السنوية || 0));
-    setDayDiffValue(calcDayDiffValue(startBase, annualValue));
+    const payDay = Number(contract.يوم_الدفع || 1);
+    setDayDiffValue(ContractFinancialEngine.calculateDayDiffValue(startBase, annualValue, payDay));
   }, [
     step,
     contract.تاريخ_البداية,
     contract.مدة_العقد_بالاشهر,
     contract.القيمة_السنوية,
     contract.تاريخ_النهاية,
+    contract.يوم_الدفع,
   ]);
 
   const applySuggestions = (recs: SmartSuggestion[]) => {
@@ -375,82 +368,19 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
         return;
       }
 
-      const durationMonths = Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12));
-      const paymentsPerYear = Math.max(1, Number(contract.تكرار_الدفع || 12));
-      const annualValue = Math.max(0, Number(contract.القيمة_السنوية || 0));
-      const periodMonths = 12 / paymentsPerYear;
-      const normalizedPeriodMonths = Number.isFinite(periodMonths) && periodMonths > 0 ? periodMonths : 1;
-      const totalRent = roundCurrency((annualValue * durationMonths) / 12);
-      const preview: InstallmentPreviewRow[] = [];
-
+      // Delegate preview generation to the Engine
       const propertyId = contract.رقم_العقار;
       const propertyDetails = DbService.getPropertyDetails(propertyId || '');
       const propertyCode = propertyDetails?.property?.الكود_الداخلي || 'N/A';
 
-      if (contract.احتساب_فرق_ايام) {
-        const dayDiff = calcDayDiffValue(startBase, annualValue);
-        if (dayDiff > 0) {
-          preview.push({ rank: 1, type: 'فرق أيام', date: startBase, amount: dayDiff, propertyCode });
-        }
-      }
-
-      const downPaymentValue = contract.يوجد_دفعة_اولى && contract.قيمة_الدفعة_الاولى && contract.قيمة_الدفعة_الاولى > 0 ? contract.قيمة_الدفعة_الاولى : 0;
-      const rawDownMonths = Number(contract.عدد_أشهر_الدفعة_الأولى || 0);
-      const downMonths = Number.isFinite(rawDownMonths) ? Math.trunc(rawDownMonths) : 0;
-      const splitDownPayment = Boolean(contract.تقسيط_الدفعة_الأولى);
-      const rawSplitCount = Number(contract.عدد_أقساط_الدفعة_الأولى || 0);
-      const splitCount = Number.isFinite(rawSplitCount) ? Math.trunc(rawSplitCount) : 0;
-
-      if (splitDownPayment && downMonths > 0) {
-        toast.warning('لا يمكن الجمع بين تقسيط الدفعة الأولى وعدد أشهر الدفعة الأولى');
-        return;
-      }
-
-      const hasDown = Boolean(contract.يوجد_دفعة_اولى) && (downPaymentValue > 0 || downMonths > 0);
-      const monthRentExact = annualValue / 12;
-      const downValueUsed = hasDown ? (downMonths > 0 ? Math.round(monthRentExact * downMonths) : downPaymentValue) : 0;
-      const downCoverageMonths = hasDown ? (downMonths > 0 ? downMonths : Math.trunc(normalizedPeriodMonths)) : 0;
-
-      if (downValueUsed > 0) {
-        if (splitDownPayment) {
-          if (splitCount < 2) {
-            toast.warning('عدد أقساط الدفعة الأولى يجب أن يكون 2 أو أكثر');
-            return;
-          }
-          const base = Math.floor(downValueUsed / splitCount);
-          const rem = downValueUsed - base * splitCount;
-          for (let j = 0; j < splitCount; j++) {
-            const due = addMonthsDateOnly(startBase, j);
-            if (!due) continue;
-            preview.push({ rank: preview.length + 1, type: 'دفعة أولى', date: due, amount: base + (j === splitCount - 1 ? rem : 0), propertyCode });
-          }
-        } else {
-          preview.push({ rank: preview.length + 1, type: 'دفعة أولى', date: startBase, amount: downValueUsed, propertyCode });
-        }
-      }
-
-      const remainingMonths = Math.max(0, durationMonths - (downValueUsed > 0 ? downCoverageMonths : 0));
-      const remainingRentInstallmentsCount = remainingMonths > 0 ? Math.max(1, Math.ceil(remainingMonths / normalizedPeriodMonths)) : 0;
-      const remainingRentTotal = Math.max(0, totalRent - downValueUsed);
-      const baseAmount = remainingRentInstallmentsCount > 0 ? Math.floor(remainingRentTotal / remainingRentInstallmentsCount) : 0;
-      const remainder = remainingRentInstallmentsCount > 0 ? remainingRentTotal - baseAmount * remainingRentInstallmentsCount : 0;
-
-      for (let i = 0; i < remainingRentInstallmentsCount; i++) {
-        const baseOffset = (downValueUsed > 0 ? downCoverageMonths : 0) + Math.round(i * normalizedPeriodMonths);
-        const paymentOffset = contract.طريقة_الدفع === 'Postpaid' ? Math.round(normalizedPeriodMonths) : 0;
-        const instDate = addMonthsDateOnly(startBase, baseOffset + paymentOffset);
-        if (!instDate) continue;
-        preview.push({ rank: preview.length + 1, type: 'إيجار', date: instDate, amount: baseAmount + (i === remainingRentInstallmentsCount - 1 ? remainder : 0), propertyCode });
-      }
-
-      if (contract.قيمة_التأمين && contract.قيمة_التأمين > 0) {
-        const securityDate = addDaysDateOnly(endBase, -1);
-        if (!securityDate) {
-          toast.error(t('تعذر حساب تاريخ التأمين'));
-          return;
-        }
-        preview.push({ rank: preview.length + 1, type: 'تأمين', date: securityDate, amount: contract.قيمة_التأمين, propertyCode });
-      }
+      const generated = ContractFinancialEngine.calculateSchedule(contract as العقود_tbl, id || 'preview');
+      const preview: InstallmentPreviewRow[] = generated.map((inst, i) => ({
+         rank: inst.ترتيب_الكمبيالة || i + 1,
+         type: inst.نوع_الدفعة as InstallmentPreviewRow['type'],
+         date: inst.تاريخ_استحقاق,
+         amount: inst.القيمة,
+         propertyCode
+      }));
 
       setInstallmentsPreview(preview);
       setStep(3);
@@ -897,14 +827,82 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                       setContract((prev) => ({ ...prev, تكرار_الدفع: Number(e.target.value) }))
                     }
                   >
-                    <option value={12}>{t('شهري (12 دفعة)')}</option>
-                    <option value={6}>{t('كل شهرين (6 دفعات)')}</option>
-                    <option value={4}>{t('كل ثلاث شهور (4 دفعات)')}</option>
-                    <option value={3}>{t('كل أربعة أشهر (3 دفعات)')}</option>
-                    <option value={2}>{t('نصف سنوي (دفعتين)')}</option>
-                    <option value={1}>{t('سنوي (دفعة واحدة)')}</option>
+                    <option value={12}>{t('شهري')}</option>
+                    <option value={6}>{t('كل شهرين')}</option>
+                    <option value={4}>{t('ربع سنوي')}</option>
+                    <option value={2}>{t('نصف سنوي')}</option>
+                    <option value={1}>{t('سنوي')}</option>
                   </select>
                 </div>
+                <div>
+                  <label htmlFor={`${baseId}-payday`} className="block text-sm font-bold mb-1">
+                    {t('يوم الدفع الشهري')}
+                  </label>
+                  <select
+                    id={`${baseId}-payday`}
+                    className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    value={contract.يوم_الدفع || 1}
+                    onChange={(e) =>
+                      setContract((prev) => ({ ...prev, يوم_الدفع: Number(e.target.value) }))
+                    }
+                  >
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-lg border border-indigo-100 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      id={`${baseId}-enable-daydiff`}
+                      type="checkbox"
+                      className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                      checked={contract.احتساب_فرق_ايام}
+                      onChange={(e) =>
+                        setContract((prev) => ({ ...prev, احتساب_فرق_ايام: e.target.checked }))
+                      }
+                    />
+                    <label htmlFor={`${baseId}-enable-daydiff`} className="text-sm font-bold cursor-pointer">
+                      {t('تفعيل فرقية الأيام (مبلغ إضافي)')}
+                    </label>
+                  </div>
+                  {contract.احتساب_فرق_ايام && (
+                    <div className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
+                      {t('محسوب تلقائياً:')} {formatCurrencyJOD(dayDiffValue)}
+                    </div>
+                  )}
+                </div>
+
+                {contract.احتساب_فرق_ايام && (
+                  <div className="animate-slide-down">
+                    <label htmlFor={`${baseId}-daydiff-amount`} className="block text-xs font-bold text-slate-500 mb-1">
+                      {t('مبلغ الفرقية النهائي (يمكنك تعديله)')}
+                    </label>
+                    <div className="relative">
+                      <input
+                        id={`${baseId}-daydiff-amount`}
+                        type="text"
+                        inputMode="decimal"
+                        className="w-full border border-gray-300 dark:border-slate-600 p-2 pr-10 rounded-lg bg-indigo-50/30 dark:bg-slate-700 text-indigo-900 dark:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                        dir="ltr"
+                        value={contract.مبلغ_الفرقية !== undefined ? contract.مبلغ_الفرقية : dayDiffValue}
+                        onChange={(e) => {
+                          const raw = normalizeDigitsToLatin(e.target.value);
+                          const n = parseNumberOrUndefined(raw);
+                          setContract((prev) => ({ ...prev, مبلغ_الفرقية: n }));
+                        }}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 select-none">
+                        <CurrencySuffix />
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">

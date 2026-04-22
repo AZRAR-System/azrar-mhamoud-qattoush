@@ -5,12 +5,12 @@
 import type { DbResult, RoleType } from '@/types';
 import { العقود_tbl, الكمبيالات_tbl } from '@/types';
 import { formatCurrencyJOD, roundCurrency } from '@/utils/format';
-import { formatDateOnly, parseDateOnly, toDateOnly, addDaysDateOnly, todayDateOnlyISO, daysBetweenDateOnly } from '@/utils/dateOnly';
-import { addMonthsDateOnly } from '@/services/db/utils/dates';
+import { parseDateOnly, toDateOnly, todayDateOnlyISO, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 import { get, save } from './kv';
 import { KEYS } from './keys';
 import { INSTALLMENT_STATUS } from './installmentConstants';
+import { ContractFinancialEngine } from './ContractFinancialEngine';
 
 const ok = dbOk;
 const fail = dbFail;
@@ -19,27 +19,6 @@ const asUnknownRecord = (value: unknown): Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : Object.create(null);
-
-const daysInMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-
-
-const calcDayDiffValue = (startIso: string, annualValue: number) => {
-  const start = parseDateOnly(startIso);
-  if (!start) return 0;
-  const day = start.getDate();
-  if (day <= 1) return 0;
-  const dim = daysInMonth(start);
-  const remainingDays = dim - day + 1;
-  const monthRent = annualValue / 12;
-  return roundCurrency((monthRent * remainingDays) / dim);
-};
-
-const toFirstOfNextMonth = (iso: string) => {
-  const d = parseDateOnly(iso);
-  if (!d) return iso;
-  const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-  return formatDateOnly(next);
-};
 
 /** Used by alerts/scans and mockDb payment logic — single source of truth. */
 export const getInstallmentPaidAndRemaining = (inst: الكمبيالات_tbl) => {
@@ -68,190 +47,13 @@ export const generateContractInstallmentsInternal = (
   contract: العقود_tbl,
   contractId: string
 ): DbResult<الكمبيالات_tbl[]> => {
-  const installments: الكمبيالات_tbl[] = [];
-
-  const durationMonths = Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12));
-  const paymentsPerYear = Math.max(1, Number(contract.تكرار_الدفع || 12));
-  const annualValue = Math.max(0, Number(contract.القيمة_السنوية || 0));
-
-  const monthRentExact = annualValue / 12;
-
-  const periodMonths = 12 / paymentsPerYear;
-  const normalizedPeriodMonths =
-    Number.isFinite(periodMonths) && periodMonths > 0 ? periodMonths : 1;
-
-  const totalRent = roundCurrency(monthRentExact * durationMonths);
-
-  const startIso = contract.تاريخ_البداية;
-  const endIso = contract.تاريخ_النهاية;
-  const start = parseDateOnly(startIso);
-  const end = parseDateOnly(endIso);
-  if (!start || !end) return fail('تواريخ العقد غير صالحة');
-
-  let installmentRank = 1;
-
-  let dayDiffValue = 0;
-  let dayDiffActive = false;
-  if (contract.احتساب_فرق_ايام) {
-    dayDiffValue = calcDayDiffValue(startIso, annualValue);
-    if (dayDiffValue > 0) {
-      dayDiffActive = true;
-      installments.push({
-        رقم_الكمبيالة: `INS-${contractId}-DAYDIFF`,
-        رقم_العقد: contractId,
-        تاريخ_استحقاق: startIso,
-        القيمة: dayDiffValue,
-        حالة_الكمبيالة: INSTALLMENT_STATUS.UNPAID,
-        isArchived: false,
-        نوع_الكمبيالة: 'إيجار',
-        نوع_الدفعة: 'فرق أيام',
-        ترتيب_الكمبيالة: installmentRank,
-      });
-      installmentRank++;
-    }
+  try {
+    const installments = ContractFinancialEngine.calculateSchedule(contract, contractId);
+    return ok(installments);
+  } catch (err) {
+    console.error('Failed to generate installments:', err);
+    return fail('فشل في توليد الأقساط');
   }
-
-  const periodicStartIso = dayDiffActive ? toFirstOfNextMonth(startIso) : startIso;
-
-  const rawDownPaymentValue =
-    contract.يوجد_دفعة_اولى && contract.قيمة_الدفعة_الاولى && contract.قيمة_الدفعة_الاولى > 0
-      ? contract.قيمة_الدفعة_الاولى
-      : 0;
-
-  const rawDownMonths = Number(asUnknownRecord(contract)['عدد_أشهر_الدفعة_الأولى'] ?? 0);
-  const downMonths = Number.isFinite(rawDownMonths) ? Math.trunc(rawDownMonths) : 0;
-  const hasDownPayment =
-    Boolean(contract.يوجد_دفعة_اولى) && (rawDownPaymentValue > 0 || downMonths > 0);
-
-  const splitDownPayment = Boolean(asUnknownRecord(contract)['تقسيط_الدفعة_الأولى']);
-  const rawSplitCount = Number(asUnknownRecord(contract)['عدد_أقساط_الدفعة_الأولى'] ?? 0);
-  const splitCount = Number.isFinite(rawSplitCount) ? Math.trunc(rawSplitCount) : 0;
-
-  if (splitDownPayment && downMonths > 0) {
-    return fail('لا يمكن الجمع بين "تقسيط الدفعة الأولى" و"عدد أشهر الدفعة الأولى"');
-  }
-
-  const maxDownMonths = Math.min(60, durationMonths);
-  if (downMonths < 0 || downMonths > maxDownMonths) {
-    return fail(`عدد أشهر الدفعة الأولى يجب أن يكون بين 0 و ${maxDownMonths}`);
-  }
-
-  const downPaymentValue = hasDownPayment
-    ? downMonths > 0
-      ? roundCurrency(monthRentExact * downMonths)
-      : rawDownPaymentValue
-    : 0;
-
-  const downCoverageMonths = hasDownPayment
-    ? downMonths > 0
-      ? downMonths
-      : Math.trunc(normalizedPeriodMonths)
-    : 0;
-
-  if (downPaymentValue > 0) {
-    if (splitDownPayment) {
-      const splitCount = Math.max(1, Number(contract.عدد_أقساط_الدفعة_الأولى || 1));
-      if (splitCount < 2) return fail('عدد أقساط الدفعة الأولى يجب أن يكون 2 أو أكثر');
-      if (splitCount > durationMonths)
-        return fail('عدد أقساط الدفعة الأولى لا يمكن أن يتجاوز مدة العقد بالأشهر');
-
-      const base = roundCurrency(downPaymentValue / splitCount);
-      const remainder = roundCurrency(downPaymentValue - base * splitCount);
-      for (let j = 0; j < splitCount; j++) {
-        const due = addMonthsDateOnly(startIso, j);
-        if (!due) continue;
-        installments.push({
-          رقم_الكمبيالة: `INS-${contractId}-DOWN-${j + 1}`,
-          رقم_العقد: contractId,
-          تاريخ_استحقاق: formatDateOnly(due),
-          القيمة: base + (j === splitCount - 1 ? remainder : 0),
-          حالة_الكمبيالة: INSTALLMENT_STATUS.UNPAID,
-          isArchived: false,
-          نوع_الكمبيالة: 'دفعة أولى',
-          نوع_الدفعة: 'دفعة أولى',
-          رقم_القسط: j + 1,
-          ترتيب_الكمبيالة: installmentRank,
-        });
-        installmentRank++;
-      }
-    } else {
-      installments.push({
-        رقم_الكمبيالة: `INS-${contractId}-DOWN`,
-        رقم_العقد: contractId,
-        تاريخ_استحقاق: startIso,
-        القيمة: downPaymentValue,
-        حالة_الكمبيالة: INSTALLMENT_STATUS.PAID,
-        isArchived: false,
-        نوع_الكمبيالة: 'دفعة أولى',
-        نوع_الدفعة: 'دفعة أولى',
-        رقم_القسط: 1,
-        ترتيب_الكمبيالة: installmentRank,
-      });
-      installmentRank++;
-    }
-  }
-
-  const remainingMonths = Math.max(
-    0,
-    durationMonths - (downPaymentValue > 0 ? downCoverageMonths : 0) - (dayDiffActive ? 1 : 0)
-  );
-  const remainingRentTotal = Math.max(0, totalRent - downPaymentValue - dayDiffValue);
-
-  const remainingRentInstallmentsCount =
-    remainingMonths > 0 ? Math.max(1, Math.ceil(remainingMonths / normalizedPeriodMonths)) : 0;
-
-  const rentBaseAmount =
-    remainingRentInstallmentsCount > 0
-      ? roundCurrency(remainingRentTotal / remainingRentInstallmentsCount)
-      : 0;
-  const rentRemainder =
-    remainingRentInstallmentsCount > 0
-      ? roundCurrency(remainingRentTotal - rentBaseAmount * remainingRentInstallmentsCount)
-      : 0;
-
-  for (let i = 0; i < remainingRentInstallmentsCount; i++) {
-    const baseOffset =
-      (downPaymentValue > 0 ? downCoverageMonths : 0) + Math.round(i * normalizedPeriodMonths);
-    const paymentOffset =
-      contract.طريقة_الدفع === 'Postpaid' ? roundCurrency(normalizedPeriodMonths) : 0;
-    const due = addMonthsDateOnly(periodicStartIso, baseOffset + paymentOffset);
-    if (!due) continue;
-    const installmentAmount =
-      rentBaseAmount + (i === remainingRentInstallmentsCount - 1 ? rentRemainder : 0);
-    installments.push({
-      رقم_الكمبيالة: `INS-${contractId}-${i + 1}`,
-      رقم_العقد: contractId,
-      تاريخ_استحقاق: formatDateOnly(due),
-      القيمة: installmentAmount,
-      حالة_الكمبيالة: INSTALLMENT_STATUS.UNPAID,
-      isArchived: false,
-      نوع_الكمبيالة: 'إيجار',
-      نوع_الدفعة: 'دورية',
-      رقم_القسط: i + 1,
-      ترتيب_الكمبيالة: installmentRank,
-    });
-    installmentRank++;
-  }
-
-  if (contract.قيمة_التأمين && contract.قيمة_التأمين > 0) {
-    const securityDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    securityDate.setDate(securityDate.getDate() - 1);
-
-    installments.push({
-      رقم_الكمبيالة: `INS-${contractId}-SEC`,
-      رقم_العقد: contractId,
-      تاريخ_استحقاق: formatDateOnly(securityDate),
-      القيمة: contract.قيمة_التأمين,
-      حالة_الكمبيالة: INSTALLMENT_STATUS.UNPAID,
-      isArchived: false,
-      نوع_الكمبيالة: 'تأمين',
-      نوع_الدفعة: 'تأمين',
-      ترتيب_الكمبيالة: installmentRank,
-    });
-    installmentRank++;
-  }
-
-  return ok(installments);
 };
 
 export const getInstallmentPaymentSummary = (installmentId: string) => {
@@ -395,7 +197,7 @@ export function createInstallmentPaymentHandlers(deps: InstallmentPaymentDeps) {
 
     const paymentDate = paymentDetails?.paymentDate
       ? paymentDetails.paymentDate.split('T')[0]
-      : formatDateOnly(toDateOnly(new Date()));
+      : todayDateOnlyISO();
 
     const newTotal = totalPaid + paymentDetails.paidAmount;
     let newStatus: string;
@@ -497,7 +299,7 @@ export function createInstallmentPaymentHandlers(deps: InstallmentPaymentDeps) {
     const inst = JSON.parse(JSON.stringify(all[idx])) as الكمبيالات_tbl;
     const date = payload.date
       ? String(payload.date).split('T')[0]
-      : formatDateOnly(toDateOnly(new Date()));
+      : todayDateOnlyISO();
 
     asUnknownRecord(inst)['غرامة_تأخير'] = amount;
     asUnknownRecord(inst)['تصنيف_غرامة_تأخير'] = (payload.classification || '').trim() || undefined;
@@ -579,7 +381,7 @@ export function createInstallmentPaymentHandlers(deps: InstallmentPaymentDeps) {
       newStatus = INSTALLMENT_STATUS.UNPAID;
     }
 
-    const reversalDate = new Date().toISOString().split('T')[0];
+    const reversalDate = todayDateOnlyISO();
     const reversalRecord = {
       رقم_العملية: `REVERSAL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       المبلغ: -reversedAmount,

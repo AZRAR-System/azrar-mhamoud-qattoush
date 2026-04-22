@@ -153,6 +153,8 @@ export interface العقود_tbl {
   تقسيط_الدفعة_الأولى?: boolean;
   عدد_أقساط_الدفعة_الأولى?: number;
   احتساب_فرق_ايام?: boolean;
+  يوم_الدفع?: number;
+  مبلغ_الفرقية?: number;
   حالة_العقد: ContractStatus | string;
   isArchived: boolean;
   عقد_مرتبط?: string;

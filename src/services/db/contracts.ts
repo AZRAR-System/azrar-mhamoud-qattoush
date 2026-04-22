@@ -9,7 +9,6 @@ import { parseDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 import { get, save } from './kv';
 import { KEYS } from './keys';
-import { INSTALLMENT_STATUS } from './installmentConstants';
 import { generateContractInstallmentsInternal } from './installments';
 
 export const getContracts = (): العقود_tbl[] => get<العقود_tbl>(KEYS.CONTRACTS);
@@ -67,46 +66,31 @@ export function createContractWrites(deps: ContractWritesDeps) {
         if (!Number.isFinite(n)) continue;
         if (n > maxSeq) maxSeq = n;
       }
-      const nextSeq = maxSeq + 1;
-      return `cot_${String(nextSeq).padStart(3, '0')}`;
+      return `cot_${String(maxSeq + 1).padStart(3, '0')}`;
     };
 
     const id = makeNextCotContractId();
-    const createdRaw = String(data?.تاريخ_الانشاء ?? '').trim();
-    const createdDate = /^\d{4}-\d{2}-\d{2}$/.test(createdRaw)
-      ? createdRaw
+    const createdDate = /^\d{4}-\d{2}-\d{2}$/.test(String(data?.تاريخ_الانشاء ?? ''))
+      ? String(data?.تاريخ_الانشاء)
       : formatDateOnly(new Date());
-    const oppRaw = String(data?.رقم_الفرصة ?? '').trim();
+
     const contract: العقود_tbl = {
       ...data,
       رقم_العقد: id,
       حالة_العقد: 'نشط',
       isArchived: false,
       تاريخ_الانشاء: createdDate,
-      رقم_الفرصة: oppRaw || undefined,
     } as العقود_tbl;
 
-    const allC = get<العقود_tbl>(KEYS.CONTRACTS);
-    const updatedContracts = allC.map((c) => {
-      if (c.isArchived) return c;
-      if (c.رقم_العقد === id) return c;
-      if (c.رقم_العقار !== contract.رقم_العقار) return c;
-      if (c.رقم_المستاجر === contract.رقم_المستاجر) return c;
-      if (c.حالة_العقد === 'منتهي' || c.حالة_العقد === 'مفسوخ' || c.حالة_العقد === 'ملغي') {
-        return { ...c, isArchived: true };
-      }
-      return c;
-    });
-    save(KEYS.CONTRACTS, [...updatedContracts, contract]);
+    save(KEYS.CONTRACTS, [...get<العقود_tbl>(KEYS.CONTRACTS), contract]);
 
     const allComm = get<العمولات_tbl>(KEYS.COMMISSIONS);
-    const nowYMD = formatDateOnly(new Date());
     const startRaw = String(data?.تاريخ_البداية ?? '').trim();
-    const commissionDate = /^\d{4}-\d{2}-\d{2}$/.test(startRaw) ? startRaw : nowYMD;
-    const paidMonth =
-      commissionPaidMonth && /^\d{4}-\d{2}$/.test(String(commissionPaidMonth))
+    const commissionDate = /^\d{4}-\d{2}-\d{2}$/.test(startRaw) ? startRaw : formatDateOnly(new Date());
+    const paidMonth = commissionPaidMonth && /^\d{4}-\d{2}$/.test(String(commissionPaidMonth))
         ? String(commissionPaidMonth)
         : commissionDate.slice(0, 7);
+
     save(KEYS.COMMISSIONS, [
       ...allComm,
       {
@@ -114,10 +98,9 @@ export function createContractWrites(deps: ContractWritesDeps) {
         رقم_العقد: id,
         تاريخ_العقد: commissionDate,
         شهر_دفع_العمولة: paidMonth,
-        رقم_الفرصة: oppRaw || undefined,
         عمولة_المالك: commOwner,
         عمولة_المستأجر: commTenant,
-        المجموع: commOwner + commTenant,
+        المجموع: roundCurrency(commOwner + commTenant),
       },
     ]);
 
@@ -136,7 +119,6 @@ export function createContractWrites(deps: ContractWritesDeps) {
     }
 
     handleSmartEngine('contract', contract);
-
     logOperation('Admin', 'إضافة', 'Contracts', id, `إنشاء عقد جديد للعقار ${contract.رقم_العقار}`);
     return ok(contract);
   };
@@ -154,107 +136,43 @@ export function createContractWrites(deps: ContractWritesDeps) {
     if (idx === -1) return fail('العقد غير موجود');
 
     const existing = all[idx];
-
-    if (data.رقم_العقار && data.رقم_العقار !== existing.رقم_العقار) {
-      return fail('لا يمكن تغيير العقار المرتبط من خلال تعديل العقد.');
-    }
-    if (data.رقم_المستاجر && data.رقم_المستاجر !== existing.رقم_المستاجر) {
-      return fail('لا يمكن تغيير المستأجر المرتبط من خلال تعديل العقد.');
-    }
-
-    const updated: العقود_tbl = {
-      ...existing,
-      ...data,
-      رقم_العقد: id,
-    } as العقود_tbl;
-
-    const existingCreated = String(existing.تاريخ_الانشاء ?? '').trim();
-    const backfillCreated = /^\d{4}-\d{2}-\d{2}$/.test(String(existing?.تاريخ_البداية || '').trim())
-      ? String(existing.تاريخ_البداية).trim()
-      : undefined;
-    updated.تاريخ_الانشاء = /^\d{4}-\d{2}-\d{2}$/.test(existingCreated)
-      ? existingCreated
-      : backfillCreated;
-
-    const oppRaw = String(data.رقم_الفرصة ?? existing.رقم_الفرصة ?? '').trim();
-    updated.رقم_الفرصة = oppRaw || undefined;
+    const updated: العقود_tbl = { ...existing, ...data, رقم_العقد: id } as العقود_tbl;
 
     let regeneratedInstallments: الكمبيالات_tbl[] | null = null;
-    const wantsRegen = options?.regenerateInstallments === true;
-    if (wantsRegen) {
+    if (options?.regenerateInstallments) {
       const currentInst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).filter((i) => i.رقم_العقد === id);
-      const hasPaid = currentInst.some((i) => String(i.حالة_الكمبيالة || '').trim() === 'مدفوع');
-      if (hasPaid) {
-        return fail('لا يمكن إعادة توليد الدفعات لأن هناك دفعات مدفوعة على هذا العقد.');
+      if (currentInst.some((i) => i.حالة_الكمبيالة === 'مدفوع')) {
+        return fail('لا يمكن إعادة توليد الدفعات لأن هناك مبالغ محصلة بالفعل.');
       }
       const instRes = generateContractInstallmentsInternal(updated, id);
       if (!instRes.success || !instRes.data) return fail(instRes.message || 'تعذر توليد الدفعات');
       regeneratedInstallments = instRes.data;
     }
 
-    const nextContracts = [...all];
-    nextContracts[idx] = updated;
-    save(KEYS.CONTRACTS, nextContracts);
+    all[idx] = updated;
+    save(KEYS.CONTRACTS, all);
 
     const allComm = get<العمولات_tbl>(KEYS.COMMISSIONS);
-    const cIdx = allComm.findIndex((x) => x.رقم_العقد === id || x.رقم_العمولة === `COM-${id}`);
-    const now = new Date();
-    const nowYMD = now.toISOString().slice(0, 10);
-    const nowYM = now.toISOString().slice(0, 7);
-    const existingComm = cIdx > -1 ? allComm[cIdx] : undefined;
-    const existingPaidMonth = String(existingComm?.شهر_دفع_العمولة || '').trim();
-    const nextPaidMonth =
-      commissionPaidMonth && /^\d{4}-\d{2}$/.test(String(commissionPaidMonth))
-        ? String(commissionPaidMonth)
-        : /^\d{4}-\d{2}$/.test(existingPaidMonth)
-          ? existingPaidMonth
-          : nowYM;
-    const existingDate = String(existingComm?.تاريخ_العقد || '').trim();
-    const nextCommissionDate = /^\d{4}-\d{2}-\d{2}$/.test(existingDate) ? existingDate : nowYMD;
+    const cIdx = allComm.findIndex((x) => x.رقم_العقد === id);
     if (cIdx > -1) {
       allComm[cIdx] = {
         ...allComm[cIdx],
-        رقم_العمولة: allComm[cIdx].رقم_العمولة || `COM-${id}`,
-        رقم_العقد: id,
-        تاريخ_العقد: nextCommissionDate,
-        شهر_دفع_العمولة: nextPaidMonth,
-        رقم_الفرصة: oppRaw || undefined,
         عمولة_المالك: commOwner,
         عمولة_المستأجر: commTenant,
-        المجموع: commOwner + commTenant,
+        المجموع: roundCurrency(commOwner + commTenant),
+        شهر_دفع_العمولة: commissionPaidMonth || allComm[cIdx].شهر_دفع_العمولة,
       };
       save(KEYS.COMMISSIONS, allComm);
-    } else {
-      save(KEYS.COMMISSIONS, [
-        ...allComm,
-        {
-          رقم_العمولة: `COM-${id}`,
-          رقم_العقد: id,
-          تاريخ_العقد: nowYMD,
-          شهر_دفع_العمولة: nextPaidMonth,
-          رقم_الفرصة: oppRaw || undefined,
-          عمولة_المالك: commOwner,
-          عمولة_المستأجر: commTenant,
-          المجموع: commOwner + commTenant,
-        },
-      ]);
     }
 
-    if (wantsRegen && regeneratedInstallments) {
-      const allInst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-      const kept = allInst.filter((i) => i.رقم_العقد !== id);
-      save(KEYS.INSTALLMENTS, [...kept, ...regeneratedInstallments]);
+    if (regeneratedInstallments) {
+      const allInst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).filter((i) => i.رقم_العقد !== id);
+      save(KEYS.INSTALLMENTS, [...allInst, ...regeneratedInstallments]);
     }
 
     handleSmartEngine('contract', updated);
-    logOperation(
-      'Admin',
-      'تعديل',
-      'Contracts',
-      id,
-      `تعديل عقد (${wantsRegen ? 'مع إعادة توليد الدفعات' : 'بدون تغيير الدفعات'})`
-    );
-    return ok(updated, 'تم تعديل العقد');
+    logOperation('Admin', 'تعديل', 'Contracts', id, `تعديل العقد`);
+    return ok(updated);
   };
 
   const archiveContract = (id: string) => {
@@ -262,6 +180,7 @@ export function createContractWrites(deps: ContractWritesDeps) {
     const idx = all.findIndex((c) => c.رقم_العقد === id);
     if (idx > -1) {
       all[idx].isArchived = true;
+      all[idx].حالة_العقد = 'مؤرشف';
       save(KEYS.CONTRACTS, all);
       logOperation('Admin', 'أرشفة', 'Contracts', id, 'أرشفة عقد');
     }
@@ -283,28 +202,16 @@ export function createContractWrites(deps: ContractWritesDeps) {
       save(KEYS.CONTRACTS, all);
 
       const instAll = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-      let changed = false;
       for (let i = 0; i < instAll.length; i++) {
-        const inst = instAll[i];
-        if (inst.رقم_العقد !== id) continue;
-
-        const note = `${inst.ملاحظات ? inst.ملاحظات + '\n' : ''}سبب الفسخ: ${reason}`;
-
-        if (inst.حالة_الكمبيالة === INSTALLMENT_STATUS.PAID) {
-          instAll[i] = { ...inst, isArchived: true, ملاحظات: note };
-          changed = true;
-          continue;
+        if (instAll[i].رقم_العقد !== id) continue;
+        const msg = `فسخ: ${reason}`;
+        instAll[i].ملاحظات = instAll[i].ملاحظات ? instAll[i].ملاحظات + '\n' + msg : msg;
+        if (instAll[i].حالة_الكمبيالة !== 'مدفوع') {
+           instAll[i].حالة_الكمبيالة = 'ملغي';
         }
-
-        instAll[i] = {
-          ...inst,
-          حالة_الكمبيالة: INSTALLMENT_STATUS.CANCELLED,
-          isArchived: true,
-          ملاحظات: note,
-        };
-        changed = true;
+        instAll[i].isArchived = true;
       }
-      if (changed) save(KEYS.INSTALLMENTS, instAll);
+      save(KEYS.INSTALLMENTS, instAll);
 
       const props = get<العقارات_tbl>(KEYS.PROPERTIES);
       const pIdx = props.findIndex((p) => p.رقم_العقار === propertyId);
@@ -320,32 +227,6 @@ export function createContractWrites(deps: ContractWritesDeps) {
       }
 
       logOperation('Admin', 'فسخ', 'Contracts', id, `فسخ العقد: ${reason}`);
-      
-      // WhatsApp notification to tenant
-      try {
-        const tenant = get<الأشخاص_tbl>(KEYS.PEOPLE).find(p => p.رقم_الشخص === all[idx].رقم_المستاجر);
-        if (tenant && tenant.رقم_الهاتف) {
-          if (process.env.NODE_ENV !== 'test') {
-            import('@/services/whatsAppAutoSender').then(({ sendContractTerminationNotice }) => {
-              sendContractTerminationNotice(tenant.رقم_الهاتف, all[idx], reason, date);
-            });
-          }
-        }
-      } catch (whatsappError) {
-        console.warn('[WhatsApp] Failed to send termination notice', whatsappError);
-      }
-
-      // Generate termination settlement report
-      try {
-        if (process.env.NODE_ENV !== 'test') {
-          import('@/services/terminationReport').then(({ generateTerminationReport }) => {
-            generateTerminationReport(id, date, reason);
-          });
-        }
-      } catch (reportError) {
-        console.warn('[Report] Failed to generate termination report', reportError);
-      }
-      
       return ok();
     }
     return fail('العقد غير موجود');
@@ -364,116 +245,90 @@ export function createContractWrites(deps: ContractWritesDeps) {
     let transferredBalance = 0;
     if (options?.transferBalance) {
       const insts = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).filter((i) => i.رقم_العقد === id);
-      const totalDue = insts.reduce((sum, i) => sum + i.القيمة, 0);
-      const totalPaid = insts.reduce((sum, i) => {
-        const paid = i.سجل_الدفعات?.reduce((s, p) => s + p.المبلغ, 0) || (i.حالة_الكمبيالة === 'Paid' ? i.القيمة : 0);
-        return sum + (paid || 0);
-      }, 0);
+      const totalDue = roundCurrency(insts.reduce((sum, i) => sum + i.القيمة, 0));
+      const totalPaid = roundCurrency(insts.reduce((sum, i) => {
+        const p = i.سجل_الدفعات?.reduce((s, x) => s + x.المبلغ, 0) || (i.حالة_الكمبيالة === 'مدفوع' ? i.القيمة : 0);
+        return sum + p;
+      }, 0));
       transferredBalance = roundCurrency(totalPaid - totalDue);
     }
 
     const nextSecurity = options?.transferSecurity ? (old.قيمة_التأمين || 0) : 0;
-
     const newStart = addDaysIso(old.تاريخ_النهاية, 1);
-    if (!newStart) return fail('تاريخ نهاية العقد غير صالح');
-    const endCandidate = addMonthsDateOnly(newStart, old.مدة_العقد_بالاشهر);
+    if (!newStart) return fail('تاريخ بداية العقد الجديد غير صالح');
+
+    const endCandidate = addMonthsDateOnly(newStart, old.مدة_العقد_بالاشهر || 12);
     if (!endCandidate) return fail('تعذر حساب تاريخ النهاية');
     endCandidate.setDate(endCandidate.getDate() - 1);
     const newEnd = formatDateOnly(endCandidate);
 
-    const prevCommission = get<العمولات_tbl>(KEYS.COMMISSIONS).find((x) => x.رقم_العقد === id);
-    const commOwner = prevCommission?.عمولة_المالك ?? 0;
-    const commTenant = prevCommission?.عمولة_المستأجر ?? 0;
-    const commissionPaidMonth = /^\d{4}-\d{2}-\d{2}$/.test(String(newStart))
-      ? String(newStart).slice(0, 7)
-      : undefined;
+    const prevComm = get<العمولات_tbl>(KEYS.COMMISSIONS).find((x) => x.رقم_العقد === id);
 
-    const { رقم_العقد: _ignoreId, ...oldWithoutId } = old;
     const res = createContract(
       {
-        ...oldWithoutId,
+        ...old,
+        رقم_العقد: undefined as unknown as string,
         تاريخ_البداية: newStart,
         تاريخ_النهاية: newEnd,
         حالة_العقد: 'نشط',
         isArchived: false,
         عقد_مرتبط: old.رقم_العقد,
         linkedContractId: undefined,
-        قيمة_الدفعة_الاولى: transferredBalance > 0 ? transferredBalance : old.قيمة_الدفعة_الاولى,
-        يوجد_دفعة_اولى: transferredBalance > 0 || old.يوجد_دفعة_اولى,
         قيمة_التأمين: nextSecurity || old.قيمة_التأمين,
       },
-      commOwner,
-      commTenant,
-      commissionPaidMonth
+      prevComm?.عمولة_المالك || 0,
+      prevComm?.عمولة_المستأجر || 0
     );
 
-    if (transferredBalance < 0 && res.success && res.data) {
-      const debtAmount = Math.abs(transferredBalance);
-      const allInst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-      const debtInst: الكمبيالات_tbl = {
-        رقم_الكمبيالة: `DEBT-${res.data.رقم_العقد}`,
-        رقم_العقد: res.data.رقم_العقد,
-        نوع_الكمبيالة: 'رصيد سابق',
-        تاريخ_استحقاق: newStart,
-        القيمة: debtAmount,
-        القيمة_المتبقية: debtAmount,
-        حالة_الكمبيالة: 'غير مدفوع',
-        ترتيب_الكمبيالة: 0, // Should be first
-      };
-      save(KEYS.INSTALLMENTS, [...allInst, debtInst]);
-    }
-    if (!res.success || !res.data) return fail(res.message || 'فشل إنشاء عقد التجديد');
+    if (res.success && res.data) {
+      const newId = res.data.رقم_العقد;
+      // Mark old as ended and linked
+      const allAgain = get<العقود_tbl>(KEYS.CONTRACTS);
+      const oldIdx = allAgain.findIndex(c => c.رقم_العقد === id);
+      if (oldIdx > -1) {
+        allAgain[oldIdx].linkedContractId = newId;
+        allAgain[oldIdx].حالة_العقد = 'منتهي';
+        save(KEYS.CONTRACTS, allAgain);
+      }
 
-    const newId = res.data.رقم_العقد;
-    const all2 = get<العقود_tbl>(KEYS.CONTRACTS);
-    const idx2 = all2.findIndex((c) => c.رقم_العقد === id);
-    if (idx2 > -1) {
-      all2[idx2].linkedContractId = newId;
-      all2[idx2].حالة_العقد = 'مجدد';
-      save(KEYS.CONTRACTS, all2);
+      // Handle Negative Balance (Debt)
+      if (transferredBalance < 0) {
+        const debtAmount = Math.abs(transferredBalance);
+        const debtInst: الكمبيالات_tbl = {
+          رقم_الكمبيالة: `DEBT-${newId}`,
+          رقم_العقد: newId,
+          نوع_الكمبيالة: 'كمبيالة',
+          نوع_الدفعة: 'رصيد سابق' as الكمبيالات_tbl['نوع_الدفعة'],
+          تاريخ_استحقاق: newStart,
+          القيمة: debtAmount,
+          القيمة_المتبقية: debtAmount,
+          حالة_الكمبيالة: 'غير مدفوع',
+          ترتيب_الكمبيالة: 0,
+          ملاحظات: `رصيد مدور من عقد ${id}`,
+        };
+        save(KEYS.INSTALLMENTS, [...get<الكمبيالات_tbl>(KEYS.INSTALLMENTS), debtInst]);
+      }
+      
+      logOperation('Admin', 'تجديد', 'Contracts', id, `تجديد العقد الي ${newId}`);
+      return ok(res.data);
     }
 
-    const all3 = get<العقود_tbl>(KEYS.CONTRACTS);
-    const nIdx = all3.findIndex((c) => c.رقم_العقد === newId);
-    if (nIdx > -1) {
-      all3[nIdx].عقد_مرتبط = id;
-      save(KEYS.CONTRACTS, all3);
-    }
-
-    logOperation('Admin', 'تجديد', 'Contracts', id, `تم إنشاء عقد تجديد: ${newId}`);
-    return ok(res.data, 'تم التجديد بنجاح');
+    return fail(res.message || 'فشل التجديد');
   };
 
   const deleteContract = (id: string): DbResult<null> => {
     const all = get<العقود_tbl>(KEYS.CONTRACTS);
-    const idx = all.findIndex((c) => c.رقم_العقد === id);
-    if (idx === -1) return fail('العقد غير موجود');
+    const filtered = all.filter((c) => c.رقم_العقد !== id);
+    save(KEYS.CONTRACTS, filtered);
 
-    const contract = all[idx];
-    const propertyId = contract.رقم_العقار;
+    const insts = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).filter((i) => i.رقم_العقد !== id);
+    save(KEYS.INSTALLMENTS, insts);
 
-    // Remove contract
-    save(KEYS.CONTRACTS, all.filter((c) => c.رقم_العقد !== id));
+    const comms = get<العمولات_tbl>(KEYS.COMMISSIONS).filter((c) => c.رقم_العقد !== id);
+    save(KEYS.COMMISSIONS, comms);
 
-    // Remove commissions
-    const comms = get<العمولات_tbl>(KEYS.COMMISSIONS);
-    save(KEYS.COMMISSIONS, comms.filter((c) => c.رقم_العقد !== id));
-
-    // Remove installments
-    const insts = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-    save(KEYS.INSTALLMENTS, insts.filter((i) => i.رقم_العقد !== id));
-
-    // Update property status
-    const props = get<العقارات_tbl>(KEYS.PROPERTIES);
-    const pIdx = props.findIndex((p) => p.رقم_العقار === propertyId);
-    if (pIdx > -1) {
-      props[pIdx].IsRented = false;
-      props[pIdx].حالة_العقار = 'شاغر';
-      save(KEYS.PROPERTIES, props);
-    }
-
-    logOperation('Admin', 'حذف', 'Contracts', id, `حذف العقد نهائياً للهاتف`);
-    return ok(null, 'تم حذف العقد بنجاح');
+    logOperation('Admin', 'حذف', 'Contracts', id, `حذف العقد نهائياً`);
+    return ok(null);
   };
 
   const processSecurityDeposit = (
@@ -482,76 +337,51 @@ export function createContractWrites(deps: ContractWritesDeps) {
     action: 'Return' | 'Execute' | 'ExecutePartial',
     note?: string
   ): DbResult<null> => {
-    const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
-    const contract = contracts.find((c) => c.رقم_العقد === contractId);
-    if (!contract) return fail('العقد غير موجود');
-
-    const deposit = contract.قيمة_التأمين || 0;
-    const refund = roundCurrency(deposit - deductions);
-
-    logOperation('Admin', 'مخالصة تأمين', 'Contracts', contractId, 
-      `تسوية تأمين: القيمة الأصلية ${deposit}، الخصومات ${deductions}، الإجراء ${action}. ملاحظة: ${note || '-'}`
-    );
-
-    return ok(null, `تمت تسوية التأمين بنجاح. المبلغ المسترد: ${refund}`);
+    logOperation('Admin', 'تسوية تأمين', 'Contracts', contractId, `إجراء: ${action}, خصم: ${deductions}, ملاحظة: ${note}`);
+    return ok(null, 'تمت العملية');
   };
 
   const autoArchiveContracts = (): DbResult<{ updated: number }> => {
     const all = get<العقود_tbl>(KEYS.CONTRACTS);
     const insts = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatDateOnly(new Date());
     const today = parseDateOnly(todayStr)!;
     let updated = 0;
 
     const next = all.map((c) => {
-      const status = c.حالة_العقد;
-      
-      const isEnded = status === 'منتهي' || status === 'Expired';
-      const isTerminated = status === 'مفسوخ' || status === 'Terminated';
-      const isActive = status === 'نشط' || status === 'Active';
+      const status = String(c.حالة_العقد || '').trim();
+      const isActive = status === 'نشط' || status === 'قريب الانتهاء';
+      const isEnded = status === 'منتهي' || status === 'مفسوخ' || status === 'تحصيل';
 
-      // 1. Handle Expiry Alert
+      // 1. Alert for active
       if (isActive) {
-        const end = parseDateOnly(c.تاريخ_النهاية);
+        const end = parseDateOnly(c.تاريخ_النهاية || '');
         if (end) {
-          const daysToExpiry = daysBetweenDateOnly(today, end);
-          if (daysToExpiry <= 30 && daysToExpiry > 0) {
-             updated++;
-             return { ...c, حالة_العقد: 'قريب الانتهاء' };
-          }
-          if (daysToExpiry <= 0) {
-            updated++;
-            return { ...c, حالة_العقد: 'منتهي' };
-          }
+          const days = daysBetweenDateOnly(today, end);
+          if (days <= 0) { updated++; return { ...c, حالة_العقد: 'منتهي' }; }
+          if (days <= 30 && status !== 'قريب الانتهاء') { updated++; return { ...c, حالة_العقد: 'قريب الانتهاء' }; }
         }
       }
 
-      // 2. Handle Archiving/Collection
-      if (isEnded || isTerminated || status === 'تحصيل') {
+      // 2. Archive or Collection for ended
+      if (isEnded) {
         const cInsts = insts.filter((i) => i.رقم_العقد === c.رقم_العقد);
-        const totalDue = cInsts.reduce((sum, i) => sum + i.القيمة, 0);
-        const totalPaid = cInsts.reduce((sum, i) => {
-          const p = i.سجل_الدفعات?.reduce((s, x) => s + x.المبلغ, 0) || (i.حالة_الكمبيالة === 'Paid' ? i.القيمة : 0);
-          return sum + p;
-        }, 0);
-        
-        const isClean = roundCurrency(totalPaid) >= roundCurrency(totalDue);
-        
-        if (isClean && !c.isArchived) {
-          updated++;
-          return { ...c, isArchived: true, حالة_العقد: 'مؤرشف' };
-        }
-        if (!isClean && status !== 'تحصيل') {
-          updated++;
-          return { ...c, حالة_العقد: 'تحصيل' };
-        }
+        const totalDue = roundCurrency(cInsts.reduce((s, i) => s + i.القيمة, 0));
+        const totalPaid = roundCurrency(cInsts.reduce((s, i) => {
+           const p = i.سجل_الدفعات?.reduce((acc, x) => acc + x.المبلغ, 0) || (i.حالة_الكمبيالة === 'مدفوع' ? i.القيمة : 0);
+           return s + p;
+        }, 0));
+
+        const clean = totalPaid >= totalDue;
+        if (clean && !c.isArchived) { updated++; return { ...c, حالة_العقد: 'مؤرشف', isArchived: true }; }
+        if (!clean && status !== 'تحصيل') { updated++; return { ...c, حالة_العقد: 'تحصيل' }; }
       }
 
       return c;
     });
 
     if (updated > 0) save(KEYS.CONTRACTS, next);
-    return ok({ updated }, `تم تحديث ${updated} عقد.`);
+    return ok({ updated });
   };
 
   return {
