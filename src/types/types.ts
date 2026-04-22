@@ -138,6 +138,8 @@ export interface العقود_tbl {
   رقم_الكفيل?: string;
   تاريخ_الانشاء?: string; // YYYY-MM-DD
   رقم_الفرصة?: string;
+  رقم_المبنى?: string;
+  رقم_الكفيل_1?: string;
   تاريخ_البداية: string;
   تاريخ_النهاية: string;
   مدة_العقد_بالاشهر: number;
