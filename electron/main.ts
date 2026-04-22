@@ -1,5 +1,5 @@
 import logger from './logger';
-import { app, BrowserWindow, dialog, shell, session, type Event } from 'electron';
+import { app, BrowserWindow, dialog, shell, session, Menu, type Event } from 'electron';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -405,6 +405,28 @@ async function createMainWindow() {
       preload: preloadPath,
     },
   });
+
+  if (!isDev) {
+    // Block DevTools shortcuts
+    mainWindow.webContents.on('before-input-event', (_event, input) => {
+      if (
+        input.key === 'F12' ||
+        (input.control && input.shift && input.key === 'I') ||
+        (input.control && input.shift && input.key === 'J') ||
+        (input.control && input.shift && input.key === 'C')
+      ) {
+        _event.preventDefault();
+      }
+    });
+
+    // Auto-close DevTools if opened
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow.webContents.closeDevTools();
+    });
+
+    // Remove default menu
+    Menu.setApplicationMenu(null);
+  }
 
   const isLicenseAdminMode = inferIsLicenseAdminMode();
   if (isLicenseAdminMode) {

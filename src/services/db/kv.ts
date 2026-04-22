@@ -4,6 +4,7 @@
 
 import { buildCache, DbCache } from '../dbCache';
 import { storage } from '@/services/storage';
+import { validateBeforeSave } from './schemas';
 
 export function get<T>(key: string): T[] {
   if (DbCache.isInitialized && DbCache.arrays[key]) {
@@ -25,11 +26,22 @@ export function get<T>(key: string): T[] {
 }
 
 export function save<T>(key: string, data: T[]): void {
-  const serialized = JSON.stringify(data);
+  // --- Data Integrity Phase 2: Schema Validation ---
+  const validation = validateBeforeSave(key, data);
+  if (!validation.valid) {
+    const errorMsg = `[BLOCKED] Data validation failed for key "${key}":\n${validation.errors?.join('\n')}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  // Use structuredClone (Phase 1) to ensure the cache doesn't hold references to mutable caller data
+  const safeData = structuredClone(data);
+  const serialized = JSON.stringify(safeData);
+
   // Ensure sync readers see the latest value immediately.
   localStorage.setItem(key, serialized);
   if (DbCache.isInitialized) {
-    DbCache.arrays[key] = data;
+    DbCache.arrays[key] = safeData;
   }
 
   // Persist (desktop will also write to SQLite)

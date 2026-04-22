@@ -1,6 +1,7 @@
 import type { IpcDeps } from './deps.js';
 import * as ipc from './context.js';
 import { ipcMain, dialog, app } from 'electron';
+import { desktopUserHasPermission } from '../printing/permissions.js';
 
 import {
   kvApplyRemoteDelete,
@@ -126,6 +127,10 @@ export function registerSql(deps: IpcDeps): void {
   });
 
   ipcMain.handle('sql:saveSettings', async (_e, settings: unknown) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
 
     try {
       const saved = await loadSqlSettings();
@@ -396,7 +401,11 @@ export function registerSql(deps: IpcDeps): void {
     }
   });
   
-  ipcMain.handle('sql:exportBackup', async () => {
+  ipcMain.handle('sql:exportBackup', async (_e) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       ipc.addSqlSyncLogEntry({
         direction: 'system',
@@ -512,7 +521,11 @@ export function registerSql(deps: IpcDeps): void {
     }
   });
   
-  ipcMain.handle('sql:importBackup', async () => {
+  ipcMain.handle('sql:importBackup', async (_e) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       ipc.addSqlSyncLogEntry({
         direction: 'system',
@@ -585,7 +598,11 @@ export function registerSql(deps: IpcDeps): void {
     }
   });
   
-  ipcMain.handle('sql:restoreBackup', async () => {
+  ipcMain.handle('sql:restoreBackup', async (_e) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       const confirm = await dialog.showMessageBox({
         type: 'warning',
@@ -682,6 +699,10 @@ export function registerSql(deps: IpcDeps): void {
   });
   
   ipcMain.handle('sql:saveBackupAutomationSettings', async (_e, payload: unknown) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       const enabledRaw = ipc.getField(payload, 'enabled');
       const next = await saveSqlBackupAutomationSettings({
@@ -701,6 +722,10 @@ export function registerSql(deps: IpcDeps): void {
   });
   
   ipcMain.handle('sql:createServerBackup', async (_e, payload: unknown) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       ipc.addSqlSyncLogEntry({
         direction: 'system',
@@ -735,6 +760,10 @@ export function registerSql(deps: IpcDeps): void {
   });
   
   ipcMain.handle('sql:restoreServerBackup', async (_e, payload: unknown) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       const id = ipc.getStringField(payload, 'id').trim();
       const mode = ipc.getStringField(payload, 'mode') === 'replace' ? 'replace' : 'merge';
@@ -1270,6 +1299,10 @@ export function registerSql(deps: IpcDeps): void {
   });
   
   ipcMain.handle('sql:provision', async (_e, payload: unknown) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     ipc.addSqlSyncLogEntry({
       direction: 'system',
       action: 'provision',
@@ -1427,6 +1460,10 @@ export function registerSql(deps: IpcDeps): void {
   });
 
   ipcMain.handle('sql:startInstallation', async (event) => {
+    const userId = ipc.getSessionUserId(event.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     return await runSetupScript((line) => {
       event.sender.send('sql:setup-log', line);
     });

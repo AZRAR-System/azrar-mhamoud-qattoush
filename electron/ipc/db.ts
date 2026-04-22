@@ -2,6 +2,7 @@ import type { IpcDeps } from './deps.js';
 import * as ipc from './context.js';
 import { dbMaintenanceMode, setDbMaintenanceMode } from './context.js';
 import { ipcMain, dialog, app, safeStorage } from 'electron';
+import { desktopUserHasPermission } from '../printing/permissions.js';
 
 import {
   kvDelete,
@@ -119,8 +120,12 @@ export function registerDb(deps: IpcDeps): void {
       throw new Error(hint ? `${base}\n\n${hint}` : base);
     }
   });
-  ipcMain.handle('db:resetAll', () => {
+  ipcMain.handle('db:resetAll', (_e) => {
     if (dbMaintenanceMode) return { deleted: 0 };
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     return kvResetAll('db_');
   });
   
@@ -131,7 +136,11 @@ export function registerDb(deps: IpcDeps): void {
     return '';
   });
   
-  ipcMain.handle('db:chooseBackupDir', async () => {
+  ipcMain.handle('db:chooseBackupDir', async (_e) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     const dir = await ipc.chooseBackupDirViaDialog();
     if (!dir) return { success: false, message: 'تم الإلغاء' };
     try {
@@ -160,6 +169,10 @@ export function registerDb(deps: IpcDeps): void {
   ipcMain.handle(
     'db:saveLocalBackupAutomationSettings',
     async (_e, payload: Record<string, unknown> | undefined) => {
+      const userId = ipc.getSessionUserId(_e.sender);
+      if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+        return { success: false, message: 'غير مصرح لك بهذه العملية' };
+      }
       try {
         const current = await ipc.readLocalBackupAutomationSettings();
         const next: ipc.LocalBackupAutomationSettings = {
@@ -219,7 +232,11 @@ export function registerDb(deps: IpcDeps): void {
     return { ok: true };
   });
   
-  ipcMain.handle('db:runLocalBackupNow', async () => {
+  ipcMain.handle('db:runLocalBackupNow', async (_e) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       const backupSettings = await ipc.readBackupSettings();
       const dir =
@@ -277,7 +294,11 @@ export function registerDb(deps: IpcDeps): void {
   });
   
   // Delete a specific backup file
-  ipcMain.handle('db:deleteLocalBackupFile', async (_, filePath: string) => {
+  ipcMain.handle('db:deleteLocalBackupFile', async (_e, filePath: string) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       if (!filePath || !fs.existsSync(filePath)) {
         return { success: false, message: 'الملف غير موجود' };
@@ -298,7 +319,11 @@ export function registerDb(deps: IpcDeps): void {
   });
   
   // Restore a specific backup file (takes full path)
-  ipcMain.handle('db:restoreLocalBackupFile', async (_, filePath: string) => {
+  ipcMain.handle('db:restoreLocalBackupFile', async (_e, filePath: string) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     if (dbMaintenanceMode)
       return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
   
@@ -338,7 +363,11 @@ export function registerDb(deps: IpcDeps): void {
   
   // Export database to user-selected folder
   // Creates both a stable "latest" backup and a dated archive backup.
-  ipcMain.handle('db:export', async () => {
+  ipcMain.handle('db:export', async (_e) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     if (dbMaintenanceMode)
       return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
   
@@ -475,7 +504,11 @@ export function registerDb(deps: IpcDeps): void {
   });
   
   // Import database from user-selected file
-  ipcMain.handle('db:import', async () => {
+  ipcMain.handle('db:import', async (_e) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     if (dbMaintenanceMode)
       return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
     const result = (await dialog.showOpenDialog({
@@ -657,7 +690,11 @@ export function registerDb(deps: IpcDeps): void {
     }
   });
   
-  ipcMain.handle('db:saveBackupEncryptionSettings', async (_evt, payload: unknown) => {
+  ipcMain.handle('db:saveBackupEncryptionSettings', async (_e, payload: unknown) => {
+    const userId = ipc.getSessionUserId(_e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { success: false, message: 'غير مصرح لك بهذه العملية' };
+    }
     try {
       const p = (
         payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
