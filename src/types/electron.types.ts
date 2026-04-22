@@ -166,6 +166,19 @@ export interface DesktopDbBridge {
     skipped?: number;
     missingRemote?: number;
   }>;
+  pushAttachmentsNow: () => Promise<{
+    success: boolean;
+    message?: string;
+    uploaded?: number;
+    skipped?: number;
+    missingLocal?: number;
+  }>;
+  getAttachmentSyncStats: () => Promise<{
+    success: boolean;
+    message?: string;
+    metadataCount: number;
+    filesOnDisk: number;
+  }>;
 
   // Domain schema + SQL-backed reports (Desktop only)
   domainStatus?: () => Promise<

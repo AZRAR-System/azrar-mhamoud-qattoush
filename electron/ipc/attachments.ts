@@ -15,7 +15,13 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
-import { pushKvDelete, pushKvUpsert, logSyncError, pullAttachmentFilesForAttachmentsJson } from '../sqlSync';
+import {
+  pushKvDelete,
+  pushKvUpsert,
+  logSyncError,
+  pullAttachmentFilesForAttachmentsJson,
+  pushAttachmentFilesForAttachmentsJson,
+} from '../sqlSync';
 import { desktopUserHasPermission } from '../printing/permissions';
 import logger from '../logger';
 import { ensureInsideRoot } from '../utils/pathSafety';
@@ -644,6 +650,54 @@ export function registerAttachments(deps: IpcDeps): void {
       return { success: true, ...res };
     } catch (err: unknown) {
       return { success: false, message: toErrorMessage(err, 'فشل تنزيل المرفقات') };
+    }
+  });
+
+  ipcMain.handle('attachments:pushNow', async () => {
+    try {
+      const raw = kvGet('db_attachments');
+      const json = typeof raw === 'string' && raw.trim() ? raw : '[]';
+      const res = await pushAttachmentFilesForAttachmentsJson(json);
+      return { success: true, ...res };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'فشل رفع المرفقات') };
+    }
+  });
+
+  ipcMain.handle('attachments:getSyncStats', async () => {
+    try {
+      const raw = kvGet('db_attachments');
+      const json = typeof raw === 'string' && raw.trim() ? raw : '[]';
+      let attachments: unknown[] = [];
+      try {
+        attachments = JSON.parse(json);
+      } catch {
+        attachments = [];
+      }
+      if (!Array.isArray(attachments)) attachments = [];
+
+      const root = getStableAttachmentsRoot();
+      let filesOnDisk = 0;
+
+      const walk = async (dir: string) => {
+        if (!fs.existsSync(dir)) return;
+        const list = await fsp.readdir(dir);
+        for (const f of list) {
+          const abs = path.join(dir, f);
+          const st = await fsp.stat(abs);
+          if (st.isDirectory()) await walk(abs);
+          else if (st.isFile()) filesOnDisk++;
+        }
+      };
+      await walk(root);
+
+      return {
+        success: true,
+        metadataCount: attachments.length,
+        filesOnDisk,
+      };
+    } catch (err: unknown) {
+      return { success: false, message: toErrorMessage(err, 'فشل جلب إحصائيات المزامنة') };
     }
   });
   

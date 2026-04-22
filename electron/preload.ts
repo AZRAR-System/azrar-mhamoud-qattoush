@@ -332,6 +332,8 @@ contextBridge.exposeInMainWorld('desktopDb', {
   openAttachmentFile: (relativePath: string) =>
     ipcRenderer.invoke('attachments:open', relativePath),
   pullAttachmentsNow: () => ipcRenderer.invoke('attachments:pullNow'),
+  pushAttachmentsNow: () => ipcRenderer.invoke('attachments:pushNow'),
+  getAttachmentSyncStats: () => ipcRenderer.invoke('attachments:getSyncStats'),
 
   // Word templates
   readTemplateFile: (payload: { templateName: string; templateType?: string }) =>

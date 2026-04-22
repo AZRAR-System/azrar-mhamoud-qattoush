@@ -48,6 +48,13 @@ export type EncryptionSettings = {
   message?: string;
 };
 
+export type AttachmentSyncStats = {
+  success: boolean;
+  metadataCount: number;
+  filesOnDisk: number;
+  message?: string;
+};
+
 export const useBackupManager = () => {
   const toast = useToast();
   const isDesktop = !!window.desktopDb;
@@ -60,6 +67,10 @@ export const useBackupManager = () => {
   const [automation, setAutomation] = useState<BackupAutomationSettings | null>(null);
   const [encryption, setEncryption] = useState<EncryptionSettings | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sync state
+  const [syncStats, setSyncStats] = useState<AttachmentSyncStats | null>(null);
+  const [syncing, setSyncing] = useState<'pull' | 'push' | null>(null);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -89,11 +100,12 @@ export const useBackupManager = () => {
     if (!isDesktop) return;
     setLoading(true);
     try {
-      const [s, l, a, e] = await Promise.all([
+      const [s, l, a, e, sync] = await Promise.all([
         window.desktopDb?.getLocalBackupStats?.(),
         window.desktopDb?.getLocalBackupLog?.({ limit: 10 }),
         window.desktopDb?.getLocalBackupAutomationSettings?.(),
         window.desktopDb?.getBackupEncryptionSettings?.(),
+        window.desktopDb?.getAttachmentSyncStats?.(),
       ]);
 
       if ((s as BackupStats)?.ok) setStats(s as BackupStats);
@@ -109,6 +121,9 @@ export const useBackupManager = () => {
 
       const encData = e as EncryptionSettings;
       if (encData) setEncryption(encData);
+
+      const syncData = sync as AttachmentSyncStats;
+      if (syncData) setSyncStats(syncData);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err) || 'تعذر تحميل بيانات النسخ الاحتياطي');
     } finally {
@@ -261,6 +276,48 @@ export const useBackupManager = () => {
     [encryption?.enabled, encPassword, fetchData, toast]
   );
 
+  const handlePullAttachments = useCallback(async () => {
+    setSyncing('pull');
+    try {
+      const res = (await window.desktopDb?.pullAttachmentsNow?.()) as {
+        success: boolean;
+        downloaded: number;
+        message?: string;
+      };
+      if (res.success) {
+        toast.success(`تم تنزيل ${res.downloaded} ملف/مرفق من السيرفر بنجاح`);
+        fetchData();
+      } else {
+        toast.error(res.message || 'فشل تنزيل المرفقات');
+      }
+    } catch {
+      toast.error('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setSyncing(null);
+    }
+  }, [fetchData, toast]);
+
+  const handlePushAttachments = useCallback(async () => {
+    setSyncing('push');
+    try {
+      const res = (await window.desktopDb?.pushAttachmentsNow?.()) as {
+        success: boolean;
+        uploaded: number;
+        message?: string;
+      };
+      if (res.success) {
+        toast.success(`تم رفع ${res.uploaded} ملف/مرفق إلى السيرفر بنجاح`);
+        fetchData();
+      } else {
+        toast.error(res.message || 'فشل رفع المرفقات');
+      }
+    } catch {
+      toast.error('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setSyncing(null);
+    }
+  }, [fetchData, toast]);
+
   // --- Helpers ---
   const formatSize = useCallback((bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -318,6 +375,10 @@ export const useBackupManager = () => {
     handleRestoreBackup,
     handleSaveAutomation,
     handleSaveEncryption,
+    handlePullAttachments,
+    handlePushAttachments,
+    syncStats,
+    syncing,
     formatSize,
     filteredFiles,
   };

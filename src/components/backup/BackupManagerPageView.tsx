@@ -72,6 +72,10 @@ export const BackupManagerPageView: React.FC<BackupManagerPageViewProps> = ({ pa
     handleRestoreBackup,
     handleSaveAutomation,
     handleSaveEncryption,
+    handlePullAttachments,
+    handlePushAttachments,
+    syncStats,
+    syncing,
     formatSize,
     filteredFiles,
   } = page;
@@ -524,6 +528,86 @@ export const BackupManagerPageView: React.FC<BackupManagerPageViewProps> = ({ pa
                   <FolderOpen size={18} className="text-indigo-500" />
                   <span>تغيير مجلد التخزين</span>
                 </button>
+              </div>
+
+              {/* Remote Synchronization Card */}
+              <div className="app-card !p-8 bg-white border-2 border-indigo-500/10 dark:bg-slate-900/40 relative overflow-hidden group">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-indigo-500/5 rounded-bl-full -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-1000" />
+                
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shadow-sm shadow-indigo-500/5">
+                    <Globe size={24} className={syncing ? 'animate-pulse' : ''} />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-slate-800 dark:text-white">
+                      مزامنة السحابة
+                    </h4>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">
+                      مزامنة المرفقات مع السيرفر
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        بيانات محلية
+                      </div>
+                      <div className="text-2xl font-black text-slate-800 dark:text-white">
+                        {syncStats?.metadataCount ?? '—'}
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        على القرص
+                      </div>
+                      <div className="text-2xl font-black text-slate-800 dark:text-white">
+                        {syncStats?.filesOnDisk ?? '—'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {syncStats && syncStats.metadataCount > syncStats.filesOnDisk && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
+                      <AlertCircle className="text-amber-500 flex-shrink-0 mt-0.5" size={16} />
+                      <p className="text-xs font-bold text-amber-800 dark:text-amber-400 leading-relaxed">
+                        يوجد ملفات مفقودة محلياً ({syncStats.metadataCount - syncStats.filesOnDisk} ملف). يرجى الضغط على "سحب من السيرفر" لاستعادتها.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      className="btn-primary-modern w-full py-3.5 text-sm !bg-indigo-600 shadow-indigo-600/20"
+                      onClick={handlePullAttachments}
+                      disabled={!!syncing}
+                    >
+                      {syncing === 'pull' ? (
+                        <Loader2 className="animate-spin" size={18} />
+                      ) : (
+                        <RefreshCcw size={18} />
+                      )}
+                      <span>سحب المرفقات من السيرفر</span>
+                    </button>
+                    <button 
+                      className="btn-secondary-modern w-full py-3.5 text-sm !border-indigo-500/30 !text-indigo-600"
+                      onClick={handlePushAttachments}
+                      disabled={!!syncing}
+                    >
+                      {syncing === 'push' ? (
+                        <Loader2 className="animate-spin" size={18} />
+                      ) : (
+                        <Save size={18} />
+                      )}
+                      <span>رفع المرفقات المحلية للسيرفر</span>
+                    </button>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 font-bold text-center italic">
+                    ملاحظة: يتم رفع الملفات تلقائياً عند الإضافة، هذه الأدوات تستخدم للمزامنة اليدوية وإصلاح المشاكل.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
