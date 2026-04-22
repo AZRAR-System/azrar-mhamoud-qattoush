@@ -10,7 +10,7 @@ export type PersonRole = 'مالك' | 'مستأجر' | 'كفيل' | 'مشتري'
 export type SalesType = 'Cash' | 'Installment' | 'Mortgage';
 export type PaymentMethodType = 'Prepaid' | 'Postpaid' | 'DownPayment_Monthly';
 
-export type ContractStatus = 'نشط' | 'مجدد' | 'منتهي' | 'قريب الانتهاء' | 'مفسوخ' | 'ملغي';
+export type ContractStatus = 'نشط' | 'مجدد' | 'منتهي' | 'قريب الانتهاء' | 'مفسوخ' | 'ملغي' | 'تحصيل';
 export type PropertyStatus = 'شاغر' | 'مؤجر' | 'تحت الصيانة' | 'معروض للبيع';
 export type MaintenanceStatus = 'مفتوح' | 'قيد التنفيذ' | 'مغلق';
 export type MaintenancePriority = 'منخفضة' | 'متوسطة' | 'عالية';
@@ -160,6 +160,10 @@ export interface العقود_tbl {
   terminationDate?: string;
   terminationReason?: string;
   autoRenew?: boolean;
+  lateFeeType: 'fixed' | 'percentage' | 'daily' | 'none';
+  lateFeeValue: number;
+  lateFeeGraceDays: number;
+  lateFeeMaxAmount?: number;
   حقول_ديناميكية?: Record<string, unknown>;
 }
 

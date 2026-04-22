@@ -3,9 +3,13 @@ export const LOCALE_AR_LATN_GREGORY = 'ar-JO-u-ca-gregory-nu-latn';
 const toFiniteNumber = (value: unknown): number => {
   const n = typeof value === 'number' ? value : Number(value);
   const fixed = Number.isFinite(n) ? n : 0;
-  // تصحيح تلقائي للارقام المالية على 2 خانات عشرية
-  return Math.round(fixed * 100) / 100;
+  // تصحيح تلقائي للأرقام المالية على 2 خانات عشرية
+  return roundCurrency(fixed);
 };
+
+export function roundCurrency(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
 
 export const formatNumber = (
   value: unknown,

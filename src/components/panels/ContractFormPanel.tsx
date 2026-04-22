@@ -1,4 +1,4 @@
-﻿import React, { useId, useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useId, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { DbService } from '@/services/mockDb';
 import { الأشخاص_tbl, العقارات_tbl, العقود_tbl, PaymentMethodType, SmartSuggestion } from '@/types';
 import { useToast } from '@/context/ToastContext';
@@ -7,11 +7,12 @@ import { useSmartModal } from '@/context/ModalContext';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
-import { Calculator, HandCoins, Check, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Calculator, HandCoins, Check, ArrowRight, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { SmartEngine } from '@/services/smartEngine';
 import { SmartAssistant } from '@/components/smart/SmartAssistant';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
-import { formatCurrencyJOD } from '@/utils/format';
+import { formatDateOnly, parseDateOnly, toDateOnly, todayDateOnlyISO, daysBetweenDateOnly } from '@/utils/dateOnly';
+import { formatCurrencyJOD, roundCurrency } from '@/utils/format';
 import { CurrencySuffix } from '@/components/ui/CurrencySuffix';
 import {
   normalizeDigitsToLatin,
@@ -31,25 +32,12 @@ type InstallmentPreviewRow = {
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const formatDateOnly = (d: Date) => {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-};
-
-const parseDateOnly = (iso: string) => {
-  const parts = iso.split('-').map(Number);
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
-  return new Date(parts[0], parts[1] - 1, parts[2]);
-};
-
 const addMonthsDateOnly = (isoDate: string, months: number) => {
   const d = parseDateOnly(isoDate);
   if (!d) return null;
   const next = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   next.setMonth(next.getMonth() + months);
-  return next;
+  return formatDateOnly(next);
 };
 
 const addDaysDateOnly = (isoDate: string, days: number) => {
@@ -57,7 +45,7 @@ const addDaysDateOnly = (isoDate: string, days: number) => {
   if (!d) return null;
   const next = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   next.setDate(next.getDate() + days);
-  return next;
+  return formatDateOnly(next);
 };
 
 const daysInMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
@@ -69,7 +57,7 @@ const calcDayDiffValue = (startIso: string, annualValue: number) => {
   const dim = daysInMonth(start);
   const remainingDays = dim - day + 1;
   const monthRent = annualValue / 12;
-  return Math.round((monthRent * remainingDays) / dim);
+  return roundCurrency((monthRent / dim) * remainingDays);
 };
 
 interface ContractFormProps {
@@ -88,16 +76,15 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
   const rentPaymentTextTouchedRef = useRef(false);
   const contractDurationTextTouchedRef = useRef(false);
 
-  // Initialize with empty strings for required fields to keep inputs controlled
   const [contract, setContract] = useState<Partial<العقود_tbl>>({
-    تاريخ_البداية: '',
+    تاريخ_البداية: todayDateOnlyISO(),
     رقم_الفرصة: '',
-    تكرار_الدفع: undefined,
-    مدة_العقد_بالاشهر: undefined,
+    تكرار_الدفع: 12,
+    مدة_العقد_بالاشهر: 12,
     نص_مدة_العقد: '',
     نص_كيفية_أداء_البدل: '',
     قيمة_التأمين: undefined,
-    طريقة_الدفع: undefined,
+    طريقة_الدفع: 'Prepaid',
     يوجد_دفعة_اولى: false,
     تقسيط_الدفعة_الأولى: false,
     عدد_أقساط_الدفعة_الأولى: undefined,
@@ -106,9 +93,12 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     رقم_العقار: '',
     رقم_المستاجر: '',
     القيمة_السنوية: undefined,
+    lateFeeType: 'none',
+    lateFeeValue: 0,
+    lateFeeGraceDays: 0,
+    lateFeeMaxAmount: undefined,
   });
 
-  // Preserve legacy behavior: smart suggestions run once on mount using the initial contract snapshot.
   const initialContractRef = useRef(contract);
 
   const [commOwner, setCommOwner] = useState<number | ''>('');
@@ -119,7 +109,6 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
   const [installmentsPreview, setInstallmentsPreview] = useState<InstallmentPreviewRow[]>([]);
   const [dayDiffValue, setDayDiffValue] = useState(0);
 
-  // Smart Engine State
   const [suggestions, setSuggestions] = useState<SmartSuggestion[]>([]);
   const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
 
@@ -128,12 +117,10 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
   const { openPanel } = useSmartModal();
 
   useEffect(() => {
-    // Check for suggestions on mount
     const recs = SmartEngine.predict('contract', initialContractRef.current);
     setSuggestions(recs);
   }, []);
 
-  // Load existing contract when opened in edit mode
   useEffect(() => {
     if (!isEditMode) return;
     const contractId = String(id || '').trim();
@@ -155,14 +142,10 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     setCommTenant(Number(comm?.عمولة_المستأجر ?? 0) || 0);
     setCommissionPaidMonth(String(comm?.شهر_دفع_العمولة ?? ''));
 
-    // Do not auto-overwrite stored commissions when editing an existing contract.
     commissionTouchedRef.current = true;
-    // Only lock auto-generation if the contract already has a stored clause.
-    // This allows old contracts (missing the new field) to get an auto-filled default when editing.
     rentPaymentTextTouchedRef.current = Boolean(
       String(details.contract.نص_كيفية_أداء_البدل ?? '').trim()
     );
-    // Only lock duration auto-generation if the contract already has a stored duration text.
     contractDurationTextTouchedRef.current = Boolean(
       String(details.contract.نص_مدة_العقد ?? '').trim()
     );
@@ -174,7 +157,6 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     setRegenerateInstallments(!paid);
   }, [id, isEditMode, t, toast]);
 
-  // Auto-generate default "مدة الإيجار (كتابة)" based on duration months.
   useEffect(() => {
     if (step !== 2) return;
     if (contractDurationTextTouchedRef.current) return;
@@ -185,30 +167,18 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
 
     const monthText = (m: number) => {
       switch (m) {
-        case 1:
-          return 'شهر واحد';
-        case 2:
-          return 'شهرين';
-        case 3:
-          return 'ثلاثة أشهر';
-        case 4:
-          return 'أربعة أشهر';
-        case 5:
-          return 'خمسة أشهر';
-        case 6:
-          return 'ستة أشهر';
-        case 7:
-          return 'سبعة أشهر';
-        case 8:
-          return 'ثمانية أشهر';
-        case 9:
-          return 'تسعة أشهر';
-        case 10:
-          return 'عشرة أشهر';
-        case 11:
-          return 'أحد عشر شهراً';
-        default:
-          return `${m} شهر`;
+        case 1: return 'شهر واحد';
+        case 2: return 'شهرين';
+        case 3: return 'ثلاثة أشهر';
+        case 4: return 'أربعة أشهر';
+        case 5: return 'خمسة أشهر';
+        case 6: return 'ستة أشهر';
+        case 7: return 'سبعة أشهر';
+        case 8: return 'ثمانية أشهر';
+        case 9: return 'تسعة أشهر';
+        case 10: return 'عشرة أشهر';
+        case 11: return 'أحد عشر شهراً';
+        default: return `${m} شهر`;
       }
     };
 
@@ -232,7 +202,6 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     }
   }, [step, contract.مدة_العقد_بالاشهر, contract.نص_مدة_العقد]);
 
-  // Auto-generate default "كيفية أداء البدل" text based on payments frequency and per-payment value.
   useEffect(() => {
     if (step !== 2) return;
     if (rentPaymentTextTouchedRef.current) return;
@@ -244,47 +213,32 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     if (!Number.isFinite(paymentsPerYearRaw) || paymentsPerYearRaw <= 0) return;
 
     const paymentsPerYear = Math.max(1, paymentsPerYearRaw);
-    const perPayment = Math.round(annual / paymentsPerYear);
+    const perPayment = roundCurrency(annual / paymentsPerYear);
     const installmentsText = (() => {
       switch (paymentsPerYear) {
-        case 12:
-          return 'بأقساط شهرية';
-        case 6:
-          return 'بأقساط كل شهرين';
-        case 4:
-          return 'بأقساط كل ثلاثة أشهر';
-        case 3:
-          return 'بأقساط كل أربعة أشهر';
-        case 2:
-          return 'بأقساط كل ستة أشهر';
-        case 1:
-          return 'بقسط سنوي واحد';
-        default:
-          return '';
+        case 12: return 'بأقساط شهرية';
+        case 6: return 'بأقساط كل شهرين';
+        case 4: return 'بأقساط كل ثلاثة أشهر';
+        case 3: return 'بأقساط كل أربعة أشهر';
+        case 2: return 'بأقساط كل ستة أشهر';
+        case 1: return 'بقسط سنوي واحد';
+        default: return '';
       }
     })();
 
     const payMethod = String(contract.طريقة_الدفع || 'Prepaid').trim();
     const isPostpaid = payMethod === 'Postpaid';
-
     const timingText = isPostpaid ? 'مؤخراً' : 'مقدماً';
 
     const periodEndText = (() => {
       switch (paymentsPerYear) {
-        case 12:
-          return 'نهاية كل شهر';
-        case 6:
-          return 'نهاية كل شهرين';
-        case 4:
-          return 'نهاية كل ثلاثة أشهر';
-        case 3:
-          return 'نهاية كل أربعة أشهر';
-        case 2:
-          return 'نهاية كل ستة أشهر';
-        case 1:
-          return 'نهاية كل سنة';
-        default:
-          return 'نهاية كل فترة';
+        case 12: return 'نهاية كل شهر';
+        case 6: return 'نهاية كل شهرين';
+        case 4: return 'نهاية كل ثلاثة أشهر';
+        case 3: return 'نهاية كل أربعة أشهر';
+        case 2: return 'نهاية كل ستة أشهر';
+        case 1: return 'نهاية كل سنة';
+        default: return 'نهاية كل فترة';
       }
     })();
 
@@ -305,20 +259,14 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     contract.نص_كيفية_أداء_البدل,
   ]);
 
-  // Auto-calculate end date + day-diff while filling Step 2 so security date shows automatically.
   useEffect(() => {
     if (step !== 2) return;
     if (!contract.مدة_العقد_بالاشهر) return;
-    const startBase = contract.تاريخ_البداية || formatDateOnly(new Date());
-    const startDate = parseDateOnly(startBase);
-    if (!startDate) return;
-
+    const startBase = contract.تاريخ_البداية || todayDateOnlyISO();
     const endCandidate = addMonthsDateOnly(startBase, contract.مدة_العقد_بالاشهر || 12);
     if (!endCandidate) return;
-    endCandidate.setDate(endCandidate.getDate() - 1);
-    const endBase = formatDateOnly(endCandidate);
+    const endBase = addDaysDateOnly(endCandidate, -1) || endCandidate;
 
-    // Avoid infinite loops
     if (contract.تاريخ_البداية !== startBase || contract.تاريخ_النهاية !== endBase) {
       setContract((prev) => ({ ...prev, تاريخ_البداية: startBase, تاريخ_النهاية: endBase }));
     }
@@ -339,7 +287,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
       return acc;
     }, {});
     setContract((prev) => ({ ...prev, ...patch }));
-    setSuggestions([]); // Dismiss
+    setSuggestions([]);
     toast.success(t('تم تعبئة تفاصيل العقد تلقائياً'));
   };
 
@@ -350,7 +298,6 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     }
   };
 
-  // Auto-calculate commissions when Annual Value changes
   useEffect(() => {
     if (commissionTouchedRef.current) return;
 
@@ -373,23 +320,8 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     const months = Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12));
     const monthly = annual / 12;
     const total = Math.round((annual * months) / 12);
-    return {
-      annual,
-      months,
-      monthly,
-      total,
-    };
+    return { annual, months, monthly, total };
   }, [contract.القيمة_السنوية, contract.مدة_العقد_بالاشهر]);
-
-  const contractDurationTextOptions = useMemo(
-    () => DbService.getLookupsByCategory('contract_duration_text'),
-    []
-  );
-
-  const contractRentPaymentTextOptions = useMemo(
-    () => DbService.getLookupsByCategory('contract_rent_payment_text'),
-    []
-  );
 
   const recalcCommissionAuto = () => {
     const settings = DbService.getSettings();
@@ -402,8 +334,9 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     toast.success(t('تمت إعادة احتساب العمولة تلقائياً'));
   };
 
-  // Default commission paid month to current month (YYYY-MM) on create.
-  // Spec: calculations depend on commission month/date, not contract start.
+  const contractDurationTextOptions = useMemo(() => DbService.getLookupsByCategory('contract_duration_text'), []);
+  const contractRentPaymentTextOptions = useMemo(() => DbService.getLookupsByCategory('contract_rent_payment_text'), []);
+
   useEffect(() => {
     if (isEditMode) return;
     if (commissionMonthTouchedRef.current) return;
@@ -416,12 +349,12 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     }
 
     if (!commissionPaidMonth) {
-      setCommissionPaidMonth(formatDateOnly(new Date()).slice(0, 7));
+      setCommissionPaidMonth(todayDateOnlyISO().slice(0, 7));
     }
   }, [isEditMode, contract.تاريخ_البداية, commissionPaidMonth]);
 
   const handleNext = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent any form submission
+    e.preventDefault();
 
     if (step === 1) {
       if (!contract.رقم_العقار || !contract.رقم_المستاجر) {
@@ -435,51 +368,35 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
         return;
       }
 
-      // Use pre-computed values from the Step 2 auto-calculation effect.
-      const startBase = contract.تاريخ_البداية || formatDateOnly(new Date());
+      const startBase = contract.تاريخ_البداية || todayDateOnlyISO();
       const endBase = contract.تاريخ_النهاية;
       if (!endBase) {
         toast.error(t('يرجى التأكد من تاريخ البداية والمدة'));
         return;
       }
 
-      // Calculate installments preview for Step 3
       const durationMonths = Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12));
       const paymentsPerYear = Math.max(1, Number(contract.تكرار_الدفع || 12));
       const annualValue = Math.max(0, Number(contract.القيمة_السنوية || 0));
       const periodMonths = 12 / paymentsPerYear;
-      const normalizedPeriodMonths =
-        Number.isFinite(periodMonths) && periodMonths > 0 ? periodMonths : 1;
-      const totalRent = Math.round((annualValue * durationMonths) / 12);
+      const normalizedPeriodMonths = Number.isFinite(periodMonths) && periodMonths > 0 ? periodMonths : 1;
+      const totalRent = roundCurrency((annualValue * durationMonths) / 12);
       const preview: InstallmentPreviewRow[] = [];
 
-      // Get property code from contract
       const propertyId = contract.رقم_العقار;
       const propertyDetails = DbService.getPropertyDetails(propertyId || '');
       const propertyCode = propertyDetails?.property?.الكود_الداخلي || 'N/A';
 
-      // Extra day-diff installment
       if (contract.احتساب_فرق_ايام) {
         const dayDiff = calcDayDiffValue(startBase, annualValue);
         if (dayDiff > 0) {
-          preview.push({
-            rank: 1,
-            type: 'فرق أيام',
-            date: startBase,
-            amount: dayDiff,
-            propertyCode: propertyCode,
-          });
+          preview.push({ rank: 1, type: 'فرق أيام', date: startBase, amount: dayDiff, propertyCode });
         }
       }
 
-      const downPaymentValue =
-        contract.يوجد_دفعة_اولى && contract.قيمة_الدفعة_الاولى && contract.قيمة_الدفعة_الاولى > 0
-          ? contract.قيمة_الدفعة_الاولى
-          : 0;
-
+      const downPaymentValue = contract.يوجد_دفعة_اولى && contract.قيمة_الدفعة_الاولى && contract.قيمة_الدفعة_الاولى > 0 ? contract.قيمة_الدفعة_الاولى : 0;
       const rawDownMonths = Number(contract.عدد_أشهر_الدفعة_الأولى || 0);
       const downMonths = Number.isFinite(rawDownMonths) ? Math.trunc(rawDownMonths) : 0;
-
       const splitDownPayment = Boolean(contract.تقسيط_الدفعة_الأولى);
       const rawSplitCount = Number(contract.عدد_أقساط_الدفعة_الأولى || 0);
       const splitCount = Number.isFinite(rawSplitCount) ? Math.trunc(rawSplitCount) : 0;
@@ -491,101 +408,48 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
 
       const hasDown = Boolean(contract.يوجد_دفعة_اولى) && (downPaymentValue > 0 || downMonths > 0);
       const monthRentExact = annualValue / 12;
-      const downValueUsed = hasDown
-        ? downMonths > 0
-          ? Math.round(monthRentExact * downMonths)
-          : downPaymentValue
-        : 0;
-      const downCoverageMonths = hasDown
-        ? downMonths > 0
-          ? downMonths
-          : Math.trunc(normalizedPeriodMonths)
-        : 0;
+      const downValueUsed = hasDown ? (downMonths > 0 ? Math.round(monthRentExact * downMonths) : downPaymentValue) : 0;
+      const downCoverageMonths = hasDown ? (downMonths > 0 ? downMonths : Math.trunc(normalizedPeriodMonths)) : 0;
 
-      // إضافة الدفعة الأولى إذا وجدت (في البداية) مع دعم التقسيط
       if (downValueUsed > 0) {
         if (splitDownPayment) {
           if (splitCount < 2) {
             toast.warning('عدد أقساط الدفعة الأولى يجب أن يكون 2 أو أكثر');
             return;
           }
-          if (splitCount > durationMonths) {
-            toast.warning('عدد أقساط الدفعة الأولى لا يمكن أن يتجاوز مدة العقد بالأشهر');
-            return;
-          }
-
           const base = Math.floor(downValueUsed / splitCount);
           const rem = downValueUsed - base * splitCount;
           for (let j = 0; j < splitCount; j++) {
             const due = addMonthsDateOnly(startBase, j);
             if (!due) continue;
-            preview.push({
-              rank: preview.length + 1,
-              type: 'دفعة أولى',
-              date: formatDateOnly(due),
-              amount: base + (j === splitCount - 1 ? rem : 0),
-              propertyCode: propertyCode,
-            });
+            preview.push({ rank: preview.length + 1, type: 'دفعة أولى', date: due, amount: base + (j === splitCount - 1 ? rem : 0), propertyCode });
           }
         } else {
-          preview.push({
-            rank: preview.length + 1,
-            type: 'دفعة أولى',
-            date: startBase,
-            amount: downValueUsed,
-            propertyCode: propertyCode,
-          });
+          preview.push({ rank: preview.length + 1, type: 'دفعة أولى', date: startBase, amount: downValueUsed, propertyCode });
         }
       }
 
-      const remainingMonths = Math.max(
-        0,
-        durationMonths - (downValueUsed > 0 ? downCoverageMonths : 0)
-      );
-      const remainingRentInstallmentsCount =
-        remainingMonths > 0 ? Math.max(1, Math.ceil(remainingMonths / normalizedPeriodMonths)) : 0;
+      const remainingMonths = Math.max(0, durationMonths - (downValueUsed > 0 ? downCoverageMonths : 0));
+      const remainingRentInstallmentsCount = remainingMonths > 0 ? Math.max(1, Math.ceil(remainingMonths / normalizedPeriodMonths)) : 0;
       const remainingRentTotal = Math.max(0, totalRent - downValueUsed);
-      const baseAmount =
-        remainingRentInstallmentsCount > 0
-          ? Math.floor(remainingRentTotal / remainingRentInstallmentsCount)
-          : 0;
-      const remainder =
-        remainingRentInstallmentsCount > 0
-          ? remainingRentTotal - baseAmount * remainingRentInstallmentsCount
-          : 0;
+      const baseAmount = remainingRentInstallmentsCount > 0 ? Math.floor(remainingRentTotal / remainingRentInstallmentsCount) : 0;
+      const remainder = remainingRentInstallmentsCount > 0 ? remainingRentTotal - baseAmount * remainingRentInstallmentsCount : 0;
 
-      // حساب الدفعات العادية (الإيجار فقط)
       for (let i = 0; i < remainingRentInstallmentsCount; i++) {
-        const baseOffset =
-          (downValueUsed > 0 ? downCoverageMonths : 0) + Math.round(i * normalizedPeriodMonths);
-        const paymentOffset =
-          contract.طريقة_الدفع === 'Postpaid' ? Math.round(normalizedPeriodMonths) : 0;
+        const baseOffset = (downValueUsed > 0 ? downCoverageMonths : 0) + Math.round(i * normalizedPeriodMonths);
+        const paymentOffset = contract.طريقة_الدفع === 'Postpaid' ? Math.round(normalizedPeriodMonths) : 0;
         const instDate = addMonthsDateOnly(startBase, baseOffset + paymentOffset);
         if (!instDate) continue;
-        preview.push({
-          rank: preview.length + 1,
-          type: 'إيجار',
-          date: formatDateOnly(instDate),
-          amount: baseAmount + (i === remainingRentInstallmentsCount - 1 ? remainder : 0),
-          propertyCode: propertyCode,
-        });
+        preview.push({ rank: preview.length + 1, type: 'إيجار', date: instDate, amount: baseAmount + (i === remainingRentInstallmentsCount - 1 ? remainder : 0), propertyCode });
       }
 
-      // إضافة التأمين قبل نهاية العقد بيوم واحد فقط (منفصل)
       if (contract.قيمة_التأمين && contract.قيمة_التأمين > 0) {
         const securityDate = addDaysDateOnly(endBase, -1);
         if (!securityDate) {
           toast.error(t('تعذر حساب تاريخ التأمين'));
           return;
         }
-
-        preview.push({
-          rank: preview.length + 1,
-          type: 'تأمين',
-          date: formatDateOnly(securityDate),
-          amount: contract.قيمة_التأمين,
-          propertyCode: propertyCode,
-        });
+        preview.push({ rank: preview.length + 1, type: 'تأمين', date: securityDate, amount: contract.قيمة_التأمين, propertyCode });
       }
 
       setInstallmentsPreview(preview);
@@ -622,20 +486,8 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     payload.رقم_الفرصة = opp || undefined;
 
     const res = isEditMode
-      ? DbService.updateContract(
-          String(id),
-          payload,
-          Number(commOwner || 0),
-          Number(commTenant || 0),
-          commissionPaidMonth,
-          { regenerateInstallments }
-        )
-      : DbService.createContract(
-          payload,
-          Number(commOwner || 0),
-          Number(commTenant || 0),
-          commissionPaidMonth
-        );
+      ? DbService.updateContract(String(id), payload, Number(commOwner || 0), Number(commTenant || 0), commissionPaidMonth, { regenerateInstallments })
+      : DbService.createContract(payload, Number(commOwner || 0), Number(commTenant || 0), commissionPaidMonth);
 
     if (!res.success) {
       toast.error(res.message);
@@ -649,7 +501,6 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
       return;
     }
 
-    // Create-mode notifications
     let tenantName = 'مستأجر';
     const tenantId = String(contract.رقم_المستاجر || '').trim();
     if (tenantId) {
@@ -658,9 +509,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
         try {
           const t = await domainGetSmart('people', tenantId);
           tenantName = String(t?.الاسم || '').trim() || tenantName;
-        } catch {
-          // ignore
-        }
+        } catch {}
       } else {
         const tenants = DbService.getPeople();
         const tenant = tenants.find((p) => p.رقم_الشخص === contract.رقم_المستاجر);
@@ -672,7 +521,6 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     toast.success(t('تم إنشاء العقد بنجاح'));
     notify.contractCreated(newContractId, tenantName);
 
-    // WhatsApp: confirm before opening the send panel
     try {
       const contractData = res.data as العقود_tbl;
       const appSettings = DbService.getSettings?.();
@@ -689,19 +537,11 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
           const tenantId2 = String(contractData?.رقم_المستاجر || '').trim();
           const guarantorId = String(contractData?.رقم_الكفيل || '').trim();
 
-          const property = propertyId
-            ? ((await domainGetSmart('properties', propertyId)) as العقارات_tbl | null)
-            : null;
-          const tenant = tenantId2
-            ? ((await domainGetSmart('people', tenantId2)) as الأشخاص_tbl | null)
-            : null;
+          const property = propertyId ? ((await domainGetSmart('properties', propertyId)) as العقارات_tbl | null) : null;
+          const tenant = tenantId2 ? ((await domainGetSmart('people', tenantId2)) as الأشخاص_tbl | null) : null;
           const ownerId = String(property?.رقم_المالك || '').trim();
-          const owner = ownerId
-            ? ((await domainGetSmart('people', ownerId)) as الأشخاص_tbl | null)
-            : null;
-          const guarantor = guarantorId
-            ? ((await domainGetSmart('people', guarantorId)) as الأشخاص_tbl | null)
-            : null;
+          const owner = ownerId ? ((await domainGetSmart('people', ownerId)) as الأشخاص_tbl | null) : null;
+          const guarantor = guarantorId ? ((await domainGetSmart('people', guarantorId)) as الأشخاص_tbl | null) : null;
 
           const atts = await listAttachmentsSmart('Contract', String(contractData.رقم_العقد || ''));
           const installments = (installmentsPreview || []).map((x) => ({
@@ -722,30 +562,20 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
             installments,
             attachments: (atts || []).map((a) => ({ fileName: a.fileName })),
           });
-        } catch {
-          // ignore: WhatsApp sending is optional
-        }
+        } catch {}
       };
 
       const contractKey = String(contractData?.رقم_العقد || '').trim();
-      const promptKey = contractKey
-        ? `contract_whatsapp_prompt_${contractKey}`
-        : 'contract_whatsapp_prompt';
+      const promptKey = contractKey ? `contract_whatsapp_prompt_${contractKey}` : 'contract_whatsapp_prompt';
 
       openPanel('CONFIRM_MODAL', promptKey, {
         title: t('إرسال واتساب'),
-        message: t(
-          'هل تريد فتح شاشة إرسال واتساب لرسالة توقيع العقد الآن؟\n\nيمكنك اختيار المستأجر/المالك/الكفيل، ثم تأكيد الإرسال من داخل الشاشة.'
-        ),
+        message: t('هل تريد فتح شاشة إرسال واتساب لرسالة توقيع العقد الآن؟\n\nيمكنك اختيار المستأجر/المالك/الكفيل، ثم تأكيد الإرسال من داخل الشاشة.'),
         confirmText: t('نعم، افتح شاشة الإرسال'),
         cancelText: t('لاحقاً'),
-        onConfirm: () => {
-          void openWhatsAppPanel();
-        },
+        onConfirm: () => { void openWhatsAppPanel(); },
       });
-    } catch {
-      // ignore
-    }
+    } catch {}
     if (onSuccess) onSuccess();
     if (onClose) onClose();
   };
@@ -769,7 +599,6 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
       </div>
 
       <div className="flex-1 overflow-y-auto p-8">
-        {/* Smart Assistant */}
         <SmartAssistant
           suggestions={suggestions}
           onAccept={applySuggestions}
@@ -1022,7 +851,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                     contract.تاريخ_النهاية
                       ? (() => {
                           const d = addDaysDateOnly(contract.تاريخ_النهاية, -1);
-                          return d ? formatDateOnly(d) : '';
+                          return d ? d : '';
                         })()
                       : ''
                   }
@@ -1201,7 +1030,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                           aria-label={t('قيمة الدفعة الأولى (محسوبة)')}
                           title={t('قيمة الدفعة الأولى (محسوبة)')}
                           className="w-full border border-gray-300 dark:border-slate-600 p-2 pr-10 rounded-lg bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-white"
-                          value={Math.round(
+                          value={roundCurrency(
                             (Math.max(0, Number(contract.القيمة_السنوية || 0)) / 12) *
                               Math.max(0, Number(contract.عدد_أشهر_الدفعة_الأولى || 0))
                           )}
@@ -1274,12 +1103,63 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
                         const clamped = Number.isFinite(n)
                           ? Math.max(2, Math.min(maxAllowed, n))
                           : 2;
-                        setContract((prev) => ({ ...prev, عدد_أقساط_الدفعة_الأولى: clamped }));
                       }}
                     />
                   )}
                 </div>
               )}
+            </div>
+            
+            <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30">
+              <h5 className="font-bold mb-3 flex items-center gap-2 text-red-800 dark:text-red-400">
+                <AlertTriangle size={16} /> {t('إعدادات غرامات التأخير')}
+              </h5>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-xs font-bold mb-1">{t('نوع الغرامة')}</label>
+                  <select
+                    className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-sm"
+                    value={contract.lateFeeType || 'none'}
+                    onChange={(e) => setContract(prev => ({ ...prev, lateFeeType: e.target.value as 'fixed' | 'percentage' | 'daily' | 'none' }))}
+                  >
+                    <option value="none">{t('بدون غرامات')}</option>
+                    <option value="fixed">{t('مبلغ ثابت')}</option>
+                    <option value="percentage">{t('نسبة مئوية من القسط')}</option>
+                    <option value="daily">{t('غرامة يومية تراكمية')}</option>
+                  </select>
+                </div>
+                {contract.lateFeeType !== 'none' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold mb-1">{t('القيمة')}</label>
+                      <input
+                        type="number"
+                        className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-sm"
+                        value={contract.lateFeeValue || 0}
+                        onChange={(e) => setContract(prev => ({ ...prev, lateFeeValue: Number(e.target.value) }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1">{t('فترة السماح (أيام)')}</label>
+                      <input
+                        type="number"
+                        className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-sm"
+                        value={contract.lateFeeGraceDays || 0}
+                        onChange={(e) => setContract(prev => ({ ...prev, lateFeeGraceDays: Number(e.target.value) }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1">{t('الحد الأقصى (اختياري)')}</label>
+                      <input
+                        type="number"
+                        className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-sm"
+                        value={contract.lateFeeMaxAmount || ''}
+                        onChange={(e) => setContract(prev => ({ ...prev, lateFeeMaxAmount: e.target.value ? Number(e.target.value) : undefined }))}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             <DynamicFieldsSection

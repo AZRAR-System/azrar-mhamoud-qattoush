@@ -763,6 +763,44 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             </div>
           </div>
         </div>
+        
+        {/* Financial Policies & Late Fees */}
+        {c.lateFeeType && c.lateFeeType !== 'none' && (
+          <div className="app-card p-6 bg-red-50/30 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-lg text-red-600 dark:text-red-400">
+                <AlertTriangle size={18} />
+              </div>
+              <h4 className="font-black text-red-800 dark:text-red-400">{t('سياسة غرامات التأخير')}</h4>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div>
+                <div className="text-[10px] font-black text-red-700/60 uppercase tracking-widest">{t('نوع الغرامة')}</div>
+                <div className="text-sm font-bold text-red-900 dark:text-red-300">
+                  {c.lateFeeType === 'fixed' ? t('مبلغ ثابت لكل دفعة') : 
+                   c.lateFeeType === 'percentage' ? t('نسبة مئوية من القسط') : 
+                   c.lateFeeType === 'daily' ? t('غرامة يومية تراكمية') : t('بدون')}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-black text-red-700/60 uppercase tracking-widest">{t('القيمة')}</div>
+                <div className="text-sm font-bold text-red-900 dark:text-red-300">
+                  {c.lateFeeType === 'percentage' ? `${c.lateFeeValue}%` : formatCurrencyJOD(c.lateFeeValue || 0)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-black text-red-700/60 uppercase tracking-widest">{t('فترة السماح')}</div>
+                <div className="text-sm font-bold text-red-900 dark:text-red-300">{c.lateFeeGraceDays || 0} {t('أيام')}</div>
+              </div>
+              {c.lateFeeMaxAmount && (
+                <div>
+                  <div className="text-[10px] font-black text-red-700/60 uppercase tracking-widest">{t('الحد الأقصى')}</div>
+                  <div className="text-sm font-bold text-red-900 dark:text-red-300">{formatCurrencyJOD(c.lateFeeMaxAmount)}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Main Content Tabs */}
         <div className="app-card overflow-hidden border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-slate-200/10 dark:shadow-black/20">
@@ -942,15 +980,15 @@ export const ContractPanel: React.FC<{ id: string; onClose?: () => void }> = ({ 
             )}
           </div>
         </div>
+      </div>
 
-        <AttachmentManager referenceType="Contract" referenceId={id} />
+      <AttachmentManager referenceType="Contract" referenceId={id} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <NotesSection type="Contract" referenceId={id} />
           <DynamicFieldsDisplay formId="contracts" values={c.حقول_ديناميكية} />
         </div>
-      </div>
-
+      
       {isDesktop && contractPrintOpen && contractPrintData ? (
         <ContractPrintPreview
           open

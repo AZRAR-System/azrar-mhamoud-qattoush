@@ -4,6 +4,8 @@
 
 import type { ClearanceRecord, ContractDetailsResult, DbResult } from '@/types';
 import { العقود_tbl, العقارات_tbl, الأشخاص_tbl, الكمبيالات_tbl, العمولات_tbl } from '@/types';
+import { roundCurrency } from '@/utils/format';
+import { parseDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 import { get, save } from './kv';
 import { KEYS } from './keys';
@@ -349,12 +351,28 @@ export function createContractWrites(deps: ContractWritesDeps) {
     return fail('العقد غير موجود');
   };
 
-  const renewContract = (id: string): DbResult<العقود_tbl> => {
+  const renewContract = (
+    id: string,
+    options?: { transferBalance?: boolean; transferSecurity?: boolean }
+  ): DbResult<العقود_tbl> => {
     const all = get<العقود_tbl>(KEYS.CONTRACTS);
     const idx = all.findIndex((c) => c.رقم_العقد === id);
     if (idx === -1) return fail('العقد غير موجود');
     const old = all[idx];
     if (old.linkedContractId) return fail('هذا العقد لديه تجديد بالفعل');
+
+    let transferredBalance = 0;
+    if (options?.transferBalance) {
+      const insts = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).filter((i) => i.رقم_العقد === id);
+      const totalDue = insts.reduce((sum, i) => sum + i.القيمة, 0);
+      const totalPaid = insts.reduce((sum, i) => {
+        const paid = i.سجل_الدفعات?.reduce((s, p) => s + p.المبلغ, 0) || (i.حالة_الكمبيالة === 'Paid' ? i.القيمة : 0);
+        return sum + (paid || 0);
+      }, 0);
+      transferredBalance = roundCurrency(totalPaid - totalDue);
+    }
+
+    const nextSecurity = options?.transferSecurity ? (old.قيمة_التأمين || 0) : 0;
 
     const newStart = addDaysIso(old.تاريخ_النهاية, 1);
     if (!newStart) return fail('تاريخ نهاية العقد غير صالح');
@@ -380,11 +398,30 @@ export function createContractWrites(deps: ContractWritesDeps) {
         isArchived: false,
         عقد_مرتبط: old.رقم_العقد,
         linkedContractId: undefined,
+        قيمة_الدفعة_الاولى: transferredBalance > 0 ? transferredBalance : old.قيمة_الدفعة_الاولى,
+        يوجد_دفعة_اولى: transferredBalance > 0 || old.يوجد_دفعة_اولى,
+        قيمة_التأمين: nextSecurity || old.قيمة_التأمين,
       },
       commOwner,
       commTenant,
       commissionPaidMonth
     );
+
+    if (transferredBalance < 0 && res.success && res.data) {
+      const debtAmount = Math.abs(transferredBalance);
+      const allInst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
+      const debtInst: الكمبيالات_tbl = {
+        رقم_الكمبيالة: `DEBT-${res.data.رقم_العقد}`,
+        رقم_العقد: res.data.رقم_العقد,
+        نوع_الكمبيالة: 'رصيد سابق',
+        تاريخ_استحقاق: newStart,
+        القيمة: debtAmount,
+        القيمة_المتبقية: debtAmount,
+        حالة_الكمبيالة: 'غير مدفوع',
+        ترتيب_الكمبيالة: 0, // Should be first
+      };
+      save(KEYS.INSTALLMENTS, [...allInst, debtInst]);
+    }
     if (!res.success || !res.data) return fail(res.message || 'فشل إنشاء عقد التجديد');
 
     const newId = res.data.رقم_العقد;
@@ -439,6 +476,84 @@ export function createContractWrites(deps: ContractWritesDeps) {
     return ok(null, 'تم حذف العقد بنجاح');
   };
 
+  const processSecurityDeposit = (
+    contractId: string,
+    deductions: number,
+    action: 'Return' | 'Execute' | 'ExecutePartial',
+    note?: string
+  ): DbResult<null> => {
+    const contracts = get<العقود_tbl>(KEYS.CONTRACTS);
+    const contract = contracts.find((c) => c.رقم_العقد === contractId);
+    if (!contract) return fail('العقد غير موجود');
+
+    const deposit = contract.قيمة_التأمين || 0;
+    const refund = roundCurrency(deposit - deductions);
+
+    logOperation('Admin', 'مخالصة تأمين', 'Contracts', contractId, 
+      `تسوية تأمين: القيمة الأصلية ${deposit}، الخصومات ${deductions}، الإجراء ${action}. ملاحظة: ${note || '-'}`
+    );
+
+    return ok(null, `تمت تسوية التأمين بنجاح. المبلغ المسترد: ${refund}`);
+  };
+
+  const autoArchiveContracts = (): DbResult<{ updated: number }> => {
+    const all = get<العقود_tbl>(KEYS.CONTRACTS);
+    const insts = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const today = parseDateOnly(todayStr)!;
+    let updated = 0;
+
+    const next = all.map((c) => {
+      const status = c.حالة_العقد;
+      
+      const isEnded = status === 'منتهي' || status === 'Expired';
+      const isTerminated = status === 'مفسوخ' || status === 'Terminated';
+      const isActive = status === 'نشط' || status === 'Active';
+
+      // 1. Handle Expiry Alert
+      if (isActive) {
+        const end = parseDateOnly(c.تاريخ_النهاية);
+        if (end) {
+          const daysToExpiry = daysBetweenDateOnly(today, end);
+          if (daysToExpiry <= 30 && daysToExpiry > 0) {
+             updated++;
+             return { ...c, حالة_العقد: 'قريب الانتهاء' };
+          }
+          if (daysToExpiry <= 0) {
+            updated++;
+            return { ...c, حالة_العقد: 'منتهي' };
+          }
+        }
+      }
+
+      // 2. Handle Archiving/Collection
+      if (isEnded || isTerminated || status === 'تحصيل') {
+        const cInsts = insts.filter((i) => i.رقم_العقد === c.رقم_العقد);
+        const totalDue = cInsts.reduce((sum, i) => sum + i.القيمة, 0);
+        const totalPaid = cInsts.reduce((sum, i) => {
+          const p = i.سجل_الدفعات?.reduce((s, x) => s + x.المبلغ, 0) || (i.حالة_الكمبيالة === 'Paid' ? i.القيمة : 0);
+          return sum + p;
+        }, 0);
+        
+        const isClean = roundCurrency(totalPaid) >= roundCurrency(totalDue);
+        
+        if (isClean && !c.isArchived) {
+          updated++;
+          return { ...c, isArchived: true, حالة_العقد: 'مؤرشف' };
+        }
+        if (!isClean && status !== 'تحصيل') {
+          updated++;
+          return { ...c, حالة_العقد: 'تحصيل' };
+        }
+      }
+
+      return c;
+    });
+
+    if (updated > 0) save(KEYS.CONTRACTS, next);
+    return ok({ updated }, `تم تحديث ${updated} عقد.`);
+  };
+
   return {
     createContract,
     updateContract,
@@ -446,5 +561,7 @@ export function createContractWrites(deps: ContractWritesDeps) {
     terminateContract,
     renewContract,
     deleteContract,
+    processSecurityDeposit,
+    autoArchiveContracts,
   };
 }

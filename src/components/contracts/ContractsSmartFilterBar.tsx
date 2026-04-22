@@ -58,6 +58,7 @@ export function ContractsSmartFilterBar({ page }: Props) {
             tabs={[
               { id: 'active', label: t('سارية'), icon: CheckCircle },
               { id: 'expiring', label: t('قريبة الانتهاء'), icon: Clock },
+              { id: 'collection', label: t('تحصيل'), icon: AlertTriangle },
               { id: 'expired', label: t('منتهية'), icon: AlertTriangle },
               { id: 'terminated', label: t('مفسوخة'), icon: Ban },
               { id: 'archived', label: t('الأرشيف'), icon: Archive },

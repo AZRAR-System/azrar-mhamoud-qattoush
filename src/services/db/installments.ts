@@ -4,8 +4,9 @@
 
 import type { DbResult, RoleType } from '@/types';
 import { العقود_tbl, الكمبيالات_tbl } from '@/types';
-import { formatCurrencyJOD } from '@/utils/format';
-import { formatDateOnly, parseDateOnly, toDateOnly } from '@/utils/dateOnly';
+import { formatCurrencyJOD, roundCurrency } from '@/utils/format';
+import { formatDateOnly, parseDateOnly, toDateOnly, addDaysDateOnly, todayDateOnlyISO, daysBetweenDateOnly } from '@/utils/dateOnly';
+import { addMonthsDateOnly } from '@/services/db/utils/dates';
 import { dbFail, dbOk } from '@/services/localDbStorage';
 import { get, save } from './kv';
 import { KEYS } from './keys';
@@ -21,13 +22,6 @@ const asUnknownRecord = (value: unknown): Record<string, unknown> =>
 
 const daysInMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 
-const addMonthsDateOnly = (isoDate: string, months: number) => {
-  const d = parseDateOnly(isoDate);
-  if (!d) return null;
-  const next = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  next.setMonth(next.getMonth() + months);
-  return next;
-};
 
 const calcDayDiffValue = (startIso: string, annualValue: number) => {
   const start = parseDateOnly(startIso);
@@ -37,7 +31,14 @@ const calcDayDiffValue = (startIso: string, annualValue: number) => {
   const dim = daysInMonth(start);
   const remainingDays = dim - day + 1;
   const monthRent = annualValue / 12;
-  return Math.round((monthRent * remainingDays) / dim);
+  return roundCurrency((monthRent * remainingDays) / dim);
+};
+
+const toFirstOfNextMonth = (iso: string) => {
+  const d = parseDateOnly(iso);
+  if (!d) return iso;
+  const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  return formatDateOnly(next);
 };
 
 /** Used by alerts/scans and mockDb payment logic — single source of truth. */
@@ -79,7 +80,7 @@ export const generateContractInstallmentsInternal = (
   const normalizedPeriodMonths =
     Number.isFinite(periodMonths) && periodMonths > 0 ? periodMonths : 1;
 
-  const totalRent = Math.round(monthRentExact * durationMonths);
+  const totalRent = roundCurrency(monthRentExact * durationMonths);
 
   const startIso = contract.تاريخ_البداية;
   const endIso = contract.تاريخ_النهاية;
@@ -89,9 +90,12 @@ export const generateContractInstallmentsInternal = (
 
   let installmentRank = 1;
 
+  let dayDiffValue = 0;
+  let dayDiffActive = false;
   if (contract.احتساب_فرق_ايام) {
-    const dayDiffValue = calcDayDiffValue(startIso, annualValue);
+    dayDiffValue = calcDayDiffValue(startIso, annualValue);
     if (dayDiffValue > 0) {
+      dayDiffActive = true;
       installments.push({
         رقم_الكمبيالة: `INS-${contractId}-DAYDIFF`,
         رقم_العقد: contractId,
@@ -99,12 +103,15 @@ export const generateContractInstallmentsInternal = (
         القيمة: dayDiffValue,
         حالة_الكمبيالة: INSTALLMENT_STATUS.UNPAID,
         isArchived: false,
-        نوع_الكمبيالة: 'فرق أيام',
+        نوع_الكمبيالة: 'إيجار',
+        نوع_الدفعة: 'فرق أيام',
         ترتيب_الكمبيالة: installmentRank,
       });
       installmentRank++;
     }
   }
+
+  const periodicStartIso = dayDiffActive ? toFirstOfNextMonth(startIso) : startIso;
 
   const rawDownPaymentValue =
     contract.يوجد_دفعة_اولى && contract.قيمة_الدفعة_الاولى && contract.قيمة_الدفعة_الاولى > 0
@@ -131,7 +138,7 @@ export const generateContractInstallmentsInternal = (
 
   const downPaymentValue = hasDownPayment
     ? downMonths > 0
-      ? Math.round(monthRentExact * downMonths)
+      ? roundCurrency(monthRentExact * downMonths)
       : rawDownPaymentValue
     : 0;
 
@@ -143,12 +150,13 @@ export const generateContractInstallmentsInternal = (
 
   if (downPaymentValue > 0) {
     if (splitDownPayment) {
+      const splitCount = Math.max(1, Number(contract.عدد_أقساط_الدفعة_الأولى || 1));
       if (splitCount < 2) return fail('عدد أقساط الدفعة الأولى يجب أن يكون 2 أو أكثر');
       if (splitCount > durationMonths)
         return fail('عدد أقساط الدفعة الأولى لا يمكن أن يتجاوز مدة العقد بالأشهر');
 
-      const base = Math.floor(downPaymentValue / splitCount);
-      const rem = downPaymentValue - base * splitCount;
+      const base = roundCurrency(downPaymentValue / splitCount);
+      const remainder = roundCurrency(downPaymentValue - base * splitCount);
       for (let j = 0; j < splitCount; j++) {
         const due = addMonthsDateOnly(startIso, j);
         if (!due) continue;
@@ -156,7 +164,7 @@ export const generateContractInstallmentsInternal = (
           رقم_الكمبيالة: `INS-${contractId}-DOWN-${j + 1}`,
           رقم_العقد: contractId,
           تاريخ_استحقاق: formatDateOnly(due),
-          القيمة: base + (j === splitCount - 1 ? rem : 0),
+          القيمة: base + (j === splitCount - 1 ? remainder : 0),
           حالة_الكمبيالة: INSTALLMENT_STATUS.UNPAID,
           isArchived: false,
           نوع_الكمبيالة: 'دفعة أولى',
@@ -185,28 +193,28 @@ export const generateContractInstallmentsInternal = (
 
   const remainingMonths = Math.max(
     0,
-    durationMonths - (downPaymentValue > 0 ? downCoverageMonths : 0)
+    durationMonths - (downPaymentValue > 0 ? downCoverageMonths : 0) - (dayDiffActive ? 1 : 0)
   );
-  const remainingRentTotal = Math.max(0, totalRent - downPaymentValue);
+  const remainingRentTotal = Math.max(0, totalRent - downPaymentValue - dayDiffValue);
 
   const remainingRentInstallmentsCount =
     remainingMonths > 0 ? Math.max(1, Math.ceil(remainingMonths / normalizedPeriodMonths)) : 0;
 
   const rentBaseAmount =
     remainingRentInstallmentsCount > 0
-      ? Math.floor(remainingRentTotal / remainingRentInstallmentsCount)
+      ? roundCurrency(remainingRentTotal / remainingRentInstallmentsCount)
       : 0;
   const rentRemainder =
     remainingRentInstallmentsCount > 0
-      ? remainingRentTotal - rentBaseAmount * remainingRentInstallmentsCount
+      ? roundCurrency(remainingRentTotal - rentBaseAmount * remainingRentInstallmentsCount)
       : 0;
 
   for (let i = 0; i < remainingRentInstallmentsCount; i++) {
     const baseOffset =
       (downPaymentValue > 0 ? downCoverageMonths : 0) + Math.round(i * normalizedPeriodMonths);
     const paymentOffset =
-      contract.طريقة_الدفع === 'Postpaid' ? Math.round(normalizedPeriodMonths) : 0;
-    const due = addMonthsDateOnly(startIso, baseOffset + paymentOffset);
+      contract.طريقة_الدفع === 'Postpaid' ? roundCurrency(normalizedPeriodMonths) : 0;
+    const due = addMonthsDateOnly(periodicStartIso, baseOffset + paymentOffset);
     if (!due) continue;
     const installmentAmount =
       rentBaseAmount + (i === remainingRentInstallmentsCount - 1 ? rentRemainder : 0);
@@ -247,9 +255,59 @@ export const generateContractInstallmentsInternal = (
 };
 
 export const getInstallmentPaymentSummary = (installmentId: string) => {
-  const inst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).find(
-    (i) => i.رقم_الكمبيالة === installmentId
-  );
+  const inst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).find((i) => i.رقم_الكمبيالة === installmentId);
+  if (!inst) return null;
+  return getInstallmentPaidAndRemaining(inst);
+};
+
+export const calculateAutoLateFees = (
+  contract: العقود_tbl,
+  installments: الكمبيالات_tbl[]
+): Array<{ installmentId: string; suggestedFee: number; daysLate: number }> => {
+  if (contract.lateFeeType === 'none' || !contract.lateFeeType) return [];
+
+  const today = parseDateOnly(todayDateOnlyISO())!;
+  const grace = Number(contract.lateFeeGraceDays || 0);
+  const type = contract.lateFeeType;
+  const value = Number(contract.lateFeeValue || 0);
+  const max = contract.lateFeeMaxAmount ? Number(contract.lateFeeMaxAmount) : Infinity;
+
+  const results: Array<{ installmentId: string; suggestedFee: number; daysLate: number }> = [];
+
+  for (const inst of installments) {
+    const { remaining } = getInstallmentPaidAndRemaining(inst);
+    if (remaining <= 0) continue;
+
+    const due = parseDateOnly(inst.تاريخ_استحقاق);
+    if (!due) continue;
+
+    const daysLate = daysBetweenDateOnly(due, today);
+    if (daysLate <= grace) continue;
+
+    let fee = 0;
+    if (type === 'fixed') {
+      fee = value;
+    } else if (type === 'percentage') {
+      fee = roundCurrency((inst.القيمة * value) / 100);
+    } else if (type === 'daily') {
+      fee = roundCurrency(value * (daysLate - grace));
+    }
+
+    const cappedFee = Math.min(fee, max);
+    if (cappedFee > 0) {
+      results.push({
+        installmentId: inst.رقم_الكمبيالة,
+        suggestedFee: cappedFee,
+        daysLate,
+      });
+    }
+  }
+
+  return results;
+};
+
+export const getInstallmentStatus = (installmentId: string) => {
+  const inst = getInstallments().find((i) => i.رقم_الكمبيالة === installmentId);
   if (!inst) return null;
 
   const totalPaid =

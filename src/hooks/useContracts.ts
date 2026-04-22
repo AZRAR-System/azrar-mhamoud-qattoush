@@ -52,7 +52,7 @@ export function useContracts(isVisible = true) {
 
   type ContractsFiltersSaved = {
     searchTerm?: string;
-    activeStatus?: 'active' | 'expiring' | 'expired' | 'terminated' | 'archived';
+    activeStatus?: 'active' | 'expiring' | 'expired' | 'terminated' | 'archived' | 'collection';
     sortMode?: 'created-desc' | 'created-asc' | 'end-desc' | 'end-asc';
     showAdvanced?: boolean;
     advFilters?: ContractsAdvFiltersState;
@@ -66,7 +66,7 @@ export function useContracts(isVisible = true) {
   const [installments, setInstallments] = useState<الكمبيالات_tbl[]>([]);
   const [searchTerm, setSearchTerm] = useState(() => savedContractFilters?.searchTerm ?? '');
   const [activeStatus, setActiveStatus] = useState<
-    'active' | 'expiring' | 'expired' | 'terminated' | 'archived'
+    'active' | 'expiring' | 'expired' | 'terminated' | 'archived' | 'collection'
   >(() => savedContractFilters?.activeStatus ?? 'active');
   const [sortMode, setSortMode] = useState<'created-desc' | 'created-asc' | 'end-desc' | 'end-asc'>(
     () => savedContractFilters?.sortMode ?? 'created-desc'
@@ -130,7 +130,7 @@ export function useContracts(isVisible = true) {
       const params = new URLSearchParams(search);
 
       const status = (params.get('status') || params.get('tab') || '').trim();
-      const allowed = ['active', 'expiring', 'expired', 'terminated', 'archived'] as const;
+      const allowed = ['active', 'expiring', 'expired', 'terminated', 'archived', 'collection'] as const;
       if (status && (allowed as readonly string[]).includes(status)) {
         setActiveStatus(status as (typeof allowed)[number]);
       }
@@ -243,8 +243,26 @@ export function useContracts(isVisible = true) {
 
   useEffect(() => {
     if (isVisible) {
-      if (isStaleRef.current) {
+      const loadData = async () => {
         isStaleRef.current = false;
+        setListLoading(true);
+
+        // Phase 6: Run auto-archive scan on load
+        DbService.autoArchiveContracts();
+
+        const [allC, allP, allR, allI] = await Promise.all([
+          DbService.getContracts(),
+          DbService.getProperties(),
+          DbService.getPeople(),
+          DbService.getInstallments(),
+        ]);
+        setContracts(allC || []);
+        setProperties(allP || []);
+        setPeople(allR || []);
+        setInstallments(allI || []);
+        setListLoading(false);
+      };
+      if (isStaleRef.current) {
         loadData();
       } else {
         loadData();
@@ -252,7 +270,7 @@ export function useContracts(isVisible = true) {
     } else {
       // background
     }
-  }, [isVisible, dbSignal, loadData]);
+  }, [isVisible, dbSignal]);
 
   useEffect(() => {
     if (!isVisible && dbSignal) {
@@ -381,32 +399,27 @@ export function useContracts(isVisible = true) {
 
   const filteredContracts = useMemo(() => {
     if (isDesktopFast) return [];
-    const isTerminatedStatus = (status: unknown) => {
-      const s = normalizeSearchTextStrict(String(status || '')).trim();
-      return s.startsWith('مفسوخ') || s.startsWith('ملغ') || s.includes('الغاء');
-    };
-    const isExpiredStatus = (status: unknown) => {
-      const s = normalizeSearchTextStrict(String(status || '')).trim();
-      return s.startsWith('منتهي');
-    };
-    const isExpiringStatus = (status: unknown) => {
-      const s = normalizeSearchTextStrict(String(status || '')).trim();
-      return s === 'قريب الانتهاء' || s === 'قريبة الانتهاء';
-    };
     // 1. Status Filter
     let result = contracts.filter((c) => {
       if (activeStatus === 'archived') return c.isArchived;
       if (c.isArchived) return false;
 
-      switch (activeStatus) {
+      const status = String(c.حالة_العقد || '').trim();
+      const isArchived = !!c.isArchived;
+
+      switch (activeStatus as string) {
         case 'active':
-          return isTenancyRelevant(c);
+          return !isArchived && (status === 'نشط' || status === 'Active' || status === 'قريب الانتهاء');
         case 'expiring':
-          return isExpiringStatus(c.حالة_العقد);
+          return !isArchived && (status === 'قريب الانتهاء' || status === 'قريبة الانتهاء');
+        case 'collection':
+          return !isArchived && (status === 'تحصيل');
         case 'expired':
-          return isExpiredStatus(c.حالة_العقد);
+          return !isArchived && (status === 'منتهي' || status === 'Expired');
         case 'terminated':
-          return isTerminatedStatus(c.حالة_العقد);
+          return !isArchived && (status === 'مفسوخ' || status === 'Terminated');
+        case 'archived':
+          return isArchived || status === 'مؤرشف';
         default:
           return true;
       }
