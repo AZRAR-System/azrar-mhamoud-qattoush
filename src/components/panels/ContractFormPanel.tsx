@@ -1,14 +1,9 @@
-import React, { useId, useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { DbService } from '@/services/mockDb';
-import { الأشخاص_tbl, العقارات_tbl, العقود_tbl, PaymentMethodType, SmartSuggestion } from '@/types';
+import React, { useId, useState, useEffect, useMemo, useCallback } from 'react';
+import { العقود_tbl } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import { useNotification } from '@/hooks/useNotification';
-import { useSmartModal } from '@/context/ModalContext';
 import { Check, ArrowRight, ArrowLeft } from 'lucide-react';
-import { SmartEngine } from '@/services/smartEngine';
-import { SmartAssistant } from '@/components/smart/SmartAssistant';
-import { formatDateOnly, parseDateOnly, todayDateOnlyISO } from '@/utils/dateOnly';
-import { roundCurrency } from '@/utils/format';
+import { todayDateOnlyISO } from '@/utils/dateOnly';
 import { ContractFinancialEngine } from '@/services/db/ContractFinancialEngine';
 
 // Modular Components
@@ -31,13 +26,8 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
   const baseId = useId();
   const [step, setStep] = useState(1);
   const toast = useToast();
-  const { success, error, warning } = useNotification();
-  const { activePanels, closePanel } = useSmartModal();
+  const { warning } = useNotification();
 
-  const commissionTouchedRef = useRef(false);
-  const commissionMonthTouchedRef = useRef(false);
-  const rentPaymentTextTouchedRef = useRef(false);
-  const contractDurationTextTouchedRef = useRef(false);
 
   const [contract, setContract] = useState<Partial<العقود_tbl>>({
     تاريخ_البداية: todayDateOnlyISO(),
@@ -56,8 +46,8 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
   const [commOwner, setCommOwner] = useState<number | ''>('');
   const [commTenant, setCommTenant] = useState<number | ''>('');
   const [commissionPaidMonth, setCommissionPaidMonth] = useState('');
-  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
-  const [hasPaidInstallments, setHasPaidInstallments] = useState(false);
+  const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
+  const [hasPaidInstallments] = useState(false);
   const [regenerateInstallments, setRegenerateInstallments] = useState(true);
   const [installmentsPreview, setInstallmentsPreview] = useState<InstallmentPreviewRow[]>([]);
   const [dayDiffValue, setDayDiffValue] = useState(0);
@@ -82,7 +72,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
       const generated = ContractFinancialEngine.calculateSchedule(contract, id || 'preview');
       const preview: InstallmentPreviewRow[] = generated.map((inst, i) => ({
          rank: inst.ترتيب_الكمبيالة || i + 1,
-         type: inst.نوع_الدفعة as any,
+         type: inst.نوع_الدفعة as 'فرق أيام' | 'دفعة أولى' | 'إيجار' | 'تأمين' | 'دورية',
          date: inst.تاريخ_استحقاق,
          amount: inst.القيمة,
          propertyCode: '3938' // Simulated or fetched
@@ -109,7 +99,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
        toast.success(t('تم إنشاء العقد بنجاح'));
        onSuccess?.();
        onClose?.();
-    } catch (err) {
+    } catch (_err) {
        toast.error(t('فشل في حفظ العقد'));
     }
   };

@@ -8,13 +8,12 @@ import {
   الكمبيالات_tbl,
   type PaymentMethodType,
 } from '@/types';
-import { isTenancyRelevant } from '@/utils/tenancy';
 import { exportToXlsx, readSpreadsheet, type XlsxColumn } from '@/utils/xlsx';
 import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { SearchEngine, FilterRule } from '@/services/searchEngine';
-import { normalizeDigitsLoose, normalizeSearchTextStrict } from '@/utils/searchNormalize';
+import { normalizeDigitsLoose } from '@/utils/searchNormalize';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useDebounce } from '@/hooks/useDebounce';

@@ -3,7 +3,6 @@ import { ContractStepProps } from './types';
 import { CheckCircle } from 'lucide-react';
 
 export const ContractSettlement: React.FC<ContractStepProps> = ({
-  contract,
   t,
 }) => {
   return (

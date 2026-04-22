@@ -345,7 +345,7 @@ export function createContractWrites(deps: ContractWritesDeps) {
     const all = get<العقود_tbl>(KEYS.CONTRACTS);
     const insts = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
     const todayStr = formatDateOnly(new Date());
-    const today = parseDateOnly(todayStr)!;
+    const today = parseDateOnly(todayStr) || new Date();
     let updated = 0;
 
     const next = all.map((c) => {

@@ -60,7 +60,6 @@ export class ContractFinancialEngine {
     const startIso = contract.تاريخ_البداية || '';
     const annualValue = Math.max(0, Number(contract.القيمة_السنوية || 0));
     const durationMonths = Math.max(1, Number(contract.مدة_العقد_بالاشهر || 12));
-    const paymentDay = Number(contract.يوم_الدفع || 1);
     
     // Frequencies: monthly=12, bimonthly=6, quarterly=4, semi_annual=2, annual=1
     // Wait, the UI passes تكرار_الدفع as count of payments per year usually.

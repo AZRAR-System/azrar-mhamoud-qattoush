@@ -1,4 +1,4 @@
-import { العقود_tbl, PaymentMethodType } from '@/types';
+import { العقود_tbl } from '@/types';
 
 export type InstallmentPreviewRow = {
   rank: number;
@@ -36,8 +36,8 @@ export interface TermsStepProps extends ContractStepProps {
   isEditMode: boolean;
   recalcCommissionAuto: () => void;
   contractValueInfo: { total: number; months: number };
-  dynamicValues: Record<string, any>;
-  setDynamicValues: (v: Record<string, any>) => void;
+  dynamicValues: Record<string, unknown>;
+  setDynamicValues: (v: Record<string, unknown>) => void;
   hasPaidInstallments: boolean;
   regenerateInstallments: boolean;
   setRegenerateInstallments: (v: boolean) => void;

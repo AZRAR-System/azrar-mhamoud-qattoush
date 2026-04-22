@@ -1,15 +1,13 @@
 import React from 'react';
 import { TermsStepProps } from './types';
 import { HandCoins, AlertTriangle } from 'lucide-react';
-import { formatCurrencyJOD } from '@/utils/format';
+import { normalizeDigitsToLatin } from '@/utils/numberInput';
 import { CurrencySuffix } from '@/components/ui/CurrencySuffix';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
-import { normalizeDigitsToLatin, parseNumberOrUndefined } from '@/utils/numberInput';
 
 export const ContractStep3_Terms: React.FC<TermsStepProps> = ({
   contract,
   setContract,
-  baseId,
   t,
   commOwner,
   setCommOwner,
@@ -18,8 +16,6 @@ export const ContractStep3_Terms: React.FC<TermsStepProps> = ({
   commissionPaidMonth,
   setCommissionPaidMonth,
   isEditMode,
-  recalcCommissionAuto,
-  contractValueInfo,
   dynamicValues,
   setDynamicValues,
   hasPaidInstallments,
@@ -40,7 +36,7 @@ export const ContractStep3_Terms: React.FC<TermsStepProps> = ({
             <select
               className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-sm"
               value={contract.lateFeeType || 'none'}
-              onChange={(e) => setContract(prev => ({ ...prev, lateFeeType: e.target.value as any }))}
+              onChange={(e) => setContract(prev => ({ ...prev, lateFeeType: e.target.value as 'fixed' | 'percentage' | 'daily' | 'none' }))}
             >
               <option value="none">{t('بدون غرامات')}</option>
               <option value="fixed">{t('مبلغ ثابت')}</option>

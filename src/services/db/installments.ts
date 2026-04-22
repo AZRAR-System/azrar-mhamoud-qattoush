@@ -68,7 +68,7 @@ export const calculateAutoLateFees = (
 ): Array<{ installmentId: string; suggestedFee: number; daysLate: number }> => {
   if (contract.lateFeeType === 'none' || !contract.lateFeeType) return [];
 
-  const today = parseDateOnly(todayDateOnlyISO())!;
+  const today = parseDateOnly(todayDateOnlyISO()) || new Date();
   const grace = Number(contract.lateFeeGraceDays || 0);
   const type = contract.lateFeeType;
   const value = Number(contract.lateFeeValue || 0);

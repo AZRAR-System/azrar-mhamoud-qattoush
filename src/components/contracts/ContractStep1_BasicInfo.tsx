@@ -6,7 +6,6 @@ import { PropertyPicker } from '@/components/shared/PropertyPicker';
 export const ContractStep1_BasicInfo: React.FC<ContractStepProps> = ({
   contract,
   setContract,
-  baseId,
   t,
 }) => {
   return (
