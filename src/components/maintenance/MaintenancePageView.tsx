@@ -1,6 +1,5 @@
 import {
   Wrench,
-  Plus,
   CheckCircle,
   Clock,
   User,
@@ -10,6 +9,7 @@ import {
   Trash2,
   AlertTriangle,
 } from 'lucide-react';
+import { MaintenanceSmartFilterBar } from './MaintenanceSmartFilterBar';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
@@ -19,7 +19,6 @@ import { MoneyInput } from '@/components/ui/MoneyInput';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
 import { formatDynamicValue, isEmptyDynamicValue } from '@/components/dynamic/dynamicValue';
-import { PaginationControls } from '@/components/shared/PaginationControls';
 import type { useMaintenance } from '@/hooks/useMaintenance';
 import { تذاكر_الصيانة_tbl } from '@/types';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
@@ -36,7 +35,6 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
     visibleTickets,
     filteredTickets,
     showDynamicColumns,
-    setShowDynamicColumns,
     isModalOpen,
     setIsModalOpen,
     filter,
@@ -59,6 +57,9 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
     handleDeleteTicket,
     getPropName,
     getPropertyContext,
+    searchTerm,
+    setSearchTerm,
+    refreshData,
     people,
   } = page;
 
@@ -75,13 +76,19 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
         title="الصيانة والدعم الفني"
         description="إدارة طلبات الصيانة وتكاليف الإصلاح"
         icon={Wrench}
-        actions={
-          <RBACGuard requiredPermission="EDIT_MAINTENANCE">
-            <Button onClick={() => handleOpenModal()} leftIcon={<Plus size={18} />}>
-              تذكرة جديدة
-            </Button>
-          </RBACGuard>
-        }
+      />
+
+      <MaintenanceSmartFilterBar
+        statusFilter={filter}
+        setStatusFilter={(v) => setFilter(v as 'all' | 'open' | 'closed')}
+        searchQuery={searchTerm}
+        setSearchQuery={setSearchTerm}
+        totalResults={filteredTickets.length}
+        currentPage={currentPage}
+        totalPages={pageCount}
+        onPageChange={setPage}
+        onRefresh={refreshData}
+        onNewTicket={() => handleOpenModal()}
       />
 
       <StatsCardRow>
@@ -107,44 +114,6 @@ export const MaintenancePageView: React.FC<MaintenancePageViewProps> = ({ page }
 
       <div className="space-y-6">
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-4 app-card p-2 w-fit">
-        <Button
-          size="sm"
-          variant={filter === 'all' ? 'secondary' : 'ghost'}
-          onClick={() => setFilter('all')}
-        >
-          الكل
-        </Button>
-        <Button
-          size="sm"
-          variant={filter === 'open' ? 'secondary' : 'ghost'}
-          onClick={() => setFilter('open')}
-        >
-          قيد العمل
-        </Button>
-        <Button
-          size="sm"
-          variant={filter === 'closed' ? 'secondary' : 'ghost'}
-          onClick={() => setFilter('closed')}
-        >
-          مغلقة
-        </Button>
-        <Button
-          size="sm"
-          variant={showDynamicColumns ? 'secondary' : 'ghost'}
-          onClick={() => setShowDynamicColumns((v) => !v)}
-        >
-          {showDynamicColumns ? 'إخفاء الحقول الإضافية' : 'إظهار الحقول الإضافية'}
-        </Button>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-xs text-slate-600 dark:text-slate-400">
-          الإجمالي: {filteredTickets.length.toLocaleString()} تذكرة
-        </div>
-        <PaginationControls page={currentPage} pageCount={pageCount} onPageChange={setPage} />
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {visibleTickets.map((ticket) => {

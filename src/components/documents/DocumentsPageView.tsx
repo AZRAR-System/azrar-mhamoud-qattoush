@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatCard } from '@/components/shared/StatCard';
 import { FileText, Eye, Image as ImageIcon } from 'lucide-react';
+import { DocumentsSmartFilterBar } from './DocumentsSmartFilterBar';
 import type { Attachment, ReferenceType } from '@/types';
 import { FileViewer } from '@/components/shared/FileViewer';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
@@ -75,7 +76,7 @@ const DocumentsKindSection: React.FC<{
 
 export const DocumentsPageView: FC<{ page: UseDocumentsReturn }> = ({ page }) => {
   const {
-    attachments, grouped, viewingFile, setViewingFile, desktopUnsupported,
+    attachments, filteredAttachments, grouped, search, setSearch, viewingFile, setViewingFile, desktopUnsupported,
     formatSize, typeLabel, typeIcon, describeReference,
   } = page;
 
@@ -89,6 +90,13 @@ export const DocumentsPageView: FC<{ page: UseDocumentsReturn }> = ({ page }) =>
         title="مركز المستندات والمرفقات"
         description="عرض مجمّع لكافة المرفقات في النظام، مصنفة حسب العقارات، الأشخاص، والعقود."
         icon={<FileText size={32} />}
+      />
+
+      <DocumentsSmartFilterBar
+        search={search}
+        setSearch={setSearch}
+        totalCount={attachments.length}
+        filteredCount={filteredAttachments.length}
       />
 
       <StatsCardRow cols={2}>

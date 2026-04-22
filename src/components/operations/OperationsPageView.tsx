@@ -13,7 +13,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Info,
-  RefreshCcw,
   Loader2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -22,7 +21,8 @@ import { Input } from '@/components/ui/Input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
-import { StatCard } from '@/components/shared/StatCard';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { OperationsSmartFilterBar } from './OperationsSmartFilterBar';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import type { useOperations } from '@/hooks/useOperations';
 import type { العقود_tbl, الكمبيالات_tbl } from '@/types';
@@ -141,38 +141,26 @@ export const OperationsPageView: React.FC<OperationsPageViewProps> = ({ page }) 
   } = page;
 
   return (
-    <div className="animate-fade-in pb-10 space-y-8">
+    <PageLayout>
       <SmartPageHero
         title="العمليات والإجراءات"
         description="سداد دفعات العقود وتوثيقها تلقائياً ضمن سجل العمليات"
         icon={Wallet}
-        actions={
-          <Button
-            variant="secondary"
-            onClick={loadData}
-            className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black px-6 py-3 rounded-2xl shadow-soft hover:shadow-md transition-all active:scale-95"
-            leftIcon={<RefreshCcw size={20} />}
-          >
-            تحديث البيانات
-          </Button>
-        }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <StatCard
-          label="إجمالي العقود"
-          value={contractsTotal}
-          icon={FileText}
-          color="indigo"
-        />
-        <StatCard
-          label="دفعات معلقة بالعقد المختار"
-          value={pendingInstallments.length}
-          icon={Wallet}
-          color="amber"
-        />
-      </div>
+      <OperationsSmartFilterBar
+        search={search}
+        setSearch={setSearch}
+        onRefresh={loadData}
+        onReset={currentStep !== 'select-contract' ? () => {
+          setCurrentStep('select-contract');
+          setSelectedInstallment(null);
+        } : undefined}
+        currentStep={currentStep}
+        totalContracts={contractsTotal}
+        pendingCount={pendingInstallments.length}
+      />
+
 
       {/* Progress Indicator */}
       {currentStep !== 'select-contract' && currentStep !== 'complete' && (
@@ -288,19 +276,6 @@ export const OperationsPageView: React.FC<OperationsPageViewProps> = ({ page }) 
           >
             {currentStep === 'select-contract' && (
               <div className="space-y-6">
-                <div className="relative group">
-                  <Search
-                    size={20}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
-                  />
-                  <Input
-                    type="text"
-                    placeholder="بحث: اسم المستأجر، رقم العقد، كود العقار..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pr-12 py-3.5 bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold"
-                  />
-                </div>
 
                 <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
                   {desktopUnsupported ? (
@@ -737,6 +712,6 @@ export const OperationsPageView: React.FC<OperationsPageViewProps> = ({ page }) 
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 };

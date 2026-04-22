@@ -1,9 +1,15 @@
-import { Plus, Users, ShieldAlert, Download, SlidersHorizontal, Filter } from 'lucide-react';
+import { 
+    Users, 
+    ShieldAlert, 
+    Upload, 
+    FileText, 
+    SlidersHorizontal, 
+    LayoutGrid, 
+    Building2, 
+    UserPlus,
+    UserCheck
+} from 'lucide-react';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
-import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
-import { RBACGuard } from '@/components/shared/RBACGuard';
-import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import type { PeoplePageModel } from '@/hooks/usePeople';
 
 type Props = { page: PeoplePageModel };
@@ -32,104 +38,109 @@ export function PeopleSmartFilterBar({ page }: Props) {
     handleOpenForm,
     handleOpenCompanyForm,
     clearFilters,
+    isDesktopFast,
+    desktopTotal,
+    desktopPage,
+    setDesktopPage,
+    filtered,
+    uiPage,
+    setUiPage,
+    uiPageCount,
+    desktopPageCount
   } = page;
+
+  const totalResults = isDesktopFast ? desktopTotal : filtered.length;
+  const currentPage = isDesktopFast ? desktopPage : uiPage;
+  const totalPages = isDesktopFast ? desktopPageCount : uiPageCount;
+  const onPageChange = isDesktopFast ? setDesktopPage : setUiPage;
 
   return (
     <SmartFilterBar
-      omitTitle
-      title={t('إدارة الأشخاص')}
-      subtitle={t('سجل العملاء، الملاك، والمستأجرين')}
+      addButton={{
+        label: t('ملف جديد'),
+        onClick: () => handleOpenForm(),
+        permission: 'ADD_PERSON'
+      }}
+      searchPlaceholder={t('بحث بالاسم، الهاتف، الرقم الوطني...')}
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
-      searchPlaceholder={t('بحث: الاسم، الهاتف، الرقم الوطني...')}
-      onClearFilters={clearFilters}
       onRefresh={() => void loadData()}
-      extraActions={
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <SegmentedTabs
-            tabs={[
-              { id: 'all', label: t('الكل'), icon: Users },
-              ...availableRoles.map((role) => ({ id: role.label, label: tr(role.label) })),
-              { id: 'blacklisted', label: t('القائمة السوداء'), icon: ShieldAlert },
-            ]}
-            activeId={activeRoleTab}
-            onChange={(id) => setActiveRoleTab(id)}
-          />
+      onExport={handleExport}
+      onClearFilters={clearFilters}
 
-          <Select
-            value={sortMode}
-            onChange={(e) =>
-              setSortMode(
-                e.target.value as 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc'
-              )
-            }
-            options={[
-              { value: 'name-asc', label: t('الاسم: تصاعدي') },
-              { value: 'name-desc', label: t('الاسم: تنازلي') },
-              { value: 'updated-desc', label: t('الأحدث') },
-              { value: 'updated-asc', label: t('الأقدم') },
-            ]}
-          />
+      // Tabs: All, Specific Roles, Blacklisted
+      tabs={[
+        { id: 'all', label: t('الكل'), icon: Users },
+        ...availableRoles.map((role) => ({ 
+            id: role.label, 
+            label: tr(role.label),
+            // Map simple role icons if appropriate
+            icon: role.label === 'مالك' ? UserCheck : role.label === 'مستأجر' ? UserPlus : undefined
+        })),
+        { id: 'blacklisted', label: t('القائمة السوداء'), icon: ShieldAlert },
+      ]}
+      activeTab={activeRoleTab}
+      onTabChange={(id) => setActiveRoleTab(id)}
 
-          <Button
-            variant={showAdvanced ? 'outline' : 'secondary'}
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            leftIcon={<SlidersHorizontal size={18} />}
-          >
-            {showAdvanced ? t('إخفاء') : t('تصفية')}
-          </Button>
+      // More Actions Dropdown
+      moreActions={[
+        {
+          label: t('منشأة جديدة'),
+          icon: Building2,
+          onClick: handleOpenCompanyForm,
+          permission: 'ADD_PERSON'
+        },
+        {
+          label: showAdvanced ? t('إخفاء الفلاتر المتقدمة') : t('الفلاتر المتقدمة'),
+          icon: SlidersHorizontal,
+          onClick: () => setShowAdvanced(!showAdvanced)
+        },
+        {
+          label: showDynamicColumns ? t('إخفاء الحقول الإضافية') : t('إظهار الحقول الإضافية'),
+          icon: LayoutGrid,
+          onClick: () => setShowDynamicColumns(v => !v)
+        },
+        {
+          label: t('قالب Excel'),
+          icon: FileText,
+          onClick: handleDownloadTemplate
+        },
+        {
+          label: t('استيراد'),
+          icon: Upload,
+          onClick: handlePickImportFile,
+          permission: 'ADD_PERSON'
+        }
+      ]}
 
-          {activeRoleTab === 'مالك' && (
-            <Button
-              variant={showOnlyIdleOwners ? 'danger' : 'secondary'}
-              size="sm"
-              onClick={() => setShowOnlyIdleOwners(!showOnlyIdleOwners)}
-              leftIcon={<Filter size={14} />}
-            >
-              {t('ملاك عقاراتهم شاغرة')}
-            </Button>
-          )}
+      // Filter Chips
+      filters={[
+        ...(activeRoleTab === 'مالك' ? [{
+            id: 'idle-owners',
+            label: t('تصفية الملاك'),
+            options: [
+                { value: 'all', label: t('جميع الملاك') },
+                { value: 'idle', label: t('عقاراتهم شاغرة') }
+            ],
+            value: showOnlyIdleOwners ? 'idle' : 'all',
+            onChange: (v: string) => setShowOnlyIdleOwners(v === 'idle')
+        }] : [])
+      ]}
 
-          <Button variant="secondary" size="sm" onClick={() => setShowDynamicColumns((v) => !v)}>
-            {showDynamicColumns ? t('إخفاء الحقول الإضافية') : t('إظهار الحقول الإضافية')}
-          </Button>
+      // Sort Options
+      sortValue={sortMode}
+      onSortChange={(v) => setSortMode(v as 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc')}
+      sortOptions={[
+        { value: 'name-asc', label: t('الاسم: تصاعدي') },
+        { value: 'name-desc', label: t('الاسم: تنازلي') },
+        { value: 'updated-desc', label: t('الأحدث') },
+        { value: 'updated-asc', label: t('الأقدم') },
+      ]}
 
-          <Button
-            variant="secondary"
-            onClick={handleDownloadTemplate}
-            leftIcon={<Download size={18} />}
-          >
-            {t('قالب Excel')}
-          </Button>
-
-          <RBACGuard requiredPermission="ADD_PERSON">
-            <Button
-              variant="secondary"
-              onClick={handlePickImportFile}
-              leftIcon={<Download size={18} />}
-            >
-              {t('استيراد')}
-            </Button>
-          </RBACGuard>
-
-          <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18} />}>
-            {t('تصدير')}
-          </Button>
-
-          <RBACGuard requiredPermission="ADD_PERSON">
-            <Button onClick={() => handleOpenForm()} leftIcon={<Plus size={18} />}>
-              {t('ملف جديد')}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleOpenCompanyForm}
-              leftIcon={<Plus size={18} />}
-            >
-              {t('منشأة جديدة')}
-            </Button>
-          </RBACGuard>
-        </div>
-      }
+      totalResults={totalResults}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      onPageChange={onPageChange}
     />
   );
 }

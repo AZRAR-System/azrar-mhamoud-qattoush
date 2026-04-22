@@ -7,23 +7,20 @@ import {
   Users,
   Wrench,
   ArrowRight,
-  Search,
   AlertCircle,
-  Printer,
-  FileSpreadsheet,
   type LucideIcon,
   RefreshCcw,
+  Search,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { FinancialReportPrintPreview } from '@/components/printing/templates/FinancialReportTemplate';
+import { DbService } from '@/services/mockDb';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatCard } from '@/components/shared/StatCard';
-import { FinancialReportPrintPreview } from '@/components/printing/templates/FinancialReportTemplate';
-import { DbService } from '@/services/mockDb';
 import { PageLayout } from '@/components/shared/PageLayout';
 import { StatsCardRow } from '@/components/shared/StatsCardRow';
+import { ReportsSmartFilterBar } from './ReportsSmartFilterBar';
 import { formatCurrencyJOD, formatNumber } from '@/utils/format';
 import type { useReports } from '@/hooks/useReports';
 import type { ReportDefinition, ReportCategory } from '@/types';
@@ -147,30 +144,17 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
         title="مركز التقارير المتقدم"
         description="توليد تقارير تفصيلية عن جميع عمليات النظام مع إمكانية التصدير والطباعة."
         icon={<BarChart3 size={32} />}
-        actions={
-          <div className="flex flex-wrap items-center gap-4">
-             <div className="relative group min-w-[300px] print:hidden">
-              <Search
-                size={18}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 group-focus-within:text-white transition-colors"
-              />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="ابحث عن تقرير مالي أو إداري..."
-                className="pr-12 py-3 bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-2xl outline-none focus:ring-4 focus:ring-white/10 transition-all font-bold shadow-soft backdrop-blur-md"
-              />
-            </div>
-            <Button
-              variant="secondary"
-              className="bg-white/10 border-white/20 text-white font-black px-6 py-3 rounded-2xl shadow-soft hover:bg-white/20 transition-all active:scale-95 print:hidden backdrop-blur-md"
-              onClick={handlePrintDashboard}
-              leftIcon={<Printer size={20} />}
-            >
-              طباعة
-            </Button>
-          </div>
-        }
+      />
+
+      <ReportsSmartFilterBar
+        search={search}
+        setSearch={setSearch}
+        onPrintDashboard={handlePrintDashboard}
+        onExportAll={handleExportAllToExcel}
+        onFinancialReport={() => setFinancialPrintOpen(true)}
+        isExportingAll={isExportingAll}
+        reportsCount={reportsCount}
+        showFinancialReport={!!(isDesktop && financialPrintData && !kpisError)}
       />
 
       <StatsCardRow>
@@ -201,40 +185,19 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
       </StatsCardRow>
 
       <Card className="p-0 border-none shadow-soft overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-          <div>
-            <h3 className="font-black text-xl text-slate-800 dark:text-white flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white">
-                 <RefreshCcw size={16} />
-              </div>
-              ملخص سريع للبيانات الحقيقية
-            </h3>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">
-              إحصائيات مباشرة من محرك التقارير المركزي
-            </p>
+         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+            <div>
+              <h3 className="font-black text-xl text-slate-800 dark:text-white flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                  <RefreshCcw size={16} />
+                </div>
+                ملخص سريع للبيانات الحقيقية
+              </h3>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">
+                إحصائيات مباشرة من محرك التقارير المركزي
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {isDesktop && financialPrintData && !kpisError && (
-              <Button
-                variant="secondary"
-                className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 text-indigo-600 dark:text-indigo-400 font-black px-6 py-3 rounded-2xl shadow-soft hover:bg-white dark:hover:bg-slate-800 transition-all"
-                onClick={() => setFinancialPrintOpen(true)}
-                leftIcon={<Printer size={18} />}
-              >
-                تصدير تقرير مالي
-              </Button>
-            )}
-            <Button
-              variant="primary"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-6 py-3 rounded-2xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
-              onClick={handleExportAllToExcel}
-              disabled={isExportingAll || reportsCount === 0}
-              leftIcon={<FileSpreadsheet size={18} />}
-            >
-              تصدير شامل (Excel)
-            </Button>
-          </div>
-        </div>
 
         {kpisError && (
           <div className="p-6 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/30">

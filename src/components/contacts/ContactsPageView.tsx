@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Download, MessageCircle, Phone, Users } from 'lucide-react';
-import { DS } from '@/constants/designSystem';
-import { Button } from '@/components/ui/Button';
+import { MessageCircle, Phone, Users } from 'lucide-react';
+import { PageLayout } from '@/components/shared/PageLayout';
+import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { ContactsSmartFilterBar } from './ContactsSmartFilterBar';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { ExpandableText } from '@/components/ui/ExpandableText';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
@@ -137,63 +138,41 @@ interface ContactsPageViewProps {
 
 export const ContactsPageView: React.FC<ContactsPageViewProps> = ({ page }) => {
   const {
-    t, rows, grouped, importRef,
+    t, q, setQ, rows, grouped, importRef,
     handleCall, handleWhatsApp, handleExport, handleDownloadTemplate, handlePickImportFile, handleImportChange, handleOpenBulkWhatsApp
   } = page;
 
   return (
-    <div className="space-y-6">
-      <div className={DS.components.pageHeader}>
-        <div>
-          <h2 className={DS.components.pageTitle}>{t('اتصالات')}</h2>
-          <p className={DS.components.pageSubtitle}>
-            {t('سجل هاتف مُستمد من الأشخاص مع اتصال وواتساب')}
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            ref={importRef}
-            type="file"
-            accept=".xlsx,.csv"
-            className="hidden"
-            aria-label={t('استيراد ملف الاتصالات')}
-            title={t('استيراد ملف الاتصالات')}
-            onChange={handleImportChange}
-          />
+    <PageLayout>
+      <SmartPageHero
+        variant="premium"
+        title={t('اتصالات')}
+        description={t('سجل هاتف مُستمد من الأشخاص مع اتصال وواتساب')}
+        icon={<Users size={32} />}
+      />
 
-          <Button
-            variant="secondary"
-            onClick={handlePickImportFile}
-            leftIcon={<Download size={18} />}
-          >
-            {t('استيراد')}
-          </Button>
-          <Button variant="secondary" onClick={handleExport} leftIcon={<Download size={18} />}>
-            {t('تصدير')}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleDownloadTemplate}
-            leftIcon={<Download size={18} />}
-          >
-            {t('نموذج الاستيراد')}
-          </Button>
+      <input
+        ref={importRef}
+        type="file"
+        accept=".xlsx,.csv"
+        className="hidden"
+        aria-label={t('استيراد ملف الاتصالات')}
+        title={t('استيراد ملف الاتصالات')}
+        onChange={handleImportChange}
+      />
 
-          <Button
-            variant="secondary"
-            onClick={handleOpenBulkWhatsApp}
-            leftIcon={<MessageCircle size={18} />}
-          >
-            {t('واتساب جماعي')}
-          </Button>
+      <ContactsSmartFilterBar
+        q={q}
+        setQ={setQ}
+        onImport={handlePickImportFile}
+        onExport={handleExport}
+        onDownloadTemplate={handleDownloadTemplate}
+        onOpenBulkWhatsApp={handleOpenBulkWhatsApp}
+        totalCount={rows.length}
+        t={t}
+      />
 
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 ms-2">
-            <Users size={16} />
-            {rows.length}
-          </div>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 gap-4">
         {grouped.roleSections.map((sec) => (
@@ -222,6 +201,6 @@ export const ContactsPageView: React.FC<ContactsPageViewProps> = ({ page }) => {
           t={t}
         />
       </div>
-    </div>
+    </PageLayout>
   );
 };

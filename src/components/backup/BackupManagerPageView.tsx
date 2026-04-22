@@ -12,7 +12,6 @@ import {
   Database,
   FileArchive,
   Clock,
-  Search,
   ShieldCheck,
   Check,
   Loader2,
@@ -23,6 +22,7 @@ import {
 } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { BackupSmartFilterBar } from './BackupSmartFilterBar';
 import { StatCard } from '@/components/shared/StatCard';
 import type { useBackupManager, BackupFile } from '@/hooks/useBackupManager';
 
@@ -108,7 +108,6 @@ export const BackupManagerPageView: React.FC<BackupManagerPageViewProps> = ({ pa
       className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden font-sans page-transition"
       dir="rtl"
     >
-      {/* Header */}
       <header className="flex-shrink-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border-b border-slate-200 dark:border-slate-800 px-6 md:px-8 py-6">
         <div className="max-w-[1600px] mx-auto w-full">
           <SmartPageHero
@@ -116,28 +115,22 @@ export const BackupManagerPageView: React.FC<BackupManagerPageViewProps> = ({ pa
             description="تأمين بياناتك، استعادة اللحظات السابقة، والتحكم الكامل في الأرشيف."
             icon={History}
             subtitle="نظام الحماية والأرشفة"
-            actions={
-              <div className="flex items-center gap-3">
-                <button className="btn-secondary-modern" onClick={fetchData} disabled={loading}>
-                  <RefreshCcw
-                    size={18}
-                    className={loading ? 'animate-spin text-indigo-500' : 'text-indigo-500'}
-                  />
-                  <span>تحديث البيانات</span>
-                </button>
-                <button className="btn-primary-modern" onClick={() => setShowCreateModal(true)}>
-                  <Plus size={20} />
-                  <span>نسخة احتياطية جديدة</span>
-                </button>
-              </div>
-            }
-              />
-            </div>
-          </header>
+          />
+        </div>
+      </header>
 
-          {/* Main Content Area */}
-          <main className="flex-1 overflow-y-auto no-scrollbar p-8">
-            <div className="max-w-[1600px] mx-auto space-y-10">
+      <main className="flex-1 overflow-y-auto no-scrollbar p-8">
+        <div className="max-w-[1600px] mx-auto space-y-8">
+          <BackupSmartFilterBar
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            onNewBackup={() => setShowCreateModal(true)}
+            onRefresh={fetchData}
+            loading={loading}
+            totalBackups={stats ? stats.dbArchivesCount + stats.attachmentsArchivesCount : 0}
+            totalSize={stats ? formatSize(stats.totalBytes) : '0 B'}
+          />
+
               {/* Standardized Stats Overview */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
@@ -185,20 +178,6 @@ export const BackupManagerPageView: React.FC<BackupManagerPageViewProps> = ({ pa
                         إدارة الأرشيف المحلي والملفات المشفرة
                       </p>
                     </div>
-                  </div>
-
-                  <div className="relative group max-w-xs w-full">
-                    <Search
-                      size={18}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
-                    />
-                    <input
-                      type="text"
-                      placeholder="بحث في النسخ..."
-                      className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pr-11 pl-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
                   </div>
                 </div>
 

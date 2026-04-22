@@ -3,6 +3,7 @@ import { Plus, Database, Table, Type, CheckCircle, Trash2, Wrench } from 'lucide
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 import { StatCard } from '@/components/shared/StatCard';
+import { BuilderSmartFilterBar } from './BuilderSmartFilterBar';
 import { PageLayout } from '@/components/shared/PageLayout';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatsCardRow } from '@/components/shared/StatsCardRow';
@@ -41,24 +42,33 @@ export const DynamicBuilderPageView: FC<{ page: UseDynamicBuilderReturn }> = ({ 
         icon={<Database size={32} />}
       />
 
-      <div className="mt-8">
-        <StatsCardRow cols={2}>
-          <StatCard
-            label="الجداول المخصصة"
-            value={tables.length}
-            icon={Database}
-            color="indigo"
-          />
-          <StatCard
-            label="الحقول الإضافية"
-            value={formFields.length}
-            icon={Wrench}
-            color="amber"
-          />
-        </StatsCardRow>
-      </div>
+      <BuilderSmartFilterBar
+        onAddTable={() => setShowNewTable(true)}
+        onAddFormField={() => {}} // This is a form on the left, but we can highlight it
+        tablesCount={tables.length}
+        fieldsCount={formFields.length}
+        recordsCount={records.length}
+        activeTableTitle={tables.find((t) => t.id === activeTable)?.title}
+        activeFormLabel={SYSTEM_FORMS.find((f) => f.id === activeForm)?.label}
+      />
 
-      <div className="mt-8 space-y-8 flex flex-col h-full">
+      <StatsCardRow cols={2}>
+        <StatCard
+          label="الجداول المخصصة"
+          value={tables.length}
+          icon={Database}
+          color="indigo"
+        />
+        <StatCard
+          label="الحقول الإضافية للنماذج"
+          value={formFields.length}
+          icon={Wrench}
+          color="amber"
+        />
+      </StatsCardRow>
+
+      <div className="mt-8 space-y-8">
+
 
       <div className="flex flex-col lg:flex-row gap-6 flex-1" dir="rtl">
         <div className="w-full lg:w-80 app-card p-4">
