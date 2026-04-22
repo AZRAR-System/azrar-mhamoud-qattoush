@@ -30,31 +30,21 @@ export class ContractFinancialEngine {
     const start = parseDateOnly(startIso);
     if (!start) return 0;
 
-    const currentDay = start.getDate();
-    if (currentDay === paymentDay) return 0;
+    const pDay = Number(paymentDay);
+    const cDay = start.getDate();
 
-    const monthlyRent = annualValue / 12;
+    if (cDay === pDay) return 0;
+
+    const monthlyRent = Number(annualValue) / 12;
     const dim = this.daysInMonth(start);
-    
     let gapDays = 0;
-    if (currentDay < paymentDay) {
-        gapDays = paymentDay - currentDay;
+
+    if (pDay === 1) {
+        gapDays = dim - cDay + 1;
+    } else if (cDay > pDay) {
+        gapDays = (dim - cDay) + pDay;
     } else {
-        // Gap until end of month + days until payment day in next month? 
-        // User Example: 20/05 to 01/06 (13 days? Prompt says 12 days).
-        // Let's check 20 to 1st: 31 - 20 + 1 = 12. Correct.
-        gapDays = (dim - currentDay) + (paymentDay > 1 ? (paymentDay - 1) : 1);
-        // Wait, if paymentDay is 1: (31 - 20) + 1 = 12. 
-        // If paymentDay is 13: (31 - 20) + 13 = 24? 
-        // Let's re-verify the prompt example: 20/05 -> 01/06 (300/31 * 12) = 116.13.
-        // My daysBetween logic: 31 - 20 + 1 = 12.
-        if (paymentDay === 1) {
-            gapDays = dim - currentDay + 1;
-        } else if (currentDay > paymentDay) {
-            gapDays = (dim - currentDay) + paymentDay;
-        } else {
-            gapDays = paymentDay - currentDay;
-        }
+        gapDays = pDay - cDay;
     }
 
     return roundCurrency((monthlyRent / dim) * gapDays);
@@ -87,12 +77,16 @@ export class ContractFinancialEngine {
     // --- 1. START GAP (Day Difference) ---
     // If start day matches payment day, no gap is needed.
     const enableDayDiff = Boolean(contract.احتساب_فرق_ايام);
-    const dateMatches = start.getDate() === paymentDay;
+    const pDay = Number(contract.يوم_الدفع || 1);
+    const dateMatches = start.getDate() === pDay;
     
     if (enableDayDiff && !dateMatches) {
-      const manualAmount = contract.مبلغ_الفرقية;
-      const autoAmount = this.calculateDayDiffValue(startIso, annualValue, paymentDay);
-      const dayDiffValue = manualAmount !== undefined ? Number(manualAmount) : autoAmount;
+      const manualAmountRaw = contract.مبلغ_الفرقية;
+      const autoAmount = this.calculateDayDiffValue(startIso, annualValue, pDay);
+      
+      // Only use manual if it's a valid number string or number, and NOT empty string
+      const isManualProvided = manualAmountRaw !== undefined && manualAmountRaw !== null && String(manualAmountRaw).trim() !== '';
+      const dayDiffValue = isManualProvided ? Number(manualAmountRaw) : autoAmount;
 
       if (dayDiffValue > 0) {
         installments.push(this.createInstallment({
@@ -106,27 +100,65 @@ export class ContractFinancialEngine {
       }
     }
 
-    // --- 2. PERIODIC INSTALLMENTS ---
-    // Periodic starts from the next paymentDay.
+    // --- 2. DOWN PAYMENT ---
+    let periodicOffsetMonths = 0;
+    if (contract.يوجد_دفعة_اولى) {
+      const isByMonths = Number(contract.عدد_أشهر_الدفعة_الأولى || 0) > 0;
+      const dpTotalAmount = isByMonths
+        ? roundCurrency(monthlyRent * Number(contract.عدد_أشهر_الدفعة_الأولى))
+        : Number(contract.قيمة_الدفعة_الاولى || 0);
+
+      if (dpTotalAmount > 0) {
+        if (isByMonths) {
+          periodicOffsetMonths = Number(contract.عدد_أشهر_الدفعة_الأولى);
+        }
+
+        const splitCount = contract.تقسيط_الدفعة_الأولى ? Math.max(2, Number(contract.عدد_أقساط_الدفعة_الأولى || 2)) : 1;
+        const dpInstallmentAmount = roundCurrency(dpTotalAmount / splitCount);
+
+        for (let i = 0; i < splitCount; i++) {
+          const dpDate = new Date(start);
+          if (i > 0) dpDate.setMonth(dpDate.getMonth() + i);
+
+          installments.push(this.createInstallment({
+            contractId,
+            rank: rank++,
+            date: formatDateOnly(dpDate),
+            amount: i === splitCount - 1 ? (dpTotalAmount - (dpInstallmentAmount * (splitCount - 1))) : dpInstallmentAmount,
+            type: 'دفعة أولى',
+            note: splitCount > 1 ? `دفعة أولى (قسط ${i + 1}/${splitCount})` : 'الدفعة الأولى',
+          }));
+        }
+      }
+    }
+
+    // --- 3. PERIODIC INSTALLMENTS ---
+    // Periodic starts from the next paymentDay, potentially offset by down payment.
     const firstPaymentDate = new Date(start);
     if (dateMatches) {
         // Starts immediately
-    } else if (start.getDate() < paymentDay) {
-        firstPaymentDate.setDate(paymentDay);
+    } else if (start.getDate() < pDay) {
+        firstPaymentDate.setDate(pDay);
     } else {
         firstPaymentDate.setMonth(start.getMonth() + 1);
-        firstPaymentDate.setDate(paymentDay);
+        firstPaymentDate.setDate(pDay);
     }
 
-    const periodicCount = Math.ceil(durationMonths / frequencyMonths);
+    // Offset the starting month if down payment covered some months
+    if (periodicOffsetMonths > 0) {
+        firstPaymentDate.setMonth(firstPaymentDate.getMonth() + periodicOffsetMonths);
+    }
+
+    const remainingMonths = Math.max(0, durationMonths - periodicOffsetMonths);
+    const periodicCount = Math.ceil(remainingMonths / frequencyMonths);
     const periodicAmount = roundCurrency(monthlyRent * frequencyMonths);
 
     for (let i = 0; i < periodicCount; i++) {
         const monthTarget = firstPaymentDate.getMonth() + (i * frequencyMonths);
-        const instDate = new Date(firstPaymentDate.getFullYear(), monthTarget, paymentDay);
+        const instDate = new Date(firstPaymentDate.getFullYear(), monthTarget, pDay);
         
         // Handle month rollover (e.g. Jan 31 -> Feb 28 instead of Mar 3)
-        if (instDate.getDate() !== paymentDay) {
+        if (instDate.getDate() !== pDay) {
             instDate.setDate(0); 
         }
 
@@ -140,17 +172,22 @@ export class ContractFinancialEngine {
         }));
     }
 
-    // --- 3. INSURANCE ---
-    if (contract.قيمة_التأمين && contract.قيمة_التأمين > 0) {
-        const end = parseDateOnly(contract.تاريخ_النهاية || startIso);
-        installments.push(this.createInstallment({
-          contractId,
-          rank: rank++,
-          date: end ? formatDateOnly(end) : startIso,
-          amount: contract.قيمة_التأمين,
-          type: 'تأمين',
-          note: 'مبلغ التأمين المسترد',
-        }));
+    // --- 4. BALANCING (ROUNDING FIX) ---
+    // User requested: "فرق تقريب: 0.01 د.أ — سيُضاف لآخر قسط"
+    // Only balance periodic installments if duration matches.
+    const totalCurrent = installments.reduce((sum, inst) => sum + inst.القيمة, 0);
+    const expectedTotal = annualValue + (enableDayDiff ? installments.find(ix => ix.نوع_الدفعة === 'فرق أيام')?.القيمة || 0 : 0);
+    
+    const balanceDiff = roundCurrency(expectedTotal - totalCurrent);
+    if (Math.abs(balanceDiff) > 0 && installments.length > 0) {
+        // Add diff to the last 'دورية' or 'دفعة أولى' installment
+        for (let i = installments.length - 1; i >= 0; i--) {
+            if (installments[i].نوع_الدفعة === 'دورية' || installments[i].نوع_الدفعة === 'دفعة أولى') {
+                installments[i].القيمة = roundCurrency(installments[i].القيمة + balanceDiff);
+                installments[i].ملاحظات += ` (تمت إضافة فرق تقريب: ${balanceDiff})`;
+                break;
+            }
+        }
     }
 
     return installments;

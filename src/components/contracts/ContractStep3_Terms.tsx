@@ -1,0 +1,128 @@
+import React from 'react';
+import { TermsStepProps } from './types';
+import { HandCoins, AlertTriangle } from 'lucide-react';
+import { formatCurrencyJOD } from '@/utils/format';
+import { CurrencySuffix } from '@/components/ui/CurrencySuffix';
+import { DynamicFieldsSection } from '@/components/dynamic/DynamicFieldsSection';
+import { normalizeDigitsToLatin, parseNumberOrUndefined } from '@/utils/numberInput';
+
+export const ContractStep3_Terms: React.FC<TermsStepProps> = ({
+  contract,
+  setContract,
+  baseId,
+  t,
+  commOwner,
+  setCommOwner,
+  commTenant,
+  setCommTenant,
+  commissionPaidMonth,
+  setCommissionPaidMonth,
+  isEditMode,
+  recalcCommissionAuto,
+  contractValueInfo,
+  dynamicValues,
+  setDynamicValues,
+  hasPaidInstallments,
+  regenerateInstallments,
+  setRegenerateInstallments,
+}) => {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <h4 className="text-lg font-bold border-b pb-2">{t('3. الشروط والعمولات')}</h4>
+
+      <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30">
+        <h5 className="font-bold mb-3 flex items-center gap-2 text-red-800 dark:text-red-400">
+          <AlertTriangle size={16} /> {t('إعدادات غرامات التأخير')}
+        </h5>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs font-bold mb-1">{t('نوع الغرامة')}</label>
+            <select
+              className="w-full border border-gray-300 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 text-sm"
+              value={contract.lateFeeType || 'none'}
+              onChange={(e) => setContract(prev => ({ ...prev, lateFeeType: e.target.value as any }))}
+            >
+              <option value="none">{t('بدون غرامات')}</option>
+              <option value="fixed">{t('مبلغ ثابت')}</option>
+              <option value="percentage">{t('نسبة مئوية')}</option>
+              <option value="daily">{t('غرامة يومية')}</option>
+            </select>
+          </div>
+          {contract.lateFeeType !== 'none' && (
+             <div>
+               <label className="block text-xs font-bold mb-1">{t('القيمة')}</label>
+               <input 
+                 type="number" 
+                 className="w-full border p-2 rounded-lg text-sm" 
+                 value={contract.lateFeeValue || 0}
+                 onChange={e => setContract(prev => ({ ...prev, lateFeeValue: Number(e.target.value) }))}
+               />
+             </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100">
+        <h5 className="font-bold text-indigo-800 flex items-center gap-2">
+          <HandCoins size={18} /> {t('العمولات')}
+        </h5>
+        <div className="grid grid-cols-3 gap-4 mt-3">
+          <div>
+            <label className="text-xs block mb-1">{t('ع. مستأجر')}</label>
+            <div className="relative">
+              <input
+                type="text"
+                className="w-full border p-2 pr-10 rounded-lg text-sm"
+                value={commTenant}
+                onChange={(e) => setCommTenant(Number(normalizeDigitsToLatin(e.target.value)) || '')}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400"><CurrencySuffix /></span>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs block mb-1">{t('ع. مالك')}</label>
+            <div className="relative">
+              <input
+                type="text"
+                className="w-full border p-2 pr-10 rounded-lg text-sm"
+                value={commOwner}
+                onChange={(e) => setCommOwner(Number(normalizeDigitsToLatin(e.target.value)) || '')}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400"><CurrencySuffix /></span>
+            </div>
+          </div>
+          <div>
+             <label className="text-xs block mb-1">{t('شهر الدفع')}</label>
+             <input 
+               type="text" 
+               className="w-full border p-2 rounded-lg text-sm" 
+               placeholder="YYYY-MM"
+               value={commissionPaidMonth}
+               onChange={e => setCommissionPaidMonth(e.target.value)}
+             />
+          </div>
+        </div>
+      </div>
+
+      <DynamicFieldsSection
+        formId="contracts"
+        values={dynamicValues}
+        onChange={setDynamicValues}
+      />
+      
+      {isEditMode && (
+         <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <label className="flex items-center gap-2 font-bold text-amber-800">
+               <input 
+                 type="checkbox" 
+                 checked={regenerateInstallments} 
+                 disabled={hasPaidInstallments}
+                 onChange={e => setRegenerateInstallments(e.target.checked)}
+               />
+               {t('إعادة توليد جدول الدفعات عند الحفظ')}
+            </label>
+         </div>
+      )}
+    </div>
+  );
+};
