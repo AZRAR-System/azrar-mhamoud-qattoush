@@ -20,11 +20,10 @@ export type SignedLicenseFileV1 = {
 
 let cachedPublicKeyB64: string | null = null;
 
-const getEnvPublicKeyB64 = (): string =>
-  String(
-    (import.meta as unknown as { env?: Record<string, string> })?.env
-      ?.VITE_AZRAR_LICENSE_PUBLIC_KEY || ''
-  ).trim();
+const getEnvPublicKeyB64 = (): string => {
+  const env = (typeof process !== 'undefined' ? process.env : {}) as Record<string, string | undefined>;
+  return String(env?.VITE_AZRAR_LICENSE_PUBLIC_KEY || '').trim();
+};
 
 const normalizeB64 = (raw: string): string => {
   const s = String(raw || '')
