@@ -1,6 +1,10 @@
 /**
  * Synchronous KV array access: localStorage + DbCache + optional desktop persistence via storage.
  */
+const safeClone = <T>(data: T): T => {
+  if (typeof structuredClone === 'function') return structuredClone(data);
+  return JSON.parse(JSON.stringify(data));
+};
 
 import { buildCache, DbCache } from '../dbCache';
 import { storage } from '@/services/storage';
@@ -10,7 +14,7 @@ export function get<T>(key: string): T[] {
   if (DbCache.isInitialized && DbCache.arrays[key]) {
     const data = DbCache.arrays[key] as T[];
     // Return a deep clone to prevent in-place mutation by callers
-    return structuredClone(data);
+    return safeClone(data);
   }
   try {
     const str = localStorage.getItem(key);
@@ -19,7 +23,7 @@ export function get<T>(key: string): T[] {
       DbCache.arrays[key] = data;
     }
     // Return a deep clone here as well
-    return structuredClone(data);
+    return safeClone(data);
   } catch {
     return [];
   }
@@ -34,8 +38,8 @@ export function save<T>(key: string, data: T[]): void {
     throw new Error(errorMsg);
   }
 
-  // Use structuredClone (Phase 1) to ensure the cache doesn't hold references to mutable caller data
-  const safeData = structuredClone(data);
+  // Use safeClone (Phase 1) to ensure the cache doesn't hold references to mutable caller data
+  const safeData = safeClone(data);
   const serialized = JSON.stringify(safeData);
 
   // Ensure sync readers see the latest value immediately.
