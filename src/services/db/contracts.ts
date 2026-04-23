@@ -136,6 +136,15 @@ export function createContractWrites(deps: ContractWritesDeps) {
     if (idx === -1) return fail('العقد غير موجود');
 
     const existing = all[idx];
+    
+    // Prevent changing property or tenant on update
+    if (data.رقم_العقار && data.رقم_العقار !== existing.رقم_العقار) {
+      return fail('لا يمكن تغيير العقار في العقد الحالي. يجب إنشاء عقد جديد.');
+    }
+    if (data.رقم_المستاجر && data.رقم_المستاجر !== existing.رقم_المستاجر) {
+      return fail('لا يمكن تغيير المستأجر في العقد الحالي. يجب إنشاء عقد جديد.');
+    }
+
     const updated: العقود_tbl = { ...existing, ...data, رقم_العقد: id } as العقود_tbl;
 
     let regeneratedInstallments: الكمبيالات_tbl[] | null = null;
