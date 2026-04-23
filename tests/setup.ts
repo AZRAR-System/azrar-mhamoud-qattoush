@@ -218,6 +218,13 @@ jest.mock('file-saver', () => ({
   saveAs: jest.fn(),
 }));
 
+// Mock noble/ed25519 globally to prevent ESM syntax errors in tests
+jest.mock('@noble/ed25519', () => ({
+  verifyAsync: jest.fn(async () => true),
+  getPublicKey: jest.fn(() => new Uint8Array(32)),
+  signAsync: jest.fn(async () => new Uint8Array(64)),
+}));
+
 // تعطيل console.error في الاختبارات (اختياري)
 const originalError = console.error;
 beforeAll(() => {

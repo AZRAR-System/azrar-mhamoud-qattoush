@@ -8,22 +8,21 @@ import {
   changeUserPassword
 } from '@/services/db/system/users';
 import { KEYS } from '@/services/db/keys';
-import { buildCache } from '@/services/dbCache';
 import { save } from '@/services/db/kv';
 
 describe('User Management Service - Comprehensive Suite', () => {
   beforeEach(() => {
     localStorage.clear();
-    // Initialize with a default super_admin using kv.save to ensure cache consistency
+    // Initialize with a default SuperAdmin (correct case for normalization)
     const initialUsers = [
-      { id: 'U-ROOT', اسم_المستخدم: 'admin', كلمة_المرور: '123', الدور: 'super_admin', isActive: true }
+      { id: 'U-ROOT', اسم_المستخدم: 'admin', كلمة_المرور: '123', الدور: 'SuperAdmin', isActive: true }
     ];
     save(KEYS.USERS, initialUsers as any);
   });
 
   // 1. Creation
   test('addSystemUser - creates new user successfully', async () => {
-    await addSystemUser({ اسم_المستخدم: 'mahmoud', اسم_للعرض: 'Mahmoud Q.', الدور: 'admin', كلمة_المرور: 'pass123' });
+    await addSystemUser({ اسم_المستخدم: 'mahmoud', اسم_للعرض: 'Mahmoud Q.', الدور: 'Admin', كلمة_المرور: 'pass123' });
     const all = getUsers();
     expect(all).toHaveLength(2);
     expect(all.find(u => u.اسم_المستخدم === 'mahmoud')).toBeDefined();
@@ -54,16 +53,15 @@ describe('User Management Service - Comprehensive Suite', () => {
   });
 
   test('updateUserRole - changes role when not the last super_admin', async () => {
-    // Add another superadmin to allow changing the first one
-    await addSystemUser({ اسم_المستخدم: 'admin2', الدور: 'super_admin', كلمة_المرور: '1' });
+    await addSystemUser({ اسم_المستخدم: 'admin2', الدور: 'SuperAdmin', كلمة_المرور: '1' });
     const userId = getUsers().find(u => u.اسم_المستخدم === 'admin')?.id || '';
-    updateUserRole(userId, 'employee');
-    expect(getUsers().find(u => u.id === userId)?.الدور).toBe('employee');
+    updateUserRole(userId, 'Employee');
+    expect(getUsers().find(u => u.id === userId)?.الدور).toBe('Employee');
   });
 
   test('updateUserRole - prevents changing last super_admin role', () => {
     const userId = getUsers()[0].id;
-    expect(() => updateUserRole(userId, 'employee')).toThrow('لا يمكن تغيير دور آخر مدير نظام نشط');
+    expect(() => updateUserRole(userId, 'Employee')).toThrow('لا يمكن تغيير دور آخر مدير نظام نشط');
   });
 
   // 4. Deletion Safety
