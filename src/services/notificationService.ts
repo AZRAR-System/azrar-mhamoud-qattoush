@@ -31,7 +31,7 @@ interface NotificationHandler {
 /** نفس المحتوى لا يُعرض كـ Toast/صوت أكثر من مرة كل 10 دقائق */
 const TOAST_THROTTLE_MS = 10 * 60 * 1000;
 
-class NotificationService {
+export class NotificationService {
   private handler: NotificationHandler | null = null;
   private isEnabled = true;
   private readonly lastToastAtByKey = new Map<string, number>();

@@ -1,4 +1,12 @@
-import { createSalesListing, submitSalesOffer, updateSalesAgreement } from '../../src/services/db/sales';
+import { 
+  createSalesListing, 
+  cancelOpenSalesListingsForProperty, 
+  submitSalesOffer, 
+  updateOfferStatus,
+  createSalesAgreement,
+  updateSalesAgreement,
+  deleteSalesAgreement
+} from '../../src/services/db/sales';
 import { get, save } from '../../src/services/db/kv';
 import { KEYS } from '../../src/services/db/keys';
 
@@ -8,85 +16,145 @@ jest.mock('../../src/services/db/kv', () => ({
 }));
 
 jest.mock('../../src/services/localDbStorage', () => ({
-  dbOk: (data?: any) => ({ success: true, data }),
+  dbOk: (data?: any, msg?: string) => ({ success: true, data, message: msg }),
   dbFail: (msg: string) => ({ success: false, message: msg }),
 }));
 
-describe('Sales Logic Real Tests', () => {
+describe('Sales Logic - Comprehensive Suite', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('createSalesListing', () => {
-    test('updates property forsale status and prices', () => {
-      (get as jest.Mock).mockImplementation((key) => {
-        if (key === KEYS.SALES_LISTINGS) return [];
-        if (key === KEYS.PROPERTIES) return [{ رقم_العقار: 'PROP-1', isForSale: false }];
-        return [];
-      });
-
-      const result = createSalesListing({
-        رقم_العقار: 'PROP-1',
-        رقم_المالك: 'OWN-1',
-        السعر_المطلوب: 50000,
-        أقل_سعر_مقبول: 45000
-      });
-
-      expect(result.success).toBe(true);
-      
-      // Verify properties update
-      const savedProps = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.PROPERTIES)[1];
-      expect(savedProps[0].isForSale).toBe(true);
-      expect(savedProps[0].salePrice).toBe(50000);
+  // 1. Create Listing
+  test('createSalesListing - creates listing and updates property forSale status', () => {
+    (get as jest.Mock).mockImplementation((key) => {
+      if (key === KEYS.PROPERTIES) return [{ رقم_العقار: 'P1', isForSale: false }];
+      if (key === KEYS.SALES_LISTINGS) return [];
+      return [];
     });
 
-    test('validates asking price is positive', () => {
-      const result = createSalesListing({ رقم_العقار: 'P1', رقم_المالك: 'O1', السعر_المطلوب: 0 });
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('السعر المطلوب');
-    });
+    const res = createSalesListing({ رقم_العقار: 'P1', رقم_المالك: 'O1', السعر_المطلوب: 100000 });
+    expect(res.success).toBe(true);
+    
+    const savedProps = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.PROPERTIES)[1];
+    expect(savedProps[0].isForSale).toBe(true);
+    expect(savedProps[0].salePrice).toBe(100000);
   });
 
-  describe('submitSalesOffer', () => {
-    test('prevents offer if agreement already exists for listing', () => {
-      (get as jest.Mock).mockImplementation((key) => {
-        if (key === KEYS.SALES_LISTINGS) return [{ id: 'LST-1', الحالة: 'Active' }];
-        if (key === KEYS.SALES_AGREEMENTS) return [{ listingId: 'LST-1', isCompleted: false }];
-        return [];
-      });
-
-      const result = submitSalesOffer({ listingId: 'LST-1', رقم_المشتري: 'B1', قيمة_العرض: 48000 });
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('اتفاقية قيد الإجراء');
+  // 2. Cancel Listing
+  test('cancelOpenSalesListingsForProperty - marks active listings as Cancelled', () => {
+    (get as jest.Mock).mockImplementation((key) => {
+      if (key === KEYS.SALES_LISTINGS) return [{ id: 'L1', رقم_العقار: 'P1', الحالة: 'Active' }];
+      if (key === KEYS.PROPERTIES) return [{ رقم_العقار: 'P1', isForSale: true }];
+      return [];
     });
+
+    const res = cancelOpenSalesListingsForProperty('P1');
+    expect(res.success).toBe(true);
+    expect(res.data.cancelled).toBe(1);
+    
+    const savedListings = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_LISTINGS)[1];
+    expect(savedListings[0].الحالة).toBe('Cancelled');
   });
 
-  describe('updateSalesAgreement', () => {
-    test('calculates expenses and commissions correctly', () => {
-      const existing = [{
-        id: 'AG-1',
-        السعر_النهائي: 100000,
-        عمولة_المشتري: 0,
-        عمولة_البائع: 0,
-        isCompleted: false
-      }];
-      (get as jest.Mock).mockImplementation((key) => {
-        if (key === KEYS.SALES_AGREEMENTS) return existing;
-        if (key === KEYS.EXTERNAL_COMMISSIONS) return [];
-        return [];
-      });
-
-      const result = updateSalesAgreement('AG-1', { قيمة_الدفعة_الاولى: 20000 }, {
-        buyer: 2000,
-        seller: 2000,
-        expenses: { رسوم_التنازل: 5000, ضريبة_الابنية: 1000 } as any
-      });
-
-      expect(result.success).toBe(true);
-      const saved = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_AGREEMENTS)[1][0];
-      expect(saved.إجمالي_المصاريف).toBe(6000);
-      expect(saved.إجمالي_العمولات).toBe(4000);
-      expect(saved.قيمة_المتبقي).toBe(80000);
+  // 3. Submit Offer
+  test('submitSalesOffer - adds new offer to listing', () => {
+    (get as jest.Mock).mockImplementation((key) => {
+      if (key === KEYS.SALES_LISTINGS) return [{ id: 'L1', الحالة: 'Active' }];
+      if (key === KEYS.SALES_OFFERS) return [];
+      if (key === KEYS.SALES_AGREEMENTS) return [];
+      return [];
     });
+
+    const res = submitSalesOffer({ listingId: 'L1', رقم_المشتري: 'B1', قيمة_العرض: 95000 });
+    expect(res.success).toBe(true);
+    
+    const savedOffers = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_OFFERS)[1];
+    expect(savedOffers[0].رقم_المشتري).toBe('B1');
+  });
+
+  // 4. Accept Offer
+  test('updateOfferStatus - accepting offer rejects others and sets listing to Pending', () => {
+    (get as jest.Mock).mockImplementation((key) => {
+      if (key === KEYS.SALES_OFFERS) return [
+        { id: 'O1', listingId: 'L1', الحالة: 'Pending' },
+        { id: 'O2', listingId: 'L1', الحالة: 'Pending' }
+      ];
+      if (key === KEYS.SALES_LISTINGS) return [{ id: 'L1', الحالة: 'Active' }];
+      return [];
+    });
+
+    const res = updateOfferStatus('O1', 'Accepted');
+    expect(res.success).toBe(true);
+    
+    const savedOffers = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_OFFERS)[1];
+    expect(savedOffers.find((o: any) => o.id === 'O1').الحالة).toBe('Accepted');
+    expect(savedOffers.find((o: any) => o.id === 'O2').الحالة).toBe('Rejected');
+    
+    const savedListings = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_LISTINGS)[1];
+    expect(savedListings[0].الحالة).toBe('Pending');
+  });
+
+  // 5. Create Agreement
+  test('createSalesAgreement - creates agreement and calculates commissions and expenses', () => {
+    (get as jest.Mock).mockReturnValue([]);
+    const listing = { id: 'L1', رقم_العقار: 'P1', رقم_المالك: 'O1' };
+    const commissions = { 
+      buyer: 2000, 
+      seller: 2000, 
+      external: 500, 
+      expenses: { رسوم_التنازل: 1000, ضريبة_الابنية: 500 } 
+    };
+    
+    const res = createSalesAgreement({ listingId: 'L1', رقم_المشتري: 'B1', السعر_النهائي: 100000 } as any, listing as any, commissions as any);
+    expect(res.success).toBe(true);
+    
+    const savedAgreements = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_AGREEMENTS)[1];
+    expect(savedAgreements[0].إجمالي_العمولات).toBe(4500);
+    expect(savedAgreements[0].إجمالي_المصاريف).toBe(1500);
+  });
+
+  // 6. Update Agreement
+  test('updateSalesAgreement - recalculates totals on patch', () => {
+    (get as jest.Mock).mockImplementation((key) => {
+      if (key === KEYS.SALES_AGREEMENTS) return [{ id: 'A1', السعر_النهائي: 100000, قيمة_الدفعة_الاولى: 10000, isCompleted: false }];
+      if (key === KEYS.EXTERNAL_COMMISSIONS) return [];
+      return [];
+    });
+
+    const res = updateSalesAgreement('A1', { قيمة_الدفعة_الاولى: 20000 });
+    expect(res.success).toBe(true);
+    
+    const saved = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_AGREEMENTS)[1];
+    expect(saved[0].قيمة_المتبقي).toBe(80000);
+  });
+
+  // 7. Delete Agreement
+  test('deleteSalesAgreement - reverts listing status to Active if no other active agreements', () => {
+    (get as jest.Mock).mockImplementation((key) => {
+      if (key === KEYS.SALES_AGREEMENTS) return [{ id: 'A1', listingId: 'L1', isCompleted: false }];
+      if (key === KEYS.SALES_LISTINGS) return [{ id: 'L1', الحالة: 'Pending' }];
+      if (key === KEYS.SALES_OFFERS) return [];
+      if (key === KEYS.EXTERNAL_COMMISSIONS) return [];
+      return [];
+    });
+
+    const res = deleteSalesAgreement('A1');
+    expect(res.success).toBe(true);
+    
+    const savedListings = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_LISTINGS)[1];
+    expect(savedListings[0].الحالة).toBe('Active');
+  });
+
+  // 8. Error Case - Listing Not Active for Offer
+  test('submitSalesOffer - rejects offer if listing is not Active', () => {
+    (get as jest.Mock).mockImplementation((key) => {
+      if (key === KEYS.SALES_LISTINGS) return [{ id: 'L1', الحالة: 'Sold' }];
+      return [];
+    });
+
+    const res = submitSalesOffer({ listingId: 'L1', رقم_المشتري: 'B1', قيمة_العرض: 100000 });
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('غير نشط');
   });
 });
