@@ -58,7 +58,7 @@ describe('Installments Logic - Strengthened Suite', () => {
 
   // 3. Sequential Payments Fix
   test('markInstallmentPaid - sequential payments 100 then 200 leads to PAID status', () => {
-    let installments = [{ رقم_الكمبيالة: 'I1', القيمة: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] }];
+    let installments = [{ رقم_الكمبيالة: 'I1', القيمة: 300, القيمة_المتبقية: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] }];
     (get as jest.Mock).mockImplementation(() => installments);
     (save as jest.Mock).mockImplementation((key, data) => { if (key === KEYS.INSTALLMENTS) installments = data; });
 
@@ -76,7 +76,7 @@ describe('Installments Logic - Strengthened Suite', () => {
 
   // 4. Overpayment Rejection
   test('markInstallmentPaid - rejects payment exceeding remaining amount', () => {
-    const inst = { رقم_الكمبيالة: 'I1', القيمة: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] };
+    const inst = { رقم_الكمبيالة: 'I1', القيمة: 300, القيمة_المتبقية: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] };
     (get as jest.Mock).mockReturnValue([inst]);
 
     const res = markInstallmentPaid('I1', 'Admin', 'Admin', { paidAmount: 350 });
