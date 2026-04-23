@@ -1,6 +1,7 @@
 import { get, save } from '../kv';
 import { KEYS } from '../keys';
 import { المستخدمين_tbl, مستخدم_صلاحية_tbl, RoleType, DbResult } from '@/types';
+import { isSuperAdmin } from '@/utils/roles';
 import { hashPassword, isHashedPassword, verifyPassword } from '@/services/passwordHash';
 import { userHasPermission as userHasPermissionCore } from '@/services/userPermissions';
 import { logOperationInternal } from '../operations/logger';
@@ -106,6 +107,14 @@ export const updateUserRole = (userId: string, role: RoleType) => {
   const all = getUsers();
   const idx = all.findIndex((u) => u.id === userId);
   if (idx > -1) {
+    const target = all[idx];
+    // Prevent changing the role of the last superadmin
+    if (isSuperAdmin(target.الدور) && !isSuperAdmin(role)) {
+      const others = all.filter(u => u.id !== userId && isSuperAdmin(u.الدور) && u.isActive);
+      if (others.length === 0) {
+        throw new Error('لا يمكن تغيير دور آخر مدير نظام نشط');
+      }
+    }
     all[idx].الدور = role;
     save(KEYS.USERS, all);
   }
@@ -121,8 +130,20 @@ export const updateUserStatus = (id: string, status: boolean) => {
 };
 
 export const deleteSystemUser = (id: string) => {
-  const all = getUsers().filter((u) => u.id !== id);
-  save(KEYS.USERS, all);
+  const all = getUsers();
+  const target = all.find(u => u.id === id);
+  if (!target) return;
+
+  // Prevent deleting the last superadmin
+  if (isSuperAdmin(target.الدور)) {
+    const others = all.filter(u => u.id !== id && isSuperAdmin(u.الدور) && u.isActive);
+    if (others.length === 0) {
+      throw new Error('لا يمكن حذف آخر مدير نظام نشط');
+    }
+  }
+
+  const updated = all.filter((u) => u.id !== id);
+  save(KEYS.USERS, updated);
 };
 
 export const addSystemUser = async (user: Partial<المستخدمين_tbl>) => {
