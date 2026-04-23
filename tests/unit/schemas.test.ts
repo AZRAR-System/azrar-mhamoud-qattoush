@@ -1,71 +1,69 @@
 import { validateBeforeSave } from '../../src/services/db/schemas';
 import { KEYS } from '../../src/services/db/keys';
 
-describe('Schemas Validation', () => {
-  test('valid contract succeeds', () => {
-    const validContract = {
-      رقم_العقد: 'COT-1',
-      رقم_العقار: 'PROP-1',
-      رقم_المستاجر: 'TEN-1',
-      تاريخ_البداية: '2026-01-01',
-      تاريخ_النهاية: '2026-12-31',
-      مدة_العقد_بالاشهر: 12,
-      القيمة_السنوية: 12000,
-      تكرار_الدفع: 12,
-      طريقة_الدفع: 'نقدي',
-      حالة_العقد: 'نشط',
-      isArchived: false,
-      lateFeeType: 'none',
-      lateFeeValue: 0,
-      lateFeeGraceDays: 0,
-    };
-    
-    const result = validateBeforeSave(KEYS.CONTRACTS, [validContract]);
-    expect(result.valid).toBe(true);
+describe('Schemas Real Validation', () => {
+  
+  describe('Person Schema', () => {
+    test('valid person succeeds', () => {
+      const data = { 
+        رقم_الشخص: 'P1', 
+        الاسم: 'محمد', 
+        رقم_الهاتف: '0501234567',
+        نوع_الملف: 'فرد'
+      };
+      const res = validateBeforeSave(KEYS.PEOPLE, [data]);
+      expect(res.valid).toBe(true);
+    });
+
+    test('missing required phone fails', () => {
+      const data = { رقم_الشخص: 'P1', الاسم: 'محمد' };
+      const res = validateBeforeSave(KEYS.PEOPLE, [data]);
+      expect(res.valid).toBe(false);
+      expect(res.errors?.[0]).toContain('رقم_الهاتف');
+    });
   });
 
-  test('contract missing tenantId fails', () => {
-    const invalidContract = {
-      رقم_العقد: 'COT-1',
-      رقم_العقار: 'PROP-1',
-      // missing رقم_المستاجر
-      تاريخ_البداية: '2026-01-01',
-      تاريخ_النهاية: '2026-12-31',
-      مدة_العقد_بالاشهر: 12,
-      القيمة_السنوية: 12000,
-      تكرار_الدفع: 12,
-      طريقة_الدفع: 'نقدي',
-      حالة_العقد: 'نشط',
-      isArchived: false,
-      lateFeeType: 'none',
-      lateFeeValue: 0,
-      lateFeeGraceDays: 0,
-    };
-    
-    const result = validateBeforeSave(KEYS.CONTRACTS, [invalidContract]);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(expect.stringContaining('رقم_المستاجر'));
-  });
+  describe('Contract Schema', () => {
+    test('valid contract succeeds', () => {
+      const data = {
+        رقم_العقد: 'C1',
+        رقم_العقار: 'Prop1',
+        رقم_المستاجر: 'T1',
+        القيمة_السنوية: 12000,
+        تاريخ_البداية: '2026-01-01',
+        تاريخ_النهاية: '2026-12-31',
+        مدة_العقد_بالاشهر: 12,
+        تكرار_الدفع: 12,
+        طريقة_الدفع: 'Cash',
+        حالة_العقد: 'نشط',
+        isArchived: false,
+        lateFeeType: 'none',
+        lateFeeValue: 0,
+        lateFeeGraceDays: 0
+      };
+      const res = validateBeforeSave(KEYS.CONTRACTS, [data]);
+      expect(res.valid).toBe(true);
+    });
 
-  test('contract with invalid lateFeeType fails', () => {
-    const invalidContract = {
-      رقم_العقد: 'COT-1',
-      رقم_العقار: 'PROP-1',
-      رقم_المستاجر: 'TEN-1',
-      تاريخ_البداية: '2026-01-01',
-      تاريخ_النهاية: '2026-12-31',
-      مدة_العقد_بالاشهر: 12,
-      القيمة_السنوية: 12000,
-      تكرار_الدفع: 12,
-      طريقة_الدفع: 'نقدي',
-      حالة_العقد: 'نشط',
-      isArchived: false,
-      lateFeeType: 'INVALID_TYPE', // Enum check
-      lateFeeValue: 0,
-      lateFeeGraceDays: 0,
-    };
-    
-    const result = validateBeforeSave(KEYS.CONTRACTS, [invalidContract]);
-    expect(result.valid).toBe(false);
+    test('negative rent fails', () => {
+      const data = {
+        رقم_العقد: 'C1',
+        رقم_العقار: 'Prop1',
+        رقم_المستاجر: 'T1',
+        القيمة_السنوية: -1000,
+        تاريخ_البداية: '2026-01-01',
+        تاريخ_النهاية: '2026-12-31',
+        مدة_العقد_بالاشهر: 12,
+        تكرار_الدفع: 12,
+        طريقة_الدفع: 'Cash',
+        حالة_العقد: 'نشط',
+        isArchived: false,
+        lateFeeType: 'none',
+        lateFeeValue: 0,
+        lateFeeGraceDays: 0
+      };
+      const res = validateBeforeSave(KEYS.CONTRACTS, [data]);
+      expect(res.valid).toBe(false);
+    });
   });
 });
