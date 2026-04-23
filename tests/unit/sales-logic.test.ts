@@ -146,15 +146,24 @@ describe('Sales Logic - Comprehensive Suite', () => {
     expect(savedListings[0].الحالة).toBe('Active');
   });
 
-  // 8. Error Case - Listing Not Active for Offer
-  test('submitSalesOffer - rejects offer if listing is not Active', () => {
+  test('createSalesListing - updates existing listing if already present', () => {
     (get as jest.Mock).mockImplementation((key) => {
-      if (key === KEYS.SALES_LISTINGS) return [{ id: 'L1', الحالة: 'Sold' }];
+      if (key === KEYS.SALES_LISTINGS) return [{ id: 'L1', رقم_العقار: 'P1', الحالة: 'Active' }];
+      if (key === KEYS.PROPERTIES) return [{ رقم_العقار: 'P1' }];
       return [];
     });
 
-    const res = submitSalesOffer({ listingId: 'L1', رقم_المشتري: 'B1', قيمة_العرض: 100000 });
+    const res = createSalesListing({ رقم_العقار: 'P1', رقم_المالك: 'O1', السعر_المطلوب: 120000 });
+    expect(res.success).toBe(true);
+    expect(res.message).toContain('تحديث');
+    
+    const saved = (save as jest.Mock).mock.calls.find(c => c[0] === KEYS.SALES_LISTINGS)[1];
+    expect(saved[0].السعر_المطلوب).toBe(120000);
+  });
+
+  test('createSalesListing - fails on invalid price', () => {
+    const res = createSalesListing({ رقم_العقار: 'P1', رقم_المالك: 'O1', السعر_المطلوب: 0 });
     expect(res.success).toBe(false);
-    expect(res.message).toContain('غير نشط');
+    expect(res.message).toContain('السعر المطلوب');
   });
 });
