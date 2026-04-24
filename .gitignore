@@ -151,3 +151,4 @@ tsc_error*.txt
 tsconfig.test.json
 azrar_system_overview.md
 coverage_output*.txt
+coverage_output*.txt
