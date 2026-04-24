@@ -33,7 +33,7 @@ describe('KV Store Real Integrity', () => {
     const retrieved = get('large_data');
     
     expect(retrieved).toHaveLength(1000);
-    expect(retrieved[999].id).toBe('ID-999');
+    expect((retrieved[999] as any).id).toBe('ID-999');
   });
 
   test('Validation Rejection - invalid data should throw or return fail', () => {

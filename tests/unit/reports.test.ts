@@ -35,8 +35,8 @@ describe('Reports System Service - Analytics Suite', () => {
     const res = runReport('financial_summary');
     expect(res.title).toBe('الملخص المالي');
     
-    const totalExpected = res.data.find(d => d.item === 'إجمالي المتوقع')?.value;
-    const totalPaid = res.data.find(d => d.item === 'إجمالي المحصل')?.value;
+    const totalExpected = (res.data as any[]).find(d => d.item === 'إجمالي المتوقع')?.value;
+    const totalPaid = (res.data as any[]).find(d => d.item === 'إجمالي المحصل')?.value;
     
     expect(totalExpected).toBe(1500);
     expect(totalPaid).toBe(500);
@@ -54,10 +54,10 @@ describe('Reports System Service - Analytics Suite', () => {
     
     const res = runReport('employee_commissions');
     expect(res.data).toHaveLength(2);
-    expect(res.data[0].employeeUsername).toBe('emp1');
+    expect((res.data[0] as any).employeeUsername).toBe('emp1');
     // Verify math for one row
-    expect(res.data[0].officeCommission).toBe(1000);
-    expect(res.data[0].tier).toBe('2000-2999'); // 2000 total -> tier 2000-2999
+    expect((res.data[0] as any).officeCommission).toBe(1000);
+    expect((res.data[0] as any).tier).toBe('2000-2999'); // 2000 total -> tier 2000-2999
   });
 
   test('runReport - returns empty for unknown report', () => {

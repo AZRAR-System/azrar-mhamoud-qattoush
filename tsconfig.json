@@ -1,4 +1,4 @@
-﻿{
+{
   "compilerOptions": {
     "ignoreDeprecations": "5.0",
     "strict": true,
@@ -43,6 +43,8 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
     "vite.config.ts"
   ],
   "exclude": [

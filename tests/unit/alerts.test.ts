@@ -23,7 +23,7 @@ describe('Alerts Core Service - Monitoring Suite', () => {
     createAlert('warning', 'Low Balance', 'Financial');
     createAlert('warning', 'Low Balance', 'Financial'); // Duplicate
     
-    const alerts = kv.get(KEYS.ALERTS);
+    const alerts = kv.get<any>(KEYS.ALERTS);
     expect(alerts).toHaveLength(1);
     expect(alerts[0].الوصف).toBe('Low Balance');
     expect(alerts[0].id).toContain('ALR-GEN-Financial-');
@@ -82,7 +82,8 @@ describe('Alerts Core Service - Monitoring Suite', () => {
     ]);
     
     clearOldAlerts(30);
-    expect(kv.get(KEYS.ALERTS)).toHaveLength(1);
-    expect((kv.get(KEYS.ALERTS) as any)[0].id).toBe('A1');
+    const remaining = kv.get<any>(KEYS.ALERTS);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe('A1');
   });
 });

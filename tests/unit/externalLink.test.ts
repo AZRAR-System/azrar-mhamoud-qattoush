@@ -5,7 +5,7 @@ describe('External Link Utility - URL Safety Suite', () => {
 
   beforeEach(() => {
     // Mock window.open
-    openSpy = jest.spyOn(window, 'open').mockImplementation(() => ({ opener: {} } as Window));
+    openSpy = jest.spyOn(window, 'open').mockImplementation(() => ({ opener: {} } as any));
   });
 
   afterEach(() => {

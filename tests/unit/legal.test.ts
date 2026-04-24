@@ -18,21 +18,21 @@ describe('Legal System Service - Litigation Suite', () => {
 
   describe('Template Management', () => {
     test('addLegalTemplate - persists new template', () => {
-      handlers.addLegalTemplate({ name: 'Notice 1', content: 'Hello {{tenant_name}}' });
+      handlers.addLegalTemplate({ title: 'Notice 1', content: 'Hello {{tenant_name}}', category: 'General' });
       const templates = getLegalTemplates();
       expect(templates).toHaveLength(1);
-      expect(templates[0].name).toBe('Notice 1');
+      expect(templates[0].title).toBe('Notice 1');
     });
 
     test('updateLegalTemplate - modifies fields', () => {
-      handlers.addLegalTemplate({ name: 'Old' });
+      handlers.addLegalTemplate({ title: 'Old', category: 'General' });
       const id = getLegalTemplates()[0].id;
-      handlers.updateLegalTemplate(id, { name: 'New' });
-      expect(getLegalTemplates()[0].name).toBe('New');
+      handlers.updateLegalTemplate(id, { title: 'New' });
+      expect(getLegalTemplates()[0].title).toBe('New');
     });
 
     test('deleteLegalTemplate - removes template', () => {
-      handlers.addLegalTemplate({ name: 'Delete' });
+      handlers.addLegalTemplate({ title: 'Delete', category: 'General' });
       const id = getLegalTemplates()[0].id;
       handlers.deleteLegalTemplate(id);
       expect(getLegalTemplates()).toHaveLength(0);
@@ -42,7 +42,7 @@ describe('Legal System Service - Litigation Suite', () => {
   describe('Notice Generation', () => {
     test('generateLegalNotice - replaces placeholders correctly', () => {
       // 1. Setup template
-      handlers.addLegalTemplate({ name: 'T1', content: 'Notice for {{tenant_name}} on unit {{property_code}}' });
+      handlers.addLegalTemplate({ title: 'T1', content: 'Notice for {{tenant_name}} on unit {{property_code}}', category: 'General' });
       const tmplId = getLegalTemplates()[0].id;
 
       // 2. Setup entities
@@ -58,7 +58,7 @@ describe('Legal System Service - Litigation Suite', () => {
         تاريخ_البداية: '2025-01-01', تاريخ_النهاية: '2025-12-31',
         مدة_العقد_بالاشهر: 12, القيمة_السنوية: 1200, تكرار_الدفع: 1, طريقة_الدفع: 'نقدي', حالة_العقد: 'نشط', isArchived: false,
         lateFeeType: 'none', lateFeeValue: 0, lateFeeGraceDays: 0
-      }]);
+      }] as any);
       
       buildCache();
 
@@ -73,13 +73,13 @@ describe('Legal System Service - Litigation Suite', () => {
 
   describe('Notice History', () => {
     test('saveLegalNoticeHistory and update/delete', () => {
-      handlers.saveLegalNoticeHistory({ contractId: 'C1', content: 'Sent' });
+      handlers.saveLegalNoticeHistory({ contractId: 'C1', contentSnapshot: 'Sent' });
       const history = getLegalNoticeHistory();
       expect(history).toHaveLength(1);
       
       const id = history[0].id;
-      handlers.updateLegalNoticeHistory(id, { content: 'Updated' });
-      expect(getLegalNoticeHistory()[0].content).toBe('Updated');
+      handlers.updateLegalNoticeHistory(id, { contentSnapshot: 'Updated' });
+      expect(getLegalNoticeHistory()[0].contentSnapshot).toBe('Updated');
       
       handlers.deleteLegalNoticeHistory(id);
       expect(getLegalNoticeHistory()).toHaveLength(0);

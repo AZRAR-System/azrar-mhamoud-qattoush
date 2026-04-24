@@ -48,7 +48,7 @@ describe('Notes System Service - Logic Suite', () => {
       // Delay to ensure unique timestamps if Date.now() is used
       await new Promise(r => setTimeout(r, 10));
       
-      addDashboardNote({ content: 'Note 2', priority: 'High' });
+      addDashboardNote({ content: 'Note 2', priority: 'Important' });
       
       const notes = getDashboardNotes();
       expect(notes).toHaveLength(2);

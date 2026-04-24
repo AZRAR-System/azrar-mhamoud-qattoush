@@ -13,24 +13,26 @@ describe('Activities System Service - Audit Suite', () => {
     addActivity({ 
       referenceId: 'P1', 
       referenceType: 'Person', 
-      user: 'Admin', 
-      action: 'Login', 
-      description: 'User logged in' 
+      employee: 'Admin', 
+      actionType: 'Login', 
+      description: 'User logged in',
+      date: new Date().toISOString()
     });
     
     addActivity({ 
       referenceId: 'C1', 
       referenceType: 'Contract', 
-      user: 'Admin', 
-      action: 'Sign', 
-      description: 'Contract signed' 
+      employee: 'Admin', 
+      actionType: 'Sign', 
+      description: 'Contract signed',
+      date: new Date().toISOString()
     });
 
     const personActivities = getActivities('P1', 'Person');
     expect(personActivities).toHaveLength(1);
     expect(personActivities[0].description).toBe('User logged in');
     expect(personActivities[0].id).toContain('ACT-');
-    expect(personActivities[0].createdAt).toBeDefined();
+    expect((personActivities[0] as any).date).toBeDefined();
 
     const contractActivities = getActivities('C1', 'Contract');
     expect(contractActivities).toHaveLength(1);

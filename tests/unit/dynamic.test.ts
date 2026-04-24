@@ -30,7 +30,7 @@ describe('Dynamic Fields Service - Customization Suite', () => {
     addDynamicRecord({ tableId: 'DT-1', data: { f1: 'v1' } });
     const records = getDynamicRecords('DT-1');
     expect(records).toHaveLength(1);
-    expect(records[0].data.f1).toBe('v1');
+    expect((records[0].data as any).f1).toBe('v1');
   });
 
   test('Form Fields - CRUD', () => {

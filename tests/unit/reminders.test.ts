@@ -20,7 +20,7 @@ describe('Reminders System Service - Logic Suite', () => {
 
   test('addReminder - successfully adds a new reminder and dispatches event', () => {
     const dispatchSpy = jest.spyOn(window, 'dispatchEvent');
-    const id = addReminder({ title: 'Test Reminder', date: '2025-01-01', type: 'info' });
+    const id = addReminder({ title: 'Test Reminder', date: '2025-01-01', type: 'Task' });
     
     expect(id).toContain('REM-');
     expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
@@ -32,7 +32,7 @@ describe('Reminders System Service - Logic Suite', () => {
   });
 
   test('getReminders - filters out completed reminders', () => {
-    addReminder({ title: 'Open', date: '2025-01-01', type: 'info' });
+    addReminder({ title: 'Open', date: '2025-01-01', type: 'Task' });
     
     // Use unique ID for the second reminder to avoid collision if Date.now() is too fast
     const doneId = `REM-DONE-${Date.now()}-2`;
@@ -41,7 +41,7 @@ describe('Reminders System Service - Logic Suite', () => {
       id: doneId, 
       title: 'Done', 
       date: '2025-01-01', 
-      type: 'info', 
+      type: 'Task', 
       isDone: false 
     }]);
     
@@ -53,7 +53,7 @@ describe('Reminders System Service - Logic Suite', () => {
   });
 
   test('updateReminder - modifies existing reminder properties', () => {
-    const id = addReminder({ title: 'Old', date: '2025-01-01', type: 'info' });
+    const id = addReminder({ title: 'Old', date: '2025-01-01', type: 'Task' });
     updateReminder(id, { title: 'New' });
     
     const all = getAllReminders();
@@ -61,7 +61,7 @@ describe('Reminders System Service - Logic Suite', () => {
   });
 
   test('toggleReminder - flips completion status', () => {
-    const id = addReminder({ title: 'Toggle', date: '2025-01-01', type: 'info' });
+    const id = addReminder({ title: 'Toggle', date: '2025-01-01', type: 'Task' });
     
     toggleReminder(id);
     expect(getAllReminders()[0].isDone).toBe(true);
@@ -71,7 +71,7 @@ describe('Reminders System Service - Logic Suite', () => {
   });
 
   test('deleteReminder - removes reminder from storage', () => {
-    const id = addReminder({ title: 'Delete me', date: '2025-01-01', type: 'info' });
+    const id = addReminder({ title: 'Delete me', date: '2025-01-01', type: 'Task' });
     deleteReminder(id);
     expect(getAllReminders()).toHaveLength(0);
   });

@@ -45,8 +45,8 @@ describe('Admin Reports Service - Comprehensive Suite', () => {
     save(KEYS.INSTALLMENTS, installments as any);
 
     const result = runReport('financial_summary');
-    const totalExpected = result.data.find(d => d.item === 'إجمالي المتوقع')?.value;
-    const totalPaid = result.data.find(d => d.item === 'إجمالي المحصل')?.value;
+    const totalExpected = (result.data as any[]).find(d => d.item === 'إجمالي المتوقع')?.value;
+    const totalPaid = (result.data as any[]).find(d => d.item === 'إجمالي المحصل')?.value;
 
     expect(totalExpected).toBe(3500);
     expect(totalPaid).toBe(2000);
@@ -68,7 +68,7 @@ describe('Admin Reports Service - Comprehensive Suite', () => {
     save(KEYS.BLACKLIST, []);
 
     const result = runReport('employee_commissions');
-    const row1 = result.data.find(d => d.id === 'C1');
+    const row1 = (result.data as any[]).find(d => d.id === 'C1');
     
     expect(row1).toBeDefined();
     expect(row1?.tier).toBe('3000-3999');

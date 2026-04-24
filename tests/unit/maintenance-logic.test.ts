@@ -86,9 +86,9 @@ describe('Maintenance Logic - Comprehensive Suite', () => {
 
   // 8. Cost Tracking
   test('updateMaintenanceTicket - updates cost field correctly', () => {
-    (get as jest.Mock).mockReturnValue([{ رقم_التذكرة: 'M1', التكلفة: 0 }]);
-    updateMaintenanceTicket('M1', { التكلفة: 150 });
+    (get as jest.Mock).mockReturnValue([{ رقم_التذكرة: 'M1', التكلفة_الفعلية: 0 }]);
+    updateMaintenanceTicket('M1', { التكلفة_الفعلية: 150 });
     const saved = (save as jest.Mock).mock.calls[0][1];
-    expect(saved[0].التكلفة).toBe(150);
+    expect(saved[0].التكلفة_الفعلية).toBe(150);
   });
 });

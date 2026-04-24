@@ -114,21 +114,21 @@ describe('Domain Queries Service - Smart Bridge Suite', () => {
   test('personDetailsSmart - calls desktopDb', async () => {
     mockDesktopDb.domainPersonDetails.mockResolvedValue({
       ok: true,
-      data: { person: { id: 'P1' } }
+      data: { person: { رقم_الشخص: 'P1' } }
     });
 
     const res = await personDetailsSmart('P1');
-    expect(res?.person?.id).toBe('P1');
+    expect(res?.person?.رقم_الشخص).toBe('P1');
   });
 
   test('contractDetailsSmart - calls desktopDb', async () => {
     mockDesktopDb.domainContractDetails.mockResolvedValue({
       ok: true,
-      data: { contract: { id: 'C1' } }
+      data: { contract: { رقم_العقد: 'C1' } }
     });
 
     const res = await contractDetailsSmart('C1');
-    expect(res?.contract?.id).toBe('C1');
+    expect(res?.contract?.رقم_العقد).toBe('C1');
   });
 
   test('salesForPersonSmart - calls desktopDb', async () => {

@@ -113,28 +113,28 @@ describe('license activation error handling', () => {
   };
 
   it('returns ok:true on successful activation', async () => {
-    const mockActivate = jest.fn().mockResolvedValue({ ok: true });
-    const result = await activateFromContent('valid-license', mockActivate);
+    const mockActivate = jest.fn<any>().mockResolvedValue({ ok: true });
+    const result = await activateFromContent('valid-license', mockActivate as any);
     expect(result.ok).toBe(true);
   });
 
   it('returns ok:false with error message on failure', async () => {
-    const mockActivate = jest.fn().mockResolvedValue({ ok: false, error: 'ترخيص منتهي' });
-    const result = await activateFromContent('invalid-license', mockActivate);
+    const mockActivate = jest.fn<any>().mockResolvedValue({ ok: false, error: 'ترخيص منتهي' });
+    const result = await activateFromContent('invalid-license', mockActivate as any);
     expect(result.ok).toBe(false);
     expect(result.error).toBe('ترخيص منتهي');
   });
 
   it('catches thrown exceptions and returns ok:false', async () => {
-    const mockActivate = jest.fn().mockRejectedValue(new Error('Network error'));
-    const result = await activateFromContent('any-content', mockActivate);
+    const mockActivate = jest.fn<any>().mockRejectedValue(new Error('Network error'));
+    const result = await activateFromContent('any-content', mockActivate as any);
     expect(result.ok).toBe(false);
     expect(result.error).toBe('Network error');
   });
 
   it('uses fallback message when exception has no message', async () => {
-    const mockActivate = jest.fn().mockRejectedValue('unknown error');
-    const result = await activateFromContent('any-content', mockActivate);
+    const mockActivate = jest.fn<any>().mockRejectedValue('unknown error');
+    const result = await activateFromContent('any-content', mockActivate as any);
     expect(result.ok).toBe(false);
     expect(result.error).toBe('unknown error');
   });

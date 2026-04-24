@@ -33,7 +33,7 @@ describe('Message Templates Service - Communication Customization Suite', () => 
   test('addCustomTemplate - adds and persists custom template', () => {
     const custom = addCustomTemplate({
       name: 'Welcome Msg',
-      category: 'contracts',
+      category: 'reminder',
       body: 'Welcome {{tenant_name}}'
     });
     
@@ -42,7 +42,7 @@ describe('Message Templates Service - Communication Customization Suite', () => 
   });
 
   test('getAllTemplates - lists both builtin and custom', () => {
-    addCustomTemplate({ name: 'C1', category: 'general', body: 'B1' });
+    addCustomTemplate({ name: 'C1', category: 'reminder', body: 'B1' });
     const all = getAllTemplates();
     expect(all.length).toBeGreaterThan(1);
     expect(all.find(t => t.isCustom)).toBeDefined();

@@ -25,17 +25,17 @@ describe('Inspections System Service - Property Audit Suite', () => {
     const res = handlers.createInspection({
       propertyId: 'PR1',
       inspectionDate: '2025-01-10',
-      inspectorName: 'Ali',
+      inspectorId: 'Ali',
       status: 'Completed',
       notes: 'Clean'
-    });
+    } as any);
 
     expect(res.success).toBe(true);
     expect(res.data?.id).toContain('INS-');
     
     const stored = getPropertyInspections('PR1');
     expect(stored).toHaveLength(1);
-    expect(stored[0].inspectorName).toBe('Ali');
+    expect(stored[0].inspectorId).toBe('Ali');
   });
 
   test('createInspection - fails if required fields missing', () => {

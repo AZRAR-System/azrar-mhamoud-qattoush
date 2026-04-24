@@ -32,7 +32,7 @@ describe('Installments Logic - Strengthened Suite', () => {
 
   // 1. Full Payment
   test('markInstallmentPaid - full payment sets status to PAID and remaining to 0', () => {
-    const inst = { رقم_الكمبيالة: 'I1', القيمة: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] };
+    const inst = { رقم_الكمبيالة: 'I1', القيمة: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] as any[] };
     (get as jest.Mock).mockReturnValue([inst]);
 
     const res = markInstallmentPaid('I1', 'Admin', 'Admin', { paidAmount: 300 });
@@ -45,7 +45,7 @@ describe('Installments Logic - Strengthened Suite', () => {
 
   // 2. Partial Payment
   test('markInstallmentPaid - partial payment 100/300 sets status to PARTIAL and remaining to 200', () => {
-    const inst = { رقم_الكمبيالة: 'I1', القيمة: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] };
+    const inst = { رقم_الكمبيالة: 'I1', القيمة: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] as any[] };
     (get as jest.Mock).mockReturnValue([inst]);
 
     const res = markInstallmentPaid('I1', 'Admin', 'Admin', { paidAmount: 100, isPartial: true });
@@ -58,7 +58,7 @@ describe('Installments Logic - Strengthened Suite', () => {
 
   // 3. Sequential Payments Fix
   test('markInstallmentPaid - sequential payments 100 then 200 leads to PAID status', () => {
-    let installments = [{ رقم_الكمبيالة: 'I1', القيمة: 300, القيمة_المتبقية: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] }];
+    let installments = [{ رقم_الكمبيالة: 'I1', القيمة: 300, القيمة_المتبقية: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] as any[] }];
     (get as jest.Mock).mockImplementation(() => installments);
     (save as jest.Mock).mockImplementation((key, data) => { if (key === KEYS.INSTALLMENTS) installments = data; });
 
@@ -76,7 +76,7 @@ describe('Installments Logic - Strengthened Suite', () => {
 
   // 4. Overpayment Rejection
   test('markInstallmentPaid - rejects payment exceeding remaining amount', () => {
-    const inst = { رقم_الكمبيالة: 'I1', القيمة: 300, القيمة_المتبقية: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] };
+    const inst = { رقم_الكمبيالة: 'I1', القيمة: 300, القيمة_المتبقية: 300, حالة_الكمبيالة: 'غير مدفوع', سجل_الدفعات: [] as any[] };
     (get as jest.Mock).mockReturnValue([inst]);
 
     const res = markInstallmentPaid('I1', 'Admin', 'Admin', { paidAmount: 350 });
@@ -248,7 +248,7 @@ describe('Installments Logic - Strengthened Suite', () => {
       القيمة: 300, 
       تاريخ_استحقاق: '2020-01-01', // Very late
       حالة_الكمبيالة: 'غير مدفوع', 
-      سجل_الدفعات: [] 
+      سجل_الدفعات: [] as any[] 
     };
     (get as jest.Mock).mockImplementation((key) => {
       if (key === KEYS.INSTALLMENTS) return [inst];

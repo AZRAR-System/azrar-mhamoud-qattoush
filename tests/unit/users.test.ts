@@ -36,17 +36,17 @@ describe('Users System Service - Auth and RBAC Suite', () => {
 
   test('updateUserRole - prevents removing last superadmin', async () => {
     await addSystemUser({ اسم_المستخدم: 'sa', كلمة_المرور: '1', الدور: 'SuperAdmin' });
-    const user = getUsers()[0];
+    const user = (getUsers() as any[])[0];
     
     expect(() => updateUserRole(user.id, 'Employee')).toThrow('آخر مدير نظام نشط');
   });
 
   test('updateUserStatus and deleteSystemUser', async () => {
     await addSystemUser({ اسم_المستخدم: 'u1', كلمة_المرور: '1', الدور: 'Employee' });
-    const user = getUsers()[0];
+    const user = (getUsers() as any[])[0];
     
     updateUserStatus(user.id, false);
-    expect(getUsers()[0].isActive).toBe(false);
+    expect((getUsers() as any[])[0].isActive).toBe(false);
     
     deleteSystemUser(user.id);
     expect(getUsers()).toHaveLength(0);
@@ -54,7 +54,7 @@ describe('Users System Service - Auth and RBAC Suite', () => {
 
   test('changeUserPassword - updates hash', async () => {
     await addSystemUser({ اسم_المستخدم: 'u1', كلمة_المرور: 'old', الدور: 'Employee' });
-    const user = getUsers()[0];
+    const user = (getUsers() as any[])[0];
     
     await changeUserPassword(user.id, 'new_pass');
     const res = await authenticateUser('u1', 'new_pass');

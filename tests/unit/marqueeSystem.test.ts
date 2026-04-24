@@ -24,7 +24,7 @@ describe('Marquee System Service - API Suite', () => {
       expect(res.data).toBeDefined();
       expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
       
-      const stored = kv.get(KEYS.MARQUEE);
+      const stored = kv.get<any>(KEYS.MARQUEE);
       expect(stored).toHaveLength(1);
       expect(stored[0].content).toBe('Test Ad');
     });

@@ -70,7 +70,7 @@ describe('People System Service - CRM Suite', () => {
 
   describe('Blacklist', () => {
     test('addToBlacklist and removeFromBlacklist', () => {
-      addToBlacklist({ personId: 'P1', reason: 'Non-payment' });
+      addToBlacklist({ personId: 'P1', reason: 'Non-payment', severity: 'High' });
       const bl = kv.get<any>(KEYS.BLACKLIST);
       expect(bl).toHaveLength(1);
       expect(bl[0].isActive).toBe(true);

@@ -2,9 +2,9 @@
 import fs from 'fs';
 import path from 'path';
 
-const readText = (p) => fs.readFileSync(p, 'utf8');
+const readText = (p: string) => fs.readFileSync(p, 'utf8');
 
-const walk = (dir, out = []) => {
+const walk = (dir: string, out: string[] = []) => {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const e of entries) {
     const full = path.join(dir, e.name);
@@ -14,10 +14,10 @@ const walk = (dir, out = []) => {
   return out;
 };
 
-const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRegExp = (s: string) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const extractPreloadInvokeChannels = (src) => {
-  const channels = new Set();
+const extractPreloadInvokeChannels = (src: string) => {
+  const channels = new Set<string>();
   const patterns = [
     /ipcRenderer\.invoke\(\s*['"]([^'\"]+)['"]/g,
     /ipcRenderer\.send\(\s*['"]([^'\"]+)['"]/g,
@@ -34,8 +34,8 @@ const extractPreloadInvokeChannels = (src) => {
   return [...channels].sort();
 };
 
-const extractHandledChannels = (tsSources) => {
-  const handled = new Set();
+const extractHandledChannels = (tsSources: string[]) => {
+  const handled = new Set<string>();
 
   const handlerPatterns = [
     /ipcMain\.handle\(\s*['"]([^'\"]+)['"]/g,
@@ -81,13 +81,13 @@ describe('IPC contract: preload -> main handlers', () => {
     expect(handled.size).toBeGreaterThan(5);
 
     // Extra: ensure app:* channels are included too.
-    const appInvoked = invoked.filter((c) => c.startsWith('app:'));
+    const appInvoked = invoked.filter((c) => (c as string).startsWith('app:'));
     for (const ch of appInvoked) {
       expect(handled.has(ch)).toBe(true);
     }
 
     // Guard against false positives: confirm at least one handled channel appears as a handler call.
-    const sample = invoked.find((c) => c.startsWith('db:'));
+    const sample = invoked.find((c) => (c as string).startsWith('db:'));
     if (sample) {
       const re = new RegExp(`ipcMain\\.handle\\(\\s*['\"]${escapeRegExp(sample)}['\"]`);
       const found = electronTsSources.some((src) => re.test(src));

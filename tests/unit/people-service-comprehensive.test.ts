@@ -6,7 +6,8 @@ import {
   upsertContactBookInternal,
   getContactsDirectoryInternal,
   addPersonWithAutoLinkInternal,
-  updatePersonWithAutoLinkInternal
+  updatePersonWithAutoLinkInternal,
+  getPersonBlacklistStatus
 } from '@/services/db/people';
 import * as kv from '@/services/db/kv';
 import { KEYS } from '@/services/db/keys';
@@ -53,7 +54,8 @@ describe('People Service - Comprehensive Logic Suite', () => {
   });
 
   test('blacklist operations - add and remove', () => {
-    addToBlacklist({ personId: 'P1', reason: 'Unpaid' });
+    addToBlacklist({ personId: 'P1', reason: 'Non-payment', severity: 'High' });
+    expect(getPersonBlacklistStatus('P1')).toBeDefined();
     let bl = kv.get<any>(KEYS.BLACKLIST);
     expect(bl).toHaveLength(1);
     expect(bl[0].isActive).toBe(true);
@@ -92,7 +94,7 @@ describe('People Service - Comprehensive Logic Suite', () => {
     kv.save(KEYS.PEOPLE, [{ رقم_الشخص: 'P1', الاسم: 'John', رقم_الهاتف: '0799999999' }]);
     kv.save(KEYS.CONTACTS, [{ id: 'C1', name: 'John Old', phone: '0799999999' }]);
 
-    const res = updatePersonWithAutoLinkInternal('P1', { الاسم: 'John Updated' } as any, []);
+    const res = updatePersonWithAutoLinkInternal('P1', { الاسم: 'John Updated' } as any);
     expect(res.success).toBe(true);
     expect(kv.get<any>(KEYS.PEOPLE)[0].الاسم).toBe('John Updated');
     // Contact book should be cleared for this phone

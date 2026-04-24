@@ -29,12 +29,12 @@ if (typeof globalThis.TextDecoder === 'undefined') {
 // Tests specifically targeting Desktop logic should mock this globally or locally.
 const desktopDbMock = {
   domainMigrate: jest.fn(() => Promise.resolve({ ok: true })),
-  get: jest.fn((key) => Promise.resolve(globalThis.localStorage.getItem(key))),
-  set: jest.fn((key, val) => {
+  get: jest.fn((key: string) => Promise.resolve(globalThis.localStorage.getItem(key))),
+  set: jest.fn((key: string, val: string) => {
     globalThis.localStorage.setItem(key, val);
     return Promise.resolve({ ok: true });
   }),
-  delete: jest.fn((key) => {
+  delete: jest.fn((key: string) => {
     globalThis.localStorage.removeItem(key);
     return Promise.resolve({ ok: true });
   }),
@@ -139,7 +139,7 @@ if (typeof window !== 'undefined' && typeof window.matchMedia === 'undefined') {
 }
 
 // Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
+(global as any).IntersectionObserver = class IntersectionObserver {
   constructor() {}
   disconnect() {}
   observe() {}
@@ -150,7 +150,7 @@ global.IntersectionObserver = class IntersectionObserver {
 };
 
 // Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
+(global as any).ResizeObserver = class ResizeObserver {
   constructor() {}
   disconnect() {}
   observe() {}
@@ -158,29 +158,29 @@ global.ResizeObserver = class ResizeObserver {
 };
 
 // Mock localStorage
-let localStore = {};
+let localStore: any = {};
 global.localStorage = {
-  getItem: jest.fn((key) => localStore[key] ? String(localStore[key]) : null),
-  setItem: jest.fn((key, value) => { localStore[key] = String(value); }),
-  removeItem: jest.fn((key) => { delete localStore[key]; }),
+  getItem: jest.fn((key: string) => localStore[key] ? String(localStore[key]) : null),
+  setItem: jest.fn((key: string, value: string) => { localStore[key] = String(value); }),
+  removeItem: jest.fn((key: string) => { delete localStore[key]; }),
   clear: jest.fn(() => { localStore = {}; }),
   get length() { return Object.keys(localStore).length; },
-  key: jest.fn((i) => Object.keys(localStore)[i] || null),
+  key: jest.fn((i: number) => Object.keys(localStore)[i] || null),
 };
 
 // Mock sessionStorage
-let sessionStore = {};
+let sessionStore: any = {};
 global.sessionStorage = {
-  getItem: jest.fn((key) => sessionStore[key] ? String(sessionStore[key]) : null),
-  setItem: jest.fn((key, value) => { sessionStore[key] = String(value); }),
-  removeItem: jest.fn((key) => { delete sessionStore[key]; }),
+  getItem: jest.fn((key: string) => sessionStore[key] ? String(sessionStore[key]) : null),
+  setItem: jest.fn((key: string, value: string) => { sessionStore[key] = String(value); }),
+  removeItem: jest.fn((key: string) => { delete sessionStore[key]; }),
   clear: jest.fn(() => { sessionStore = {}; }),
   get length() { return Object.keys(sessionStore).length; },
-  key: jest.fn((i) => Object.keys(sessionStore)[i] || null),
+  key: jest.fn((i: number) => Object.keys(sessionStore)[i] || null),
 };
 
-if (typeof window !== 'undefined' && typeof window.electron === 'undefined') {
-  window.electron = {
+if (typeof window !== 'undefined' && typeof (window as any).electron === 'undefined') {
+  (window as any).electron = {
     ipcRenderer: {
       send: jest.fn(),
       on: jest.fn(),
