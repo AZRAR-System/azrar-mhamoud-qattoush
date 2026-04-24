@@ -103,4 +103,40 @@ describe('ContractFinancialEngine - Real Logic Tests', () => {
       expect(dp[1].تاريخ_استحقاق).toBe('2026-02-01');
     });
   });
+  // ─── calculateDayDiffValue edge cases ─────────────────────────
+  describe('calculateDayDiffValue - pDay=1 branch', () => {
+    test('pDay=1 uses full remaining days in month', () => {
+      const r = ContractFinancialEngine.calculateDayDiffValue('2026-01-15', 1200, 1);
+      expect(r).toBeGreaterThan(0);
+    });
+
+    test('pDay=1 on first of month returns 0', () => {
+      const r = ContractFinancialEngine.calculateDayDiffValue('2026-01-01', 1200, 1);
+      expect(r).toBe(0);
+    });
+
+    test('cDay > pDay branch', () => {
+      const r = ContractFinancialEngine.calculateDayDiffValue('2026-01-20', 1200, 10);
+      expect(r).toBeGreaterThan(0);
+    });
+  });
+
+  describe('calculateSchedule - month rollover (Jan 31 → Feb 28)', () => {
+    test('sets date to end of month when day overflows', () => {
+      const contract = {
+        تاريخ_البداية: '2026-01-31',
+        مدة_العقد_بالاشهر: 3,
+        القيمة_السنوية: 1200,
+        تكرار_الدفع: 12,
+        يوم_الدفع: 31,
+        احتساب_فرق_ايام: false,
+      };
+      const schedule = ContractFinancialEngine.calculateSchedule(contract as any, 'rollover-test');
+      const periodic = schedule.filter(s => s.نوع_الدفعة === 'دورية');
+      expect(periodic.length).toBeGreaterThan(0);
+      const febInst = periodic.find(i => i.تاريخ_استحقاق.startsWith('2026-02'));
+      expect(febInst).toBeDefined();
+      expect(febInst?.تاريخ_استحقاق).toBe('2026-02-28');
+    });
+  });
 });

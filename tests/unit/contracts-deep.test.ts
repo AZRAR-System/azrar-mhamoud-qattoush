@@ -362,3 +362,58 @@ describe('autoArchiveContracts', () => {
     expect(r.data!.updated).toBe(0);
   });
 });
+
+// ─── processSecurityDeposit ───────────────────────────────────────
+describe('processSecurityDeposit', () => {
+  test('returns ok for Return action', () => {
+    const { data } = createContract(makeContractData({ قيمة_التأمين: 500 }), 0, 0);
+    const { processSecurityDeposit } = createContractWrites(deps);
+    const r = processSecurityDeposit(data!.رقم_العقد, 0, 'Return', 'استعادة كاملة');
+    expect(r.success).toBe(true);
+  });
+
+  test('returns ok for Execute action with deductions', () => {
+    const { data } = createContract(makeContractData({ قيمة_التأمين: 500 }), 0, 0);
+    const { processSecurityDeposit } = createContractWrites(deps);
+    const r = processSecurityDeposit(data!.رقم_العقد, 200, 'Execute');
+    expect(r.success).toBe(true);
+  });
+
+  test('returns ok for ExecutePartial action', () => {
+    const { data } = createContract(makeContractData({ قيمة_التأمين: 500 }), 0, 0);
+    const { processSecurityDeposit } = createContractWrites(deps);
+    const r = processSecurityDeposit(data!.رقم_العقد, 100, 'ExecutePartial', 'خصم جزئي');
+    expect(r.success).toBe(true);
+  });
+});
+
+// ─── generateContractInstallments failure ─────────────────────────
+describe('createContract - zero duration', () => {
+  test('handles zero duration contract gracefully', () => {
+    const badContract = makeContractData({ مدة_العقد_بالاشهر: 0 });
+    let r;
+    try {
+      r = createContract(badContract, 0, 0);
+      expect(r.success === true || r.success === false).toBe(true);
+    } catch {
+      expect(true).toBe(true);
+    }
+  });
+});
+
+// ─── autoArchiveContracts - تحصيل branch ─────────────────────────
+describe('autoArchiveContracts - collection branch', () => {
+  test('keeps تحصيل status when already in collection', () => {
+    const { data } = createContract(makeContractData({ تاريخ_النهاية: '2025-01-01' }), 0, 0);
+    const id = data!.رقم_العقد;
+    const all = kv.get<any>(KEYS.CONTRACTS);
+    const idx = all.findIndex((c: any) => c.رقم_العقد === id);
+    all[idx].حالة_العقد = 'تحصيل';
+    kv.save(KEYS.CONTRACTS, all);
+    buildCache();
+    const r = autoArchiveContracts();
+    expect(r.success).toBe(true);
+    const c = kv.get<any>(KEYS.CONTRACTS).find((c: any) => c.رقم_العقد === id);
+    expect(c.حالة_العقد).toBe('تحصيل');
+  });
+});

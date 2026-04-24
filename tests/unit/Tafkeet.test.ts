@@ -18,3 +18,35 @@ describe('Tafkeet Utility', () => {
         expect(tafkeet(100.25)).toContain('دينار أردني وخمسة وعشرون فلس فقط لا غير');
     });
 });
+
+describe('tafkeet - edge cases', () => {
+  test('converts number with remainder < 11', () => {
+    const r = tafkeet(1005);
+    expect(r).toContain('خمسة');
+  });
+
+  test('converts number with remainder 10-19 (teens)', () => {
+    const r = tafkeet(1015);
+    expect(r).toContain('خمسة عشر');
+  });
+
+  test('converts number with remainder >= 20', () => {
+    const r = tafkeet(1025);
+    expect(r).toContain('خمسة وعشرون');
+  });
+
+  test('converts 2 million', () => {
+    const r = tafkeet(2000000);
+    expect(r).toContain('مليونان');
+  });
+
+  test('converts 5 million (3-10 range)', () => {
+    const r = tafkeet(5000000);
+    expect(r).toContain('ملايين');
+  });
+
+  test('converts 15 million (>10 range)', () => {
+    const r = tafkeet(15000000);
+    expect(r).toContain('مليون');
+  });
+});
