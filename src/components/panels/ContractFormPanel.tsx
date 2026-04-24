@@ -71,12 +71,22 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     if (!contract.رقم_العقار || !contract.القيمة_السنوية || !contract.تاريخ_البداية) return;
     try {
       const generated = ContractFinancialEngine.calculateSchedule(contract, id || 'preview');
+      const resolvedPropertyCode = (() => {
+        if (!contract.رقم_العقار) return '—';
+        try {
+          const props = DbService.getProperties();
+          const prop = props.find((p) => p.رقم_العقار === contract.رقم_العقار);
+          return prop?.الكود_الداخلي || contract.رقم_العقار;
+        } catch {
+          return contract.رقم_العقار;
+        }
+      })();
       const preview: InstallmentPreviewRow[] = generated.map((inst, i) => ({
          rank: inst.ترتيب_الكمبيالة || i + 1,
          type: inst.نوع_الدفعة as 'فرق أيام' | 'دفعة أولى' | 'إيجار' | 'تأمين' | 'دورية',
          date: inst.تاريخ_استحقاق,
          amount: inst.القيمة,
-         propertyCode: '3938' // Simulated or fetched
+         propertyCode: resolvedPropertyCode,
       }));
       setInstallmentsPreview(preview);
     } catch (err) {
