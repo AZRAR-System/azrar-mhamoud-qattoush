@@ -18,7 +18,7 @@ import {
   DATABASE_INDEXES as _DATABASE_INDEXES,
 } from './databaseIndexes';
 
-import { get, save as _save } from './storage';
+import { get, save as _save } from './db/kv';
 import { العقارات_tbl, العقود_tbl, الأشخاص_tbl, شخص_دور_tbl } from '../types/types';
 import { isTenancyRelevant } from '@/utils/tenancy';
 

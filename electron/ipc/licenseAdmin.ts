@@ -257,7 +257,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:getAdminTokenStatus', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const origin = normalizeServerUrl(p.serverUrl);
       const configured = !!getAdminTokenForOrigin(origin);
@@ -270,7 +270,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:setAdminToken', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const token = String(p.token ?? '').trim();
       if (!token) return { ok: false, error: 'token is required.' };
@@ -285,7 +285,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:getUser', async () => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const a = ensureAuth();
       return { ok: true, user: { username: a.username, updatedAt: a.updatedAt } };
     } catch (e: unknown) {
@@ -296,7 +296,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:updateUser', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const nextUser = normalizeUser(p.username);
       const nextPass = normalizePass(p.newPassword);
@@ -320,7 +320,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:list', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
@@ -336,7 +336,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:get', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
@@ -352,7 +352,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:issue', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
@@ -374,7 +374,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:setStatus', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
@@ -396,7 +396,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:activate', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
@@ -425,7 +425,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:checkStatus', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
@@ -454,7 +454,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:saveLicenseFile', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const confirmPassword = String(p.confirmPassword || '').trim();
       if (!confirmPassword) return { ok: false, error: 'confirmPassword is required.' };
@@ -467,11 +467,11 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
         .replace(/[^a-zA-Z0-9._-]/g, '_')
         .slice(0, 120);
       const defaultPath = path.join(app.getPath('documents'), safeName || 'azrar-license.json');
-      const result = (await dialog.showSaveDialog({
+      const result = await dialog.showSaveDialog({
         title: 'حفظ ملف الترخيص',
         defaultPath,
         filters: [{ name: 'JSON', extensions: ['json'] }],
-      })) as unknown as Electron.SaveDialogReturnValue;
+      });
       if (result.canceled || !result.filePath) return { ok: false, error: 'Canceled' };
       await fsp.writeFile(result.filePath, content, 'utf8');
       return { ok: true, filePath: result.filePath };
@@ -483,7 +483,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:updateAfterSales', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
@@ -503,7 +503,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:unbindDevice', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };
@@ -524,7 +524,7 @@ export function registerLicenseAdmin(deps: IpcDeps): void {
   ipcMain.handle('licenseAdmin:delete', async (_e, payload: unknown) => {
     try {
       const auth = requireAdminSession();
-      if (!auth.ok) return { ok: false, error: auth.error };
+      if (auth.ok === false) return { ok: false, error: auth.error };
       const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const serverUrl = normalizeServerUrl(p.serverUrl);
       if (!serverUrl) return { ok: false, error: 'Invalid serverUrl.' };

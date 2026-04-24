@@ -1,0 +1,110 @@
+﻿electron/ipc/licenseAdmin.ts(260,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(273,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(288,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(299,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(323,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(339,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(355,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(377,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(399,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(428,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(457,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(486,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(506,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/licenseAdmin.ts(527,53): error TS2339: Property 'error' does not exist on type '{ ok: true; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+electron/ipc/printing.ts(212,52): error TS2339: Property 'reason' does not exist on type 'InstallerCandidateValidation'.
+  Property 'reason' does not exist on type '{ ok: true; }'.
+electron/ipc/printing.ts(217,56): error TS2339: Property 'message' does not exist on type 'AuthenticodeVerification'.
+  Property 'message' does not exist on type '{ ok: true; status: "Valid"; subject?: string; thumbprint?: string; statusMessage?: string; }'.
+electron/ipc/printing.ts(403,78): error TS2339: Property 'message' does not exist on type 'ParsePrintingHtmlResult'.
+  Property 'message' does not exist on type '{ ok: true; value: HtmlDocPrintOptions & { html: string; }; }'.
+electron/ipc/printing.ts(433,74): error TS2339: Property 'message' does not exist on type 'ParsePrintingHtmlResult'.
+  Property 'message' does not exist on type '{ ok: true; value: HtmlDocPrintOptions & { html: string; }; }'.
+electron/ipc/printing.ts(449,74): error TS2339: Property 'message' does not exist on type 'ParsePrintingHtmlResult'.
+  Property 'message' does not exist on type '{ ok: true; value: HtmlDocPrintOptions & { html: string; }; }'.
+electron/ipc/printing.ts(465,74): error TS2339: Property 'message' does not exist on type 'ParsePrintingHtmlResult'.
+  Property 'message' does not exist on type '{ ok: true; value: HtmlDocPrintOptions & { html: string; }; }'.
+electron/ipc/sql.ts(457,18): error TS2339: Property 'canceled' does not exist on type 'string'.
+electron/ipc/sql.ts(457,38): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/ipc/sql.ts(459,33): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/ipc/sql.ts(617,32): error TS2339: Property 'response' does not exist on type 'number'.
+electron/ipc/sql.ts(773,17): error TS2339: Property 'response' does not exist on type 'Number'.
+electron/ipc/updaterHandlers.ts(204,16): error TS2339: Property 'canceled' does not exist on type 'string[]'.
+electron/ipc/updaterHandlers.ts(204,35): error TS2339: Property 'filePaths' does not exist on type 'string[]'.
+electron/ipc/updaterHandlers.ts(208,41): error TS2339: Property 'filePaths' does not exist on type 'string[]'.
+electron/licensegen-main.ts(357,63): error TS2339: Property 'publicKeyB64' does not exist on type 'object'.
+electron/licensegen-main.ts(358,27): error TS2339: Property 'publicKeyB64' does not exist on type 'object'.
+electron/licensegen-main.ts(475,16): error TS2339: Property 'canceled' does not exist on type 'string[]'.
+electron/licensegen-main.ts(475,35): error TS2339: Property 'filePaths' does not exist on type 'string[]'.
+electron/licensegen-main.ts(479,29): error TS2339: Property 'filePaths' does not exist on type 'string[]'.
+electron/licensegen-main.ts(557,14): error TS2339: Property 'canceled' does not exist on type 'string'.
+electron/licensegen-main.ts(557,32): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/licensegen-main.ts(576,30): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/licensegen-main.ts(661,14): error TS2339: Property 'canceled' does not exist on type 'string'.
+electron/licensegen-main.ts(661,32): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/licensegen-main.ts(665,30): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/licensegen-main.ts(674,24): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/licensegen-main.ts(694,39): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/printing/docx/docxTemplateEngine.ts(76,62): error TS2749: 'PizZip' refers to a value, but is being used as a type here. Did you mean 'typeof PizZip'?
+electron/printing/docx/docxTemplateEngine.ts(78,11): error TS2740: Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'Buffer<ArrayBufferLike>': write, toJSON, equals, compare, and 66 more.
+electron/printing/docx/docxTemplateEngine.ts(94,58): error TS2339: Property 'code' does not exist on type 'RenderDocxBufferResult'.
+  Property 'code' does not exist on type '{ ok: true; bytes: Buffer<ArrayBufferLike>; fileStem: string; }'.
+electron/printing/docx/docxTemplateEngine.ts(94,82): error TS2339: Property 'message' does not exist on type 'RenderDocxBufferResult'.
+  Property 'message' does not exist on type '{ ok: true; bytes: Buffer<ArrayBufferLike>; fileStem: string; }'.
+electron/printing/docx/docxTemplateEngine.ts(104,14): error TS2339: Property 'canceled' does not exist on type 'string'.
+electron/printing/docx/docxTemplateEngine.ts(104,32): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/printing/docx/docxTemplateEngine.ts(107,30): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/printing/docx/docxTemplateEngine.ts(108,40): error TS2339: Property 'filePath' does not exist on type 'string'.
+electron/printing/generation/generationEngine.ts(23,19): error TS2322: Type 'RenderDocxBufferResult' is not assignable to type 'GenerateDocumentResult'.
+  Type '{ ok: true; bytes: Buffer<ArrayBufferLike>; fileStem: string; }' is not assignable to type 'GenerateDocumentResult'.
+    Type '{ ok: true; bytes: Buffer<ArrayBufferLike>; fileStem: string; }' is missing the following properties from type '{ ok: true; outputType: OutputType; tempPath: string; fileName: string; }': outputType, tempPath, fileName
+electron/printing/generation/generationEngine.ts(44,69): error TS2339: Property 'message' does not exist on type '{ ok: true; pdfBytes: Buffer<ArrayBufferLike>; } | { ok: false; message: string; }'.
+  Property 'message' does not exist on type '{ ok: true; pdfBytes: Buffer<ArrayBufferLike>; }'.
+electron/printing/headerFooter/docxHeaderFooterInjector.ts(13,27): error TS2749: 'PizZip' refers to a value, but is being used as a type here. Did you mean 'typeof PizZip'?
+electron/printing/headerFooter/docxHeaderFooterInjector.ts(24,27): error TS2749: 'PizZip' refers to a value, but is being used as a type here. Did you mean 'typeof PizZip'?
+electron/printing/headerFooter/docxHeaderFooterInjector.ts(134,8): error TS2749: 'PizZip' refers to a value, but is being used as a type here. Did you mean 'typeof PizZip'?
+electron/printing/preview/previewManager.ts(113,68): error TS2339: Property 'message' does not exist on type '{ ok: true; } | { ok: false; message: string; }'.
+  Property 'message' does not exist on type '{ ok: true; }'.
+electron/printing/preview/previewManager.ts(214,68): error TS2339: Property 'message' does not exist on type '{ ok: true; } | { ok: false; message: string; }'.
+  Property 'message' does not exist on type '{ ok: true; }'.
+electron/printing/preview/previewManager.ts(250,49): error TS2339: Property 'message' does not exist on type 'GenerateDocumentResult'.
+  Property 'message' does not exist on type '{ ok: true; outputType: OutputType; tempPath: string; fileName: string; }'.
+electron/printing/preview/previewManager.ts(273,71): error TS2339: Property 'message' does not exist on type '{ ok: true; tempPath: string; fileName: string; } | { ok: false; message: string; }'.
+  Property 'message' does not exist on type '{ ok: true; tempPath: string; fileName: string; }'.
+electron/printing/preview/previewManager.ts(309,69): error TS2339: Property 'message' does not exist on type '{ ok: true; } | { ok: false; message: string; }'.
+  Property 'message' does not exist on type '{ ok: true; }'.
+electron/printing/preview/previewManager.ts(381,21): error TS2339: Property 'code' does not exist on type 'GenerateDocxResult'.
+  Property 'code' does not exist on type '{ ok: true; savedPath: string; }'.
+electron/printing/preview/previewManager.ts(382,24): error TS2339: Property 'message' does not exist on type 'GenerateDocxResult'.
+  Property 'message' does not exist on type '{ ok: true; savedPath: string; }'.
+electron/printing/preview/previewManager.ts(402,69): error TS2339: Property 'message' does not exist on type '{ ok: true; tempPath: string; fileName: string; } | { ok: false; message: string; }'.
+  Property 'message' does not exist on type '{ ok: true; tempPath: string; fileName: string; }'.
+electron/utils/fileEncryption.ts(44,10): error TS2352: Conversion of type 'Promise<string>' to type 'Promise<void>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'string' is not comparable to type 'void'.
+print/engine/printEngine.ts(242,14): error TS2339: Property 'canceled' does not exist on type 'string'.
+print/engine/printEngine.ts(242,32): error TS2339: Property 'filePath' does not exist on type 'string'.
+print/engine/printEngine.ts(258,29): error TS2339: Property 'filePath' does not exist on type 'string'.
+print/engine/printEngine.ts(266,40): error TS2339: Property 'filePath' does not exist on type 'string'.
+src/components/shared/FileViewer.tsx(139,7): error TS2322: Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+  Type 'SharedArrayBuffer' is missing the following properties from type 'ArrayBuffer': resizable, resize, detached, transfer, transferToFixedLength
+src/hooks/useSettingsPage.tsx(1340,51): error TS2345: Argument of type 'Uint8Array<ArrayBuffer>' is not assignable to parameter of type 'ArrayBuffer'.
+  Type 'Uint8Array<ArrayBuffer>' is missing the following properties from type 'ArrayBuffer': maxByteLength, resizable, resize, detached, and 2 more.
+src/utils/externalLink.ts(68,18): error TS2339: Property 'opener' does not exist on type 'BrowserWindowProxy'.
+src/utils/externalLink.ts(72,3): error TS2740: Type 'BrowserWindowProxy' is missing the following properties from type 'Window': clientInformation, customElements, devicePixelRatio, document, and 206 more.
+src/utils/externalLink.ts(85,18): error TS2339: Property 'opener' does not exist on type 'BrowserWindowProxy'.
+src/utils/externalLink.ts(89,3): error TS2740: Type 'BrowserWindowProxy' is missing the following properties from type 'Window': clientInformation, customElements, devicePixelRatio, document, and 206 more.
+tests/unit/externalLink.test.ts(8,67): error TS2741: Property 'eval' is missing in type 'Window' but required in type 'BrowserWindowProxy'.

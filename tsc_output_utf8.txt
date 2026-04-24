@@ -1,0 +1,74 @@
+﻿src/components/shared/FileViewer.tsx(139,7): error TS2322: Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+  Type 'SharedArrayBuffer' is missing the following properties from type 'ArrayBuffer': resizable, resize, detached, transfer, transferToFixedLength
+src/hooks/useSettingsPage.tsx(1340,51): error TS2345: Argument of type 'Uint8Array<ArrayBuffer>' is not assignable to parameter of type 'ArrayBuffer'.
+  Type 'Uint8Array<ArrayBuffer>' is missing the following properties from type 'ArrayBuffer': maxByteLength, resizable, resize, detached, and 2 more.
+src/services/indexesTests.ts(21,10): error TS2305: Module '"./storage"' has no exported member 'get'.
+src/services/indexesTests.ts(21,15): error TS2305: Module '"./storage"' has no exported member 'save'.
+src/utils/externalLink.ts(68,18): error TS2339: Property 'opener' does not exist on type 'BrowserWindowProxy'.
+src/utils/externalLink.ts(72,3): error TS2740: Type 'BrowserWindowProxy' is missing the following properties from type 'Window': clientInformation, customElements, devicePixelRatio, document, and 205 more.
+src/utils/externalLink.ts(85,18): error TS2339: Property 'opener' does not exist on type 'BrowserWindowProxy'.
+src/utils/externalLink.ts(89,3): error TS2740: Type 'BrowserWindowProxy' is missing the following properties from type 'Window': clientInformation, customElements, devicePixelRatio, document, and 205 more.
+tests/setup.ts(32,73): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+tests/setup.ts(34,37): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+tests/setup.ts(38,40): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+tests/setup.ts(142,1): error TS2322: Type 'typeof IntersectionObserver' is not assignable to type '{ new (callback: IntersectionObserverCallback, options?: IntersectionObserverInit): IntersectionObserver; prototype: IntersectionObserver; }'.
+  Types of property 'prototype' are incompatible.
+    Type 'IntersectionObserver' is missing the following properties from type 'IntersectionObserver': root, rootMargin, thresholds
+tests/setup.ts(163,40): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(163,65): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(164,49): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(165,52): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(168,47): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(174,42): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(174,69): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(175,51): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(176,54): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(179,49): error TS2538: Type 'unknown' cannot be used as an index type.
+tests/setup.ts(182,52): error TS2551: Property 'electron' does not exist on type 'Window & typeof globalThis'. Did you mean 'Electron'?
+tests/setup.ts(183,10): error TS2551: Property 'electron' does not exist on type 'Window & typeof globalThis'. Did you mean 'Electron'?
+tests/unit/activities.test.ts(16,7): error TS2353: Object literal may only specify known properties, and 'user' does not exist in type 'Omit<ActivityRecord, "id" | "createdAt">'.
+tests/unit/activities.test.ts(24,7): error TS2353: Object literal may only specify known properties, and 'user' does not exist in type 'Omit<ActivityRecord, "id" | "createdAt">'.
+tests/unit/activities.test.ts(33,32): error TS2339: Property 'createdAt' does not exist on type 'ActivityRecord'.
+tests/unit/admin-reports.test.ts(48,51): error TS2339: Property 'item' does not exist on type 'unknown'.
+tests/unit/admin-reports.test.ts(48,79): error TS2339: Property 'value' does not exist on type 'unknown'.
+tests/unit/admin-reports.test.ts(49,47): error TS2339: Property 'item' does not exist on type 'unknown'.
+tests/unit/admin-reports.test.ts(49,74): error TS2339: Property 'value' does not exist on type 'unknown'.
+tests/unit/admin-reports.test.ts(71,42): error TS2339: Property 'id' does not exist on type 'unknown'.
+tests/unit/admin-reports.test.ts(74,18): error TS2339: Property 'tier' does not exist on type 'unknown'.
+tests/unit/admin-reports.test.ts(75,18): error TS2339: Property 'employeeBase' does not exist on type 'unknown'.
+tests/unit/alerts.test.ts(28,22): error TS2339: Property '╪º┘ä┘ê╪╡┘ü' does not exist on type 'unknown'.
+tests/unit/alerts.test.ts(29,22): error TS2339: Property 'id' does not exist on type 'unknown'.
+tests/unit/domainQueries.test.ts(121,25): error TS2339: Property 'id' does not exist on type '╪º┘ä╪ú╪┤╪«╪º╪╡_tbl'.
+tests/unit/domainQueries.test.ts(131,27): error TS2339: Property 'id' does not exist on type '╪º┘ä╪╣┘é┘ê╪»_tbl'.
+tests/unit/dynamic.test.ts(33,28): error TS2339: Property 'f1' does not exist on type 'unknown'.
+tests/unit/externalLink.test.ts(8,67): error TS2741: Property 'eval' is missing in type 'Window' but required in type 'BrowserWindowProxy'.
+tests/unit/fix-delete-timer.test.ts(116,54): error TS2345: Argument of type '{ ok: boolean; }' is not assignable to parameter of type 'never'.
+tests/unit/fix-delete-timer.test.ts(117,63): error TS2345: Argument of type 'Mock<UnknownFunction>' is not assignable to parameter of type '(c: string) => Promise<{ ok: boolean; error?: string; }>'.
+  Type '{}' is missing the following properties from type 'Promise<{ ok: boolean; error?: string; }>': then, catch, finally, [Symbol.toStringTag]
+tests/unit/fix-delete-timer.test.ts(122,54): error TS2345: Argument of type '{ ok: boolean; error: string; }' is not assignable to parameter of type 'never'.
+tests/unit/fix-delete-timer.test.ts(123,65): error TS2345: Argument of type 'Mock<UnknownFunction>' is not assignable to parameter of type '(c: string) => Promise<{ ok: boolean; error?: string; }>'.
+  Type '{}' is missing the following properties from type 'Promise<{ ok: boolean; error?: string; }>': then, catch, finally, [Symbol.toStringTag]
+tests/unit/fix-delete-timer.test.ts(129,54): error TS2345: Argument of type 'Error' is not assignable to parameter of type 'never'.
+tests/unit/fix-delete-timer.test.ts(130,61): error TS2345: Argument of type 'Mock<UnknownFunction>' is not assignable to parameter of type '(c: string) => Promise<{ ok: boolean; error?: string; }>'.
+  Type '{}' is missing the following properties from type 'Promise<{ ok: boolean; error?: string; }>': then, catch, finally, [Symbol.toStringTag]
+tests/unit/fix-delete-timer.test.ts(136,54): error TS2345: Argument of type '"unknown error"' is not assignable to parameter of type 'never'.
+tests/unit/fix-delete-timer.test.ts(137,61): error TS2345: Argument of type 'Mock<UnknownFunction>' is not assignable to parameter of type '(c: string) => Promise<{ ok: boolean; error?: string; }>'.
+  Type '{}' is missing the following properties from type 'Promise<{ ok: boolean; error?: string; }>': then, catch, finally, [Symbol.toStringTag]
+tests/unit/inspections.test.ts(28,7): error TS2561: Object literal may only specify known properties, but 'inspectorName' does not exist in type 'Omit<PropertyInspection, "id" | "createdAt" | "updatedAt">'. Did you mean to write 'inspectionDate'?
+tests/unit/inspections.test.ts(38,22): error TS2551: Property 'inspectorName' does not exist on type 'PropertyInspection'. Did you mean 'inspectionDate'?
+tests/unit/kv-protection.test.ts(36,27): error TS2339: Property 'id' does not exist on type 'unknown'.
+tests/unit/maintenance-logic.test.ts(90,37): error TS2353: Object literal may only specify known properties, and '╪º┘ä╪¬┘â┘ä┘ü╪⌐' does not exist in type 'Partial<╪¬╪░╪º┘â╪▒_╪º┘ä╪╡┘è╪º┘å╪⌐_tbl>'.
+tests/unit/marqueeSystem.test.ts(29,24): error TS2339: Property 'content' does not exist on type 'unknown'.
+tests/unit/notes.test.ts(51,45): error TS2322: Type '"High"' is not assignable to type '"Normal" | "Important" | "Urgent"'.
+tests/unit/reminders.test.ts(23,74): error TS2322: Type '"info"' is not assignable to type '"Expiry" | "Payment" | "Call" | "Visit" | "Task"'.
+tests/unit/reminders.test.ts(35,54): error TS2322: Type '"info"' is not assignable to type '"Expiry" | "Payment" | "Call" | "Visit" | "Task"'.
+tests/unit/reminders.test.ts(56,64): error TS2322: Type '"info"' is not assignable to type '"Expiry" | "Payment" | "Call" | "Visit" | "Task"'.
+tests/unit/reminders.test.ts(64,67): error TS2322: Type '"info"' is not assignable to type '"Expiry" | "Payment" | "Call" | "Visit" | "Task"'.
+tests/unit/reminders.test.ts(74,70): error TS2322: Type '"info"' is not assignable to type '"Expiry" | "Payment" | "Call" | "Visit" | "Task"'.
+tests/unit/reports.test.ts(38,48): error TS2339: Property 'item' does not exist on type 'unknown'.
+tests/unit/reports.test.ts(38,76): error TS2339: Property 'value' does not exist on type 'unknown'.
+tests/unit/reports.test.ts(39,44): error TS2339: Property 'item' does not exist on type 'unknown'.
+tests/unit/reports.test.ts(39,71): error TS2339: Property 'value' does not exist on type 'unknown'.
+tests/unit/reports.test.ts(57,24): error TS2339: Property 'employeeUsername' does not exist on type 'unknown'.
+tests/unit/reports.test.ts(59,24): error TS2339: Property 'officeCommission' does not exist on type 'unknown'.
+tests/unit/reports.test.ts(60,24): error TS2339: Property 'tier' does not exist on type 'unknown'.
