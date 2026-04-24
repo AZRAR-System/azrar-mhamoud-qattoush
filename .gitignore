@@ -152,3 +152,8 @@ tsconfig.test.json
 azrar_system_overview.md
 coverage_output*.txt
 coverage_output*.txt
+
+cov.txt
+coverage_out.txt
+coverage_table.txt
+no_color_cov.txt
