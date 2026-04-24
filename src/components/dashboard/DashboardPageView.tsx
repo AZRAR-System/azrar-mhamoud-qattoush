@@ -229,6 +229,11 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
                     {link.label}
                   </a>
                 ))}
+              {pagesLinks.length > 10 && (
+                <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-2 font-bold">
+                  +{pagesLinks.length - 10} صفحة أخرى — ابحث بالاسم للوصول إليها
+                </p>
+              )}
               </div>
             </div>
           </div>
@@ -236,7 +241,7 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
       </PageLayout>
 
       <div className="mt-8 md:mt-12 text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-        <p>نظام أزرار العقاري © 2025 - جميع الحقوق محفوظة</p>
+        <p>نظام أزرار العقاري © 2026 - جميع الحقوق محفوظة</p>
       </div>
     </div>
   );
