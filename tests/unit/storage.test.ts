@@ -1,101 +1,255 @@
 import { storage } from '@/services/storage';
+import { buildCache } from '@/services/dbCache';
 
-describe('Storage Service - Bridge Suite', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    delete (window as any).desktopDb;
-    jest.clearAllMocks();
+beforeEach(() => {
+  localStorage.clear();
+  buildCache();
+  delete (window as any).desktopDb;
+});
+
+afterEach(() => {
+  delete (window as any).desktopDb;
+});
+
+const makeBridge = (overrides: Record<string, any> = {}) => ({
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(true),
+  delete: jest.fn().mockResolvedValue(true),
+  keys: jest.fn().mockResolvedValue([]),
+  onRemoteUpdate: jest.fn().mockReturnValue(() => {}),
+  ...overrides,
+});
+
+describe('storage.isDesktop', () => {
+  test('returns false without desktopDb', () => {
+    expect(storage.isDesktop()).toBe(false);
+  });
+  test('returns true with desktopDb', () => {
+    (window as any).desktopDb = makeBridge();
+    expect(storage.isDesktop()).toBe(true);
+  });
+});
+
+describe('storage.getItem', () => {
+  test('non-desktop returns localStorage value', async () => {
+    localStorage.setItem('test_key', 'hello');
+    expect(await storage.getItem('test_key')).toBe('hello');
   });
 
-  describe('Non-Desktop Mode', () => {
-    test('setItem and getItem work with localStorage', async () => {
-      await storage.setItem('test-key', 'test-value');
-      expect(localStorage.getItem('test-key')).toBe('test-value');
-      
-      const val = await storage.getItem('test-key');
-      expect(val).toBe('test-value');
-    });
-
-    test('removeItem works', async () => {
-      localStorage.setItem('test-key', 'val');
-      await storage.removeItem('test-key');
-      expect(localStorage.getItem('test-key')).toBeNull();
-    });
-
-    test('keys returns all localStorage keys', async () => {
-      localStorage.setItem('k1', 'v1');
-      localStorage.setItem('k2', 'v2');
-      const keys = await storage.keys();
-      expect(keys).toContain('k1');
-      expect(keys).toContain('k2');
-    });
+  test('desktop non-kv key returns localStorage', async () => {
+    (window as any).desktopDb = makeBridge();
+    localStorage.setItem('theme', 'dark');
+    expect(await storage.getItem('theme')).toBe('dark');
   });
 
-  describe('Desktop Mode', () => {
-    const mockBridge = {
-      get: jest.fn(),
-      set: jest.fn(),
-      delete: jest.fn(),
-      keys: jest.fn(),
-      onRemoteUpdate: jest.fn().mockReturnValue(() => {})
-    };
+  test('desktop kv key uses bridge', async () => {
+    (window as any).desktopDb = makeBridge({ get: jest.fn().mockResolvedValue('val') });
+    expect(await storage.getItem('db_people')).toBe('val');
+  });
 
-    beforeEach(() => {
-      (window as any).desktopDb = mockBridge;
+  test('desktop kv key with null bridge falls back to localStorage', async () => {
+    (window as any).desktopDb = null;
+    localStorage.setItem('db_people', 'local');
+    expect(await storage.getItem('db_people')).toBe('local');
+  });
+});
+
+describe('storage.setItem', () => {
+  test('non-desktop sets localStorage', async () => {
+    await storage.setItem('key1', 'val1');
+    expect(localStorage.getItem('key1')).toBe('val1');
+  });
+
+  test('desktop non-kv key sets localStorage only', async () => {
+    const bridge = makeBridge();
+    (window as any).desktopDb = bridge;
+    await storage.setItem('theme', 'dark');
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(bridge.set).not.toHaveBeenCalled();
+  });
+
+  test('desktop kv key sets localStorage and bridge', async () => {
+    const bridge = makeBridge();
+    (window as any).desktopDb = bridge;
+    await storage.setItem('db_people', '[]');
+    expect(bridge.set).toHaveBeenCalledWith('db_people', '[]');
+  });
+
+  test('desktop kv key with no bridge sets localStorage only', async () => {
+    (window as any).desktopDb = null;
+    await storage.setItem('db_people', '[]');
+    expect(localStorage.getItem('db_people')).toBe('[]');
+  });
+
+  test('db_marquee triggers marquee event', async () => {
+    const fired: string[] = [];
+    window.addEventListener('azrar:marquee-changed', () => fired.push('marquee'));
+    await storage.setItem('db_marquee', 'data');
+    expect(fired).toContain('marquee');
+  });
+});
+
+describe('storage.removeItem', () => {
+  test('non-desktop removes from localStorage', async () => {
+    localStorage.setItem('key1', 'val');
+    await storage.removeItem('key1');
+    expect(localStorage.getItem('key1')).toBeNull();
+  });
+
+  test('desktop kv key calls bridge.delete', async () => {
+    const bridge = makeBridge();
+    (window as any).desktopDb = bridge;
+    await storage.removeItem('db_people');
+    expect(bridge.delete).toHaveBeenCalledWith('db_people');
+  });
+
+  test('desktop non-kv key skips bridge', async () => {
+    const bridge = makeBridge();
+    (window as any).desktopDb = bridge;
+    localStorage.setItem('theme', 'dark');
+    await storage.removeItem('theme');
+    expect(bridge.delete).not.toHaveBeenCalled();
+    expect(localStorage.getItem('theme')).toBeNull();
+  });
+
+  test('desktop kv key without bridge still removes from localStorage', async () => {
+    (window as any).desktopDb = null;
+    localStorage.setItem('db_people', '[]');
+    await storage.removeItem('db_people');
+    expect(localStorage.getItem('db_people')).toBeNull();
+  });
+});
+
+describe('storage.keys', () => {
+  test('non-desktop returns localStorage keys', async () => {
+    localStorage.setItem('k1', 'v1');
+    localStorage.setItem('k2', 'v2');
+    const keys = await storage.keys();
+    expect(keys).toContain('k1');
+    expect(keys).toContain('k2');
+  });
+
+  test('desktop with bridge returns bridge keys', async () => {
+    (window as any).desktopDb = makeBridge({
+      keys: jest.fn().mockResolvedValue(['db_people', 'db_contracts']),
     });
+    const keys = await storage.keys();
+    expect(keys).toContain('db_people');
+  });
 
-    test('setItem updates both localStorage and bridge for db_ keys', async () => {
-      await storage.setItem('db_test', 'val');
-      expect(localStorage.getItem('db_test')).toBe('val');
-      expect(mockBridge.set).toHaveBeenCalledWith('db_test', 'val');
+  test('desktop without bridge returns localStorage keys', async () => {
+    (window as any).desktopDb = null;
+    localStorage.setItem('fallback', '1');
+    const keys = await storage.keys();
+    expect(keys).toContain('fallback');
+  });
+});
+
+describe('storage.hydrateDbKeysToLocalStorage', () => {
+  test('non-desktop does nothing', async () => {
+    await expect(storage.hydrateDbKeysToLocalStorage()).resolves.toBeUndefined();
+  });
+
+  test('desktop hydrates matching keys', async () => {
+    (window as any).desktopDb = makeBridge({
+      keys: jest.fn().mockResolvedValue(['db_people', 'theme']),
+      get: jest.fn().mockImplementation((k: string) =>
+        Promise.resolve(k === 'db_people' ? '[]' : null)
+      ),
     });
+    await storage.hydrateDbKeysToLocalStorage('db_');
+    expect(localStorage.getItem('db_people')).toBe('[]');
+    expect(localStorage.getItem('theme')).toBeNull();
+  });
 
-    test('setItem only updates localStorage for non-db_ keys', async () => {
-      await storage.setItem('theme', 'dark');
-      expect(localStorage.getItem('theme')).toBe('dark');
-      expect(mockBridge.set).not.toHaveBeenCalled();
+  test('desktop skips non-string values', async () => {
+    (window as any).desktopDb = makeBridge({
+      keys: jest.fn().mockResolvedValue(['db_test']),
+      get: jest.fn().mockResolvedValue(null),
     });
+    await storage.hydrateDbKeysToLocalStorage();
+    expect(localStorage.getItem('db_test')).toBeNull();
+  });
+});
 
-    test('getItem fetches from bridge for db_ keys', async () => {
-      mockBridge.get.mockResolvedValue('bridge-val');
-      const val = await storage.getItem('db_test');
-      expect(val).toBe('bridge-val');
-      expect(mockBridge.get).toHaveBeenCalledWith('db_test');
+describe('storage.hydrateKeysToLocalStorage', () => {
+  test('non-desktop does nothing', async () => {
+    await expect(storage.hydrateKeysToLocalStorage(['k1'])).resolves.toBeUndefined();
+  });
+
+  test('desktop hydrates specified keys', async () => {
+    (window as any).desktopDb = makeBridge({
+      get: jest.fn().mockResolvedValue('value'),
     });
+    await storage.hydrateKeysToLocalStorage(['db_people']);
+    expect(localStorage.getItem('db_people')).toBe('value');
+  });
 
-    test('hydrateDbKeysToLocalStorage pulls keys from bridge', async () => {
-      mockBridge.keys.mockResolvedValue(['db_1', 'db_2', 'other']);
-      mockBridge.get.mockImplementation((key) => Promise.resolve(`${key}-val`));
-      
-      await storage.hydrateDbKeysToLocalStorage('db_');
-      
-      expect(localStorage.getItem('db_1')).toBe('db_1-val');
-      expect(localStorage.getItem('db_2')).toBe('db_2-val');
-      expect(localStorage.getItem('other')).toBeNull();
+  test('desktop skips empty keys', async () => {
+    const bridge = makeBridge();
+    (window as any).desktopDb = bridge;
+    await storage.hydrateKeysToLocalStorage(['', 'db_people']);
+    expect(bridge.get).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('storage.subscribeDesktopRemoteUpdates', () => {
+  test('returns null in non-desktop', () => {
+    expect(storage.subscribeDesktopRemoteUpdates()).toBeNull();
+  });
+
+  test('returns null when bridge has no onRemoteUpdate', () => {
+    (window as any).desktopDb = makeBridge({ onRemoteUpdate: undefined });
+    expect(storage.subscribeDesktopRemoteUpdates()).toBeNull();
+  });
+
+  test('subscribes and handles string value update', () => {
+    let handler: any;
+    (window as any).desktopDb = makeBridge({
+      onRemoteUpdate: jest.fn().mockImplementation((fn: any) => { handler = fn; return () => {}; }),
     });
+    storage.subscribeDesktopRemoteUpdates('db_');
+    handler({ key: 'db_people', value: '[]', isDeleted: false });
+    expect(localStorage.getItem('db_people')).toBe('[]');
+  });
 
-    test('subscribeDesktopRemoteUpdates registers listener', () => {
-      const unsubscribe = storage.subscribeDesktopRemoteUpdates('db_');
-      expect(mockBridge.onRemoteUpdate).toHaveBeenCalled();
-      expect(typeof unsubscribe).toBe('function');
+  test('handles isDeleted event', () => {
+    let handler: any;
+    (window as any).desktopDb = makeBridge({
+      onRemoteUpdate: jest.fn().mockImplementation((fn: any) => { handler = fn; return () => {}; }),
     });
+    localStorage.setItem('db_people', '[]');
+    storage.subscribeDesktopRemoteUpdates('db_');
+    handler({ key: 'db_people', isDeleted: true });
+    expect(localStorage.getItem('db_people')).toBeNull();
+  });
 
-    test('remote update event updates local state', () => {
-      let callback: (evt: any) => void = () => {};
-      mockBridge.onRemoteUpdate.mockImplementation((cb) => {
-        callback = cb;
-        return () => {};
-      });
-
-      storage.subscribeDesktopRemoteUpdates('db_');
-      
-      // Simulate remote update
-      callback({ key: 'db_remote', value: 'new-val' });
-      expect(localStorage.getItem('db_remote')).toBe('new-val');
-
-      // Simulate remote delete
-      callback({ key: 'db_remote', isDeleted: true });
-      expect(localStorage.getItem('db_remote')).toBeNull();
+  test('ignores keys not matching prefix', () => {
+    let handler: any;
+    (window as any).desktopDb = makeBridge({
+      onRemoteUpdate: jest.fn().mockImplementation((fn: any) => { handler = fn; return () => {}; }),
     });
+    storage.subscribeDesktopRemoteUpdates('db_');
+    handler({ key: 'theme', value: 'dark' });
+    expect(localStorage.getItem('theme')).toBeNull();
+  });
+
+  test('object arg with includeKeys', () => {
+    let handler: any;
+    (window as any).desktopDb = makeBridge({
+      onRemoteUpdate: jest.fn().mockImplementation((fn: any) => { handler = fn; return () => {}; }),
+    });
+    storage.subscribeDesktopRemoteUpdates({ prefix: '', includeKeys: ['db_people'] });
+    handler({ key: 'db_people', value: '[]' });
+    expect(localStorage.getItem('db_people')).toBe('[]');
+  });
+
+  test('handles empty key gracefully', () => {
+    let handler: any;
+    (window as any).desktopDb = makeBridge({
+      onRemoteUpdate: jest.fn().mockImplementation((fn: any) => { handler = fn; return () => {}; }),
+    });
+    storage.subscribeDesktopRemoteUpdates('db_');
+    expect(() => handler({ key: '', value: 'x' })).not.toThrow();
   });
 });
