@@ -5,6 +5,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import { todayDateOnlyISO } from '@/utils/dateOnly';
 import { ContractFinancialEngine } from '@/services/db/ContractFinancialEngine';
+import { DbService } from '@/services/mockDb';
 
 // Modular Components
 import { ContractStep1_BasicInfo } from '@/components/contracts/ContractStep1_BasicInfo';
@@ -94,13 +95,42 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
   const handleBack = () => setStep(prev => prev - 1);
 
   const handleSubmit = async () => {
+    if (!contract.رقم_العقار || !contract.رقم_المستاجر) {
+      toast.error(t('يرجى اختيار العقار والمستأجر'));
+      return;
+    }
+    if (!contract.القيمة_السنوية || Number(contract.القيمة_السنوية) <= 0) {
+      toast.error(t('يرجى إدخال القيمة السنوية'));
+      return;
+    }
     try {
-       // Mock submit logic
-       toast.success(t('تم إنشاء العقد بنجاح'));
-       onSuccess?.();
-       onClose?.();
+      let res;
+      if (isEditMode && id) {
+        res = DbService.updateContract(
+          id,
+          contract,
+          Number(commOwner || 0),
+          Number(commTenant || 0),
+          commissionPaidMonth || undefined,
+          { regenerateInstallments }
+        );
+      } else {
+        res = DbService.createContract(
+          contract,
+          Number(commOwner || 0),
+          Number(commTenant || 0),
+          commissionPaidMonth || undefined
+        );
+      }
+      if (res.success) {
+        toast.success(isEditMode ? t('تم تعديل العقد بنجاح') : t('تم إنشاء العقد بنجاح'));
+        onSuccess?.();
+        onClose?.();
+      } else {
+        toast.error(res.message || t('فشل في حفظ العقد'));
+      }
     } catch (_err) {
-       toast.error(t('فشل في حفظ العقد'));
+      toast.error(t('فشل في حفظ العقد'));
     }
   };
 
