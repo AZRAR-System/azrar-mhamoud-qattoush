@@ -51,7 +51,7 @@ export const ContractWhatsAppSendPanel: React.FC<{
 
       <MessageComposer
         tenantName={String(tenant?.الاسم || 'المستأجر')}
-        tenantPhone={String(tenant?.رقم_الهاتف || '962790000000')}
+        tenantPhone={String(tenant?.رقم_الهاتف || '')}
         tenantPhones={tenantPhones}
         propertyCode={String(property?.الكود_الداخلي || '')}
         contractNumber={String(contract?.رقم_العقد || '')}
