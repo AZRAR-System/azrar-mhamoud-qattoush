@@ -81,7 +81,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       {
         paidAmount: paidAmountNumber,
         paymentDate: paymentDate,
-        notes: notes || 'تم الدفع عبر Modal',
+        notes: notes || 'تم تسجيل السداد',
         isPartial: isPartial,
       }
     );
