@@ -141,3 +141,12 @@ electron/assets/integrity.manifest.json
 
 # OneDrive Git workaround (temporary)
 .git.oneDrive-broken-*/
+
+# Temp diagnostic files
+*.py
+tsc_*.txt
+tsc_output*.txt
+test_output*.txt
+tsc_error*.txt
+tsconfig.test.json
+azrar_system_overview.md
