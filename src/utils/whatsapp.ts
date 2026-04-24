@@ -73,8 +73,10 @@ export function normalizeWhatsAppPhone(phone: string, options?: WhatsAppLinkOpti
       return `${defaultCountryCode}${withoutLeadingZeros}`;
     }
 
-    // If it's short and looks like a local mobile number (common case: starts with 7)
-    if (digits.length === 9 && digits.startsWith('7')) {
+    // For numbers that don't start with 0 and aren't already international:
+    // If the number length matches a typical local mobile length (7-10 digits), prepend country code.
+    // This covers most countries where local numbers are dialed without a trunk prefix.
+    if (digits.length >= 7 && digits.length <= 10) {
       return `${defaultCountryCode}${digits}`;
     }
   }
