@@ -112,4 +112,100 @@ describe('Attachments System Service - File Management Suite', () => {
     expect(res.success).toBe(true);
     expect(res.data).toEqual(['T1.docx', 'T2.docx']);
   });
+  test('uploadAttachment - bridge returns failure', async () => {
+    const mockBridge = {
+      saveAttachmentFile: jest.fn().mockResolvedValue({ success: false, message: 'disk full' }),
+      set: jest.fn(), get: jest.fn().mockResolvedValue(null),
+    };
+    (window as any).desktopDb = mockBridge;
+    const file = mockFile('fail.pdf', 512);
+    const res = await uploadAttachment('Property', 'PR2', file);
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('disk full');
+  });
+
+  test('uploadAttachment - bridge throws exception', async () => {
+    const mockBridge = {
+      saveAttachmentFile: jest.fn().mockRejectedValue(new Error('network error')),
+      set: jest.fn(), get: jest.fn().mockResolvedValue(null),
+    };
+    (window as any).desktopDb = mockBridge;
+    const file = mockFile('throw.pdf', 512);
+    const res = await uploadAttachment('Property', 'PR3', file);
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('network error');
+  });
+
+  test('readWordTemplate - invalid dataUri (no comma)', async () => {
+    const mockBridge = {
+      readTemplateFile: jest.fn().mockResolvedValue({ success: true, dataUri: 'nodatahere' }),
+      set: jest.fn(), get: jest.fn().mockResolvedValue(null),
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await readWordTemplate('bad.docx');
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('dataUri');
+  });
+
+  test('readWordTemplate - bridge returns failure', async () => {
+    const mockBridge = {
+      readTemplateFile: jest.fn().mockResolvedValue({ success: false, message: 'not found' }),
+      set: jest.fn(), get: jest.fn().mockResolvedValue(null),
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await readWordTemplate('missing.docx');
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('not found');
+  });
+
+  test('readWordTemplate - bridge throws exception', async () => {
+    const mockBridge = {
+      readTemplateFile: jest.fn().mockRejectedValue(new Error('crash')),
+      set: jest.fn(), get: jest.fn().mockResolvedValue(null),
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await readWordTemplate('crash.docx');
+    expect(res.success).toBe(false);
+  });
+
+  test('listWordTemplates - browser mode fails', async () => {
+    const res = await listWordTemplates();
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('سطح المكتب');
+  });
+
+  test('listWordTemplates - bridge returns non-array items', async () => {
+    const mockBridge = {
+      listTemplates: jest.fn().mockResolvedValue({ success: true, items: null }),
+      set: jest.fn(), get: jest.fn().mockResolvedValue(null),
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await listWordTemplates('contracts');
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual([]);
+  });
+
+  test('listWordTemplates - bridge throws exception', async () => {
+    const mockBridge = {
+      listTemplates: jest.fn().mockRejectedValue(new Error('fail')),
+      set: jest.fn(), get: jest.fn().mockResolvedValue(null),
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await listWordTemplates();
+    expect(res.success).toBe(false);
+  });
+
+  test('deleteAttachment - id not found returns ok', async () => {
+    const res = await deleteAttachment('NONEXISTENT');
+    expect(res.success).toBe(true);
+  });
+
+  test('getAllAttachments - returns all records', () => {
+    kv.save(KEYS.ATTACHMENTS, [
+      { id: 'A1', referenceType: 'Person', referenceId: 'P1' },
+      { id: 'A2', referenceType: 'Property', referenceId: 'PR1' },
+    ]);
+    const all = getAllAttachments();
+    expect(all.length).toBe(2);
+  });
 });
