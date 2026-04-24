@@ -49,3 +49,8 @@ export interface PreviewStepProps extends ContractStepProps {
   isEditMode: boolean;
   id?: string;
 }
+
+export interface MessagesStepProps extends PreviewStepProps {
+  commOwner: number | '';
+  commTenant: number | '';
+}

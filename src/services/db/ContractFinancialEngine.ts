@@ -64,8 +64,8 @@ export class ContractFinancialEngine {
     // Frequencies: monthly=12, bimonthly=6, quarterly=4, semi_annual=2, annual=1
     // Wait, the UI passes تكرار_الدفع as count of payments per year usually.
     // Let's assume frequencyMonths = 12 / paymentsPerYear
-    const paymentsPerYear = Math.max(1, Number(contract.تكرار_الدفع || 12));
-    const frequencyMonths = 12 / paymentsPerYear;
+
+
     
     const monthlyRent = annualValue / 12;
     const start = parseDateOnly(startIso);
@@ -132,34 +132,37 @@ export class ContractFinancialEngine {
     }
 
     // --- 3. PERIODIC INSTALLMENTS ---
-    // Periodic starts from the next paymentDay, potentially offset by down payment.
-    const firstPaymentDate = new Date(start);
-    if (dateMatches) {
-        // Starts immediately
-    } else if (start.getDate() < pDay) {
-        firstPaymentDate.setDate(pDay);
+    const pFreq1 = Math.max(1, Number(contract.تكرار_الدفع || 12));
+    const pFreq2 = contract.تكرار_الدفع_المرحلة_الثانية ? Math.max(1, Number(contract.تكرار_الدفع_المرحلة_الثانية)) : pFreq1;
+    const shiftMonth = Number(contract.بداية_المرحلة_الثانية_من_شهر || 0);
+
+    let monthsElapsed = periodicOffsetMonths;
+    let periodicRank = 1;
+
+    // Determine the base date for periodic payments (first possible payment day)
+    const basePeriodicDate = new Date(start);
+    if (start.getDate() <= pDay) {
+        basePeriodicDate.setDate(pDay);
     } else {
-        firstPaymentDate.setMonth(start.getMonth() + 1);
-        firstPaymentDate.setDate(pDay);
+        basePeriodicDate.setMonth(start.getMonth() + 1);
+        basePeriodicDate.setDate(pDay);
     }
 
-    // Offset the starting month if down payment covered some months
-    if (periodicOffsetMonths > 0) {
-        firstPaymentDate.setMonth(firstPaymentDate.getMonth() + periodicOffsetMonths);
-    }
+    while (monthsElapsed < durationMonths) {
+        // Decide frequency for current installment
+        // Note: monthsElapsed is 0-indexed relative to start of contract
+        const currentFreq = (shiftMonth > 0 && (monthsElapsed + 1) >= shiftMonth) ? pFreq2 : pFreq1;
+        const freqMonths = 12 / currentFreq;
 
-    const remainingMonths = Math.max(0, durationMonths - periodicOffsetMonths);
-    const periodicCount = Math.ceil(remainingMonths / frequencyMonths);
-    const periodicAmount = roundCurrency(monthlyRent * frequencyMonths);
-
-    for (let i = 0; i < periodicCount; i++) {
-        const monthTarget = firstPaymentDate.getMonth() + (i * frequencyMonths);
-        const instDate = new Date(firstPaymentDate.getFullYear(), monthTarget, pDay);
+        const instDate = new Date(basePeriodicDate);
+        instDate.setMonth(basePeriodicDate.getMonth() + monthsElapsed);
         
-        // Handle month rollover (e.g. Jan 31 -> Feb 28 instead of Mar 3)
+        // Handle month rollover (e.g. Jan 31 -> Feb 28)
         if (instDate.getDate() !== pDay) {
             instDate.setDate(0); 
         }
+
+        const periodicAmount = roundCurrency(monthlyRent * freqMonths);
 
         installments.push(this.createInstallment({
           contractId,
@@ -167,17 +170,36 @@ export class ContractFinancialEngine {
           date: formatDateOnly(instDate),
           amount: periodicAmount,
           type: 'دورية',
-          note: `قسط دوري ${i + 1}/${periodicCount}`,
+          note: `قسط دوري ${periodicRank++}`,
         }));
+
+        monthsElapsed += freqMonths;
     }
 
-    // --- 4. BALANCING (ROUNDING FIX) ---
+    // --- 4. INSURANCE ---
+    const insuranceAmount = Number(contract.قيمة_التأمين || 0);
+    if (insuranceAmount > 0) {
+      installments.push(this.createInstallment({
+        contractId,
+        rank: rank++,
+        date: startIso,
+        amount: insuranceAmount,
+        type: 'تأمين',
+        note: 'تأمين (كمبيالة ضمان)',
+      }));
+    }
+
+    // --- 5. BALANCING (ROUNDING FIX) ---
     // User requested: "فرق تقريب: 0.01 د.أ — سيُضاف لآخر قسط"
     // Only balance periodic installments if duration matches.
-    const totalCurrent = installments.reduce((sum, inst) => sum + inst.القيمة, 0);
-    const expectedTotal = annualValue + (enableDayDiff ? installments.find(ix => ix.نوع_الدفعة === 'فرق أيام')?.القيمة || 0 : 0);
+    const totalExpectedPeriodicValue = roundCurrency((annualValue / 12) * durationMonths);
+    const expectedTotalRent = totalExpectedPeriodicValue + (enableDayDiff ? installments.find(ix => ix.نوع_الدفعة === 'فرق أيام')?.القيمة || 0 : 0);
     
-    const balanceDiff = roundCurrency(expectedTotal - totalCurrent);
+    const totalCurrentRent = installments
+        .filter(i => i.نوع_الدفعة !== 'تأمين')
+        .reduce((sum, inst) => sum + inst.القيمة, 0);
+        
+    const balanceDiff = roundCurrency(expectedTotalRent - totalCurrentRent);
     if (Math.abs(balanceDiff) > 0 && installments.length > 0) {
         // Add diff to the last 'دورية' or 'دفعة أولى' installment
         for (let i = installments.length - 1; i >= 0; i--) {

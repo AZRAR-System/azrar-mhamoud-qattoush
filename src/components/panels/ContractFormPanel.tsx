@@ -6,12 +6,14 @@ import { Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import { todayDateOnlyISO } from '@/utils/dateOnly';
 import { ContractFinancialEngine } from '@/services/db/ContractFinancialEngine';
 import { DbService } from '@/services/mockDb';
+import { formatCurrencyJOD } from '@/utils/format';
 
 // Modular Components
 import { ContractStep1_BasicInfo } from '@/components/contracts/ContractStep1_BasicInfo';
 import { ContractStep2_Financial } from '@/components/contracts/ContractStep2_Financial';
 import { ContractStep3_Terms } from '@/components/contracts/ContractStep3_Terms';
 import { ContractStep4_Preview } from '@/components/contracts/ContractStep4_Preview';
+import { ContractStep5_Messages } from '@/components/contracts/ContractStep5_Messages';
 import { ContractSettlement } from '@/components/contracts/ContractSettlement';
 import { InstallmentPreviewRow } from '@/components/contracts/types';
 
@@ -48,7 +50,7 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
   const [commTenant, setCommTenant] = useState<number | ''>('');
   const [commissionPaidMonth, setCommissionPaidMonth] = useState('');
   const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>({});
-  const [hasPaidInstallments] = useState(false);
+  const [hasPaidInstallments, setHasPaidInstallments] = useState(false);
   const [regenerateInstallments, setRegenerateInstallments] = useState(true);
   const [installmentsPreview, setInstallmentsPreview] = useState<InstallmentPreviewRow[]>([]);
   const [dayDiffValue, setDayDiffValue] = useState(0);
@@ -94,6 +96,30 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
     }
   }, [contract, id]);
 
+  useEffect(() => {
+    if (isEditMode && id) {
+      const details = DbService.getContractDetails(id);
+      if (details?.contract) {
+        setContract(details.contract);
+        
+        const comms = DbService.getCommissions();
+        const contractComm = comms.find(c => c.رقم_العقد === id);
+        if (contractComm) {
+          setCommOwner(contractComm.عمولة_المالك);
+          setCommTenant(contractComm.عمولة_المستأجر);
+          setCommissionPaidMonth(contractComm.شهر_دفع_العمولة || '');
+        }
+
+        if (details.contract.حقول_ديناميكية) {
+          setDynamicValues(details.contract.حقول_ديناميكية as Record<string, unknown>);
+        }
+
+        const hasPaid = details.installments?.some(inst => inst.حالة_الكمبيالة === 'مدفوع');
+        setHasPaidInstallments(Boolean(hasPaid));
+      }
+    }
+  }, [isEditMode, id]);
+
   const handleNext = () => {
     if (step === 1 && (!contract.رقم_العقار || !contract.رقم_المستاجر)) {
        warning(t('يرجى اختيار العقار والمستأجر'));
@@ -132,14 +158,27 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
           commissionPaidMonth || undefined
         );
       }
-      if (res.success) {
+      if (res.success && res.data) {
+        // Handle Auto-Reminders
+        if (contract.حقول_ديناميكية?.enableAutoReminders) {
+          const newContractId = res.data.رقم_العقد;
+          installmentsPreview.forEach(inst => {
+            DbService.addReminder({
+              title: `${t('تحصيل قسط')} (${t(inst.type)}): ${formatCurrencyJOD(inst.amount)} - ${newContractId}`,
+              date: inst.date,
+              type: 'Payment'
+            });
+          });
+        }
+
         toast.success(isEditMode ? t('تم تعديل العقد بنجاح') : t('تم إنشاء العقد بنجاح'));
         onSuccess?.();
         onClose?.();
       } else {
         toast.error(res.message || t('فشل في حفظ العقد'));
       }
-    } catch (_err) {
+    } catch (err) {
+      console.error('Contract Submit Error:', err);
       toast.error(t('فشل في حفظ العقد'));
     }
   };
@@ -174,7 +213,15 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
           />
         )}
         {step === 4 && <ContractStep4_Preview contract={contract} setContract={setContract} baseId={baseId} t={t} installmentsPreview={installmentsPreview} setInstallmentsPreview={setInstallmentsPreview} isEditMode={isEditMode} id={id} />}
-        {step === 5 && <ContractSettlement contract={contract} setContract={setContract} baseId={baseId} t={t} />}
+        {step === 5 && (
+          <ContractStep5_Messages 
+            contract={contract} setContract={setContract} baseId={baseId} t={t} 
+            installmentsPreview={installmentsPreview} setInstallmentsPreview={setInstallmentsPreview} 
+            isEditMode={isEditMode} id={id}
+            commOwner={commOwner} commTenant={commTenant}
+          />
+        )}
+        {step === 6 && <ContractSettlement contract={contract} setContract={setContract} baseId={baseId} t={t} />}
       </div>
 
       <div className="p-4 border-t flex justify-between bg-gray-50 dark:bg-slate-900">
@@ -184,13 +231,13 @@ export const ContractFormPanel: React.FC<ContractFormProps> = ({ id, onClose, on
           </button>
         )}
         <div className="flex-1" />
-        {step < 4 ? (
+        {step < 5 ? (
           <button onClick={handleNext} className="px-6 py-2 rounded-lg bg-indigo-600 text-white font-bold flex items-center gap-2 hover:bg-indigo-700 transition">
              {t('التالي')} <ArrowLeft size={16} />
           </button>
         ) : (
           <button onClick={handleSubmit} className="px-8 py-2 rounded-lg bg-green-600 text-white font-bold flex items-center gap-2 hover:bg-green-700 transition">
-             <Check size={18} /> {step === 5 ? t('إغلاق') : t('إنشاء العقد')}
+             <Check size={18} /> {step === 6 ? t('إغلاق') : t('إنشاء العقد')}
           </button>
         )}
       </div>

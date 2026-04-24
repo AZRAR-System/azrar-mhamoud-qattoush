@@ -2,6 +2,7 @@ import React from 'react';
 import { ContractStepProps } from './types';
 import { PersonPicker } from '@/components/shared/PersonPicker';
 import { PropertyPicker } from '@/components/shared/PropertyPicker';
+import { DynamicSelect } from '@/components/ui/DynamicSelect';
 
 export const ContractStep1_BasicInfo: React.FC<ContractStepProps> = ({
   contract,
@@ -42,6 +43,15 @@ export const ContractStep1_BasicInfo: React.FC<ContractStepProps> = ({
               placeholder={t('مثال: OP-12345')}
             />
           </div>
+          
+          <DynamicSelect 
+             label={t('مدة الإيجار (كتابة)')}
+             category="contract_duration_text"
+             value={contract.نص_مدة_العقد}
+             placeholder={t('اختر أو أكتب نص مدة العقد...')}
+             onChange={val => setContract(prev => ({ ...prev, نص_مدة_العقد: val }))}
+          />
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold mb-1">{t('رقم المبنى')}</label>

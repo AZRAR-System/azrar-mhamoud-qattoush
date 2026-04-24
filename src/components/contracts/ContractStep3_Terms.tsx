@@ -58,45 +58,52 @@ export const ContractStep3_Terms: React.FC<TermsStepProps> = ({
         </div>
       </div>
 
-      <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100">
-        <h5 className="font-bold text-indigo-800 flex items-center gap-2">
-          <HandCoins size={18} /> {t('العمولات')}
+      <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-slate-800/50 dark:to-indigo-900/20 p-5 rounded-2xl border border-indigo-100/50 dark:border-indigo-500/20 shadow-xl backdrop-blur-md">
+        <h5 className="font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-2 mb-4">
+          <HandCoins size={20} className="text-indigo-600" /> {t('العمولات المالية')}
         </h5>
-        <div className="grid grid-cols-3 gap-4 mt-3">
-          <div>
-            <label className="text-xs block mb-1">{t('ع. مستأجر')}</label>
-            <div className="relative">
-              <input
-                type="text"
-                className="w-full border p-2 pr-10 rounded-lg text-sm"
-                value={commTenant}
-                onChange={(e) => setCommTenant(Number(normalizeDigitsToLatin(e.target.value)) || '')}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           {/* Tenant Commission */}
+           <div className="group">
+              <label className="text-[11px] uppercase font-black text-indigo-600 dark:text-indigo-400 mb-2 block tracking-widest text-center">{t('عمولة المستأجر')}</label>
+              <div className="relative group-focus-within:scale-[1.05] transition-all duration-300">
+                <input
+                  type="text"
+                  className="w-full bg-white/80 dark:bg-slate-800/90 border-2 border-indigo-100 dark:border-slate-700 p-4 rounded-2xl text-xl font-black shadow-lg focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all text-center text-indigo-700 dark:text-indigo-300"
+                  value={commTenant}
+                  onChange={(e) => setCommTenant(Number(normalizeDigitsToLatin(e.target.value)) || '')}
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-indigo-400/40 pointer-events-none">
+                  <CurrencySuffix />
+                </span>
+              </div>
+           </div>
+           {/* Owner Commission */}
+           <div className="group">
+              <label className="text-[11px] uppercase font-black text-indigo-600 dark:text-indigo-400 mb-2 block tracking-widest text-center">{t('عمولة المالك')}</label>
+              <div className="relative group-focus-within:scale-[1.05] transition-all duration-300">
+                <input
+                  type="text"
+                  className="w-full bg-white/80 dark:bg-slate-800/90 border-2 border-indigo-100 dark:border-slate-700 p-4 rounded-2xl text-xl font-black shadow-lg focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all text-center text-indigo-700 dark:text-indigo-300"
+                  value={commOwner}
+                  onChange={(e) => setCommOwner(Number(normalizeDigitsToLatin(e.target.value)) || '')}
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-indigo-400/40 pointer-events-none">
+                  <CurrencySuffix />
+                </span>
+              </div>
+           </div>
+           {/* Month */}
+           <div className="group">
+              <label className="text-[11px] uppercase font-black text-indigo-600 dark:text-indigo-400 mb-2 block tracking-widest text-center">{t('شهر تحصيل العمولة')}</label>
+              <input 
+                type="text" 
+                className="w-full bg-white/80 dark:bg-slate-800/90 border-2 border-indigo-100 dark:border-slate-700 p-4 rounded-2xl text-lg font-black shadow-lg focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all text-center"
+                placeholder="YYYY-MM"
+                value={commissionPaidMonth}
+                onChange={e => setCommissionPaidMonth(e.target.value)}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400"><CurrencySuffix /></span>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs block mb-1">{t('ع. مالك')}</label>
-            <div className="relative">
-              <input
-                type="text"
-                className="w-full border p-2 pr-10 rounded-lg text-sm"
-                value={commOwner}
-                onChange={(e) => setCommOwner(Number(normalizeDigitsToLatin(e.target.value)) || '')}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400"><CurrencySuffix /></span>
-            </div>
-          </div>
-          <div>
-             <label className="text-xs block mb-1">{t('شهر الدفع')}</label>
-             <input 
-               type="text" 
-               className="w-full border p-2 rounded-lg text-sm" 
-               placeholder="YYYY-MM"
-               value={commissionPaidMonth}
-               onChange={e => setCommissionPaidMonth(e.target.value)}
-             />
-          </div>
+           </div>
         </div>
       </div>
 

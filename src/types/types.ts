@@ -146,6 +146,7 @@ export interface العقود_tbl {
   تاريخ_النهاية: string;
   مدة_العقد_بالاشهر: number;
   نص_مدة_العقد?: string;
+  نص_بدل_الإيجار?: string;
   نص_كيفية_أداء_البدل?: string;
   القيمة_السنوية: number;
   تكرار_الدفع: number;
@@ -170,6 +171,8 @@ export interface العقود_tbl {
   lateFeeValue: number;
   lateFeeGraceDays: number;
   lateFeeMaxAmount?: number;
+  تكرار_الدفع_المرحلة_الثانية?: number;
+  بداية_المرحلة_الثانية_من_شهر?: number;
   حقول_ديناميكية?: Record<string, unknown>;
 }
 
