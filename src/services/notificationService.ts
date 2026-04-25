@@ -248,7 +248,7 @@ export class NotificationService {
     };
 
     const raw = await storage.getItem('notificationLogs');
-    let notifications: any[] = [];
+    let notifications: unknown[] = [];
     try {
       const decoded = deobfuscate(raw || '');
       notifications = JSON.parse(decoded || '[]');
