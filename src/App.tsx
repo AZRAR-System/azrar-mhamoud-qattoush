@@ -7,7 +7,7 @@ import React, { Suspense, useEffect, useCallback, Fragment } from 'react';
 import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ModalProvider } from './context/ModalContext';
-import { ToastProvider, useToast } from './context/ToastContext';
+import { ToastProvider, useToast, ToastContext } from './context/ToastContext';
 import { GlobalErrorBoundary } from './components/shared/GlobalErrorBoundary';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivationProvider, useActivation } from './context/ActivationContext';
@@ -193,7 +193,7 @@ const DailyAutomation: React.FC = () => {
 
 const DiagnosticsStartupNotice: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const toast = useToast();
+  const toast = React.useContext(ToastContext);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -219,7 +219,7 @@ const DiagnosticsStartupNotice: React.FC = () => {
       sessionStorage.setItem('diag_notice_shown', '1');
       const suffix =
         typeof count === 'number' && Number.isFinite(count) ? ` (عدد السجلات: ${count})` : '';
-      toast.warning(
+      toast?.warning(
         `تم رصد أخطاء سابقة في الواجهة. افتح الإعدادات ← التشخيص لتصدير التقرير أو مسحه.${suffix}`
       );
     } catch {
@@ -397,17 +397,7 @@ const HeadlessLogicLayer: React.FC = () => {
 const LayoutRoute: React.FC = () => {
   return (
     <AppShellErrorBoundary>
-      {/* 1. Background Logic (Maintains state/maintenance without UI duplication) */}
-      <HeadlessLogicLayer />
-
-      {/* 2. Main UI Frame (Handles Tabs rendering internally via TabContent) */}
       <Layout />
-
-      {/* 
-          3. We NO LONGER render <Outlet /> here. 
-          The active page is rendered by <Layout /> -> <TabContent />.
-          This eliminates the root cause of page duplication in the DOM.
-      */}
     </AppShellErrorBoundary>
   );
 };
@@ -476,6 +466,7 @@ function App() {
               <ModalProvider>
                 <TabsProvider>
                   <Suspense fallback={<PageLoader />}>
+                    <HeadlessLogicLayer />
                     <AppRoutes />
                   </Suspense>
                 </TabsProvider>
