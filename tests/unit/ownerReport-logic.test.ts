@@ -134,4 +134,63 @@ describe('Owner Report Logic - Comprehensive Suite', () => {
     (getPersonById as jest.Mock).mockReturnValue(null);
     expect(getOwnerReport('X')).toBeNull();
   });
+
+  // 9. buildOwnerReportHtml
+  test('buildOwnerReportHtml - returns string containing owner name', () => {
+    const { buildOwnerReportHtml } = require('../../src/services/ownerReport');
+    const dummyData = {
+      owner: { الاسم: 'Ziad', رقم_الوطني: '123' },
+      generatedAt: '2026-04-25',
+      collectionEfficiency: 90,
+      occupancyRate: 80,
+      pendingAmount: 100,
+      netOwnerAmount: 1000,
+      totalCollected: 1100,
+      totalCommissions: 100,
+      properties: [],
+      activeContracts: [{ internalCode: 'P1', tenantName: 'T1', تاريخ_البداية: '2026', تاريخ_النهاية: '2027' }],
+      installments: [{ تاريخ_استحقاق: '2026-05-01', tenantName: 'T1', propertyInternalCode: 'P1', القيمة: 500, net: 450, isPaid: true }],
+      totalExpected: 1200
+    };
+    const html = buildOwnerReportHtml(dummyData);
+    expect(typeof html).toBe('string');
+    expect(html).toContain('Ziad');
+    expect(html).toContain('P1');
+  });
+
+  // 10. exportOwnerReportPdf
+  test('exportOwnerReportPdf - calls desktopPrinting and returns path', async () => {
+    const { exportOwnerReportPdf } = require('../../src/services/ownerReport');
+    (getPersonById as jest.Mock).mockReturnValue(mockOwner);
+    (getProperties as jest.Mock).mockReturnValue([]);
+    
+    const mockPrint = {
+      savePdfToPath: jest.fn().mockResolvedValue({ ok: true, savedPath: '/path/report.pdf' })
+    };
+    (window as any).desktopPrinting = mockPrint;
+
+    const res = await exportOwnerReportPdf('O1');
+    expect(res).toBe('/path/report.pdf');
+    expect(mockPrint.savePdfToPath).toHaveBeenCalled();
+  });
+
+  test('exportOwnerReportPdf - handles failure', async () => {
+    const { exportOwnerReportPdf } = require('../../src/services/ownerReport');
+    (getPersonById as jest.Mock).mockReturnValue(mockOwner);
+    (window as any).desktopPrinting = {
+      savePdfToPath: jest.fn().mockResolvedValue({ ok: false })
+    };
+    const res = await exportOwnerReportPdf('O1');
+    expect(res).toBeNull();
+  });
+
+  test('exportOwnerReportPdf - handles exception', async () => {
+    const { exportOwnerReportPdf } = require('../../src/services/ownerReport');
+    (getPersonById as jest.Mock).mockReturnValue(mockOwner);
+    (window as any).desktopPrinting = {
+      savePdfToPath: jest.fn().mockRejectedValue(new Error('crash'))
+    };
+    const res = await exportOwnerReportPdf('O1');
+    expect(res).toBeNull();
+  });
 });
