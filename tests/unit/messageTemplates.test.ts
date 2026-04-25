@@ -47,4 +47,35 @@ describe('Message Templates Service - Communication Customization Suite', () => 
     expect(all.length).toBeGreaterThan(1);
     expect(all.find(t => t.isCustom)).toBeDefined();
   });
+
+  describe('saveTemplate — custom template', () => {
+    test('updates existing custom template body', () => {
+      const row = addCustomTemplate({ name: 'قالب مخصص', category: 'reminder', body: 'نص أصلي' });
+      saveTemplate(row.id, 'نص معدل');
+      expect(getTemplate(row.id)).toBe('نص معدل');
+    });
+
+    test('does nothing when custom id not found', () => {
+      expect(() => saveTemplate('nonexistent_custom_id_xyz', 'نص')).not.toThrow();
+    });
+  });
+
+  describe('resetTemplate — custom template', () => {
+    test('removes custom template', () => {
+      const row = addCustomTemplate({ name: 'للحذف', category: 'late', body: 'نص' });
+      resetTemplate(row.id);
+      const all = getAllTemplates();
+      expect(all.find(t => t.id === row.id)).toBeUndefined();
+    });
+  });
+
+  describe('loadStore — error handling', () => {
+    test('returns empty store when localStorage throws', () => {
+      const spy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('storage error');
+      });
+      expect(() => getTemplate('pre_due_reminder')).not.toThrow();
+      spy.mockRestore();
+    });
+  });
 });
