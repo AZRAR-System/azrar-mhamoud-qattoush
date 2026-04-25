@@ -38,6 +38,7 @@ import { TabBar } from './TabBar/TabBar';
 import { TabContent } from './TabBar/TabContent';
 import { PageSelector } from './TabBar/PageSelector';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
+import { ScrollToTopButton } from '@/components/shared/ScrollToTopButton';
 import { المستخدمين_tbl } from '@/types';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -1060,7 +1061,7 @@ export const Layout = () => {
         )}
 
         {/* Content Container - Modern Layout */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4">
+        <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4" ref={(el) => { if (el) (window as any).__mainScrollEl = el; }}>
             <div className="w-full page-transition pb-20 lg:pb-10 flex flex-col px-4 lg:px-8 min-h-full">
               <TabContent />
 
@@ -1082,6 +1083,11 @@ export const Layout = () => {
             </footer>
           </div>
         </main>
+
+        {/* Scroll To Top */}
+        <div className="fixed bottom-6 left-6 z-[150]">
+          <ScrollToTopButton scrollContainer={typeof window !== 'undefined' ? (window as any).__mainScrollEl : null} />
+        </div>
 
         {/* Engine Layers */}
         <PageSelector />
