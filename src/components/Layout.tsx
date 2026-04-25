@@ -343,11 +343,21 @@ const Header = memo(({
   headerBadgeVariant,
   sqlStatus,
   hasDesktopBridge,
-  onOpenPanel
+  onOpenPanel,
+  tabs,
+  activeTabId,
+  onSwitchTab,
+  onCloseTab,
+  onOpenNewTab
 }: {
   pathname: string;
   title: string;
   subtitle: string;
+  tabs: { id: string; path: string; title: string; isPinned: boolean }[];
+  activeTabId: string;
+  onSwitchTab: (id: string) => void;
+  onCloseTab: (id: string) => void;
+  onOpenNewTab: () => void;
   onOpenSidebar: () => void;
   isDark: boolean;
   toggleTheme: () => void;
@@ -389,7 +399,42 @@ const Header = memo(({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 lg:gap-6">
+        {/* Open Pages Pills */}
+        <div className="hidden md:flex items-center gap-1.5 mx-2">
+          {tabs.slice(0, 6).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => onSwitchTab(tab.id)}
+              className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border ${
+                tab.id === activeTabId
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <span className="max-w-[80px] truncate">{tab.title}</span>
+              {!tab.isPinned && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); onCloseTab(tab.id); }}
+                  className={`text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400 ${tab.id === activeTabId ? 'opacity-60' : ''}`}
+                >
+                  ✕
+                </span>
+              )}
+            </button>
+          ))}
+          {tabs.length > 6 && (
+            <span className="text-[11px] text-slate-400 px-1">+{tabs.length - 6}</span>
+          )}
+          <button
+            onClick={onOpenNewTab}
+            className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-base leading-none"
+            title="فتح صفحة جديدة"
+          >
+            +
+          </button>
+        </div>
+
+        <div className="flex items-center gap-4 lg:gap-6">
         <div className="hidden xl:block">
           <LiveClock />
         </div>
@@ -501,7 +546,7 @@ export const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
-  const { tabs, openTab, closeTab, activeTabId, switchToNext, switchToPrev } = useTabs();
+  const { tabs, openTab, closeTab, activeTabId, switchTab, switchToNext, switchToPrev } = useTabs();
 
   // Sync URL -> Tabs (Handles legacy redirects and direct URL changes)
   useEffect(() => {
@@ -1008,9 +1053,12 @@ export const Layout = () => {
             hasDesktopBridge={hasDesktopBridge}
             onOpenSidebar={() => setSidebarOpen(true)}
             onOpenPanel={openPanel}
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onSwitchTab={switchTab}
+            onCloseTab={closeTab}
+            onOpenNewTab={() => window.dispatchEvent(new CustomEvent('azrar:open-page-selector'))}
         />
-
-        <TabBar />
 
         {/* Content Container - Modern Layout */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4">
