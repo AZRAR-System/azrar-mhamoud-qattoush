@@ -136,10 +136,14 @@ describe('Installments Logic - Strengthened Suite', () => {
 
   // 9. Late Fee - Grace Period
   test('calculateAutoLateFees - respects grace period', () => {
+    const todaySpy = jest.spyOn(require('@/utils/dateOnly'), 'todayDateOnlyISO').mockReturnValue('2026-04-23');
+
     const contract = { lateFeeType: 'fixed', lateFeeValue: 50, lateFeeGraceDays: 5 };
     const installments = [{ رقم_الكمبيالة: 'I1', القيمة: 1000, تاريخ_استحقاق: '2026-04-20' }]; // 3 days late
     const res = calculateAutoLateFees(contract as any, installments as any);
     expect(res).toHaveLength(0); // Within 5 days grace
+
+    todaySpy.mockRestore();
   });
 
   // 10. Late Fee - Cap (Max Amount)
