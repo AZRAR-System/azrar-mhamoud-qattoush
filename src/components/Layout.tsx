@@ -399,41 +399,6 @@ const Header = memo(({
         </div>
       </div>
 
-        {/* Open Pages Pills */}
-        <div className="hidden md:flex items-center gap-1.5 mx-2">
-          {tabs.slice(0, 6).map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => onSwitchTab(tab.id)}
-              className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border ${
-                tab.id === activeTabId
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              <span className="max-w-[80px] truncate">{tab.title}</span>
-              {!tab.isPinned && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); onCloseTab(tab.id); }}
-                  className={`text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400 ${tab.id === activeTabId ? 'opacity-60' : ''}`}
-                >
-                  ✕
-                </span>
-              )}
-            </button>
-          ))}
-          {tabs.length > 6 && (
-            <span className="text-[11px] text-slate-400 px-1">+{tabs.length - 6}</span>
-          )}
-          <button
-            onClick={onOpenNewTab}
-            className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-base leading-none"
-            title="فتح صفحة جديدة"
-          >
-            +
-          </button>
-        </div>
-
         <div className="flex items-center gap-4 lg:gap-6">
         <div className="hidden xl:block">
           <LiveClock />
@@ -1059,6 +1024,40 @@ export const Layout = () => {
             onCloseTab={closeTab}
             onOpenNewTab={() => window.dispatchEvent(new CustomEvent('azrar:open-page-selector'))}
         />
+
+        {/* Pills Navigation Bar */}
+        {tabs.length > 1 && (
+          <div className="mx-4 lg:mx-8 mb-1 flex items-center gap-1.5 px-3 py-1.5 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-white/20 dark:border-slate-800/40 rounded-2xl overflow-x-auto no-scrollbar">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => switchTab(tab.id)}
+                className={`group flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+                  tab.id === activeTabId
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+              >
+                <span className="max-w-[100px] truncate">{tab.title}</span>
+                {!tab.isPinned && (
+                  <span
+                    onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                    className="text-[10px] leading-none opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                  >
+                    ✕
+                  </span>
+                )}
+              </button>
+            ))}
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('azrar:open-page-selector'))}
+              className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-sm leading-none mr-1"
+              title="فتح صفحة جديدة"
+            >
+              +
+            </button>
+          </div>
+        )}
 
         {/* Content Container - Modern Layout */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4">
