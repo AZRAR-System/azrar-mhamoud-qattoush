@@ -39,12 +39,6 @@ describe('Marquee System Service - Announcements Suite', () => {
     expect(kv.get<any>(KEYS.MARQUEE)).toHaveLength(0);
   });
 
-  test('getMarqueeMessages - includes unread alerts', () => {
-    kv.save(KEYS.ALERTS, [{ id: 'A1', تم_القراءة: false, category: 'Financial', الوصف: 'Late Payment' }]);
-    const messages = getMarqueeMessages();
-    expect(messages.some(m => m.id === 'alerts_unread')).toBe(true);
-    expect(messages.some(m => m.content.includes('Late Payment'))).toBe(true);
-  });
 
   test('getMarqueeMessages - includes open tasks', () => {
     kv.save(KEYS.FOLLOW_UPS, [{ id: 'F1', status: 'Pending', task: 'Fix Door', dueDate: '2020-01-01' }]);

@@ -155,47 +155,7 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
   const todayYMD = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const isYmdBefore = (a: string, b: string) => String(a || '') < String(b || '');
 
-  // 1) Urgent unread alerts
-  try {
-    const unreadCritical = (get<tbl_Alerts>(KEYS.ALERTS) || [])
-      .filter((a) => !a.تم_القراءة)
-      .filter((a) => a.category === 'Financial' || a.category === 'Risk');
-
-    if (unreadCritical.length > 0) {
-      messages.push({
-        id: 'alerts_unread',
-        content: `🔔 لديك ${unreadCritical.length} تنبيه حرِج غير مقروء`,
-        priority: 'High',
-        type: 'alert',
-        action: { kind: 'hash', hash: '/alerts' },
-      });
-
-      for (const a of unreadCritical.slice(0, 2)) {
-        const base: MarqueeMessage = {
-          id: `alert_${a.id}`,
-          content: `تنبيه: ${String(a.الوصف || '').trim()}`,
-          priority: 'High',
-          type: 'alert',
-        };
-
-        const refTable = String(a.مرجع_الجدول || '');
-        const refId = String(a.مرجع_المعرف || '');
-        if (refTable === 'العقود_tbl' && refId) {
-          base.action = { kind: 'panel', panel: 'CONTRACT_DETAILS', id: refId };
-        } else if (refTable === 'الكمبيالات_tbl') {
-          base.action = { kind: 'hash', hash: '/installments?filter=all' };
-        } else if (refTable === 'العقارات_tbl') {
-          base.action = refId === 'batch' ? { kind: 'hash', hash: '/properties' } : { kind: 'panel', panel: 'PROPERTY_DETAILS', id: refId };
-        } else if (refTable === 'الأشخاص_tbl') {
-          base.action = refId === 'batch' ? { kind: 'hash', hash: '/people' } : { kind: 'panel', panel: 'PERSON_DETAILS', id: refId };
-        } else {
-          base.action = { kind: 'hash', hash: '/alerts' };
-        }
-
-        if (base.content !== 'تنبيه:') messages.push(base);
-      }
-    }
-  } catch (_e) { /* ignore */ }
+  // 1) Alerts removed — marquee is dedicated to manual ads and tasks only
 
   // 2) Tasks
   try {

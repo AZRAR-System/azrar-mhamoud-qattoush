@@ -39,12 +39,7 @@ describe('Marquee System Service - API Suite', () => {
     test('aggregates custom ads and system status', () => {
       addMarqueeAd({ content: 'Custom Ad' });
 
-      kv.save(KEYS.ALERTS, [{ 
-        id: 'A1', 
-        الوصف: 'Critical', 
-        category: 'Financial', 
-        تم_القراءة: false 
-      }]);
+      // Alerts removed from marquee
 
       kv.save(KEYS.FOLLOW_UPS, [{ 
         id: 'F1', 
@@ -56,8 +51,6 @@ describe('Marquee System Service - API Suite', () => {
       const messages = getMarqueeMessages();
       
       expect(messages.some(m => m.content === 'Custom Ad')).toBe(true);
-      // Check for 'تنبيه' instead of 'تنبيع'
-      expect(messages.some(m => m.content.includes('تنبيه حرِج'))).toBe(true);
       expect(messages.some(m => m.content.includes('مهام مفتوحة'))).toBe(true);
     });
   });
