@@ -97,30 +97,7 @@ export const TabsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { ...prev, activeTabId: prev.tabs[existingIdx].id };
       }
 
-      // 2. Look for a "preview" tab (the active tab if unpinned OR the first unpinned one)
-      // We prioritize replacing the active tab if it's unpinned and not being modified
-      const activeTab = prev.tabs.find(t => t.id === prev.activeTabId);
-      const canReplaceActive = activeTab && !activeTab.isPinned && !activeTab.isModified;
-      
-      const replaceIdx = canReplaceActive 
-        ? prev.tabs.findIndex(t => t.id === prev.activeTabId)
-        : prev.tabs.findIndex(t => !t.isPinned && !t.isModified);
-
-      if (replaceIdx !== -1) {
-        const newTabs = [...prev.tabs];
-        newTabs[replaceIdx] = {
-          ...newTabs[replaceIdx],
-          path,
-          title,
-          icon,
-          isPinned: false,
-        };
-        return {
-          ...prev,
-          tabs: newTabs,
-          activeTabId: newTabs[replaceIdx].id,
-        };
-      }
+      // 2. Always open a new tab — never replace existing tabs
 
       // 3. Otherwise, create a new tab if within limits
       if (prev.tabs.length >= MAX_TABS) return prev;
