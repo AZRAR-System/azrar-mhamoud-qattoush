@@ -9,7 +9,7 @@ export const getEnv = (key: string, fallback = ''): string => {
   try {
     // We use a dynamic check to avoid syntax errors in some environments
     // but we still need the literal for Vite to replace it during build.
-    // @ts-expect-error - Vite specific environment variables
+    // @ts-ignore - Vite specific environment variables
     value = import.meta.env[key];
   } catch (_e) {
     // Fallback for environments where import.meta is not available (like Jest)
@@ -23,7 +23,7 @@ export const getEnv = (key: string, fallback = ''): string => {
 
 export const isDev = (): boolean => {
   try {
-    // @ts-expect-error - Vite specific environment variables
+    // @ts-ignore - Vite specific environment variables
     return import.meta.env?.DEV === true;
   } catch (_e) {
     return typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
