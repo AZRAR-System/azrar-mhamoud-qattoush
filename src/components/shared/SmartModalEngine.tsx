@@ -497,6 +497,33 @@ export const SmartModalEngine: React.FC = () => {
           );
         }
 
+        // NOTIFICATION_CENTER: dropdown أسفل أيقونة الجرس
+        if (panel.type === 'NOTIFICATION_CENTER') {
+          const handleClose = () => closePanel(panel.id);
+          const isTop = index === activePanels.length - 1;
+          return createPortal(
+            <div
+              key={panel.id}
+              className={`fixed inset-0 ${isTop ? '' : 'hidden'}`}
+              style={{ zIndex: dynamicZIndex }}
+              onClick={handleClose}
+            >
+              <div
+                className="absolute top-[56px] left-4 w-[420px] max-h-[calc(100vh-80px)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-scale-up origin-top-left"
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="مركز الإشعارات"
+              >
+                <Suspense fallback={panelChunkFallback}>
+                  <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
+                </Suspense>
+              </div>
+            </div>,
+            document.body
+          );
+        }
+
         // عرض التفاصيل: منزلق من بداية السطر (في RTL من اليمين) — وليس نافذة منبثقة وسط الشاشة
         const isTop = index === activePanels.length - 1;
         const isSectionView = panel.type === 'SECTION_VIEW';

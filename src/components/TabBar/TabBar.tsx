@@ -39,11 +39,11 @@ export const TabBar: React.FC = () => {
   };
 
   return (
-    <div className="mx-4 lg:mx-6 mt-3 flex items-center bg-slate-950/40 backdrop-blur-2xl border border-white/5 rounded-2xl px-2 h-[52px] select-none shadow-2xl shadow-black/40">
+    <div className="flex items-center bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-[40px] select-none px-2">
       <div
         ref={scrollRef}
         onWheel={handleWheel}
-        className="flex-1 flex items-center overflow-x-auto no-scrollbar gap-2 h-full py-1.5 flex-nowrap min-w-0"
+        className="flex-1 flex items-center overflow-x-auto no-scrollbar h-full flex-nowrap min-w-0"
       >
         {tabs.map((tab, idx) => {
           const isActive = tab.id === activeTabId;
@@ -64,12 +64,11 @@ export const TabBar: React.FC = () => {
               onClick={() => switchTab(tab.id)}
               title={tab.title}
               className={`
-                group relative flex items-center gap-2.5 px-3.5 h-10 min-w-[110px] max-w-[190px] rounded-xl transition-all duration-300 cursor-pointer flex-shrink-0
+                group relative flex items-center gap-2 px-3 h-[40px] min-w-[120px] max-w-[200px] cursor-pointer flex-shrink-0 border-r border-slate-200 dark:border-slate-800 transition-colors duration-150
                 ${isActive
-                  ? 'bg-gradient-to-br from-indigo-600/90 via-indigo-600 to-violet-600/90 text-white shadow-lg shadow-indigo-600/20 ring-1 ring-white/20'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-100 border border-transparent hover:border-white/5'}
-                ${isDragging ? 'opacity-20 scale-95 blur-[1px]' : 'opacity-100'}
-                hover:pl-11
+                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-700 dark:hover:text-slate-200'}
+                ${isDragging ? 'opacity-40' : 'opacity-100'}
               `}
             >
               {/* Tab Icon */}
@@ -128,18 +127,18 @@ export const TabBar: React.FC = () => {
 
               {/* Active Underline */}
               {isActive && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-0.5 bg-white/40 rounded-full blur-[0.5px]" />
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-indigo-600" />
               )}
             </div>
           );
         })}
 
         <button
-          className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-white/5 text-slate-500 hover:text-white hover:bg-indigo-600/40 border border-white/5 hover:border-indigo-500/40 rounded-xl transition-all duration-300 group shadow-lg"
+          className="flex-shrink-0 w-8 h-8 mx-1 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors duration-150"
           onClick={() => window.dispatchEvent(new CustomEvent('azrar:open-page-selector'))}
           title="فتح صفحة جديدة (Ctrl+T)"
         >
-          <LayoutGrid size={18} className="group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300" />
+          <LayoutGrid size={15} />
         </button>
       </div>
     </div>

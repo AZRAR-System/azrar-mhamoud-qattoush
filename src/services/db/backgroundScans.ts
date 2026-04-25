@@ -251,7 +251,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
             id: `nc-rem7-${u.inst.رقم_الكمبيالة}`,
             type: 'info',
             title: 'تذكير بالاستحقاق',
-            message: `دفعة ستستحق خلال ${daysUntilDue} أيام. المستأجر: ${tenant?.الاسم || 'غير معروف'}`,
+            message: `${property?.الكود_الداخلي ? property.الكود_الداخلي + ' — ' : ''}${tenant?.الاسم || 'غير معروف'} — دفعة ستستحق خلال ${daysUntilDue} أيام (${u.inst.تاريخ_استحقاق})`,
             category: 'payment',
             entityId: u.inst.رقم_الكمبيالة,
           });
@@ -628,7 +628,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           id: `nc-overdue-${c.رقم_العقد}`,
           type: 'error',
           title: 'مخاطر تحصيل (تأخير)',
-          message: `يوجد ${overdue.length} دفعات متأخرة للعقد ${c.رقم_العقد}. الإجمالي: ${formatCurrencyJOD(total)}`,
+          message: `${property?.الكود_الداخلي ? property.الكود_الداخلي + ' — ' : ''}${tenant?.الاسم || 'غير معروف'} — ${overdue.length} دفعات متأخرة. الإجمالي: ${formatCurrencyJOD(total)}`,
           category: 'overdue',
           entityId: overdue[0].inst.رقم_الكمبيالة,
           urgent: true,
