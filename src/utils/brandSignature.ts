@@ -20,15 +20,15 @@ function stripKnownBrandLinesFromEnd(message: string): string {
     const t = line.trim();
     if (!t) return true;
 
-    if (/^صادر\s+عن\s+(أزرار|خبرني)\s+للخدمات\s+العقارية\b/.test(t)) return true;
-    if (/^(أزرار|خبرني)\s+للخدمات\s+العقارية\b/.test(t)) return true;
+    if (/^صادر\s+عن\s+(أزرار|خبرني)\s+للخدمات\s+العقارية/.test(t)) return true;
+    if (/^(أزرار|خبرني)\s+للخدمات\s+العقارية/.test(t)) return true;
 
     // Other legacy sign-offs we want to replace with the official signature.
-    if (/^(?:إدارة|ادارة)\s+(?:الأملاك|الاملاك)\b/.test(t)) return true;
+    if (/^(?:إدارة|ادارة)\s+(?:الأملاك|الاملاك)/.test(t)) return true;
 
     // Old/alternative slogans that were used previously.
-    if (/^\d+\s*سنة\s+تفوّق\s+وسيطر(?:ة|ه)\b/.test(t)) return true;
-    if (/^\d+\s*سنة\s+تفوّق\s+وثقة\b/.test(t)) return true;
+    if (/^\d+\s*سنة\s+تفوّق\s+وسيطر(?:ة|ه)/.test(t)) return true;
+    if (/^\d+\s*سنة\s+تفوّق\s+وثقة/.test(t)) return true;
 
     if (/^لأن\s+الثقة\s+لا\s+تُشترى/.test(t)) return true;
 
