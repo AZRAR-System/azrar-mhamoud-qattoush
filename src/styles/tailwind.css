@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@200;300;400;500;700;800;900&display=swap');
+
 /* Allow UA to pick appropriate form/widget styling */
 :root {
   color-scheme: light dark;
@@ -107,6 +109,7 @@ body {
 html,
 body,
 #root {
+  font-family: 'Tajawal', sans-serif !important;
   overflow-wrap: normal;
   word-break: normal;
 }

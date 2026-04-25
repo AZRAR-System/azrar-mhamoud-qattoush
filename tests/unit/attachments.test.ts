@@ -4,7 +4,8 @@ import {
   uploadAttachment, 
   deleteAttachment,
   readWordTemplate,
-  listWordTemplates
+  listWordTemplates,
+  downloadAttachment
 } from '@/services/db/system/attachments';
 import * as kv from '@/services/db/kv';
 import { KEYS } from '@/services/db/keys';
@@ -54,6 +55,30 @@ describe('Attachments System Service - File Management Suite', () => {
     expect(res.data?.filePath).toBe('uploads/PR1/test.pdf');
   });
 
+  test('uploadAttachment - desktop mode failure', async () => {
+    const mockBridge = {
+      saveAttachmentFile: jest.fn().mockResolvedValue({
+        success: false,
+        message: 'Disk Full'
+      })
+    };
+    (window as any).desktopDb = mockBridge;
+
+    const file = mockFile('fail.pdf', 1024);
+    const res = await uploadAttachment('Property', 'PR1', file);
+    
+    expect(res.success).toBe(false);
+    expect(res.message).toBe('Disk Full');
+  });
+
+  test('getAllAttachments returns all regardless of type', () => {
+    kv.save(KEYS.ATTACHMENTS, [
+      { id: '1', referenceType: 'Property', referenceId: 'A' },
+      { id: '2', referenceType: 'Contract', referenceId: 'B' }
+    ]);
+    expect(getAllAttachments()).toHaveLength(2);
+  });
+
   test('deleteAttachment - removes record and calls bridge if filePath exists', async () => {
     const mockBridge = {
       deleteAttachmentFile: jest.fn().mockResolvedValue(true),
@@ -93,6 +118,70 @@ describe('Attachments System Service - File Management Suite', () => {
     const res2 = await readWordTemplate('contract.docx');
     expect(res2.success).toBe(true);
     expect(res2.data).toBeInstanceOf(ArrayBuffer);
+  });
+
+  test('readWordTemplate - handles invalid dataUri', async () => {
+    const mockBridge = {
+      readTemplateFile: jest.fn().mockResolvedValue({
+        success: true,
+        dataUri: 'invalid-data'
+      })
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await readWordTemplate('bad.docx');
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('غير صالح');
+  });
+
+  test('downloadAttachment - browser mode', async () => {
+    kv.save(KEYS.ATTACHMENTS, [{ id: 'A1', fileData: 'data:123' }]);
+    const res = await downloadAttachment('A1');
+    expect(res).toBe('data:123');
+  });
+
+  test('downloadAttachment - desktop mode with bridge', async () => {
+    const mockBridge = {
+      get: jest.fn().mockResolvedValue(JSON.stringify([{ id: 'A2', filePath: 'f.pdf' }])),
+      readAttachmentFile: jest.fn().mockResolvedValue({ success: true, dataUri: 'data:f' })
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await downloadAttachment('A2');
+    expect(res).toBe('data:f');
+    expect(mockBridge.readAttachmentFile).toHaveBeenCalledWith('f.pdf');
+  });
+
+  test('downloadAttachment - handles bridge failure', async () => {
+    const mockBridge = {
+      get: jest.fn().mockRejectedValue(new Error('Bridge fail'))
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await downloadAttachment('A2');
+    expect(res).toBe(null);
+  });
+
+  test('uploadAttachment - handles FileReader error', async () => {
+    const file = mockFile('err.txt', 100);
+    // Mock FileReader error
+    const spy = jest.spyOn(window, 'FileReader').mockImplementation(function(this: any) {
+      this.readAsDataURL = jest.fn(() => {
+        setTimeout(() => {
+          if (this.onerror) this.onerror(new Error('Read Error'));
+        }, 0);
+      });
+      return this;
+    } as any);
+    
+    await expect(uploadAttachment('Property', 'PR1', file)).rejects.toThrow();
+    spy.mockRestore();
+  });
+
+  test('uploadAttachment - handles storage throw', async () => {
+    const file = mockFile('big.txt', 100);
+    jest.spyOn(kv, 'save').mockImplementation(() => { throw new Error('Quota'); });
+    
+    // In browser mode (no bridge)
+    await expect(uploadAttachment('Property', 'PR1', file)).rejects.toBe('File too large for mock storage');
+    (kv.save as jest.Mock).mockRestore();
   });
 
   test('listWordTemplates - calls desktop bridge', async () => {
