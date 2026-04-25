@@ -92,11 +92,6 @@ const FinancialReportPrintPanel = React.lazy(() =>
     default: m.FinancialReportPrintPanel,
   }))
 );
-const NotificationTemplatesPanel = React.lazy(() =>
-  import('@/components/panels/NotificationTemplatesPanel').then((m) => ({
-    default: m.NotificationTemplatesPanel,
-  }))
-);
 const ContractWhatsAppSendPanel = React.lazy(() =>
   import('@/components/panels/ContractWhatsAppSendPanel').then((m) => ({
     default: m.ContractWhatsAppSendPanel,
@@ -135,7 +130,6 @@ const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   CALENDAR_EVENTS: CalendarEventsPanel as unknown as PanelComponent,
   PAYMENT_NOTIFICATIONS: PaymentNotificationsPanel as unknown as PanelComponent,
   NOTIFICATION_CENTER: NotificationCenterPanel as unknown as PanelComponent,
-  NOTIFICATION_TEMPLATES: NotificationTemplatesPanel as unknown as PanelComponent,
   GENERIC_ALERT: GenericAlertPanel as unknown as PanelComponent,
   SECTION_VIEW: SectionViewPanel as unknown as PanelComponent,
   SERVER_DRAWER: ServerDrawerPanel as unknown as PanelComponent,
@@ -158,7 +152,6 @@ const SLIDE_OVER_DETAIL_PANELS = new Set<PanelType>([
   'CLEARANCE_WIZARD',
   'PAYMENT_NOTIFICATIONS',
   'NOTIFICATION_CENTER',
-  'NOTIFICATION_TEMPLATES',
   'SECTION_VIEW',
   'CONTRACT_WHATSAPP_SEND',
   'MARQUEE_ADS',
@@ -178,7 +171,6 @@ const PANEL_TITLES: Partial<Record<PanelType, string>> = {
   LEGAL_NOTICE_GENERATOR: 'إنشاء إشعار قانوني',
   BULK_WHATSAPP: 'إرسال واتساب جماعي',
   CONTRACT_WHATSAPP_SEND: 'إرسال واتساب',
-  NOTIFICATION_TEMPLATES: 'قوالب الرسائل والإشعارات',
   SALES_LISTING_DETAILS: 'تفاصيل البيع',
   CLEARANCE_REPORT: 'تقرير براءة الذمة',
   CLEARANCE_WIZARD: 'إنهاء / براءة ذمة',

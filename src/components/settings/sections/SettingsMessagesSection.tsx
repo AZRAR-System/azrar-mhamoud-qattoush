@@ -225,13 +225,6 @@ export function SettingsMessagesSection({ page }: Props) {
           <div className="flex flex-col md:flex-row gap-3">
             <Button
               variant="secondary"
-              onClick={() => openPanel('NOTIFICATION_TEMPLATES', 'notification_templates')}
-            >
-              تعديل نماذج الرسائل والإشعارات
-            </Button>
-    
-            <Button
-              variant="secondary"
               onClick={() => {
                 window.location.hash = ROUTE_PATHS.LEGAL;
               }}
