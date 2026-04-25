@@ -14,14 +14,19 @@ jest.mock('../../src/services/audioService', () => ({
 jest.mock('../../src/services/desktopNotifications', () => ({
   sendDesktopNotification: jest.fn()
 }));
+let mockStorage: Record<string, string> = {};
 jest.mock('../../src/services/storage', () => ({
-  storage: { setItem: jest.fn() }
+  storage: { 
+    setItem: jest.fn(async (k, v) => { mockStorage[k] = v; }),
+    getItem: jest.fn(async (k) => mockStorage[k] || null)
+  }
 }));
 
 describe('Notification Service - Comprehensive Suite', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    mockStorage = {};
     notificationService.setEnabled(true);
   });
 
@@ -67,18 +72,19 @@ describe('Notification Service - Comprehensive Suite', () => {
   });
 
   // 6. Logging
-  test('logNotification - persists notifications to localStorage', () => {
-    notificationService.notify('Log Me', 'info');
-    const logs = JSON.parse(localStorage.getItem('notificationLogs') || '[]');
+  test('logNotification - persists notifications', async () => {
+    await notificationService.notify('Log Me', 'info');
+    const logs = await notificationService.getLogs();
     expect(logs).toHaveLength(1);
     expect(logs[0].message).toBe('Log Me');
   });
 
   // 7. Clearing Logs
-  test('clearLogs - empties notification history', () => {
-    notificationService.notify('Log Me', 'info');
-    notificationService.clearLogs();
-    expect(notificationService.getLogs()).toHaveLength(0);
+  test('clearLogs - empties notification history', async () => {
+    await notificationService.notify('Log Me', 'info');
+    await notificationService.clearLogs();
+    const logs = await notificationService.getLogs();
+    expect(logs).toHaveLength(0);
   });
 
   // 8. Handler Callback
@@ -142,19 +148,18 @@ describe('Notification Service - Comprehensive Suite', () => {
     spy.mockRestore();
   });
 
-  test('map cleanup and log shifting', () => {
+  test('map cleanup and log shifting', async () => {
     // Fill the map
     for (let i = 0; i < 505; i++) {
       notificationService.notify(`Msg ${i}`, 'info', { showNotification: false, sound: false });
     }
-    // We can't easily check private map size, but we verify it doesn't crash
     
     // Fill the logs
-    notificationService.clearLogs();
+    await notificationService.clearLogs();
     for (let i = 0; i < 105; i++) {
-      notificationService.notify(`Log ${i}`, 'info', { showNotification: false, sound: false });
+      await notificationService.notify(`Log ${i}`, 'info', { showNotification: false, sound: false });
     }
-    const logs = notificationService.getLogs();
+    const logs = await notificationService.getLogs();
     expect(logs.length).toBe(100);
     expect(logs[logs.length - 1].message).toBe('Log 104');
   });

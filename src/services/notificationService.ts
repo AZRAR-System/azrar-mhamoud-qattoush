@@ -10,6 +10,7 @@ import { audioService } from './audioService';
 import { storage } from '@/services/storage';
 import { notificationCenter } from './notificationCenter';
 import { sendDesktopNotification } from './desktopNotifications';
+import { obfuscate, deobfuscate } from '@/utils/security';
 
 type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'delete';
 
@@ -238,7 +239,7 @@ export class NotificationService {
   /**
    * Log notification for debugging
    */
-  private logNotification(message: string, type: NotificationType, category: string) {
+  private async logNotification(message: string, type: NotificationType, category: string) {
     const log = {
       timestamp: new Date().toISOString(),
       message,
@@ -246,7 +247,15 @@ export class NotificationService {
       category,
     };
 
-    const notifications = JSON.parse(localStorage.getItem('notificationLogs') || '[]');
+    const raw = await storage.getItem('notificationLogs');
+    let notifications: any[] = [];
+    try {
+      const decoded = deobfuscate(raw || '');
+      notifications = JSON.parse(decoded || '[]');
+    } catch {
+      notifications = [];
+    }
+    
     notifications.push(log);
 
     // Keep only last 100 notifications
@@ -254,26 +263,31 @@ export class NotificationService {
       notifications.shift();
     }
     const serialized = JSON.stringify(notifications);
-    void storage.setItem('notificationLogs', serialized);
-    localStorage.setItem('notificationLogs', serialized);
+    const encrypted = obfuscate(serialized);
+    await storage.setItem('notificationLogs', encrypted);
   }
 
   /**
    * Get notification logs
    */
-  getLogs(): Array<Record<string, unknown>> {
-    const raw: unknown = JSON.parse(localStorage.getItem('notificationLogs') || '[]');
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null);
+  async getLogs(): Promise<Array<Record<string, unknown>>> {
+    const raw = await storage.getItem('notificationLogs');
+    if (!raw) return [];
+    try {
+      const decoded = deobfuscate(raw);
+      const list = JSON.parse(decoded);
+      if (!Array.isArray(list)) return [];
+      return list.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null);
+    } catch {
+      return [];
+    }
   }
 
   /**
    * Clear notification logs
    */
-  clearLogs() {
-    localStorage.setItem('notificationLogs', '[]');
-    void storage.setItem('notificationLogs', '[]');
-    localStorage.setItem('notificationLogs', '[]');
+  async clearLogs() {
+    await storage.setItem('notificationLogs', obfuscate('[]'));
   }
 }
 

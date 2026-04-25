@@ -105,12 +105,6 @@ const getKeysToClear = async (): Promise<string[]> => {
   const keys: string[] = [...BASE_DB_KEYS, ...APP_STATE_KEYS, ...LEGACY_CLEANUP_KEYS];
 
   try {
-    keys.push(...Object.keys(localStorage));
-  } catch {
-    // ignore
-  }
-
-  try {
     const persisted = await storage.keys();
     keys.push(...persisted);
   } catch {
@@ -132,7 +126,7 @@ const deleteAllAttachmentFiles = async (): Promise<void> => {
   if (typeof bridge?.deleteAttachmentFile !== 'function') return;
 
   try {
-    const raw = (await storage.getItem('db_attachments')) ?? localStorage.getItem('db_attachments');
+    const raw = await storage.getItem('db_attachments');
     if (!raw) return;
     const list = JSON.parse(raw);
     if (!Array.isArray(list)) return;
@@ -283,7 +277,7 @@ export const getDatabaseStats = async (): Promise<Record<string, number>> => {
 
   for (const key of keys) {
     try {
-      const data = (await storage.getItem(key)) ?? localStorage.getItem(key);
+      const data = await storage.getItem(key);
       if (!data) continue;
       const parsed = JSON.parse(data);
       stats[key] = Array.isArray(parsed) ? parsed.length : 1;

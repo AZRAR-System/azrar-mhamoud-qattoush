@@ -440,9 +440,10 @@ export const useSystemMaintenance = (isVisible: boolean) => {
   }, [openPanel, toast, user?.الدور]);
 
   // --- Database Logic ---
-  const refreshLocalStorageList = useCallback(() => {
+  const refreshLocalStorageList = useCallback(async () => {
     try {
-      const keys = Array.from(new Set(Object.keys(localStorage))).filter((k) => !HIDDEN_KEYS.has(k));
+      const allKeys = await storage.keys();
+      const keys = allKeys.filter((k) => !HIDDEN_KEYS.has(k));
       const orderIndex = new Map<string, number>();
       KNOWN_ORDER.forEach((k, i) => orderIndex.set(k, i));
       const sorted = keys.sort((a, b) => {
@@ -476,8 +477,7 @@ export const useSystemMaintenance = (isVisible: boolean) => {
   const handleClearKey = async (key: string) => {
     const ok = await toast.confirm({ title: 'تحذير', message: `هل أنت متأكد من مسح جميع بيانات (${key})؟ لا يمكن التراجع.`, confirmText: 'مسح', cancelText: 'إلغاء', isDangerous: true });
     if (ok) {
-      if (key.startsWith('db_')) await storage.setItem(key, '[]');
-      else localStorage.removeItem(key);
+      await storage.removeItem(key);
       buildCache(); refreshLocalStorageList(); toast.success('تم مسح البيانات بنجاح');
     }
   };

@@ -42,13 +42,13 @@ export function save<T>(key: string, data: T[]): void {
   const safeData = safeClone(data);
   const serialized = JSON.stringify(safeData);
 
-  // Ensure sync readers see the latest value immediately.
-  localStorage.setItem(key, serialized);
   if (DbCache.isInitialized) {
     DbCache.arrays[key] = safeData;
   }
 
   // Persist (desktop will also write to SQLite)
+  // Ensure sync readers see the latest value immediately.
+  // storage.setItem handles updating localStorage synchronously in renderer.
   void storage.setItem(key, serialized);
 
   // Notify same-tab listeners (storage event won't fire in the same window).

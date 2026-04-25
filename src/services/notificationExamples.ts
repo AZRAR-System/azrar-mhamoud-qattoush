@@ -118,9 +118,9 @@ export const example4_customOptions = () => {
  *
  * الحصول على سجل الإشعارات
  */
-export const example5_notifications_logging = () => {
+export const example5_notifications_logging = async () => {
   // Get all notification logs
-  const logs = notificationService.getLogs();
+  const logs = await notificationService.getLogs();
   console.warn('All notifications:', logs);
 
   // Filter by type
@@ -132,7 +132,7 @@ export const example5_notifications_logging = () => {
   console.warn('Contract notifications:', contractLogs);
 
   // Clear logs
-  notificationService.clearLogs();
+  await notificationService.clearLogs();
 };
 
 /**
@@ -329,7 +329,7 @@ export const example10_integrationTest = async () => {
   notificationService.contractCreated('CNT-TEST-001', 'عميل اختبار');
 
   // Test 3: Logging
-  const logs = notificationService.getLogs();
+  const logs = await notificationService.getLogs();
   console.warn(`✅ اختبار 2: تم تسجيل ${logs.length} إشعار`);
 
   // Test 4: System alerts
