@@ -23,6 +23,7 @@ import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { openExternalUrl } from '@/utils/externalLink';
+import type { الكمبيالات_tbl } from '@/types';
 
 const categoryLabels: Record<string, string> = {
   'Financial': 'مالي',
@@ -210,7 +211,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
             if (contracts.some(c => c.رقم_العقد === eid)) return eid;
             // if eid is an installment id, find parent contract
             const installments = DbService.getInstallments ? DbService.getInstallments() : [];
-            const inst = installments.find((i: any) => i.رقم_الكمبيالة === eid);
+            const inst = installments.find((i: الكمبيالات_tbl) => i.رقم_الكمبيالة === eid);
             return inst?.رقم_العقد || eid;
           })();
           navigate(`${ROUTE_PATHS.INSTALLMENTS}?contractId=${contractId}`);

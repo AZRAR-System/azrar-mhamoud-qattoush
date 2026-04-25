@@ -11,7 +11,7 @@ module.exports = {
 		'!src/main.tsx',
 		'!src/types/**'
 	],
-	coverageReporters: ['text-summary', 'lcov', 'json-summary'],
+	coverageReporters: ['text', 'text-summary', 'lcov', 'json-summary'],
 	transform: {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',
