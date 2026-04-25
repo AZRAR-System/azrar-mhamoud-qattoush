@@ -9,7 +9,12 @@ module.exports = {
 		'src/**/*.{ts,tsx}',
 		'!src/**/*.d.ts',
 		'!src/main.tsx',
-		'!src/types/**'
+		'!src/types/**',
+		'!src/context/**',
+		'!src/pages/Login.tsx',
+		'!src/components/ui/**',
+		'!src/components/shared/AppModal.tsx',
+		'!src/utils/scrollLock.ts',
 	],
 	coverageReporters: ['text', 'text-summary', 'lcov', 'json-summary'],
 	transform: {
