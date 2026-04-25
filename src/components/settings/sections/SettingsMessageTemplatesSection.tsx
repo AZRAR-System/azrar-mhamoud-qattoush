@@ -23,6 +23,44 @@ const CATEGORY_LABEL: Record<MessageTemplateListEntry['category'], string> = {
   legal: 'قانوني',
 };
 
+const CATEGORY_COLOR: Record<MessageTemplateListEntry['category'], string> = {
+  reminder: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  due: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  late: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  warning: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  legal: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+};
+
+const WHERE_USED: Record<string, string> = {
+  'pre_due_reminder': 'يُرسل تلقائياً قبل موعد الاستحقاق بالأيام المحددة في الإعدادات',
+  'due_day_reminder': 'يُرسل تلقائياً في يوم الاستحقاق',
+  'post_late_reminder': 'يُرسل تلقائياً بعد تأخر الدفعة',
+  'data_quality_missing_property_utils_fixed': 'يُرسل يدوياً للمالك عند نقص بيانات العقار',
+  'installment_reminder_upcoming_summary_fixed': 'يُرسل تلقائياً كملخص للدفعات القريبة',
+  'installment_reminder_due_today_summary_fixed': 'يُرسل تلقائياً كملخص دفعات اليوم',
+  'installment_reminder_overdue_summary_fixed': 'يُرسل تلقائياً كملخص الدفعات المتأخرة',
+};
+
+const ALL_VARIABLES = [
+  { key: 'tenantName', label: 'اسم المستأجر', example: 'أحمد الزعبي' },
+  { key: 'اسم_المستأجر', label: 'اسم المستأجر (عربي)', example: 'أحمد الزعبي' },
+  { key: 'propertyCode', label: 'كود العقار', example: 'P-101' },
+  { key: 'جزء_العقار', label: 'وصف العقار', example: '— P-101 | شقة' },
+  { key: 'amount', label: 'مبلغ الدفعة', example: '500' },
+  { key: 'الإجمالي', label: 'الإجمالي', example: '1200' },
+  { key: 'dueDate', label: 'تاريخ الاستحقاق', example: '2026-05-01' },
+  { key: 'daysLate', label: 'أيام التأخر', example: '5' },
+  { key: 'contractNumber', label: 'رقم العقد', example: 'cot_031' },
+  { key: 'remainingAmount', label: 'المبلغ المتبقي', example: '300' },
+  { key: 'اسم_المالك', label: 'اسم المالك', example: 'خالد العمري' },
+  { key: 'قائمة_العقارات', label: 'قائمة العقارات', example: '• P-101\n• P-102' },
+  { key: 'المستحقات_القريبة', label: 'الدفعات القريبة', example: '• 500 د.أ — 2026-05-01' },
+  { key: 'المستحقات_المتأخرة', label: 'الدفعات المتأخرة', example: '• 500 د.أ — متأخر 5 أيام' },
+  { key: 'اسم_الشركة', label: 'اسم الشركة', example: 'خبرني للخدمات العقارية' },
+  { key: 'هاتف_الشركة', label: 'هاتف الشركة', example: '0799090170' },
+  { key: 'طرق_الدفع', label: 'طرق الدفع', example: 'كليك / تحويل بنكي' },
+];
+
 const PREVIEW_CONTEXT: TemplateContext = {
   tenantName: 'أحمد محمد',
   اسم_المستأجر: 'أحمد محمد',
@@ -129,15 +167,49 @@ export function SettingsMessageTemplatesSection({ page }: Props) {
     setVersion((v) => v + 1);
   }, [newName, newCategory, newBody, toast]);
 
+  const [showVars, setShowVars] = useState(false);
+
   return (
       <section className="settings-section-panel">
         <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
           <FileEdit className="text-indigo-500" size={20} /> قوالب الرسائل القابلة للتعديل
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
-          تُحفظ في <span dir="ltr">{String('db_message_templates')}</span>. إذا لم يُوجد نص مخصص، يُستخدم
-          الافتراضي من النظام. المتغيرات بصيغة {'{{اسم_المستأجر}}'} وما شابه.
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          جميع قوالب رسائل الواتساب والإشعارات التلقائية. التعديلات تُطبق فوراً على الإرسال التالي.
         </p>
+
+        <button
+          type="button"
+          onClick={() => setShowVars(s => !s)}
+          className="mb-4 text-xs text-indigo-600 dark:text-indigo-400 underline underline-offset-2"
+        >
+          {showVars ? 'إخفاء' : 'عرض'} جميع المتغيرات المتاحة
+        </button>
+
+        {showVars && (
+          <div className="mb-6 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4">
+            <div className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-3">
+              المتغيرات المتاحة — انسخ أي متغير وضعه داخل {'{{  }}'}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {ALL_VARIABLES.map(v => (
+                <div key={v.key} className="flex items-start gap-2 text-[11px]">
+                  <code
+                    className="shrink-0 rounded bg-indigo-100 dark:bg-indigo-900/40 px-1.5 py-0.5 text-indigo-700 dark:text-indigo-300 font-mono cursor-pointer select-all"
+                    title="انقر للنسخ"
+                    onClick={() => navigator.clipboard.writeText(`{{${v.key}}}`)}
+                  >
+                    {`{{${v.key}}}`}
+                  </code>
+                  <div>
+                    <span className="text-slate-600 dark:text-slate-300">{v.label}</span>
+                    <span className="text-slate-400 dark:text-slate-500 block">{v.example}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-4">
           <Button
@@ -219,14 +291,18 @@ export function SettingsMessageTemplatesSection({ page }: Props) {
                 className={`w-full rounded-lg px-3 py-2.5 text-right transition ${
                   r.id === selectedId
                     ? 'bg-indigo-600 text-white shadow-md'
-                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800'
+                    : 'bg-white hover:bg-slate-50 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700'
                 }`}
               >
-                <div className="text-xs font-black opacity-80">{CATEGORY_LABEL[r.category]}</div>
-                <div className="text-sm font-bold line-clamp-2">{r.name}</div>
-                <div dir="ltr" className="text-[10px] font-mono opacity-70 truncate mt-0.5">
-                  {r.id}
-                </div>
+                <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 ${r.id === selectedId ? 'bg-white/20 text-white' : CATEGORY_COLOR[r.category]}`}>
+                  {CATEGORY_LABEL[r.category]}{r.isCustom ? ' · مخصص' : ''}
+                </span>
+                <div className="text-sm font-bold line-clamp-1">{r.name}</div>
+                {WHERE_USED[r.id] && (
+                  <div className={`text-[10px] mt-0.5 line-clamp-1 ${r.id === selectedId ? 'text-white/70' : 'text-slate-400 dark:text-slate-500'}`}>
+                    {WHERE_USED[r.id]}
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -235,10 +311,15 @@ export function SettingsMessageTemplatesSection({ page }: Props) {
             {selected ? (
               <>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold dark:bg-slate-800">
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${CATEGORY_COLOR[selected.category]}`}>
                     {CATEGORY_LABEL[selected.category]}
-                    {selected.isCustom ? ' • مخصص' : ''}
+                    {selected.isCustom ? ' · مخصص' : ''}
                   </span>
+                  {WHERE_USED[selected.id] && (
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">
+                      📍 {WHERE_USED[selected.id]}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <label className={labelClass} htmlFor="msg-template-body">
