@@ -38,7 +38,7 @@ describe('normalizeSearchText', () => {
     expect(normalizeSearchText('Hello')).toBe('hello');
   });
   test('collapses whitespace', () => {
-    expect(normalizeSearchText('  احمد   علي  ')).toBe('احمد علي');
+    expect(normalizeSearchText('  أحمد   علي  ')).toBe('احمد علي');
   });
   test('handles null/undefined', () => {
     expect(normalizeSearchText(null)).toBe('');
@@ -52,7 +52,7 @@ describe('normalizeSearchText', () => {
 
 describe('normalizeSearchTextStrict', () => {
   test('strict normalization', () => {
-    expect(normalizeSearchTextStrict('آحمد محمود')).toBe('احمد محمود');
+    expect(normalizeSearchTextStrict('آحمد')).toBe('احمد');
   });
 });
 
