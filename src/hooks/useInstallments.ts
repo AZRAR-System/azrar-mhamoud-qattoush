@@ -349,10 +349,19 @@ export function useInstallments() {
 
     // تأخير بسيط لضمان تحميل البيانات قبل تطبيق الـ deep link
     const timer = setTimeout(() => applyFromHash(), 300);
-    window.addEventListener('hashchange', applyFromHash);
+
+    let lastHash = window.location.hash;
+    const onHashChange = () => {
+      const currentHash = window.location.hash;
+      if (currentHash === lastHash) return;
+      lastHash = currentHash;
+      applyFromHash();
+    };
+
+    window.addEventListener('hashchange', onHashChange);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('hashchange', applyFromHash);
+      window.removeEventListener('hashchange', onHashChange);
     };
   }, []);
 
