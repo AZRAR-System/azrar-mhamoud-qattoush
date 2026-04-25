@@ -204,17 +204,19 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'financial' || cat === 'installment' ||
           cat === 'installments'
         ) {
-          // entityId may be installment id or contract id — find the contract
+          // entityId may be installment id or contract id — open contract panel directly
           const contractId = (() => {
             const contracts = DbService.getContracts();
-            // if eid is a contract id, use it directly
-            if (contracts.some(c => c.رقم_العقد === eid)) return eid;
-            // if eid is an installment id, find parent contract
-            const installments = DbService.getInstallments ? DbService.getInstallments() : [];
-            const inst = installments.find((i: الكمبيالات_tbl) => i.رقم_الكمبيالة === eid);
-            return inst?.رقم_العقد || eid;
+            if (contracts.some((c: any) => c.رقم_العقد === eid)) return eid;
+            const allInst = DbService.getInstallments ? DbService.getInstallments() : [];
+            const inst = allInst.find((i: any) => i.رقم_الكمبيالة === eid);
+            return inst?.رقم_العقد || null;
           })();
-          navigate(`${ROUTE_PATHS.INSTALLMENTS}?contractId=${contractId}`);
+          if (contractId) {
+            openPanel('CONTRACT_DETAILS', contractId);
+          } else {
+            navigate(ROUTE_PATHS.INSTALLMENTS);
+          }
           onClose();
           return;
         }
