@@ -188,8 +188,6 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'risk' ||
           cat === 'risk_alert'
         ) {
-          // If the entityId is a Contract but the category is Risk, we might still want the Person page.
-          // However, backgroundScans will be updated to use PersonID for person-risks.
           openPanel('PERSON_DETAILS', eid);
           onClose();
           return;
@@ -205,7 +203,17 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'financial' || cat === 'installment' ||
           cat === 'installments'
         ) {
-          navigate(`${ROUTE_PATHS.INSTALLMENTS}?highlight=${eid}`);
+          // entityId may be installment id or contract id — find the contract
+          const contractId = (() => {
+            const contracts = DbService.getContracts();
+            // if eid is a contract id, use it directly
+            if (contracts.some(c => c.رقم_العقد === eid)) return eid;
+            // if eid is an installment id, find parent contract
+            const installments = DbService.getInstallments ? DbService.getInstallments() : [];
+            const inst = installments.find((i: any) => i.رقم_الكمبيالة === eid);
+            return inst?.رقم_العقد || eid;
+          })();
+          navigate(`${ROUTE_PATHS.INSTALLMENTS}?contractId=${contractId}`);
           onClose();
           return;
         }
@@ -224,11 +232,6 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
 
       if (cat === 'reminders' || cat.includes('reminder')) {
         navigate(ROUTE_PATHS.DASHBOARD);
-        onClose();
-        return;
-      }
-      if (cat === 'payments' || cat.includes('payment') || cat === 'collection') {
-        navigate(ROUTE_PATHS.INSTALLMENTS);
         onClose();
         return;
       }
