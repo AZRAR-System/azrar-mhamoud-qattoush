@@ -119,8 +119,15 @@ export const useAlerts = (isVisible: boolean) => {
     };
 
     applyFromHash();
-    window.addEventListener('hashchange', applyFromHash);
-    return () => window.removeEventListener('hashchange', applyFromHash);
+    let lastHashAlerts = window.location.hash;
+    const onHashChangeAlerts = () => {
+      const current = window.location.hash;
+      if (current === lastHashAlerts) return;
+      lastHashAlerts = current;
+      applyFromHash();
+    };
+    window.addEventListener('hashchange', onHashChangeAlerts);
+    return () => window.removeEventListener('hashchange', onHashChangeAlerts);
   }, []);
 
   useEffect(() => {

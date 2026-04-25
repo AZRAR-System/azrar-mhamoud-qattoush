@@ -158,8 +158,15 @@ export function useContracts(isVisible = true) {
 
   useEffect(() => {
     applyFiltersFromHash();
-    window.addEventListener('hashchange', applyFiltersFromHash);
-    return () => window.removeEventListener('hashchange', applyFiltersFromHash);
+    let lastHashContracts = window.location.hash;
+    const onHashChangeContracts = () => {
+      const current = window.location.hash;
+      if (current === lastHashContracts) return;
+      lastHashContracts = current;
+      applyFiltersFromHash();
+    };
+    window.addEventListener('hashchange', onHashChangeContracts);
+    return () => window.removeEventListener('hashchange', onHashChangeContracts);
   }, [applyFiltersFromHash]);
 
   const importRef = useRef<HTMLInputElement>(null);

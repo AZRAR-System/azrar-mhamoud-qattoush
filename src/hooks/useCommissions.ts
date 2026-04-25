@@ -184,8 +184,15 @@ export const useCommissions = (isVisible: boolean) => {
     };
 
     applyFromHash();
-    window.addEventListener('hashchange', applyFromHash);
-    return () => window.removeEventListener('hashchange', applyFromHash);
+    let lastHashComm = window.location.hash;
+    const onHashChangeComm = () => {
+      const current = window.location.hash;
+      if (current === lastHashComm) return;
+      lastHashComm = current;
+      applyFromHash();
+    };
+    window.addEventListener('hashchange', onHashChangeComm);
+    return () => window.removeEventListener('hashchange', onHashChangeComm);
   }, []);
 
   // Sync to SessionStorage
