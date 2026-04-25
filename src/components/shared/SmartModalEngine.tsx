@@ -4,6 +4,7 @@ import { useSmartModal, type PanelType } from '@/context/ModalContext';
 import { ChevronDown, ChevronUp, Loader2, ServerCog, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
+import { ScrollToTopButton } from '@/components/shared/ScrollToTopButton';
 
 /** Lazy panels keep mockDb and heavy UI out of the initial bundle (Layout shell). */
 const PersonPanel = React.lazy(() =>
@@ -587,10 +588,17 @@ export const SmartModalEngine: React.FC = () => {
                     {titleStr}
                   </h2>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar relative">
+                <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar relative" ref={(el) => {
+                  if (el) (el as any).__scrollEl = el;
+                }}>
                   <Suspense fallback={panelChunkFallback}>
                     <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
                   </Suspense>
+                  <div className="sticky bottom-4 left-4 flex justify-start pointer-events-none">
+                    <div className="pointer-events-auto">
+                      <ScrollToTopButton scrollContainer={typeof window !== 'undefined' ? (document.querySelector(`aside[data-panel-id="${panel.id}"] .overflow-y-auto`) as HTMLElement) : null} />
+                    </div>
+                  </div>
                 </div>
               </aside>
             </div>,
