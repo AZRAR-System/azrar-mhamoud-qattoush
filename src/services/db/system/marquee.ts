@@ -213,14 +213,116 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
     }
   } catch (_e) { /* ignore */ }
 
-  // 4) Overdue / Due Today Installments
+  // 4) Recent Activity Feed
   try {
-    const _today = toDateOnly(new Date());
-    const _installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS);
-    const contracts = get<العقود_tbl>(KEYS.CONTRACTS).filter(isTenancyRelevant);
-    const _contractsById = new Map(contracts.map(c => [c.رقم_العقد, c]));
-    
-    // ... complete implementation would be here ...
+    const cutoffs: Record<string, number> = {
+      'Contracts_إضافة': Date.now() - 48 * 3600 * 1000,
+      'Installments_سداد': Date.now() - 8 * 3600 * 1000,
+      'Properties_مؤجر': Date.now() - 24 * 3600 * 1000,
+      'Contracts_فسخ': Date.now() - 72 * 3600 * 1000,
+    };
+
+    const getHoursRemaining = (logTime: number, hours: number | null): string => {
+      if (hours === null) return 'دائم';
+      const remaining = Math.max(0, Math.ceil((logTime + hours * 3600 * 1000 - Date.now()) / 3600000));
+      if (remaining <= 0) return 'ينتهي قريباً';
+      if (remaining === 1) return 'ينتهي خلال ساعة';
+      if (remaining < 24) return `ينتهي بعد ${remaining} ساعة`;
+      return `ينتهي بعد ${Math.ceil(remaining / 24)} يوم`;
+    };
+
+    const recentLogs = get<{ id: string; نوع_العملية: string; اسم_الجدول: string; رقم_السجل: string; تاريخ_العملية: string; details?: string }>(KEYS.LOGS)
+      .filter(l => {
+        const table = String(l.اسم_الجدول || '');
+        const op = String(l.نوع_العملية || '');
+        const logTime = Date.parse(String(l.تاريخ_العملية || ''));
+        if (!Number.isFinite(logTime)) return false;
+        if (table === 'Contracts' && op === 'إضافة') return logTime >= cutoffs['Contracts_إضافة'];
+        if (table === 'Installments' && op === 'سداد') return logTime >= cutoffs['Installments_سداد'];
+        if (table === 'Contracts' && op === 'فسخ') return logTime >= cutoffs['Contracts_فسخ'];
+        if (table === 'Properties' && op === 'تعديل') {
+          const prop = get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === String(l.رقم_السجل || ''));
+          return prop?.IsRented && logTime >= cutoffs['Properties_مؤجر'];
+        }
+        if (table === 'Properties' && op === 'إضافة') {
+          const prop = get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === String(l.رقم_السجل || ''));
+          return prop && !prop.IsRented;
+        }
+        return false;
+      })
+      .sort((a, b) => String(b.تاريخ_العملية || '').localeCompare(String(a.تاريخ_العملية || '')))
+      .slice(0, 8);
+
+    for (const log of recentLogs) {
+      const table = String(log.اسم_الجدول || '');
+      const op = String(log.نوع_العملية || '');
+      const id = String(log.رقم_السجل || '');
+      const logTime = Date.parse(String(log.تاريخ_العملية || ''));
+      let content = '';
+      let action: MarqueeMessage['action'] | undefined;
+
+      if (table === 'Contracts' && op === 'إضافة') {
+        try {
+          const contract = get<any>(KEYS.CONTRACTS).find((c: any) => c.رقم_العقد === id);
+          const tenant = contract ? get<any>(KEYS.PEOPLE).find((p: any) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
+          const prop = contract ? get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === contract.رقم_العقار) : null;
+          const propCode = prop?.الكود_الداخلي || id;
+          const tenantName = tenant?.الاسم || '';
+          const annual = contract?.القيمة_السنوية ? contract.القيمة_السنوية + ' د.أ/سنة' : '';
+          const exp = getHoursRemaining(logTime, 48);
+          content = `عقد جديد — ${propCode}${tenantName ? ' · ' + tenantName : ''}${annual ? ' · ' + annual : ''} [${exp}]`;
+        } catch { content = `عقد جديد — ${id}`; }
+        action = { kind: 'panel', panel: 'CONTRACT_DETAILS', id };
+      } else if (table === 'Properties') {
+        try {
+          const prop = get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === id);
+          const owner = prop ? get<any>(KEYS.PEOPLE).find((p: any) => p.رقم_الشخص === prop.رقم_المالك) : null;
+          const code = prop?.الكود_الداخلي || id;
+          const type = prop?.النوع || '';
+          const address = prop?.العنوان || '';
+          const ownerName = owner?.الاسم || '';
+          const isRented = prop?.IsRented;
+          const exp = getHoursRemaining(logTime, isRented ? 24 : null);
+          const status = isRented ? 'عقار مؤجر' : (op === 'إضافة' ? 'عقار جديد' : 'عقار شاغر');
+          content = `${status} — ${code}${type ? ' · ' + type : ''}${ownerName ? ' · ' + ownerName : ''}${address ? ' · ' + address : ''} [${exp}]`;
+        } catch { content = `عقار — ${id}`; }
+        action = { kind: 'panel', panel: 'PROPERTY_DETAILS', id };
+      } else if (table === 'Installments' && op === 'سداد') {
+        try {
+          const inst = get<any>(KEYS.INSTALLMENTS).find((i: any) => i.رقم_الكمبيالة === id);
+          const contract = inst ? get<any>(KEYS.CONTRACTS).find((c: any) => c.رقم_العقد === inst.رقم_العقد) : null;
+          const tenant = contract ? get<any>(KEYS.PEOPLE).find((p: any) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
+          const prop = contract ? get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === contract.رقم_العقار) : null;
+          const propCode = prop?.الكود_الداخلي || '';
+          const amount = inst?.القيمة || '';
+          const tenantName = tenant?.الاسم || '';
+          const exp = getHoursRemaining(logTime, 8);
+          content = `دفعة مسددة — ${propCode ? propCode + ' · ' : ''}${amount ? amount + ' د.أ' : ''}${tenantName ? ' · ' + tenantName : ''} [${exp}]`;
+          action = contract ? { kind: 'panel', panel: 'CONTRACT_DETAILS', id: contract.رقم_العقد } : { kind: 'panel', panel: 'CONTRACT_DETAILS', id };
+        } catch { content = `دفعة مسددة — ${id}`; }
+      } else if (table === 'Contracts' && op === 'فسخ') {
+        try {
+          const contract = get<any>(KEYS.CONTRACTS).find((c: any) => c.رقم_العقد === id);
+          const tenant = contract ? get<any>(KEYS.PEOPLE).find((p: any) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
+          const prop = contract ? get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === contract.رقم_العقار) : null;
+          const propCode = prop?.الكود_الداخلي || '';
+          const tenantName = tenant?.الاسم || '';
+          const exp = getHoursRemaining(logTime, 72);
+          content = `عقد مفسوخ — ${propCode ? propCode + ' · ' : ''}${id}${tenantName ? ' · ' + tenantName : ''} [${exp}]`;
+        } catch { content = `عقد مفسوخ — ${id}`; }
+        action = { kind: 'panel', panel: 'CONTRACT_DETAILS', id };
+      }
+
+      if (content) {
+        messages.push({
+          id: `activity_${log.id}`,
+          content,
+          priority: 'Normal',
+          type: 'info',
+          ...(action ? { action } : {}),
+        });
+      }
+    }
   } catch (_e) { /* ignore */ }
 
   return messages;
