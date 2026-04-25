@@ -1,69 +1,178 @@
-import { 
-  getPaidAndRemaining, 
-  getNextUnpaidDueSummary, 
+import {
+  parseDateOnlyLocal,
+  isRecord,
+  normalizeRole,
+  getPaidAndRemaining,
+  getLastPositivePaymentAmount,
+  getNextUnpaidDueSummary,
   formatNextDuePaymentLabel,
-  normalizeRole
 } from '@/components/installments/installmentsUtils';
-import { INSTALLMENT_STATUS } from '@/components/installments/installmentsConstants';
 
-describe('Installments Utilities - Financial Logic Suite', () => {
-  const mockInstallment = {
-    رقم_الكمبيالة: 'I1',
-    القيمة: 1000,
-    حالة_الكمبيالة: 'Pending',
-    سجل_الدفعات: [],
-    رقم_العقد: 'C1',
-    تاريخ_استحقاق: '2025-01-01',
-    isArchived: false,
-  };
+const makeInst = (overrides: Record<string, unknown> = {}) => ({
+  رقم_الكمبيالة: 'I-1',
+  رقم_العقد: 'C-1',
+  القيمة: 500,
+  القيمة_المتبقية: 500,
+  تاريخ_استحقاق: '2026-06-01',
+  حالة_الكمبيالة: 'غير مدفوع',
+  نوع_الكمبيالة: 'إيجار',
+  نوع_الدفعة: 'دورية',
+  ترتيب_الكمبيالة: 1,
+  ...overrides,
+} as any);
 
-  test('getPaidAndRemaining - handles fully paid status', () => {
-    const inst = { ...mockInstallment, حالة_الكمبيالة: INSTALLMENT_STATUS.PAID };
-    const res = getPaidAndRemaining(inst as any);
-    expect(res.paid).toBe(1000);
-    expect(res.remaining).toBe(0);
+describe('parseDateOnlyLocal', () => {
+  test('returns null for null/undefined', () => {
+    expect(parseDateOnlyLocal(null)).toBeNull();
+    expect(parseDateOnlyLocal(undefined)).toBeNull();
   });
 
-  test('getPaidAndRemaining - uses القيمة_المتبقية if available', () => {
-    const inst = { ...mockInstallment, القيمة_المتبقية: 400 };
-    const res = getPaidAndRemaining(inst as any);
-    expect(res.remaining).toBe(400);
-    expect(res.paid).toBe(600);
+  test('returns Date for valid ISO', () => {
+    expect(parseDateOnlyLocal('2026-01-15')).toBeInstanceOf(Date);
   });
+});
 
-  test('getPaidAndRemaining - calculates from سجل_الدفعات fallback', () => {
-    const inst = { 
-      ...mockInstallment, 
-      سجل_الدفعات: [{ المبلغ: 200 }, { المبلغ: 300 }] 
-    };
-    const res = getPaidAndRemaining(inst as any);
-    expect(res.paid).toBe(500);
-    expect(res.remaining).toBe(500);
-  });
+describe('isRecord', () => {
+  test('returns true for plain object', () => expect(isRecord({})).toBe(true));
+  test('returns false for array', () => expect(isRecord([])).toBe(false));
+  test('returns false for null', () => expect(isRecord(null)).toBe(false));
+  test('returns false for string', () => expect(isRecord('x')).toBe(false));
+});
 
-  test('getNextUnpaidDueSummary - finds earliest unpaid installment', () => {
-    const installments = [
-      { ...mockInstallment, رقم_الكمبيالة: 'I1', تاريخ_استحقاق: '2025-02-01' },
-      { ...mockInstallment, رقم_الكمبيالة: 'I2', تاريخ_استحقاق: '2025-01-01' },
-      { ...mockInstallment, رقم_الكمبيالة: 'I3', حالة_الكمبيالة: 'مدفوع', تاريخ_استحقاق: '2024-12-01' }
-    ];
-    
-    const summary = getNextUnpaidDueSummary(installments as any, '2024-12-15');
-    expect(summary.dueDate).toBe('2025-01-01');
-    expect(summary.daysFromToday).toBeGreaterThan(0);
-  });
-
-  test('formatNextDuePaymentLabel - formats correctly for various timeframes', () => {
-    expect(formatNextDuePaymentLabel({ dueDate: '2025-01-01', daysFromToday: 5 }))
-      .toContain('باقٍ 5 يوم');
-    expect(formatNextDuePaymentLabel({ dueDate: '2025-01-01', daysFromToday: 0 }))
-      .toContain('مستحقة اليوم');
-    expect(formatNextDuePaymentLabel({ dueDate: '2025-01-01', daysFromToday: -3 }))
-      .toContain('متأخر 3 يوم');
-  });
-
-  test('normalizeRole - defaults to Employee', () => {
+describe('normalizeRole', () => {
+  test('returns SuperAdmin for SuperAdmin', () => {
     expect(normalizeRole('SuperAdmin')).toBe('SuperAdmin');
-    expect(normalizeRole('Invalid')).toBe('Employee');
+  });
+  test('returns Admin for Admin', () => {
+    expect(normalizeRole('Admin')).toBe('Admin');
+  });
+  test('returns Employee for Employee', () => {
+    expect(normalizeRole('Employee')).toBe('Employee');
+  });
+  test('returns Employee for unknown role', () => {
+    expect(normalizeRole('Manager')).toBe('Employee');
+    expect(normalizeRole(null)).toBe('Employee');
+    expect(normalizeRole(undefined)).toBe('Employee');
+    expect(normalizeRole(123)).toBe('Employee');
+  });
+});
+
+describe('getPaidAndRemaining', () => {
+  test('paid status returns full amount', () => {
+    const r = getPaidAndRemaining(makeInst({ حالة_الكمبيالة: 'مدفوع', القيمة: 500 }));
+    expect(r.remaining).toBe(0);
+    expect(r.paid).toBe(500);
+  });
+
+  test('uses القيمة_المتبقية when finite', () => {
+    const r = getPaidAndRemaining(makeInst({ القيمة: 500, القيمة_المتبقية: 200 }));
+    expect(r.remaining).toBe(200);
+    expect(r.paid).toBe(300);
+  });
+
+  test('uses payment history when no القيمة_المتبقية', () => {
+    const r = getPaidAndRemaining(makeInst({
+      القيمة: 500,
+      القيمة_المتبقية: undefined,
+      سجل_الدفعات: [{ المبلغ: 150, التاريخ: '2026-01-01', رقم_العملية: 'OP1', المستخدم: 'u', الدور: 'Admin', النوع: 'PARTIAL' }],
+    }));
+    expect(r.paid).toBe(150);
+    expect(r.remaining).toBe(350);
+  });
+
+  test('returns full remaining with no history', () => {
+    const r = getPaidAndRemaining(makeInst({ القيمة: 500, القيمة_المتبقية: undefined }));
+    expect(r.remaining).toBe(500);
+  });
+});
+
+describe('getLastPositivePaymentAmount', () => {
+  test('returns null when no payment history', () => {
+    expect(getLastPositivePaymentAmount(makeInst({ سجل_الدفعات: [] }))).toBeNull();
+  });
+
+  test('returns null when سجل_الدفعات is undefined', () => {
+    expect(getLastPositivePaymentAmount(makeInst({ سجل_الدفعات: undefined }))).toBeNull();
+  });
+
+  test('returns last positive amount', () => {
+    const r = getLastPositivePaymentAmount(makeInst({
+      سجل_الدفعات: [
+        { المبلغ: 100, التاريخ: '2026-01-01', رقم_العملية: 'OP1', المستخدم: 'u', الدور: 'Admin', النوع: 'PARTIAL' },
+        { المبلغ: 200, التاريخ: '2026-02-01', رقم_العملية: 'OP2', المستخدم: 'u', الدور: 'Admin', النوع: 'PARTIAL' },
+      ],
+    }));
+    expect(r).toBe(200);
+  });
+
+  test('skips negative amounts', () => {
+    const r = getLastPositivePaymentAmount(makeInst({
+      سجل_الدفعات: [
+        { المبلغ: 100, التاريخ: '2026-01-01', رقم_العملية: 'OP1', المستخدم: 'u', الدور: 'Admin', النوع: 'PARTIAL' },
+        { المبلغ: -50, التاريخ: '2026-02-01', رقم_العملية: 'OP2', المستخدم: 'u', الدور: 'Admin', النوع: 'PARTIAL' },
+      ],
+    }));
+    expect(r).toBe(100);
+  });
+
+  test('returns null when all amounts are negative', () => {
+    const r = getLastPositivePaymentAmount(makeInst({
+      سجل_الدفعات: [
+        { المبلغ: -100, التاريخ: '2026-01-01', رقم_العملية: 'OP1', المستخدم: 'u', الدور: 'Admin', النوع: 'PARTIAL' },
+      ],
+    }));
+    expect(r).toBeNull();
+  });
+});
+
+describe('getNextUnpaidDueSummary', () => {
+  test('returns null dueDate for empty list', () => {
+    const r = getNextUnpaidDueSummary([], '2026-01-01');
+    expect(r.dueDate).toBeNull();
+    expect(r.daysFromToday).toBeNull();
+  });
+
+  test('returns first unpaid installment', () => {
+    const insts = [
+      makeInst({ تاريخ_استحقاق: '2026-06-01', القيمة_المتبقية: 500 }),
+      makeInst({ رقم_الكمبيالة: 'I-2', تاريخ_استحقاق: '2026-07-01', القيمة_المتبقية: 500 }),
+    ];
+    const r = getNextUnpaidDueSummary(insts, '2026-05-01');
+    expect(r.dueDate).toBe('2026-06-01');
+  });
+
+  test('skips cancelled installments', () => {
+    const insts = [
+      makeInst({ تاريخ_استحقاق: '2026-06-01', حالة_الكمبيالة: 'ملغي', القيمة_المتبقية: 500 }),
+      makeInst({ رقم_الكمبيالة: 'I-2', تاريخ_استحقاق: '2026-07-01', القيمة_المتبقية: 500 }),
+    ];
+    const r = getNextUnpaidDueSummary(insts, '2026-05-01');
+    expect(r.dueDate).toBe('2026-07-01');
+  });
+});
+
+describe('formatNextDuePaymentLabel', () => {
+  test('returns fully paid message', () => {
+    const r = formatNextDuePaymentLabel({ dueDate: null, daysFromToday: null }, { contractFullyPaid: true });
+    expect(r).toContain('مسدد');
+  });
+
+  test('returns null when no due date', () => {
+    expect(formatNextDuePaymentLabel({ dueDate: null, daysFromToday: null })).toBeNull();
+  });
+
+  test('future payment label', () => {
+    const r = formatNextDuePaymentLabel({ dueDate: '2026-06-01', daysFromToday: 10 });
+    expect(r).toContain('باقٍ');
+  });
+
+  test('today payment label', () => {
+    const r = formatNextDuePaymentLabel({ dueDate: '2026-05-01', daysFromToday: 0 });
+    expect(r).toContain('اليوم');
+  });
+
+  test('overdue payment label', () => {
+    const r = formatNextDuePaymentLabel({ dueDate: '2026-04-01', daysFromToday: -5 });
+    expect(r).toContain('متأخر');
   });
 });
