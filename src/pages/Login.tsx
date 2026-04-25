@@ -28,7 +28,10 @@ import { useActivation } from '@/context/ActivationContext';
 import { safeJsonParseArray } from '@/utils/json';
 import { AppModal } from '@/components/ui/AppModal';
 import { hashPassword } from '@/services/passwordHash';
+import { version as packageJsonVersion } from '../../package.json';
 import { DesktopDbBridge } from '@/types/electron.types';
+
+import { getEnv } from '@/utils/env';
 
 type StoredUser = {
   id?: string;
@@ -54,9 +57,9 @@ type DesktopSqlSettings = Partial<{
 const toRecord = (v: unknown): Record<string, unknown> =>
   typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 
-const SEED_ADMIN_USER = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_USERNAME || 'admin').trim();
-const SEED_ADMIN_PASS = String(import.meta.env.VITE_SEED_DEFAULT_ADMIN_PASSWORD || '');
-const LOGIN_PREFILL = String(import.meta.env.VITE_LOGIN_PREFILL || '').toLowerCase() === 'true';
+const SEED_ADMIN_USER = getEnv('VITE_SEED_DEFAULT_ADMIN_USERNAME', 'admin').trim();
+const SEED_ADMIN_PASS = getEnv('VITE_SEED_DEFAULT_ADMIN_PASSWORD', '');
+const LOGIN_PREFILL = getEnv('VITE_LOGIN_PREFILL', '').toLowerCase() === 'true';
 
 export const Login = () => {
   const [username, setUsername] = useState(SEED_ADMIN_USER);
@@ -420,7 +423,6 @@ export const Login = () => {
         setError('لا يوجد حساب admin حالياً.');
         return;
       }
-
       const newPass = await dialogs.prompt({
         title: 'تغيير كلمة مرور admin',
         message: 'أدخل كلمة المرور الجديدة لحساب admin:',
@@ -451,518 +453,287 @@ export const Login = () => {
       setError(msg || 'تعذر تعديل كلمة مرور admin');
     }
   };
-
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-100 via-white to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 md:p-8 font-tajawal rtl transition-colors duration-500 overflow-x-hidden overflow-y-auto" dir="rtl">
-      <div className="w-full max-w-5xl flex flex-col items-center justify-center gap-6">
-      {/* دوائر نابضة في الخلفية */}
+    <div className="min-h-screen w-full bg-[#f8fafc] dark:bg-[#020617] flex items-center justify-center p-4 md:p-8 font-tajawal rtl transition-colors duration-700 overflow-hidden relative" dir="rtl">
+      {/* Premium Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1000ms' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '500ms' }} />
-        <div className="absolute top-10 right-10 w-48 h-48 bg-violet-500/10 rounded-full blur-2xl animate-ping" style={{ animationDuration: '3s' }} />
-        <div className="absolute bottom-10 left-10 w-56 h-56 bg-cyan-500/10 rounded-full blur-2xl animate-ping" style={{ animationDuration: '4s' }} />
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/10 dark:bg-indigo-600/10 rounded-full blur-[120px] animate-pulse-slow" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-500/10 dark:bg-purple-600/10 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.03)_0%,transparent_70%)]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-5xl rounded-[2rem] border border-slate-200/80 bg-white/85 shadow-2xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/75 dark:shadow-black/40 md:max-w-6xl animate-scale-up">
-        <div className="border-b border-slate-200/80 bg-gradient-to-l from-indigo-50/90 to-white px-6 py-8 text-center dark:border-slate-700/80 dark:from-indigo-950/40 dark:to-slate-900/90 md:px-10 md:py-10 rounded-t-[2rem]">
-          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 text-white shadow-xl shadow-indigo-900/30 ring-4 ring-white/50 dark:ring-slate-800/80">
-            <Sparkles size={36} strokeWidth={1.5} className="opacity-95" />
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">
-            نظام أزرار العقاري
-          </h1>
-          <p className="mx-auto mt-2 max-w-lg text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-            فعّل الترخيص ثم سجّل الدخول للوصول إلى لوحة التحكم بأمان.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 p-6 md:p-8 lg:grid-cols-2 lg:gap-10">
-          {/* Activation panel */}
-          <div className="flex flex-col rounded-2xl border border-slate-200/90 bg-slate-50/50 p-5 shadow-inner dark:border-slate-700/80 dark:bg-slate-950/40 md:p-6">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 pb-4 dark:border-slate-700/60">
-              <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                  <KeyRound size={20} />
-                </span>
-                <div>
-                  <div className="text-base font-black text-slate-900 dark:text-white">
-                    ترخيص النظام
-                  </div>
-                  <div className="mt-1 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-                    ربط التثبيت بجهازك عبر ملف تفعيل صالح
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
-                onClick={() => void refresh()}
-                disabled={activationBusy}
-              >
-                تحديث
-              </button>
+      <div className="relative z-10 w-full max-w-5xl flex flex-col items-center gap-8 animate-scale-up">
+        {/* Main Glass Card */}
+        <div className="w-full rounded-[2.5rem] border border-white/40 bg-white/70 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-2xl dark:border-slate-800/50 dark:bg-slate-900/80 dark:shadow-black/60 overflow-hidden flex flex-col lg:flex-row">
+          
+          {/* Sidebar / Branding Section */}
+          <div className="lg:w-[40%] bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 p-8 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
+              <div className="absolute top-10 right-10 w-64 h-64 border-[40px] border-white rounded-full blur-2xl" />
             </div>
 
-            <div className="mt-5 flex flex-1 flex-col space-y-4">
-              <div className="rounded-xl border border-slate-200/90 bg-white/80 p-3 dark:border-slate-600/60 dark:bg-slate-900/50">
-                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  بصمة الجهاز
+            <div className="relative z-10">
+              <div className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15 backdrop-blur-md shadow-2xl ring-1 ring-white/30">
+                <Sparkles size={40} className="text-white drop-shadow-lg" />
+              </div>
+              <h1 className="text-3xl lg:text-4xl font-black tracking-tight leading-tight">
+                نظام أزرار <br/> العقاري المتكامل
+              </h1>
+              <p className="mt-4 text-indigo-100/80 text-sm font-medium leading-relaxed max-w-xs">
+                الحل الأذكى لإدارة العقارات، العقود، والتحصيل المالي بكل سهولة واحترافية.
+              </p>
+            </div>
+
+            <div className="relative z-10 mt-12 space-y-6">
+              <div className="flex items-center gap-4 group">
+                <div className="h-12 w-12 flex items-center justify-center rounded-2xl bg-white/10 group-hover:bg-white/20 transition-colors">
+                   <KeyRound size={22} />
                 </div>
-                <div
-                  className="mt-2 font-mono text-[11px] leading-relaxed text-slate-800 dark:text-slate-200 break-all"
-                  dir="ltr"
-                >
-                  {deviceId || 'غير متاح'}
+                <div>
+                   <div className="text-sm font-bold">حالة النظام</div>
+                   <div className={`text-xs ${isActivated ? 'text-emerald-300' : 'text-rose-300'} font-black`}>
+                     {activationLoading ? 'جاري التحقق...' : isActivated ? 'النظام مُفعّل وجاهز' : 'بانتظار التفعيل'}
+                   </div>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-white/60 px-3 py-2.5 dark:bg-slate-900/40">
-                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                  حالة التفعيل
-                </span>
-                <span
-                  className={`rounded-full px-3 py-1 text-[11px] font-black ${
-                    activationLoading
-                      ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                      : isActivated
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300'
-                        : 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200'
-                  }`}
-                >
-                  {activationLoading ? 'جاري التحقق…' : isActivated ? 'مُفعّل' : 'غير مُفعّل'}
-                </span>
-              </div>
-
-              {isActivated && activatedAt && (
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  آخر تفعيل: {new Date(activatedAt).toLocaleString()}
-                </div>
-              )}
 
               {!isActivated && (
-                <>
-                  {(activationError || activationStatusError) && (
-                    <div className="text-xs text-rose-600 dark:text-rose-300 font-semibold">
-                      {activationError || activationStatusError}
-                    </div>
-                  )}
-
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.location.hash = ROUTE_PATHS.ACTIVATION;
-                      }}
-                      disabled={activationBusy || activationLoading}
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-indigo-600/30 disabled:opacity-70 disabled:cursor-not-allowed"
-                    >
-                      صفحة التفعيل
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => void handlePickLicenseFile()}
-                      disabled={
-                        activationBusy || activationLoading || !window.desktopDb?.pickLicenseFile
-                      }
-                      className="flex-1 text-xs font-bold py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
-                    >
-                      تحميل ملف التفعيل
-                    </button>
-                  </div>
-
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    التفعيل يتم عبر ملف تفعيل مُوقّع مرتبط ببصمة الجهاز أو عبر الإنترنت من صفحة
-                    التفعيل.
-                  </div>
-                </>
-              )}
-
-              {isActivated && (
-                <div className="flex items-center gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-3 py-3 text-xs font-bold text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-200">
-                  <CheckCircle2 className="shrink-0" size={18} />
-                  النظام مُفعّل — يمكنك المتابعة إلى تسجيل الدخول.
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm animate-pulse-gentle">
+                  <p className="text-[11px] font-medium leading-relaxed text-indigo-100/70">
+                    يرجى تفعيل النظام عبر ملف الترخيص المعتمد للمتابعة.
+                  </p>
                 </div>
               )}
             </div>
+
+            <div className="relative z-10 mt-auto pt-10 border-t border-white/10">
+               <div className="flex items-center gap-3">
+                  <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-100/50">Version {packageJsonVersion}</span>
+               </div>
+            </div>
           </div>
 
-          {/* Login panel */}
-          <div className="flex flex-col rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm dark:border-slate-700/80 dark:bg-slate-950/30 md:p-6">
+          {/* Form Section */}
+          <div className="flex-1 p-8 lg:p-12 bg-white/30 dark:bg-transparent">
             {showRegisterForm ? (
-              <form onSubmit={handleRegister} className="space-y-6 animate-slide-in-right">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-                    <User size={20} />
-                  </div>
-                  <h2 className="text-xl font-black text-slate-800 dark:text-white">
-                    إنشاء حساب المدير
-                  </h2>
+              <form onSubmit={handleRegister} className="space-y-6 animate-tab-slide-in">
+                <div className="mb-8">
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white">إنشاء حساب المدير</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">يرجى تعيين بيانات الدخول للمرة الأولى.</p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest px-1">
-                    اسم المستخدم
-                  </label>
-                  <div className="relative group">
-                    <User
-                      size={18}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
-                    />
-                    <input
-                      type="text"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      value={regUsername}
-                      onChange={(e) => setRegUsername(e.target.value)}
-                      placeholder="admin"
-                      disabled={regLoading}
-                    />
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mr-1">اسم المستخدم</label>
+                    <div className="relative group">
+                      <User size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                      <input
+                        type="text"
+                        className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pr-12 pl-4 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm"
+                        value={regUsername}
+                        onChange={(e) => setRegUsername(e.target.value)}
+                        placeholder="admin"
+                        disabled={regLoading}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest px-1">
-                    كلمة المرور
-                  </label>
-                  <div className="relative group">
-                    <Lock
-                      size={18}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
-                    />
-                    <input
-                      type="password"
-                      dir="ltr"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold text-left outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      placeholder="••••••••"
-                      disabled={regLoading}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest px-1">
-                    تأكيد كلمة المرور
-                  </label>
-                  <div className="relative group">
-                    <ShieldCheck
-                      size={18}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
-                    />
-                    <input
-                      type="password"
-                      dir="ltr"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pr-12 pl-4 text-sm font-bold text-left outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      value={regConfirmPassword}
-                      onChange={(e) => setRegConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      disabled={regLoading}
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mr-1">كلمة المرور</label>
+                      <input
+                        type="password"
+                        dir="ltr"
+                        className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm"
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder="••••••••"
+                        disabled={regLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mr-1">تأكيد الكلمة</label>
+                      <input
+                        type="password"
+                        dir="ltr"
+                        className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm"
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        disabled={regLoading}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {error && (
-                  <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 text-xs p-3 rounded-xl flex items-center gap-2 border border-rose-100 dark:border-rose-800 font-bold">
-                    <AlertCircle size={14} />
+                  <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs p-4 rounded-2xl flex items-center gap-3 font-bold">
+                    <AlertCircle size={18} />
                     {error}
                   </div>
                 )}
 
-                <div className="flex gap-3">
+                <div className="flex gap-4 pt-4">
                   <button
                     type="submit"
                     disabled={regLoading}
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2 active:scale-[0.98]"
                   >
-                    {regLoading ? (
-                      <Loader2 className="animate-spin" size={18} />
-                    ) : (
-                      <>
-                        إنشاء الحساب <Check size={18} />
-                      </>
-                    )}
+                    {regLoading ? <Loader2 className="animate-spin" size={20} /> : 'تأكيد الحساب'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowRegisterForm(false)}
-                    disabled={regLoading}
-                    className="px-6 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                    className="px-8 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-2xl font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                   >
                     إلغاء
                   </button>
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-700/60">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                    <LogIn size={22} strokeWidth={2} />
-                  </span>
+              <form onSubmit={handleSubmit} className="space-y-8 animate-fade-in" noValidate>
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-6">
                   <div>
-                    <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                      تسجيل الدخول
-                    </h2>
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      أدخل بيانات المستخدم النشط لديك
-                    </p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white">تسجيل الدخول</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">مرحباً بك مجدداً في نظامك المفضل.</p>
+                  </div>
+                  <div className="h-14 w-14 flex items-center justify-center rounded-2xl bg-indigo-600/5 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                    <LogIn size={28} />
                   </div>
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-300">
-                    اسم المستخدم
-                  </label>
-                  <div className="group relative">
-                    <input
-                      type="text"
-                      required
-                      ref={usernameRef}
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50/90 py-3.5 pl-4 pr-12 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-slate-600 dark:bg-slate-900/80 dark:text-white"
-                      placeholder="مثال: admin"
-                      value={username}
-                      onChange={(e) => {
-                        setUsername(e.target.value);
-                        if (error) setError('');
-                      }}
-                    />
-                    <User
-                      className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition group-focus-within:text-indigo-500"
-                      size={18}
-                    />
-                  </div>
-                  {usernameError && (
-                    <div className="mt-2 text-xs text-rose-600 dark:text-rose-300 font-semibold">
-                      {usernameError}
+                <div className="space-y-6">
+                  <div className="group space-y-2">
+                    <label className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mr-1">اسم المستخدم</label>
+                    <div className="relative">
+                      <User size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                      <input
+                        type="text"
+                        required
+                        ref={usernameRef}
+                        autoComplete="username"
+                        className="w-full bg-slate-50/50 dark:bg-slate-800/30 border-2 border-slate-100 dark:border-slate-800 rounded-2xl py-4 pr-12 pl-4 text-sm font-bold outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                        placeholder="admin"
+                        value={username}
+                        onChange={(e) => {
+                          setUsername(e.target.value);
+                          if (error) setError('');
+                        }}
+                      />
                     </div>
-                  )}
+                  </div>
+
+                  <div className="group space-y-2">
+                    <div className="flex items-center justify-between">
+                       <label className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mr-1">كلمة المرور</label>
+                       {capsLockOn && <span className="text-[10px] font-black text-amber-600 flex items-center gap-1"><AlertCircle size={10} /> CAPS LOCK نشط</span>}
+                    </div>
+                    <div className="relative">
+                      <Lock size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        ref={passwordRef}
+                        autoComplete="current-password"
+                        dir="ltr"
+                        className="w-full bg-slate-50/50 dark:bg-slate-800/30 border-2 border-slate-100 dark:border-slate-800 rounded-2xl py-4 pr-12 pl-14 text-sm font-bold outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-left"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (error) setError('');
+                        }}
+                        onKeyDown={(e) => setCapsLockOn(!!e.getModifierState?.('CapsLock'))}
+                      />
+                      <button
+                        type="button"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-300">
-                    كلمة المرور
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      ref={passwordRef}
-                      autoComplete="current-password"
-                      dir="ltr"
-                      className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50/90 py-3.5 pl-4 pr-[4.5rem] text-left text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-slate-600 dark:bg-slate-900/80 dark:text-white"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (error) setError('');
-                      }}
-                      onKeyDown={(e) => {
-                        try {
-                          setCapsLockOn(!!e.getModifierState?.('CapsLock'));
-                        } catch {
-                          // ignore
-                        }
-                      }}
-                      onKeyUp={(e) => {
-                        try {
-                          setCapsLockOn(!!e.getModifierState?.('CapsLock'));
-                        } catch {
-                          // ignore
-                        }
-                      }}
-                    />
-                    <Lock
-                      className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-                      size={18}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-12 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700 dark:hover:text-slate-200"
-                      onClick={() => setShowPassword((v) => !v)}
-                      title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                      aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {passwordError && (
-                    <div className="mt-2 text-xs text-rose-600 dark:text-rose-300 font-semibold">
-                      {passwordError}
-                    </div>
-                  )}
-                  {capsLockOn && (
-                    <div className="mt-2 text-xs text-amber-700 dark:text-amber-300 font-semibold">
-                      تنبيه: زر Caps Lock مفعّل.
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                  <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 select-none">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded-lg border-2 border-slate-200 text-indigo-600 focus:ring-indigo-500 transition-all"
                       checked={rememberUsername}
-                      onChange={(e) => {
-                        const next = e.target.checked;
-                        setRememberUsername(next);
-                        if (!next) {
-                          void storage.setItem(REMEMBER_KEY, 'false');
-                          void storage.removeItem(LAST_USERNAME_KEY);
-                        }
-                      }}
+                      onChange={(e) => setRememberUsername(e.target.checked)}
                     />
-                    تذكّر اسم المستخدم
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400">تذكّرني لاحقاً</span>
                   </label>
-
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold">
-                    <button
-                      type="button"
-                      className="text-indigo-700 transition hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-100"
-                      onClick={() => {
-                        setSqlFeedback(null);
-                        setShowDbSettings(true);
-                      }}
-                    >
-                      إعدادات قاعدة البيانات
-                    </button>
-                    <button
-                      type="button"
-                      className="text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-                      onClick={() => {
-                        setNotice(
-                          'إذا نسيت كلمة المرور، راجع مسؤول النظام. في أول تشغيل، أنشئ حساب المدير من الخيار أسفل النموذج.'
-                        );
-                        setError('');
-                      }}
-                    >
-                      مساعدة
-                    </button>
-                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setShowDbSettings(true)}
+                    className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline underline-offset-4"
+                  >
+                    إعدادات قاعدة البيانات
+                  </button>
                 </div>
 
                 {error && (
-                  <div
-                    role="alert"
-                    className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/95 p-4 text-sm font-semibold text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-                  >
-                    <AlertCircle className="mt-0.5 shrink-0" size={18} />
+                  <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs p-4 rounded-2xl flex items-center gap-3 font-bold animate-shake">
+                    <AlertCircle size={18} />
                     <span>{error}</span>
-                  </div>
-                )}
-
-                {notice && (
-                  <div
-                    role="status"
-                    className="flex items-start gap-3 rounded-2xl border border-indigo-200/80 bg-indigo-50/90 p-4 text-sm font-semibold text-indigo-950 dark:border-indigo-800/40 dark:bg-indigo-950/35 dark:text-indigo-100"
-                  >
-                    <CheckCircle2
-                      className="mt-0.5 shrink-0 text-indigo-600 dark:text-indigo-400"
-                      size={18}
-                    />
-                    <span>{notice}</span>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading || activationLoading || !isActivated}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-indigo-600 to-indigo-700 py-3.5 text-sm font-black text-white shadow-lg shadow-indigo-600/25 transition hover:from-indigo-500 hover:to-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white py-4.5 rounded-2xl font-black text-lg transition-all shadow-xl shadow-indigo-600/25 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                 >
                   {loading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <Loader2 size={24} className="animate-spin" />
                   ) : (
                     <>
-                      تسجيل الدخول <LogIn size={18} />
+                      دخول للنظام <LogIn size={20} />
                     </>
                   )}
                 </button>
 
                 {hasAnyUsers === false && (
-                  <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-300 text-xs font-bold">
-                      <Info size={14} />
-                      <span>إعداد أول مرة</span>
-                    </div>
-                    <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                      لا يوجد مستخدمون حالياً. أنشئ حساب السوبر أدمن لاستخدام النظام.
-                    </div>
-                    <div className="mt-3 w-full">
+                   <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 flex flex-col items-center gap-3">
+                      <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300 text-center">لا يوجد مستخدمين مسجلين حالياً. يرجى إنشاء حساب المدير.</p>
                       <button
                         type="button"
                         onClick={handleCreateDefaultAdmin}
-                        className="w-full text-xs font-bold py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                        className="w-full py-2.5 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-900 text-amber-700 dark:text-amber-400 text-xs font-black rounded-xl hover:bg-amber-50 transition-colors"
                       >
-                        إنشاء حساب السوبر أدمن
+                        إعداد حساب السوبر أدمن
                       </button>
-                    </div>
-                  </div>
-                )}
-
-                {!isActivated && (
-                  <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                    تسجيل الدخول معطّل حتى يتم تفعيل النظام.
-                  </div>
+                   </div>
                 )}
               </form>
             )}
           </div>
         </div>
 
-        {/* Technical Sidebar */}
-        <div className="fixed left-6 top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-5 p-3 rounded-3xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/20 dark:border-slate-700/30 shadow-2xl z-50 animate-slide-in-left">
-          <div className="flex flex-col gap-3">
-             <button
-               onClick={() => {
-                 setSqlFeedback(null);
-                 setShowDbSettings(true);
-               }}
-               className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-white hover:text-indigo-600 dark:hover:bg-slate-700 dark:hover:text-indigo-400 shadow-lg shadow-slate-900/5 transition-all hover:-translate-y-1 active:scale-95"
-               title="إعدادات قاعدة البيانات"
-             >
-               <ServerCog size={24} />
-               <div className="absolute left-16 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all pointer-events-none whitespace-nowrap shadow-xl">
-                 إعدادات SQL Server
-               </div>
-             </button>
-
-
-             <button
-               onClick={() => window.location.hash = ROUTE_PATHS.ACTIVATION}
-               className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all shadow-lg shadow-emerald-600/5 hover:-translate-y-1 active:scale-95"
-               title="صفحة التفعيل"
-             >
-               <KeyRound size={24} />
-               <div className="absolute left-16 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all pointer-events-none whitespace-nowrap shadow-xl">
-                 تفعيل النظام والترخيص
-               </div>
-             </button>
-
-             <div className="h-px w-full bg-slate-200 dark:bg-slate-700/50 my-2" />
-
-             <button
-               className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-white hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white shadow-lg transition-all hover:-translate-y-1 active:scale-95"
-               onClick={() => toast.info('جاري الاتصال بمركز المساعدة...')}
-             >
-               <LifeBuoy size={24} />
-               <div className="absolute left-16 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all pointer-events-none whitespace-nowrap shadow-xl">
-                 مركز الدعم الفني
-               </div>
-             </button>
-          </div>
+        {/* Bottom Technical Bar */}
+        <div className="flex flex-wrap items-center justify-center gap-8 text-slate-400 dark:text-slate-600">
+           <button onClick={() => setShowDbSettings(true)} className="flex items-center gap-2 hover:text-indigo-600 transition-colors group">
+              <ServerCog size={16} className="group-hover:rotate-45 transition-transform" />
+              <span className="text-[11px] font-bold uppercase tracking-widest">Database Settings</span>
+           </button>
+           <button onClick={() => window.location.hash = ROUTE_PATHS.ACTIVATION} className="flex items-center gap-2 hover:text-emerald-600 transition-colors group">
+              <KeyRound size={16} className="group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold uppercase tracking-widest">Activation Hub</span>
+           </button>
+           <button className="flex items-center gap-2 hover:text-indigo-600 transition-colors group">
+              <LifeBuoy size={16} className="group-hover:rotate-12 transition-transform" />
+              <span className="text-[11px] font-bold uppercase tracking-widest">Technical Support</span>
+           </button>
         </div>
 
-        <div className="border-t border-slate-200/80 px-6 py-5 text-center dark:border-slate-700/80 md:px-8">
-          <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500" dir="ltr">
-            &copy; {new Date().getFullYear()} — Developed by{' '}
-            <span className="font-bold text-slate-500 dark:text-slate-400">Mahmoud Qattoush</span>
-          </p>
-          <p className="mt-1 text-[10px] text-slate-400/90 dark:text-slate-600" dir="ltr">
-            AZRAR Real Estate Management System — All Rights Reserved
+        <div className="text-center opacity-50">
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+            &copy; {new Date().getFullYear()} AZRAR Real Estate — All Rights Reserved
           </p>
         </div>
       </div>
@@ -1154,7 +925,6 @@ export const Login = () => {
           </div>
         </div>
       </AppModal>
-      </div>
     </div>
   );
 };
