@@ -208,4 +208,51 @@ describe('Attachments System Service - File Management Suite', () => {
     const all = getAllAttachments();
     expect(all.length).toBe(2);
   });
+
+  test('downloadAttachment - browser mode (returns fileData)', async () => {
+    const { downloadAttachment } = await import('@/services/db/system/attachments');
+    kv.save(KEYS.ATTACHMENTS, [{ id: 'A1', fileData: 'data:xyz' }]);
+    const res = await downloadAttachment('A1');
+    expect(res).toBe('data:xyz');
+  });
+
+  test('downloadAttachment - desktop mode (calls readAttachmentFile)', async () => {
+    const { downloadAttachment } = await import('@/services/db/system/attachments');
+    const mockBridge = {
+      get: jest.fn().mockResolvedValue(JSON.stringify([{ id: 'A1', filePath: 'path/to/file' }])),
+      readAttachmentFile: jest.fn().mockResolvedValue({ success: true, dataUri: 'data:bridge' }),
+      set: jest.fn(),
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await downloadAttachment('A1');
+    expect(res).toBe('data:bridge');
+    expect(mockBridge.readAttachmentFile).toHaveBeenCalledWith('path/to/file');
+  });
+
+  test('downloadAttachment - desktop mode fallback to fileData', async () => {
+    const { downloadAttachment } = await import('@/services/db/system/attachments');
+    const mockBridge = {
+      get: jest.fn().mockResolvedValue(JSON.stringify([{ id: 'A1', fileData: 'data:fallback' }])),
+      set: jest.fn(),
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await downloadAttachment('A1');
+    expect(res).toBe('data:fallback');
+  });
+
+  test('downloadAttachment - desktop mode bridge exception returns null', async () => {
+    const { downloadAttachment } = await import('@/services/db/system/attachments');
+    const mockBridge = {
+      get: jest.fn().mockRejectedValue(new Error('bridge crash')),
+    };
+    (window as any).desktopDb = mockBridge;
+    const res = await downloadAttachment('A1');
+    expect(res).toBeNull();
+  });
+
+  test('downloadAttachment - not found returns null', async () => {
+    const { downloadAttachment } = await import('@/services/db/system/attachments');
+    const res = await downloadAttachment('MISSING');
+    expect(res).toBeNull();
+  });
 });
