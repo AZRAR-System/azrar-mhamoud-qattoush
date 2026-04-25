@@ -334,11 +334,12 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
             `تم التجديد التلقائي وإنشاء عقد جديد: ${newId}`
           );
 
+          const ctx = buildContractAlertContext(c.رقم_العقد);
           notificationCenter.add({
             id: `nc-renew-success-${newId}`,
             type: 'success',
             title: 'تم التجديد التلقائي',
-            message: `تم إنشاء العقد الجديد ${newId} بنجاح بدلاً من العقد المنتهي ${c.رقم_العقد}.`,
+            message: `${ctx.propertyCode ? ctx.propertyCode + ' — ' : ''}${ctx.tenantName ? ctx.tenantName + ' — ' : ''}تم إنشاء العقد الجديد ${newId}`,
             category: 'contracts',
             entityId: newId,
           });
@@ -497,7 +498,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           id: `nc-renewal-${c.رقم_العقد}`,
           type: 'warning',
           title: 'تجديد تلقائي قادم',
-          message: `عقد ${c.رقم_العقد} سيتجدد تلقائياً خلال ${daysLeft} يوم`,
+          message: `${ctx.propertyCode ? ctx.propertyCode + ' — ' : ''}${ctx.tenantName ? ctx.tenantName + ' — ' : ''}سيتجدد خلال ${daysLeft} يوم`,
           category: 'contract_renewal',
           entityId: c.رقم_العقد,
           urgent: daysLeft <= 7,
@@ -668,11 +669,13 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
           مرجع_المعرف: t.رقم_التذكرة,
         });
         
+        const prop = get<العقارات_tbl>(KEYS.PROPERTIES).find(p => p.رقم_العقار === t.رقم_العقار);
+        const propertyCode = prop?.الكود_الداخلي || '';
         notificationCenter.add({
           id: `nc-mnt-late-${t.رقم_التذكرة}`,
           type: 'warning',
-          title: 'تأخر صيانة',
-          message: `تذكرة الصيانة #${t.رقم_التذكرة} معلقة منذ ${daysOpen} أيام`,
+          title: 'صيانة متأخرة',
+          message: `${String(propertyCode || t.رقم_العقار || '')}${propertyCode ? ' — ' : ''}معلقة منذ ${daysOpen} أيام`,
           category: 'maintenance',
           entityId: t.رقم_التذكرة,
         });

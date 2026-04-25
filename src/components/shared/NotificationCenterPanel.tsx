@@ -27,20 +27,33 @@ import type { الكمبيالات_tbl } from '@/types';
 
 const categoryLabels: Record<string, string> = {
   'Financial': 'مالي',
+  'financial': 'مالي',
+  'Risk': 'مخاطر',
+  'risk': 'مخاطر',
+  'risk_alert': 'تنبيه مخاطر',
   'Expiry': 'انتهاء عقد',
+  'expiry': 'انتهاء عقد',
   'payment': 'تحصيل',
   'overdue': 'متأخرات',
   'reminders': 'تذكيرات',
+  'reminder': 'تذكير',
   'scheduled_financial_report': 'تقرير مالي',
   'whatsapp_auto': 'واتساب تلقائي',
+  'whatsapp_auto_before': 'تذكير واتساب',
+  'whatsapp_auto_due': 'استحقاق واتساب',
+  'whatsapp_auto_late': 'تأخر واتساب',
   'payments': 'دفعات',
   'collection': 'تحصيل',
   'contracts': 'عقود',
   'installments': 'أقساط',
   'maintenance': 'صيانة',
   'system': 'نظام',
+  'System': 'نظام',
   'info': 'معلومات',
   'contract_renewal': 'تجديد عقد',
+  'blacklist': 'قائمة سوداء',
+  'warning': 'تحذير',
+  'commissions': 'عمولات',
 };
 
 type FilterTab = 'all' | 'unread' | 'urgent' | 'reminders' | 'collection' | 'contracts' | 'installments' | 'maintenance' | 'system';
