@@ -1,9 +1,9 @@
-import { notificationService } from '@/services/notificationService';
+import { notificationService } from '../../src/services/notificationService';
 import { notificationCenter } from '@/services/notificationCenter';
 import { audioService } from '@/services/audioService';
 import { sendDesktopNotification } from '@/services/desktopNotifications';
 
-jest.unmock('@/services/notificationService');
+jest.unmock('../../src/services/notificationService');
 
 jest.mock('../../src/services/notificationCenter', () => ({
   notificationCenter: { add: jest.fn() }
