@@ -953,15 +953,22 @@ export function useInstallments() {
 
   // Financial Stats calculation for the dashboard
   const financialStats = useMemo(() => {
-    const data = isDesktopFast ? [] : groupedData;
     let totalExpected = 0;
     let totalCollected = 0;
     let totalOverdue = 0;
     let overdueCount = 0;
 
     if (isDesktopFast && desktopCounts) {
-      return null;
+      return {
+        totalExpected: desktopCounts.total ?? 0,
+        totalCollected: desktopCounts.paid ?? 0,
+        totalOverdue: desktopCounts.overdue ?? 0,
+        overdueCount: desktopCounts.overdueCount ?? 0,
+        collectionRate: desktopCounts.total > 0 ? ((desktopCounts.paid ?? 0) / desktopCounts.total) * 100 : 0,
+      };
     }
+
+    const data = groupedData;
 
     data.forEach((d) => {
       d.installments.forEach((i) => {
