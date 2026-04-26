@@ -954,7 +954,7 @@ export function useInstallments() {
   // Financial Stats calculation for the dashboard
   const financialStats = useMemo(() => {
     // Determine which data source to use
-    const data = isDesktopFast ? desktopRows : groupedData;
+    const data = groupedData;
     
     let totalExpected = 0;
     let totalCollected = 0;
