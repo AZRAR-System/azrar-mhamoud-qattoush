@@ -115,7 +115,7 @@ export function PropertiesCardsGrid({ page }: Props) {
       {loading ? (
         <SkeletonCardGrid count={6} variant="listing" />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(360px,1fr))]">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {(isDesktopFast ? desktopRows : uiRows).map(
             (rowOrProperty: DesktopPropertyPickerItem | العقارات_tbl, idx: number) => {
               const desktopItem = isDesktopFast

@@ -59,7 +59,7 @@ export function ContractsCardsGrid({ page }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(360px,1fr))]">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {isDesktopFast
         ? fastRows.map((item) => {
             const c = item.contract;
