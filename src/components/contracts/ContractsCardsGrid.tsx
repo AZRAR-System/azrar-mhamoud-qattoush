@@ -9,28 +9,70 @@ export function ContractsFastPaginationFooter({ page }: Props) {
   const { t, isDesktopFast, fastTotal, fastPage, setFastPage, fastPageCount, fastLoading } = page;
 
   if (!isDesktopFast) return null;
+  if (fastPageCount <= 1) return null;
+
+  const currentPage = fastPage;
+  const totalPages = fastPageCount;
+  const isFirst = fastPage <= 1;
+  const isLast = fastPage >= fastPageCount;
 
   return (
-    <div className="flex items-center justify-between gap-3 mt-4 text-sm">
-      <div className="text-slate-500">
-        {t('النتائج:')} {fastTotal.toLocaleString('ar-JO')} {' • '} {t('الصفحة')} {fastPage} /{' '}
-        {fastPageCount}
+    <div className="flex items-center justify-between px-4 py-3 mt-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+            {fastLoading ? '...' : fastTotal.toLocaleString('ar-JO')}
+          </span>
+        </div>
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('نتيجة')}</span>
       </div>
-      <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          disabled={fastPage <= 1 || fastLoading}
-          onClick={() => setFastPage((p) => Math.max(1, Math.min(fastPageCount, p - 1)))}
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setFastPage((p) => Math.max(1, p - 1))}
+          disabled={isFirst || fastLoading}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400"
         >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: 'rotate(180deg)' }}><path d="M9 18l6-6-6-6"/></svg>
           {t('السابق')}
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={fastLoading || fastPage >= fastPageCount}
+        </button>
+
+        <div className="flex items-center gap-1">
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum: number;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (currentPage <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = currentPage - 2 + i;
+            }
+            return (
+              <button
+                key={pageNum}
+                onClick={() => setFastPage(pageNum)}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                  pageNum === currentPage
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
           onClick={() => setFastPage((p) => Math.min(fastPageCount, p + 1))}
+          disabled={isLast || fastLoading}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400"
         >
           {t('التالي')}
-        </Button>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
       </div>
     </div>
   );

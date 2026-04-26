@@ -26,64 +26,85 @@ function PropertiesResultsToolbar({ page }: Props) {
     uiPageCount,
   } = page;
 
-  if (isDesktopFast) {
-    return (
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm text-slate-500 dark:text-slate-400">
-          {desktopLoading ? '...' : desktopTotal.toLocaleString()} {t('نتيجة')}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={desktopLoading || desktopPage <= 0}
-            onClick={() => setDesktopPage((p) => Math.max(0, p - 1))}
-          >
-            {t('السابق')}
-          </Button>
-          <div className="text-sm text-slate-600 dark:text-slate-300">
-            {desktopPage + 1} / {desktopPageCount}
-          </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
-            onClick={() =>
-              setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))
-            }
-          >
-            {t('التالي')}
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const total = isDesktopFast ? desktopTotal : filteredProperties.length;
+  const currentPage = isDesktopFast ? desktopPage + 1 : uiPage + 1;
+  const totalPages = isDesktopFast ? desktopPageCount : uiPageCount;
+  const isFirst = isDesktopFast ? desktopPage <= 0 : uiPage <= 0;
+  const isLast = isDesktopFast ? desktopPage + 1 >= desktopPageCount : uiPage + 1 >= uiPageCount;
+
+  const goPrev = () =>
+    isDesktopFast
+      ? setDesktopPage((p) => Math.max(0, p - 1))
+      : setUiPage((p) => Math.max(0, p - 1));
+
+  const goNext = () =>
+    isDesktopFast
+      ? setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))
+      : setUiPage((p) => Math.min(Math.max(0, uiPageCount - 1), p + 1));
+
+  if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between mb-3">
-      <div className="text-sm text-slate-500 dark:text-slate-400">
-        {filteredProperties.length.toLocaleString()} {t('نتيجة')}
-      </div>
+    <div className="flex items-center justify-between px-4 py-3 mb-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl">
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={uiPage <= 0}
-          onClick={() => setUiPage((p) => Math.max(0, p - 1))}
-        >
-          {t('السابق')}
-        </Button>
-        <div className="text-sm text-slate-600 dark:text-slate-300">
-          {uiPage + 1} / {uiPageCount}
+        <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+            {desktopLoading ? '...' : total.toLocaleString()}
+          </span>
         </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={uiPage + 1 >= uiPageCount}
-          onClick={() => setUiPage((p) => Math.min(Math.max(0, uiPageCount - 1), p + 1))}
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('نتيجة')}</span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={goPrev}
+          disabled={isFirst || desktopLoading}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: 'rotate(180deg)' }}><path d="M9 18l6-6-6-6"/></svg>
+          {t('السابق')}
+        </button>
+
+        <div className="flex items-center gap-1">
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum: number;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (currentPage <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = currentPage - 2 + i;
+            }
+            return (
+              <button
+                key={pageNum}
+                onClick={() => {
+                  const target = pageNum - 1;
+                  if (isDesktopFast) setDesktopPage(target);
+                  else setUiPage(target);
+                }}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                  pageNum === currentPage
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={goNext}
+          disabled={isLast || desktopLoading}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400"
         >
           {t('التالي')}
-        </Button>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
       </div>
     </div>
   );
