@@ -955,11 +955,29 @@ export function useInstallments() {
   const financialStats = useMemo(() => {
     // Determine which data source to use
     const data = groupedData;
-    
+    const allInst = isDesktopFast ? installments : [];
     let totalExpected = 0;
     let totalCollected = 0;
     let totalOverdue = 0;
     let overdueCount = 0;
+
+    if (isDesktopFast) {
+      const today = todayDateOnlyLocal();
+      allInst.forEach((i) => {
+        const status = String(i.حالة_الكمبيالة ?? '').trim();
+        if (status === INSTALLMENT_STATUS.CANCELLED) return;
+        const { paid, remaining } = getPaidAndRemaining(i);
+        totalExpected += Number(i.القيمة ?? 0);
+        totalCollected += paid;
+        const due = parseDateOnlyLocal(i.تاريخ_استحقاق);
+        if (due && due.getTime() < today.getTime() && remaining > 0) {
+          totalOverdue += remaining;
+          overdueCount++;
+        }
+      });
+      const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
+      return { totalExpected, totalCollected, totalOverdue, overdueCount, collectionRate };
+    }
 
     data.forEach((d) => {
       d.installments.forEach((i) => {
