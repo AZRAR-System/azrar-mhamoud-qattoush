@@ -316,7 +316,7 @@ export function useInstallments() {
           setFilter(nextFilter);
         }
 
-        if (q !== null) setSearch(String(q));
+        if (q !== null) setSearch(prev => prev === String(q) ? prev : String(q));
         else if (s !== null) setSearch(String(s));
 
         // Deep link to specific installment
@@ -370,10 +370,19 @@ export function useInstallments() {
     setPeople(DbService.getPeople());
     setProperties(DbService.getProperties());
     // Sort installments by date for easier processing inside cards
-    const allInst = DbService.getInstallments().sort((a, b) =>
+    const rawInst = DbService.getInstallments();
+    const sortedInst = [...rawInst].sort((a, b) =>
       compareDateOnlySafe(a.تاريخ_استحقاق, b.تاريخ_استحقاق)
     );
-    setInstallments(allInst);
+    
+    setInstallments(prev => {
+      if (prev.length === sortedInst.length && 
+          prev[0]?.رقم_الكمبيالة === sortedInst[0]?.رقم_الكمبيالة &&
+          prev[prev.length-1]?.رقم_الكمبيالة === sortedInst[sortedInst.length-1]?.رقم_الكمبيالة) {
+        return prev;
+      }
+      return sortedInst;
+    });
 
     try {
       const f = DbService.getFormFields?.('installments') || [];
