@@ -1,4 +1,4 @@
-export const PAGE_SIZE = 8;
+export const PAGE_SIZE = 16;
 
 export const INSTALLMENT_STATUS = {
   PAID: 'مدفوع',

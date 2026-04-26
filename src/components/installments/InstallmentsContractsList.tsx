@@ -56,35 +56,14 @@ export function InstallmentsContractsList({ page }: Props) {
       {isDesktopFast ? (
         desktopLoading ? (
           <>
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-600" aria-hidden />
-                جاري تحميل القائمة وتطبيق الفلاتر…
-              </div>
+            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl opacity-50">
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled
-                  onClick={() => setDesktopPage((p) => Math.max(0, p - 1))}
-                >
-                  السابق
-                </Button>
-                <div className="text-sm text-slate-600 dark:text-slate-300">
-                  {desktopPage + 1} / {desktopPageCount}
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled
-                  onClick={() =>
-                    setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))
-                  }
-                >
-                  التالي
-                </Button>
+                <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                <span className="text-xs font-bold text-slate-500">جاري التحميل...</span>
               </div>
+              <div className="text-xs text-slate-400">{desktopPage + 1} / {desktopPageCount}</div>
             </div>
+
             <SkeletonCardGrid count={6} variant="listing" />
           </>
         ) : !desktopLoading && filter === 'all' && !search.trim() && desktopTotal === 0 ? (
@@ -108,34 +87,55 @@ export function InstallmentsContractsList({ page }: Props) {
           />
         ) : (
           <>
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                {desktopTotal.toLocaleString()} عقد
+            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                  <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                    {desktopLoading ? '...' : desktopTotal.toLocaleString()}
+                  </span>
+                </div>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">عقد</span>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={desktopLoading || desktopPage <= 0}
+                <button
                   onClick={() => setDesktopPage((p) => Math.max(0, p - 1))}
+                  disabled={desktopLoading || desktopPage <= 0}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600"
                 >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: 'rotate(180deg)' }}><path d="M9 18l6-6-6-6"/></svg>
                   السابق
-                </Button>
-                <div className="text-sm text-slate-600 dark:text-slate-300">
-                  {desktopPage + 1} / {desktopPageCount}
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, desktopPageCount) }, (_, i) => {
+                    const cp = desktopPage + 1;
+                    const tp = desktopPageCount;
+                    let pg: number;
+                    if (tp <= 5) { pg = i + 1; }
+                    else if (cp <= 3) { pg = i + 1; }
+                    else if (cp >= tp - 2) { pg = tp - 4 + i; }
+                    else { pg = cp - 2 + i; }
+                    return (
+                      <button
+                        key={pg}
+                        onClick={() => setDesktopPage(pg - 1)}
+                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${pg === cp ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                      >
+                        {pg}
+                      </button>
+                    );
+                  })}
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
+                <button
+                  onClick={() => setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))}
                   disabled={desktopLoading || desktopPage + 1 >= desktopPageCount}
-                  onClick={() =>
-                    setDesktopPage((p) => Math.min(Math.max(0, desktopPageCount - 1), p + 1))
-                  }
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600"
                 >
                   التالي
-                </Button>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
               </div>
             </div>
+
 
             {desktopRows.map((item, idx) => {
               const contractId = String(
