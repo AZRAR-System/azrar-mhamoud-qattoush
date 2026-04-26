@@ -953,26 +953,17 @@ export function useInstallments() {
 
   // Financial Stats calculation for the dashboard
   const financialStats = useMemo(() => {
+    // Determine which data source to use
+    const data = isDesktopFast ? desktopRows : groupedData;
+    
     let totalExpected = 0;
     let totalCollected = 0;
     let totalOverdue = 0;
     let overdueCount = 0;
 
-    if (isDesktopFast && desktopCounts) {
-      return {
-        totalExpected: desktopCounts.total ?? 0,
-        totalCollected: desktopCounts.paid ?? 0,
-        totalOverdue: desktopCounts.overdue ?? 0,
-        overdueCount: desktopCounts.overdueCount ?? 0,
-        collectionRate: desktopCounts.total > 0 ? ((desktopCounts.paid ?? 0) / desktopCounts.total) * 100 : 0,
-      };
-    }
-
-    const data = groupedData;
-
     data.forEach((d) => {
       d.installments.forEach((i) => {
-        if (i.نوع_الكمبيالة === 'تأمين') return;
+        if (i.رقم_الكمبيالة_اليدوي === 'ملغي') return;
         const status = String(i.حالة_الكمبيالة ?? '').trim();
         if (status === INSTALLMENT_STATUS.CANCELLED) return;
 
@@ -980,7 +971,7 @@ export function useInstallments() {
         totalExpected += i.القيمة;
         totalCollected += paid;
 
-        const due = parseDateOnlyLocal(i.تاريخ_استحقاق);
+        const due = parseDateOnlyLocal(i.تاريخ_الاستحقاق);
         if (due && due.getTime() < todayDateOnlyLocal().getTime() && remaining > 0) {
           totalOverdue += remaining;
           overdueCount++;
@@ -991,7 +982,7 @@ export function useInstallments() {
     const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
 
     return { totalExpected, totalCollected, totalOverdue, overdueCount, collectionRate };
-  }, [isDesktopFast, groupedData, desktopCounts]);
+  }, [isDesktopFast, groupedData, desktopRows]);
 
   const handleExportExcel = () => {
     const rows = isDesktopFast ? [] : filteredList; // Basic export for web mode
