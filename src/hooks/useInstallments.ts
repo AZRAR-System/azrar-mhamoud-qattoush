@@ -963,7 +963,6 @@ export function useInstallments() {
 
     data.forEach((d) => {
       d.installments.forEach((i) => {
-        if (i.رقم_الكمبيالة_اليدوي === 'ملغي') return;
         const status = String(i.حالة_الكمبيالة ?? '').trim();
         if (status === INSTALLMENT_STATUS.CANCELLED) return;
 
@@ -971,7 +970,7 @@ export function useInstallments() {
         totalExpected += i.القيمة;
         totalCollected += paid;
 
-        const due = parseDateOnlyLocal(i.تاريخ_الاستحقاق);
+        const due = parseDateOnlyLocal(i.تاريخ_استحقاق);
         if (due && due.getTime() < todayDateOnlyLocal().getTime() && remaining > 0) {
           totalOverdue += remaining;
           overdueCount++;
