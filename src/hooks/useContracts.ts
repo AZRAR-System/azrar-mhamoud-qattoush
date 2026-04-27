@@ -268,11 +268,7 @@ export function useContracts(isVisible = true) {
         setInstallments(allI || []);
         setListLoading(false);
       };
-      if (isStaleRef.current) {
-        loadData();
-      } else {
-        loadData();
-      }
+      loadData();
     } else {
       // background
     }
