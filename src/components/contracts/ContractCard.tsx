@@ -11,7 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { StatusBadge } from '@/components/shared/StatusBadge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatCurrencyJOD } from '@/utils/format';
 import { RBACGuard } from '@/components/shared/RBACGuard';
 import type { العقود_tbl } from '@/types';
