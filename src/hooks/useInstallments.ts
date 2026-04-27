@@ -976,14 +976,20 @@ export function useInstallments() {
 
     if (isDesktopFast) {
       const today = todayDateOnlyLocal();
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
       allInst.forEach((i) => {
         const status = String(i.حالة_الكمبيالة ?? '').trim();
         if (status === INSTALLMENT_STATUS.CANCELLED) return;
+        const nوع = String(i.نوع_الكمبيالة ?? '').trim();
+        if (nوع === 'تأمين') return;
+        const due = parseDateOnlyLocal(i.تاريخ_استحقاق);
+        if (!due) return;
+        if (due.getMonth() !== currentMonth || due.getFullYear() !== currentYear) return;
         const { paid, remaining } = getPaidAndRemaining(i);
         totalExpected += Number(i.القيمة ?? 0);
         totalCollected += paid;
-        const due = parseDateOnlyLocal(i.تاريخ_استحقاق);
-        if (due && due.getTime() < today.getTime() && remaining > 0) {
+        if (due.getTime() < today.getTime() && remaining > 0) {
           totalOverdue += remaining;
           overdueCount++;
         }
