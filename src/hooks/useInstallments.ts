@@ -478,7 +478,12 @@ export function useInstallments() {
       setListLoading(false);
       return;
     }
-    legacyLoadData();
+    if (isDesktop && isDesktopFast) {
+      loadDesktopData();
+      setInstallments(DbService.getInstallments());
+    } else {
+      legacyLoadData();
+    }
     setListLoading(false);
   }, [isDesktop, isDesktopFast, legacyLoadData, loadDesktopData]);
 
