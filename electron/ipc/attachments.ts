@@ -41,6 +41,22 @@ import {
 
 export function registerAttachments(deps: IpcDeps): void {
   void deps;
+  const requireAuthenticatedSession = (e: Electron.IpcMainInvokeEvent) => {
+    const userId = ipc.getSessionUserId(e.sender);
+    if (!String(userId || '').trim()) {
+      return { ok: false as const, message: 'انتهت الجلسة أو لم يتم تسجيل الدخول' };
+    }
+    return { ok: true as const };
+  };
+
+  const requireSettingsAdmin = (e: Electron.IpcMainInvokeEvent) => {
+    const userId = ipc.getSessionUserId(e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false as const, message: 'غير مصرح لك بهذه العملية' };
+    }
+    return { ok: true as const };
+  };
+
   // =====================
   // Attachments (Files)
   // =====================
@@ -452,9 +468,19 @@ export function registerAttachments(deps: IpcDeps): void {
       }
     ) => {
       try {
+        const auth = requireAuthenticatedSession(_e);
+        if (!auth.ok) return { success: false, message: auth.message };
+
+        const referenceType = assertSafeIpcString(payload?.referenceType, 'referenceType', 64);
+        const entityFolderRaw = assertSafeIpcString(payload?.entityFolder, 'entityFolder', 160);
+        const originalFileName = assertSafeIpcString(
+          payload?.originalFileName,
+          'originalFileName',
+          220
+        );
         const root = await getAttachmentsRoot();
-        const typeFolder = chooseTypeFolder(payload?.referenceType);
-        const entityFolder = sanitizeSegment(payload?.entityFolder || 'غير_معروف');
+        const typeFolder = chooseTypeFolder(referenceType);
+        const entityFolder = sanitizeSegment(entityFolderRaw || 'غير_معروف');
   
         const bytes = payload?.bytes;
         const byteLen: number =
@@ -471,8 +497,7 @@ export function registerAttachments(deps: IpcDeps): void {
         ensureInsideRoot(root, dir);
         await fsp.mkdir(dir, { recursive: true });
   
-        const original = String(payload?.originalFileName || 'file');
-        const originalSafe = sanitizeSegment(original, 140);
+        const originalSafe = sanitizeSegment(originalFileName, 140);
         const stamped = `${makeTimestampPrefix()}__${originalSafe}`;
   
         const baseName = stamped;
@@ -531,6 +556,8 @@ export function registerAttachments(deps: IpcDeps): void {
   
   ipcMain.handle('attachments:read', async (_e, relativePath: string) => {
     try {
+      const auth = requireAuthenticatedSession(_e);
+      if (!auth.ok) return { success: false, message: auth.message };
       const safeRel = assertSafeIpcString(relativePath, 'relativePath');
       const abs = await resolveExistingAttachmentAbsPath(safeRel);
       await assertSafeAttachmentFile(abs);
@@ -572,6 +599,8 @@ export function registerAttachments(deps: IpcDeps): void {
   
   ipcMain.handle('attachments:delete', async (_e, relativePath: string) => {
     try {
+      const auth = requireAuthenticatedSession(_e);
+      if (!auth.ok) return { success: false, message: auth.message };
       const safeRel = assertSafeIpcString(relativePath, 'relativePath');
       const abs = await resolveExistingAttachmentAbsPath(safeRel);
       await assertSafeAttachmentFile(abs);
@@ -592,6 +621,8 @@ export function registerAttachments(deps: IpcDeps): void {
   
   ipcMain.handle('attachments:open', async (_e, relativePath: string) => {
     try {
+      const auth = requireAuthenticatedSession(_e);
+      if (!auth.ok) return { success: false, message: auth.message };
       const safeRel = assertSafeIpcString(relativePath, 'relativePath');
       const abs = await resolveExistingAttachmentAbsPath(safeRel);
       await assertSafeAttachmentFile(abs);
@@ -642,8 +673,10 @@ export function registerAttachments(deps: IpcDeps): void {
     }
   });
   
-  ipcMain.handle('attachments:pullNow', async () => {
+  ipcMain.handle('attachments:pullNow', async (_e) => {
     try {
+      const auth = requireSettingsAdmin(_e);
+      if (!auth.ok) return { success: false, message: auth.message };
       const raw = kvGet('db_attachments');
       const json = typeof raw === 'string' && raw.trim() ? raw : '[]';
       const res = await pullAttachmentFilesForAttachmentsJson(json);
@@ -653,8 +686,10 @@ export function registerAttachments(deps: IpcDeps): void {
     }
   });
 
-  ipcMain.handle('attachments:pushNow', async () => {
+  ipcMain.handle('attachments:pushNow', async (_e) => {
     try {
+      const auth = requireSettingsAdmin(_e);
+      if (!auth.ok) return { success: false, message: auth.message };
       const raw = kvGet('db_attachments');
       const json = typeof raw === 'string' && raw.trim() ? raw : '[]';
       const res = await pushAttachmentFilesForAttachmentsJson(json);
@@ -664,8 +699,10 @@ export function registerAttachments(deps: IpcDeps): void {
     }
   });
 
-  ipcMain.handle('attachments:getSyncStats', async () => {
+  ipcMain.handle('attachments:getSyncStats', async (_e) => {
     try {
+      const auth = requireSettingsAdmin(_e);
+      if (!auth.ok) return { success: false, message: auth.message };
       const raw = kvGet('db_attachments');
       const json = typeof raw === 'string' && raw.trim() ? raw : '[]';
       let attachments: unknown[] = [];

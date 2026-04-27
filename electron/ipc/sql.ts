@@ -47,13 +47,25 @@ import { decryptSecretBestEffort, readBackupEncryptionSettings } from '../utils/
 
 export function registerSql(deps: IpcDeps): void {
   void deps;
+  const requireSettingsAdmin = (e: Electron.IpcMainInvokeEvent) => {
+    const userId = ipc.getSessionUserId(e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false as const, message: 'غير مصرح لك بهذه العملية' };
+    }
+    return { ok: true as const };
+  };
+
   // SQL Server Sync
-  ipcMain.handle('sql:getSettings', async () => {
+  ipcMain.handle('sql:getSettings', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { success: false, message: auth.message };
     return loadSqlSettingsRedacted();
   });
   
   /** Installer / sql-express-install.ps1 writes ProgramData\\AZRAR\\sql-local-credentials.json */
-  ipcMain.handle('sql:readLocalBootstrapCredentials', async () => {
+  ipcMain.handle('sql:readLocalBootstrapCredentials', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false as const, reason: 'unauthorized' as const };
     try {
       const fs = await import('node:fs');
       const path = await import('node:path');
@@ -93,7 +105,9 @@ export function registerSql(deps: IpcDeps): void {
     }
   });
   
-  ipcMain.handle('sql:applyBootstrapCredentials', async () => {
+  ipcMain.handle('sql:applyBootstrapCredentials', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     try {
       const base = process.env.ProgramData || path.join(process.env.SystemDrive || 'C:', 'ProgramData');
       const filePath = path.join(base, 'AZRAR', 'sql-local-credentials.json');
@@ -169,6 +183,8 @@ export function registerSql(deps: IpcDeps): void {
   });
   
   ipcMain.handle('sql:test', async (_e, settings: unknown) => {
+    const auth = requireSettingsAdmin(_e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     const saved = await loadSqlSettings();
   
     type TestSqlSettings = Parameters<typeof testSqlConnection>[0];
@@ -207,7 +223,9 @@ export function registerSql(deps: IpcDeps): void {
     return testSqlConnection(merged);
   });
   
-  ipcMain.handle('sql:connect', async () => {
+  ipcMain.handle('sql:connect', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     const settings = await loadSqlSettings();
     if (!settings.enabled) return { ok: false, message: 'المزامنة غير مفعلة' };
   
@@ -261,25 +279,35 @@ export function registerSql(deps: IpcDeps): void {
     return res;
   });
   
-  ipcMain.handle('sql:disconnect', async () => {
+  ipcMain.handle('sql:disconnect', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { success: false, message: auth.message };
     await disconnectSql();
     return { success: true };
   });
   
-  ipcMain.handle('sql:status', async () => {
+  ipcMain.handle('sql:status', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     return getSqlStatus();
   });
   
-  ipcMain.handle('sql:getSyncLog', async () => {
+  ipcMain.handle('sql:getSyncLog', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false, message: auth.message, items: [] };
     return { ok: true, items: ipc.sqlSyncLog };
   });
   
-  ipcMain.handle('sql:clearSyncLog', async () => {
+  ipcMain.handle('sql:clearSyncLog', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     ipc.sqlSyncLog.splice(0, ipc.sqlSyncLog.length);
     return { ok: true };
   });
   
-  ipcMain.handle('sql:getCoverage', async () => {
+  ipcMain.handle('sql:getCoverage', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     try {
       const tolMs = 1500;
       const toMs = (iso?: string): number | null => {
@@ -716,8 +744,11 @@ export function registerSql(deps: IpcDeps): void {
   });
   
   ipcMain.handle('sql:listServerBackups', async (_e, payload: unknown) => {
+    const auth = requireSettingsAdmin(_e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     const limit = ipc.getField(payload, 'limit');
-    const n = typeof limit === 'number' ? limit : Number(limit || 60) || 60;
+    const raw = typeof limit === 'number' ? limit : Number(limit || 60) || 60;
+    const n = Math.max(1, Math.min(200, Math.floor(raw)));
     return await listServerBackups(n);
   });
   
@@ -845,7 +876,9 @@ export function registerSql(deps: IpcDeps): void {
     clearInterval(_hourlyTimer);
   });
   
-  ipcMain.handle('sql:syncNow', async () => {
+  ipcMain.handle('sql:syncNow', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     try {
       ipc.addSqlSyncLogEntry({
         direction: 'system',
@@ -906,7 +939,9 @@ export function registerSql(deps: IpcDeps): void {
     }
   });
   
-  ipcMain.handle('sql:pullFullNow', async () => {
+  ipcMain.handle('sql:pullFullNow', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     try {
       ipc.addSqlSyncLogEntry({
         direction: 'system',
@@ -1007,6 +1042,8 @@ export function registerSql(deps: IpcDeps): void {
   });
   
   ipcMain.handle('sql:mergePublishAdmin', async (_e, payload: unknown) => {
+    const auth = requireSettingsAdmin(_e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     try {
       ipc.addSqlSyncLogEntry({
         direction: 'system',
@@ -1455,7 +1492,9 @@ export function registerSql(deps: IpcDeps): void {
       }
     })();
   }, 800);
-  ipcMain.handle('sql:checkAdminStatus', async () => {
+  ipcMain.handle('sql:checkAdminStatus', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) return { isAdmin: false };
     return { isAdmin: await checkIsAdmin() };
   });
 
@@ -1469,7 +1508,11 @@ export function registerSql(deps: IpcDeps): void {
     });
   });
 
-  ipcMain.handle('sql:isAlreadyInstalled', async () => {
+  ipcMain.handle('sql:isAlreadyInstalled', async (e) => {
+    const auth = requireSettingsAdmin(e);
+    if (!auth.ok) {
+      return { installed: false, connected: false, hasBootstrap: false, hasService: false };
+    }
     try {
       const fs = await import('node:fs');
       const path = await import('node:path');

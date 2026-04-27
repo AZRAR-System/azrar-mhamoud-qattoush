@@ -36,7 +36,7 @@
     "build": "npm run sync:favicon && vite build",
     "typecheck": "tsc --noEmit",
     "routes:check": "node scripts/routes-check.mjs",
-    "verify": "npm run typecheck && npm run routes:check && npm run desktop:build",
+    "verify": "npm run typecheck && npm run routes:check && npm test && npm run desktop:build",
     "verify:desktop": "npm run desktop:e2e",
     "verify:full": "npm run verify && npm run verify:desktop",
     "postinstall": "electron-builder install-app-deps",

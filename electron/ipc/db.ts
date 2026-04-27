@@ -39,6 +39,38 @@ import {
 
 export function registerDb(deps: IpcDeps): void {
   void deps;
+  const requireSettingsAdmin = (e: Electron.IpcMainInvokeEvent) => {
+    const userId = ipc.getSessionUserId(e.sender);
+    if (!desktopUserHasPermission(userId, 'SETTINGS_ADMIN')) {
+      return { ok: false as const, message: 'غير مصرح لك بهذه العملية' };
+    }
+    return { ok: true as const };
+  };
+
+  const isPathInsideRoot = (rootAbs: string, targetAbs: string): boolean => {
+    const rel = path.relative(rootAbs, targetAbs);
+    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+  };
+
+  const resolveBackupRoot = async (): Promise<string> => {
+    const settings = await ipc.readBackupSettings();
+    const backupDir = String(settings.backupDir || '').trim();
+    if (!backupDir || !ipc.isExistingDirectory(backupDir)) return '';
+    return await fsp.realpath(backupDir).catch(() => path.resolve(backupDir));
+  };
+
+  const resolveExistingBackupFile = async (filePath: string): Promise<string> => {
+    const rawPath = String(filePath || '').trim();
+    if (!rawPath) throw new Error('الملف غير موجود');
+    if (rawPath.length > 4096 || rawPath.includes('\u0000')) {
+      throw new Error('مسار الملف غير صالح');
+    }
+    const resolved = await fsp.realpath(rawPath).catch(() => path.resolve(rawPath));
+    const st = await fsp.stat(resolved);
+    if (!st.isFile()) throw new Error('الملف غير موجود');
+    return resolved;
+  };
+
   ipcMain.handle('db:get', (_e, key: string) => {
     if (dbMaintenanceMode) return null;
     const k = String(key || '').trim();
@@ -151,7 +183,9 @@ export function registerDb(deps: IpcDeps): void {
     }
   });
   
-  ipcMain.handle('db:chooseDirectory', async () => {
+  ipcMain.handle('db:chooseDirectory', async (_e) => {
+    const auth = requireSettingsAdmin(_e);
+    if (!auth.ok) return { success: false, message: auth.message };
     const result = (await dialog.showOpenDialog({
       title: 'اختر مجلد',
       properties: ['openDirectory', 'createDirectory'],
@@ -199,7 +233,21 @@ export function registerDb(deps: IpcDeps): void {
     }
   );
   
-  ipcMain.handle('db:getLocalBackupStats', async () => {
+  ipcMain.handle('db:getLocalBackupStats', async (_e) => {
+    const auth = requireSettingsAdmin(_e);
+    if (!auth.ok) {
+      return {
+        ok: false,
+        message: auth.message,
+        dbArchivesCount: 0,
+        attachmentsArchivesCount: 0,
+        latestDbExists: false,
+        latestAttachmentsExists: false,
+        totalBytes: 0,
+        newestMtimeMs: 0,
+        files: [],
+      };
+    }
     try {
       const backupSettings = await ipc.readBackupSettings();
       const dir =
@@ -223,11 +271,15 @@ export function registerDb(deps: IpcDeps): void {
   });
   
   ipcMain.handle('db:getLocalBackupLog', async (_e, payload: { limit?: number } | undefined) => {
+    const auth = requireSettingsAdmin(_e);
+    if (!auth.ok) return [];
     const limit = payload?.limit;
     return await ipc.readLocalBackupLogEntries(typeof limit === 'number' ? limit : 200);
   });
   
-  ipcMain.handle('db:clearLocalBackupLog', async () => {
+  ipcMain.handle('db:clearLocalBackupLog', async (_e) => {
+    const auth = requireSettingsAdmin(_e);
+    if (!auth.ok) return { ok: false, message: auth.message };
     await ipc.clearLocalBackupLog();
     return { ok: true };
   });
@@ -300,18 +352,16 @@ export function registerDb(deps: IpcDeps): void {
       return { success: false, message: 'غير مصرح لك بهذه العملية' };
     }
     try {
-      if (!filePath || !fs.existsSync(filePath)) {
-        return { success: false, message: 'الملف غير موجود' };
+      const backupRoot = await resolveBackupRoot();
+      if (!backupRoot) {
+        return { success: false, message: 'مجلد النسخ الاحتياطي غير مضبوط' };
       }
-  
-      // Basic safety: ensure it's in a backup directory
-      const settings = await ipc.readBackupSettings();
-      const backupDir = settings.backupDir;
-      if (backupDir && !filePath.startsWith(backupDir)) {
+      const safeFilePath = await resolveExistingBackupFile(filePath);
+      if (!isPathInsideRoot(backupRoot, safeFilePath)) {
         return { success: false, message: 'لا يمكن حذف ملفات خارج مجلد النسخ الاحتياطي' };
       }
   
-      await fsp.unlink(filePath);
+      await fsp.unlink(safeFilePath);
       return { success: true, message: 'تم حذف النسخة الاحتياطية بنجاح' };
     } catch (e: unknown) {
       return { success: false, message: toErrorMessage(e, 'فشل حذف الملف') };
@@ -328,11 +378,16 @@ export function registerDb(deps: IpcDeps): void {
       return { success: false, message: 'قاعدة البيانات قيد الاسترجاع/الصيانة. حاول لاحقاً.' };
   
     try {
-      if (!filePath || !fs.existsSync(filePath)) {
-        return { success: false, message: 'الملف غير موجود' };
+      const backupRoot = await resolveBackupRoot();
+      if (!backupRoot) {
+        return { success: false, message: 'مجلد النسخ الاحتياطي غير مضبوط' };
+      }
+      const safeFilePath = await resolveExistingBackupFile(filePath);
+      if (!isPathInsideRoot(backupRoot, safeFilePath)) {
+        return { success: false, message: 'لا يمكن الاستعادة من ملف خارج مجلد النسخ الاحتياطي' };
       }
   
-      const isEncrypted = filePath.endsWith('.enc');
+      const isEncrypted = safeFilePath.endsWith('.enc');
       let password = '';
   
       if (isEncrypted) {
@@ -349,7 +404,7 @@ export function registerDb(deps: IpcDeps): void {
       // We use the same internal logic as db:import but with the provided path.
       setDbMaintenanceMode(true);
       try {
-        await ipc.importDatabaseFrom(filePath, password);
+        await ipc.importDatabaseFrom(safeFilePath, password);
         app.relaunch();
         app.exit(0);
         return { success: true, message: 'تم استعادة البيانات بنجاح. سيتم إعادة تشغيل البرنامج.' };
