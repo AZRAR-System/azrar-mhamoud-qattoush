@@ -1,14 +1,36 @@
-import React from 'react';
-import { FileText, FileCheck, Eye, ArrowRight, Archive, Pencil, Trash2 } from 'lucide-react';
-import type { العقود_tbl } from '@/types';
-import { RBACGuard } from '@/components/shared/RBACGuard';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import React, { memo } from 'react';
+import {
+  FileText,
+  Eye,
+  Pencil,
+  Trash2,
+  Archive,
+  ArrowRight,
+  FileCheck,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { formatContractNumberShort } from '@/utils/contractNumber';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { formatCurrencyJOD } from '@/utils/format';
+import { RBACGuard } from '@/components/shared/RBACGuard';
+import type { العقود_tbl } from '@/types';
 
-export const ContractCard = React.memo(
+type Props = {
+  contract: العقود_tbl;
+  propCode: string;
+  tenantName: string;
+  ownerName: string;
+  remainingAmount: number;
+  onOpenDetails: (id: string | number) => void;
+  onOpenClearance: (id: string | number) => void;
+  onArchive: (id: string | number) => void;
+  onEdit: (id: string | number) => void;
+  onDelete: (id: string | number) => void;
+  isDeleting?: boolean;
+};
+
+export const ContractCard = memo(
   ({
     contract,
     propCode,
@@ -21,22 +43,12 @@ export const ContractCard = React.memo(
     onEdit,
     onDelete,
     isDeleting,
-  }: {
-    contract: العقود_tbl;
-    propCode: string;
-    tenantName: string;
-    ownerName: string;
-    remainingAmount: number;
-    onOpenDetails: (id: string) => void;
-    onOpenClearance: (id: string) => void;
-    onArchive: (id: string) => void;
-    onEdit: (id: string) => void;
-    onDelete: (id: string) => void;
-    isDeleting?: boolean;
-  }) => {
-    const t = (s: string) => s;
-    const contractNumber = formatContractNumberShort(contract.رقم_العقد);
-    const opportunityNumberText = String(contract.رقم_الفرصة ?? '').trim();
+  }: Props) => {
+    const { t } = useTranslation();
+
+    const contractNumber = String(contract.رقم_العقد);
+    const opportunityNumberText = String(contract.رقم_الفرصة || '');
+
     const status = contract.حالة_العقد;
     const accentRing =
       status === 'نشط' || status === 'قريب الانتهاء'
@@ -58,29 +70,20 @@ export const ContractCard = React.memo(
             ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300'
             : status === 'مجدد'
               ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300'
-              : 'bg-slate-50 dark:bg-slate-900/20 text-slate-600 dark:text-slate-300';
-
-    const accentStripe =
-      status === 'نشط' || status === 'قريب الانتهاء'
-        ? 'bg-emerald-500/20 dark:bg-emerald-400/15'
-        : status === 'منتهي'
-          ? 'bg-slate-400/25 dark:bg-slate-300/15'
-          : status === 'مفسوخ' || status === 'ملغي'
-            ? 'bg-red-500/20 dark:bg-red-400/15'
-            : status === 'مجدد'
-              ? 'bg-indigo-500/20 dark:bg-indigo-400/15'
-              : 'bg-slate-400/20 dark:bg-slate-300/10';
+              : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300';
 
     return (
       <Card
-        className={`group w-full overflow-hidden animate-slide-up ${accentRing} ${isDeleting ? 'animate-pulse' : ''}`}
+        className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 border border-white/60 dark:border-slate-700/60 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm ${accentRing} ${
+          isDeleting ? 'opacity-50 grayscale' : ''
+        }`}
       >
-        <div className={`h-1 w-full ${accentStripe}`} />
-        <div className="p-5 flex flex-col h-full">
-          <div className="flex justify-between items-start gap-3 mb-4">
-            <div className="flex items-start gap-3 min-w-0">
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70" />
+        <div className="p-4 flex flex-col h-full">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3 min-w-0">
               <div
-                className={`w-12 h-12 rounded-xl ${accentIcon} flex items-center justify-center font-bold text-xl shadow-sm flex-shrink-0`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-md ${accentIcon} shadow-current/20`}
               >
                 <FileText size={20} />
               </div>
