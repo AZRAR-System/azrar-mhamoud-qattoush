@@ -968,7 +968,8 @@ export function useInstallments() {
   // Financial Stats calculation for the dashboard
   const financialStats = useMemo(() => {
     const data = groupedData;
-    const allInst = isDesktopFast ? installments : [];
+    const rawAll = DbService.getInstallments();
+    const allInst = isDesktopFast ? rawAll : [];
     let totalExpected = 0;
     let totalCollected = 0;
     let totalOverdue = 0;
