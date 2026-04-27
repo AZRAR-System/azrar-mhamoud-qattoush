@@ -55,10 +55,10 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
           title={`أهلاً بك، ${String(userRecord['اسم_للعرض'] || userRecord['name'] || 'مستخدم')}`}
           description={`إليك نظرة سريعة على أداء نظام AZRAR لهذا اليوم.`}
           topContent={
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md animate-fade-in animate-delay-300">
-              <Activity size={14} className="text-indigo-200 animate-pulse" />
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md animate-fade-in animate-delay-300 border ${kpiLoading ? 'bg-amber-500/20 border-amber-300/30' : isRefreshing ? 'bg-blue-500/20 border-blue-300/30' : 'bg-white/10 border-white/20'}`}>
+              <Activity size={14} className={`${kpiLoading ? 'text-amber-300 animate-pulse' : isRefreshing ? 'text-blue-300 animate-spin' : 'text-indigo-200 animate-pulse'}`} />
               <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
-                حالة النظام: متصل
+                {kpiLoading ? 'حالة النظام: تحميل...' : isRefreshing ? 'حالة النظام: تحديث...' : 'حالة النظام: متصل'}
               </span>
             </div>
           }
