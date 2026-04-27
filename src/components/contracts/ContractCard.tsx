@@ -86,7 +86,7 @@ export const ContractCard = React.memo(
               </div>
               <div className="min-w-0">
                 <div className="space-y-2">
-                  <div className="rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/30 p-3">
+                  <div className="rounded-xl border border-slate-200/40 dark:border-slate-700/40 bg-gradient-to-br from-slate-50/80 to-white/60 dark:from-slate-900/40 dark:to-slate-800/30 backdrop-blur-sm p-3">
                     <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
                       <div className="text-[10px] text-slate-400 whitespace-nowrap pt-0.5">
                         {t('المالك')}
