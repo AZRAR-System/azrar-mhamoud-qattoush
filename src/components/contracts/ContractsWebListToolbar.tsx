@@ -9,7 +9,7 @@ export function ContractsWebListToolbar({ page }: Props) {
   if (isDesktopFast) return null;
 
   return (
-    <div className="flex items-center justify-between mb-3">
+    <div className="flex items-center justify-between mb-3 px-4 py-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm border border-white/60 dark:border-slate-700/60 rounded-2xl shadow-sm">
       <div className="text-sm text-slate-500 dark:text-slate-400">
         {filteredContracts.length.toLocaleString()} {t('نتيجة')}
       </div>
