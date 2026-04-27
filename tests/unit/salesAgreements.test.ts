@@ -7,7 +7,8 @@ import {
   updateOfferStatus,
   deleteSalesOffer,
   addSalesOfferNote,
-  getOwnershipHistory
+  getOwnershipHistory,
+  getSalesOffers,
 } from '@/services/db/system/sales_agreements';
 import * as kv from '@/services/db/kv';
 import { KEYS } from '@/services/db/keys';
@@ -127,6 +128,43 @@ describe('Sales Agreements System Service - Real Estate Sales Suite', () => {
       const history = getOwnershipHistory('PR1');
       expect(history).toHaveLength(1);
       expect(history[0].رقم_المعاملة).toBe('TX-100');
+    });
+  });
+
+  describe('Branch Coverage', () => {
+    test('getSalesOffers - returns all offers when no listingId', () => {
+      const all = getSalesOffers();
+      expect(Array.isArray(all)).toBe(true);
+    });
+
+    test('getSalesOffers - filters by listingId', () => {
+      const filtered = getSalesOffers('non-existent-id');
+      expect(filtered).toEqual([]);
+    });
+
+    test('getOwnershipHistory - returns all when no params', () => {
+      const all = getOwnershipHistory();
+      expect(Array.isArray(all)).toBe(true);
+    });
+
+    test('getOwnershipHistory - filters by personId', () => {
+      const result = getOwnershipHistory(undefined, 'P-999');
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    test('getOwnershipHistory - filters by propertyId', () => {
+      const result = getOwnershipHistory('PR-999');
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    test('addSalesOfferNote - fails on empty note', () => {
+      const result = addSalesOfferNote('any-id', '');
+      expect(result.success).toBe(false);
+    });
+
+    test('addSalesOfferNote - fails on non-existent offer', () => {
+      const result = addSalesOfferNote('non-existent', 'some note');
+      expect(result.success).toBe(false);
     });
   });
 });
