@@ -17,7 +17,7 @@ export function ContractsFastPaginationFooter({ page }: Props) {
   const isLast = fastPage >= fastPageCount;
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 mt-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl">
+    <div className="flex items-center justify-between px-4 py-3 mt-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm border border-white/60 dark:border-slate-700/60 rounded-2xl shadow-sm">
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center">
           <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
