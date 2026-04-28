@@ -97,7 +97,7 @@ export const useInAppReminderNotifier = () => {
     const initialTimer = window.setTimeout(scan, 1500);
 
     // Re-scan periodically in case reminders are created in background
-    const interval = window.setInterval(scan, 30000);
+    const interval = window.setInterval(scan, 5 * 60 * 1000); // 5 min — reduced from 30s
 
     // Re-scan immediately when tasks/reminders change
     const onChanged = () => scan();

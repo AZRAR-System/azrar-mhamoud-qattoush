@@ -253,8 +253,13 @@ export function useContracts(isVisible = true) {
         isStaleRef.current = false;
         setListLoading(true);
 
-        // Phase 6: Run auto-archive scan on load
-        DbService.autoArchiveContracts();
+        // Phase 6: Run auto-archive scan once per day per session
+        const _archiveKey = 'azrar_last_auto_archive';
+        const _today = new Date().toDateString();
+        if (sessionStorage.getItem(_archiveKey) !== _today) {
+          DbService.autoArchiveContracts();
+          sessionStorage.setItem(_archiveKey, _today);
+        }
 
         const [allC, allP, allR, allI] = await Promise.all([
           DbService.getContracts(),

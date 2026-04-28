@@ -19,7 +19,12 @@ import { get, save } from './kv';
 import { KEYS } from './keys';
 import { INSTALLMENT_STATUS } from './installmentConstants';
 import { getInstallmentPaidAndRemaining } from './installments';
-import { buildContractAlertContext, markAlertsReadByPrefix, upsertAlert } from './alertsCore';
+import {
+  buildContractAlertContext,
+  dedupeAlertsStorage,
+  markAlertsReadByPrefix,
+  upsertAlert,
+} from './alertsCore';
 import { getSettings } from './settings';
 import { tryAutoSendIfEligible } from '@/services/whatsAppAutoSender';
 import { notificationCenter } from '@/services/notificationCenter';
@@ -63,17 +68,31 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
   } = d;
 
   const dedupeAndCleanupAlertsInternal = () => {
-    const alerts = get<tbl_Alerts>(KEYS.ALERTS) || [];
-    if (alerts.length === 0) return;
+    const alertsRaw = get<tbl_Alerts>(KEYS.ALERTS) || [];
+    if (alertsRaw.length === 0) return;
+
+    const idSortSig = (arr: tbl_Alerts[]) =>
+      [...arr].map((a) => String(a.id).trim()).filter(Boolean).sort().join('\u0001');
+
+    const dedupedFromCore = dedupeAlertsStorage(alertsRaw);
+    const alerts = Array.isArray(dedupedFromCore) ? dedupedFromCore : alertsRaw;
+    let changed =
+      alerts.length !== alertsRaw.length || idSortSig(alerts) !== idSortSig(alertsRaw);
+
+    if (changed) {
+      save(KEYS.ALERTS, alerts);
+    }
 
     const installments = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS) || [];
     const byInstallmentId = new Map<string, الكمبيالات_tbl>();
-    for (const inst of installments) byInstallmentId.set(inst.رقم_الكمبيالة, inst);
+    for (const inst of installments) {
+      const k = String(inst.رقم_الكمبيالة ?? '').trim();
+      if (k) byInstallmentId.set(k, inst);
+    }
 
     const today = toDateOnly(new Date());
     const seen = new Map<string, tbl_Alerts>();
     const deduped: tbl_Alerts[] = [];
-    let changed = false;
 
     const inferAndPatchAlertContext = (a: tbl_Alerts): boolean => {
       if (a?.مرجع_الجدول && a?.مرجع_المعرف) return false;
@@ -104,9 +123,10 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
     };
 
     for (const a of alerts) {
-      if (!a?.id) continue;
+      const aid = String(a?.id ?? '').trim();
+      if (!aid) continue;
 
-      const existing = seen.get(a.id);
+      const existing = seen.get(aid);
       if (existing) {
         if (!!a.تم_القراءة && !existing.تم_القراءة) existing.تم_القراءة = true;
         changed = true;
@@ -121,17 +141,17 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
         if (
           a.نوع_التنبيه === 'إخطار بالدفع' ||
           a.نوع_التنبيه === 'إخطار قانوني بالدفع' ||
-          a.id.startsWith(payPrefix) ||
-          a.id.startsWith(legalPrefix)
+          aid.startsWith(payPrefix) ||
+          aid.startsWith(legalPrefix)
         ) {
           a.تم_القراءة = true;
           changed = true;
         }
 
-        if (a.id.startsWith(payPrefix)) {
+        if (aid.startsWith(payPrefix)) {
           // handled above
-        } else if (a.id.startsWith(remPrefix)) {
-          const instId = a.id.slice(remPrefix.length);
+        } else if (aid.startsWith(remPrefix)) {
+          const instId = aid.slice(remPrefix.length).trim();
           const inst = byInstallmentId.get(instId);
           if (inst) {
             const status = String(inst.حالة_الكمبيالة ?? '').trim();
@@ -157,7 +177,7 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
         changed = true;
       }
 
-      seen.set(a.id, a);
+      seen.set(aid, a);
       deduped.push(a);
     }
 
@@ -218,8 +238,11 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
         .filter((x) => x.status === INSTALLMENT_STATUS.PAID || x.remaining <= 0);
 
       for (const p of nowPaid) {
-        markAlertsReadByPrefix(`ALR-FIN-REM7-${p.inst.رقم_الكمبيالة}`);
-        markAlertsReadByPrefix(`ALR-FIN-PAY-${p.inst.رقم_الكمبيالة}`);
+        const paidInstId = String(p.inst.رقم_الكمبيالة ?? '').trim();
+        if (paidInstId) {
+          markAlertsReadByPrefix(`ALR-FIN-REM7-${paidInstId}`);
+          markAlertsReadByPrefix(`ALR-FIN-PAY-${paidInstId}`);
+        }
       }
 
       markAlertsReadByPrefix(`ALR-FIN-LEGAL-${contract.رقم_العقد}`);
@@ -232,7 +255,9 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
         const daysUntilDue = daysBetweenDateOnly(today, due);
 
         if (daysUntilDue > 0 && daysUntilDue <= 7) {
-          const alertId = `ALR-FIN-REM7-${u.inst.رقم_الكمبيالة}`;
+          const instKey = String(u.inst.رقم_الكمبيالة ?? '').trim();
+          if (!instKey) continue;
+          const alertId = `ALR-FIN-REM7-${instKey}`;
           upsertAlert({
             id: alertId,
             تاريخ_الانشاء: today.toISOString().split('T')[0],
@@ -244,16 +269,16 @@ export function createBackgroundScansRuntime(d: BackgroundScansDeps) {
             phone: tenant?.رقم_الهاتف,
             propertyCode: property?.الكود_الداخلي,
             مرجع_الجدول: 'الكمبيالات_tbl',
-            مرجع_المعرف: u.inst.رقم_الكمبيالة,
+            مرجع_المعرف: instKey,
           });
 
           notificationCenter.add({
-            id: `nc-rem7-${u.inst.رقم_الكمبيالة}`,
+            id: `nc-rem7-${instKey}`,
             type: 'info',
             title: 'تذكير بالاستحقاق',
             message: `${property?.الكود_الداخلي ? property.الكود_الداخلي + ' — ' : ''}${tenant?.الاسم || 'غير معروف'} — دفعة ستستحق خلال ${daysUntilDue} أيام (${u.inst.تاريخ_استحقاق})`,
             category: 'payment',
-            entityId: u.inst.رقم_الكمبيالة,
+            entityId: instKey,
           });
         }
 
