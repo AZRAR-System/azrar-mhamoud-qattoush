@@ -19,7 +19,22 @@ export interface FilterChipProps {
 
 const FilterChip: React.FC<FilterChipProps> = ({ label, options, value, onChange, icon: Icon }) => {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [dropdownStyle, setDropdownStyle] = React.useState<React.CSSProperties>({});
   const containerRef = React.useRef<HTMLDivElement>(null);
+
+  const toggleOpen = () => {
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+        minWidth: '12rem',
+        zIndex: 'var(--z-dropdown)',
+      });
+    }
+    setIsOpen(!isOpen);
+  };
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -37,7 +52,7 @@ const FilterChip: React.FC<FilterChipProps> = ({ label, options, value, onChange
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold transition-all border
           ${value 
             ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300' 
@@ -50,7 +65,10 @@ const FilterChip: React.FC<FilterChipProps> = ({ label, options, value, onChange
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 layer-dropdown min-w-[12rem] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-2 overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div
+          style={dropdownStyle}
+          className="layer-dropdown min-w-[12rem] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-2 overflow-hidden animate-in fade-in zoom-in duration-200"
+        >
           {options.map((opt) => (
             <button
               key={opt.value}
