@@ -182,6 +182,7 @@ export interface DashboardData {
 export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboardDataResult => {
   const toast = useToast();
   const isRunningRef = useRef(false);
+  const eventRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isDesktopFast, setIsDesktopFast] = useState(false);
   const [data, setData] = useState<DashboardData>({
     meta: {
@@ -631,14 +632,22 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
     refreshData();
 
     // Update immediately when underlying db_ keys change (Desktop sync and in-app edits).
-    const onTasksChanged = () => refreshData();
-    const onMarqueeChanged = () => refreshData();
+    const scheduleEventRefresh = () => {
+      if (eventRefreshTimerRef.current) return;
+      // Collapse bursts of desktop sync events into a single refresh.
+      eventRefreshTimerRef.current = setTimeout(() => {
+        eventRefreshTimerRef.current = null;
+        refreshData();
+      }, 350);
+    };
+    const onTasksChanged = () => scheduleEventRefresh();
+    const onMarqueeChanged = () => scheduleEventRefresh();
     const onStorage = (e: StorageEvent) => {
       if (!e.key) return;
-      if (String(e.key).startsWith('db_')) refreshData();
+      if (String(e.key).startsWith('db_')) scheduleEventRefresh();
     };
-    const onDbChanged = () => refreshData();
-    const onFocus = () => refreshData();
+    const onDbChanged = () => scheduleEventRefresh();
+    const onFocus = () => scheduleEventRefresh();
 
     window.addEventListener('azrar:tasks-changed', onTasksChanged);
     window.addEventListener('azrar:marquee-changed', onMarqueeChanged);
@@ -647,10 +656,14 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
     window.addEventListener('focus', onFocus);
 
     const autoRefresh = options?.autoRefresh ?? true;
-    const intervalMs = options?.refreshIntervalMs ?? 30_000;
+    const intervalMs = options?.refreshIntervalMs ?? 120_000; // 2min — reduced from 30s to avoid main-thread violations
     const interval = autoRefresh ? setInterval(refreshData, intervalMs) : null;
     return () => {
       if (interval) clearInterval(interval);
+      if (eventRefreshTimerRef.current) {
+        clearTimeout(eventRefreshTimerRef.current);
+        eventRefreshTimerRef.current = null;
+      }
       window.removeEventListener('azrar:tasks-changed', onTasksChanged);
       window.removeEventListener('azrar:marquee-changed', onMarqueeChanged);
       window.removeEventListener('azrar:db-changed', onDbChanged);
