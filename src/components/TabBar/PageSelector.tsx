@@ -50,8 +50,8 @@ export const PageSelector: React.FC = () => {
     );
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-12 bg-slate-950/80 backdrop-blur-xl animate-fade-in">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 flex items-center justify-center p-4 lg:p-12 bg-slate-950/80 backdrop-blur-xl animate-fade-in modal-overlay">
+            <div className="modal-content bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-300">
                 {/* Header Section */}
                 <div className="p-8 pb-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">

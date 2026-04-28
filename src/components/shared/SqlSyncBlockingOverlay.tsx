@@ -44,7 +44,7 @@ export function SqlSyncBlockingOverlay() {
 
   return (
     <div
-      className="fixed inset-0 z-[20000] flex items-center justify-center bg-slate-950/55 backdrop-blur-[2px] p-4"
+      className="fixed inset-0 flex items-center justify-center bg-slate-950/55 backdrop-blur-[2px] p-4 blocking-app-overlay"
       role="alertdialog"
       aria-modal="true"
       aria-busy="true"

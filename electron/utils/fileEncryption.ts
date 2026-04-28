@@ -41,7 +41,7 @@ function deriveKey(password: string, salt: Buffer, iterations = ITERATIONS): Buf
 }
 
 function ensureDirForFile(filePath: string): Promise<void> {
-  return fsp.mkdir(path.dirname(filePath), { recursive: true }) as Promise<void>;
+  return fsp.mkdir(path.dirname(filePath), { recursive: true }).then(() => {});
 }
 
 export async function isEncryptedFile(filePath: string): Promise<boolean> {

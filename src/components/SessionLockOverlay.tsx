@@ -35,7 +35,7 @@ export const SessionLockOverlay: FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4"
+      className="fixed inset-0 flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 blocking-app-overlay"
       dir="rtl"
       role="dialog"
       aria-modal="true"

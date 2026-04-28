@@ -1,4 +1,4 @@
-import type PizZip from 'pizzip';
+import PizZip from 'pizzip';
 import { HEADER_FOOTER_PAGE_TOKEN } from './headerFooterEngine';
 import type { HeaderFooterResolved } from './types';
 
@@ -10,7 +10,7 @@ const escapeXml = (v: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 
-const getTextFile = (zip: PizZip, filePath: string): string => {
+const getTextFile = (zip: InstanceType<typeof PizZip>, filePath: string): string => {
   const f = zip.file(filePath);
   if (!f) return '';
   try {
@@ -21,7 +21,7 @@ const getTextFile = (zip: PizZip, filePath: string): string => {
   }
 };
 
-const setTextFile = (zip: PizZip, filePath: string, text: string): void => {
+const setTextFile = (zip: InstanceType<typeof PizZip>, filePath: string, text: string): void => {
   zip.file(filePath, text);
 };
 
@@ -131,7 +131,7 @@ const upsertHeaderFooterRefsInLastSectPr = (
 };
 
 export const injectHeaderFooterIntoDocxZip = (
-  zip: PizZip,
+  zip: InstanceType<typeof PizZip>,
   resolved: HeaderFooterResolved
 ): void => {
   const wantsHeader = resolved.headerEnabled && resolved.headerLines.length > 0;

@@ -110,7 +110,9 @@ const printPdfFile = async (
   options?: PrintPreviewPrintOptions
 ): Promise<PrintPreviewActionResult> => {
   const safe = ensurePdfTempSafe(pdfPath);
-  if (!safe.ok) return { ok: false, code: 'INVALID', message: safe.message };
+  if (safe.ok === false) {
+    return { ok: false, code: 'INVALID', message: safe.message };
+  }
 
   const pdfUrl = pathToFileURL(pdfPath).toString();
 
@@ -211,7 +213,9 @@ const saveTempPdfAs = async (
   suggestedFileName: string
 ): Promise<PrintPreviewActionResult> => {
   const safe = ensurePdfTempSafe(pdfPath);
-  if (!safe.ok) return { ok: false, code: 'INVALID', message: safe.message };
+  if (safe.ok === false) {
+    return { ok: false, code: 'INVALID', message: safe.message };
+  }
 
   try {
     const res = (await dialog.showSaveDialog({
@@ -247,7 +251,9 @@ const regeneratePdfTemp = async (
     { settings }
   );
 
-  if (!res.ok) return { ok: false, message: res.message };
+  if (res.ok === false) {
+    return { ok: false, message: res.message };
+  }
   if (!res.tempPath || !res.fileName) return { ok: false, message: 'فشل توليد ملف PDF مؤقت' };
   return { ok: true, tempPath: res.tempPath, fileName: res.fileName };
 };
@@ -270,7 +276,9 @@ export const openPrintPreview = async (
     const settings = loaded.ok ? loaded.settings : null;
 
     const regen = await regeneratePdfTemp(payload, settings);
-    if (!regen.ok) return { ok: false, code: 'FAILED', message: regen.message };
+    if (regen.ok === false) {
+      return { ok: false, code: 'FAILED', message: regen.message };
+    }
 
     const id = crypto.randomBytes(8).toString('hex');
     const session: PreviewSession = {
@@ -306,7 +314,9 @@ export const getPrintPreviewState = async (sessionId: string): Promise<PrintPrev
     }
 
     const safe = ensurePdfTempSafe(s.pdfTempPath);
-    if (!safe.ok) return { ok: false, code: 'FAILED', message: safe.message };
+    if (safe.ok === false) {
+      return { ok: false, code: 'FAILED', message: safe.message };
+    }
 
     return {
       ok: true,
@@ -375,12 +385,13 @@ export const exportDocxFromPreview = async (
     headerFooter: s.payload.headerFooter,
   });
 
-  if (!docxRes.ok)
+  if (docxRes.ok === false) {
     return {
       ok: false,
       code: docxRes.code as 'CANCELED' | 'FAILED' | 'INVALID',
       message: docxRes.message,
     };
+  }
   return { ok: true, savedPath: docxRes.savedPath };
 };
 
@@ -399,7 +410,9 @@ export const reloadPreview = async (sessionId: string): Promise<PrintPreviewActi
   const settings = loaded.ok ? loaded.settings : null;
 
   const regen = await regeneratePdfTemp(s.payload, settings);
-  if (!regen.ok) return { ok: false, code: 'FAILED', message: regen.message };
+  if (regen.ok === false) {
+    return { ok: false, code: 'FAILED', message: regen.message };
+  }
 
   s.pdfTempPath = regen.tempPath;
   s.pdfFileName = regen.fileName;

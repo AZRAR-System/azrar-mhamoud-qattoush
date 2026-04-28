@@ -20,7 +20,9 @@ export const generateDocument = async (
       headerFooter: payload.headerFooter,
     });
 
-    if (!docx.ok) return docx;
+    if (docx.ok === false) {
+      return { ok: false, code: docx.code, message: docx.message };
+    }
 
     if (payload.outputType === 'docx') {
       const written = await writeTempFile({
@@ -41,7 +43,9 @@ export const generateDocument = async (
       const pdf = await convertDocxBytesToPdfBytes(docx.bytes, {
         sofficePath: opts?.settings?.pdfExport?.sofficePath,
       });
-      if (!pdf.ok) return { ok: false, code: 'FAILED', message: pdf.message };
+      if (pdf.ok === false) {
+        return { ok: false, code: 'FAILED', message: pdf.message };
+      }
 
       const written = await writeTempFile({
         ext: 'pdf',

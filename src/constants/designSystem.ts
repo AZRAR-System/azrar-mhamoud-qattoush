@@ -66,6 +66,8 @@ export const DS = {
   layout: {
     pageWrap: 'space-y-8 page-transition',
     sectionGap: 'space-y-6',
+    /** Opt-in via PageLayout.containWidth — readable line length without breaking wide tables */
+    pageShell: 'w-full max-w-[min(100%,80rem)] mx-auto',
   },
   /** تخطيط صفحة الإعدادات (محتوى يمين الشريط الجانبي) */
   settingsLayout: {

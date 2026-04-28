@@ -35,7 +35,7 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 flex items-center justify-center p-4 modal-overlay">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -44,7 +44,7 @@ export const Modal: React.FC<ModalProps> = ({
       
       {/* Modal Container */}
       <div 
-        className={`relative w-full ${sizes[size]} bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200`}
+        className={`modal-content relative w-full ${sizes[size]} bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200`}
       >
         {/* Header */}
         <div className="flex items-center gap-3 p-6 border-b border-slate-100 dark:border-slate-800 shrink-0">

@@ -152,7 +152,7 @@ const Sidebar = memo(({
   return (
     <aside
       className={`
-        fixed lg:static inset-y-0 right-0 z-[100]
+        fixed lg:static inset-y-0 right-0 layer-app-sidebar
         w-72 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl
         text-slate-800 dark:text-slate-100 transition-all duration-500 ease-out
         flex flex-col shadow-2xl lg:shadow-none border-l border-white/20 dark:border-slate-800/50
@@ -376,7 +376,7 @@ const Header = memo(({
   onOpenPanel: (type: string, id?: string, options?: Record<string, unknown>) => void;
 }) => {
   return (
-    <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft z-[90] transition-all">
+    <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft layer-app-header transition-all">
       <div className="flex items-center gap-6">
         <button
           type="button"
@@ -979,7 +979,7 @@ export const Layout = () => {
       {/* ================================ */}
       {!isDesktop && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-md z-[95] animate-fade-in"
+          className="fixed inset-0 bg-black/60 backdrop-blur-md layer-app-drawer-backdrop animate-fade-in"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -1004,7 +1004,7 @@ export const Layout = () => {
       {/* ================================ */}
       {/* Main Content Area */}
       {/* ================================ */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative w-full z-10 transition-all">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative w-full layer-page-main transition-all">
         {/* Floating Modern Header - Memoized */}
         <Header 
             pathname={pathname}
@@ -1085,7 +1085,7 @@ export const Layout = () => {
         </main>
 
         {/* Scroll To Top */}
-        <div className="fixed bottom-6 left-6 z-[150]">
+        <div className="fixed bottom-6 left-6 layer-app-fab">
           <ScrollToTopButton scrollContainer={typeof window !== 'undefined' ? (window as any).__mainScrollEl : null} />
         </div>
 

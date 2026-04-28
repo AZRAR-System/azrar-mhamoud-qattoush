@@ -50,7 +50,7 @@ const FilterChip: React.FC<FilterChipProps> = ({ label, options, value, onChange
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 z-50 min-w-[12rem] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-2 overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="absolute top-full mt-2 layer-dropdown min-w-[12rem] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-2 overflow-hidden animate-in fade-in zoom-in duration-200">
           {options.map((opt) => (
             <button
               key={opt.value}

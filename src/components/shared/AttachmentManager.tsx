@@ -176,7 +176,7 @@ export function AttachmentManager({ entityType, entityId }: AttachmentManagerPro
       {/* معاينة الصور */}
       {previewUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 modal-overlay"
           onClick={() => setPreviewUrl(null)}
         >
           <img src={previewUrl} alt="معاينة" className="max-w-full max-h-full rounded-lg object-contain" />

@@ -8,27 +8,33 @@
 
   /* Global layering (z-index ladder)
      Content: 1
-     Header: 40
-     Sidebar: 50
+     Legacy header/sidebar tokens: 40 / 50 (see .layer-header / .layer-sidebar)
+     App shell (Layout): --z-app-header → backdrop → sidebar → FAB (below dropdown)
      Dropdown/Tooltip/Popover: 100
-      Slide-over Panel Overlay: 1500
-      Slide-over Panel Content: 1600
-      Toast: 4000
-     Modal Overlay: 2000
-     Modal Content: 2100
+     Page main scaffold (Layout column): --z-page-main
+     Slide-over Panel Overlay: 1500 / Content: 1600
+     Modal Overlay: 2000 / Content: 2100
      Confirm Modal: 3000
+     Toast: 4000
+     Blocking app overlays (SQL sync, session lock): --z-blocking-app
      Fullscreen Loader: 5000
   */
   --z-content: 1;
   --z-header: 40;
   --z-sidebar: 50;
   --z-dropdown: 100;
+  --z-page-main: 10;
+  --z-app-header: 90;
+  --z-app-drawer-backdrop: 95;
+  --z-app-sidebar: 100;
+  --z-app-fab: 150;
   --z-panel-overlay: 1500;
   --z-panel-content: 1600;
   --z-toast: 4000;
   --z-modal-overlay: 2000;
   --z-modal-content: 2100;
   --z-confirm: 3000;
+  --z-blocking-app: 4500;
   --z-loader: 5000;
 }
 
@@ -233,6 +239,34 @@ body,
 
 .layer-toast {
   z-index: var(--z-toast);
+}
+
+/* App shell (Layout.tsx); values preserve prior Tailwind literals */
+.layer-app-header {
+  position: relative;
+  z-index: var(--z-app-header);
+}
+
+.layer-app-drawer-backdrop {
+  z-index: var(--z-app-drawer-backdrop);
+}
+
+.layer-app-sidebar {
+  z-index: var(--z-app-sidebar);
+}
+
+.layer-app-fab {
+  z-index: var(--z-app-fab);
+}
+
+.layer-page-main {
+  position: relative;
+  z-index: var(--z-page-main);
+}
+
+/* Above modals/toasts; below fullscreen loader (session lock, SQL sync block) */
+.blocking-app-overlay {
+  z-index: var(--z-blocking-app);
 }
 
 /* --- Modern UI & UX Enhancements --- */

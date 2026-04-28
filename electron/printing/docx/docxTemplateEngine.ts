@@ -73,9 +73,9 @@ export const renderDocxToBuffer = async (
     }
 
     const resolved = buildHeaderFooter(headerFooter);
-    injectHeaderFooterIntoDocxZip(doc.getZip() as unknown as PizZip, resolved);
+    injectHeaderFooterIntoDocxZip(doc.getZip() as unknown as InstanceType<typeof PizZip>, resolved);
 
-    const outBuf: Buffer = doc.getZip().generate({ type: 'nodebuffer' });
+    const outBuf = Buffer.from(doc.getZip().generate({ type: 'nodebuffer' }));
 
     const stem = payload?.defaultFileName
       ? safeFileStem(payload.defaultFileName)
@@ -91,7 +91,9 @@ export const generateDocxFromTemplate = async (
 ): Promise<GenerateDocxResult> => {
   try {
     const rendered = await renderDocxToBuffer(payload);
-    if (!rendered.ok) return { ok: false, code: rendered.code, message: rendered.message };
+    if (rendered.ok === false) {
+      return { ok: false, code: rendered.code, message: rendered.message };
+    }
 
     const defaultName = `${rendered.fileStem}_${new Date().toISOString().slice(0, 10)}.docx`;
 
