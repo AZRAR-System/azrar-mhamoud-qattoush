@@ -399,9 +399,9 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           : null;
         const desktopHighlights = fastPath ? await dashboardHighlightsSmart({ todayYMD }) : null;
 
-        const installmentsForStats = DbService.getInstallments();
-        const contractsForKpi =
-          !fastPath && contracts.length > 0 ? contracts : DbService.getContracts();
+        // In fastPath, desktopHighlights provides installment/contract stats — avoid heavy DB calls
+        const installmentsForStats = fastPath ? [] : DbService.getInstallments();
+        const contractsForKpi = fastPath ? [] : (contracts.length > 0 ? contracts : DbService.getContracts());
 
         const limit30d = toYMD(
           new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30)
