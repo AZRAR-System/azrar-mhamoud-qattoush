@@ -20,7 +20,9 @@ import {
 } from '@/utils/dateOnly';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { readSessionFilterJson, writeSessionFilterJson } from '@/utils/sessionFilterStorage';
+import { ROUTE_PATHS } from '@/routes/paths';
 import {
   domainCountsSmart,
   domainGetSmart,
@@ -72,6 +74,7 @@ export function useInstallments() {
   const userRole = normalizeRole(user?.الدور);
 
   const toast = useToast();
+  const dialogs = useAppDialogs();
 
   const [contracts, setContracts] = useState<العقود_tbl[]>([]);
   const [people, setPeople] = useState<الأشخاص_tbl[]>([]);
@@ -209,8 +212,6 @@ export function useInstallments() {
     localStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
   }, [favoriteFilters]);
 
-  const [selectedInstallment, setSelectedInstallment] = useState<الكمبيالات_tbl | null>(null);
-
   // Confirmation Dialog State
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -274,6 +275,70 @@ export function useInstallments() {
 
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [highlightInstallmentId, setHighlightInstallmentId] = useState<string | null>(null);
+  const [openOnlyTargetPanel, setOpenOnlyTargetPanel] = useState(false);
+  const lastAppliedOpenTargetSigRef = useRef('');
+  const lastAppliedIntentKeyRef = useRef('');
+  const skipNextHashClearRef = useRef(false);
+
+  const applyInstallmentsOpenTarget = useCallback(
+    (payload: unknown) => {
+      if (!isRecord(payload)) return;
+      const rawInst = String(payload.installmentId ?? '').trim();
+      const rawContract = String(payload.contractId ?? '').trim();
+      const requestedFilter = String(payload.filter ?? '').trim();
+      const fromAlert =
+        payload.fromAlert === true || String(payload.fromAlert ?? '').toLowerCase() === 'true';
+      const onlyTargetPanel =
+        payload.onlyTargetPanel === true ||
+        String(payload.onlyTargetPanel ?? '').toLowerCase() === 'true';
+      const intentKey = String(payload.intentKey ?? '').trim();
+      if (intentKey && intentKey === lastAppliedIntentKeyRef.current) return;
+      const normalizedFilter =
+        requestedFilter === 'all' ||
+        requestedFilter === 'debt' ||
+        requestedFilter === 'due' ||
+        requestedFilter === 'paid'
+          ? requestedFilter
+          : '';
+      const sig = JSON.stringify({
+        rawInst,
+        rawContract,
+        normalizedFilter,
+        fromAlert,
+        onlyTargetPanel,
+      });
+      if (lastAppliedOpenTargetSigRef.current === sig) return;
+      lastAppliedOpenTargetSigRef.current = sig;
+      if (intentKey) lastAppliedIntentKeyRef.current = intentKey;
+      setOpenOnlyTargetPanel(onlyTargetPanel);
+
+      if (fromAlert) {
+        setSearch('');
+        setFilterStartDate('');
+        setFilterEndDate('');
+        setFilterMinAmount('');
+        setFilterMaxAmount('');
+        setFilterPaymentMethod('all');
+        setShowCharts(false);
+        setIsAdvancedFiltersOpen(false);
+        setDesktopPage(0);
+      }
+
+      if (normalizedFilter) setFilter(normalizedFilter);
+
+      if (rawContract) setSelectedContractId(rawContract);
+      if (!rawInst) return;
+
+      setHighlightInstallmentId(rawInst);
+      skipNextHashClearRef.current = true;
+      const allInst = DbService.getInstallments();
+      const target = allInst.find((i) => String(i.رقم_الكمبيالة || '').trim() === rawInst);
+      if (target) {
+        setSelectedContractId(String(target.رقم_العقد || '').trim() || rawContract || null);
+      }
+    },
+    []
+  );
 
   // Support deep links: #/installments?filter=due|debt|paid|all&q=...
   useEffect(() => {
@@ -283,28 +348,39 @@ export function useInstallments() {
           ? String(window.location.hash || '').slice(1)
           : String(window.location.hash || '');
         const qIndex = raw.indexOf('?');
+        const pathOnly = qIndex >= 0 ? raw.slice(0, qIndex) : raw;
+        if (pathOnly !== ROUTE_PATHS.INSTALLMENTS) return;
         const searchPart = qIndex >= 0 ? raw.slice(qIndex + 1) : '';
         const params = new URLSearchParams(searchPart);
 
         const nextFilter = String(params.get('filter') || '').trim();
         const q = params.get('q');
         const s = params.get('search');
-        const instId = params.get('id') || params.get('installmentId');
+        const idParam = params.get('id');
+        const installmentIdParam = params.get('installmentId');
         const highlightId = params.get('highlight');
         const cId = params.get('contractId') || params.get('contract_id');
+        const fromAlert =
+          params.get('fromAlert') === '1' ||
+          String(params.get('fromAlert') || '').toLowerCase() === 'true';
 
-        const effectiveTargetId = instId || highlightId;
+        const effectiveTargetId = String(
+          idParam || installmentIdParam || highlightId || ''
+        ).trim();
 
         // If we have a search or a specific ID, reset ALL advanced filters to ensure visibility
-        if (q || s || effectiveTargetId || cId) {
+        if (q || s || effectiveTargetId || cId || fromAlert) {
           setFilter('all');
           setFilterStartDate('');
           setFilterEndDate('');
           setFilterMinAmount('');
           setFilterMaxAmount('');
           setFilterPaymentMethod('all');
-          // Important: also expand the list view if it was collapsed by some chart view
           setShowCharts(false);
+          if (fromAlert) {
+            setIsAdvancedFiltersOpen(false);
+            setDesktopPage(0);
+          }
         }
 
         if (
@@ -318,24 +394,22 @@ export function useInstallments() {
 
         if (q !== null) setSearch(prev => prev === String(q) ? prev : String(q));
         else if (s !== null) setSearch(String(s));
+        else if (fromAlert) setSearch('');
 
-        // Deep link to specific installment
+        // Deep link to specific installment (highlight only — without payment modal)
         if (effectiveTargetId) {
           setHighlightInstallmentId(effectiveTargetId);
           const allInst = DbService.getInstallments();
           const target = allInst.find((i) => String(i.رقم_الكمبيالة) === String(effectiveTargetId));
           if (target) {
             setSelectedContractId(String(target.رقم_العقد));
-            if (instId) {
-              setSelectedInstallment(target);
-            }
-            // If we didn't have a search, but we have a target, try to filter by its tenant to give context
-            if (!q && !s) {
-              const contract = DbService.getContracts().find((c) => c.رقم_العقد === target.رقم_العقد);
-              const tenant = DbService.getPeople().find((p) => p.رقم_الشخص === contract?.رقم_المستاجر);
-              if (tenant?.الاسم) setSearch(tenant.الاسم);
-            }
           }
+        } else {
+          if (skipNextHashClearRef.current) {
+            skipNextHashClearRef.current = false;
+            return;
+          }
+          setHighlightInstallmentId(null);
         }
 
         // Deep link to specific contract modal (Comprehensive Collection Info)
@@ -364,6 +438,26 @@ export function useInstallments() {
       window.removeEventListener('hashchange', onHashChange);
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('installments_open_target');
+      if (!raw) return () => {
+        lastAppliedOpenTargetSigRef.current = '';
+      };
+      // One-shot consume: يمنع إعادة التطبيق عند أي remount/refresh داخلي لاحق.
+      sessionStorage.removeItem('installments_open_target');
+      applyInstallmentsOpenTarget(JSON.parse(raw));
+    } catch {
+      // ignore malformed session payload
+      sessionStorage.removeItem('installments_open_target');
+    }
+    return () => {
+      lastAppliedOpenTargetSigRef.current = '';
+      lastAppliedIntentKeyRef.current = '';
+      skipNextHashClearRef.current = false;
+    };
+  }, [applyInstallmentsOpenTarget]);
 
   const legacyLoadData = useCallback(() => {
     setContracts(DbService.getContracts());
@@ -607,9 +701,70 @@ export function useInstallments() {
     });
   }, [userId, userRole, toast, loadData, resolveTenantNameForInstallment]);
 
-  const handlePartialPayment = useCallback((installment: الكمبيالات_tbl) => {
-    setSelectedInstallment(installment);
-  }, []);
+  const handlePartialPayment = useCallback(async (installment: الكمبيالات_tbl) => {
+    const tenantNameForDialog = await resolveTenantNameForInstallment(installment);
+    const baseAmount = Math.max(
+      0,
+      Number(installment.القيمة_المتبقية || installment.القيمة) || 0
+    );
+    if (baseAmount <= 0) {
+      toast.info('لا يوجد مبلغ متبقٍ لهذه الدفعة');
+      return;
+    }
+
+    const amountText = await dialogs.prompt({
+      title: 'دفعة جزئية',
+      message: `المستأجر: ${tenantNameForDialog}\nالمتبقي الحالي: ${baseAmount.toLocaleString()} د.أ\nأدخل المبلغ الجزئي:`,
+      inputType: 'number',
+      defaultValue: String(baseAmount),
+      required: true,
+      validationRegex: /^(\d+)(\.\d+)?$/,
+      validationError: 'أدخل مبلغًا صحيحًا',
+    });
+    if (!amountText) return;
+
+    const paidAmount = Number(amountText);
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+      toast.error('المبلغ الجزئي يجب أن يكون أكبر من صفر');
+      return;
+    }
+    if (paidAmount > baseAmount) {
+      toast.error(`المبلغ الجزئي لا يمكن أن يتجاوز ${baseAmount.toLocaleString()} د.أ`);
+      return;
+    }
+
+    const paymentDate =
+      (await dialogs.prompt({
+        title: 'تاريخ الدفع',
+        inputType: 'date',
+        defaultValue: new Date().toISOString().split('T')[0],
+        required: true,
+      })) || '';
+    if (!paymentDate) return;
+
+    const notes = await dialogs.prompt({
+      title: 'ملاحظات (اختياري)',
+      inputType: 'textarea',
+      required: false,
+      placeholder: 'أضف ملاحظات حول الدفعة...',
+    });
+
+    const resPay = DbService.markInstallmentPaid(installment.رقم_الكمبيالة, userId, userRole, {
+      paidAmount,
+      paymentDate,
+      notes: String(notes || '').trim() || 'سداد جزئي مباشر',
+      isPartial: paidAmount < baseAmount,
+    });
+    if (!resPay.success) {
+      toast.error(resPay.message || 'فشل تسجيل الدفعة الجزئية');
+      return;
+    }
+    const remaining = Math.max(0, baseAmount - paidAmount);
+    toast.warning(
+      `دفعة جزئية: ${paidAmount.toLocaleString()} د.أ — المتبقي: ${remaining.toLocaleString()} د.أ`
+    );
+    loadData();
+  }, [dialogs, loadData, resolveTenantNameForInstallment, toast, userId, userRole]);
 
   const handleReversePayment = useCallback(async (installment: الكمبيالات_tbl) => {
     // ✅ استخدام نظام الصلاحيات - INSTALLMENT_REVERSE
@@ -652,23 +807,6 @@ export function useInstallments() {
       },
     });
   }, [userRole, toast, userId, loadData, resolveTenantNameForInstallment]);
-
-  const handlePay = useCallback((id: string) => {
-    if (isDesktopFast) {
-      for (const row of desktopRows) {
-        const list = Array.isArray(row?.installments) ? row.installments : [];
-        const inst = list.find((i) => String(i?.رقم_الكمبيالة || '') === id);
-        if (inst) {
-          setSelectedInstallment(inst);
-          return;
-        }
-      }
-      return;
-    }
-
-    const inst = installments.find((i) => i.رقم_الكمبيالة === id);
-    if (inst) setSelectedInstallment(inst);
-  }, [isDesktopFast, desktopRows, installments]);
 
   // Group Data Structure
   const groupedData = useMemo(() => {
@@ -1161,11 +1299,20 @@ export function useInstallments() {
     dbSignal,
     clearDeepLink: () => {
       setHighlightInstallmentId(null);
+      setOpenOnlyTargetPanel(false);
+      lastAppliedOpenTargetSigRef.current = '';
+      lastAppliedIntentKeyRef.current = '';
+      skipNextHashClearRef.current = false;
       const raw = String(window.location.hash || '');
-      if (raw.includes('?')) {
-        const [base] = raw.split('?');
-        window.history.replaceState(null, '', base);
-      }
+      if (!raw.includes('?')) return;
+      const baseWithHash = raw.split('?')[0];
+      if (!baseWithHash) return;
+      const pathOnly = baseWithHash.startsWith('#') ? baseWithHash.slice(1) : baseWithHash;
+      // تجنّب refresh/rehydration غير ضروري عند الإغلاق: نظّف query فقط داخل مسار الدفعات.
+      if (!pathOnly.startsWith(ROUTE_PATHS.INSTALLMENTS)) return;
+      const nextHash = `#${pathOnly}`;
+      if (raw === nextHash) return;
+      window.history.replaceState(null, '', nextHash);
     },
     legacyLoadData,
     loadDesktopData,
@@ -1175,7 +1322,6 @@ export function useInstallments() {
     handleFullPayment,
     handlePartialPayment,
     handleReversePayment,
-    handlePay,
     groupedData,
     filteredList,
     financialStats,
@@ -1231,10 +1377,10 @@ export function useInstallments() {
     setShowCharts,
     favoriteFilters,
     setFavoriteFilters,
-    selectedInstallment,
-    setSelectedInstallment,
     highlightInstallmentId,
     setHighlightInstallmentId,
+    openOnlyTargetPanel,
+    setOpenOnlyTargetPanel,
     selectedContractId,
     setSelectedContractId,
     confirmDialog,

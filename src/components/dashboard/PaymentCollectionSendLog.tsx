@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DbService, type NotificationSendLogRecord } from '@/services/mockDb';
 import { useSmartModal } from '@/context/ModalContext';
+import { ROUTE_PATHS } from '@/routes/paths';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import type { الكمبيالات_tbl } from '@/types';
@@ -112,10 +113,12 @@ export const PaymentCollectionSendLog: React.FC<Props> = ({ maxItems = 5, title,
           {title || `سجل إشعارات التحصيل (آخر ${lastSent.length})`}
         </div>
         <button
-          onClick={() => openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 })}
+          onClick={() =>
+            openPanel('SECTION_VIEW', ROUTE_PATHS.INSTALLMENTS, { title: 'لوحة السداد الرئيسية' })
+          }
           className="text-xs font-bold text-indigo-600 hover:underline"
         >
-          فتح شاشة الإرسال
+          فتح لوحة السداد الرئيسية
         </button>
       </div>
 

@@ -29,8 +29,6 @@ export function InstallmentsContractsList({ page }: Props) {
     userRole,
     showDynamicColumns,
     dynamicFields,
-    handlePay,
-    setSelectedInstallment,
     handleFullPayment,
     handlePartialPayment,
     handleReversePayment,
@@ -154,8 +152,6 @@ export function InstallmentsContractsList({ page }: Props) {
                 userRole={userRole}
                 showDynamicColumns={showDynamicColumns}
                 dynamicFields={dynamicFields}
-                onPay={handlePay}
-                onSelectInstallment={setSelectedInstallment}
                 onFullPayment={handleFullPayment}
                 onPartialPayment={handlePartialPayment}
                 onReversePayment={handleReversePayment}
@@ -170,7 +166,12 @@ export function InstallmentsContractsList({ page }: Props) {
                   if (!isOpen && page.selectedContractId === contractId) {
                     page.setSelectedContractId(null);
                   }
-                  if (!isOpen && page.highlightInstallmentId) {
+                  // لا تمسح deep link من بطاقات عقود أخرى عند التصيير الأولي (كان يسبب تنقلاً/فلترة عشوائية)
+                  if (
+                    !isOpen &&
+                    page.highlightInstallmentId &&
+                    page.selectedContractId === contractId
+                  ) {
                     page.clearDeepLink();
                   }
                 }}
@@ -225,8 +226,6 @@ export function InstallmentsContractsList({ page }: Props) {
             userRole={userRole}
             showDynamicColumns={showDynamicColumns}
             dynamicFields={dynamicFields}
-            onPay={handlePay}
-            onSelectInstallment={setSelectedInstallment}
             onFullPayment={handleFullPayment}
             onPartialPayment={handlePartialPayment}
             onReversePayment={handleReversePayment}
@@ -241,7 +240,11 @@ export function InstallmentsContractsList({ page }: Props) {
               if (!isOpen && page.selectedContractId === item.contract.رقم_العقد) {
                 page.setSelectedContractId(null);
               }
-              if (!isOpen && page.highlightInstallmentId) {
+              if (
+                !isOpen &&
+                page.highlightInstallmentId &&
+                page.selectedContractId === item.contract.رقم_العقد
+              ) {
                 page.clearDeepLink();
               }
             }}

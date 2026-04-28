@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Bell,
   CheckCircle,
@@ -22,7 +22,10 @@ import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { StatCard } from '@/components/shared/StatCard';
 import { AlertsSmartFilterBar } from './AlertsSmartFilterBar';
 import type { useAlerts } from '@/hooks/useAlerts';
-import type { tbl_Alerts, AlertDetail } from '@/types';
+import type { tbl_Alerts, AlertDetail, الكمبيالات_tbl, العقود_tbl, العقارات_tbl, الأشخاص_tbl } from '@/types';
+import { DbService } from '@/services/mockDb';
+import { getInstallmentPaidAndRemaining } from '@/utils/installments';
+import { formatCurrencyJOD } from '@/utils/format';
 
 interface AlertsPageViewProps {
   page: ReturnType<typeof useAlerts>;
@@ -51,6 +54,8 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
     handleMarkAllRead,
     handleDismiss,
     handleNavigate,
+    handleAlertCardPrimary,
+    getAlertPrimarySpec,
     sendWhatsApp,
     sendFixedExpiryWhatsApp,
     openLegalNotice,
@@ -59,6 +64,42 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
     isExpiryKind,
   } = page;
 
+  /** بيانات موسّعة لتنبيهات مالية مرتبطة بكمبيالة محددة */
+  const installmentAlertContext = useMemo(() => {
+    const a = selectedAlert;
+    if (!a || a.category !== 'Financial') return null;
+    if (a.مرجع_الجدول !== 'الكمبيالات_tbl') return null;
+    const instId = String(a.مرجع_المعرف || '').trim();
+    if (!instId || instId === 'batch') return null;
+
+    const installments = (DbService.getInstallments?.() || []) as الكمبيالات_tbl[];
+    const inst = installments.find((i) => String(i.رقم_الكمبيالة) === instId);
+    if (!inst) return null;
+
+    const contracts = (DbService.getContracts?.() || []) as العقود_tbl[];
+    const contract = contracts.find((c) => String(c.رقم_العقد) === String(inst.رقم_العقد));
+
+    const people = (DbService.getPeople?.() || []) as الأشخاص_tbl[];
+    const tenant = contract
+      ? people.find((p) => String(p.رقم_الشخص) === String(contract.رقم_المستاجر))
+      : null;
+
+    const properties = (DbService.getProperties?.() || []) as العقارات_tbl[];
+    const property = contract
+      ? properties.find((p) => String(p.رقم_العقار) === String(contract.رقم_العقار))
+      : null;
+
+    const { paid, remaining } = getInstallmentPaidAndRemaining(inst);
+
+    return {
+      inst,
+      contract,
+      tenant,
+      property,
+      paid,
+      remaining,
+    };
+  }, [selectedAlert]);
 
   const getAlertStyle = (alert: tbl_Alerts) => {
     if (alert.category === 'Financial')
@@ -95,7 +136,7 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
     <div className="animate-fade-in pb-10 space-y-8">
       <SmartPageHero
         title="التنبيهات والإشعارات"
-        description="مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر"
+        description="زر الإجراء الرئيسي يتغيّر حسب نوع التنبيه: فتح مباشر للسجل عندما يكفي، أو مراجعة كاملة في نافذة عندما توجد إجراءات متعددة (واتساب، إخطار، …)."
         icon={Bell}
       />
 
@@ -156,7 +197,9 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
 
 
             <div className="grid grid-cols-1 gap-4">
-              {pagedAlerts.map((a) => (
+              {pagedAlerts.map((a) => {
+                const primarySpec = getAlertPrimarySpec(a);
+                return (
                 <div
                   key={a.id}
                   className={`app-card group relative transition-all duration-300 hover:shadow-lg border-r-4 ${
@@ -221,10 +264,12 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
                       <Button
                         size="sm"
                         variant="primary"
-                        onClick={() => setSelectedAlert(a)}
+                        type="button"
+                        title={primarySpec.hint || undefined}
+                        onClick={() => handleAlertCardPrimary(a)}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
                       >
-                        مراجعة وإجراء
+                        {primarySpec.label}
                       </Button>
                       <Button
                         size="sm"
@@ -237,7 +282,8 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </>
         )}
@@ -283,6 +329,75 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
               {selectedAlert.الوصف}
             </p>
 
+            {installmentAlertContext && (
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 p-4 space-y-3 text-sm">
+                <div className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  تفاصيل الدفعة والعقد
+                </div>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-slate-700 dark:text-slate-200">
+                  <div className="flex flex-col gap-0.5">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">رقم الكمبيالة</dt>
+                    <dd className="font-bold tabular-nums">{installmentAlertContext.inst.رقم_الكمبيالة}</dd>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">رقم العقد</dt>
+                    <dd className="font-bold tabular-nums">
+                      {installmentAlertContext.contract?.رقم_العقد ?? '—'}
+                    </dd>
+                  </div>
+                  <div className="flex flex-col gap-0.5 sm:col-span-2">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">المستأجر</dt>
+                    <dd className="font-bold">
+                      {installmentAlertContext.tenant?.الاسم ||
+                        selectedAlert.tenantName ||
+                        '—'}
+                    </dd>
+                  </div>
+                  <div className="flex flex-col gap-0.5 sm:col-span-2">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">العقار</dt>
+                    <dd className="font-bold">
+                      {installmentAlertContext.property
+                        ? `${installmentAlertContext.property.الكود_الداخلي || installmentAlertContext.property.رقم_العقار}${
+                            installmentAlertContext.property.العنوان
+                              ? ` — ${installmentAlertContext.property.العنوان}`
+                              : ''
+                          }`
+                        : selectedAlert.propertyCode || '—'}
+                    </dd>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">تاريخ الاستحقاق</dt>
+                    <dd className="font-bold tabular-nums">{installmentAlertContext.inst.تاريخ_استحقاق}</dd>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">حالة القسط</dt>
+                    <dd className="font-bold">{installmentAlertContext.inst.حالة_الكمبيالة || '—'}</dd>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">نوع الدفعة</dt>
+                    <dd className="font-bold">{installmentAlertContext.inst.نوع_الكمبيالة || '—'}</dd>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">قيمة القسط</dt>
+                    <dd className="font-bold tabular-nums">
+                      {formatCurrencyJOD(installmentAlertContext.inst.القيمة)}
+                    </dd>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <dt className="text-[11px] text-slate-500 dark:text-slate-400">المسدّد / المتبقي</dt>
+                    <dd className="font-bold tabular-nums">
+                      {formatCurrencyJOD(installmentAlertContext.paid)} /{' '}
+                      {formatCurrencyJOD(installmentAlertContext.remaining)}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  زر «التفاصيل الكاملة» يفتح منزلق تفاصيل العقد من دون مغادرة صفحة التنبيهات — دون فتح نافذة السداد
+                  تلقائياً.
+                </p>
+              </div>
+            )}
+
             {/* Fixed expiry/renewal quick notifications */}
             {selectedAlert.category === 'Expiry' &&
               selectedAlert.مرجع_الجدول === 'العقود_tbl' &&
@@ -291,6 +406,9 @@ export const AlertsPageView: React.FC<AlertsPageViewProps> = ({ page }) => {
                   <div className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3">
                     رسائل انتهاء/تجديد العقد (ثابتة)
                   </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
+                    زر «التفاصيل الكاملة» يفتح منزلق تفاصيل العقد وأنت تبقى في صفحة التنبيهات.
+                  </p>
                   <div className="grid grid-cols-1 gap-3">
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">

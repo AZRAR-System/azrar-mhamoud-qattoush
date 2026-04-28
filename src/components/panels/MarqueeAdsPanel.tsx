@@ -82,9 +82,9 @@ async function promptAction(
   const panelChoice = await dialogs.prompt({
     title: 'اختر اللوحة',
     inputType: 'select',
-    defaultValue: currentPanel || 'PAYMENT_NOTIFICATIONS',
+    defaultValue: currentPanel || 'SECTION_VIEW',
     options: [
-      { label: 'تنبيهات الدفع (PAYMENT_NOTIFICATIONS)', value: 'PAYMENT_NOTIFICATIONS' },
+      { label: 'عرض قسم (SECTION_VIEW)', value: 'SECTION_VIEW' },
       { label: 'تفاصيل عقد (CONTRACT_DETAILS)', value: 'CONTRACT_DETAILS' },
       { label: 'تفاصيل عقار (PROPERTY_DETAILS)', value: 'PROPERTY_DETAILS' },
       { label: 'تفاصيل شخص (PERSON_DETAILS)', value: 'PERSON_DETAILS' },

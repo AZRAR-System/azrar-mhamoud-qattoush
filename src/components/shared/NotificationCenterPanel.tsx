@@ -304,11 +304,12 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
             variant="ghost"
             className="h-9 gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400"
             onClick={() => {
-              openPanel('PAYMENT_NOTIFICATIONS', undefined, { daysAhead: 7 });
+              navigate(ROUTE_PATHS.INSTALLMENTS);
+              onClose();
             }}
           >
             <CreditCard size={16} aria-hidden />
-            تنبيهات الدفعات والتحصيل
+            لوحة السداد الرئيسية
           </Button>
         </div>
         <div className="flex flex-wrap gap-1.5">

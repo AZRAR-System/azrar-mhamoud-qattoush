@@ -43,24 +43,114 @@ function pushNewTblAlertToNotificationCenter(alert: tbl_Alerts) {
   }
 }
 
+/** دمج تكرارات التخزين: نفس id، أو أكثر من تنبيه «قبل الاستحقاق» لنفس رقم الكمبيالة. */
+export function dedupeAlertsStorage(all: tbl_Alerts[]): tbl_Alerts[] {
+  const byId = new Map<string, tbl_Alerts>();
+  for (const raw of all) {
+    const id = String(raw?.id ?? '').trim();
+    if (!id) continue;
+    const a: tbl_Alerts = {
+      ...raw,
+      id,
+      مرجع_المعرف:
+        raw.مرجع_المعرف !== undefined &&
+        raw.مرجع_المعرف !== null &&
+        String(raw.مرجع_المعرف).trim() !== ''
+          ? String(raw.مرجع_المعرف).trim()
+          : raw.مرجع_المعرف,
+    };
+    const prev = byId.get(id);
+    if (!prev) {
+      byId.set(id, a);
+      continue;
+    }
+    byId.set(id, {
+      ...prev,
+      ...a,
+      id,
+      تم_القراءة: !!(prev.تم_القراءة || a.تم_القراءة),
+    });
+  }
+
+  const list = [...byId.values()];
+
+  const isFinPreDueReminder = (x: tbl_Alerts) =>
+    x.category === 'Financial' &&
+    String(x.مرجع_الجدول || '').trim() === 'الكمبيالات_tbl' &&
+    String(x.نوع_التنبيه || '').includes('تذكير قبل الاستحقاق') &&
+    String(x.مرجع_المعرف || '').trim().length > 0;
+
+  const buckets = new Map<string, tbl_Alerts[]>();
+  const rest: tbl_Alerts[] = [];
+  for (const x of list) {
+    if (!isFinPreDueReminder(x)) {
+      rest.push(x);
+      continue;
+    }
+    const k = String(x.مرجع_المعرف).trim();
+    const arr = buckets.get(k) ?? [];
+    arr.push(x);
+    buckets.set(k, arr);
+  }
+
+  const canonRem7Id = (instId: string) => `ALR-FIN-REM7-${instId}`;
+  const pickWinner = (arr: tbl_Alerts[]): tbl_Alerts => {
+    const sorted = [...arr].sort((a, b) => {
+      const ac = String(a.id).trim() === canonRem7Id(String(a.مرجع_المعرف).trim());
+      const bc = String(b.id).trim() === canonRem7Id(String(b.مرجع_المعرف).trim());
+      if (ac !== bc) return ac ? -1 : 1;
+      if (!!a.تم_القراءة !== !!b.تم_القراءة) return a.تم_القراءة ? 1 : -1;
+      return String(b.تاريخ_الانشاء || '').localeCompare(String(a.تاريخ_الانشاء || ''));
+    });
+    const w = sorted[0];
+    const inst = String(w.مرجع_المعرف).trim();
+    const canonical = canonRem7Id(inst);
+    if (String(w.id).trim() !== canonical) {
+      return { ...w, id: canonical };
+    }
+    return w;
+  };
+
+  const winners: tbl_Alerts[] = [];
+  for (const [, arr] of buckets) {
+    if (arr.length === 1) winners.push(arr[0]);
+    else winners.push(pickWinner(arr));
+  }
+
+  return [...rest, ...winners];
+}
+
 export function upsertAlert(alert: tbl_Alerts) {
+  const aid = String(alert.id ?? '').trim();
+  if (!aid) return;
+
+  const normalized: tbl_Alerts = {
+    ...alert,
+    id: aid,
+    ...(alert.مرجع_المعرف !== undefined &&
+    alert.مرجع_المعرف !== null &&
+    String(alert.مرجع_المعرف).trim() !== ''
+      ? { مرجع_المعرف: String(alert.مرجع_المعرف).trim() }
+      : {}),
+  };
+
   const all = get<tbl_Alerts>(KEYS.ALERTS);
   const indices: number[] = [];
   for (let i = 0; i < all.length; i++) {
-    if (all[i]?.id === alert.id) indices.push(i);
+    if (String(all[i]?.id ?? '').trim() === aid) indices.push(i);
   }
 
   if (indices.length > 0) {
     const wasRead = indices.some((i) => !!all[i]?.تم_القراءة);
     const primaryIdx = indices[0];
     const prev = all[primaryIdx];
-    all[primaryIdx] = { ...prev, ...alert, تم_القراءة: wasRead };
+    all[primaryIdx] = { ...prev, ...normalized, تم_القراءة: wasRead };
 
     if (indices.length > 1) {
       const keep = new Set<number>([primaryIdx]);
       const deduped: tbl_Alerts[] = [];
       for (let i = 0; i < all.length; i++) {
-        if (all[i]?.id !== alert.id || keep.has(i)) {
+        if (String(all[i]?.id ?? '').trim() !== aid || keep.has(i)) {
           deduped.push(all[i]);
         }
       }
@@ -72,8 +162,8 @@ export function upsertAlert(alert: tbl_Alerts) {
     return;
   }
 
-  pushNewTblAlertToNotificationCenter(alert);
-  save(KEYS.ALERTS, [alert, ...all]);
+  pushNewTblAlertToNotificationCenter(normalized);
+  save(KEYS.ALERTS, [normalized, ...all]);
 }
 
 export const stableAlertId = (dateISO: string, type: string, message: string, category: string) => {
@@ -119,7 +209,7 @@ export const markAlertsReadByPrefix = (prefix: string) => {
   const all = get<tbl_Alerts>(KEYS.ALERTS);
   let changed = false;
   for (const a of all) {
-    if (a.id.startsWith(prefix) && !a.تم_القراءة) {
+    if (String(a.id).trim().startsWith(prefix) && !a.تم_القراءة) {
       a.تم_القراءة = true;
       changed = true;
     }
@@ -192,7 +282,13 @@ export const createAlert = (
           (x) => String(x?.رقم_الكمبيالة) === installmentId
         );
         const cId = String(inst?.رقم_العقد || '').trim();
-        if (cId) Object.assign(normalizedCtx, buildContractAlertContext(cId));
+        /** لا نستبدل مرجع الكمبيالة بمرجع العقد — وإلا يُفتح درج العقد بدل رابط الأقساط */
+        if (cId) {
+          const { tenantName, phone, propertyCode } = buildContractAlertContext(cId);
+          if (tenantName !== undefined) normalizedCtx.tenantName = tenantName;
+          if (phone !== undefined) normalizedCtx.phone = phone;
+          if (propertyCode !== undefined) normalizedCtx.propertyCode = propertyCode;
+        }
       } catch {
         // ignore
       }

@@ -63,6 +63,19 @@ interface ModalContextType {
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
+const DEDUPE_WINDOW_MS = 900;
+
+const stableStringify = (value: unknown): string => {
+  try {
+    return JSON.stringify(value, (_k, v) => {
+      if (typeof v === 'function') return '__fn__';
+      if (typeof v === 'bigint') return String(v);
+      return v;
+    });
+  } catch {
+    return String(value);
+  }
+};
 
 // Panels that support history (drawn as slide-overs)
 const HISTORY_SUPPORTED_PANELS: PanelType[] = [
@@ -88,12 +101,35 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [activePanels, setActivePanels] = useState<Panel[]>([]);
   const [drawerHistory, setDrawerHistory] = useState<Panel[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const lastOpenRef = React.useRef<{ key: string; ts: number }>({ key: '', ts: 0 });
 
   const openPanel = (type: PanelType, dataId?: string, props?: PanelProps) => {
+    const dedupeKey = [type, dataId || '', stableStringify(props || {})].join('|');
+    const now = Date.now();
+    if (
+      lastOpenRef.current.key === dedupeKey &&
+      now - lastOpenRef.current.ts < DEDUPE_WINDOW_MS
+    ) {
+      return;
+    }
+    lastOpenRef.current = { key: dedupeKey, ts: now };
+
     const id = Math.random().toString(36).substr(2, 9);
-    const newPanel: Panel = { id, type, dataId, props };
+    const newPanel: Panel = {
+      id,
+      type,
+      dataId,
+      props: { ...(props || {}), __dedupeKey: dedupeKey },
+    };
 
     if (HISTORY_SUPPORTED_PANELS.includes(type)) {
+      const existingActiveHistory = activePanels.find((p) =>
+        HISTORY_SUPPORTED_PANELS.includes(p.type)
+      );
+      const existingKey = String(existingActiveHistory?.props?.__dedupeKey || '');
+      if (existingActiveHistory && existingKey === dedupeKey) {
+        return;
+      }
       setDrawerHistory((prev) => {
         // Truncate future history if we're opening something new from back-state
         const truncated = prev.slice(0, historyIndex + 1);

@@ -3,6 +3,7 @@ import { DbService } from '@/services/mockDb';
 import { MarqueeMessage } from '@/types';
 import { Megaphone, X, AlertTriangle, CheckCircle, Info, Plus, Settings2 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
+import { ROUTE_PATHS } from '@/routes/paths';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { Button } from '@/components/ui/Button';
 import type { PanelType } from '@/context/ModalContext';
@@ -274,6 +275,10 @@ export const MarqueeWidget: FC<{
       return;
     }
     if (action.kind === 'panel') {
+      if (action.panel === 'PAYMENT_NOTIFICATIONS') {
+        openPanel('SECTION_VIEW', ROUTE_PATHS.INSTALLMENTS, { title: 'لوحة السداد الرئيسية' });
+        return;
+      }
       if (!isPanelType(action.panel)) return;
       openPanel(action.panel, action.id, action.options);
     }

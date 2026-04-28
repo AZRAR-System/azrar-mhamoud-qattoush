@@ -513,21 +513,39 @@ export const Layout = () => {
   const toast = useToast();
   const { tabs, openTab, closeTab, activeTabId, switchTab, switchToNext, switchToPrev } = useTabs();
 
+  /** يمنع حلقة التنقل: عند تغيير الهاش قبل تحديث activeTabId، لا نعيد navigate إلى مسار التبويب القديم */
+  const prevPathnameRef = useRef(location.pathname);
+  const urlPathJustChangedRef = useRef(false);
+
   // Sync URL -> Tabs (Handles legacy redirects and direct URL changes)
   useEffect(() => {
+    const prev = prevPathnameRef.current;
+    if (prev !== location.pathname) {
+      urlPathJustChangedRef.current = true;
+      prevPathnameRef.current = location.pathname;
+    }
     const title = ROUTE_TITLES[location.pathname];
     if (title && location.pathname !== '/') {
       openTab(location.pathname, title, '📄');
     }
   }, [location.pathname, openTab]);
 
-  // Sync Tabs -> URL (Updates address bar when switching tabs)
+  // Sync Tabs -> URL (عند اختيار تبويب يدوياً) أو التبويب مع الرابط (عند تغيير المسار من الكود/الهاش)
   useEffect(() => {
-    const activeTab = tabs.find(t => t.id === activeTabId);
-    if (activeTab && activeTab.path !== location.pathname) {
-      navigate(activeTab.path, { replace: true });
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (!activeTab) return;
+    if (activeTab.path === location.pathname) {
+      urlPathJustChangedRef.current = false;
+      return;
     }
-  }, [activeTabId, tabs, location.pathname, navigate]);
+    if (urlPathJustChangedRef.current) {
+      const match = tabs.find((t) => t.path === location.pathname);
+      if (match) switchTab(match.id);
+      urlPathJustChangedRef.current = false;
+      return;
+    }
+    navigate(activeTab.path, { replace: true });
+  }, [activeTabId, tabs, location.pathname, navigate, switchTab]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {

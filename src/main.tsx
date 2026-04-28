@@ -53,10 +53,10 @@ async function bootstrap() {
     }
   } finally {
     const root = ReactDOM.createRoot(rootElement);
+    const appNode = <App />;
+    const isDesktopRuntime = typeof window !== 'undefined' && !!window.desktopDb;
     root.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
+      isDesktopRuntime ? appNode : <React.StrictMode>{appNode}</React.StrictMode>
     );
   }
 }

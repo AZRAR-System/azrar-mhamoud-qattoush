@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, type MouseEvent } from 'react';
+import { useMemo, useState, useEffect, useRef, type MouseEvent } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -64,8 +64,6 @@ export interface ContractCardProps {
   userRole: RoleType;
   showDynamicColumns: boolean;
   dynamicFields: DynamicFormField[];
-  onPay: (id: string) => void;
-  onSelectInstallment: (inst: الكمبيالات_tbl) => void;
   onFullPayment: (inst: الكمبيالات_tbl) => void;
   onPartialPayment: (inst: الكمبيالات_tbl) => void;
   onReversePayment: (inst: الكمبيالات_tbl) => void;
@@ -96,8 +94,6 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
   userRole,
   showDynamicColumns,
   dynamicFields,
-  onPay: _onPay,
-  onSelectInstallment: _onSelectInstallment,
   onFullPayment,
   onPartialPayment,
   onReversePayment,
@@ -107,8 +103,6 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
   onOpenStateChange,
 }) => {
   void _isAdmin;
-  void _onPay;
-  void _onSelectInstallment;
   const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
 
   useEffect(() => {
@@ -129,7 +123,13 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
     }
   }, [isExpanded, highlightInstallmentId]);
 
+  /** لا نبلّغ الأب عند أول تصيير بـ false — يشغّل clearDeepLink على كل البطاقات ويمسح الـ hash/query */
+  const hasEmittedOpenRef = useRef(false);
   useEffect(() => {
+    if (!hasEmittedOpenRef.current) {
+      hasEmittedOpenRef.current = true;
+      return;
+    }
     onOpenStateChange?.(isExpanded);
   }, [isExpanded, onOpenStateChange]);
   const [invoicePrintCtx, setInvoicePrintCtx] = useState<{
@@ -220,7 +220,13 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
   const detailsModalTitle = (
     <div className="flex items-center gap-2">
       <button
-        onClick={() => openPanel('PERSON_DETAILS', tenant?.رقم_الشخص)}
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const pid = tenant?.رقم_الشخص;
+          if (pid) openPanel('PERSON_DETAILS', pid);
+        }}
         className="hover:text-indigo-600 hover:underline transition-colors decoration-indigo-300 underline-offset-4"
         title="عرض ملف المستأجر"
       >
@@ -879,9 +885,15 @@ export const ContractFinancialCard: React.FC<ContractCardProps> = ({
 
           <div className="mt-4 flex justify-end gap-2">
             <Button
+              type="button"
               variant="ghost"
               className="text-indigo-600 text-xs"
-              onClick={() => openPanel('CONTRACT_DETAILS', contract.رقم_العقد)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsExpanded(false);
+                openPanel('CONTRACT_DETAILS', contract.رقم_العقد);
+              }}
             >
               عرض تفاصيل العقد كاملة
             </Button>

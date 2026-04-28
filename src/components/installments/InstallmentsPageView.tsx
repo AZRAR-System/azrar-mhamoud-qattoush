@@ -5,7 +5,6 @@ import { DataGuard } from '@/components/shared/DataGuard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { MessageComposer } from '@/components/MessageComposer';
 import { AppModal } from '@/components/ui/AppModal';
-import { PaymentModal } from '@/components/installments/PaymentModal';
 import { InstallmentsSmartFilterBar } from '@/components/installments/InstallmentsSmartFilterBar';
 
 import { InstallmentsQuickStats } from '@/components/installments/InstallmentsQuickStats';
@@ -14,8 +13,6 @@ import { InstallmentsChartsPanel } from '@/components/installments/InstallmentsC
 import { InstallmentsContractsList } from '@/components/installments/InstallmentsContractsList';
 import { PageLayout } from '@/components/shared/PageLayout';
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
-import type { العقود_tbl, الأشخاص_tbl, العقارات_tbl } from '@/types';
-import { DbService } from '@/services/mockDb';
 
 type Props = { page: InstallmentsPageModel };
 
@@ -27,17 +24,13 @@ export function InstallmentsPageView({ page }: Props) {
     desktopRows,
     desktopLoading,
     contracts,
-    selectedInstallment,
-    setSelectedInstallment,
-    people,
-    userId,
-    userRole,
     confirmDialog,
     setConfirmDialog,
     messageModalOpen,
     setMessageModalOpen,
     messageContext,
     setMessageContext,
+    openOnlyTargetPanel,
   } = page;
 
   return (
@@ -72,87 +65,45 @@ export function InstallmentsPageView({ page }: Props) {
       actionLabel="إنشاء عقد"
       actionLink="#/contracts"
     >
-      <PageLayout>
-        <div className="space-y-6">
-          <InstallmentsSmartFilterBar
-            search={page.search}
-            setSearch={page.setSearch}
-            status={page.filter}
-            setStatus={(v) => page.setFilter(v as 'all' | 'due' | 'debt' | 'paid')}
-            startDate={page.filterStartDate}
-            setStartDate={page.setFilterStartDate}
-            endDate={page.filterEndDate}
-            setEndDate={page.setFilterEndDate}
-            minAmount={page.filterMinAmount}
-            setMinAmount={page.setFilterMinAmount}
-            maxAmount={page.filterMaxAmount}
-            setMaxAmount={page.setFilterMaxAmount}
-            paymentMethod={page.filterPaymentMethod}
-            setPaymentMethod={page.setFilterPaymentMethod}
-            onRefresh={page.loadData}
-            onExportXlsx={page.handleExportExcel}
-            totalResults={isDesktopFast ? desktopTotal : page.filteredList.length}
-            currentPage={page.desktopPage}
-            totalPages={page.desktopPageCount}
-            onPageChange={page.setDesktopPage}
-            isLoading={page.loading}
-          />
-          <InstallmentsQuickStats page={page} />
-          <InstallmentsOverdueBanner page={page} />
-          
-          <div className="page-transition min-h-[min(600px,80vh)]">
-            <InstallmentsChartsPanel page={page} />
-            <InstallmentsContractsList page={page} />
-          </div>
+      {openOnlyTargetPanel ? (
+        <div className="min-h-[min(600px,80vh)]">
+          <InstallmentsContractsList page={page} />
         </div>
-      </PageLayout>
-
-
-      {selectedInstallment && (
-        <PaymentModal
-          installment={selectedInstallment}
-          tenant={
-            isDesktopFast
-              ? desktopRows.find(
-                  (r) =>
-                    String(r?.contract?.رقم_العقد || r?.contract?.id || '') ===
-                    String(selectedInstallment.رقم_العقد || '')
-                )?.tenant
-              : people.find(
-                  (p) =>
-                    p.رقم_الشخص ===
-                    contracts.find((c) => c.رقم_العقد === selectedInstallment.رقم_العقد)
-                      ?.رقم_المستاجر
-                )
-          }
-          onClose={() => {
-            setSelectedInstallment(null);
-            page.clearDeepLink();
-          }}
-          onSuccess={() => {
-            setSelectedInstallment(null);
-            page.clearDeepLink();
-          }}
-          onMessageClick={() => {
-            const contract = contracts.find((c) => c.رقم_العقد === selectedInstallment.رقم_العقد);
-            const tenant = people.find((p) => p.رقم_الشخص === contract?.رقم_المستاجر);
-            const prop = DbService.getProperties().find(
-              (pr) => pr.رقم_العقار === contract?.رقم_العقار
-            );
-
-            setMessageContext({
-              installment: selectedInstallment,
-              contract: contract || ({} as العقود_tbl),
-              tenant: tenant || ({} as الأشخاص_tbl),
-              property: prop || ({} as العقارات_tbl),
-              category: 'reminder',
-            });
-            setMessageModalOpen(true);
-            setSelectedInstallment(null);
-          }}
-          userId={userId}
-          userRole={userRole}
-        />
+      ) : (
+        <PageLayout>
+          <div className="space-y-6">
+            <InstallmentsSmartFilterBar
+              search={page.search}
+              setSearch={page.setSearch}
+              status={page.filter}
+              setStatus={(v) => page.setFilter(v as 'all' | 'due' | 'debt' | 'paid')}
+              startDate={page.filterStartDate}
+              setStartDate={page.setFilterStartDate}
+              endDate={page.filterEndDate}
+              setEndDate={page.setFilterEndDate}
+              minAmount={page.filterMinAmount}
+              setMinAmount={page.setFilterMinAmount}
+              maxAmount={page.filterMaxAmount}
+              setMaxAmount={page.setFilterMaxAmount}
+              paymentMethod={page.filterPaymentMethod}
+              setPaymentMethod={page.setFilterPaymentMethod}
+              onRefresh={page.loadData}
+              onExportXlsx={page.handleExportExcel}
+              totalResults={isDesktopFast ? desktopTotal : page.filteredList.length}
+              currentPage={page.desktopPage}
+              totalPages={page.desktopPageCount}
+              onPageChange={page.setDesktopPage}
+              isLoading={page.loading}
+            />
+            <InstallmentsQuickStats page={page} />
+            <InstallmentsOverdueBanner page={page} />
+            
+            <div className="page-transition min-h-[min(600px,80vh)]">
+              <InstallmentsChartsPanel page={page} />
+              <InstallmentsContractsList page={page} />
+            </div>
+          </div>
+        </PageLayout>
       )}
 
         <ConfirmDialog

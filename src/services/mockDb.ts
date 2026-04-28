@@ -163,7 +163,7 @@ export const DbService = {
     Logger.logOperationInternal(u, a, t, rid, d),
 
   // Alerts
-  getAlerts: () => get<tbl_Alerts>(KEYS.ALERTS),
+  getAlerts: () => Alerts.dedupeAlertsStorage(get<tbl_Alerts>(KEYS.ALERTS) || []),
   markAlertsReadByPrefix: Alerts.markAlertsReadByPrefix,
   upsertAlert: Alerts.upsertAlert,
   createAlert: Alerts.createAlert,

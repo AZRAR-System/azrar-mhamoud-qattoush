@@ -43,7 +43,6 @@ export function useDashboard() {
   const { isVisible } = usePageVisibility();
   const [activeLayer, setActiveLayer] = useState<LayerTab>('overview');
   const [autoRefresh] = useState(true);
-  const [, setTasksTick] = useState(0);
   const sqlSyncInFlightRef = useRef(false);
   const [pagesSearch, setPagesSearch] = useState('');
 
@@ -59,13 +58,6 @@ export function useDashboard() {
     isVisible,
     refreshIntervalMs: 30_000,
   });
-
-  // Live update when tasks/reminders change
-  useEffect(() => {
-    const handler = () => setTasksTick((t) => t + 1);
-    window.addEventListener('azrar:tasks-changed', handler);
-    return () => window.removeEventListener('azrar:tasks-changed', handler);
-  }, []);
 
   // Persist active layer
   useEffect(() => {

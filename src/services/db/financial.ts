@@ -1,3 +1,4 @@
+import { dedupeAlertsStorage } from './alertsCore';
 import { get, save } from './kv';
 import { KEYS } from './keys';
 import { العمولات_tbl, العقود_tbl, DbResult, tbl_Alerts } from '@/types';
@@ -177,7 +178,9 @@ export const finalizeCommissionCollection = (id: string): DbResult<null> => {
 };
 
 export const getFinancialAlerts = (): tbl_Alerts[] => {
-  return get<tbl_Alerts>(KEYS.ALERTS).filter(a => a.category === 'Financial' && !a.تم_القراءة);
+  return dedupeAlertsStorage(get<tbl_Alerts>(KEYS.ALERTS) || []).filter(
+    (a) => a.category === 'Financial' && !a.تم_القراءة
+  );
 };
 
 export const deleteCommission = (id: string): DbResult<null> => {

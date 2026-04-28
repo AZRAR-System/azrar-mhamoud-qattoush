@@ -6,6 +6,7 @@ import { useToast } from '@/context/ToastContext';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { executeAlertOpen, getAlertPrimarySpec } from '@/services/alerts/alertActionPolicy';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { NotificationTemplates } from '@/services/notificationTemplates';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
@@ -99,6 +100,14 @@ export const useAlerts = (isVisible: boolean) => {
           ? String(window.location.hash || '').slice(1)
           : String(window.location.hash || '');
         const qIndex = raw.indexOf('?');
+        const pathOnly = qIndex >= 0 ? raw.slice(0, qIndex) : raw;
+        /** خارج صفحة التنبيهات: لا نطبّق معاملات URL على الحالة ونمسح البحث حتى لا يبقى نص الفلتر */
+        if (pathOnly !== ROUTE_PATHS.ALERTS) {
+          setQ('');
+          setCategory('');
+          return;
+        }
+
         const search = qIndex >= 0 ? raw.slice(qIndex + 1) : '';
         const params = new URLSearchParams(search);
 
@@ -162,26 +171,25 @@ export const useAlerts = (isVisible: boolean) => {
     [loadAlerts, selectedAlert?.id]
   );
 
+  /** من المودال: إغلاق المودال ثم فتح الوجهة (سياسة موحّدة في `alertActionPolicy`) */
   const handleNavigate = useCallback(
     (alert: tbl_Alerts) => {
-      if (alert.مرجع_الجدول === 'العقود_tbl') {
-        openPanel('CONTRACT_DETAILS', alert.مرجع_المعرف);
-      } else if (alert.مرجع_الجدول === 'الكمبيالات_tbl') {
-        window.location.hash = ROUTE_PATHS.INSTALLMENTS + '?filter=due';
-      } else if (alert.مرجع_الجدول === 'العقارات_tbl') {
-        if (alert.مرجع_المعرف === 'batch') {
-          window.location.hash = ROUTE_PATHS.PROPERTIES;
-        } else {
-          openPanel('PROPERTY_DETAILS', alert.مرجع_المعرف);
-        }
-      } else if (alert.مرجع_الجدول === 'الأشخاص_tbl') {
-        if (alert.مرجع_المعرف === 'batch') {
-          window.location.hash = ROUTE_PATHS.PEOPLE;
-        } else {
-          openPanel('PERSON_DETAILS', alert.مرجع_المعرف);
-        }
+      setSelectedAlert(null);
+      executeAlertOpen(alert, openPanel);
+    },
+    [openPanel]
+  );
+
+  /**
+   * من بطاقة القائمة: إمّا مودال الإجراءات الغني أو فتح الوجهة مباشرة (أقل نقرات) حسب نوع التنبيه.
+   */
+  const handleAlertCardPrimary = useCallback(
+    (alert: tbl_Alerts) => {
+      const spec = getAlertPrimarySpec(alert);
+      if (spec.mode === 'modal') {
+        setSelectedAlert(alert);
       } else {
-        window.location.hash = ROUTE_PATHS.DASHBOARD;
+        executeAlertOpen(alert, openPanel);
       }
     },
     [openPanel]
@@ -468,6 +476,8 @@ export const useAlerts = (isVisible: boolean) => {
     handleMarkAllRead,
     handleDismiss,
     handleNavigate,
+    handleAlertCardPrimary,
+    getAlertPrimarySpec,
     sendWhatsApp,
     sendFixedExpiryWhatsApp,
     openLegalNotice,

@@ -82,10 +82,13 @@ describe('storage.setItem', () => {
   });
 
   test('db_marquee triggers marquee event', async () => {
+    jest.useFakeTimers();
     const fired: string[] = [];
     window.addEventListener('azrar:marquee-changed', () => fired.push('marquee'));
     await storage.setItem('db_marquee', 'data');
+    jest.advanceTimersByTime(100);
     expect(fired).toContain('marquee');
+    jest.useRealTimers();
   });
 });
 
@@ -208,6 +211,17 @@ describe('storage.subscribeDesktopRemoteUpdates', () => {
     (window as any).desktopDb = makeBridge({
       onRemoteUpdate: jest.fn().mockImplementation((fn: any) => { handler = fn; return () => {}; }),
     });
+    storage.subscribeDesktopRemoteUpdates('db_');
+    handler({ key: 'db_people', value: '[]', isDeleted: false });
+    expect(localStorage.getItem('db_people')).toBe('[]');
+  });
+
+  test('skips remote update when value is unchanged', () => {
+    let handler: any;
+    (window as any).desktopDb = makeBridge({
+      onRemoteUpdate: jest.fn().mockImplementation((fn: any) => { handler = fn; return () => {}; }),
+    });
+    localStorage.setItem('db_people', '[]');
     storage.subscribeDesktopRemoteUpdates('db_');
     handler({ key: 'db_people', value: '[]', isDeleted: false });
     expect(localStorage.getItem('db_people')).toBe('[]');

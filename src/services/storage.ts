@@ -7,6 +7,8 @@ const desktopDb = (): DesktopDbBridge | undefined =>
   typeof window !== 'undefined' ? window.desktopDb : undefined;
 
 let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
+let tasksChangedTimer: ReturnType<typeof setTimeout> | null = null;
+let marqueeChangedTimer: ReturnType<typeof setTimeout> | null = null;
 const scheduleRebuildCache = () => {
   if (rebuildTimer) clearTimeout(rebuildTimer);
   rebuildTimer = setTimeout(() => {
@@ -17,6 +19,28 @@ const scheduleRebuildCache = () => {
       // ignore
     }
   }, 250);
+};
+
+const scheduleUiSignals = (key: string) => {
+  try {
+    if (!key) return;
+    if (key === 'db_marquee') {
+      if (marqueeChangedTimer) clearTimeout(marqueeChangedTimer);
+      marqueeChangedTimer = setTimeout(() => {
+        marqueeChangedTimer = null;
+        window.dispatchEvent(new Event('azrar:marquee-changed'));
+      }, 80);
+    }
+    if (key.startsWith('db_')) {
+      if (tasksChangedTimer) clearTimeout(tasksChangedTimer);
+      tasksChangedTimer = setTimeout(() => {
+        tasksChangedTimer = null;
+        window.dispatchEvent(new Event('azrar:tasks-changed'));
+      }, 80);
+    }
+  } catch {
+    // ignore
+  }
 };
 
 const invalidateCacheKey = (key: string) => {
@@ -31,17 +55,7 @@ const invalidateCacheKey = (key: string) => {
 };
 
 const notifyUiKeyChange = (key: string) => {
-  try {
-    if (!key) return;
-    if (key === 'db_marquee') {
-      window.dispatchEvent(new Event('azrar:marquee-changed'));
-    }
-    if (key.startsWith('db_')) {
-      window.dispatchEvent(new Event('azrar:tasks-changed'));
-    }
-  } catch {
-    // ignore
-  }
+  scheduleUiSignals(key);
 };
 
 const isKvKey = (key: string): boolean => {
@@ -75,34 +89,23 @@ export const storage = {
         const key = String(evt?.key || '');
         if (!key) return;
         if (!shouldInclude(key)) return;
-
-        // Notify UI listeners immediately (storage event does not fire in the same window).
-        const notifyUi = () => {
-          try {
-            if (key === 'db_marquee') {
-              window.dispatchEvent(new Event('azrar:marquee-changed'));
-            }
-            if (key.startsWith('db_')) {
-              window.dispatchEvent(new Event('azrar:tasks-changed'));
-            }
-          } catch {
-            // ignore
-          }
-        };
+        const currentValue = localStorage.getItem(key);
 
         if (evt?.isDeleted) {
+          if (currentValue === null) return;
           localStorage.removeItem(key);
           invalidateCacheKey(key);
           scheduleRebuildCache();
-          notifyUi();
+          notifyUiKeyChange(key);
           return;
         }
 
         if (typeof evt?.value === 'string') {
+          if (currentValue === evt.value) return;
           localStorage.setItem(key, evt.value);
           invalidateCacheKey(key);
           scheduleRebuildCache();
-          notifyUi();
+          notifyUiKeyChange(key);
         }
       } catch {
         // ignore
