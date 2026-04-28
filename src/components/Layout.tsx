@@ -34,7 +34,6 @@ import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 import type { NotificationCenterItem } from '@/services/notificationCenter';
 import { useTabs } from '@/context/TabsContext';
-import { TabBar } from './TabBar/TabBar';
 import { TabContent } from './TabBar/TabContent';
 import { PageSelector } from './TabBar/PageSelector';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
@@ -345,11 +344,11 @@ const Header = memo(({
   sqlStatus,
   hasDesktopBridge,
   onOpenPanel,
-  tabs,
-  activeTabId,
-  onSwitchTab,
-  onCloseTab,
-  onOpenNewTab
+  tabs: _tabs,
+  activeTabId: _activeTabId,
+  onSwitchTab: _onSwitchTab,
+  onCloseTab: _onCloseTab,
+  onOpenNewTab: _onOpenNewTab
 }: {
   pathname: string;
   title: string;
@@ -1061,7 +1060,7 @@ export const Layout = () => {
         )}
 
         {/* Content Container - Modern Layout */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4" ref={(el) => { if (el) (window as any).__mainScrollEl = el; }}>
+        <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4" ref={(el) => { if (el) window.__mainScrollEl = el; }}>
             <div className="w-full page-transition pb-20 lg:pb-10 flex flex-col px-4 lg:px-8 min-h-full">
               <TabContent />
 
@@ -1086,7 +1085,7 @@ export const Layout = () => {
 
         {/* Scroll To Top */}
         <div className="fixed bottom-6 left-6 layer-app-fab">
-          <ScrollToTopButton scrollContainer={typeof window !== 'undefined' ? (window as any).__mainScrollEl : null} />
+          <ScrollToTopButton scrollContainer={typeof window !== 'undefined' ? window.__mainScrollEl ?? null : null} />
         </div>
 
         {/* Engine Layers */}

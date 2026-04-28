@@ -11,8 +11,6 @@ export function ScrollToTopButton({ scrollContainer }: Props) {
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const el = scrollContainer ?? document.documentElement;
-
     const update = () => {
       const scrollTop = scrollContainer ? scrollContainer.scrollTop : window.scrollY;
       const scrollHeight = scrollContainer
@@ -47,7 +45,6 @@ export function ScrollToTopButton({ scrollContainer }: Props) {
   }, [scrollContainer]);
 
   const handleClick = () => {
-    const target = scrollContainer ?? window;
     if (atBottom) {
       if (scrollContainer) {
         scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });

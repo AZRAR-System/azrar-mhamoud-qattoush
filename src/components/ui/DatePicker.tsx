@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, type CSSProperties, type FC } from 'react';
 import { createPortal } from 'react-dom';
+import { computePortalPanelLayout } from '@/utils/portalMenuLayout';
 import { ChevronRight, ChevronLeft, Calendar } from 'lucide-react';
 
 interface DatePickerProps {
@@ -28,7 +29,7 @@ const MONTHS_AR = [
 
 const DAYS_AR = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 
-export const DatePicker: React.FC<DatePickerProps> = ({
+export const DatePicker: FC<DatePickerProps> = ({
   label,
   value,
   onChange,
@@ -40,11 +41,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [portalReady, setPortalReady] = useState(false);
-  const [popoverStyle, setPopoverStyle] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
 
   const parseDateSafe = (dateStr: string): Date => {
     if (!dateStr) return new Date();
@@ -80,27 +77,23 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      e.stopPropagation();
       setIsOpen(false);
     };
 
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
 
     const updatePopoverPosition = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-
-      const popoverWidth = 288; // matches w-72
-      const margin = 8;
-      let left = rect.right - popoverWidth;
-      left = Math.max(margin, Math.min(left, window.innerWidth - popoverWidth - margin));
-      const top = rect.bottom + margin;
-
-      setPopoverStyle({ top, left, width: popoverWidth });
+      const popoverWidth = 288;
+      const panelMinH = 300;
+      setPopoverStyle(computePortalPanelLayout(rect, popoverWidth, panelMinH, { gap: 8, viewMargin: 12 }));
     };
 
     updatePopoverPosition();
@@ -108,7 +101,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     window.addEventListener('scroll', updatePopoverPosition, true);
 
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('resize', updatePopoverPosition);
       window.removeEventListener('scroll', updatePopoverPosition, true);
     };
@@ -211,8 +204,8 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         createPortal(
           <div
             ref={popoverRef}
-            className="fixed layer-dropdown w-72 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 p-4 animate-scale-up"
-            style={{ top: popoverStyle.top, left: popoverStyle.left, width: popoverStyle.width, zIndex: 999999 }}
+            className="fixed layer-portal-dropdown w-72 rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/95 animate-scale-up"
+            style={popoverStyle}
           >
             <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100 dark:border-slate-700">
               <button

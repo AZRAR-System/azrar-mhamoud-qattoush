@@ -1018,7 +1018,7 @@ export function useInstallments() {
 
     const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
     return { totalExpected, totalCollected, totalOverdue, overdueCount, collectionRate };
-  }, [isDesktopFast, installments]);
+  }, [isDesktopFast, groupedData]);
 
   const handleExportExcel = () => {
     const rows = isDesktopFast ? [] : filteredList; // Basic export for web mode

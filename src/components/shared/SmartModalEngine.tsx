@@ -589,7 +589,7 @@ export const SmartModalEngine: React.FC = () => {
                   </h2>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar relative" ref={(el) => {
-                  if (el) (el as any).__scrollEl = el;
+                  if (el) el.__scrollEl = el;
                 }}>
                   <Suspense fallback={panelChunkFallback}>
                     <Component id={panel.dataId} {...panel.props} onClose={handleClose} />

@@ -11,7 +11,7 @@ export function SettingsMessagesSection({ page }: Props) {
   const {
     inputClass,
     labelClass,
-    openPanel,
+    openPanel: _openPanel,
     parseMultilineList,
     setSettings,
     settings,

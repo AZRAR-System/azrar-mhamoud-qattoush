@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, Filter, Bell, Clock, CheckCheck } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { PaginationControls } from '@/components/shared/PaginationControls';
 
@@ -107,20 +108,18 @@ export const AlertsSmartFilterBar: React.FC<AlertsSmartFilterBarProps> = ({
           <div className="relative group">
             <Filter
               size={18}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors pointer-events-none"
+              className="pointer-events-none absolute right-4 top-1/2 z-[1] -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-500"
             />
-            <select
-              className="w-full text-xs font-black border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 pr-11 py-3 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer appearance-none"
+            <Select
+              required
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="">كل التصنيفات</option>
-              {availableCategories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'كل التصنيفات' },
+                ...availableCategories.map((c) => ({ value: c, label: c })),
+              ]}
+              className="w-full [&_button]:border-2 [&_button]:border-slate-100 [&_button]:bg-slate-50 [&_button]:py-3 [&_button]:pr-11 [&_button]:text-xs [&_button]:font-black dark:[&_button]:border-slate-800 dark:[&_button]:bg-slate-950/30"
+            />
           </div>
         </div>
       }

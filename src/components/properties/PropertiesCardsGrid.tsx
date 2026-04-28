@@ -1,5 +1,4 @@
 import type { العقارات_tbl, العقود_tbl } from '@/types';
-import { Button } from '@/components/ui/Button';
 import { PropertyListingCard } from '@/components/properties/PropertyListingCard';
 import { getPersonColorClasses } from '@/utils/personColor';
 import type {

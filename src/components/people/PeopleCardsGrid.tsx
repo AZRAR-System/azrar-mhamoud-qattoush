@@ -1,7 +1,5 @@
 import { DbService } from '@/services/mockDb';
 import type { الأشخاص_tbl, العقود_tbl } from '@/types';
-import { DS } from '@/constants/designSystem';
-import { Button } from '@/components/ui/Button';
 import {
   PersonListingCardWeb,
   PersonListingCardDesktop,

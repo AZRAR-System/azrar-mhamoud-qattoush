@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/Button';
 import { ContractCard } from '@/components/contracts/ContractCard';
 import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
 import type { ContractsPageModel } from '@/hooks/useContracts';

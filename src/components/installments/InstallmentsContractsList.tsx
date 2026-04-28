@@ -1,7 +1,6 @@
 import type { InstallmentsPageModel } from '@/hooks/useInstallments';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
 import { ContractFinancialCard } from '@/components/installments/ContractFinancialCard';

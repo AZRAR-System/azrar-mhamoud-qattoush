@@ -23,7 +23,7 @@ import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { openExternalUrl } from '@/utils/externalLink';
-import type { الكمبيالات_tbl } from '@/types';
+import type { العقود_tbl, الكمبيالات_tbl } from '@/types';
 
 const categoryLabels: Record<string, string> = {
   'Financial': 'مالي',
@@ -220,9 +220,9 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           // entityId may be installment id or contract id — open contract panel directly
           const contractId = (() => {
             const contracts = DbService.getContracts();
-            if (contracts.some((c: any) => c.رقم_العقد === eid)) return eid;
+            if (contracts.some((c: العقود_tbl) => c.رقم_العقد === eid)) return eid;
             const allInst = DbService.getInstallments ? DbService.getInstallments() : [];
-            const inst = allInst.find((i: any) => i.رقم_الكمبيالة === eid);
+            const inst = allInst.find((i: الكمبيالات_tbl) => i.رقم_الكمبيالة === eid);
             return inst?.رقم_العقد || null;
           })();
           if (contractId) {

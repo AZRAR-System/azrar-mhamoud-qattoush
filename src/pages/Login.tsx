@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Save,
   Server,
-  Check,
   Loader2,
   CheckCircle2,
   ServerCog,
@@ -67,16 +66,14 @@ export const Login = () => {
     LOGIN_PREFILL && SEED_ADMIN_PASS.length > 0 ? SEED_ADMIN_PASS : ''
   );
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [_notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasAnyUsers, setHasAnyUsers] = useState<boolean | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [rememberUsername, setRememberUsername] = useState(true);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const [activationError, setActivationError] = useState('');
-  const [activationBusy, setActivationBusy] = useState(false);
-  const [deviceId, setDeviceId] = useState<string>('');
+  const [_deviceId, setDeviceId] = useState<string>('');
 
   // Registration State
   const [showRegisterForm, setShowRegisterForm] = useState(false);
@@ -108,10 +105,10 @@ export const Login = () => {
   const {
     isActivated,
     loading: activationLoading,
-    activatedAt,
-    activationError: activationStatusError,
-    activateWithLicenseFileContent,
-    refresh,
+    activatedAt: _activatedAt,
+    activationError: _activationStatusError,
+    activateWithLicenseFileContent: _activateWithLicenseFileContent,
+    refresh: _refresh,
   } = useActivation();
   const dialogs = useAppDialogs();
   const toast = useToast();
@@ -122,13 +119,13 @@ export const Login = () => {
   const trimmedUsername = useMemo(() => username.trim(), [username]);
   const trimmedPassword = useMemo(() => password, [password]);
 
-  const usernameError = useMemo(() => {
+  const _usernameError = useMemo(() => {
     if (!submitAttempted) return '';
     if (!trimmedUsername) return 'اسم المستخدم مطلوب.';
     return '';
   }, [submitAttempted, trimmedUsername]);
 
-  const passwordError = useMemo(() => {
+  const _passwordError = useMemo(() => {
     if (!submitAttempted) return '';
     if (!trimmedPassword) return 'كلمة المرور مطلوبة.';
     return '';
@@ -202,37 +199,6 @@ export const Login = () => {
       mounted = false;
     };
   }, []);
-
-  const handlePickLicenseFile = async () => {
-    setActivationError('');
-    setError('');
-    setNotice('');
-    setActivationBusy(true);
-    try {
-      const res = await window.desktopDb?.pickLicenseFile?.();
-      const rec = res && typeof res === 'object' ? (res as Record<string, unknown>) : {};
-      if (rec.canceled) return;
-      if (rec.ok !== true) {
-        const err = typeof rec.error === 'string' ? rec.error : 'تعذر تحميل ملف التفعيل.';
-        setActivationError(err);
-        return;
-      }
-      const content = typeof rec.content === 'string' ? rec.content : '';
-      if (!content.trim()) {
-        setActivationError('ملف التفعيل فارغ.');
-        return;
-      }
-
-      await activateWithLicenseFileContent(content);
-      await refresh();
-      window.location.reload();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setActivationError(msg || 'تعذر تحميل ملف التفعيل.');
-    } finally {
-      setActivationBusy(false);
-    }
-  };
 
   const getUsers = async (): Promise<StoredUser[]> => {
     const raw = await storage.getItem('db_users');

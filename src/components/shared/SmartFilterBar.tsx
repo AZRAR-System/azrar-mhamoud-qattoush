@@ -1,6 +1,8 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Plus, RefreshCw, Download, ChevronDown, X, LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { computePortalMenuLayout } from '@/utils/portalMenuLayout';
 
 export interface FilterOptionItem {
   value: string;
@@ -20,33 +22,101 @@ export interface FilterChipProps {
 const FilterChip: React.FC<FilterChipProps> = ({ label, options, value, onChange, icon: Icon }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [dropdownStyle, setDropdownStyle] = React.useState<React.CSSProperties>({});
+  const [menuListMaxHeightPx, setMenuListMaxHeightPx] = React.useState(320);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const syncDropdownPosition = React.useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const { outerStyle, listMaxHeightPx } = computePortalMenuLayout(rect, {
+      chromeReserve: 18,
+      footerReserve: value ? 50 : 0,
+    });
+    setMenuListMaxHeightPx(listMaxHeightPx);
+    setDropdownStyle(outerStyle);
+  }, [value]);
 
   const toggleOpen = () => {
-    if (!isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setDropdownStyle({
-        position: 'fixed',
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right,
-        minWidth: '12rem',
-        zIndex: 'var(--z-dropdown)',
-      });
+    if (!isOpen) {
+      syncDropdownPosition();
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
     }
-    setIsOpen(!isOpen);
   };
 
+  React.useLayoutEffect(() => {
+    if (!isOpen) return;
+    syncDropdownPosition();
+    const onScrollOrResize = () => syncDropdownPosition();
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [isOpen, syncDropdownPosition]);
+
   React.useEffect(() => {
+    if (!isOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+      setIsOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   const selectedOption = options.find((opt) => opt.value === value);
+
+  const dropdownPanel = (
+    <div
+      ref={dropdownRef}
+      style={dropdownStyle}
+      className="layer-portal-dropdown overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl py-1.5 shadow-2xl shadow-slate-900/10 dark:shadow-black/45 ring-1 ring-black/[0.04] dark:ring-white/[0.06] animate-in fade-in zoom-in-95 duration-200"
+    >
+      <div
+        className="flex min-h-0 flex-col gap-0.5 overflow-y-auto px-1.5 custom-scrollbar"
+        style={{ maxHeight: menuListMaxHeightPx }}
+      >
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => {
+              onChange(opt.value);
+              setIsOpen(false);
+            }}
+            className={`w-full whitespace-normal break-words rounded-xl px-3 py-2 text-right text-xs font-bold leading-snug transition-colors
+              ${value === opt.value
+                ? 'bg-indigo-600/[0.12] text-indigo-800 ring-1 ring-inset ring-indigo-500/25 dark:bg-indigo-500/15 dark:text-indigo-100 dark:ring-indigo-400/25'
+                : 'text-slate-600 hover:bg-slate-100/90 dark:text-slate-300 dark:hover:bg-slate-800/90'
+              }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {value ? (
+        <div className="mx-1.5 mt-1 border-t border-slate-200/70 pt-1 dark:border-slate-700/80">
+          <button
+            type="button"
+            onClick={() => {
+              onChange('');
+              setIsOpen(false);
+            }}
+            className="w-full rounded-xl px-3 py-2 text-right text-[11px] font-bold text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/15"
+          >
+            مسح الاختيار
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="relative" ref={containerRef}>
@@ -64,42 +134,7 @@ const FilterChip: React.FC<FilterChipProps> = ({ label, options, value, onChange
         <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {isOpen && (
-        <div
-          style={dropdownStyle}
-          className="layer-dropdown min-w-[12rem] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-2 overflow-hidden animate-in fade-in zoom-in duration-200"
-        >
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => {
-                onChange(opt.value);
-                setIsOpen(false);
-              }}
-              className={`w-full text-right px-4 py-2.5 text-sm font-bold transition-colors
-                ${value === opt.value 
-                  ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-          {value && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange('');
-                setIsOpen(false);
-              }}
-              className="w-full text-right px-4 py-2.5 text-sm font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 border-t border-slate-100 dark:border-slate-700 mt-1"
-            >
-              مسح الاختيار
-            </button>
-          )}
-        </div>
-      )}
+      {typeof document !== 'undefined' && isOpen && createPortal(dropdownPanel, document.body)}
     </div>
   );
 };

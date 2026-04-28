@@ -1,14 +1,28 @@
-import { FC } from 'react';
-import { 
+import {
+  FC,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
+import { createPortal } from 'react-dom';
+import {
   Calendar,
   DollarSign,
   Layers,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
 } from 'lucide-react';
 import { SmartFilterBar } from '@/components/shared/SmartFilterBar';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { computePortalPanelLayout } from '@/utils/portalMenuLayout';
+
+const filterPanelClass =
+  'layer-portal-dropdown rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/95 animate-in fade-in zoom-in-95 duration-200';
 
 interface InstallmentsSmartFilterBarProps {
   search: string;
@@ -34,14 +48,24 @@ interface InstallmentsSmartFilterBarProps {
   isLoading?: boolean;
 }
 
+const PANEL_W = 256;
+const PANEL_MIN_H = 140;
+
 export const InstallmentsSmartFilterBar: FC<InstallmentsSmartFilterBarProps> = ({
-  search, setSearch,
-  status, setStatus,
-  startDate, setStartDate,
-  endDate, setEndDate,
-  minAmount, setMinAmount,
-  maxAmount, setMaxAmount,
-  paymentMethod, setPaymentMethod,
+  search,
+  setSearch,
+  status,
+  setStatus,
+  startDate,
+  setStartDate,
+  endDate,
+  setEndDate,
+  minAmount,
+  setMinAmount,
+  maxAmount,
+  setMaxAmount,
+  paymentMethod,
+  setPaymentMethod,
   onRefresh,
   onExportXlsx,
   totalResults,
@@ -49,6 +73,124 @@ export const InstallmentsSmartFilterBar: FC<InstallmentsSmartFilterBarProps> = (
   totalPages,
   onPageChange,
 }) => {
+  const [dateOpen, setDateOpen] = useState(false);
+  const [amtOpen, setAmtOpen] = useState(false);
+  const [dateStyle, setDateStyle] = useState<CSSProperties>({});
+  const [amtStyle, setAmtStyle] = useState<CSSProperties>({});
+
+  const dateWrapRef = useRef<HTMLDivElement>(null);
+  const amtWrapRef = useRef<HTMLDivElement>(null);
+  const datePanelRef = useRef<HTMLDivElement>(null);
+  const amtPanelRef = useRef<HTMLDivElement>(null);
+
+  const syncDate = useCallback(() => {
+    const el = dateWrapRef.current;
+    if (!el) return;
+    setDateStyle(computePortalPanelLayout(el.getBoundingClientRect(), PANEL_W, PANEL_MIN_H));
+  }, []);
+
+  const syncAmt = useCallback(() => {
+    const el = amtWrapRef.current;
+    if (!el) return;
+    setAmtStyle(computePortalPanelLayout(el.getBoundingClientRect(), PANEL_W, PANEL_MIN_H));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!dateOpen) return;
+    syncDate();
+    const h = () => syncDate();
+    window.addEventListener('resize', h);
+    window.addEventListener('scroll', h, true);
+    return () => {
+      window.removeEventListener('resize', h);
+      window.removeEventListener('scroll', h, true);
+    };
+  }, [dateOpen, syncDate]);
+
+  useLayoutEffect(() => {
+    if (!amtOpen) return;
+    syncAmt();
+    const h = () => syncAmt();
+    window.addEventListener('resize', h);
+    window.addEventListener('scroll', h, true);
+    return () => {
+      window.removeEventListener('resize', h);
+      window.removeEventListener('scroll', h, true);
+    };
+  }, [amtOpen, syncAmt]);
+
+  useEffect(() => {
+    if (!dateOpen && !amtOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (dateOpen) {
+        if (dateWrapRef.current?.contains(t) || datePanelRef.current?.contains(t)) return;
+        setDateOpen(false);
+      }
+      if (amtOpen) {
+        if (amtWrapRef.current?.contains(t) || amtPanelRef.current?.contains(t)) return;
+        setAmtOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [dateOpen, amtOpen]);
+
+  useEffect(() => {
+    if (!dateOpen && !amtOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setDateOpen(false);
+        setAmtOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [dateOpen, amtOpen]);
+
+  const datePanel =
+    dateOpen && typeof document !== 'undefined' ? (
+      <div ref={datePanelRef} style={dateStyle} className={`${filterPanelClass} w-64`}>
+        <div className="space-y-4">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-full rounded-lg bg-slate-50 p-2 text-xs dark:bg-slate-900"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-full rounded-lg bg-slate-50 p-2 text-xs dark:bg-slate-900"
+          />
+        </div>
+      </div>
+    ) : null;
+
+  const amtPanel =
+    amtOpen && typeof document !== 'undefined' ? (
+      <div ref={amtPanelRef} style={amtStyle} className={`${filterPanelClass} w-64`}>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            placeholder="من"
+            value={minAmount}
+            onChange={(e) => setMinAmount(e.target.value ? Number(e.target.value) : '')}
+            className="w-full rounded-lg bg-slate-50 p-2 text-xs dark:bg-slate-900"
+          />
+          <input
+            type="number"
+            placeholder="إلى"
+            value={maxAmount}
+            onChange={(e) => setMaxAmount(e.target.value ? Number(e.target.value) : '')}
+            className="w-full rounded-lg bg-slate-50 p-2 text-xs dark:bg-slate-900"
+          />
+        </div>
+      </div>
+    ) : null;
+
   return (
     <SmartFilterBar
       searchPlaceholder="بحث في الأقساط (المستأجر، العقار)..."
@@ -58,7 +200,7 @@ export const InstallmentsSmartFilterBar: FC<InstallmentsSmartFilterBarProps> = (
         { id: 'all', label: 'الكل', icon: Layers },
         { id: 'due', label: 'مستحق', icon: Clock },
         { id: 'debt', label: 'ذمم', icon: XCircle },
-        { id: 'paid', label: 'مسدد', icon: CheckCircle }
+        { id: 'paid', label: 'مسدد', icon: CheckCircle },
       ]}
       activeTab={status}
       onTabChange={setStatus}
@@ -70,48 +212,63 @@ export const InstallmentsSmartFilterBar: FC<InstallmentsSmartFilterBarProps> = (
       onPageChange={onPageChange}
     >
       <div className="flex flex-wrap items-center gap-2">
-        {/* Date Filter */}
-        <div className="relative group">
-          <Button variant="outline" size="sm" className={`h-9 px-3 rounded-xl gap-2 font-bold ${startDate || endDate ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : ''}`}>
+        <div ref={dateWrapRef} className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={`h-9 gap-2 rounded-xl px-3 font-bold ${startDate || endDate ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : ''}`}
+            onClick={() => {
+              setAmtOpen(false);
+              setDateOpen((o) => {
+                const next = !o;
+                if (next) queueMicrotask(() => syncDate());
+                return next;
+              });
+            }}
+          >
             <Calendar size={14} />
             <span className="text-[10px]">
               {startDate || endDate ? `${startDate || '..'} - ${endDate || '..'}` : 'التاريخ'}
             </span>
           </Button>
-          <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-4 w-64 animate-in fade-in zoom-in duration-200">
-             <div className="space-y-4">
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-xs" />
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-xs" />
-             </div>
-          </div>
+          {datePanel ? createPortal(datePanel, document.body) : null}
         </div>
 
-        {/* Amount Filter */}
-        <div className="relative group">
-          <Button variant="outline" size="sm" className={`h-9 px-3 rounded-xl gap-2 font-bold ${minAmount || maxAmount ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : ''}`}>
+        <div ref={amtWrapRef} className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={`h-9 gap-2 rounded-xl px-3 font-bold ${minAmount || maxAmount ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : ''}`}
+            onClick={() => {
+              setDateOpen(false);
+              setAmtOpen((o) => {
+                const next = !o;
+                if (next) queueMicrotask(() => syncAmt());
+                return next;
+              });
+            }}
+          >
             <DollarSign size={14} />
             <span className="text-[10px]">
               {minAmount || maxAmount ? `${minAmount || 0} - ${maxAmount || '∞'}` : 'المبلغ'}
             </span>
           </Button>
-          <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-4 w-64 animate-in fade-in zoom-in duration-200">
-             <div className="flex gap-2">
-                <input type="number" placeholder="من" value={minAmount} onChange={(e) => setMinAmount(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-xs" />
-                <input type="number" placeholder="إلى" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-xs" />
-             </div>
-          </div>
+          {amtPanel ? createPortal(amtPanel, document.body) : null}
         </div>
 
-        {/* Payment Method */}
-        <select
+        <Select
+          required
           value={paymentMethod}
           onChange={(e) => setPaymentMethod(e.target.value)}
-          className="h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-bold outline-none ring-offset-2 focus:ring-2 focus:ring-indigo-500/20"
-        >
-          <option value="all">كل الطرق</option>
-          <option value="Prepaid">دفع مسبق</option>
-          <option value="Postpaid">دفع لاحق</option>
-        </select>
+          options={[
+            { value: 'all', label: 'كل الطرق' },
+            { value: 'Prepaid', label: 'دفع مسبق' },
+            { value: 'Postpaid', label: 'دفع لاحق' },
+          ]}
+          className="h-9 min-w-[9.5rem] [&_button]:h-9 [&_button]:rounded-xl [&_button]:py-0 [&_button]:text-[10px] [&_button]:font-bold"
+        />
       </div>
     </SmartFilterBar>
   );

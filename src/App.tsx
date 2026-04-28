@@ -7,7 +7,7 @@ import React, { Suspense, useEffect, useCallback, Fragment } from 'react';
 import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ModalProvider } from './context/ModalContext';
-import { ToastProvider, useToast, ToastContext } from './context/ToastContext';
+import { ToastProvider, ToastContext } from './context/ToastContext';
 import { GlobalErrorBoundary } from './components/shared/GlobalErrorBoundary';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivationProvider, useActivation } from './context/ActivationContext';

@@ -1,13 +1,14 @@
 import { get, save } from '../kv';
 import { KEYS } from '../keys';
-import { 
-  MarqueeMessage, 
-  tbl_Alerts, 
-  FollowUpTask, 
-  SystemReminder, 
-  العقود_tbl, 
+import type {
+  MarqueeMessage,
+  FollowUpTask,
+  SystemReminder,
+  DbResult,
+  العقارات_tbl,
+  الأشخاص_tbl,
+  العقود_tbl,
   الكمبيالات_tbl,
-  DbResult
 } from '@/types';
 import { 
   createMarqueeActionSanitizers, 
@@ -16,8 +17,6 @@ import {
   MarqueeAdRecord
 } from '../marqueeInternal';
 import { dbFail, dbOk } from '@/services/localDbStorage';
-import { isTenancyRelevant } from '@/utils/tenancy';
-import { toDateOnly } from '../utils/dates';
 
 const fail = dbFail;
 const ok = dbOk;
@@ -241,11 +240,11 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
         if (table === 'Installments' && op === 'سداد') return logTime >= cutoffs['Installments_سداد'];
         if (table === 'Contracts' && op === 'فسخ') return logTime >= cutoffs['Contracts_فسخ'];
         if (table === 'Properties' && op === 'تعديل') {
-          const prop = get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === String(l.رقم_السجل || ''));
+          const prop = get<العقارات_tbl>(KEYS.PROPERTIES).find((p) => p.رقم_العقار === String(l.رقم_السجل || ''));
           return prop?.IsRented && logTime >= cutoffs['Properties_مؤجر'];
         }
         if (table === 'Properties' && op === 'إضافة') {
-          const prop = get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === String(l.رقم_السجل || ''));
+          const prop = get<العقارات_tbl>(KEYS.PROPERTIES).find((p) => p.رقم_العقار === String(l.رقم_السجل || ''));
           return prop && !prop.IsRented;
         }
         return false;
@@ -263,9 +262,9 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
 
       if (table === 'Contracts' && op === 'إضافة') {
         try {
-          const contract = get<any>(KEYS.CONTRACTS).find((c: any) => c.رقم_العقد === id);
-          const tenant = contract ? get<any>(KEYS.PEOPLE).find((p: any) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
-          const prop = contract ? get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === contract.رقم_العقار) : null;
+          const contract = get<العقود_tbl>(KEYS.CONTRACTS).find((c) => c.رقم_العقد === id);
+          const tenant = contract ? get<الأشخاص_tbl>(KEYS.PEOPLE).find((p) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
+          const prop = contract ? get<العقارات_tbl>(KEYS.PROPERTIES).find((p) => p.رقم_العقار === contract.رقم_العقار) : null;
           const propCode = prop?.الكود_الداخلي || id;
           const tenantName = tenant?.الاسم || '';
           const annual = contract?.القيمة_السنوية ? contract.القيمة_السنوية + ' د.أ/سنة' : '';
@@ -275,8 +274,8 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
         action = { kind: 'panel', panel: 'CONTRACT_DETAILS', id };
       } else if (table === 'Properties') {
         try {
-          const prop = get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === id);
-          const owner = prop ? get<any>(KEYS.PEOPLE).find((p: any) => p.رقم_الشخص === prop.رقم_المالك) : null;
+          const prop = get<العقارات_tbl>(KEYS.PROPERTIES).find((p) => p.رقم_العقار === id);
+          const owner = prop ? get<الأشخاص_tbl>(KEYS.PEOPLE).find((p) => p.رقم_الشخص === prop.رقم_المالك) : null;
           const code = prop?.الكود_الداخلي || id;
           const type = prop?.النوع || '';
           const address = prop?.العنوان || '';
@@ -289,10 +288,10 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
         action = { kind: 'panel', panel: 'PROPERTY_DETAILS', id };
       } else if (table === 'Installments' && op === 'سداد') {
         try {
-          const inst = get<any>(KEYS.INSTALLMENTS).find((i: any) => i.رقم_الكمبيالة === id);
-          const contract = inst ? get<any>(KEYS.CONTRACTS).find((c: any) => c.رقم_العقد === inst.رقم_العقد) : null;
-          const tenant = contract ? get<any>(KEYS.PEOPLE).find((p: any) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
-          const prop = contract ? get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === contract.رقم_العقار) : null;
+          const inst = get<الكمبيالات_tbl>(KEYS.INSTALLMENTS).find((i) => i.رقم_الكمبيالة === id);
+          const contract = inst ? get<العقود_tbl>(KEYS.CONTRACTS).find((c) => c.رقم_العقد === inst.رقم_العقد) : null;
+          const tenant = contract ? get<الأشخاص_tbl>(KEYS.PEOPLE).find((p) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
+          const prop = contract ? get<العقارات_tbl>(KEYS.PROPERTIES).find((p) => p.رقم_العقار === contract.رقم_العقار) : null;
           const propCode = prop?.الكود_الداخلي || '';
           const amount = inst?.القيمة || '';
           const tenantName = tenant?.الاسم || '';
@@ -302,9 +301,9 @@ export const getMarqueeMessages = (): MarqueeMessage[] => {
         } catch { content = `دفعة مسددة — ${id}`; }
       } else if (table === 'Contracts' && op === 'فسخ') {
         try {
-          const contract = get<any>(KEYS.CONTRACTS).find((c: any) => c.رقم_العقد === id);
-          const tenant = contract ? get<any>(KEYS.PEOPLE).find((p: any) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
-          const prop = contract ? get<any>(KEYS.PROPERTIES).find((p: any) => p.رقم_العقار === contract.رقم_العقار) : null;
+          const contract = get<العقود_tbl>(KEYS.CONTRACTS).find((c) => c.رقم_العقد === id);
+          const tenant = contract ? get<الأشخاص_tbl>(KEYS.PEOPLE).find((p) => p.رقم_الشخص === contract.رقم_المستاجر) : null;
+          const prop = contract ? get<العقارات_tbl>(KEYS.PROPERTIES).find((p) => p.رقم_العقار === contract.رقم_العقار) : null;
           const propCode = prop?.الكود_الداخلي || '';
           const tenantName = tenant?.الاسم || '';
           const exp = getHoursRemaining(logTime, 72);

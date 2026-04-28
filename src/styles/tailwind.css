@@ -11,6 +11,7 @@
      Legacy header/sidebar tokens: 40 / 50 (see .layer-header / .layer-sidebar)
      App shell (Layout): --z-app-header → backdrop → sidebar → FAB (below dropdown)
      Dropdown/Tooltip/Popover: 100
+     Body-portaled menus (FilterChip, DynamicSelect): --z-portal-dropdown (above modal content)
      Page main scaffold (Layout column): --z-page-main
      Slide-over Panel Overlay: 1500 / Content: 1600
      Modal Overlay: 2000 / Content: 2100
@@ -23,6 +24,8 @@
   --z-header: 40;
   --z-sidebar: 50;
   --z-dropdown: 100;
+  /** Portaled FilterChip / DynamicSelect — فوق تكديس AppModal (2000+n×100)، تحت التوست (4000) */
+  --z-portal-dropdown: 3500;
   --z-page-main: 10;
   --z-app-header: 90;
   --z-app-drawer-backdrop: 95;
@@ -235,6 +238,10 @@ body,
 
 .layer-dropdown {
   z-index: var(--z-dropdown);
+}
+
+.layer-portal-dropdown {
+  z-index: var(--z-portal-dropdown);
 }
 
 .layer-toast {
