@@ -284,10 +284,11 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         const contracts: العقود_tbl[] = fastPath ? [] : DbService.getContracts();
         const installments: الكمبيالات_tbl[] = fastPath ? [] : DbService.getInstallments();
 
-        // Smaller datasets / services (still used by charts/panels)
+        // Smaller datasets — load immediately (commissions needed for KPIs)
         const commissionsAll: العمولات_tbl[] = DbService.getCommissions();
-        const salesListings: عروض_البيع_tbl[] = DbService.getSalesListings();
-        const followUps: FollowUpTask[] = DbService.getFollowUps();
+        // Secondary datasets — defer in fastPath to unblock main thread
+        const salesListings: عروض_البيع_tbl[] = fastPath ? [] : DbService.getSalesListings();
+        const followUps: FollowUpTask[] = fastPath ? [] : DbService.getFollowUps();
         const alerts: tbl_Alerts[] = DbService.getAlerts();
 
         const dbExt = DbService as unknown as Partial<{
