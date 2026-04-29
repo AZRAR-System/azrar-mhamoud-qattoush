@@ -10,11 +10,12 @@
 
 import type { FC } from 'react';
 import { useAlerts } from '@/hooks/useAlerts';
-import { AlertsPageView } from '@/components/alerts/AlertsPageView';
+import { AlertsInboxLayout } from '@/components/alerts/AlertsInboxLayout';
 import { usePageVisibility } from '@/context/PageVisibilityContext';
+import type { AlertPanelIntent } from '@/services/alerts/alertActionTypes';
 
-export const Alerts: FC = () => {
+export const Alerts: FC<{ sectionIntent?: AlertPanelIntent }> = ({ sectionIntent }) => {
   const { isVisible } = usePageVisibility();
-  const page = useAlerts(isVisible);
-  return <AlertsPageView page={page} />;
+  const page = useAlerts(isVisible, sectionIntent);
+  return <AlertsInboxLayout page={page} />;
 };

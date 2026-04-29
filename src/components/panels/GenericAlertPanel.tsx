@@ -2,11 +2,28 @@ import { useMemo } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle, Info, Phone } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import type { tbl_Alerts } from '@/types/types';
+import type { AlertActionPayload, AlertLayerModalKind } from '@/services/alerts/alertActionTypes';
+import { RecordPaymentModal } from '@/components/alerts/modals/RecordPaymentModal';
+import { LegalFileModal } from '@/components/alerts/modals/LegalFileModal';
+import { WhatsAppModal } from '@/components/alerts/modals/WhatsAppModal';
+import { RenewContractModal } from '@/components/alerts/modals/RenewContractModal';
+import { PersonProfileModal } from '@/components/alerts/modals/PersonProfileModal';
+import { InsuranceModal } from '@/components/alerts/modals/InsuranceModal';
+import { AssignTechnicianModal } from '@/components/alerts/modals/AssignTechnicianModal';
+import { ReceiptModal } from '@/components/alerts/modals/ReceiptModal';
 
 interface GenericAlertPanelProps {
   id?: string;
   onClose: () => void;
   alert?: unknown;
+  /** عند الفتح عبر `openModal` — يجب أن يطابق أحد أعضاء `AlertLayerModalKind` */
+  __alertModalKind?: AlertLayerModalKind;
+  sourceAlert?: unknown;
+  alertActionPayload?: AlertActionPayload;
+  onNavigateFull?: () => void;
+  onOpenLegalGenerator?: () => void;
+  onOpenContract?: () => void;
+  onOpenMaintenance?: () => void;
 }
 
 type GenericAlertLike = Partial<tbl_Alerts> & {
@@ -54,13 +71,138 @@ const getLevelMeta = (level?: string) => {
   };
 };
 
-export const GenericAlertPanel: React.FC<GenericAlertPanelProps> = ({ id, alert, onClose }) => {
+export const GenericAlertPanel: React.FC<GenericAlertPanelProps> = ({
+  id,
+  alert,
+  onClose,
+  __alertModalKind,
+  sourceAlert,
+  alertActionPayload,
+  onNavigateFull,
+  onOpenLegalGenerator,
+  onOpenContract,
+  onOpenMaintenance,
+}) => {
   const resolved = useMemo<GenericAlertLike | null>(() => {
     if (alert && isGenericAlertLike(alert)) return alert;
     if (!id) return null;
     const a = (DbService.getAlerts?.() || []).find((x) => String(x.id) === String(id));
     return a || null;
   }, [id, alert]);
+
+  if (__alertModalKind === 'record_payment' && sourceAlert) {
+    const pl = alertActionPayload?.variant === 'record_payment' ? alertActionPayload : undefined;
+    return (
+      <RecordPaymentModal
+        open
+        onClose={onClose}
+        alert={sourceAlert as tbl_Alerts}
+        payload={pl?.data}
+        onOpenFullDetails={() => {
+          onNavigateFull?.();
+          onClose();
+        }}
+      />
+    );
+  }
+
+  if (__alertModalKind === 'legal_file' && sourceAlert) {
+    const pl = alertActionPayload?.variant === 'legal_file' ? alertActionPayload : undefined;
+    return (
+      <LegalFileModal
+        open
+        onClose={onClose}
+        alert={sourceAlert as tbl_Alerts}
+        payload={pl?.data}
+        onOpenGenerator={() => {
+          onOpenLegalGenerator?.();
+          onClose();
+        }}
+      />
+    );
+  }
+
+  if (__alertModalKind === 'whatsapp' && sourceAlert) {
+    const pl = alertActionPayload?.variant === 'whatsapp' ? alertActionPayload : undefined;
+    return (
+      <WhatsAppModal
+        open
+        onClose={onClose}
+        alert={sourceAlert as tbl_Alerts}
+        payload={pl?.data}
+        onSend={() => {}}
+      />
+    );
+  }
+
+  if (__alertModalKind === 'renew_contract' && sourceAlert) {
+    const pl = alertActionPayload?.variant === 'renew_contract' ? alertActionPayload : undefined;
+    return (
+      <RenewContractModal
+        open
+        onClose={onClose}
+        alert={sourceAlert as tbl_Alerts}
+        payload={pl?.data}
+      />
+    );
+  }
+
+  if (__alertModalKind === 'person_profile' && sourceAlert) {
+    const pl = alertActionPayload?.variant === 'person_profile' ? alertActionPayload : undefined;
+    if (pl?.data.openAction === 'decision') {
+      return (
+        <PersonProfileModal
+          open
+          onClose={onClose}
+          alert={sourceAlert as tbl_Alerts}
+          payload={pl.data}
+          onOpenPerson={() => {}}
+          onNavigateFull={onNavigateFull}
+        />
+      );
+    }
+    return null;
+  }
+
+  if (__alertModalKind === 'insurance' && sourceAlert) {
+    const pl = alertActionPayload?.variant === 'insurance' ? alertActionPayload : undefined;
+    return (
+      <InsuranceModal
+        open
+        onClose={onClose}
+        alert={sourceAlert as tbl_Alerts}
+        payload={pl?.data}
+        onOpenContract={onOpenContract}
+      />
+    );
+  }
+
+  if (__alertModalKind === 'assign_technician' && sourceAlert) {
+    const pl = alertActionPayload?.variant === 'assign_technician' ? alertActionPayload : undefined;
+    return (
+      <AssignTechnicianModal
+        open
+        onClose={onClose}
+        alert={sourceAlert as tbl_Alerts}
+        payload={pl?.data}
+        onOpenMaintenance={() => onOpenMaintenance?.()}
+        onNavigateFull={onNavigateFull}
+      />
+    );
+  }
+
+  if (__alertModalKind === 'receipt' && sourceAlert) {
+    const pl = alertActionPayload?.variant === 'receipt' ? alertActionPayload : undefined;
+    return (
+      <ReceiptModal
+        open
+        onClose={onClose}
+        alert={sourceAlert as tbl_Alerts}
+        payload={pl?.data}
+        onNavigateFull={onNavigateFull}
+      />
+    );
+  }
 
   const title = resolved?.title || resolved?.نوع_التنبيه || 'تنبيه';
   const description = resolved?.description || resolved?.الوصف || '';

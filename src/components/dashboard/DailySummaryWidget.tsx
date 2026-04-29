@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { DbService } from '@/services/mockDb';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { openAlertsInSection } from '@/services/alerts/alertNavigation';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatDateOnly } from '@/utils/dateOnly';
 import { PaymentCollectionSendLog } from '@/components/dashboard/PaymentCollectionSendLog';
@@ -90,7 +91,7 @@ export const DailySummaryWidget: React.FC<DailySummaryWidgetProps> = ({ data, is
       color: 'text-red-600',
       bgColor: 'bg-red-50 dark:bg-red-900/20',
       action: () => {
-        window.location.hash = ROUTE_PATHS.ALERTS;
+        openAlertsInSection(openPanel, { only: 'unread', title: 'تنبيهات حرجة' });
       },
     },
     {

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { openAlertsInSection } from '@/services/alerts/alertNavigation';
 import { DbService } from '@/services/mockDb';
 import { getLastScheduledReportSnapshot } from '@/services/scheduledReports';
 import type { NotificationCenterItem, NotificationCenterType } from '@/services/notificationCenter';
@@ -272,10 +273,10 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
         return;
       }
 
-      navigate(ROUTE_PATHS.ALERTS);
+      openAlertsInSection(openPanel, { only: 'unread', title: 'التنبيهات' });
       onClose();
     },
-    [markRead, navigate, onClose, openPanel]
+    [markRead, onClose, openPanel]
   );
 
   const handleWhatsApp = useCallback(async (item: NotificationCenterItem) => {

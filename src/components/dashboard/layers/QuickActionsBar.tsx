@@ -9,6 +9,7 @@ import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
 import { GLOBAL_SEARCH_OPEN_EVENT } from '@/components/shared/GlobalSearch';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { openAlertsInSection } from '@/services/alerts/alertNavigation';
 
 export interface QuickActionsBarProps {
   /** card = إطار مستقل؛ inline = بدون إطار إضافي (للاستخدام داخل بطاقة أب مع التبويبات) */
@@ -80,7 +81,7 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ variant = 'car
       icon: Bell,
       label: 'إشعارات',
       color: 'bg-yellow-500 hover:bg-yellow-600',
-      action: () => openSection(ROUTE_PATHS.ALERTS, 'الإشعارات'),
+      action: () => openAlertsInSection(openPanel, { title: 'الإشعارات' }),
       desc: 'عرض الإشعارات والتنبيهات',
     },
     {

@@ -6,7 +6,10 @@ import { useToast } from '@/context/ToastContext';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { ROUTE_PATHS } from '@/routes/paths';
-import { executeAlertOpen, getAlertPrimarySpec } from '@/services/alerts/alertActionPolicy';
+import { executeNavigateForAlert, getAlertPrimarySpec } from '@/services/alerts/alertActionPolicy';
+import { sendRenewExpiryWhatsApp } from '@/services/alerts/renewExpiryWhatsAppSend';
+import { alertPanelIntentHasPayload } from '@/services/alerts/alertNavigation';
+import type { AlertLayerModalKind, AlertPanelIntent } from '@/services/alerts/alertActionTypes';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { NotificationTemplates } from '@/services/notificationTemplates';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
@@ -15,9 +18,12 @@ const isExpiryKind = (value: string): value is 'pre_notice' | 'approved' | 'reje
   return value === 'pre_notice' || value === 'approved' || value === 'rejected' || value === 'auto';
 };
 
-export const useAlerts = (isVisible: boolean) => {
+export const useAlerts = (isVisible: boolean, sectionIntent?: AlertPanelIntent) => {
   const [alerts, setAlerts] = useState<tbl_Alerts[]>([]);
   const [selectedAlert, setSelectedAlert] = useState<tbl_Alerts | null>(null);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(() => new Set());
+  const [layerModal, setLayerModal] = useState<AlertLayerModalKind | null>(null);
+  const [pendingAlertId, setPendingAlertId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
 
   const pageSize = useResponsivePageSize({ base: 6, sm: 8, md: 10, lg: 12, xl: 14, '2xl': 16 });
@@ -32,7 +38,7 @@ export const useAlerts = (isVisible: boolean) => {
     'pre_notice'
   );
 
-  const { openPanel } = useSmartModal();
+  const { openPanel, openModal } = useSmartModal();
   const toast = useToast();
   const dbSignal = useDbSignal();
 
@@ -92,7 +98,7 @@ export const useAlerts = (isVisible: boolean) => {
     return alerts.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
   }, [alerts, page, pageSize]);
 
-  // Support deep links: #/alerts?only=unread|all&category=...&q=...
+  // Deep links: #/alerts?only=unread|all&category=...&q=...&id=...
   useEffect(() => {
     const applyFromHash = () => {
       try {
@@ -101,10 +107,10 @@ export const useAlerts = (isVisible: boolean) => {
           : String(window.location.hash || '');
         const qIndex = raw.indexOf('?');
         const pathOnly = qIndex >= 0 ? raw.slice(0, qIndex) : raw;
-        /** خارج صفحة التنبيهات: لا نطبّق معاملات URL على الحالة ونمسح البحث حتى لا يبقى نص الفلتر */
         if (pathOnly !== ROUTE_PATHS.ALERTS) {
           setQ('');
           setCategory('');
+          setPendingAlertId(null);
           return;
         }
 
@@ -121,6 +127,13 @@ export const useAlerts = (isVisible: boolean) => {
 
         if (params.has('q')) {
           setQ(String(params.get('q') || ''));
+        }
+
+        if (params.has('id')) {
+          const pid = String(params.get('id') || '').trim();
+          setPendingAlertId(pid || null);
+        } else {
+          setPendingAlertId(null);
         }
       } catch {
         // ignore
@@ -139,9 +152,82 @@ export const useAlerts = (isVisible: boolean) => {
     return () => window.removeEventListener('hashchange', onHashChangeAlerts);
   }, []);
 
+  /** نية القسم من `openAlertsInSection` (SECTION_VIEW) — لا تعتمد على الـ hash */
+  useEffect(() => {
+    if (!sectionIntent || !alertPanelIntentHasPayload(sectionIntent)) return;
+    if (sectionIntent.only === 'all' || sectionIntent.only === 'unread') {
+      setOnly(sectionIntent.only);
+    }
+    if (sectionIntent.category !== undefined) {
+      setCategory(String(sectionIntent.category ?? ''));
+    }
+    if (sectionIntent.q !== undefined) {
+      setQ(String(sectionIntent.q ?? ''));
+    }
+    if (sectionIntent.id && String(sectionIntent.id).trim()) {
+      setPendingAlertId(String(sectionIntent.id).trim());
+    } else {
+      setPendingAlertId(null);
+    }
+  }, [sectionIntent]);
+
+  useEffect(() => {
+    if (!pendingAlertId || !isVisible) return;
+    const all = DbService.getAlerts() || [];
+    const found = all.find((a) => String(a.id) === pendingAlertId);
+    if (found) {
+      setSelectedAlert(found);
+      setPendingAlertId(null);
+    }
+  }, [pendingAlertId, isVisible, dbSignal]);
+
   useEffect(() => {
     setExpiryKind('pre_notice');
   }, [selectedAlert?.id]);
+
+  const closeLayerModal = useCallback(() => setLayerModal(null), []);
+
+  const toggleBulkSelect = useCallback((id: string) => {
+    setBulkSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearBulkSelection = useCallback(() => setBulkSelectedIds(new Set()), []);
+
+  const selectAllPaged = useCallback((ids: string[]) => {
+    setBulkSelectedIds(new Set(ids.filter(Boolean)));
+  }, []);
+
+  const handleBulkMarkRead = useCallback(async () => {
+    const ids = Array.from(bulkSelectedIds);
+    if (ids.length === 0) return;
+    const ok = await toast.confirm({
+      title: 'تأكيد',
+      message: `تعليم ${ids.length} تنبيهاً كمقروء؟`,
+      confirmText: 'نعم',
+      cancelText: 'إلغاء',
+      isDangerous: false,
+    });
+    if (!ok) return;
+    const all = DbService.getAlerts() || [];
+    for (const id of ids) {
+      const alert = all.find((a) => a.id === id);
+      if (!alert) continue;
+      if (alert.category === 'Financial' && alert.details && alert.details.length > 0) {
+        const childIds = alert.details.map((d) => d.id);
+        DbService.markMultipleAlertsAsRead(childIds);
+      } else {
+        DbService.markAlertAsRead(alert.id);
+      }
+    }
+    clearBulkSelection();
+    loadAlerts();
+    if (selectedAlert && ids.includes(selectedAlert.id)) setSelectedAlert(null);
+  }, [bulkSelectedIds, toast, loadAlerts, clearBulkSelection, selectedAlert]);
 
   const handleMarkAllRead = useCallback(async () => {
     const ok = await toast.confirm({
@@ -175,9 +261,10 @@ export const useAlerts = (isVisible: boolean) => {
   const handleNavigate = useCallback(
     (alert: tbl_Alerts) => {
       setSelectedAlert(null);
-      executeAlertOpen(alert, openPanel);
+      closeLayerModal();
+      executeNavigateForAlert(alert, openPanel, openModal);
     },
-    [openPanel]
+    [openPanel, openModal, closeLayerModal]
   );
 
   /**
@@ -188,11 +275,12 @@ export const useAlerts = (isVisible: boolean) => {
       const spec = getAlertPrimarySpec(alert);
       if (spec.mode === 'modal') {
         setSelectedAlert(alert);
+        closeLayerModal();
       } else {
-        executeAlertOpen(alert, openPanel);
+        executeNavigateForAlert(alert, openPanel, openModal);
       }
     },
-    [openPanel]
+    [openPanel, openModal, closeLayerModal]
   );
 
   const resolveAlertPhones = useCallback((alert: tbl_Alerts): string[] => {
@@ -222,84 +310,20 @@ export const useAlerts = (isVisible: boolean) => {
     return Array.from(uniq);
   }, []);
 
-  const resolveOwnerPhonesForContract = useCallback((contractId: string): string[] => {
-    const contracts = (DbService.getContracts?.() || []) as العقود_tbl[];
-    const contract = contracts.find((c) => String(c?.رقم_العقد) === String(contractId));
-    const property = contract?.رقم_العقار
-      ? ((DbService.getProperties?.() || []) as العقارات_tbl[]).find(
-          (p) => String(p?.رقم_العقار) === String(contract.رقم_العقار)
-        )
-      : null;
-    const owner = property?.رقم_المالك
-      ? ((DbService.getPeople?.() || []) as الأشخاص_tbl[]).find(
-          (p) => String(p?.رقم_الشخص) === String(property.رقم_المالك)
-        )
-      : null;
-
-    const phones: Array<string | null | undefined> = [owner?.رقم_الهاتف, owner?.رقم_هاتف_اضافي];
-    const uniq = new Set<string>();
-    for (const p of phones) {
-      const v = String(p ?? '').trim();
-      if (v) uniq.add(v);
-    }
-    return Array.from(uniq);
-  }, []);
-
-  const getFixedExpiryTemplateId = useCallback(
-    (target: 'tenant' | 'owner') => {
-      const map = {
-        pre_notice: {
-          tenant: 'contract_expiry_pre_notice_tenant_fixed',
-          owner: 'contract_expiry_pre_notice_owner_fixed',
-        },
-        approved: {
-          tenant: 'contract_renewal_approved_tenant_fixed',
-          owner: 'contract_renewal_approved_owner_fixed',
-        },
-        rejected: {
-          tenant: 'contract_renewal_rejected_tenant_fixed',
-          owner: 'contract_renewal_rejected_owner_fixed',
-        },
-        auto: {
-          tenant: 'contract_renewal_auto_tenant_fixed',
-          owner: 'contract_renewal_auto_owner_fixed',
-        },
-      } as const;
-      return map[expiryKind][target];
-    },
-    [expiryKind]
-  );
-
   const sendFixedExpiryWhatsApp = useCallback(
     (target: 'tenant' | 'owner') => {
       if (!selectedAlert) return;
       if (selectedAlert.مرجع_الجدول !== 'العقود_tbl') return;
       if (!selectedAlert.مرجع_المعرف || selectedAlert.مرجع_المعرف === 'batch') return;
-
       const contractId = String(selectedAlert.مرجع_المعرف);
-      const tmplId = getFixedExpiryTemplateId(target);
-      const generated = DbService.generateLegalNotice(tmplId, contractId, {
-        date: new Date().toLocaleDateString('en-GB'),
-        time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      });
-
-      const message = String(
-        typeof generated === 'string' ? generated : (generated as { text: string })?.text || ''
-      ).trim();
-      if (!message) return;
-
-      const phones =
-        target === 'tenant'
-          ? resolveAlertPhones(selectedAlert)
-          : resolveOwnerPhonesForContract(contractId);
-      if (phones.length === 0) return;
-
-      void openWhatsAppForPhones(message, phones, {
-        defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
-        delayMs: 10_000,
+      void sendRenewExpiryWhatsApp({
+        alert: selectedAlert,
+        contractId,
+        target,
+        expiryKind,
       });
     },
-    [selectedAlert, getFixedExpiryTemplateId, resolveAlertPhones, resolveOwnerPhonesForContract]
+    [selectedAlert, expiryKind]
   );
 
   const sendDataQualityPropertyWhatsApp = useCallback(async () => {
@@ -460,6 +484,14 @@ export const useAlerts = (isVisible: boolean) => {
     availableCategories,
     selectedAlert,
     setSelectedAlert,
+    bulkSelectedIds,
+    toggleBulkSelect,
+    clearBulkSelection,
+    selectAllPaged,
+    handleBulkMarkRead,
+    layerModal,
+    setLayerModal,
+    closeLayerModal,
     noteText,
     setNoteText,
     only,
@@ -478,6 +510,7 @@ export const useAlerts = (isVisible: boolean) => {
     handleNavigate,
     handleAlertCardPrimary,
     getAlertPrimarySpec,
+    resolvePrimaryAction: getAlertPrimarySpec,
     sendWhatsApp,
     sendFixedExpiryWhatsApp,
     openLegalNotice,
@@ -486,3 +519,5 @@ export const useAlerts = (isVisible: boolean) => {
     isExpiryKind,
   };
 };
+
+export type AlertsPageState = ReturnType<typeof useAlerts>;

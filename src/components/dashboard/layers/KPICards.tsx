@@ -22,6 +22,7 @@ import type { DashboardData } from '@/hooks/useDashboardData';
 import { useSmartModal } from '@/context/ModalContext';
 import { formatCurrencyJOD, formatNumber } from '@/utils/format';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { openAlertsInSection } from '@/services/alerts/alertNavigation';
 import {
   KpiCalculatorCard,
   KpiQuickCommissionCard,
@@ -183,7 +184,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
       textColor: 'text-amber-700 dark:text-amber-300',
       bgColor: 'bg-amber-50 dark:bg-amber-900/20',
       trend: `حرجة: ${data.alerts?.critical || 0} • تحذير: ${data.alerts?.warning || 0} • معلومات: ${data.alerts?.info || 0}`,
-      onClick: () => navigateToWithQuery(ROUTE_PATHS.ALERTS, { only: 'unread' }),
+      onClick: () => openAlertsInSection(openPanel, { only: 'unread', title: 'تنبيهات غير مقروءة' }),
     },
     {
       title: 'إجمالي الأشخاص',

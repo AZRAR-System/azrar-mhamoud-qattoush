@@ -1,4 +1,10 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import type {
+  AlertActionPayload,
+  AlertLayerModalKind,
+  AlertPanelIntent,
+} from '@/services/alerts/alertActionTypes';
+import type { tbl_Alerts } from '@/types';
 
 export interface PanelProps extends Record<string, unknown> {
   title?: ReactNode;
@@ -10,7 +16,20 @@ export interface PanelProps extends Record<string, unknown> {
   onClose?(): void;
   onConfirm?(value?: string): void;
   onCancel?(): void;
+  /** عند فتح قسم التنبيهات من `openAlertsInSection` */
+  alertsIntent?: AlertPanelIntent;
+  /** نوافذ التنبيهات المنبثقة عبر `openModal` */
+  __alertModalKind?: AlertLayerModalKind;
+  alertActionPayload?: AlertActionPayload;
+  sourceAlert?: tbl_Alerts;
+  onNavigateFull?: () => void;
+  onOpenLegalGenerator?: () => void;
+  onOpenContract?: () => void;
+  onOpenMaintenance?: () => void;
 }
+
+/** فتح نافذة طبقة (GENERIC_ALERT + مكوّن متخصص حسب `__alertModalKind`) */
+export type OpenModalFn = (kind: AlertLayerModalKind, props?: PanelProps) => void;
 
 export type PanelType =
   | 'PERSON_DETAILS'
@@ -56,6 +75,7 @@ interface ModalContextType {
   drawerHistory: Panel[];
   historyIndex: number;
   openPanel: (type: PanelType, dataId?: string, props?: PanelProps) => void;
+  openModal: OpenModalFn;
   closePanel: (id: string) => void;
   closeAll: () => void;
   navigateBack: () => void;
@@ -149,6 +169,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  const openModal: OpenModalFn = (kind, props) => {
+    openPanel('GENERIC_ALERT', kind, { ...props, __alertModalKind: kind });
+  };
+
   const closePanel = (id: string) => {
     setActivePanels((prev) => {
       const closing = prev.find(p => p.id === id);
@@ -196,7 +220,8 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         activePanels, 
         drawerHistory, 
         historyIndex, 
-        openPanel, 
+        openPanel,
+        openModal,
         closePanel, 
         closeAll, 
         navigateBack, 

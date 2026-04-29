@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, type FC } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
+import type { AlertPanelIntent } from '@/services/alerts/alertActionTypes';
 
 type SectionPath =
   | typeof ROUTE_PATHS.DASHBOARD
@@ -98,7 +99,9 @@ export const SectionViewPanel: FC<{
   fromAlert?: boolean;
   onlyTargetPanel?: boolean;
   intentKey?: string;
-}> = ({ id, contractId, installmentId, filter, fromAlert, onlyTargetPanel, intentKey }) => {
+  /** يُمرَّر من `openAlertsInSection` عبر PanelProps */
+  alertsIntent?: AlertPanelIntent;
+}> = ({ id, contractId, installmentId, filter, fromAlert, onlyTargetPanel, intentKey, alertsIntent }) => {
   const section = id;
 
   const Component = (() => {
@@ -127,7 +130,7 @@ export const SectionViewPanel: FC<{
       case ROUTE_PATHS.REPORTS:
         return Reports;
       case ROUTE_PATHS.ALERTS:
-        return Alerts;
+        return () => <Alerts sectionIntent={alertsIntent} />;
       case ROUTE_PATHS.OPERATIONS:
         return Operations;
       case ROUTE_PATHS.SETTINGS:
