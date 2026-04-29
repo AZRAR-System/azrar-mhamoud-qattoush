@@ -276,7 +276,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
       openAlertsInSection(openPanel, { only: 'unread', title: 'التنبيهات' });
       onClose();
     },
-    [markRead, onClose, openPanel]
+    [markRead, onClose, openPanel, navigate]
   );
 
   const handleWhatsApp = useCallback(async (item: NotificationCenterItem) => {

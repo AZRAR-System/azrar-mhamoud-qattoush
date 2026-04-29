@@ -10,7 +10,6 @@ import {
   Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import type { tbl_Alerts } from '@/types';
 import type { useAlerts } from '@/hooks/useAlerts';
 
 export type AlertsListPaneProps = {

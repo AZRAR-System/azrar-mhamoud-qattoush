@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Wrench } from 'lucide-react';
 import { AlertModalShell } from '@/components/alerts/AlertModalShell';
 import type { tbl_Alerts } from '@/types';
@@ -25,7 +25,7 @@ export const AssignTechnicianModal: React.FC<AssignTechnicianModalProps> = ({
   onOpenMaintenance,
   onNavigateFull,
 }) => {
-  const technicians = useMemo(() => listMaintenanceTechnicianCandidates(), [open, payload?.maintenanceId]);
+  const technicians = listMaintenanceTechnicianCandidates();
   const [selectedTechnicianId, setSelectedTechnicianId] = useState('');
 
   return (

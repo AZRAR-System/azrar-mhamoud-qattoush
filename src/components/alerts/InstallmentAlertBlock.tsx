@@ -1,5 +1,8 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import type { tbl_Alerts, الكمبيالات_tbl, العقود_tbl, العقارات_tbl, الأشخاص_tbl } from '@/types';
+import { DbService } from '@/services/mockDb';
+import { getInstallmentPaidAndRemaining } from '@/utils/installments';
+import { formatCurrencyJOD } from '@/utils/format';
 
 export function alertHasInstallmentPreview(alert: tbl_Alerts | null): boolean {
   if (!alert || alert.category !== 'Financial') return false;
@@ -7,9 +10,6 @@ export function alertHasInstallmentPreview(alert: tbl_Alerts | null): boolean {
   const mid = String(alert.مرجع_المعرف || '').trim();
   return Boolean(mid && mid !== 'batch');
 }
-import { DbService } from '@/services/mockDb';
-import { getInstallmentPaidAndRemaining } from '@/utils/installments';
-import { formatCurrencyJOD } from '@/utils/format';
 
 export function InstallmentAlertBlock({ alert }: { alert: tbl_Alerts | null }) {
   const ctx = useMemo(() => {
