@@ -44,24 +44,30 @@ export function InstallmentAlertBlock({ alert }: { alert: tbl_Alerts | null }) {
   if (!ctx) return null;
 
   return (
-    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 p-4 space-y-3 text-sm">
-      <div className="text-xs font-black text-slate-500 uppercase tracking-wider">تفاصيل الدفعة والعقد</div>
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-slate-700 dark:text-slate-200">
+    <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/70 p-4 text-sm shadow-sm ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] space-y-4">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+        الدفعة والعقد
+      </div>
+      <dl className="grid grid-cols-1 gap-x-5 gap-y-3 text-slate-700 dark:text-slate-200 sm:grid-cols-2">
         <div className="flex flex-col gap-0.5">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">رقم الكمبيالة</dt>
-          <dd className="font-bold tabular-nums">{ctx.inst.رقم_الكمبيالة}</dd>
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">رقم الكمبيالة</dt>
+          <dd className="font-semibold tabular-nums text-slate-900 dark:text-slate-50">{ctx.inst.رقم_الكمبيالة}</dd>
         </div>
         <div className="flex flex-col gap-0.5">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">رقم العقد</dt>
-          <dd className="font-bold tabular-nums">{ctx.contract?.رقم_العقد ?? '—'}</dd>
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">رقم العقد</dt>
+          <dd className="font-semibold tabular-nums text-slate-900 dark:text-slate-50">
+            {ctx.contract?.رقم_العقد ?? '—'}
+          </dd>
         </div>
         <div className="flex flex-col gap-0.5 sm:col-span-2">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">المستأجر</dt>
-          <dd className="font-bold">{ctx.tenant?.الاسم || ctx.alert.tenantName || '—'}</dd>
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">المستأجر</dt>
+          <dd className="font-semibold text-slate-900 dark:text-slate-50">
+            {ctx.tenant?.الاسم || ctx.alert.tenantName || '—'}
+          </dd>
         </div>
         <div className="flex flex-col gap-0.5 sm:col-span-2">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">العقار</dt>
-          <dd className="font-bold">
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">العقار</dt>
+          <dd className="font-semibold text-slate-900 dark:text-slate-50">
             {ctx.property
               ? `${ctx.property.الكود_الداخلي || ctx.property.رقم_العقار}${
                   ctx.property.العنوان ? ` — ${ctx.property.العنوان}` : ''
@@ -70,29 +76,31 @@ export function InstallmentAlertBlock({ alert }: { alert: tbl_Alerts | null }) {
           </dd>
         </div>
         <div className="flex flex-col gap-0.5">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">تاريخ الاستحقاق</dt>
-          <dd className="font-bold tabular-nums">{ctx.inst.تاريخ_استحقاق}</dd>
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">تاريخ الاستحقاق</dt>
+          <dd className="font-semibold tabular-nums text-slate-900 dark:text-slate-50">{ctx.inst.تاريخ_استحقاق}</dd>
         </div>
         <div className="flex flex-col gap-0.5">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">حالة القسط</dt>
-          <dd className="font-bold">{ctx.inst.حالة_الكمبيالة || '—'}</dd>
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">حالة القسط</dt>
+          <dd className="font-semibold text-slate-900 dark:text-slate-50">{ctx.inst.حالة_الكمبيالة || '—'}</dd>
         </div>
         <div className="flex flex-col gap-0.5">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">نوع الدفعة</dt>
-          <dd className="font-bold">{ctx.inst.نوع_الكمبيالة || '—'}</dd>
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">نوع الدفعة</dt>
+          <dd className="font-semibold text-slate-900 dark:text-slate-50">{ctx.inst.نوع_الكمبيالة || '—'}</dd>
         </div>
         <div className="flex flex-col gap-0.5">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">قيمة القسط</dt>
-          <dd className="font-bold tabular-nums">{formatCurrencyJOD(ctx.inst.القيمة)}</dd>
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">قيمة القسط</dt>
+          <dd className="font-semibold tabular-nums text-slate-900 dark:text-slate-50">
+            {formatCurrencyJOD(ctx.inst.القيمة)}
+          </dd>
         </div>
         <div className="flex flex-col gap-0.5">
-          <dt className="text-[11px] text-slate-500 dark:text-slate-400">المسدّد / المتبقي</dt>
-          <dd className="font-bold tabular-nums">
+          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">المسدّد / المتبقي</dt>
+          <dd className="font-semibold tabular-nums text-slate-900 dark:text-slate-50">
             {formatCurrencyJOD(ctx.paid)} / {formatCurrencyJOD(ctx.remaining)}
           </dd>
         </div>
       </dl>
-      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+      <p className="border-t border-t-slate-100 pt-3 text-[11px] font-medium leading-relaxed text-slate-500 dark:border-t-slate-800 dark:text-slate-400">
         زر «التفاصيل الكاملة» يفتح منزلق تفاصيل العقد من دون مغادرة صفحة التنبيهات.
       </p>
     </div>

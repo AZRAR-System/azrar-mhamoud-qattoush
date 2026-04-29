@@ -45,7 +45,7 @@ export const AlertsInboxLayout: React.FC<AlertsInboxLayoutProps> = ({ page }) =>
   const { openPanel } = useSmartModal();
 
   return (
-    <div className="animate-fade-in pb-24 space-y-8">
+    <div className="animate-fade-in pb-32 space-y-8">
       <SmartPageHero
         title="التنبيهات والإشعارات"
         description="Inbox/Triage: قائمة، تفاصيل، إجراءات موحّدة عبر Policy، وطبقات مودال للمهام المتخصصة."
@@ -99,15 +99,21 @@ export const AlertsInboxLayout: React.FC<AlertsInboxLayoutProps> = ({ page }) =>
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,360px)_1fr] gap-6 items-start">
-          <div className="space-y-2">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 px-1">القائمة</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,380px)_1fr] gap-6 lg:gap-10 items-start">
+          <aside className="space-y-3 rounded-2xl border border-slate-200/70 bg-slate-50/40 p-4 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-slate-800/80 dark:bg-slate-950/40 dark:ring-white/[0.04] lg:p-5">
+            <h3 className="flex items-center gap-2 px-0.5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200/60 dark:border-slate-700/60">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" aria-hidden />
+              القائمة
+            </h3>
             <AlertsListPane page={page} />
-          </div>
-          <div className="space-y-2 min-w-0">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 px-1">التفاصيل</h3>
+          </aside>
+          <section className="min-w-0 space-y-3">
+            <h3 className="flex items-center gap-2 px-0.5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200/60 dark:border-slate-700/60">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500" aria-hidden />
+              التفاصيل
+            </h3>
             <AlertDetailPane page={page} />
-          </div>
+          </section>
         </div>
       )}
 

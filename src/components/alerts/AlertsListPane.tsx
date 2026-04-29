@@ -17,17 +17,18 @@ export type AlertsListPaneProps = {
 };
 
 const getAlertIcon = (cat: string) => {
+  const s = 17;
   switch (cat) {
     case 'Financial':
-      return <AlertTriangle size={20} />;
+      return <AlertTriangle size={s} strokeWidth={2} />;
     case 'DataQuality':
-      return <Database size={20} />;
+      return <Database size={s} strokeWidth={2} />;
     case 'Risk':
-      return <ShieldAlert size={20} />;
+      return <ShieldAlert size={s} strokeWidth={2} />;
     case 'Expiry':
-      return <Clock size={20} />;
+      return <Clock size={s} strokeWidth={2} />;
     default:
-      return <Bell size={20} />;
+      return <Bell size={s} strokeWidth={2} />;
   }
 };
 
@@ -47,19 +48,20 @@ export const AlertsListPane: React.FC<AlertsListPaneProps> = ({ page }) => {
   const allIds = pagedAlerts.map((a) => a.id).filter(Boolean);
 
   return (
-    <div className="flex flex-col gap-3 min-h-[280px]">
+    <div className="flex flex-col gap-4 min-h-[280px]">
       {pagedAlerts.length > 0 ? (
-        <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-stretch justify-between gap-0 overflow-hidden rounded-lg border border-slate-200/60 bg-white/90 dark:border-slate-700/60 dark:bg-slate-900/50">
           <button
             type="button"
-            className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="flex-1 px-2.5 py-2 text-[11px] font-semibold text-indigo-600 transition hover:bg-indigo-50/80 dark:text-indigo-400 dark:hover:bg-indigo-950/30"
             onClick={() => selectAllPaged(allIds)}
           >
             تحديد الصفحة
           </button>
+          <div className="w-px shrink-0 self-stretch bg-slate-200 dark:bg-slate-700" aria-hidden />
           <button
             type="button"
-            className="text-[11px] font-black text-slate-500 hover:underline"
+            className="flex-1 px-2.5 py-2 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/60"
             onClick={() => page.clearBulkSelection()}
           >
             إلغاء التحديد
@@ -67,7 +69,7 @@ export const AlertsListPane: React.FC<AlertsListPaneProps> = ({ page }) => {
         </div>
       ) : null}
 
-      <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] pr-1">
+      <div className="space-y-2.5 overflow-y-auto max-h-[calc(100vh-320px)] pe-0.5 scroll-pb-4">
         {pagedAlerts.map((a) => {
           const primarySpec = getAlertPrimarySpec(a);
           const active = selectedAlert?.id === a.id;
@@ -84,80 +86,81 @@ export const AlertsListPane: React.FC<AlertsListPaneProps> = ({ page }) => {
                   setSelectedAlert(a);
                 }
               }}
-              className={`rounded-2xl border transition-all cursor-pointer ${
+              className={`rounded-xl border transition-all cursor-pointer shadow-sm ${
                 active
-                  ? 'border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-950/30'
-                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-indigo-300'
+                  ? 'border-indigo-400 ring-1 ring-indigo-500/30 bg-white dark:bg-slate-900 shadow-md dark:shadow-indigo-950/20'
+                  : 'border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
               }`}
             >
-              <div className="p-3 flex gap-3">
+              <div className="flex gap-3 p-3.5">
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={() => toggleBulkSelect(a.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-1.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                  className="mt-1.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30"
                   aria-label="تحديد للإجراء الجماعي"
                 />
                 <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white ${
                     a.category === 'Financial'
-                      ? 'bg-gradient-to-br from-rose-500 to-rose-600'
+                      ? 'bg-rose-600'
                       : a.category === 'DataQuality'
-                        ? 'bg-gradient-to-br from-indigo-500 to-indigo-600'
+                        ? 'bg-indigo-600'
                         : a.category === 'Risk'
-                          ? 'bg-gradient-to-br from-orange-500 to-orange-600'
-                          : 'bg-gradient-to-br from-slate-500 to-slate-600'
+                          ? 'bg-amber-600'
+                          : 'bg-slate-600'
                   }`}
                 >
                   {getAlertIcon(a.category || '')}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-black text-slate-800 dark:text-white line-clamp-2 leading-snug">
+                    <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-slate-800 dark:text-slate-100">
                       {a.نوع_التنبيه}
                     </h3>
-                    <span className="shrink-0 text-[9px] font-black text-slate-400">
+                    <span className="shrink-0 tabular-nums text-[10px] font-medium text-slate-400 dark:text-slate-500">
                       {new Date(a.تاريخ_الانشاء).toLocaleDateString('en-GB')}
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 line-clamp-2">
+                  <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-400">
                     {a.الوصف}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {a.tenantName ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 text-[10px] font-black text-indigo-700 dark:text-indigo-300">
-                        <User size={10} /> {a.tenantName}
+                      <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-indigo-100 bg-indigo-50/90 px-2 py-0.5 text-[10px] font-medium text-indigo-800 dark:border-indigo-900/40 dark:bg-indigo-950/50 dark:text-indigo-200">
+                        <User size={10} className="shrink-0 opacity-80" />{' '}
+                        <span className="truncate">{a.tenantName}</span>
                       </span>
                     ) : null}
                     {a.propertyCode ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
-                        <Home size={10} /> {a.propertyCode}
+                      <span className="inline-flex items-center gap-1 rounded-md border border-emerald-100 bg-emerald-50/90 px-2 py-0.5 text-[10px] font-medium text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200">
+                        <Home size={10} className="shrink-0 opacity-80" /> {a.propertyCode}
                       </span>
                     ) : null}
                     {a.category ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-black text-slate-600 dark:text-slate-300">
-                        <Layers size={10} /> {a.category}
+                      <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <Layers size={10} className="shrink-0 opacity-70" /> {a.category}
                       </span>
                     ) : null}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="mt-3 flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
                       variant="primary"
                       type="button"
                       title={primarySpec.hint || undefined}
                       onClick={() => handleAlertCardPrimary(a)}
-                      className="text-[11px] font-black px-3 py-1.5 rounded-lg"
+                      className="min-h-9 rounded-lg px-3.5 text-[11px] font-semibold shadow-sm"
                     >
                       {primarySpec.label}
                     </Button>
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       type="button"
                       onClick={() => handleDismiss(a)}
-                      className="text-[11px] font-black text-rose-600"
+                      className="min-h-9 rounded-lg border-rose-200 text-[11px] font-semibold text-rose-600 hover:border-rose-300 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30"
                     >
                       تجاهل
                     </Button>

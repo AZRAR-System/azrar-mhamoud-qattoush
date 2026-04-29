@@ -13,7 +13,7 @@ export const AlertBulkActions: React.FC<AlertBulkActionsProps> = ({ page }) => {
   if (n === 0) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-[2040] flex -translate-x-1/2 flex-wrap items-center gap-3 rounded-2xl border border-indigo-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur dark:border-indigo-800 dark:bg-slate-900/95">
+    <div className="fixed bottom-4 left-1/2 z-[2040] flex -translate-x-1/2 flex-wrap items-center gap-3 rounded-xl border border-slate-200/90 bg-white/95 px-4 py-2.5 shadow-lg shadow-slate-900/10 backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/40">
       <span className="text-xs font-black text-slate-700 dark:text-slate-200">
         محدد: {n}
       </span>

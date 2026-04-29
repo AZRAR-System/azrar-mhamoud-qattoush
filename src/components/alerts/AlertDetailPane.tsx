@@ -27,14 +27,24 @@ export type AlertDetailPaneProps = {
   page: ReturnType<typeof useAlerts>;
 };
 
-const getAlertStyle = (alert: tbl_Alerts) => {
+const categoryAccent = (alert: tbl_Alerts) => {
+  if (alert.category === 'Financial') return 'bg-rose-500 dark:bg-rose-400';
+  if (alert.category === 'DataQuality') return 'bg-indigo-500 dark:bg-indigo-400';
+  if (alert.category === 'Risk') return 'bg-amber-500 dark:bg-amber-400';
+  if (alert.category === 'Expiry') return 'bg-sky-500 dark:bg-sky-400';
+  return 'bg-slate-400 dark:bg-slate-500';
+};
+
+const categoryBadge = (alert: tbl_Alerts) => {
   if (alert.category === 'Financial')
-    return 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400';
+    return 'border-rose-200/80 bg-rose-50/90 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200';
   if (alert.category === 'DataQuality')
-    return 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400';
+    return 'border-indigo-200/80 bg-indigo-50/90 text-indigo-800 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200';
   if (alert.category === 'Risk')
-    return 'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-900/30 text-orange-600 dark:text-orange-400';
-  return 'bg-gray-50 dark:bg-slate-800 border-gray-100 dark:border-slate-700 text-slate-600 dark:text-slate-400';
+    return 'border-amber-200/80 bg-amber-50/90 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/35 dark:text-amber-100';
+  if (alert.category === 'Expiry')
+    return 'border-sky-200/80 bg-sky-50/90 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-100';
+  return 'border-slate-200/80 bg-slate-100/90 text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200';
 };
 
 const getMissingFieldLabel = (field: string) => {
@@ -66,11 +76,14 @@ export const AlertDetailPane: React.FC<AlertDetailPaneProps> = ({ page }) => {
 
   if (!selectedAlert) {
     return (
-      <div className="app-card flex min-h-[420px] flex-col items-center justify-center p-10 text-center">
-        <p className="text-lg font-black text-slate-700 dark:text-slate-200">اختر تنبيهاً من القائمة</p>
-        <p className="mt-2 max-w-sm text-sm font-bold text-slate-500 dark:text-slate-400">
-          نمط Inbox/Triage: القائمة على اليسار، التفاصيل والإجراءات هنا. يمكنك تحديد عدة تنبيهات للإجراء
-          الجماعي.
+      <div className="app-card flex min-h-[420px] flex-col items-center justify-center p-12 text-center ring-1 ring-slate-900/[0.04] dark:ring-white/[0.06]">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500">
+          <Layers size={28} strokeWidth={1.5} />
+        </div>
+        <p className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight">اختر تنبيهاً من القائمة</p>
+        <p className="mt-2 max-w-md text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+          اعرض التفاصيل والإجراءات بعد اختيار عنصر من عمود القائمة. يمكنك تحديد عدة تنبيهات لتنفيذ إجراء
+          جماعي من الشريط السفلي.
         </p>
       </div>
     );
@@ -79,42 +92,58 @@ export const AlertDetailPane: React.FC<AlertDetailPaneProps> = ({ page }) => {
   const a = selectedAlert;
 
   return (
-    <div
-      className={`app-card overflow-hidden flex flex-col max-h-[calc(100vh-280px)] border-r-4 ${
-        a.category === 'Financial'
-          ? 'border-r-rose-500'
-          : a.category === 'DataQuality'
-            ? 'border-r-indigo-500'
-            : a.category === 'Risk'
-              ? 'border-r-orange-500'
-              : 'border-r-slate-400'
-      }`}
-    >
-      <div className={`shrink-0 border-b border-slate-100 dark:border-slate-800 px-5 py-4 ${getAlertStyle(a)}`}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-white flex flex-wrap items-center gap-2">
-              {a.نوع_التنبيه}
-              {a.count && a.count > 1 ? (
-                <span className="rounded-full bg-white/60 dark:bg-black/30 px-2 py-0.5 text-xs">مجمّع</span>
-              ) : null}
-            </h2>
-            <p className="mt-1 text-xs font-bold text-slate-600 dark:text-slate-300">
-              {new Date(a.تاريخ_الانشاء).toLocaleString('ar-JO')}
-            </p>
+    <div className="app-card overflow-hidden flex flex-col max-h-[calc(100vh-280px)] ring-1 ring-slate-900/[0.04] dark:ring-white/[0.06] shadow-md hover:shadow-md dark:hover:shadow-md transition-shadow">
+      <div className="shrink-0 border-b border-slate-200/80 dark:border-slate-800 bg-white/95 dark:bg-slate-950/80 px-5 py-5">
+        <div className="flex gap-4">
+          <div
+            className={`w-1 shrink-0 self-stretch min-h-[4.5rem] rounded-full ${categoryAccent(a)}`}
+            aria-hidden
+          />
+          <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 gap-y-1.5">
+                {a.category ? (
+                  <span
+                    className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${categoryBadge(a)}`}
+                  >
+                    {a.category}
+                  </span>
+                ) : null}
+                {a.count && a.count > 1 ? (
+                  <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    مجمّع
+                  </span>
+                ) : null}
+              </div>
+              <h2 className="mt-2 text-base font-bold text-slate-900 dark:text-slate-50 leading-snug tracking-tight">
+                {a.نوع_التنبيه}
+              </h2>
+              <p className="mt-1 text-xs font-medium tabular-nums text-slate-500 dark:text-slate-400">
+                {new Date(a.تاريخ_الانشاء).toLocaleString('ar-JO')}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => setSelectedAlert(null)}
+              className="shrink-0 font-semibold text-slate-600 dark:text-slate-300"
+            >
+              إغلاق
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" type="button" onClick={() => setSelectedAlert(null)}>
-            إغلاق اللوحة
-          </Button>
         </div>
 
         {secondary.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 dark:border-slate-800/80 pt-4">
+            <span className="w-full text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              اختصارات
+            </span>
             {secondary.map((act) => (
               <button
                 key={act.id}
                 type="button"
-                className="rounded-full border border-white/40 bg-white/30 px-3 py-1 text-[10px] font-black text-slate-800 backdrop-blur hover:bg-white/50 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100"
+                className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200/90 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
                 onClick={() => {
                   if (act.type === 'navigate') {
                     handleNavigate(a);
@@ -184,8 +213,13 @@ export const AlertDetailPane: React.FC<AlertDetailPaneProps> = ({ page }) => {
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-6">
-        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-bold">{a.الوصف}</p>
+      <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/40 dark:bg-slate-950/30 p-6 space-y-8 scroll-pb-6">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+            الوصف
+          </p>
+          <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed font-medium">{a.الوصف}</p>
+        </div>
 
         <InstallmentAlertBlock alert={a} />
 
@@ -232,10 +266,12 @@ export const AlertDetailPane: React.FC<AlertDetailPaneProps> = ({ page }) => {
         )}
 
         {a.details && a.details.length > 0 && (
-          <div className="rounded-xl border border-gray-100 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
-            <div className="bg-gray-50 dark:bg-slate-800 p-3 text-sm font-bold text-slate-700 dark:text-slate-300 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2">
-              <Layers size={16} className="text-orange-500" />
-              التفاصيل ({a.details.length})
+          <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04]">
+            <div className="bg-slate-50/90 dark:bg-slate-800/80 px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200/70 dark:border-slate-700 flex items-center gap-2">
+              <Layers size={15} className="text-slate-400 dark:text-slate-500 shrink-0" strokeWidth={2} />
+              <span>
+                بنود التفاصيل <span className="tabular-nums text-slate-500">({a.details.length})</span>
+              </span>
             </div>
 
             {a.category === 'DataQuality' ? (
@@ -282,24 +318,35 @@ export const AlertDetailPane: React.FC<AlertDetailPaneProps> = ({ page }) => {
                 })}
               </div>
             ) : (
-              <table className="w-full text-right text-xs">
-                <thead className="bg-gray-50 dark:bg-slate-800/50 text-gray-500">
+              <table className="w-full text-right text-sm">
+                <thead className="bg-slate-50/80 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wide">
                   <tr>
-                    {a.category === 'Financial' && <th className="p-3 text-right">التاريخ</th>}
-                    <th className="p-3 text-right">{a.category === 'Risk' ? 'الاسم' : 'القيمة'}</th>
-                    <th className="p-3 text-right">ملاحظات</th>
+                    {a.category === 'Financial' && (
+                      <th className="p-3.5 text-right font-semibold">التاريخ</th>
+                    )}
+                    <th className="p-3.5 text-right font-semibold">
+                      {a.category === 'Risk' ? 'الاسم' : 'القيمة'}
+                    </th>
+                    <th className="p-3.5 text-right font-semibold">ملاحظات</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-sm">
                   {a.details.map((d) => (
-                    <tr key={d.id}>
+                    <tr
+                      key={d.id}
+                      className="bg-white dark:bg-slate-900/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                    >
                       {a.category === 'Financial' && (
-                        <td className="p-3 font-medium text-red-600">{d.date}</td>
+                        <td className="p-3.5 font-medium text-rose-600 dark:text-rose-400 tabular-nums">
+                          {d.date}
+                        </td>
                       )}
-                      <td className="p-3 font-bold">
+                      <td className="p-3.5 font-semibold text-slate-800 dark:text-slate-100">
                         {a.category === 'Risk' ? d.name : `${d.amount?.toLocaleString()} د.أ`}
                       </td>
-                      <td className="p-3 text-gray-400 dark:text-slate-400">{d.note || '-'}</td>
+                      <td className="p-3.5 text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        {d.note || '-'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -308,66 +355,79 @@ export const AlertDetailPane: React.FC<AlertDetailPaneProps> = ({ page }) => {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={sendWhatsApp}
-            className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-green-500/20 text-sm"
-          >
-            <MessageCircle size={20} /> إرسال واتساب
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleNavigate(a)}
-            className="flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 py-3 rounded-xl font-bold transition text-sm"
-          >
-            <FileText size={20} /> التفاصيل الكاملة
-          </button>
-
-          {a.category !== 'DataQuality' && a.مرجع_المعرف !== 'batch' && (
+        <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/60 p-5 shadow-sm ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04]">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-4">
+            إجراءات رئيسية
+          </p>
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={openLegalNotice}
-              className="col-span-2 flex items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 py-3 rounded-xl font-bold transition text-sm"
+              onClick={sendWhatsApp}
+              className="flex items-center justify-center gap-2 min-h-[2.75rem] rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
             >
-              <PenTool size={20} /> إرسال إخطار قانوني
+              <MessageCircle size={18} className="shrink-0 opacity-95" strokeWidth={2} />
+              إرسال واتساب
             </button>
-          )}
+
+            <button
+              type="button"
+              onClick={() => handleNavigate(a)}
+              className="flex items-center justify-center gap-2 min-h-[2.75rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+            >
+              <FileText size={18} className="shrink-0 text-slate-500 dark:text-slate-400" strokeWidth={2} />
+              التفاصيل الكاملة
+            </button>
+
+            {a.category !== 'DataQuality' && a.مرجع_المعرف !== 'batch' && (
+              <button
+                type="button"
+                onClick={openLegalNotice}
+                className="col-span-2 flex items-center justify-center gap-2 min-h-[2.75rem] rounded-lg border border-red-200 bg-red-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-500 dark:border-red-900/40 dark:bg-red-700 dark:hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+              >
+                <PenTool size={18} className="shrink-0 opacity-95" strokeWidth={2} />
+                إرسال إخطار قانوني
+              </button>
+            )}
+          </div>
         </div>
 
         {a.مرجع_المعرف !== 'batch' && (
-          <div>
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-              <StickyNote size={16} /> إضافة ملاحظة سريعة
+          <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/60 p-4 shadow-sm ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04]">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-2">
+              <StickyNote size={14} className="text-slate-400 shrink-0" strokeWidth={2} />
+              ملاحظة سريعة
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
-                className="flex-1 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white text-sm font-bold"
-                placeholder="ملاحظة للمتابعة..."
+                className="flex-1 rounded-lg border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-indigo-500 dark:focus:bg-slate-900"
+                placeholder="اكتب ملاحظة للمتابعة…"
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
               />
               <button
                 type="button"
                 onClick={saveNote}
-                className="bg-slate-800 dark:bg-slate-700 text-white p-2.5 rounded-xl hover:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center"
+                className="flex shrink-0 items-center justify-center rounded-lg bg-slate-800 px-3.5 text-white transition hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600"
+                aria-label="حفظ الملاحظة"
               >
-                <Send size={20} />
+                <Send size={18} strokeWidth={2} />
               </button>
             </div>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 pt-4">
-          <button
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 dark:border-slate-800 pt-6">
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => handleDismiss(a)}
-            className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
+            className="font-semibold text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/80"
+            rightIcon={<CheckCircle size={16} strokeWidth={2} />}
           >
-            <CheckCircle size={16} /> تعليم كمقروء (تجاهل)
-          </button>
+            تعليم كمقروء
+          </Button>
         </div>
       </div>
 

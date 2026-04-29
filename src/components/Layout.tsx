@@ -1102,7 +1102,7 @@ export const Layout = () => {
         </main>
 
         {/* Scroll To Top */}
-        <div className="fixed bottom-6 left-6 layer-app-fab">
+        <div className="fixed bottom-6 start-6 layer-app-fab">
           <ScrollToTopButton scrollContainer={typeof window !== 'undefined' ? window.__mainScrollEl ?? null : null} />
         </div>
 
