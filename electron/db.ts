@@ -1514,6 +1514,13 @@ export function domainSearch(
   ensureDomainSchema(dbh);
   const ready = domainEnsureReady();
   if (!ready.ok) return { ok: false, message: ready.message };
+  const _perfStart = Date.now();
+  const ok = (items: unknown[]) => {
+    console.info(
+      `[domainSearch] entity=${entity} q="${query}" items=${items.length} time=${Date.now() - _perfStart}ms`
+    );
+    return { ok: true as const, items };
+  };
 
   const q = String(query || '').trim();
   const qLower = q.toLowerCase();
@@ -1539,7 +1546,7 @@ export function domainSearch(
             }
           })
           .filter((x): x is unknown => Boolean(x));
-        return { ok: true, items };
+        return ok(items);
       }
       // FTS5 path — fall back to LIKE on any error
       try {
@@ -1563,7 +1570,7 @@ export function domainSearch(
             }
           })
           .filter((x): x is unknown => Boolean(x));
-        return { ok: true, items };
+        return ok(items);
       } catch {
         // LIKE fallback
         const rows = dbh
@@ -1584,7 +1591,7 @@ export function domainSearch(
             }
           })
           .filter((x): x is unknown => Boolean(x));
-        return { ok: true, items };
+        return ok(items);
       }
     }
 
@@ -1602,7 +1609,7 @@ export function domainSearch(
             }
           })
           .filter(Boolean);
-        return { ok: true, items };
+        return ok(items);
       }
       // FTS5 path — fall back to LIKE on any error
       try {
@@ -1626,7 +1633,7 @@ export function domainSearch(
             }
           })
           .filter(Boolean);
-        return { ok: true, items };
+        return ok(items);
       } catch {
         // LIKE fallback
         const sql = qDigits
@@ -1650,7 +1657,7 @@ export function domainSearch(
             }
           })
           .filter(Boolean);
-        return { ok: true, items };
+        return ok(items);
       }
     }
 
@@ -1689,9 +1696,12 @@ export function domainSearch(
       })
       .filter((x): x is unknown => Boolean(x));
 
-    return { ok: true, items };
+    return ok(items);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث';
+    console.info(
+      `[domainSearch] entity=${entity} q="${query}" ERROR time=${Date.now() - _perfStart}ms`
+    );
     return { ok: false, message };
   }
 }

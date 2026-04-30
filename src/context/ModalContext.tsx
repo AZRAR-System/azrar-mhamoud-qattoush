@@ -95,16 +95,19 @@ const dedupeFingerprint = (props?: PanelProps): string => {
   const intent = (p.alertsIntent || null) as AlertPanelIntent | null;
   const alertKind = String(p.__alertModalKind || '');
   const payload = p.alertActionPayload as Record<string, unknown> | undefined;
+  const panelTitle = typeof p.title === 'string' ? p.title.trim() : '';
+  const intentTitle = typeof intent?.title === 'string' ? intent.title.trim() : '';
 
   const parts: string[] = [];
   if (alertKind) parts.push(`k=${alertKind}`);
+  if (panelTitle) parts.push(`pt=${panelTitle}`);
+  if (intentTitle) parts.push(`t=${intentTitle}`);
 
   if (intent) {
     if (intent.only) parts.push(`only=${intent.only}`);
     if (intent.category !== undefined) parts.push(`cat=${String(intent.category)}`);
     if (intent.q !== undefined) parts.push(`q=${String(intent.q)}`);
     if (intent.id) parts.push(`id=${String(intent.id)}`);
-    if (intent.title) parts.push(`t=${String(intent.title)}`);
   }
 
   // Keep payload fingerprint shallow (ids/refs only) to avoid huge objects.

@@ -106,11 +106,13 @@ export const Select: FC<SelectProps> = ({
         syncPosition();
       });
     };
-    window.addEventListener('scroll', onScrollOrResize, { capture: true, passive: true });
-    window.addEventListener('resize', onScrollOrResize, { passive: true });
+    const scrollOpts: AddEventListenerOptions = { capture: true, passive: true };
+    const resizeOpts: AddEventListenerOptions = { passive: true };
+    window.addEventListener('scroll', onScrollOrResize, scrollOpts);
+    window.addEventListener('resize', onScrollOrResize, resizeOpts);
     return () => {
-      window.removeEventListener('scroll', onScrollOrResize, { capture: true } as AddEventListenerOptions);
-      window.removeEventListener('resize', onScrollOrResize as EventListener);
+      window.removeEventListener('scroll', onScrollOrResize, scrollOpts);
+      window.removeEventListener('resize', onScrollOrResize, resizeOpts);
       if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [isOpen, syncPosition]);

@@ -106,13 +106,15 @@ export const DatePicker: FC<DatePickerProps> = ({
       });
     };
 
-    window.addEventListener('resize', scheduleUpdate, { passive: true });
-    window.addEventListener('scroll', scheduleUpdate, { capture: true, passive: true });
+    const scrollOpts: AddEventListenerOptions = { capture: true, passive: true };
+    const resizeOpts: AddEventListenerOptions = { passive: true };
+    window.addEventListener('resize', scheduleUpdate, resizeOpts);
+    window.addEventListener('scroll', scheduleUpdate, scrollOpts);
 
     return () => {
       window.removeEventListener('keydown', onKeyDown, true);
-      window.removeEventListener('resize', scheduleUpdate as EventListener);
-      window.removeEventListener('scroll', scheduleUpdate, { capture: true } as AddEventListenerOptions);
+      window.removeEventListener('resize', scheduleUpdate, resizeOpts);
+      window.removeEventListener('scroll', scheduleUpdate, scrollOpts);
       if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [isOpen]);

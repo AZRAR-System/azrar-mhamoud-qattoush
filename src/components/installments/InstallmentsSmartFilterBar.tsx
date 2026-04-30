@@ -106,11 +106,13 @@ export const InstallmentsSmartFilterBar: FC<InstallmentsSmartFilterBarProps> = (
         syncDate();
       });
     };
-    window.addEventListener('resize', h, { passive: true });
-    window.addEventListener('scroll', h, { capture: true, passive: true });
+    const scrollOpts: AddEventListenerOptions = { capture: true, passive: true };
+    const resizeOpts: AddEventListenerOptions = { passive: true };
+    window.addEventListener('resize', h, resizeOpts);
+    window.addEventListener('scroll', h, scrollOpts);
     return () => {
-      window.removeEventListener('resize', h as EventListener);
-      window.removeEventListener('scroll', h, { capture: true } as AddEventListenerOptions);
+      window.removeEventListener('resize', h, resizeOpts);
+      window.removeEventListener('scroll', h, scrollOpts);
       if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [dateOpen, syncDate]);
@@ -126,11 +128,13 @@ export const InstallmentsSmartFilterBar: FC<InstallmentsSmartFilterBarProps> = (
         syncAmt();
       });
     };
-    window.addEventListener('resize', h, { passive: true });
-    window.addEventListener('scroll', h, { capture: true, passive: true });
+    const scrollOpts: AddEventListenerOptions = { capture: true, passive: true };
+    const resizeOpts: AddEventListenerOptions = { passive: true };
+    window.addEventListener('resize', h, resizeOpts);
+    window.addEventListener('scroll', h, scrollOpts);
     return () => {
-      window.removeEventListener('resize', h as EventListener);
-      window.removeEventListener('scroll', h, { capture: true } as AddEventListenerOptions);
+      window.removeEventListener('resize', h, resizeOpts);
+      window.removeEventListener('scroll', h, scrollOpts);
       if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [amtOpen, syncAmt]);
