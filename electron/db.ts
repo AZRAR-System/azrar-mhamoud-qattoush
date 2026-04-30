@@ -957,6 +957,80 @@ function ensureDomainSchema(dbh: SqliteDb): void {
   }
 
   metaSet(dbh, 'domain_schema_version', String(DOMAIN_SCHEMA_VERSION));
+  ensureFtsSchema(dbh);
+}
+
+function ensureFtsSchema(dbh: SqliteDb): void {
+  // FTS5 — People
+  dbh.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(
+      name, phone, nationalId,
+      content='people',
+      content_rowid='rowid',
+      tokenize='unicode61'
+    );
+    CREATE TRIGGER IF NOT EXISTS people_fts_ai
+      AFTER INSERT ON people BEGIN
+        INSERT INTO people_fts(rowid, name, phone, nationalId)
+          VALUES (new.rowid, new.name, new.phone, new.nationalId);
+      END;
+    CREATE TRIGGER IF NOT EXISTS people_fts_ad
+      AFTER DELETE ON people BEGIN
+        INSERT INTO people_fts(people_fts, rowid, name, phone, nationalId)
+          VALUES ('delete', old.rowid, old.name, old.phone, old.nationalId);
+      END;
+    CREATE TRIGGER IF NOT EXISTS people_fts_au
+      AFTER UPDATE ON people BEGIN
+        INSERT INTO people_fts(people_fts, rowid, name, phone, nationalId)
+          VALUES ('delete', old.rowid, old.name, old.phone, old.nationalId);
+        INSERT INTO people_fts(rowid, name, phone, nationalId)
+          VALUES (new.rowid, new.name, new.phone, new.nationalId);
+      END;
+  `);
+
+  // FTS5 — Properties
+  dbh.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS properties_fts USING fts5(
+      internalCode, address, city, area,
+      content='properties',
+      content_rowid='rowid',
+      tokenize='unicode61'
+    );
+    CREATE TRIGGER IF NOT EXISTS properties_fts_ai
+      AFTER INSERT ON properties BEGIN
+        INSERT INTO properties_fts(rowid, internalCode, address, city, area)
+          VALUES (new.rowid, new.internalCode, new.address, new.city, new.area);
+      END;
+    CREATE TRIGGER IF NOT EXISTS properties_fts_ad
+      AFTER DELETE ON properties BEGIN
+        INSERT INTO properties_fts(properties_fts, rowid, internalCode, address, city, area)
+          VALUES ('delete', old.rowid, old.internalCode, old.address, old.city, old.area);
+      END;
+    CREATE TRIGGER IF NOT EXISTS properties_fts_au
+      AFTER UPDATE ON properties BEGIN
+        INSERT INTO properties_fts(properties_fts, rowid, internalCode, address, city, area)
+          VALUES ('delete', old.rowid, old.internalCode, old.address, old.city, old.area);
+        INSERT INTO properties_fts(rowid, internalCode, address, city, area)
+          VALUES (new.rowid, new.internalCode, new.address, new.city, new.area);
+      END;
+  `);
+
+  // Initial population — runs only if FTS tables are empty
+  const peopleCount = (dbh.prepare('SELECT count(*) as n FROM people').get() as { n: number }).n;
+  const ftsCount = (dbh.prepare('SELECT count(*) as n FROM people_fts').get() as { n: number }).n;
+  if (peopleCount > 0 && ftsCount === 0) {
+    dbh.exec(
+      `INSERT INTO people_fts(rowid, name, phone, nationalId) SELECT rowid, name, phone, nationalId FROM people;`
+    );
+  }
+
+  const propCount = (dbh.prepare('SELECT count(*) as n FROM properties').get() as { n: number }).n;
+  const propFtsCount = (dbh.prepare('SELECT count(*) as n FROM properties_fts').get() as { n: number }).n;
+  if (propCount > 0 && propFtsCount === 0) {
+    dbh.exec(
+      `INSERT INTO properties_fts(rowid, internalCode, address, city, area) SELECT rowid, internalCode, address, city, area FROM properties;`
+    );
+  }
 }
 
 function domainEnsureReady(): { ok: boolean; message?: string } {
