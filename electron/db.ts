@@ -501,6 +501,8 @@ export function getDb(): SqliteDb {
     database.pragma('busy_timeout = 5000');
     database.pragma('synchronous = NORMAL');
     database.pragma('temp_store = MEMORY');
+    database.pragma('cache_size = -64000');
+    database.pragma('mmap_size = 268435456');
     database.exec(`
     CREATE TABLE IF NOT EXISTS kv (
       k TEXT PRIMARY KEY,
