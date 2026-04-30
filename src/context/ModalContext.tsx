@@ -26,6 +26,15 @@ export interface PanelProps extends Record<string, unknown> {
   onOpenLegalGenerator?: () => void;
   onOpenContract?: () => void;
   onOpenMaintenance?: () => void;
+  /**
+   * Internal: allow stacking slide-over panels (open multiple at once) instead of using the
+   * single-drawer history slot behavior.
+   */
+  __stack?: boolean;
+  /** Internal: force centered modal (not slide-over). */
+  __centerModal?: boolean;
+  /** Internal: allow minimize-to-bottom behavior (centered modals). */
+  __minimizable?: boolean;
 }
 
 /** فتح نافذة طبقة (GENERIC_ALERT + مكوّن متخصص حسب `__alertModalKind`) */
@@ -78,6 +87,7 @@ interface ModalContextType {
   openModal: OpenModalFn;
   closePanel: (id: string) => void;
   closeAll: () => void;
+  bringToFront: (id: string) => void;
   navigateBack: () => void;
   navigateForward: () => void;
 }
@@ -159,42 +169,25 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     lastOpenRef.current = { key: dedupeKey, ts: now };
 
     const id = Math.random().toString(36).substr(2, 9);
+    const normalizedProps: PanelProps = {
+      ...(props || {}),
+      // Default behavior: centered + minimizable for all panels (except confirm),
+      // and allow opening multiple windows at once.
+      __centerModal: props?.__centerModal ?? type !== 'CONFIRM_MODAL',
+      __minimizable: props?.__minimizable ?? type !== 'CONFIRM_MODAL',
+      __stack: props?.__stack ?? true,
+    };
     const newPanel: Panel = {
       id,
       type,
       dataId,
-      props: { ...(props || {}), __dedupeKey: dedupeKey },
+      props: { ...normalizedProps, __dedupeKey: dedupeKey },
     };
 
-    if (HISTORY_SUPPORTED_PANELS.includes(type)) {
-      const existingActiveHistory = activePanels.find((p) =>
-        HISTORY_SUPPORTED_PANELS.includes(p.type)
-      );
-      const existingKey = String(existingActiveHistory?.props?.__dedupeKey || '');
-      if (existingActiveHistory && existingKey === dedupeKey) {
-        return;
-      }
-      startTransition(() => {
-        setDrawerHistory((prev) => {
-          // Truncate future history if we're opening something new from back-state
-          const truncated = prev.slice(0, historyIndex + 1);
-          const next = [...truncated, newPanel];
-          setHistoryIndex(next.length - 1);
-          return next;
-        });
-        // For drawers, we replace the single active "drawer" slot in activePanels
-        // so the back/forward experience feels like a single window/tab
-        setActivePanels((prev) => {
-          const others = prev.filter((p) => !HISTORY_SUPPORTED_PANELS.includes(p.type));
-          return [...others, newPanel];
-        });
-      });
-    } else {
-      // Regular modals just stack on top
-      startTransition(() => {
-        setActivePanels((prev) => [...prev, newPanel]);
-      });
-    }
+    // Always stack: allow multiple windows/pages/modals open simultaneously.
+    startTransition(() => {
+      setActivePanels((prev) => [...prev, newPanel]);
+    });
   };
 
   const openModal: OpenModalFn = (kind, props) => {
@@ -204,7 +197,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const closePanel = (id: string) => {
     setActivePanels((prev) => {
       const closing = prev.find(p => p.id === id);
-      if (closing && HISTORY_SUPPORTED_PANELS.includes(closing.type)) {
+      if (closing && HISTORY_SUPPORTED_PANELS.includes(closing.type) && !closing.props?.__stack) {
         setDrawerHistory([]);
         setHistoryIndex(-1);
       }
@@ -216,6 +209,19 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setActivePanels([]);
     setDrawerHistory([]);
     setHistoryIndex(-1);
+  };
+
+  const bringToFront = (id: string) => {
+    startTransition(() => {
+      setActivePanels((prev) => {
+        const idx = prev.findIndex((p) => p.id === id);
+        if (idx === -1) return prev;
+        if (idx === prev.length - 1) return prev;
+        const target = prev[idx];
+        const next = prev.slice(0, idx).concat(prev.slice(idx + 1));
+        return [...next, target];
+      });
+    });
   };
 
   const navigateBack = () => {
@@ -252,6 +258,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         openModal,
         closePanel, 
         closeAll, 
+        bringToFront,
         navigateBack, 
         navigateForward 
       }}

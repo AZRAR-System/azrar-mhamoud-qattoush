@@ -80,6 +80,55 @@
   }
 }
 
+/* Embedded view policy (panels / centered modals)
+   - Ensure children can shrink and scroll properly
+   - Avoid accidental max-width constraints inside embedded surfaces */
+@layer utilities {
+  [data-embedded-view] {
+    min-width: 0;
+    min-height: 0;
+    /* Use container queries so grids respond to panel width (not viewport width). */
+    container-type: inline-size;
+    container-name: embedded-view;
+  }
+  [data-embedded-view] :where(.max-w-xs, .max-w-sm, .max-w-md, .max-w-lg, .max-w-xl, .max-w-2xl, .max-w-3xl, .max-w-4xl, .max-w-5xl, .max-w-6xl, .max-w-7xl) {
+    max-width: 100%;
+  }
+  /* Catch arbitrary max-w-[...] and any class containing max-w- */
+  [data-embedded-view] :where([class*='max-w-']) {
+    max-width: 100%;
+  }
+  /* Tailwind `container` constrains width at breakpoints — disable inside panels */
+  [data-embedded-view] :where(.container) {
+    max-width: none;
+    width: 100%;
+  }
+  /* Auto-centering often creates wasted space in panels */
+  [data-embedded-view] :where(.mx-auto) {
+    margin-inline: 0;
+  }
+
+  /* Strict main pages card grid inside panels:
+     - 3 columns on small+ screens
+     - 6 columns on xl+ screens
+     (keeps 1 column on very small screens) */
+  [data-embedded-view] :where([data-main-cards-grid]) {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+  /* 3 columns when the PANEL itself is wide enough */
+  @container embedded-view (min-width: 760px) {
+    [data-embedded-view] :where([data-main-cards-grid]) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  /* 6 columns only when the PANEL itself is very wide */
+  @container embedded-view (min-width: 1320px) {
+    [data-embedded-view] :where([data-main-cards-grid]) {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+}
+
 /* Mobile Optimization */
 * {
   -webkit-tap-highlight-color: transparent;

@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useRef, type FC } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
 import type { AlertPanelIntent } from '@/services/alerts/alertActionTypes';
+import { EmbeddedViewRoot } from '@/context/EmbeddedViewContext';
 
 type SectionPath =
   | typeof ROUTE_PATHS.DASHBOARD
@@ -151,10 +152,12 @@ export const SectionViewPanel: FC<{
   }
 
   return (
-    <div className="p-4">
-      <Suspense fallback={<PageLoader />}>
-        <Component />
-      </Suspense>
-    </div>
+    <EmbeddedViewRoot>
+      <div className="h-full w-full min-w-0">
+        <Suspense fallback={<PageLoader />}>
+          <Component />
+        </Suspense>
+      </div>
+    </EmbeddedViewRoot>
   );
 };

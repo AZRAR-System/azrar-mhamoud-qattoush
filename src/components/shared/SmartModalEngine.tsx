@@ -1,10 +1,32 @@
 import React, { Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useSmartModal, type PanelType } from '@/context/ModalContext';
-import { ChevronDown, ChevronUp, Loader2, ServerCog, X, ArrowLeft, ArrowRight } from 'lucide-react';
+import {
+  Activity,
+  BarChart3,
+  Bell,
+  Building,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  CreditCard,
+  FileText,
+  Loader2,
+  MessageCircle,
+  ScrollText,
+  ServerCog,
+  Settings,
+  Sparkles,
+  User,
+  Users,
+  Wrench,
+  X,
+} from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 import { ScrollToTopButton } from '@/components/shared/ScrollToTopButton';
+import { ROUTE_ICONS, ROUTE_TITLES } from '@/routes/registry';
+import { EmbeddedViewRoot } from '@/context/EmbeddedViewContext';
 
 /**
  * Defer mounting heavy panel content by 1 frame so click/focus handlers return quickly.
@@ -131,6 +153,64 @@ const panelChunkFallback = (
 type PanelComponentProps = { id?: string; onClose: () => void } & Record<string, unknown>;
 type PanelComponent = React.ComponentType<PanelComponentProps>;
 
+function minimizedPanelMeta(panel: { type: PanelType; dataId?: string; props?: Record<string, unknown> }): {
+  title: string;
+  subtitle: string;
+  Icon?: React.ComponentType<{ size?: number; className?: string }>;
+} {
+  const titleRaw = String((panel.props as { title?: unknown } | undefined)?.title ?? PANEL_TITLES[panel.type] ?? '');
+  const title = titleRaw || 'نافذة';
+
+  if (panel.type === 'SECTION_VIEW') {
+    const path = String(panel.dataId || '').trim();
+    const routeTitle = (path && ROUTE_TITLES[path]) || title;
+    const Icon = (path && ROUTE_ICONS[path]) || undefined;
+    return {
+      title: routeTitle,
+      subtitle: 'صفحة مفتوحة • يمكنك المتابعة داخل النظام',
+      Icon,
+    };
+  }
+
+  return {
+    title,
+    subtitle: 'قيد التشغيل • يمكنك المتابعة داخل النظام',
+    Icon:
+      ({
+        PERSON_DETAILS: Users,
+        PROPERTY_DETAILS: Building,
+        CONTRACT_DETAILS: FileText,
+        INSTALLMENT_DETAILS: CreditCard,
+        MAINTENANCE_DETAILS: Wrench,
+        REPORT_VIEWER: BarChart3,
+        LEGAL_NOTICE_GENERATOR: ScrollText,
+        SALES_LISTING_DETAILS: Activity,
+        CLEARANCE_REPORT: ScrollText,
+        CLEARANCE_WIZARD: ScrollText,
+        PERSON_FORM: User,
+        PROPERTY_FORM: Building,
+        CONTRACT_FORM: FileText,
+        INSPECTION_FORM: FileText,
+        BLACKLIST_FORM: Users,
+        SMART_PROMPT: Sparkles,
+        CALENDAR_EVENTS: CalendarDays,
+        PAYMENT_NOTIFICATIONS: Bell,
+        NOTIFICATION_CENTER: Bell,
+        GENERIC_ALERT: Bell,
+        SERVER_DRAWER: ServerCog,
+        SQL_SYNC_LOG: Activity,
+        MARQUEE_ADS: MessageCircle,
+        FINANCIAL_REPORT_PRINT: BarChart3,
+        SHORTCUTS_HELP: Sparkles,
+        QUICK_ADD: Sparkles,
+        CONFIRM_MODAL: undefined,
+        BULK_WHATSAPP: MessageCircle,
+        CONTRACT_WHATSAPP_SEND: MessageCircle,
+      } as Partial<Record<PanelType, React.ComponentType<{ size?: number; className?: string }>>>)[panel.type] ??
+      undefined,
+  };
+}
+
 const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   PERSON_DETAILS: PersonPanel as unknown as PanelComponent,
   PROPERTY_DETAILS: PropertyPanel as unknown as PanelComponent,
@@ -215,11 +295,19 @@ const PANEL_TITLES: Partial<Record<PanelType, string>> = {
 };
 
 export const SmartModalEngine: React.FC = () => {
-  const { activePanels, closePanel, drawerHistory, historyIndex, navigateBack, navigateForward } = useSmartModal();
+  const { activePanels, closePanel, bringToFront } = useSmartModal();
   const [minimized, setMinimized] = React.useState<Record<string, boolean>>({});
+  const minimizedStackIndex = React.useMemo(() => {
+    const ids = activePanels.filter((p) => minimized[p.id]).map((p) => p.id);
+    const m = new Map<string, number>();
+    ids.forEach((id, i) => m.set(id, i));
+    return m;
+  }, [activePanels, minimized]);
 
   const shouldLockScroll = React.useMemo(() => {
-    return activePanels.some((panel) => panel.type !== 'BULK_WHATSAPP' || !minimized[panel.id]);
+    // Lock body scroll only when there is at least one visible (non-minimized) panel.
+    // Minimized cards should not lock scrolling.
+    return activePanels.some((panel) => !minimized[panel.id]);
   }, [activePanels, minimized]);
 
   React.useEffect(() => {
@@ -280,12 +368,24 @@ export const SmartModalEngine: React.FC = () => {
 
         const dynamicZIndex = 2000 + index * 100;
 
-        // Bulk WhatsApp: in-app popup with minimize-to-bottom
-        if (panel.type === 'BULK_WHATSAPP') {
+        // Centered + minimizable panels (minimize to bottom, restore later)
+        const isMinimizableCenter =
+          panel.type === 'BULK_WHATSAPP' ||
+          (panel.props?.__centerModal && panel.props?.__minimizable);
+
+        if (isMinimizableCenter) {
           const isTop = index === activePanels.length - 1;
           const isMin = !!minimized[panel.id];
           const title = panel.props?.title ?? PANEL_TITLES[panel.type] ?? '';
           const titleId = `panel-title-${panel.id}`;
+          const meta = minimizedPanelMeta(panel);
+          const MetaIcon = meta.Icon;
+          const isWide =
+            panel.type === 'SECTION_VIEW' ||
+            panel.type === 'SERVER_DRAWER' ||
+            panel.type === 'SQL_SYNC_LOG' ||
+            panel.type === 'CALENDAR_EVENTS';
+          const maxW = isWide ? 'max-w-6xl' : 'max-w-5xl';
 
           const doClose = () => {
             setMinimized((prev) => {
@@ -297,38 +397,63 @@ export const SmartModalEngine: React.FC = () => {
           };
 
           if (isMin) {
+            const stackIdx = minimizedStackIndex.get(panel.id) ?? 0;
+            const bottom = 16 + stackIdx * 76;
+            // Keep minimized panels above modals and toasts.
+            const minimizedZIndex = 4050 + stackIdx;
             return (
               <div
                 key={panel.id}
-                className={`fixed bottom-4 left-4 right-4 layer-toast ${isTop ? '' : 'hidden'}`}
+                className="fixed bottom-4 left-4 layer-toast animate-slide-up"
+                style={{ bottom, zIndex: minimizedZIndex }}
               >
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-2xl rounded-2xl px-4 py-3 flex items-center gap-3">
+                <div className="w-[320px] sm:w-[360px] bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-gray-200/80 dark:border-slate-700 shadow-2xl rounded-2xl px-3.5 py-3 flex items-center gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_60px_-22px_rgba(0,0,0,0.55)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bringToFront(panel.id);
+                      setMinimized((p) => ({ ...p, [panel.id]: false }));
+                    }}
+                    className="w-10 h-10 rounded-2xl bg-indigo-600/10 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-200 flex items-center justify-center ring-1 ring-indigo-600/10 dark:ring-indigo-400/10 shrink-0 hover:bg-indigo-600/15 dark:hover:bg-indigo-500/20 transition-colors"
+                    title="استرجاع"
+                    aria-label="استرجاع"
+                  >
+                    {MetaIcon ? <MetaIcon size={18} /> : <span className="text-sm font-black">A</span>}
+                  </button>
+
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-slate-800 dark:text-white truncate">
-                      {title}
+                    <div className="text-[12px] font-black text-slate-800 dark:text-white truncate">
+                      {meta.title}
                     </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      قيد التشغيل • يمكنك المتابعة داخل النظام
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate">
+                      {meta.subtitle}
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => setMinimized((p) => ({ ...p, [panel.id]: false }))}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition text-slate-600 dark:text-slate-200"
-                    title="إظهار"
-                    aria-label="إظهار"
-                  >
-                    <ChevronUp size={20} />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        bringToFront(panel.id);
+                        setMinimized((p) => ({ ...p, [panel.id]: false }));
+                      }}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition text-slate-600 dark:text-slate-200"
+                      title="إظهار"
+                      aria-label="إظهار"
+                    >
+                      <ChevronUp size={18} />
+                    </button>
 
-                  <button
-                    onClick={doClose}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500 dark:text-slate-300"
-                    title="إغلاق"
-                    aria-label="إغلاق"
-                  >
-                    <X size={20} />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={doClose}
+                      className="p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition text-slate-500 hover:text-red-600 dark:text-slate-300 dark:hover:text-red-300"
+                      title="إغلاق"
+                      aria-label="إغلاق"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -342,13 +467,16 @@ export const SmartModalEngine: React.FC = () => {
               onClick={doClose}
             >
               <div
-                className="modal-content app-modal-content app-surface-pulse-primary dark:bg-slate-900 w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] transform transition-transform duration-300 ease-out animate-scale-up"
+                className={`modal-content app-modal-content app-surface-pulse-primary dark:bg-slate-900 w-full ${maxW} overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] transform transition-transform duration-300 ease-out animate-scale-up`}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}
               >
                 <div className="no-print flex items-start gap-3 p-4 border-b border-gray-100 dark:border-slate-800">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-200 flex items-center justify-center ring-1 ring-indigo-600/10 dark:ring-indigo-400/10 shrink-0">
+                    {MetaIcon ? <MetaIcon size={18} /> : <span className="text-sm font-black">A</span>}
+                  </div>
                   <button
                     onClick={() => setMinimized((p) => ({ ...p, [panel.id]: true }))}
                     className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition text-slate-600 dark:text-slate-200"
@@ -372,15 +500,20 @@ export const SmartModalEngine: React.FC = () => {
                       id={titleId}
                       className="text-sm font-bold text-slate-800 dark:text-white whitespace-normal break-words leading-snug"
                     >
-                      {title}
+                      {String(title || meta.title)}
                     </h3>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {meta.subtitle}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
                   <DeferredMount mountKey={panel.id} fallback={panelChunkFallback}>
                     <Suspense fallback={panelChunkFallback}>
-                      <Component id={panel.dataId} {...panel.props} onClose={doClose} />
+                      <EmbeddedViewRoot>
+                        <Component id={panel.dataId} {...panel.props} onClose={doClose} />
+                      </EmbeddedViewRoot>
                     </Suspense>
                   </DeferredMount>
                 </div>
@@ -550,85 +683,14 @@ export const SmartModalEngine: React.FC = () => {
         const titleStr = String(panel.props?.title ?? PANEL_TITLES[panel.type] ?? '');
         const titleId = `panel-drawer-title-${panel.id}`;
 
-        const useSlideOver = Component && SLIDE_OVER_DETAIL_PANELS.has(panel.type);
+        const useSlideOver = false;
         const drawerMaxClass = isSectionView
           ? 'max-w-6xl'
           : isWidePanel
             ? 'max-w-5xl'
             : 'max-w-3xl';
 
-        if (useSlideOver && typeof document !== 'undefined') {
-          return createPortal(
-            <div
-              key={panel.id}
-              className={`panel-overlay app-panel-overlay fixed inset-0 flex animate-fade-in ${isTop ? '' : 'hidden'}`}
-              style={{ zIndex: dynamicZIndex }}
-              onClick={handleClose}
-              role="presentation"
-            >
-              <aside
-                className={`panel-content app-surface-pulse-primary relative flex h-full w-full flex-col overflow-hidden border border-slate-200/80 bg-white shadow-2xl ring-1 ring-black/5 animate-slide-left dark:border-slate-800 dark:bg-slate-900 dark:ring-white/10 ${drawerMaxClass}`}
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-              >
-                <div className="no-print flex shrink-0 items-center gap-3 border-b border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-800/40">
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    className="shrink-0 rounded-xl p-2.5 text-slate-400 transition-all hover:bg-slate-200/60 hover:text-slate-600 active:scale-90 dark:hover:bg-slate-700/60 dark:hover:text-slate-300"
-                    aria-label="إغلاق"
-                    title="إغلاق"
-                  >
-                    <X size={20} />
-                  </button>
-
-                  <div className="flex items-center gap-1.5 px-1.5 border-r border-slate-200 dark:border-slate-700 ml-2">
-                    <button
-                      type="button"
-                      onClick={navigateBack}
-                      disabled={historyIndex <= 0}
-                      className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all disabled:opacity-20 disabled:pointer-events-none"
-                      title="رجوع"
-                    >
-                      <ArrowRight size={18} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={navigateForward}
-                      disabled={historyIndex >= drawerHistory.length - 1}
-                      className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all disabled:opacity-20 disabled:pointer-events-none"
-                      title="أمام"
-                    >
-                      <ArrowLeft size={18} />
-                    </button>
-                  </div>
-
-                  <h2
-                    id={titleId}
-                    className="min-w-0 flex-1 text-base font-black leading-snug text-slate-800 dark:text-white sm:text-lg"
-                  >
-                    {titleStr}
-                  </h2>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar relative" ref={(el) => {
-                  if (el) el.__scrollEl = el;
-                }}>
-                  <Suspense fallback={panelChunkFallback}>
-                    <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
-                  </Suspense>
-                  <div className="sticky bottom-4 left-4 flex justify-start pointer-events-none">
-                    <div className="pointer-events-auto">
-                      <ScrollToTopButton scrollContainer={typeof window !== 'undefined' ? (document.querySelector(`aside[data-panel-id="${panel.id}"] .overflow-y-auto`) as HTMLElement) : null} />
-                    </div>
-                  </div>
-                </div>
-              </aside>
-            </div>,
-            document.body
-          );
-        }
+        // Slide-over drawers are disabled. All panels open as centered modals with minimize support.
 
         return (
           <AppModal
@@ -644,7 +706,9 @@ export const SmartModalEngine: React.FC = () => {
           >
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
               <Suspense fallback={panelChunkFallback}>
-                <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
+                <EmbeddedViewRoot>
+                  <Component id={panel.dataId} {...panel.props} onClose={handleClose} />
+                </EmbeddedViewRoot>
               </Suspense>
             </div>
           </AppModal>

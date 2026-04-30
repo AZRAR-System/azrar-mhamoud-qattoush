@@ -15,7 +15,6 @@ import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { validateRoutes } from '@/routes/validate';
 import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
-import { TabsProvider } from './context/TabsContext';
 
 // Lazy Load Pages
 const Dashboard = React.lazy(() =>
@@ -464,12 +463,10 @@ function App() {
             <DevRouteValidation />
             <ToastProvider>
               <ModalProvider>
-                <TabsProvider>
-                  <Suspense fallback={<PageLoader />}>
-                    <HeadlessLogicLayer />
-                    <AppRoutes />
-                  </Suspense>
-                </TabsProvider>
+                <Suspense fallback={<PageLoader />}>
+                  <HeadlessLogicLayer />
+                  <AppRoutes />
+                </Suspense>
               </ModalProvider>
             </ToastProvider>
           </HashRouter>

@@ -560,7 +560,7 @@ type ReportRunResult = {
   message?: string;
 };
 
-const DOMAIN_SCHEMA_VERSION = 9;
+const DOMAIN_SCHEMA_VERSION = 10;
 
 function metaGet(dbh: SqliteDb, key: string): string | null {
   const row = dbh.prepare('SELECT v FROM domain_meta WHERE k = ?').get(key) as
@@ -954,6 +954,23 @@ function ensureDomainSchema(dbh: SqliteDb): void {
 
   if (current < 9) {
     migrateDomainSchemaV9(dbh);
+  }
+
+  if (current < 10) {
+    // Professional composite indexes based on real hot queries:
+    // - person details: contracts by tenantId + isArchived, ordered by startDate/id
+    // - contract details & installments screens: installments by contractId + isArchived, ordered by dueDate/id
+    // - person details: properties by ownerId, ordered by internalCode
+    dbh.exec(`
+      CREATE INDEX IF NOT EXISTS idx_contracts_tenantId_isArchived_startDate_id
+      ON contracts(tenantId, isArchived, startDate, id);
+
+      CREATE INDEX IF NOT EXISTS idx_installments_contractId_isArchived_dueDate_id
+      ON installments(contractId, isArchived, dueDate, id);
+
+      CREATE INDEX IF NOT EXISTS idx_properties_ownerId_internalCode
+      ON properties(ownerId, internalCode);
+    `);
   }
 
   metaSet(dbh, 'domain_schema_version', String(DOMAIN_SCHEMA_VERSION));
@@ -1516,6 +1533,7 @@ export function domainSearch(
   if (!ready.ok) return { ok: false, message: ready.message };
   const _perfStart = Date.now();
   const ok = (items: unknown[]) => {
+    // eslint-disable-next-line no-console
     console.info(
       `[domainSearch] entity=${entity} q="${query}" items=${items.length} time=${Date.now() - _perfStart}ms`
     );
@@ -1699,7 +1717,7 @@ export function domainSearch(
     return ok(items);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : typeof e === 'string' ? e : 'فشل البحث';
-    console.info(
+    console.warn(
       `[domainSearch] entity=${entity} q="${query}" ERROR time=${Date.now() - _perfStart}ms`
     );
     return { ok: false, message };

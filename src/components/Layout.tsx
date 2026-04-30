@@ -3,7 +3,7 @@ import { useAutoLock } from '@/hooks/useAutoLock';
 import { SessionLockOverlay } from '@/components/SessionLockOverlay';
 import { getSettings } from '@/services/db/settings';
 import { KEYS } from '@/services/db/keys';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { NAV_ITEMS } from '@/constants';
 import {
   Bell,
@@ -33,9 +33,6 @@ import { getDatabaseStats as _getDatabaseStats } from '@/services/resetDatabase'
 import { useToast } from '@/context/ToastContext';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 import type { NotificationCenterItem } from '@/services/notificationCenter';
-import { useTabs } from '@/context/TabsContext';
-import { TabContent } from './TabBar/TabContent';
-import { PageSelector } from './TabBar/PageSelector';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
 import { ScrollToTopButton } from '@/components/shared/ScrollToTopButton';
 import { المستخدمين_tbl } from '@/types';
@@ -128,24 +125,22 @@ const Sidebar = memo(({
   isDesktop, 
   user, 
   appVersion, 
-  tabs, 
-  activeTabId, 
   expandedMenus, 
   onClose, 
   onToggleMenu, 
-  onOpenTab,
+  onNavigate,
+  onOpenAsPanel,
   onSetOpen
 }: { 
   isOpen: boolean; 
   isDesktop: boolean; 
   user: المستخدمين_tbl | null; 
   appVersion: string;
-  tabs: { id: string; path: string; title: string; icon: string }[];
-  activeTabId: string;
   expandedMenus: string[];
   onClose: () => void;
   onToggleMenu: (label: string) => void;
-  onOpenTab: (path: string, label: string, icon: string) => void;
+  onNavigate: (path: string) => void;
+  onOpenAsPanel: (path: string, title: string) => void;
   onSetOpen: (open: boolean) => void;
 }) => {
   return (
@@ -200,8 +195,7 @@ const Sidebar = memo(({
           const hasChildren = !!(item.children && item.children.length > 0);
           const isExpanded = expandedMenus.includes(item.label);
 
-          const activeTabObj = tabs.find((t) => t.id === activeTabId);
-          const activePath = activeTabObj?.path || window.location.hash.replace('#', '') || '/';
+          const activePath = window.location.hash.replace('#', '') || '/';
 
           const isSelfActive = activePath === item.path;
           const isChildActive = !!item.children?.some((c) => c.path === activePath);
@@ -249,11 +243,19 @@ const Sidebar = memo(({
                   <div className="mt-2 mr-6 border-r-2 border-indigo-100 dark:border-indigo-900/30 pr-4 space-y-1.5 animate-slide-up">
                     {visibleChildren.map((child) => {
                       const ChildIcon = child.icon;
-                      const isChildActiveInTabs = activeTabObj?.path === child.path;
+                      const isChildActiveInTabs = activePath === child.path;
                       return (
                         <button
                           key={child.path}
-                          onClick={() => onOpenTab(child.path, child.label, '📄')}
+                          onClick={(e) => {
+                            const ev = e as unknown as MouseEvent;
+                            if (ev.ctrlKey || ev.metaKey) {
+                              onOpenAsPanel(child.path, child.label);
+                              return;
+                            }
+                            onNavigate(child.path);
+                            if (!isDesktop) onClose();
+                          }}
                           className={`
                             w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all
                             ${isChildActiveInTabs
@@ -275,7 +277,15 @@ const Sidebar = memo(({
           return (
             <button
               key={item.path}
-              onClick={() => onOpenTab(item.path, item.label, '📄')}
+              onClick={(e) => {
+                const ev = e as unknown as MouseEvent;
+                if (ev.ctrlKey || ev.metaKey) {
+                  onOpenAsPanel(item.path, item.label);
+                  return;
+                }
+                onNavigate(item.path);
+                if (!isDesktop) onClose();
+              }}
               className={`
                 w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative
                 ${isActive
@@ -344,20 +354,10 @@ const Header = memo(({
   sqlStatus,
   hasDesktopBridge,
   onOpenPanel,
-  tabs: _tabs,
-  activeTabId: _activeTabId,
-  onSwitchTab: _onSwitchTab,
-  onCloseTab: _onCloseTab,
-  onOpenNewTab: _onOpenNewTab
 }: {
   pathname: string;
   title: string;
   subtitle: string;
-  tabs: { id: string; path: string; title: string; isPinned: boolean }[];
-  activeTabId: string;
-  onSwitchTab: (id: string) => void;
-  onCloseTab: (id: string) => void;
-  onOpenNewTab: () => void;
   onOpenSidebar: () => void;
   isDark: boolean;
   toggleTheme: () => void;
@@ -511,41 +511,6 @@ export const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
-  const { tabs, openTab, closeTab, activeTabId, switchTab, switchToNext, switchToPrev } = useTabs();
-
-  /** يمنع حلقة التنقل: عند تغيير الهاش قبل تحديث activeTabId، لا نعيد navigate إلى مسار التبويب القديم */
-  const prevPathnameRef = useRef(location.pathname);
-  const urlPathJustChangedRef = useRef(false);
-
-  // Sync URL -> Tabs (Handles legacy redirects and direct URL changes)
-  useEffect(() => {
-    const prev = prevPathnameRef.current;
-    if (prev !== location.pathname) {
-      urlPathJustChangedRef.current = true;
-      prevPathnameRef.current = location.pathname;
-    }
-    const title = ROUTE_TITLES[location.pathname];
-    if (title && location.pathname !== '/') {
-      openTab(location.pathname, title, '📄');
-    }
-  }, [location.pathname, openTab]);
-
-  // Sync Tabs -> URL (عند اختيار تبويب يدوياً) أو التبويب مع الرابط (عند تغيير المسار من الكود/الهاش)
-  useEffect(() => {
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    if (!activeTab) return;
-    if (activeTab.path === location.pathname) {
-      urlPathJustChangedRef.current = false;
-      return;
-    }
-    if (urlPathJustChangedRef.current) {
-      const match = tabs.find((t) => t.path === location.pathname);
-      if (match) switchTab(match.id);
-      urlPathJustChangedRef.current = false;
-      return;
-    }
-    navigate(activeTab.path, { replace: true });
-  }, [activeTabId, tabs, location.pathname, navigate, switchTab]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -562,22 +527,7 @@ export const Layout = () => {
         openPanel('QUICK_ADD');
       }
 
-      // 3. Tab Management (Ctrl+Tab, Ctrl+W, Ctrl+T)
-      if (e.ctrlKey && e.key === 'Tab') {
-        e.preventDefault();
-        if (e.shiftKey) switchToPrev();
-        else switchToNext();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
-        e.preventDefault();
-        closeTab(activeTabId);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent('azrar:open-page-selector'));
-      }
-
-      // 4. Help & Escape
+      // 3. Help & Escape
       if ((e.ctrlKey || e.metaKey) && (e.key === '?' || e.key === '/')) {
         e.preventDefault();
         openPanel('SHORTCUTS_HELP');
@@ -597,7 +547,7 @@ export const Layout = () => {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activeTabId, activePanels, closePanel, closeTab, openPanel, switchToNext, switchToPrev]);
+  }, [activePanels, closePanel, openPanel]);
 
   const [autoLockMinutes, setAutoLockMinutes] = useState(() => getSettings().autoLockMinutes ?? 30);
   useEffect(() => {
@@ -1009,12 +959,13 @@ export const Layout = () => {
           isDesktop={isDesktop}
           user={user}
           appVersion={appVersion}
-          tabs={tabs}
-          activeTabId={activeTabId}
           expandedMenus={expandedMenus}
           onClose={() => setSidebarOpen(false)}
           onToggleMenu={toggleMenu}
-          onOpenTab={openTab}
+          onNavigate={(path) => navigate(path)}
+          onOpenAsPanel={(path, title) =>
+            openPanel('SECTION_VIEW', path, { title, __stack: true, __centerModal: true, __minimizable: true })
+          }
           onSetOpen={setSidebarOpen}
       />
 
@@ -1036,51 +987,12 @@ export const Layout = () => {
             hasDesktopBridge={hasDesktopBridge}
             onOpenSidebar={() => setSidebarOpen(true)}
             onOpenPanel={openPanel}
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onSwitchTab={switchTab}
-            onCloseTab={closeTab}
-            onOpenNewTab={() => window.dispatchEvent(new CustomEvent('azrar:open-page-selector'))}
         />
-
-        {/* Pills Navigation Bar */}
-        {tabs.length > 1 && (
-          <div className="mx-4 lg:mx-8 mb-1 flex items-center gap-1.5 px-3 py-1.5 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-white/20 dark:border-slate-800/40 rounded-2xl overflow-x-auto no-scrollbar">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => switchTab(tab.id)}
-                className={`group flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
-                  tab.id === activeTabId
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
-              >
-                <span className="max-w-[100px] truncate">{tab.title}</span>
-                {!tab.isPinned && (
-                  <span
-                    onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-                    className="text-[10px] leading-none opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
-                  >
-                    ✕
-                  </span>
-                )}
-              </button>
-            ))}
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('azrar:open-page-selector'))}
-              className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-sm leading-none mr-1"
-              title="فتح صفحة جديدة"
-            >
-              +
-            </button>
-          </div>
-        )}
 
         {/* Content Container - Modern Layout */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4" ref={(el) => { if (el) window.__mainScrollEl = el; }}>
             <div className="w-full page-transition pb-20 lg:pb-10 flex flex-col px-4 lg:px-8 min-h-full">
-              <TabContent />
+              <Outlet />
 
             {/* Elegant Footer */}
             <footer className="mt-auto py-10 text-center shrink-0">
@@ -1107,7 +1019,6 @@ export const Layout = () => {
         </div>
 
         {/* Engine Layers */}
-        <PageSelector />
         <SmartModalEngine />
         <OnboardingGuide />
         <SessionLockOverlay />
