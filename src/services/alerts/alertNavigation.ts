@@ -12,6 +12,7 @@ export function alertPanelIntentHasPayload(intent?: AlertPanelIntent): boolean {
   if (!intent) return false;
   return (
     intent.only === 'unread' ||
+    intent.only === 'all' ||
     intent.category !== undefined ||
     intent.q !== undefined ||
     Boolean(intent.id && String(intent.id).trim())

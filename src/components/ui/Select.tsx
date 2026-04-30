@@ -98,12 +98,20 @@ export const Select: FC<SelectProps> = ({
   useLayoutEffect(() => {
     if (!isOpen) return;
     syncPosition();
-    const onScrollOrResize = () => syncPosition();
-    window.addEventListener('scroll', onScrollOrResize, true);
-    window.addEventListener('resize', onScrollOrResize);
+    let rafId: number | null = null;
+    const onScrollOrResize = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        syncPosition();
+      });
+    };
+    window.addEventListener('scroll', onScrollOrResize, { capture: true, passive: true });
+    window.addEventListener('resize', onScrollOrResize, { passive: true });
     return () => {
-      window.removeEventListener('scroll', onScrollOrResize, true);
-      window.removeEventListener('resize', onScrollOrResize);
+      window.removeEventListener('scroll', onScrollOrResize, { capture: true } as AddEventListenerOptions);
+      window.removeEventListener('resize', onScrollOrResize as EventListener);
+      if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [isOpen, syncPosition]);
 

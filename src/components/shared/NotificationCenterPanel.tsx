@@ -114,17 +114,7 @@ function shouldShowWhatsAppButton(item: NotificationCenterItem): boolean {
          item.category === 'overdue';
 }
 
-function collectPhonesForNotificationEntity(entityId: string): string[] {
-  const eid = String(entityId || '').trim();
-  if (!eid) return [];
-  const contract = DbService.getContracts().find((c) => c.رقم_العقد === eid);
-  if (!contract) return [];
-  const person = DbService.getPersonById(contract.رقم_المستاجر);
-  const phones: string[] = [];
-  if (person?.رقم_الهاتف) phones.push(person.رقم_الهاتف);
-  if (person?.رقم_هاتف_اضافي) phones.push(person.رقم_هاتف_اضافي);
-  return phones;
-}
+const trimId = (v: unknown): string => String(v ?? '').trim();
 
 function matchesFilter(item: NotificationCenterItem, tab: FilterTab): boolean {
   const cat = String(item.category || '').toLowerCase();
@@ -166,6 +156,57 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
   const { openPanel } = useSmartModal();
   const { items, markRead, markAllRead, clear } = useNotificationCenter();
   const [filter, setFilter] = useState<FilterTab>('all');
+
+  /**
+   * Build lightweight lookup tables once per panel mount.
+   * Avoids heavy DB scans inside click handlers (which trigger [Violation] click handler took ...ms).
+   */
+  const dbIndex = useMemo(() => {
+    const contracts = (DbService.getContracts?.() || []) as العقود_tbl[];
+    const installments = (DbService.getInstallments?.() || []) as الكمبيالات_tbl[];
+
+    const contractIds = new Set<string>();
+    const installmentToContractId = new Map<string, string>();
+
+    for (const c of contracts) {
+      const cid = trimId(c?.رقم_العقد);
+      if (cid) contractIds.add(cid);
+    }
+    for (const i of installments) {
+      const instId = trimId(i?.رقم_الكمبيالة);
+      const cid = trimId(i?.رقم_العقد);
+      if (instId && cid) installmentToContractId.set(instId, cid);
+    }
+
+    return { contractIds, installmentToContractId };
+  }, []);
+
+  const resolveContractIdForEntity = useCallback(
+    (entityId: string): string | null => {
+      const eid = trimId(entityId);
+      if (!eid) return null;
+      if (dbIndex.contractIds.has(eid)) return eid;
+      return dbIndex.installmentToContractId.get(eid) || null;
+    },
+    [dbIndex]
+  );
+
+  const collectPhonesForEntity = useCallback(
+    (entityId: string): string[] => {
+      const contractId = resolveContractIdForEntity(entityId);
+      if (!contractId) return [];
+      const contract = (DbService.getContracts?.() || []).find((c) => trimId((c as العقود_tbl)?.رقم_العقد) === contractId) as
+        | العقود_tbl
+        | undefined;
+      if (!contract) return [];
+      const person = DbService.getPersonById(contract.رقم_المستاجر);
+      const phones: string[] = [];
+      if (person?.رقم_الهاتف) phones.push(person.رقم_الهاتف);
+      if (person?.رقم_هاتف_اضافي) phones.push(person.رقم_هاتف_اضافي);
+      return phones;
+    },
+    [resolveContractIdForEntity]
+  );
 
   const filtered = useMemo(
     () => items.filter((i) => matchesFilter(i, filter)),
@@ -218,14 +259,8 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
           cat === 'financial' || cat === 'installment' ||
           cat === 'installments'
         ) {
-          // entityId may be installment id or contract id — open contract panel directly
-          const contractId = (() => {
-            const contracts = DbService.getContracts();
-            if (contracts.some((c: العقود_tbl) => c.رقم_العقد === eid)) return eid;
-            const allInst = DbService.getInstallments ? DbService.getInstallments() : [];
-            const inst = allInst.find((i: الكمبيالات_tbl) => i.رقم_الكمبيالة === eid);
-            return inst?.رقم_العقد || null;
-          })();
+          // entityId may be installment id or contract id — resolve quickly via memoized index
+          const contractId = resolveContractIdForEntity(eid);
           if (contractId) {
             openPanel('CONTRACT_DETAILS', contractId);
           } else {
@@ -276,13 +311,13 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
       openAlertsInSection(openPanel, { only: 'unread', title: 'التنبيهات' });
       onClose();
     },
-    [markRead, onClose, openPanel, navigate]
+    [markRead, onClose, openPanel, navigate, resolveContractIdForEntity]
   );
 
   const handleWhatsApp = useCallback(async (item: NotificationCenterItem) => {
     const rawMsg = item.message;
     const settings = DbService.getSettings();
-    const phones = collectPhonesForNotificationEntity(String(item.entityId || ''));
+    const phones = collectPhonesForEntity(String(item.entityId || ''));
     if (phones.length > 0) {
       await openWhatsAppForPhones(rawMsg, phones, {
         defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
@@ -294,7 +329,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
       const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
       openExternalUrl(url);
     }
-  }, []);
+  }, [collectPhonesForEntity]);
 
   return (
     <div className="flex h-full min-h-[50vh] flex-col">

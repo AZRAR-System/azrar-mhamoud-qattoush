@@ -9,6 +9,19 @@ export const useDbSignal = (): number => {
 
   useEffect(() => {
     const bump = () => setTick((t) => t + 1);
+    let focusTimer: number | null = null;
+    let lastFocusBumpAt = 0;
+    const scheduleFocusBump = () => {
+      const now = Date.now();
+      // Coalesce rapid focus events + avoid immediate heavy refresh loops on app refocus
+      if (now - lastFocusBumpAt < 800) return;
+      if (focusTimer) window.clearTimeout(focusTimer);
+      focusTimer = window.setTimeout(() => {
+        focusTimer = null;
+        lastFocusBumpAt = Date.now();
+        bump();
+      }, 120);
+    };
 
     const onStorage = (e: StorageEvent) => {
       if (!e.key) return;
@@ -17,14 +30,15 @@ export const useDbSignal = (): number => {
 
     const onDbChanged = () => bump();
 
-    window.addEventListener('focus', bump);
+    window.addEventListener('focus', scheduleFocusBump);
     window.addEventListener('storage', onStorage);
     window.addEventListener('azrar:db-changed', onDbChanged as EventListener);
 
     return () => {
-      window.removeEventListener('focus', bump);
+      window.removeEventListener('focus', scheduleFocusBump);
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('azrar:db-changed', onDbChanged as EventListener);
+      if (focusTimer) window.clearTimeout(focusTimer);
     };
   }, []);
 

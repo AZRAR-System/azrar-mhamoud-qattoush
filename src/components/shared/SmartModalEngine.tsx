@@ -6,6 +6,26 @@ import { AppModal } from '@/components/ui/AppModal';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
 import { ScrollToTopButton } from '@/components/shared/ScrollToTopButton';
 
+/**
+ * Defer mounting heavy panel content by 1 frame so click/focus handlers return quickly.
+ * This reduces long-task warnings when opening large panels/modals.
+ */
+const DeferredMount: React.FC<{ mountKey: string; fallback?: React.ReactNode; children: React.ReactNode }> = ({
+  mountKey,
+  fallback,
+  children,
+}) => {
+  const [ready, setReady] = React.useState(false);
+
+  React.useEffect(() => {
+    setReady(false);
+    const id = window.requestAnimationFrame(() => setReady(true));
+    return () => window.cancelAnimationFrame(id);
+  }, [mountKey]);
+
+  return <>{ready ? children : fallback ?? null}</>;
+};
+
 /** Lazy panels keep mockDb and heavy UI out of the initial bundle (Layout shell). */
 const PersonPanel = React.lazy(() =>
   import('@/components/panels/PersonPanel').then((m) => ({ default: m.PersonPanel }))
@@ -358,9 +378,11 @@ export const SmartModalEngine: React.FC = () => {
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
-                  <Suspense fallback={panelChunkFallback}>
-                    <Component id={panel.dataId} {...panel.props} onClose={doClose} />
-                  </Suspense>
+                  <DeferredMount mountKey={panel.id} fallback={panelChunkFallback}>
+                    <Suspense fallback={panelChunkFallback}>
+                      <Component id={panel.dataId} {...panel.props} onClose={doClose} />
+                    </Suspense>
+                  </DeferredMount>
                 </div>
               </div>
             </div>
@@ -394,9 +416,11 @@ export const SmartModalEngine: React.FC = () => {
               contentClassName="app-surface-pulse-primary dark:bg-slate-900 dark:border-slate-800 h-[85vh] rounded-2xl"
               bodyClassName="p-0"
             >
-              <Suspense fallback={panelChunkFallback}>
-                <Component {...panel.props} onClose={handleClose} />
-              </Suspense>
+              <DeferredMount mountKey={panel.id} fallback={panelChunkFallback}>
+                <Suspense fallback={panelChunkFallback}>
+                  <Component {...panel.props} onClose={handleClose} />
+                </Suspense>
+              </DeferredMount>
             </AppModal>
           );
         }

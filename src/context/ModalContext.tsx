@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, startTransition } from 'react';
 import type {
   AlertActionPayload,
   AlertLayerModalKind,
@@ -85,16 +85,37 @@ interface ModalContextType {
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
 const DEDUPE_WINDOW_MS = 900;
 
-const stableStringify = (value: unknown): string => {
-  try {
-    return JSON.stringify(value, (_k, v) => {
-      if (typeof v === 'function') return '__fn__';
-      if (typeof v === 'bigint') return String(v);
-      return v;
-    });
-  } catch {
-    return String(value);
+/**
+ * Lightweight fingerprint for dedupe (avoid expensive JSON.stringify on large/ReactNode props).
+ * Only includes small, stable, serializable bits that actually affect the opened panel identity.
+ */
+const dedupeFingerprint = (props?: PanelProps): string => {
+  if (!props) return '';
+  const p = props as Record<string, unknown>;
+  const intent = (p.alertsIntent || null) as AlertPanelIntent | null;
+  const alertKind = String(p.__alertModalKind || '');
+  const payload = p.alertActionPayload as Record<string, unknown> | undefined;
+
+  const parts: string[] = [];
+  if (alertKind) parts.push(`k=${alertKind}`);
+
+  if (intent) {
+    if (intent.only) parts.push(`only=${intent.only}`);
+    if (intent.category !== undefined) parts.push(`cat=${String(intent.category)}`);
+    if (intent.q !== undefined) parts.push(`q=${String(intent.q)}`);
+    if (intent.id) parts.push(`id=${String(intent.id)}`);
+    if (intent.title) parts.push(`t=${String(intent.title)}`);
   }
+
+  // Keep payload fingerprint shallow (ids/refs only) to avoid huge objects.
+  if (payload) {
+    const idishKeys = ['installmentId', 'contractId', 'personId', 'propertyId', 'caseRef', 'entityId'];
+    for (const k of idishKeys) {
+      if (payload[k] !== undefined) parts.push(`${k}=${String(payload[k])}`);
+    }
+  }
+
+  return parts.join('&');
 };
 
 // Panels that support history (drawn as slide-overs)
@@ -124,7 +145,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const lastOpenRef = React.useRef<{ key: string; ts: number }>({ key: '', ts: 0 });
 
   const openPanel = (type: PanelType, dataId?: string, props?: PanelProps) => {
-    const dedupeKey = [type, dataId || '', stableStringify(props || {})].join('|');
+    const dedupeKey = [type, dataId || '', dedupeFingerprint(props)].join('|');
     const now = Date.now();
     if (
       lastOpenRef.current.key === dedupeKey &&
@@ -150,22 +171,26 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (existingActiveHistory && existingKey === dedupeKey) {
         return;
       }
-      setDrawerHistory((prev) => {
-        // Truncate future history if we're opening something new from back-state
-        const truncated = prev.slice(0, historyIndex + 1);
-        const next = [...truncated, newPanel];
-        setHistoryIndex(next.length - 1);
-        return next;
-      });
-      // For drawers, we replace the single active "drawer" slot in activePanels
-      // so the back/forward experience feels like a single window/tab
-      setActivePanels((prev) => {
-        const others = prev.filter(p => !HISTORY_SUPPORTED_PANELS.includes(p.type));
-        return [...others, newPanel];
+      startTransition(() => {
+        setDrawerHistory((prev) => {
+          // Truncate future history if we're opening something new from back-state
+          const truncated = prev.slice(0, historyIndex + 1);
+          const next = [...truncated, newPanel];
+          setHistoryIndex(next.length - 1);
+          return next;
+        });
+        // For drawers, we replace the single active "drawer" slot in activePanels
+        // so the back/forward experience feels like a single window/tab
+        setActivePanels((prev) => {
+          const others = prev.filter((p) => !HISTORY_SUPPORTED_PANELS.includes(p.type));
+          return [...others, newPanel];
+        });
       });
     } else {
       // Regular modals just stack on top
-      setActivePanels((prev) => [...prev, newPanel]);
+      startTransition(() => {
+        setActivePanels((prev) => [...prev, newPanel]);
+      });
     }
   };
 

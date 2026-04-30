@@ -97,13 +97,23 @@ export const DatePicker: FC<DatePickerProps> = ({
     };
 
     updatePopoverPosition();
-    window.addEventListener('resize', updatePopoverPosition, { passive: true });
-    window.addEventListener('scroll', updatePopoverPosition, true);
+    let rafId: number | null = null;
+    const scheduleUpdate = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updatePopoverPosition();
+      });
+    };
+
+    window.addEventListener('resize', scheduleUpdate, { passive: true });
+    window.addEventListener('scroll', scheduleUpdate, { capture: true, passive: true });
 
     return () => {
       window.removeEventListener('keydown', onKeyDown, true);
-      window.removeEventListener('resize', updatePopoverPosition);
-      window.removeEventListener('scroll', updatePopoverPosition, true);
+      window.removeEventListener('resize', scheduleUpdate as EventListener);
+      window.removeEventListener('scroll', scheduleUpdate, { capture: true } as AddEventListenerOptions);
+      if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [isOpen]);
 

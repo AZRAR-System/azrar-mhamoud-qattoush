@@ -509,6 +509,8 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState<boolean>(true);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
+  /** يمنع تأثير الحفظ التلقائي من عرض «جاري الحفظ» عند إعادة التحميل من DB (dbSignal / بعد الحفظ) */
+  const settingsHydrationSkipAutosaveRef = useRef(false);
   const [categories, setCategories] = useState<LookupCategory[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<LookupCategory[]>([]);
   const [activeCategory, setActiveCategory] = useState<LookupCategory | null>(null);
@@ -523,6 +525,7 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
     setSettingsLoading(true);
     try {
       const s = DbService.getSettings();
+      settingsHydrationSkipAutosaveRef.current = true;
       setSettings(s);
     } catch (e: unknown) {
       setSettings(null);
@@ -1176,12 +1179,17 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
 
   useEffect(() => {
     if (!settings) return;
+    if (settingsHydrationSkipAutosaveRef.current) {
+      settingsHydrationSkipAutosaveRef.current = false;
+      setSaveStatus('saved');
+      return;
+    }
     setSaveStatus('saving');
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       DbService.saveSettings(settings);
       setSaveStatus('saved');
     }, 700);
-    return () => clearTimeout(timer);
+    return () => window.clearTimeout(timer);
   }, [settings]);
 
   const wordTemplatesRefreshInFlightRef = useRef(false);
