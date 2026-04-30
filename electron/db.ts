@@ -1526,91 +1526,132 @@ export function domainSearch(
 
   try {
     if (entity === 'people') {
-      const rows = q
-        ? (dbh
-            .prepare(
-              `
-              SELECT data
-              FROM people
-              WHERE lower(COALESCE(name,'')) LIKE ?
-                 OR COALESCE(phone,'') LIKE ?
-                 OR COALESCE(nationalId,'') LIKE ?
-              ORDER BY COALESCE(name,'') ASC
-              LIMIT ?
-            `
-            )
-            .all(like, like, like, cap) as Array<{ data: string }>)
-        : (dbh
-            .prepare(
-              `
-              SELECT data
-              FROM people
-              ORDER BY COALESCE(name,'') ASC
-              LIMIT ?
-            `
-            )
-            .all(cap) as Array<{ data: string }>);
-
-      const items = rows
-        .map((r) => {
-          try {
-            return JSON.parse(r.data);
-          } catch {
-            return null;
-          }
-        })
-        .filter((x): x is unknown => Boolean(x));
-
-      return { ok: true, items };
+      if (!q) {
+        const rows = dbh
+          .prepare(`SELECT data FROM people ORDER BY COALESCE(name,'') ASC LIMIT ?`)
+          .all(cap) as Array<{ data: string }>;
+        const items = rows
+          .map((r) => {
+            try {
+              return JSON.parse(r.data);
+            } catch {
+              return null;
+            }
+          })
+          .filter((x): x is unknown => Boolean(x));
+        return { ok: true, items };
+      }
+      // FTS5 path — fall back to LIKE on any error
+      try {
+        const ftsQuery = `${q.trim().replace(/["'*^]/g, ' ')}*`;
+        const rows = dbh
+          .prepare(
+            `SELECT p.data
+             FROM people p
+             JOIN people_fts f ON p.rowid = f.rowid
+             WHERE people_fts MATCH ?
+             ORDER BY COALESCE(p.name,'') ASC
+             LIMIT ?`
+          )
+          .all(ftsQuery, cap) as Array<{ data: string }>;
+        const items = rows
+          .map((r) => {
+            try {
+              return JSON.parse(r.data);
+            } catch {
+              return null;
+            }
+          })
+          .filter((x): x is unknown => Boolean(x));
+        return { ok: true, items };
+      } catch {
+        // LIKE fallback
+        const rows = dbh
+          .prepare(
+            `SELECT data FROM people
+             WHERE lower(COALESCE(name,'')) LIKE ?
+                OR COALESCE(phone,'') LIKE ?
+                OR COALESCE(nationalId,'') LIKE ?
+             ORDER BY COALESCE(name,'') ASC LIMIT ?`
+          )
+          .all(like, like, like, cap) as Array<{ data: string }>;
+        const items = rows
+          .map((r) => {
+            try {
+              return JSON.parse(r.data);
+            } catch {
+              return null;
+            }
+          })
+          .filter((x): x is unknown => Boolean(x));
+        return { ok: true, items };
+      }
     }
 
     if (entity === 'properties') {
-      const rows = q
-        ? (() => {
-            const sql = qDigits
-              ? `
-              SELECT data
-              FROM properties
-              WHERE lower(COALESCE(internalCode,'')) LIKE ?
-                 OR lower(COALESCE(address,'')) LIKE ?
-                 OR ${sqlNormalizeDigits("COALESCE(internalCode,'')")} LIKE ?
-              ORDER BY COALESCE(internalCode,'') ASC
-              LIMIT ?
-            `
-              : `
-              SELECT data
-              FROM properties
-              WHERE lower(COALESCE(internalCode,'')) LIKE ?
-                 OR lower(COALESCE(address,'')) LIKE ?
-              ORDER BY COALESCE(internalCode,'') ASC
-              LIMIT ?
-            `;
-
-            const args = qDigits ? [like, like, likeDigits, cap] : [like, like, cap];
-            return dbh.prepare(sql).all(...args) as Array<{ data: string }>;
-          })()
-        : (dbh
-            .prepare(
-              `
-              SELECT data
-              FROM properties
-              ORDER BY COALESCE(internalCode,'') ASC
-              LIMIT ?
-            `
-            )
-            .all(cap) as Array<{ data: string }>);
-
-      const items = rows
-        .map((r) => {
-          try {
-            return JSON.parse(r.data);
-          } catch {
-            return null;
-          }
-        })
-        .filter(Boolean);
-
-      return { ok: true, items };
+      if (!q) {
+        const rows = dbh
+          .prepare(`SELECT data FROM properties ORDER BY COALESCE(internalCode,'') ASC LIMIT ?`)
+          .all(cap) as Array<{ data: string }>;
+        const items = rows
+          .map((r) => {
+            try {
+              return JSON.parse(r.data);
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean);
+        return { ok: true, items };
+      }
+      // FTS5 path — fall back to LIKE on any error
+      try {
+        const ftsQuery = `${q.trim().replace(/["'*^]/g, ' ')}*`;
+        const rows = dbh
+          .prepare(
+            `SELECT p.data
+             FROM properties p
+             JOIN properties_fts f ON p.rowid = f.rowid
+             WHERE properties_fts MATCH ?
+             ORDER BY COALESCE(p.internalCode,'') ASC
+             LIMIT ?`
+          )
+          .all(ftsQuery, cap) as Array<{ data: string }>;
+        const items = rows
+          .map((r) => {
+            try {
+              return JSON.parse(r.data);
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean);
+        return { ok: true, items };
+      } catch {
+        // LIKE fallback
+        const sql = qDigits
+          ? `SELECT data FROM properties
+             WHERE lower(COALESCE(internalCode,'')) LIKE ?
+                OR lower(COALESCE(address,'')) LIKE ?
+                OR ${sqlNormalizeDigits("COALESCE(internalCode,'')")} LIKE ?
+             ORDER BY COALESCE(internalCode,'') ASC LIMIT ?`
+          : `SELECT data FROM properties
+             WHERE lower(COALESCE(internalCode,'')) LIKE ?
+                OR lower(COALESCE(address,'')) LIKE ?
+             ORDER BY COALESCE(internalCode,'') ASC LIMIT ?`;
+        const args = qDigits ? [like, like, likeDigits, cap] : [like, like, cap];
+        const rows = dbh.prepare(sql).all(...args) as Array<{ data: string }>;
+        const items = rows
+          .map((r) => {
+            try {
+              return JSON.parse(r.data);
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean);
+        return { ok: true, items };
+      }
     }
 
     // contracts
