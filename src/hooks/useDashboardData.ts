@@ -26,6 +26,7 @@ import {
   dashboardPerformanceSmart,
   dashboardSummarySmart,
 } from '@/services/domainQueries';
+import { kpiCache } from '@/services/kpiCache';
 
 export interface UseDashboardDataOptions {
   autoRefresh?: boolean;
@@ -274,7 +275,14 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         const weekFromNow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
         const weekYMD = toYMD(weekFromNow);
 
-        const desktopSummary = await dashboardSummarySmart({ todayYMD, weekYMD });
+        const cacheKey = `kpi-summary-${todayYMD}`;
+        const cachedSnapshot = kpiCache.get<
+          ReturnType<typeof dashboardSummarySmart> extends Promise<infer R> ? R : never
+        >(cacheKey);
+        const desktopSummary = cachedSnapshot ?? (await dashboardSummarySmart({ todayYMD, weekYMD }));
+        if (!cachedSnapshot && desktopSummary) {
+          kpiCache.set(cacheKey, desktopSummary);
+        }
         const fastPath = !!desktopSummary;
         setIsDesktopFast(fastPath);
 
@@ -647,7 +655,10 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
       if (!e.key) return;
       if (String(e.key).startsWith('db_')) scheduleEventRefresh();
     };
-    const onDbChanged = () => scheduleEventRefresh();
+    const onDbChanged = () => {
+      kpiCache.invalidate();
+      scheduleEventRefresh();
+    };
     const onFocus = () => scheduleEventRefresh();
 
     window.addEventListener('azrar:tasks-changed', onTasksChanged);
