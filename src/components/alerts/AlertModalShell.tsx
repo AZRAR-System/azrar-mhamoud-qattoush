@@ -1,105 +1,82 @@
 import React from 'react';
+import { AppModal } from '@/components/ui/AppModal';
 import { X } from 'lucide-react';
 
-export interface AlertModalShellProps {
+interface AlertModalShellProps {
   open: boolean;
-  title: React.ReactNode;
-  subtitle?: React.ReactNode;
-  icon?: React.ReactNode;
-  /** شريط الشارات / المصادر */
-  sourcesBar?: React.ReactNode;
-  /** قسم سياق للقراءة */
-  sectionContext?: React.ReactNode;
-  /** حقول وإدخال */
-  sectionInput?: React.ReactNode;
-  /** معاينة اختيارية */
-  sectionPreview?: React.ReactNode;
-  footerNote?: React.ReactNode;
-  footerButtons?: React.ReactNode;
   onClose: () => void;
-  children?: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  sourcesBar?: React.ReactNode;
+  sectionContext?: React.ReactNode;
+  sectionPreview?: React.ReactNode;
+  sectionInput?: React.ReactNode;
+  footerNote?: string;
+  footerButtons?: React.ReactNode;
 }
 
-/**
- * قشرة مودال موحّدة لطبقات التنبيهات (Header → Sources → أقسام → Footer).
- */
 export const AlertModalShell: React.FC<AlertModalShellProps> = ({
   open,
+  onClose,
   title,
   subtitle,
   icon,
   sourcesBar,
   sectionContext,
-  sectionInput,
   sectionPreview,
+  sectionInput,
   footerNote,
   footerButtons,
-  onClose,
-  children,
 }) => {
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[2047] flex items-end sm:items-center justify-center p-0 sm:p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"
-        aria-label="إغلاق"
-        onClick={onClose}
-      />
-      <div className="relative w-full max-w-lg max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl flex flex-col">
-        <header className="flex shrink-0 items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-5 py-4 bg-slate-50/80 dark:bg-slate-800/50">
-          {icon ? (
-            <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md">
-              {icon}
+    <AppModal open={open} onClose={onClose} size="lg" title={title} hideHeader={true}>
+      <div className="flex flex-col h-full max-h-[90vh]">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {icon && <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">{icon}</div>}
+            <div>
+              <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">{title}</h3>
+              {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{subtitle}</p>}
             </div>
-          ) : null}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">{title}</h2>
-            {subtitle ? (
-              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
-                {subtitle}
-              </p>
-            ) : null}
           </div>
-          <button
-            type="button"
+          <button 
             onClick={onClose}
-            className="shrink-0 rounded-xl p-2 text-slate-500 hover:bg-slate-200/80 dark:hover:bg-slate-700"
-            aria-label="إغلاق النافذة"
+            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
           >
             <X size={20} />
           </button>
-        </header>
-
-        {sourcesBar ? (
-          <div className="shrink-0 border-b border-slate-100 dark:border-slate-800 px-5 py-2 bg-white dark:bg-slate-900">
-            {sourcesBar}
-          </div>
-        ) : null}
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {sectionContext ? (
-            <section className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">{sectionContext}</section>
-          ) : null}
-          {sectionInput ? (
-            <section className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">{sectionInput}</section>
-          ) : null}
-          {sectionPreview ? <section className="px-5 py-4">{sectionPreview}</section> : null}
-          {children ? <div className="px-5 py-4">{children}</div> : null}
         </div>
 
-        <footer className="shrink-0 border-t border-slate-100 dark:border-slate-800 px-5 py-3 bg-slate-50/90 dark:bg-slate-800/80">
-          {footerNote ? (
-            <p className="mb-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">{footerNote}</p>
-          ) : null}
-          <div className="flex flex-wrap items-center justify-end gap-2">{footerButtons}</div>
-        </footer>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {sourcesBar && <div>{sourcesBar}</div>}
+          {sectionContext && <div>{sectionContext}</div>}
+          {sectionPreview && (
+             <div className="rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+               {sectionPreview}
+             </div>
+          )}
+          {sectionInput && (
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+              {sectionInput}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-800">
+          {footerNote && (
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mb-4 text-center italic">
+              {footerNote}
+            </p>
+          )}
+          <div className="flex items-center justify-end gap-3">
+            {footerButtons}
+          </div>
+        </div>
       </div>
-    </div>
+    </AppModal>
   );
 };

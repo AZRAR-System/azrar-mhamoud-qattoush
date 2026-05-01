@@ -2,20 +2,19 @@
  * © 2025 - Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System - All Rights Reserved
  *
- * صفحة التنبيهات والإشعارات (Alerts Management Page)
- * - متابعة التحصيل المالي وجودة البيانات
- * - إرسال إشعارات واتساب تلقائية ويدوية
- * - إدارة المخاطر وتنبيهات انتهاء العقود
+ * صفحة مركز الإشعارات (Notification Hub)
+ * - متابعة التحصيل المالي وجودة البيانات بنظام Kanban
  */
 
-import type { FC } from 'react';
+import { FC } from 'react';
 import { useAlerts } from '@/hooks/useAlerts';
-import { AlertsInboxLayout } from '@/components/alerts/AlertsInboxLayout';
+import { NotificationHubLayout } from '@/components/alerts/NotificationHubLayout';
 import { usePageVisibility } from '@/context/PageVisibilityContext';
-import type { AlertPanelIntent } from '@/services/alerts/alertActionTypes';
+
+import { AlertPanelIntent } from '@/services/alerts/alertActionTypes';
 
 export const Alerts: FC<{ sectionIntent?: AlertPanelIntent }> = ({ sectionIntent }) => {
   const { isVisible } = usePageVisibility();
   const page = useAlerts(isVisible, sectionIntent);
-  return <AlertsInboxLayout page={page} />;
+  return <NotificationHubLayout page={page} />;
 };
