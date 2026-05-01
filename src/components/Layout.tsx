@@ -20,6 +20,7 @@ import {
   Server,
 } from 'lucide-react';
 import { SmartModalEngine } from '@/components/shared/SmartModalEngine';
+import { NotificationCenterPanel } from '@/components/shared/NotificationCenterPanel';
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
 import { OnboardingGuide } from '@/components/shared/OnboardingGuide';
 import { useSmartModal } from '@/context/ModalContext';
@@ -836,10 +837,11 @@ export const Layout = () => {
     };
   }, [openPanel]);
 
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+
   const handleNotificationsClick = useCallback(() => {
-    closeAll();
-    navigate(ROUTE_PATHS.ALERTS);
-  }, [closeAll, navigate]);
+    setShowNotifPanel(prev => !prev);
+  }, []);
 
 
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile
@@ -996,6 +998,11 @@ export const Layout = () => {
             onOpenPanel={openPanel}
             onNotificationsClick={handleNotificationsClick}
         />
+
+        {/* Notification Dropdown Panel */}
+        {showNotifPanel && (
+          <NotificationCenterPanel onClose={() => setShowNotifPanel(false)} />
+        )}
 
         {/* Content Container - Modern Layout */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4" ref={(el) => { if (el) window.__mainScrollEl = el; }}>
