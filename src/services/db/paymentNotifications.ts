@@ -13,7 +13,8 @@ import { getInstallmentPaidAndRemaining } from './installments';
 
 const toDateOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-const parseDateOnlyLocal = (iso: string) => {
+const parseDateOnlyLocal = (iso: string | null | undefined) => {
+  if (!iso) return null;
   const parts = iso.split('-').map(Number);
   if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
   return new Date(parts[0], parts[1] - 1, parts[2]);

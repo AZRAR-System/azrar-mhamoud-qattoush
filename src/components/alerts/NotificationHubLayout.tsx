@@ -1,15 +1,15 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
-import { 
-  executeNavigateForAlert, 
-  getAlertPrimarySpec, 
-  resolveSecondaryActions 
+import {
+  executeNavigateForAlert,
+  getAlertPrimarySpec,
+  resolveSecondaryActions,
 } from '@/services/alerts/alertActionPolicy';
 import type { UseAlertsResult, AlertItem } from '@/hooks/useAlerts';
 import type { AlertLayerModalKind } from '@/services/alerts/alertActionTypes';
-import { NotificationCommandBar } from './NotificationCommandBar';
-import { NotificationKanbanBoard } from './NotificationKanbanBoard';
+import { NotificationCommandBar, type AlertCategoryTab } from './NotificationCommandBar';
+import { NotificationList } from './NotificationList';
 import { NotificationDetailPanel } from './NotificationDetailPanel';
 import { NotificationBulkBar } from './NotificationBulkBar';
 import {
@@ -34,66 +34,108 @@ interface NotificationHubLayoutProps {
   page: UseAlertsResult;
 }
 
+const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+
 export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ page }) => {
   const [layerModal, setLayerModal] = useState<AlertLayerModalKind | null>(null);
+  const [activeCategory, setActiveCategory] = useState<AlertCategoryTab>('all');
   const { openPanel, openModal } = useSmartModal();
   const toast = useToast();
 
-  const handleAction = useCallback((type: string) => {
-    if (!page.selectedAlert) return;
-    const alert = page.selectedAlert;
+  /* ── Flat sorted list from kanban columns ── */
+  const allAlerts = useMemo(() => {
+    const flat = page.columns.flatMap((col) => col.alerts);
+    return flat.sort((a, b) => {
+      const pa = PRIORITY_ORDER[a.priority] ?? 3;
+      const pb = PRIORITY_ORDER[b.priority] ?? 3;
+      if (pa !== pb) return pa - pb;
+      return new Date(b.تاريخ_الانشاء).getTime() - new Date(a.تاريخ_الانشاء).getTime();
+    });
+  }, [page.columns]);
 
-    if (type === 'primary') {
-      const spec = getAlertPrimarySpec(alert);
-      if (spec.mode === 'destination') {
+  /* ── Category filter ── */
+  const filteredAlerts = useMemo(() => {
+    if (activeCategory === 'all') return allAlerts;
+    return allAlerts.filter((a) => {
+      const col = page.columns.find((c) => c.alerts.some((x) => x.id === a.id));
+      return col?.id === activeCategory;
+    });
+  }, [allAlerts, activeCategory, page.columns]);
+
+  /* ── Column counts for tabs ── */
+  const columnCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    page.columns.forEach((col) => { counts[col.id] = col.count; });
+    return counts;
+  }, [page.columns]);
+
+  /* ── Action handlers ── */
+  const handleAction = useCallback(
+    (type: string) => {
+      if (!page.selectedAlert) return;
+      const alert = page.selectedAlert;
+
+      if (type === 'primary') {
+        const spec = getAlertPrimarySpec(alert);
+        if (spec.mode === 'destination') {
+          executeNavigateForAlert(alert, openPanel, openModal);
+        } else {
+          const secondaries = resolveSecondaryActions(alert);
+          const firstLayer = secondaries.find((s) => s.type === 'layer');
+          if (firstLayer && firstLayer.type === 'layer') {
+            setLayerModal(firstLayer.layer);
+          } else {
+            executeNavigateForAlert(alert, openPanel, openModal);
+          }
+        }
+        return;
+      }
+
+      if (type === 'open_original') {
         executeNavigateForAlert(alert, openPanel, openModal);
-      } else {
-        // If modal mode, we need to pick a default layer or open a general one
-        // For now, let's open the first available layer action if it's a modal spec
-        const secondaries = resolveSecondaryActions(alert);
-        const firstLayer = secondaries.find(s => s.type === 'layer');
-        if (firstLayer && firstLayer.type === 'layer') {
-          setLayerModal(firstLayer.layer);
+        return;
+      }
+
+      const secondaries = resolveSecondaryActions(alert);
+      const action = secondaries.find((s) => s.id === type);
+      if (action) {
+        if (action.type === 'layer') {
+          setLayerModal(action.layer);
         } else {
           executeNavigateForAlert(alert, openPanel, openModal);
         }
       }
-      return;
-    }
+    },
+    [page.selectedAlert, openPanel, openModal]
+  );
 
-    if (type === 'open_original') {
-      executeNavigateForAlert(alert, openPanel, openModal);
-      return;
-    }
-
-    // Secondary actions
-    const secondaries = resolveSecondaryActions(alert);
-    const action = secondaries.find(s => s.id === type);
-    
-    if (action) {
-      if (action.type === 'layer') {
-        setLayerModal(action.layer);
-      } else {
+  const handleQuickAction = useCallback(
+    (alert: AlertItem, type: 'primary' | 'whatsapp' | 'open') => {
+      page.setSelectedAlert(alert);
+      if (type === 'open') {
         executeNavigateForAlert(alert, openPanel, openModal);
+      } else if (type === 'primary') {
+        const spec = getAlertPrimarySpec(alert);
+        if (spec.mode === 'destination') {
+          executeNavigateForAlert(alert, openPanel, openModal);
+        } else {
+          const secondaries = resolveSecondaryActions(alert);
+          const firstLayer = secondaries.find((s) => s.type === 'layer');
+          if (firstLayer && firstLayer.type === 'layer') {
+            setLayerModal(firstLayer.layer);
+          } else {
+            executeNavigateForAlert(alert, openPanel, openModal);
+          }
+        }
+      } else if (type === 'whatsapp') {
+        setLayerModal('whatsapp');
       }
-    }
-  }, [page.selectedAlert, openPanel, openModal]);
-
-  const handleQuickAction = useCallback((alert: AlertItem, type: 'pay' | 'whatsapp' | 'open') => {
-    if (type === 'open') {
-      executeNavigateForAlert(alert, openPanel, openModal);
-    } else if (type === 'pay') {
-      page.setSelectedAlert(alert);
-      setLayerModal('record_payment');
-    } else if (type === 'whatsapp') {
-      page.setSelectedAlert(alert);
-      setLayerModal('whatsapp');
-    }
-  }, [page, openPanel, openModal]);
+    },
+    [page, openPanel, openModal]
+  );
 
   const handleBulkWhatsApp = useCallback(() => {
     toast.info('سيتم فتح نافذة إرسال واتساب للعملاء المحددين');
-    // Implement bulk logic if needed, or just open a general panel
   }, [toast]);
 
   return (
@@ -101,27 +143,33 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
       <NotificationCommandBar
         totalCount={page.totalCount}
         unreadCount={page.unreadCount}
-        columns={page.columns}
+        columnCounts={columnCounts}
         searchQuery={page.searchQuery}
         activeFilter={page.activeFilter}
         activePeriod={page.activePeriod}
+        activeCategory={activeCategory}
         isScanning={page.isLoading}
         onSearch={page.setSearchQuery}
         onFilterChange={page.setActiveFilter}
         onPeriodChange={page.setActivePeriod}
+        onCategoryChange={setActiveCategory}
         onScan={page.runScan}
       />
-      
-      <div className="flex flex-1 overflow-hidden relative">
-        <NotificationKanbanBoard
-          columns={page.columns}
-          selectedAlert={page.selectedAlert}
-          selectedIds={page.selectedIds}
-          onSelectAlert={page.setSelectedAlert}
-          onCheckAlert={page.toggleSelect}
-          onQuickAction={handleQuickAction}
-        />
 
+      <div className="flex flex-1 overflow-hidden">
+        {/* Notification List */}
+        <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-900">
+          <NotificationList
+            alerts={filteredAlerts}
+            selectedAlert={page.selectedAlert}
+            selectedIds={page.selectedIds}
+            onSelectAlert={page.setSelectedAlert}
+            onCheckAlert={page.toggleSelect}
+            onQuickAction={handleQuickAction}
+          />
+        </div>
+
+        {/* Detail Panel */}
         {page.selectedAlert && (
           <NotificationDetailPanel
             alert={page.selectedAlert}
@@ -132,6 +180,7 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
         )}
       </div>
 
+      {/* Bulk Bar */}
       {page.selectedIds.size > 0 && (
         <NotificationBulkBar
           selectedCount={page.selectedIds.size}
@@ -142,7 +191,7 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
         />
       )}
 
-      {/* Modals Container */}
+      {/* Modals */}
       {page.selectedAlert && (
         <>
           {layerModal === 'renew_contract' && (
@@ -166,7 +215,9 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
                   <InstallmentAlertBlock alert={page.selectedAlert} />
                 ) : undefined
               }
-              onOpenFullDetails={() => executeNavigateForAlert(page.selectedAlert!, openPanel, openModal)}
+              onOpenFullDetails={() =>
+                executeNavigateForAlert(page.selectedAlert!, openPanel, openModal)
+              }
             />
           )}
           {layerModal === 'whatsapp' && (
@@ -175,7 +226,6 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
               onClose={() => setLayerModal(null)}
               alert={page.selectedAlert}
               onSend={() => {
-                // Implementation for simple WhatsApp send if payload not provided
                 const message = `مرحباً، إشعار بخصوص العقار: ${page.selectedAlert?.الوصف}`;
                 const phones = page.selectedAlert?.phone ? [page.selectedAlert.phone] : [];
                 if (phones.length > 0) {
@@ -191,9 +241,7 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
               open
               onClose={() => setLayerModal(null)}
               alert={page.selectedAlert}
-              onOpenMaintenance={() => {
-                window.location.hash = ROUTE_PATHS.MAINTENANCE;
-              }}
+              onOpenMaintenance={() => { window.location.hash = ROUTE_PATHS.MAINTENANCE; }}
             />
           )}
           {layerModal === 'legal_file' && (

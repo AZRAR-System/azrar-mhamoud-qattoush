@@ -272,7 +272,9 @@ export interface tbl_Alerts {
   phone?: string;
   propertyCode?: string;
   مرجع_الجدول?: string;
-  مرجع_المعرف?: string;
+   مرجع_المعرف?: string;
+  amount?: number;
+  priority?: string;
 }
 
 export type AlertDetail = {

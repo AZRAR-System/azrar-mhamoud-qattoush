@@ -20,10 +20,10 @@ import {
   Server,
 } from 'lucide-react';
 import { SmartModalEngine } from '@/components/shared/SmartModalEngine';
+import { NotificationCenterPanel } from '@/components/shared/NotificationCenterPanel';
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
 import { OnboardingGuide } from '@/components/shared/OnboardingGuide';
 import { useSmartModal } from '@/context/ModalContext';
-import { ROUTE_PATHS } from '@/routes/paths';
 import { useAuth } from '@/context/AuthContext';
 import { ROUTE_SUBTITLES, ROUTE_TITLES } from '@/routes/registry';
 import { storage } from '@/services/storage';
@@ -508,7 +508,7 @@ export const Layout = () => {
     message?: string;
   };
 
-  const { openPanel, activePanels, closePanel, closeAll } = useSmartModal();
+  const { openPanel, activePanels, closePanel } = useSmartModal();
   const { user, isAuthenticated, sessionLocked, lockSession } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -836,11 +836,15 @@ export const Layout = () => {
     };
   }, [openPanel]);
 
-  const handleNotificationsClick = useCallback(() => {
-    closeAll();
-    navigate(ROUTE_PATHS.ALERTS);
-  }, [closeAll, navigate]);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
 
+  const handleNotificationsClick = useCallback(() => {
+    setShowNotifPanel(prev => !prev);
+  }, []);
+
+  const closeNotifPanel = useCallback(() => {
+    setShowNotifPanel(false);
+  }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
@@ -996,6 +1000,11 @@ export const Layout = () => {
             onOpenPanel={openPanel}
             onNotificationsClick={handleNotificationsClick}
         />
+
+        {/* Notification Dropdown Panel */}
+        {showNotifPanel && (
+          <NotificationCenterPanel onClose={closeNotifPanel} />
+        )}
 
         {/* Content Container - Modern Layout */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative w-full bg-transparent pt-4" ref={(el) => { if (el) window.__mainScrollEl = el; }}>

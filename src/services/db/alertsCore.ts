@@ -348,15 +348,49 @@ export const markAllAlertsAsRead = () => {
   save(KEYS.ALERTS, all);
 };
 
+const NC_TBL_ID_PREFIX = 'nc-tbl-';
+
+/** Strip repeated `nc-tbl-` prefixes (case-insensitive) down to the real tbl_Alerts.id. */
+function toCanonicalTblAlertId(x: string): string {
+  let s = String(x || '').trim();
+  while (s.toLowerCase().startsWith(NC_TBL_ID_PREFIX)) {
+    s = s.slice(NC_TBL_ID_PREFIX.length);
+  }
+  return s;
+}
+
 export const markMultipleAlertsAsRead = (ids: string[]) => {
   const all = get<tbl_Alerts>(KEYS.ALERTS);
   let changed = false;
-  const idSet = new Set(ids);
+  const tblIdSet = new Set(ids.map(toCanonicalTblAlertId).filter(Boolean));
   for (const a of all) {
-    if (idSet.has(a.id) && !a.تم_القراءة) {
+    if (tblIdSet.has(a.id) && !a.تم_القراءة) {
       a.تم_القراءة = true;
       changed = true;
     }
   }
   if (changed) save(KEYS.ALERTS, all);
+
+  // Sync with Notification Center: mark exact id, and only synthesize `nc-tbl-${tblId}` for
+  // tbl-backed alerts (bare DB id or ids that were tbl mirror ids). Never prefix generic `nc-*` ids.
+  const ncMarked = new Set<string>();
+  for (const id of ids) {
+    const raw = String(id || '').trim();
+    if (!raw) continue;
+    if (!ncMarked.has(raw)) {
+      notificationCenter.markRead(raw);
+      ncMarked.add(raw);
+    }
+    const canon = toCanonicalTblAlertId(raw);
+    const mirrored = canon ? `${NC_TBL_ID_PREFIX}${canon}` : '';
+    const lower = raw.toLowerCase();
+    const shouldMarkMirrored =
+      !!mirrored &&
+      mirrored !== raw &&
+      (lower.startsWith(NC_TBL_ID_PREFIX) || !lower.startsWith('nc-'));
+    if (shouldMarkMirrored && !ncMarked.has(mirrored)) {
+      notificationCenter.markRead(mirrored);
+      ncMarked.add(mirrored);
+    }
+  }
 };

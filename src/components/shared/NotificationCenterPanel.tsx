@@ -1,501 +1,412 @@
 import { useMemo, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle,
-  Info,
-  Trash2,
-  CheckCheck,
-  Bell,
-  CreditCard,
-  MessageCircle,
-  FileText,
+  Bell, CheckCheck, Trash2, X, ExternalLink,
+  CreditCard, MessageCircle, FileText, Wrench,
+  AlertCircle, AlertTriangle, CheckCircle, Info,
+  RefreshCw, ShieldAlert, User,
 } from 'lucide-react';
 import { useSmartModal } from '@/context/ModalContext';
 import { ROUTE_PATHS } from '@/routes/paths';
-import { openAlertsInSection } from '@/services/alerts/alertNavigation';
 import { DbService } from '@/services/mockDb';
 import { getLastScheduledReportSnapshot } from '@/services/scheduledReports';
 import type { NotificationCenterItem, NotificationCenterType } from '@/services/notificationCenter';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
-import { Button } from '@/components/ui/Button';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { openExternalUrl } from '@/utils/externalLink';
 import type { العقود_tbl, الكمبيالات_tbl } from '@/types';
+import { cn } from '@/utils/cn';
 
-const categoryLabels: Record<string, string> = {
-  'Financial': 'مالي',
-  'financial': 'مالي',
-  'Risk': 'مخاطر',
-  'risk': 'مخاطر',
-  'risk_alert': 'تنبيه مخاطر',
-  'Expiry': 'انتهاء عقد',
-  'expiry': 'انتهاء عقد',
-  'payment': 'تحصيل',
-  'overdue': 'متأخرات',
-  'reminders': 'تذكيرات',
-  'reminder': 'تذكير',
-  'scheduled_financial_report': 'تقرير مالي',
-  'whatsapp_auto': 'واتساب تلقائي',
-  'whatsapp_auto_before': 'تذكير واتساب',
-  'whatsapp_auto_due': 'استحقاق واتساب',
-  'whatsapp_auto_late': 'تأخر واتساب',
-  'payments': 'دفعات',
-  'collection': 'تحصيل',
-  'contracts': 'عقود',
-  'installments': 'أقساط',
-  'maintenance': 'صيانة',
-  'system': 'نظام',
-  'System': 'نظام',
-  'info': 'معلومات',
-  'contract_renewal': 'تجديد عقد',
-  'blacklist': 'قائمة سوداء',
-  'warning': 'تحذير',
-  'commissions': 'عمولات',
-};
+/* ─── helpers ─── */
 
-type FilterTab = 'all' | 'unread' | 'urgent' | 'reminders' | 'collection' | 'contracts' | 'installments' | 'maintenance' | 'system';
-
-function formatRelativeTimeAr(ts: number): string {
-  const now = Date.now();
-  const diffSec = Math.floor((now - ts) / 1000);
-  if (diffSec < 45) return 'الآن';
-  if (diffSec < 3600) {
-    const m = Math.floor(diffSec / 60);
-    return m <= 1 ? 'منذ دقيقة' : `منذ ${m} دقائق`;
+function formatRelativeTime(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 45) return 'الآن';
+  if (diff < 3600) {
+    const m = Math.floor(diff / 60);
+    return m <= 1 ? 'دقيقة' : `${m} د`;
   }
-  if (diffSec < 86400) {
-    const h = Math.floor(diffSec / 3600);
-    return h <= 1 ? 'منذ ساعة' : `منذ ${h} ساعات`;
+  if (diff < 86400) {
+    const h = Math.floor(diff / 3600);
+    return h <= 1 ? 'ساعة' : `${h} س`;
   }
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const d = new Date(ts);
-  const yesterday = new Date(startOfToday);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d >= yesterday && d < startOfToday) return 'أمس';
-  const days = Math.floor(diffSec / 86400);
-  return days <= 1 ? 'أمس' : `منذ ${days} أيام`;
+  if (d >= new Date(startOfToday.getTime() - 86400000) && d < startOfToday) return 'أمس';
+  return `${Math.floor(diff / 86400)} أيام`;
 }
 
-function TypeIcon({ type }: { type: NotificationCenterType }) {
-  const cls = 'shrink-0';
-  switch (type) {
-    case 'success':
-      return <CheckCircle className={`${cls} text-emerald-500`} size={20} aria-hidden />;
-    case 'error':
-      return <AlertCircle className={`${cls} text-red-500`} size={20} aria-hidden />;
-    case 'warning':
-      return <AlertTriangle className={`${cls} text-amber-500`} size={20} aria-hidden />;
-    case 'delete':
-      return <AlertCircle className={`${cls} text-red-400`} size={20} aria-hidden />;
-    default:
-      return <Info className={`${cls} text-indigo-500`} size={20} aria-hidden />;
-  }
-}
+const trimId = (v: unknown) => String(v ?? '').trim();
 
-const FILTER_TABS: { id: FilterTab; label: string }[] = [
-  { id: 'all', label: 'الكل' },
-  { id: 'unread', label: 'غير مقروء' },
-  { id: 'urgent', label: 'عاجل' },
-  { id: 'contracts', label: 'عقود' },
-  { id: 'installments', label: 'أقساط' },
-  { id: 'maintenance', label: 'صيانة' },
-  { id: 'system', label: 'نظام' },
+/* ─── category config ─── */
+
+type TabId = 'all' | 'unread' | 'urgent' | 'financial' | 'contracts' | 'maintenance' | 'system';
+
+const TABS: { id: TabId; label: string; color: string; activeColor: string }[] = [
+  { id: 'all',         label: 'الكل',       color: 'text-slate-400',   activeColor: 'bg-slate-800 text-white dark:bg-white dark:text-slate-900' },
+  { id: 'unread',      label: 'غير مقروء',  color: 'text-indigo-400',  activeColor: 'bg-indigo-600 text-white' },
+  { id: 'urgent',      label: 'عاجل',       color: 'text-rose-400',    activeColor: 'bg-rose-500 text-white' },
+  { id: 'financial',   label: 'مالي',       color: 'text-amber-400',   activeColor: 'bg-amber-500 text-white' },
+  { id: 'contracts',   label: 'عقود',       color: 'text-blue-400',    activeColor: 'bg-blue-500 text-white' },
+  { id: 'maintenance', label: 'صيانة',      color: 'text-emerald-400', activeColor: 'bg-emerald-500 text-white' },
+  { id: 'system',      label: 'النظام',     color: 'text-slate-400',   activeColor: 'bg-slate-600 text-white' },
 ];
 
-/** إشعارات تحصيل/دفعات أو متأخرات — تظهر زر واتساب */
-function shouldShowWhatsAppButton(item: NotificationCenterItem): boolean {
-  return item.category === 'Financial' || 
-         item.category === 'payment' || 
-         item.category === 'overdue';
-}
-
-const trimId = (v: unknown): string => String(v ?? '').trim();
-
-function matchesFilter(item: NotificationCenterItem, tab: FilterTab): boolean {
+function matchesTab(item: NotificationCenterItem, tab: TabId): boolean {
   const cat = String(item.category || '').toLowerCase();
   switch (tab) {
-    case 'all':
-      return true;
-    case 'unread':
-      return !item.read;
-    case 'urgent':
-      return item.urgent === true;
-    case 'reminders':
-      return cat === 'reminders' || cat.includes('reminder');
-    case 'collection':
-      return cat === 'financial' || 
-             cat === 'payment' || 
-             cat === 'overdue' ||
-             cat === 'payments' || 
-             cat === 'collection' || 
-             cat.includes('payment');
-    case 'contracts':
-      return cat === 'contracts' || cat.includes('contract');
-    case 'installments':
-      return cat === 'installments' || cat === 'payments' || cat === 'payment' || cat === 'overdue' || cat.includes('payment');
-    case 'maintenance':
-      return cat === 'maintenance';
-    case 'system':
-      return cat === 'system';
-    default:
-      return true;
+    case 'all':         return true;
+    case 'unread':      return !item.read;
+    case 'urgent':      return item.urgent === true;
+    case 'financial':   return ['financial', 'payment', 'overdue', 'payments', 'collection', 'installments'].some(k => cat.includes(k));
+    case 'contracts':   return cat.includes('contract') || cat === 'contracts';
+    case 'maintenance': return cat === 'maintenance';
+    case 'system':      return cat === 'system' || cat === 'info' || cat.includes('report') || cat.includes('whatsapp');
+    default:            return true;
   }
 }
+
+/* ─── icon per type ─── */
+
+function ItemIcon({ type, urgent, category }: { type: NotificationCenterType; urgent?: boolean; category: string }) {
+  const cat = String(category || '').toLowerCase();
+  if (urgent) return <ShieldAlert size={18} className="text-rose-500" />;
+  if (cat.includes('contract') || cat === 'contracts') return <FileText size={18} className="text-blue-500" />;
+  if (['financial', 'payment', 'overdue', 'payments', 'collection', 'installment'].some(k => cat.includes(k)))
+    return <CreditCard size={18} className="text-amber-500" />;
+  if (cat === 'maintenance') return <Wrench size={18} className="text-emerald-600" />;
+  if (cat.includes('whatsapp')) return <MessageCircle size={18} className="text-emerald-500" />;
+  if (cat.includes('person') || cat === 'blacklist' || cat === 'risk') return <User size={18} className="text-purple-500" />;
+  if (cat.includes('renew')) return <RefreshCw size={18} className="text-blue-400" />;
+  switch (type) {
+    case 'success': return <CheckCircle size={18} className="text-emerald-500" />;
+    case 'error':   return <AlertCircle size={18} className="text-rose-500" />;
+    case 'warning': return <AlertTriangle size={18} className="text-amber-500" />;
+    default:        return <Info size={18} className="text-indigo-500" />;
+  }
+}
+
+function iconBg(type: NotificationCenterType, urgent?: boolean, category?: string): string {
+  const cat = String(category || '').toLowerCase();
+  if (urgent) return 'bg-rose-50 dark:bg-rose-900/20';
+  if (cat.includes('contract')) return 'bg-blue-50 dark:bg-blue-900/20';
+  if (['financial', 'payment', 'overdue', 'collection'].some(k => cat.includes(k))) return 'bg-amber-50 dark:bg-amber-900/20';
+  if (cat === 'maintenance') return 'bg-emerald-50 dark:bg-emerald-900/20';
+  if (cat.includes('whatsapp')) return 'bg-emerald-50 dark:bg-emerald-900/20';
+  switch (type) {
+    case 'success': return 'bg-emerald-50 dark:bg-emerald-900/20';
+    case 'error':   return 'bg-rose-50 dark:bg-rose-900/20';
+    case 'warning': return 'bg-amber-50 dark:bg-amber-900/20';
+    default:        return 'bg-indigo-50 dark:bg-indigo-900/20';
+  }
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  Financial: 'مالي', financial: 'مالي', payment: 'تحصيل', overdue: 'متأخرات',
+  contracts: 'عقود', installments: 'أقساط', maintenance: 'صيانة',
+  system: 'نظام', info: 'معلومات', contract_renewal: 'تجديد عقد',
+  blacklist: 'قائمة سوداء', risk: 'مخاطر', collection: 'تحصيل',
+  payments: 'دفعات', scheduled_financial_report: 'تقرير مالي',
+  whatsapp_auto: 'واتساب تلقائي', whatsapp_auto_before: 'تذكير واتساب',
+  whatsapp_auto_due: 'استحقاق واتساب', whatsapp_auto_late: 'تأخر واتساب',
+};
+
+/* ─── main component ─── */
 
 interface Props {
   onClose: () => void;
+  anchorRef?: React.RefObject<HTMLElement>;
 }
 
 export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
   const navigate = useNavigate();
   const { openPanel } = useSmartModal();
-  const { items, markRead, markAllRead, clear } = useNotificationCenter();
-  const [filter, setFilter] = useState<FilterTab>('all');
+  const { items, markRead, markAllRead, clear, unreadCount } = useNotificationCenter();
+  const [tab, setTab] = useState<TabId>('all');
 
-  /**
-   * Build lightweight lookup tables once per panel mount.
-   * Avoids heavy DB scans inside click handlers (which trigger [Violation] click handler took ...ms).
-   */
+  /* ── DB index ── */
   const dbIndex = useMemo(() => {
     const contracts = (DbService.getContracts?.() || []) as العقود_tbl[];
     const installments = (DbService.getInstallments?.() || []) as الكمبيالات_tbl[];
-
     const contractIds = new Set<string>();
-    const installmentToContractId = new Map<string, string>();
-
-    for (const c of contracts) {
-      const cid = trimId(c?.رقم_العقد);
-      if (cid) contractIds.add(cid);
-    }
+    const installToContract = new Map<string, string>();
+    for (const c of contracts) { const id = trimId(c?.رقم_العقد); if (id) contractIds.add(id); }
     for (const i of installments) {
-      const instId = trimId(i?.رقم_الكمبيالة);
-      const cid = trimId(i?.رقم_العقد);
-      if (instId && cid) installmentToContractId.set(instId, cid);
+      const iid = trimId(i?.رقم_الكمبيالة); const cid = trimId(i?.رقم_العقد);
+      if (iid && cid) installToContract.set(iid, cid);
     }
-
-    return { contractIds, installmentToContractId };
+    return { contractIds, installToContract };
   }, []);
 
-  const resolveContractIdForEntity = useCallback(
-    (entityId: string): string | null => {
-      const eid = trimId(entityId);
-      if (!eid) return null;
-      if (dbIndex.contractIds.has(eid)) return eid;
-      return dbIndex.installmentToContractId.get(eid) || null;
-    },
-    [dbIndex]
-  );
+  const resolveContractId = useCallback((eid: string) => {
+    const e = trimId(eid);
+    if (!e) return null;
+    if (dbIndex.contractIds.has(e)) return e;
+    return dbIndex.installToContract.get(e) || null;
+  }, [dbIndex]);
 
-  const collectPhonesForEntity = useCallback(
-    (entityId: string): string[] => {
-      const contractId = resolveContractIdForEntity(entityId);
-      if (!contractId) return [];
-      const contract = (DbService.getContracts?.() || []).find((c) => trimId((c as العقود_tbl)?.رقم_العقد) === contractId) as
-        | العقود_tbl
-        | undefined;
-      if (!contract) return [];
-      const person = DbService.getPersonById(contract.رقم_المستاجر);
-      const phones: string[] = [];
-      if (person?.رقم_الهاتف) phones.push(person.رقم_الهاتف);
-      if (person?.رقم_هاتف_اضافي) phones.push(person.رقم_هاتف_اضافي);
-      return phones;
-    },
-    [resolveContractIdForEntity]
-  );
+  const collectPhones = useCallback((eid: string) => {
+    const cid = resolveContractId(eid);
+    if (!cid) return [];
+    const contract = (DbService.getContracts?.() || []).find(c => trimId((c as العقود_tbl).رقم_العقد) === cid) as العقود_tbl | undefined;
+    if (!contract) return [];
+    const person = DbService.getPersonById(contract.رقم_المستاجر);
+    return [person?.رقم_الهاتف, person?.رقم_هاتف_اضافي].filter(Boolean) as string[];
+  }, [resolveContractId]);
 
-  const filtered = useMemo(
-    () => items.filter((i) => matchesFilter(i, filter)),
-    [items, filter]
-  );
+  const filtered = useMemo(() => items.filter(i => matchesTab(i, tab)), [items, tab]);
 
-  const handleNavigate = useCallback(
-    (item: NotificationCenterItem) => {
-      markRead(item.id);
-      const cat = String(item.category || '').toLowerCase();
-      const eid = String(item.entityId || '').trim();
+  /* ── handlers ── */
+  const handleNavigate = useCallback((item: NotificationCenterItem) => {
+    markRead(item.id);
+    const cat = String(item.category || '').toLowerCase();
+    const eid = trimId(item.entityId);
 
-      if (cat === 'scheduled_financial_report') {
-        const snap = getLastScheduledReportSnapshot();
-        if (snap?.data) {
-          openPanel('FINANCIAL_REPORT_PRINT', undefined, {
-            reportData: snap.data,
-            settings: DbService.getSettings(),
-          });
-        }
-        onClose();
-        return;
+    if (cat === 'scheduled_financial_report') {
+      const snap = getLastScheduledReportSnapshot();
+      if (snap?.data) openPanel('FINANCIAL_REPORT_PRINT', undefined, { reportData: snap.data, settings: DbService.getSettings() });
+      onClose(); return;
+    }
+    if (eid) {
+      if (cat.includes('contract') || cat === 'contract_renewal') { openPanel('CONTRACT_DETAILS', eid); onClose(); return; }
+      if (cat.includes('person') || cat === 'blacklist' || cat === 'risk') { openPanel('PERSON_DETAILS', eid); onClose(); return; }
+      if (cat.includes('propert')) { openPanel('PROPERTY_DETAILS', eid); onClose(); return; }
+      if (['payment', 'payments', 'overdue', 'collection', 'financial', 'installment'].some(k => cat.includes(k))) {
+        const cid = resolveContractId(eid);
+        if (cid) { openPanel('CONTRACT_DETAILS', cid); } else { navigate(ROUTE_PATHS.INSTALLMENTS); }
+        onClose(); return;
       }
-
-      if (eid) {
-        if (cat.includes('contract') || cat === 'contracts' || cat === 'contract_renewal') {
-          openPanel('CONTRACT_DETAILS', eid);
-          onClose();
-          return;
-        }
-        if (
-          cat.includes('person') ||
-          cat === 'people' ||
-          cat === 'blacklist' ||
-          cat === 'risk' ||
-          cat === 'risk_alert'
-        ) {
-          openPanel('PERSON_DETAILS', eid);
-          onClose();
-          return;
-        }
-        if (cat.includes('propert')) {
-          openPanel('PROPERTY_DETAILS', eid);
-          onClose();
-          return;
-        }
-        if (
-          cat.includes('payment') || cat === 'payments' ||
-          cat === 'overdue' || cat === 'collection' ||
-          cat === 'financial' || cat === 'installment' ||
-          cat === 'installments'
-        ) {
-          // entityId may be installment id or contract id — resolve quickly via memoized index
-          const contractId = resolveContractIdForEntity(eid);
-          if (contractId) {
-            openPanel('CONTRACT_DETAILS', contractId);
-          } else {
-            navigate(ROUTE_PATHS.INSTALLMENTS);
-          }
-          onClose();
-          return;
-        }
-        if (cat === 'maintenance') {
-          openPanel('MAINTENANCE_DETAILS', eid);
-          onClose();
-          return;
-        }
-      }
-
-      if (cat === 'risk' || cat === 'risk_alert' || cat === 'blacklist') {
-        navigate(`${ROUTE_PATHS.PEOPLE}${eid ? `?id=${eid}` : ''}`);
-        onClose();
-        return;
-      }
-
-      if (cat === 'reminders' || cat.includes('reminder')) {
-        navigate(ROUTE_PATHS.DASHBOARD);
-        onClose();
-        return;
-      }
-      if (cat === 'contracts' || cat.includes('contract')) {
-        navigate(ROUTE_PATHS.CONTRACTS);
-        onClose();
-        return;
-      }
-      if (cat === 'commissions' || cat.includes('commission')) {
-        navigate(ROUTE_PATHS.COMMISSIONS);
-        onClose();
-        return;
-      }
-      if (cat === 'maintenance') {
-        navigate(ROUTE_PATHS.MAINTENANCE);
-        onClose();
-        return;
-      }
-      if (cat === 'system') {
-        navigate(ROUTE_PATHS.SETTINGS);
-        onClose();
-        return;
-      }
-
-      openAlertsInSection(openPanel, { only: 'unread', title: 'التنبيهات' });
-      onClose();
-    },
-    [markRead, onClose, openPanel, navigate, resolveContractIdForEntity]
-  );
+      if (cat === 'maintenance') { openPanel('MAINTENANCE_DETAILS', eid); onClose(); return; }
+    }
+    navigate(ROUTE_PATHS.ALERTS);
+    onClose();
+  }, [markRead, onClose, openPanel, navigate, resolveContractId]);
 
   const handleWhatsApp = useCallback(async (item: NotificationCenterItem) => {
-    const rawMsg = item.message;
+    const phones = collectPhones(trimId(item.entityId));
     const settings = DbService.getSettings();
-    const phones = collectPhonesForEntity(String(item.entityId || ''));
     if (phones.length > 0) {
-      await openWhatsAppForPhones(rawMsg, phones, {
+      await openWhatsAppForPhones(item.message, phones, {
         defaultCountryCode: getDefaultWhatsAppCountryCodeSync(),
         delayMs: settings.whatsAppDelayMs ?? 10_000,
         target: settings.whatsAppTarget ?? 'auto',
       });
     } else {
-      const text = applyOfficialBrandSignature(rawMsg);
-      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-      openExternalUrl(url);
+      openExternalUrl(`https://wa.me/?text=${encodeURIComponent(applyOfficialBrandSignature(item.message))}`);
     }
-  }, [collectPhonesForEntity]);
+  }, [collectPhones]);
 
-  return (
-    <div className="flex h-full min-h-[50vh] flex-col">
-      <div className="border-b border-slate-100 px-4 pb-3 dark:border-slate-800">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-9 gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400"
-            onClick={() => {
-              navigate(ROUTE_PATHS.INSTALLMENTS);
-              onClose();
-            }}
-          >
-            <CreditCard size={16} aria-hidden />
-            لوحة السداد الرئيسية
-          </Button>
+  const handleViewAll = () => { navigate(ROUTE_PATHS.ALERTS); onClose(); };
+
+  /* ── action buttons per item ── */
+  const renderActions = (item: NotificationCenterItem) => {
+    const cat = String(item.category || '').toLowerCase();
+    const eid = trimId(item.entityId);
+    const btns: React.ReactNode[] = [];
+
+    if (['financial', 'payment', 'overdue', 'collection'].some(k => cat.includes(k)) || item.urgent) {
+      btns.push(
+        <button key="wa" onClick={e => { e.stopPropagation(); void handleWhatsApp(item); }}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition-colors">
+          <MessageCircle size={11} /> واتساب
+        </button>
+      );
+    }
+    if (['payment', 'overdue', 'installment', 'installments'].some(k => cat === k || cat.includes(k)) && eid) {
+      btns.push(
+        <button key="pay" onClick={e => { e.stopPropagation(); markRead(item.id); navigate(`${ROUTE_PATHS.INSTALLMENTS}?id=${eid}`); onClose(); }}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40 transition-colors">
+          <CreditCard size={11} /> دفع
+        </button>
+      );
+    }
+    if ((cat.includes('contract') || cat === 'contract_renewal') && eid) {
+      btns.push(
+        <button key="contract" onClick={e => { e.stopPropagation(); markRead(item.id); openPanel('CONTRACT_DETAILS', eid); onClose(); }}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 transition-colors">
+          <FileText size={11} /> العقد
+        </button>
+      );
+    }
+    if (cat === 'maintenance' && eid) {
+      btns.push(
+        <button key="maint" onClick={e => { e.stopPropagation(); markRead(item.id); openPanel('MAINTENANCE_DETAILS', eid); onClose(); }}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition-colors">
+          <Wrench size={11} /> صيانة
+        </button>
+      );
+    }
+    if (btns.length === 0 && eid) {
+      btns.push(
+        <button key="open" onClick={e => { e.stopPropagation(); handleNavigate(item); }}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors">
+          <ExternalLink size={11} /> فتح
+        </button>
+      );
+    }
+    return btns;
+  };
+
+  /* ── render (portal: escape shell overflow/stacking so fixed = viewport) ── */
+  const shell = (
+    <>
+      <div
+        className="fixed inset-0 z-[9998]"
+        onMouseDown={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className="fixed top-[72px] start-3 z-[9999] w-[420px] max-w-[calc(100vw-1.5rem)] flex flex-col rounded-2xl bg-white dark:bg-slate-900 shadow-2xl shadow-slate-900/20 dark:shadow-black/40 border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+        style={{ maxHeight: 'calc(100vh - 90px)' }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/20">
+            <Bell size={16} />
+          </div>
+          <div>
+            <h2 className="text-[15px] font-black text-slate-800 dark:text-white leading-none">الإشعارات</h2>
+            {unreadCount > 0 && (
+              <p className="text-[10px] text-indigo-500 font-bold mt-0.5">{unreadCount} غير مقروء</p>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {FILTER_TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setFilter(t.id)}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                filter === t.id
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-              }`}
-            >
-              {t.label}
+        <div className="flex items-center gap-1">
+          {unreadCount > 0 && (
+            <button onClick={() => markAllRead()}
+              title="قراءة الكل"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-400 transition-colors">
+              <CheckCheck size={14} /> قراءة الكل
             </button>
-          ))}
+          )}
+          <button onClick={() => clear()}
+            title="مسح الكل"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors">
+            <Trash2 size={14} />
+          </button>
+          <button onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <X size={16} />
+          </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2 dark:border-slate-800">
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" className="h-8 gap-1 text-xs" onClick={markAllRead}>
-            <CheckCheck size={14} aria-hidden />
-            تحديد الكل كمقروء
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-8 gap-1 text-xs text-red-600 dark:text-red-400"
-            onClick={() => clear()}
+      {/* ── Category tabs ── */}
+      <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-hide shrink-0">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              'flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0',
+              tab === t.id
+                ? t.activeColor + ' shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+            )}
           >
-            <Trash2 size={14} aria-hidden />
-            مسح الكل
-          </Button>
-        </div>
+            {t.label}
+            {t.id !== 'all' && items.filter(i => matchesTab(i, t.id) && !i.read).length > 0 && (
+              <span className={cn('text-[9px] font-black px-1 py-0.5 rounded-full leading-none',
+                tab === t.id ? 'bg-white/20' : 'bg-white dark:bg-slate-700 text-slate-500')}>
+                {items.filter(i => matchesTab(i, t.id) && !i.read).length}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar p-2">
+      {/* ── List ── */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-slate-400">
-            <Bell className="opacity-40" size={40} aria-hidden />
-            <p className="text-sm font-bold">لا توجد إشعارات في هذا التصفية</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center opacity-40">
+            <div className="p-5 rounded-full bg-slate-100 dark:bg-slate-800 mb-3">
+              <Bell size={32} className="text-slate-400" />
+            </div>
+            <p className="text-sm font-bold text-slate-500">لا توجد إشعارات</p>
           </div>
         ) : (
-          <ul className="space-y-2">
-            {filtered.map((item) => (
-              <li key={item.id}>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {filtered.map((item) => {
+              const actions = renderActions(item);
+              return (
                 <div
-                  className={`flex w-full gap-2 rounded-xl border p-2 text-right transition sm:gap-3 sm:p-3 ${
-                    item.read
-                      ? 'border-slate-100 bg-white/50 opacity-70 dark:border-slate-800 dark:bg-slate-900/40 hover:opacity-100'
-                      : item.urgent
-                        ? 'border-red-200 bg-red-50/60 dark:border-red-900/50 dark:bg-red-950/30 ring-1 ring-red-400/40 hover:bg-red-50 dark:hover:bg-red-950/50'
-                        : item.type === 'error'
-                          ? 'border-red-100 bg-red-50/40 dark:border-red-900/30 dark:bg-red-950/20 hover:bg-red-50/60 dark:hover:bg-red-950/30'
-                          : item.type === 'warning'
-                            ? 'border-amber-100 bg-amber-50/40 dark:border-amber-900/30 dark:bg-amber-950/20 hover:bg-amber-50/60 dark:hover:bg-amber-950/30'
-                            : item.type === 'success'
-                              ? 'border-green-100 bg-green-50/40 dark:border-green-900/30 dark:bg-green-950/20 hover:bg-green-50/60 dark:hover:bg-green-950/30'
-                              : 'border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/40 dark:bg-indigo-950/20 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30'
-                  }`}
+                  key={item.id}
+                  onClick={() => handleNavigate(item)}
+                  className={cn(
+                    'group flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-colors',
+                    item.urgent && !item.read
+                      ? 'bg-rose-50/60 dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                      : !item.read
+                      ? 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      : 'bg-slate-50/30 dark:bg-slate-900/10 hover:bg-slate-50 dark:hover:bg-slate-800/30 opacity-70 hover:opacity-100'
+                  )}
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleNavigate(item)}
-                    className="flex min-w-0 flex-1 gap-3 rounded-lg p-1 text-right outline-none ring-offset-2 ring-offset-white hover:bg-slate-100/80 focus-visible:ring-2 focus-visible:ring-indigo-400 dark:ring-offset-slate-900 dark:hover:bg-slate-800/60"
-                  >
-                    <TypeIcon type={item.type} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-slate-900 dark:text-white">{item.title}</span>
+                  {/* Icon */}
+                  <div className={cn('p-2.5 rounded-xl shrink-0 mt-0.5', iconBg(item.type, item.urgent, item.category))}>
+                    <ItemIcon type={item.type} urgent={item.urgent} category={item.category} />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={cn('text-[13px] leading-snug', !item.read ? 'font-bold text-slate-800 dark:text-white' : 'font-medium text-slate-500 dark:text-slate-400')}>
+                        {item.title}
                         {item.urgent && (
-                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-300">
-                            عاجل
-                          </span>
+                          <span className="mr-1.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 align-middle">عاجل</span>
                         )}
-                        {!item.read && (
-                          <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-label="غير مقروء" />
-                        )}
-                      </div>
-                      <p className="mt-0.5 line-clamp-3 text-sm text-slate-600 dark:text-slate-300">
-                        {item.message}
                       </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                        <span>{formatRelativeTimeAr(item.timestamp)}</span>
-                        <span className="opacity-60">•</span>
-                        <span className="font-mono text-[10px]">
-                          {categoryLabels[item.category] || item.category}
-                        </span>
-                      </div>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0 whitespace-nowrap mt-0.5">
+                        {formatRelativeTime(item.timestamp)}
+                      </span>
                     </div>
-                  </button>
-                  <div className="flex flex-col gap-1 shrink-0">
-                    {shouldShowWhatsAppButton(item) && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="h-auto flex-col gap-0.5 px-2 py-1.5 text-[10px] font-bold leading-tight sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"
-                        title="إرسال واتساب"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleWhatsApp(item);
-                        }}
-                      >
-                        <MessageCircle size={16} className="shrink-0 sm:size-[18px]" aria-hidden />
-                        <span className="max-w-[4.5rem] sm:max-w-none">واتساب</span>
-                      </Button>
-                    )}
-                    {(item.category === 'payment' || item.category === 'overdue' || item.category === 'installment') && item.entityId && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-auto flex-col gap-0.5 px-2 py-1.5 text-[10px] font-bold leading-tight text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20"
-                        title="تسجيل دفع"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          markRead(item.id);
-                          navigate(`${ROUTE_PATHS.INSTALLMENTS}?id=${item.entityId ?? ''}`);
-                          onClose();
-                        }}
-                      >
-                        <CreditCard size={16} className="shrink-0" aria-hidden />
-                        <span>دفع</span>
-                      </Button>
-                    )}
-                    {(item.category === 'contracts' || item.category === 'contract_renewal') && item.entityId && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-auto flex-col gap-0.5 px-2 py-1.5 text-[10px] font-bold leading-tight text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
-                        title="فتح العقد"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          markRead(item.id);
-                          openPanel('CONTRACT_DETAILS', item.entityId ?? '');
-                          onClose();
-                        }}
-                      >
-                        <FileText size={16} className="shrink-0" aria-hidden />
-                        <span>العقد</span>
-                      </Button>
+
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                      {item.message}
+                    </p>
+
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+                        {CATEGORY_LABELS[item.category] || item.category}
+                      </span>
+                    </div>
+
+                    {/* Action buttons */}
+                    {actions.length > 0 && (
+                      <div className="flex items-center gap-1.5 mt-2.5" onClick={e => e.stopPropagation()}>
+                        {actions}
+                      </div>
                     )}
                   </div>
+
+                  {/* Unread dot */}
+                  {!item.read && (
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-2" />
+                  )}
                 </div>
-              </li>
-            ))}
-          </ul>
+              );
+            })}
+          </div>
         )}
       </div>
+
+      {/* ── Footer ── */}
+      <div className="shrink-0 border-t border-slate-100 dark:border-slate-800 p-2">
+        <button
+          onClick={handleViewAll}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+        >
+          <ExternalLink size={14} />
+          عرض جميع التنبيهات {items.length > 0 && `(${items.length})`}
+        </button>
+      </div>
     </div>
+    </>
   );
+
+  return typeof document !== 'undefined' ? createPortal(shell, document.body) : null;
 };
