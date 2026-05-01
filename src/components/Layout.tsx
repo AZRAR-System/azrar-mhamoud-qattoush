@@ -1,4 +1,4 @@
-import { useEffect, useState, memo, useRef, Fragment } from 'react';
+import { useEffect, useState, memo, useRef, Fragment, useCallback } from 'react';
 import { useAutoLock } from '@/hooks/useAutoLock';
 import { SessionLockOverlay } from '@/components/SessionLockOverlay';
 import { getSettings } from '@/services/db/settings';
@@ -23,6 +23,7 @@ import { SmartModalEngine } from '@/components/shared/SmartModalEngine';
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
 import { OnboardingGuide } from '@/components/shared/OnboardingGuide';
 import { useSmartModal } from '@/context/ModalContext';
+import { ROUTE_PATHS } from '@/routes/paths';
 import { useAuth } from '@/context/AuthContext';
 import { ROUTE_SUBTITLES, ROUTE_TITLES } from '@/routes/registry';
 import { storage } from '@/services/storage';
@@ -340,7 +341,6 @@ const Sidebar = memo(({
   );
 });
 
-// --- Header - Memoized ---
 const Header = memo(({
   pathname,
   title,
@@ -354,6 +354,7 @@ const Header = memo(({
   sqlStatus,
   hasDesktopBridge,
   onOpenPanel,
+  onNotificationsClick,
 }: {
   pathname: string;
   title: string;
@@ -373,6 +374,7 @@ const Header = memo(({
   } | null;
   hasDesktopBridge: boolean;
   onOpenPanel: (type: string, id?: string, options?: Record<string, unknown>) => void;
+  onNotificationsClick: () => void;
 }) => {
   return (
     <header className="mx-4 lg:mx-8 mt-4 mb-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 flex items-center justify-between px-6 py-4 rounded-3xl shadow-soft layer-app-header transition-all">
@@ -448,7 +450,7 @@ const Header = memo(({
 
           <button
             type="button"
-            onClick={() => onOpenPanel('NOTIFICATION_CENTER')}
+            onClick={onNotificationsClick}
             className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm ${
               unreadCount === 0
                 ? 'text-slate-500 dark:text-slate-400 hover:text-indigo-600'
@@ -506,7 +508,7 @@ export const Layout = () => {
     message?: string;
   };
 
-  const { openPanel, activePanels, closePanel } = useSmartModal();
+  const { openPanel, activePanels, closePanel, closeAll } = useSmartModal();
   const { user, isAuthenticated, sessionLocked, lockSession } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -834,6 +836,11 @@ export const Layout = () => {
     };
   }, [openPanel]);
 
+  const handleNotificationsClick = useCallback(() => {
+    closeAll();
+    navigate(ROUTE_PATHS.ALERTS);
+  }, [closeAll, navigate]);
+
 
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
@@ -987,6 +994,7 @@ export const Layout = () => {
             hasDesktopBridge={hasDesktopBridge}
             onOpenSidebar={() => setSidebarOpen(true)}
             onOpenPanel={openPanel}
+            onNotificationsClick={handleNotificationsClick}
         />
 
         {/* Content Container - Modern Layout */}

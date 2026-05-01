@@ -34,6 +34,7 @@ export type NavItem = {
   icon: LucideIcon;
   children?: NavItem[];
   role?: RoleName;
+  hidden?: boolean;
 };
 
 // Single source of truth for the sidebar navigation structure.
@@ -49,7 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'أدوات ذكية', path: ROUTE_PATHS.SMART_TOOLS, icon: ServerCog },
   { label: 'إدارة العمولات', path: ROUTE_PATHS.COMMISSIONS, icon: HandCoins },
   { label: 'الصيانة والدعم', path: ROUTE_PATHS.MAINTENANCE, icon: Wrench },
-  { label: 'التنبيهات', path: ROUTE_PATHS.ALERTS, icon: Bell },
+  { label: 'التنبيهات', path: ROUTE_PATHS.ALERTS, icon: Bell, hidden: true },
   { label: 'التقارير الشاملة', path: ROUTE_PATHS.REPORTS, icon: BarChart3 },
   { label: 'المركز القانوني', path: ROUTE_PATHS.LEGAL, icon: Scale },
   {
