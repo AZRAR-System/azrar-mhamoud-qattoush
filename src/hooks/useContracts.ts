@@ -240,36 +240,51 @@ export function useContracts(isVisible = true) {
   }, [isDesktopFast]);
 
   useEffect(() => {
-    if (isVisible) {
-      const loadData = async () => {
-        isStaleRef.current = false;
-        setListLoading(true);
+    if (!isVisible) return;
 
-        // Phase 6: Run auto-archive scan once per day per session
+    if (isDesktopFast) {
+      isStaleRef.current = false;
+      setListLoading(false);
+      try {
         const _archiveKey = 'azrar_last_auto_archive';
         const _today = new Date().toDateString();
         if (sessionStorage.getItem(_archiveKey) !== _today) {
           DbService.autoArchiveContracts();
           sessionStorage.setItem(_archiveKey, _today);
         }
-
-        const [allC, allP, allR, allI] = await Promise.all([
-          DbService.getContracts(),
-          DbService.getProperties(),
-          DbService.getPeople(),
-          DbService.getInstallments(),
-        ]);
-        setContracts(allC || []);
-        setProperties(allP || []);
-        setPeople(allR || []);
-        setInstallments(allI || []);
-        setListLoading(false);
-      };
-      loadData();
-    } else {
-      // background
+      } catch {
+        // ignore
+      }
+      setFastReload((n) => n + 1);
+      return;
     }
-  }, [isVisible, dbSignal]);
+
+    const loadFull = async () => {
+      isStaleRef.current = false;
+      setListLoading(true);
+
+      // Phase 6: Run auto-archive scan once per day per session
+      const _archiveKey = 'azrar_last_auto_archive';
+      const _today = new Date().toDateString();
+      if (sessionStorage.getItem(_archiveKey) !== _today) {
+        DbService.autoArchiveContracts();
+        sessionStorage.setItem(_archiveKey, _today);
+      }
+
+      const [allC, allP, allR, allI] = await Promise.all([
+        DbService.getContracts(),
+        DbService.getProperties(),
+        DbService.getPeople(),
+        DbService.getInstallments(),
+      ]);
+      setContracts(allC || []);
+      setProperties(allP || []);
+      setPeople(allR || []);
+      setInstallments(allI || []);
+      setListLoading(false);
+    };
+    void loadFull();
+  }, [isVisible, dbSignal, isDesktopFast]);
 
   useEffect(() => {
     if (!isVisible && dbSignal) {

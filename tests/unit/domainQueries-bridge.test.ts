@@ -11,8 +11,11 @@ import {
   dashboardHighlightsSmart,
   paymentNotificationTargetsSmart,
   personDetailsSmart,
+  peoplePickerSearchPagedSmart,
+  installmentsContractsPagedSmart,
 } from '@/services/domainQueries';
 import { buildCache } from '@/services/dbCache';
+import { KEYS } from '@/services/db/keys';
 
 const makeBridge = (overrides: Record<string, jest.Mock> = {}) => ({
   domainSearchGlobal: jest.fn().mockResolvedValue({ ok: false }),
@@ -38,6 +41,138 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (window as any).desktopDb;
+});
+
+/** Minimal operational KV so DbService reads succeed after `buildCache()`. */
+function seedHydratedKvAndRebuild() {
+  const tenant = {
+    رقم_الشخص: 'P-T1',
+    الاسم: 'مستأجر تجريبي',
+    الرقم_الوطني: '990011',
+    رقم_الهاتف: '0790000001',
+    رقم_هاتف_اضافي: '',
+  };
+  const owner = {
+    رقم_الشخص: 'P-O1',
+    الاسم: 'مالك تجريبي',
+    الرقم_الوطني: '',
+    رقم_الهاتف: '',
+    رقم_هاتف_اضافي: '',
+  };
+  const property = {
+    رقم_العقار: 'PR-1',
+    الكود_الداخلي: 'INT-001',
+    رقم_المالك: 'P-O1',
+    حالة_العقار: 'مؤجر',
+    IsRented: true,
+    العنوان: '',
+    المدينة: '',
+    المنطقة: '',
+    isForSale: false,
+    isForRent: true,
+  };
+  const contract = {
+    رقم_العقد: 'C-TEST-1',
+    رقم_المستاجر: 'P-T1',
+    رقم_العقار: 'PR-1',
+    حالة_العقد: 'نشط',
+    isArchived: false,
+    تاريخ_الانشاء: '2026-01-10',
+    تاريخ_البداية: '2026-01-01',
+    تاريخ_النهاية: '2027-01-01',
+    القيمة_السنوية: 12000,
+    رقم_الفرصة: '',
+  };
+  const installment = {
+    رقم_الكمبيالة: 'INS-1',
+    رقم_العقد: 'C-TEST-1',
+    نوع_الكمبيالة: 'إيجار',
+    حالة_الكمبيالة: 'غير مدفوع',
+    القيمة: 1000,
+    القيمة_المتبقية: 400,
+    تاريخ_استحقاق: '2020-06-01',
+  };
+
+  localStorage.setItem(KEYS.PEOPLE, JSON.stringify([tenant, owner]));
+  localStorage.setItem(KEYS.PROPERTIES, JSON.stringify([property]));
+  localStorage.setItem(KEYS.CONTRACTS, JSON.stringify([contract]));
+  localStorage.setItem(KEYS.INSTALLMENTS, JSON.stringify([installment]));
+  localStorage.setItem(KEYS.ROLES, JSON.stringify([]));
+  buildCache();
+}
+
+const makeDesktopSqlFailBridge = () =>
+  makeBridge({
+    domainContractPickerSearch: jest.fn().mockResolvedValue({ ok: false, message: 'SQL down' }),
+    domainPeoplePickerSearch: jest.fn().mockResolvedValue({ ok: false, message: 'SQL down' }),
+    domainInstallmentsContractsSearch: jest
+      .fn()
+      .mockResolvedValue({ ok: false, message: 'SQL down' }),
+  });
+
+describe('desktop SQL failure + hydrated KV memory fallbacks', () => {
+  test('contractPickerSearchPagedSmart serves rows from local KV with advisory error', async () => {
+    seedHydratedKvAndRebuild();
+    (window as any).desktopDb = makeDesktopSqlFailBridge();
+
+    const r = await contractPickerSearchPagedSmart({
+      query: '',
+      tab: 'active',
+      offset: 0,
+      limit: 10,
+    });
+
+    expect(r.total).toBe(1);
+    expect(r.items).toHaveLength(1);
+    expect(String(r.items[0]?.contract?.رقم_العقد || '')).toBe('C-TEST-1');
+    expect(String(r.items[0]?.tenantName || '')).toContain('مستأجر');
+    expect(r.error || '').toMatch(/SQL down|احتياطي/);
+  });
+
+  test('contractPickerSearchPagedSmart memory path respects search query', async () => {
+    seedHydratedKvAndRebuild();
+    (window as any).desktopDb = makeDesktopSqlFailBridge();
+
+    const r = await contractPickerSearchPagedSmart({
+      query: 'INT-001',
+      tab: 'active',
+      offset: 0,
+      limit: 10,
+    });
+
+    expect(r.total).toBe(1);
+    expect(r.items).toHaveLength(1);
+  });
+
+  test('peoplePickerSearchPagedSmart serves rows from local KV when desktop SQL fails', async () => {
+    seedHydratedKvAndRebuild();
+    (window as any).desktopDb = makeDesktopSqlFailBridge();
+
+    const r = await peoplePickerSearchPagedSmart({
+      query: 'مستأجر',
+      role: '',
+      offset: 0,
+      limit: 10,
+    });
+
+    expect(r.total).toBeGreaterThanOrEqual(1);
+    expect(r.items.some((x) => String(x?.person?.رقم_الشخص) === 'P-T1')).toBe(true);
+  });
+
+  test('installmentsContractsPagedSmart serves rows from local KV when desktop SQL fails', async () => {
+    seedHydratedKvAndRebuild();
+    (window as any).desktopDb = makeDesktopSqlFailBridge();
+
+    const r = await installmentsContractsPagedSmart({
+      query: '',
+      filter: 'all',
+      offset: 0,
+      limit: 48,
+    });
+
+    expect(r.total).toBeGreaterThanOrEqual(1);
+    expect(r.items.some((x) => String(x?.contract?.رقم_العقد) === 'C-TEST-1')).toBe(true);
+  });
 });
 
 describe('desktop bridge returns ok:false', () => {

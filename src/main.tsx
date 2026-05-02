@@ -30,10 +30,15 @@ if (!rootElement) {
 
 async function bootstrap() {
   try {
+    const isDesktopRuntime = typeof window !== 'undefined' && !!window.desktopDb;
     const activated = await isAppActivated();
-    if (activated) {
+    // Desktop: always mirror SQLite KV into renderer localStorage so DbService + memory fallbacks
+    // stay consistent with main-process data (including before activation).
+    if (activated || isDesktopRuntime) {
       await storage.hydrateDbKeysToLocalStorage('db_');
+    }
 
+    if (activated) {
       // Keep some non-db_ app/admin keys in sync across desktop devices.
       // (They are managed in Database Manager / admin flows and should reflect remote updates.)
       const extraSyncKeys = [
@@ -46,7 +51,9 @@ async function bootstrap() {
         'daily_scheduler_last_run',
       ];
       await storage.hydrateKeysToLocalStorage(extraSyncKeys);
-      storage.subscribeDesktopRemoteUpdates?.({ prefix: 'db_', includeKeys: extraSyncKeys });
+      if (isDesktopRuntime) {
+        storage.subscribeDesktopRemoteUpdates?.({ prefix: 'db_', includeKeys: extraSyncKeys });
+      }
     } else {
       // Minimal hydration so UI theme can still load before activation.
       await storage.hydrateKeysToLocalStorage(['theme']);

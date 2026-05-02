@@ -20,6 +20,9 @@ import {
   todayDateOnlyLocal,
 } from '@/components/installments/installmentsUtils';
 import { daysBetweenDateOnlySafe, todayDateOnlyISO } from '@/utils/dateOnly';
+import { SearchEngine, type FilterRule } from '@/services/searchEngine';
+import { normalizeDigitsLoose } from '@/utils/searchNormalize';
+import { getInstallmentPaidAndRemaining } from '@/utils/installments';
 
 export type DomainEntity = DomainEntityType;
 
@@ -290,6 +293,221 @@ export async function contractPickerSearchSmart(payload: {
   return contracts.map((c) => ({ contract: c }));
 }
 
+/** When domain SQL is unavailable, page contracts from renderer KV (hydrated localStorage). */
+function contractPickerSearchPagedMemoryFallback(payload: {
+  query: string;
+  tab?: string;
+  createdMonth?: string;
+  startDateFrom?: string;
+  startDateTo?: string;
+  endDateFrom?: string;
+  endDateTo?: string;
+  minValue?: number | string;
+  maxValue?: number | string;
+  sort?: string;
+  offset?: number;
+  limit?: number;
+}): { items: ContractPickerItem[]; total: number } {
+  const contracts = DbService.getContracts() || [];
+  if (!contracts.length) return { items: [], total: 0 };
+
+  const people = DbService.getPeople() || [];
+  const properties = DbService.getProperties() || [];
+  const installments = DbService.getInstallments() || [];
+
+  const peopleNationalIdMap = new Map(
+    people.map((p) => [String(p.رقم_الشخص), normalizeDigitsLoose(p.الرقم_الوطني)])
+  );
+  const peoplePhoneMap = new Map(
+    people.map((p) => [String(p.رقم_الشخص), normalizeDigitsLoose(p.رقم_الهاتف)])
+  );
+  const peopleExtraPhoneMap = new Map(
+    people.map((p) => [String(p.رقم_الشخص), normalizeDigitsLoose(p.رقم_هاتف_اضافي)])
+  );
+  const peopleNameMap = new Map(people.map((p) => [String(p.رقم_الشخص), String(p.الاسم || '')]));
+  const propsCodeMap = new Map(
+    properties.map((p) => [String(p.رقم_العقار), String(p.الكود_الداخلي || '')])
+  );
+
+  const remainingByContractId = new Map<string, number>();
+  for (const inst of installments) {
+    const contractId = String(inst?.رقم_العقد || '').trim();
+    if (!contractId) continue;
+    if (String(inst?.نوع_الكمبيالة || '').trim() === 'تأمين') continue;
+    const { remaining } = getInstallmentPaidAndRemaining(inst);
+    if (!remaining || remaining <= 0) continue;
+    remainingByContractId.set(contractId, (remainingByContractId.get(contractId) || 0) + remaining);
+  }
+
+  const activeStatus = String(payload.tab || 'active').trim();
+  const searchTerm = String(payload.query || '').trim();
+  const createdMonth = String(payload.createdMonth || '').trim();
+  const createdMonthApplied = /^\d{4}-\d{2}$/.test(createdMonth);
+  const startDateFrom = String(payload.startDateFrom || '').trim();
+  const startDateTo = String(payload.startDateTo || '').trim();
+  const endDateFrom = String(payload.endDateFrom || '').trim();
+  const endDateTo = String(payload.endDateTo || '').trim();
+  const minValueNum = Number(payload.minValue ?? NaN);
+  const maxValueNum = Number(payload.maxValue ?? NaN);
+  const sortMode = String(payload.sort || 'created-desc').trim();
+
+  let result = contracts.filter((c) => {
+    if (activeStatus === 'archived') return !!c.isArchived;
+    if (c.isArchived) return false;
+
+    const status = String(c.حالة_العقد || '').trim();
+    const isArchived = !!c.isArchived;
+
+    switch (activeStatus) {
+      case 'active':
+        return (
+          !isArchived &&
+          (status === 'نشط' || status === 'Active' || status === 'قريب الانتهاء')
+        );
+      case 'expiring':
+        return !isArchived && (status === 'قريب الانتهاء' || status === 'قريبة الانتهاء');
+      case 'collection':
+        return !isArchived && status === 'تحصيل';
+      case 'expired':
+        return !isArchived && (status === 'منتهي' || status === 'Expired');
+      case 'terminated':
+        return !isArchived && (status === 'مفسوخ' || status === 'Terminated');
+      case 'archived':
+        return isArchived || status === 'مؤرشف';
+      default:
+        return true;
+    }
+  });
+
+  if (searchTerm.trim()) {
+    const lower = searchTerm.toLowerCase();
+    const needleDigits = normalizeDigitsLoose(searchTerm);
+    result = result.filter((c) => {
+      const tenantId = String(c.رقم_المستاجر);
+      const tenantName = peopleNameMap.get(tenantId) || '';
+      const tenantNationalId = peopleNationalIdMap.get(tenantId) || '';
+      const tenantPhone = peoplePhoneMap.get(tenantId) || '';
+      const tenantExtraPhone = peopleExtraPhoneMap.get(tenantId) || '';
+      const propCode = propsCodeMap.get(String(c.رقم_العقار)) || '';
+      const opp = String(c.رقم_الفرصة || '').trim();
+
+      const matchesText =
+        c.رقم_العقد.toLowerCase().includes(lower) ||
+        tenantName.toLowerCase().includes(lower) ||
+        propCode.toLowerCase().includes(lower) ||
+        opp.toLowerCase().includes(lower);
+      if (matchesText) return true;
+
+      if (!needleDigits) return false;
+      return (
+        normalizeDigitsLoose(c.رقم_العقد).includes(needleDigits) ||
+        normalizeDigitsLoose(opp).includes(needleDigits) ||
+        tenantNationalId.includes(needleDigits) ||
+        tenantPhone.includes(needleDigits) ||
+        tenantExtraPhone.includes(needleDigits)
+      );
+    });
+  }
+
+  if (createdMonthApplied) {
+    const targetYm = createdMonth;
+    result = result.filter((c) => {
+      const createdRaw = String(c.تاريخ_الانشاء || '').trim();
+      const basis = /^\d{4}-\d{2}-\d{2}$/.test(createdRaw)
+        ? createdRaw
+        : String(c.تاريخ_البداية || '').trim();
+      const ym = /^\d{4}-\d{2}-\d{2}$/.test(basis) ? basis.slice(0, 7) : '';
+      return ym === targetYm;
+    });
+  }
+
+  const rules: FilterRule[] = [];
+  if (startDateFrom && startDateTo) {
+    rules.push({
+      field: 'تاريخ_البداية',
+      operator: 'dateBetween',
+      value: [startDateFrom, startDateTo],
+    });
+  }
+  if (endDateFrom && endDateTo) {
+    rules.push({
+      field: 'تاريخ_النهاية',
+      operator: 'dateBetween',
+      value: [endDateFrom, endDateTo],
+    });
+  }
+  if (Number.isFinite(minValueNum) && minValueNum > 0) {
+    rules.push({ field: 'القيمة_السنوية', operator: 'gte', value: minValueNum });
+  }
+  if (Number.isFinite(maxValueNum) && maxValueNum > 0) {
+    rules.push({ field: 'القيمة_السنوية', operator: 'lte', value: maxValueNum });
+  }
+  if (rules.length) result = SearchEngine.applyFilters(result, rules);
+
+  const createdKey = (c: العقود_tbl) => {
+    const createdRaw = String(c.تاريخ_الانشاء || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(createdRaw)) return createdRaw;
+    const start = String(c.تاريخ_البداية || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : '';
+  };
+  const endKey = (c: العقود_tbl) => {
+    const end = String(c.تاريخ_النهاية || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(end) ? end : '';
+  };
+
+  const sorted = [...result];
+  if (sortMode === 'created-asc') {
+    sorted.sort(
+      (a, b) =>
+        createdKey(a).localeCompare(createdKey(b)) ||
+        String(a.رقم_العقد || '').localeCompare(String(b.رقم_العقد || ''))
+    );
+  } else if (sortMode === 'end-asc') {
+    sorted.sort(
+      (a, b) =>
+        endKey(a).localeCompare(endKey(b)) ||
+        String(a.رقم_العقد || '').localeCompare(String(b.رقم_العقد || ''))
+    );
+  } else if (sortMode === 'end-desc') {
+    sorted.sort(
+      (a, b) =>
+        endKey(b).localeCompare(endKey(a)) ||
+        String(b.رقم_العقد || '').localeCompare(String(a.رقم_العقد || ''))
+    );
+  } else {
+    sorted.sort(
+      (a, b) =>
+        createdKey(b).localeCompare(createdKey(a)) ||
+        String(b.رقم_العقد || '').localeCompare(String(a.رقم_العقد || ''))
+    );
+  }
+
+  const offset = Math.max(0, Math.trunc(Number(payload.offset) || 0));
+  const limit = Math.max(1, Math.min(500, Math.trunc(Number(payload.limit) || 200)));
+  const total = sorted.length;
+  const page = sorted.slice(offset, offset + limit);
+
+  const items: ContractPickerItem[] = page.map((c) => {
+    const tenantId = String(c.رقم_المستاجر || '');
+    const pid = String(c.رقم_العقار || '');
+    const tenant = people.find((p) => String(p.رقم_الشخص) === tenantId);
+    const prop = properties.find((p) => String(p.رقم_العقار) === pid);
+    const ownerId = prop ? String(prop.رقم_المالك || '').trim() : '';
+    const ownerPerson = ownerId ? people.find((p) => String(p.رقم_الشخص) === ownerId) : undefined;
+    return {
+      contract: c,
+      propertyCode: prop ? String(prop.الكود_الداخلي || '') : '',
+      ownerName: ownerPerson ? String(ownerPerson.الاسم || '') : '',
+      tenantName: tenant ? String(tenant.الاسم || '') : '',
+      ownerNationalId: ownerPerson ? String(ownerPerson.الرقم_الوطني || '') : '',
+      tenantNationalId: tenant ? String(tenant.الرقم_الوطني || '') : '',
+      remainingAmount: remainingByContractId.get(String(c.رقم_العقد || '').trim()) || 0,
+    };
+  });
+
+  return { items, total };
+}
+
 export async function contractPickerSearchPagedSmart(payload: {
   query: string;
   tab?: string;
@@ -309,38 +527,57 @@ export async function contractPickerSearchPagedSmart(payload: {
   error?: string;
 }> {
   if (isDesktop() && window.desktopDb?.domainContractPickerSearch) {
-    try {
-      const res: unknown = await window.desktopDb.domainContractPickerSearch(payload);
+    let sqlError = '';
+    const trySql = async (): Promise<{ items: ContractPickerItem[]; total: number } | null> => {
+      const res: unknown = await window.desktopDb!.domainContractPickerSearch!(payload);
       if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
         return {
           items: hasUnknownProp(res, 'items') ? asArray<ContractPickerItem>(res.items) : [],
           total: hasUnknownProp(res, 'total') ? asNumber(res.total) : 0,
         };
       }
+      sqlError =
+        isRecord(res) && hasUnknownProp(res, 'message')
+          ? asString(res.message) || 'فشل تحميل العقود (Desktop SQL)'
+          : 'فشل تحميل العقود (Desktop SQL)';
+      return null;
+    };
 
-      // Desktop safety: do not fall back to in-memory scans; surface the error.
-      if (isDesktop()) {
+    try {
+      const first = await trySql();
+      if (first) return first;
+
+      if (window.desktopDb?.domainMigrate) {
+        try {
+          await window.desktopDb.domainMigrate();
+          const second = await trySql();
+          if (second) return second;
+        } catch {
+          // ignore
+        }
+      }
+
+      const mem = contractPickerSearchPagedMemoryFallback(payload);
+      if (mem.total > 0 || mem.items.length > 0) {
         return {
-          items: [],
-          total: 0,
-          error:
-            isRecord(res) && hasUnknownProp(res, 'message')
-              ? asString(res.message) || 'فشل تحميل العقود (Desktop SQL)'
-              : 'فشل تحميل العقود (Desktop SQL)',
+          ...mem,
+          error: sqlError ? `${sqlError} — عرض احتياطي من البيانات المحلية.` : undefined,
         };
       }
+      return { items: [], total: 0, error: sqlError || 'فشل تحميل العقود (Desktop SQL)' };
     } catch (e: unknown) {
-      // Desktop safety: do not fall back to in-memory scans; surface the error.
-      if (isDesktop()) {
+      sqlError =
+        isRecord(e) && hasUnknownProp(e, 'message')
+          ? asString(e.message) || 'فشل تحميل العقود (Desktop SQL)'
+          : 'فشل تحميل العقود (Desktop SQL)';
+      const mem = contractPickerSearchPagedMemoryFallback(payload);
+      if (mem.total > 0 || mem.items.length > 0) {
         return {
-          items: [],
-          total: 0,
-          error:
-            isRecord(e) && hasUnknownProp(e, 'message')
-              ? asString(e.message) || 'فشل تحميل العقود (Desktop SQL)'
-              : 'فشل تحميل العقود (Desktop SQL)',
+          ...mem,
+          error: `${sqlError} — عرض احتياطي من البيانات المحلية.`,
         };
       }
+      return { items: [], total: 0, error: sqlError };
     }
   }
 
@@ -952,10 +1189,7 @@ export async function peoplePickerSearchPagedSmart(payload: {
     }
   }
 
-  // Desktop safety: do not fall back to in-memory scans.
-  if (isDesktop()) return { items: [], total: 0 };
-
-  // Legacy fallback: in-memory (non-desktop)
+  // Legacy fallback: in-memory (web + desktop when SQL path did not return rows)
   const q = String(payload?.query || '')
     .trim()
     .toLowerCase();
@@ -1063,27 +1297,28 @@ export async function installmentsContractsPagedSmart(payload: {
         };
       }
 
-      // Desktop safety: do not fall back to in-memory scans; surface the error.
-      if (isDesktop()) {
-        return {
-          items: [],
-          total: 0,
-          error:
-            isRecord(res) && hasUnknownProp(res, 'message')
-              ? asString(res.message) || 'فشل تحميل الدفعات (Desktop SQL)'
-              : 'فشل تحميل الدفعات (Desktop SQL)',
-        };
+      if (window.desktopDb?.domainMigrate) {
+        try {
+          await window.desktopDb.domainMigrate();
+          const again: unknown = await window.desktopDb.domainInstallmentsContractsSearch(payload);
+          if (isRecord(again) && hasUnknownProp(again, 'ok') && again.ok === true) {
+            return {
+              items: hasUnknownProp(again, 'items')
+                ? asArray<InstallmentsContractsItem>(again.items)
+                : [],
+              total: hasUnknownProp(again, 'total') ? asNumber(again.total) : 0,
+            };
+          }
+        } catch {
+          // ignore
+        }
       }
     } catch {
-      // fall back
+      // fall back to in-memory listing below
     }
   }
 
-  // Desktop safety: do not fall back to in-memory scans.
-  if (isDesktop())
-    return { items: [], total: 0, error: 'المزامنة غير جاهزة أو الاستعلام غير متاح (Desktop)' };
-
-  // Non-desktop fallback (web/mock): build a compact listing.
+  // Non-desktop and desktop memory fallback (web/mock): build a compact listing.
   try {
     const q = String(payload?.query || '')
       .trim()
