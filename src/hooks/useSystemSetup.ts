@@ -148,9 +148,7 @@ export function useSystemSetup() {
     }
   };
 
-  const handleGoToLogin = () => {
-    window.location.hash = ROUTE_PATHS.LOGIN;
-  };
+  const handleGoToLogin = () => navigate(ROUTE_PATHS.LOGIN);
 
   return {
     currentStep, setCurrentStep,

@@ -44,6 +44,80 @@ export interface DailyOperationalSnapshot {
   dueNext7Payments: number;
 }
 
+/** أرقام الملخص اليومي — تُحسب في الـ hook فقط (مصدر واحد، بدون استدعاءات من الويدجت) */
+export interface DailySummaryWidgetStats {
+  openAlertsTotal: number;
+  criticalAlerts: number;
+  paymentRemindersNext7: number;
+  contractsExpiring30: number;
+  maintenanceOpen: number;
+  revenueToday: number;
+}
+
+function getAlertPriorityField(alert: tbl_Alerts): string | undefined {
+  const priority = (alert as unknown as Record<string, unknown>)['الأولوية'];
+  return typeof priority === 'string' ? priority : undefined;
+}
+
+function getPaymentTargetItemsLength(target: unknown): number {
+  if (!target || typeof target !== 'object') return 0;
+  const items = (target as { items?: unknown }).items;
+  return Array.isArray(items) ? items.length : 0;
+}
+
+/** لقطة أرقام الملخص اليومي: مسار سريع من snap أو دائماً DbService عند عدم توفرها */
+export function buildDailySummaryWidgetStats(params: {
+  fastPath: boolean;
+  snap: DailyOperationalSnapshot | undefined;
+  alerts: tbl_Alerts[];
+  todayYMD: string;
+  contracts: العقود_tbl[];
+  installments: الكمبيالات_tbl[];
+}): DailySummaryWidgetStats {
+  const { fastPath, snap, alerts, todayYMD, contracts, installments } = params;
+  const openAlerts = alerts.filter((a) => !a.تم_القراءة);
+  const criticalAlerts = openAlerts.filter((a) => getAlertPriorityField(a) === 'عالية').length;
+
+  const useSnap = Boolean(fastPath && snap);
+  const paymentRemindersNext7 = useSnap
+    ? Number(snap!.dueNext7Payments) || 0
+    : DbService.getPaymentNotificationTargets(7).reduce(
+        (sum, target) => sum + getPaymentTargetItemsLength(target),
+        0
+      );
+
+  const contractsExpiring30 = useSnap
+    ? Number(snap!.contractsExpiring30) || 0
+    : contracts.filter((c) => {
+        const endDate = new Date(c.تاريخ_النهاية);
+        const daysUntilExpiry = Math.ceil(
+          (endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
+        return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+      }).length;
+
+  const maintenanceOpen = useSnap
+    ? Number(snap!.maintenanceOpen) || 0
+    : DbService.getMaintenanceTickets().filter(
+        (m) => m.الحالة === 'مفتوح' || m.الحالة === 'قيد التنفيذ'
+      ).length;
+
+  const revenueToday = useSnap
+    ? Number(snap!.revenueToday) || 0
+    : installments
+        .filter((i) => i.تاريخ_استحقاق === todayYMD && i.حالة_الكمبيالة === 'مدفوع')
+        .reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
+
+  return {
+    openAlertsTotal: openAlerts.length,
+    criticalAlerts,
+    paymentRemindersNext7,
+    contractsExpiring30,
+    maintenanceOpen,
+    revenueToday,
+  };
+}
+
 export interface UseDashboardDataResult {
   data: DashboardData;
   isRefreshing: boolean;
@@ -178,6 +252,24 @@ export interface DashboardData {
 
   /** لقطة يومية من الـ cache عند المسار السريع — للملخص اليومي وغيره */
   dailyOperationalSnapshot?: DailyOperationalSnapshot;
+
+  /** أرقام جاهزة لـ DailySummaryWidget — من نفس دورة التحديث (بدون حالة وسط) */
+  dailySummaryStats: DailySummaryWidgetStats;
+}
+
+function initialDashboardPerformanceBlock(): NonNullable<DashboardData['performance']> {
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+  return {
+    monthKey,
+    prevMonthKey,
+    currentMonthCollections: 0,
+    previousMonthCollections: 0,
+    paidCountThisMonth: 0,
+    dueUnpaidThisMonth: 0,
+  };
 }
 
 export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboardDataResult => {
@@ -240,6 +332,15 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
     alertsRaw: [],
     installmentStatusDonut: { paid: 0, overdue: 0, upcoming: 0 },
     recentOperations: [],
+    dailySummaryStats: {
+      openAlertsTotal: 0,
+      criticalAlerts: 0,
+      paymentRemindersNext7: 0,
+      contractsExpiring30: 0,
+      maintenanceOpen: 0,
+      revenueToday: 0,
+    },
+    performance: initialDashboardPerformanceBlock(),
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -412,6 +513,39 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
         const installmentsForStats = fastPath ? [] : DbService.getInstallments();
         const contractsForKpi = fastPath ? [] : (contracts.length > 0 ? contracts : DbService.getContracts());
 
+        const getInstPaymentMonth = (i: الكمبيالات_tbl) =>
+          String(i.تاريخ_الدفع || i.تاريخ_استحقاق || '').slice(0, 7);
+        const isInstPaidForPerf = (i: الكمبيالات_tbl) => String(i?.حالة_الكمبيالة) === 'مدفوع';
+        const performanceBlock: NonNullable<DashboardData['performance']> = desktopPerf
+          ? {
+              monthKey: currentMonth,
+              prevMonthKey: previousMonth,
+              currentMonthCollections: Number(desktopPerf.currentMonthCollections || 0) || 0,
+              previousMonthCollections: Number(desktopPerf.previousMonthCollections || 0) || 0,
+              paidCountThisMonth: Number(desktopPerf.paidCountThisMonth || 0) || 0,
+              dueUnpaidThisMonth: Number(desktopPerf.dueUnpaidThisMonth || 0) || 0,
+            }
+          : {
+              monthKey: currentMonth,
+              prevMonthKey: previousMonth,
+              currentMonthCollections: installmentsForStats
+                .filter((i) => isInstPaidForPerf(i) && getInstPaymentMonth(i) === currentMonth)
+                .reduce((s, i) => s + Number(i.القيمة || 0), 0),
+              previousMonthCollections: installmentsForStats
+                .filter((i) => isInstPaidForPerf(i) && getInstPaymentMonth(i) === previousMonth)
+                .reduce((s, i) => s + Number(i.القيمة || 0), 0),
+              paidCountThisMonth: installmentsForStats.filter(
+                (i) => isInstPaidForPerf(i) && getInstPaymentMonth(i) === currentMonth
+              ).length,
+              dueUnpaidThisMonth: installmentsForStats
+                .filter(
+                  (i) =>
+                    !isInstPaidForPerf(i) &&
+                    String(i.تاريخ_استحقاق || '').slice(0, 7) === currentMonth
+                )
+                .reduce((s, i) => s + Number(i.القيمة_المتبقية ?? i.القيمة ?? 0), 0),
+            };
+
         const limit30d = toYMD(
           new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30)
         );
@@ -514,6 +648,15 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
               }
             : undefined;
 
+        const dailySummaryStats = buildDailySummaryWidgetStats({
+          fastPath,
+          snap: dailyOperationalSnapshot,
+          alerts,
+          todayYMD,
+          contracts,
+          installments,
+        });
+
         setData({
           meta: {
             updatedAt: Date.now(),
@@ -544,16 +687,7 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
             overdueCollectionAmount,
           },
 
-          performance: desktopPerf
-            ? {
-                monthKey: currentMonth,
-                prevMonthKey: previousMonth,
-                currentMonthCollections: Number(desktopPerf.currentMonthCollections || 0) || 0,
-                previousMonthCollections: Number(desktopPerf.previousMonthCollections || 0) || 0,
-                paidCountThisMonth: Number(desktopPerf.paidCountThisMonth || 0) || 0,
-                dueUnpaidThisMonth: Number(desktopPerf.dueUnpaidThisMonth || 0) || 0,
-              }
-            : undefined,
+          performance: performanceBlock,
 
           desktopAggregations: fastPath
             ? {
@@ -614,9 +748,11 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
           },
           recentOperations,
           dailyOperationalSnapshot,
+          dailySummaryStats,
         });
       } catch (error: unknown) {
         console.error('Error refreshing dashboard data:', error);
+        setIsDesktopFast(false);
         const detail =
           error instanceof Error && error.message.trim()
             ? error.message
@@ -669,7 +805,12 @@ export const useDashboardData = (options?: UseDashboardDataOptions): UseDashboar
 
     const autoRefresh = options?.autoRefresh ?? true;
     const intervalMs = options?.refreshIntervalMs ?? 120_000; // 2min — reduced from 30s to avoid main-thread violations
-    const interval = autoRefresh ? setInterval(refreshData, intervalMs) : null;
+    const interval = autoRefresh
+      ? setInterval(() => {
+          if (isRunningRef.current) return;
+          refreshData();
+        }, intervalMs)
+      : null;
     return () => {
       if (interval) clearInterval(interval);
       if (eventRefreshTimerRef.current) {

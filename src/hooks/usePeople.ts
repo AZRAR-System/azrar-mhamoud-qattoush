@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DbService } from '@/services/mockDb';
 import { الأشخاص_tbl, SystemLookup, العقارات_tbl, العقود_tbl, DynamicFormField } from '@/types';
@@ -92,6 +93,7 @@ export function usePeople(isVisible = true) {
   const [availableRoles, setAvailableRoles] = useState<SystemLookup[]>([]);
 
   const { openPanel } = useSmartModal();
+  const location = useLocation();
   const toast = useToast();
   const dialogs = useAppDialogs();
   const importRef = useRef<HTMLInputElement | null>(null);
@@ -133,21 +135,16 @@ export function usePeople(isVisible = true) {
 
   // URL Deep-Linking
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     const id = params.get('id');
     const search = params.get('search');
 
     if (id) {
-      // Clear ID from URL to prevent reopening on subsequent renders
-      const newUrl = window.location.pathname + window.location.hash;
-      window.history.replaceState({}, '', newUrl);
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash.split('?')[0]);
       openPanel('PERSON_DETAILS', id);
     }
-
-    if (search) {
-      setSearchTerm(search);
-    }
-  }, [openPanel]);
+    if (search) setSearchTerm(search);
+  }, [location.search, openPanel]);
 
   const queryRef = useRef({
     searchTerm,

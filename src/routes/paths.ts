@@ -21,6 +21,10 @@ export const ROUTE_PATHS = {
   COMMISSIONS: '/commissions',
   MAINTENANCE: '/maintenance',
   ALERTS: '/alerts',
+  /** واتساب جماعي — تبويب داخل مركز التنبيهات */
+  ALERTS_BULK: '/alerts/bulk',
+  /** نماذج الرسائل — تبويب داخل مركز التنبيهات */
+  ALERTS_TEMPLATES: '/alerts/templates',
   REPORTS: '/reports',
   LEGAL: '/legal',
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { DbService } from '@/services/mockDb';
 import {
   ReportResult,
@@ -153,21 +154,18 @@ export const useCommissions = (isVisible: boolean) => {
   const dbSignal = useDbSignal();
   const { user } = useAuth();
   const isStaleRef = useRef(false);
+  const location = useLocation();
 
-  // Support deep-linking from Dashboard: #/commissions?tab=employee&month=YYYY-MM&user=username
+  // Support deep-linking from Dashboard: /commissions?tab=employee&month=YYYY-MM&user=username
   useEffect(() => {
     const applyFromHash = () => {
       try {
-        const raw = window.location.hash || '';
-        const hash = raw.startsWith('#') ? raw.slice(1) : raw;
-        const parts = hash.split('?');
-        const query = parts.length > 1 ? parts.slice(1).join('?') : '';
-        if (!query) return;
-
-        const params = new URLSearchParams(query);
+        const params = new URLSearchParams(location.search);
         const tab = String(params.get('tab') || '').trim();
         const month = String(params.get('month') || '').trim();
         const userQ = String(params.get('user') || '').trim();
+
+        if (!tab && !month && !userQ) return;
 
         if (tab === 'contracts' || tab === 'external' || tab === 'employee') {
           setActiveTab(tab);
@@ -184,16 +182,7 @@ export const useCommissions = (isVisible: boolean) => {
     };
 
     applyFromHash();
-    let lastHashComm = window.location.hash;
-    const onHashChangeComm = () => {
-      const current = window.location.hash;
-      if (current === lastHashComm) return;
-      lastHashComm = current;
-      applyFromHash();
-    };
-    window.addEventListener('hashchange', onHashChangeComm);
-    return () => window.removeEventListener('hashchange', onHashChangeComm);
-  }, []);
+  }, [location.search]);
 
   // Sync to SessionStorage
   useEffect(() => {

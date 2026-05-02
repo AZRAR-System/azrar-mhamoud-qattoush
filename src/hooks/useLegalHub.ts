@@ -44,6 +44,7 @@ export const useLegalHub = (isVisible: boolean) => {
   const [selectedContractTenantId, setSelectedContractTenantId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [generatedText, setGeneratedText] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const generationSeqRef = useRef(0);
 
@@ -80,6 +81,8 @@ export const useLegalHub = (isVisible: boolean) => {
 
   const refreshData = useCallback(() => {
     setHistory(DbService.getLegalNoticeHistory().reverse());
+    // على Desktop: ContractPicker يحمّل العقود عبر contractPickerSearchSmart
+    // هذه الحالة تستخدم فقط في مسار !isDesktopFast (DbService)
     setContracts(isDesktopFast ? [] : DbService.getContracts());
     setTemplates(DbService.getLegalTemplates());
   }, [isDesktopFast]);
@@ -134,6 +137,8 @@ export const useLegalHub = (isVisible: boolean) => {
     if (isDesktopFast) {
       const seq = ++generationSeqRef.current;
       void (async () => {
+        setIsGenerating(true);
+        try {
         const tmpl = templates.find((t) => t.id === selectedTemplateId);
         if (!tmpl) return;
 
@@ -243,6 +248,9 @@ export const useLegalHub = (isVisible: boolean) => {
         text = text.split('[الوقت]').join(time);
 
         if (seq === generationSeqRef.current) setGeneratedText(text);
+        } finally {
+          setIsGenerating(false);
+        }
       })();
       return;
     }
@@ -548,6 +556,7 @@ export const useLegalHub = (isVisible: boolean) => {
     setSelectedTemplateId,
     generatedText,
     setGeneratedText,
+    isGenerating,
     pendingSend,
     editingHistory,
     setEditingHistory,

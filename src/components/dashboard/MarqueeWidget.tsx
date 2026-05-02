@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DbService } from '@/services/mockDb';
 import { MarqueeMessage } from '@/types';
 import { Megaphone, X, AlertTriangle, CheckCircle, Info, Plus, Settings2 } from 'lucide-react';
@@ -18,6 +19,7 @@ export const MarqueeWidget: FC<{
   const [repeatFactor, setRepeatFactor] = useState<number>(1);
   const [marqueeShiftPx, setMarqueeShiftPx] = useState<number>(0);
   const { openPanel } = useSmartModal();
+  const navigate = useNavigate();
   const dialogs = useAppDialogs();
   const lastMessagesSignatureRef = useRef<string>('');
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -277,6 +279,10 @@ export const MarqueeWidget: FC<{
     if (action.kind === 'panel') {
       if (action.panel === 'PAYMENT_NOTIFICATIONS') {
         openPanel('SECTION_VIEW', ROUTE_PATHS.INSTALLMENTS, { title: 'لوحة السداد الرئيسية' });
+        return;
+      }
+      if (action.panel === 'BULK_WHATSAPP') {
+        navigate(ROUTE_PATHS.ALERTS_BULK);
         return;
       }
       if (!isPanelType(action.panel)) return;

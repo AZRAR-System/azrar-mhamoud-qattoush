@@ -2,7 +2,7 @@
  * © 2025 — Developed by Mahmoud Qattoush
  * AZRAR Real Estate Management System — All Rights Reserved
  *
- * Daily Summary Widget - ملخص يومي للإشعارات والأحداث
+ * Daily Summary Widget - ملخص يومي للإشعارات والأحداث (عرض فقط — الأرقام من الـ hook)
  */
 
 import {
@@ -15,73 +15,27 @@ import {
   Home,
   ArrowRight,
 } from 'lucide-react';
-import { DbService } from '@/services/mockDb';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { openAlertsInSection } from '@/services/alerts/alertNavigation';
 import { useSmartModal } from '@/context/ModalContext';
-import { formatDateOnly } from '@/utils/dateOnly';
 import { PaymentCollectionSendLog } from '@/components/dashboard/PaymentCollectionSendLog';
-import type { DashboardData } from '@/hooks/useDashboardData';
-import type { tbl_Alerts } from '@/types';
+import type { DailySummaryWidgetStats } from '@/hooks/useDashboardData';
 
 export interface DailySummaryWidgetProps {
-  data: DashboardData;
-  isDesktopFast: boolean;
+  stats: DailySummaryWidgetStats;
 }
 
-const getAlertPriority = (alert: tbl_Alerts): string | undefined => {
-  const priority = (alert as unknown as Record<string, unknown>)['الأولوية'];
-  return typeof priority === 'string' ? priority : undefined;
-};
-
-const getTargetItemsLength = (target: unknown): number => {
-  if (!target || typeof target !== 'object') return 0;
-  const items = (target as { items?: unknown }).items;
-  return Array.isArray(items) ? items.length : 0;
-};
-
-export const DailySummaryWidget: React.FC<DailySummaryWidgetProps> = ({ data, isDesktopFast }) => {
+export const DailySummaryWidget: React.FC<DailySummaryWidgetProps> = ({ stats }) => {
   const { openPanel } = useSmartModal();
 
-  const today = formatDateOnly(new Date());
-  const alertsSource = data.alertsRaw.length > 0 ? data.alertsRaw : DbService.getAlerts();
-  const openAlerts = alertsSource.filter((a) => !a.تم_القراءة);
-  const criticalAlerts = openAlerts.filter((a) => getAlertPriority(a) === 'عالية').length;
-
-  const snap = data.dailyOperationalSnapshot;
-
-  const paymentRemindersNext7 =
-    isDesktopFast && snap
-      ? snap.dueNext7Payments
-      : DbService.getPaymentNotificationTargets(7).reduce(
-          (sum, target) => sum + getTargetItemsLength(target),
-          0
-        );
-
-  const contractsExpiring =
-    isDesktopFast && snap
-      ? snap.contractsExpiring30
-      : DbService.getContracts().filter((c) => {
-          const endDate = new Date(c.تاريخ_النهاية);
-          const daysUntilExpiry = Math.ceil(
-            (endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-          );
-          return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
-        }).length;
-
-  const maintenanceOpen =
-    isDesktopFast && snap
-      ? snap.maintenanceOpen
-      : DbService.getMaintenanceTickets().filter(
-          (m) => m.الحالة === 'مفتوح' || m.الحالة === 'قيد التنفيذ'
-        ).length;
-
-  const totalRevenue =
-    isDesktopFast && snap
-      ? snap.revenueToday
-      : DbService.getInstallments()
-          .filter((i) => i.تاريخ_استحقاق === today && i.حالة_الكمبيالة === 'مدفوع')
-          .reduce((sum, i) => sum + (Number(i.القيمة) || 0), 0);
+  const {
+    openAlertsTotal,
+    criticalAlerts,
+    paymentRemindersNext7,
+    contractsExpiring30,
+    maintenanceOpen,
+    revenueToday,
+  } = stats;
 
   const summaryItems = [
     {
@@ -105,7 +59,7 @@ export const DailySummaryWidget: React.FC<DailySummaryWidgetProps> = ({ data, is
     {
       icon: FileText,
       label: 'عقود قريبة الانتهاء',
-      value: contractsExpiring,
+      value: contractsExpiring30,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50 dark:bg-amber-900/20',
       action: () => {
@@ -125,7 +79,7 @@ export const DailySummaryWidget: React.FC<DailySummaryWidgetProps> = ({ data, is
     {
       icon: TrendingUp,
       label: 'إيرادات اليوم',
-      value: `${totalRevenue.toLocaleString()} د.أ`,
+      value: `${revenueToday.toLocaleString()} د.أ`,
       color: 'text-green-600',
       bgColor: 'bg-green-50 dark:bg-green-900/20',
       action: () => {
@@ -155,7 +109,7 @@ export const DailySummaryWidget: React.FC<DailySummaryWidgetProps> = ({ data, is
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold">{openAlerts.length}</div>
+          <div className="text-2xl font-bold">{openAlertsTotal}</div>
           <div className="text-xs text-indigo-100">إجمالي التنبيهات</div>
         </div>
       </div>

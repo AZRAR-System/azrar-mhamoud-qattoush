@@ -356,6 +356,61 @@ ${COLLECTION_FIXED_PAYMENT_FOOTER}`,
     updatedAt: new Date().toISOString(),
     tags: ['تحصيل', 'إخلاء', 'قانوني', 'ثابت'],
   },
+  /** قوالب واتساب من التنبيهات — تُربَط بـ `WhatsAppTemplateKey` عبر `whatsappTemplateMap` */
+  {
+    id: 'wa_payment_reminder',
+    name: 'واتساب — تذكير دفع (من التنبيه)',
+    category: 'reminder',
+    title: '',
+    body: `مرحباً {{tenantName}}،
+نود تذكيركم قبل الاستحقاق بوجود {{count}} دفعة قريبة الاستحقاق للعقار ({{propertyCode}}).
+{{الوصف}}
+يرجى السداد قبل موعد الاستحقاق.`,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    tags: ['واتساب', 'تنبيه', 'دفع'],
+  },
+  {
+    id: 'wa_renewal_offer',
+    name: 'واتساب — عرض تجديد (من التنبيه)',
+    category: 'reminder',
+    title: '',
+    body: `مرحباً {{tenantName}}،
+عقد الإيجار الخاص بالعقار ({{propertyCode}}) قارب على الانتهاء.
+يرجى مراجعة المكتب للتجديد.`,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    tags: ['واتساب', 'تنبيه', 'تجديد'],
+  },
+  {
+    id: 'wa_legal_notice',
+    name: 'واتساب — إشعار قانوني (من التنبيه)',
+    category: 'legal',
+    title: '',
+    body: `السادة {{tenantName}}،
+نود إفادتكم بخصوص إجراءات أو مراسلات قد تتطلّب المتابعة.
+{{الوصف}}
+العقار: {{propertyCode}}.`,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    tags: ['واتساب', 'تنبيه', 'قانوني'],
+  },
+  {
+    id: 'wa_custom',
+    name: 'واتساب — إشعار عام (من التنبيه)',
+    category: 'warning',
+    title: '',
+    body: `مرحباً {{tenantName}}،
+إشعار بخصوص العقار ({{propertyCode}}):
+{{الوصف}}`,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    tags: ['واتساب', 'تنبيه', 'عام'],
+  },
 ];
 
 /** نسخة للقراءة فقط من القوالب المدمجة — للمقارنة مع `db_message_templates` */

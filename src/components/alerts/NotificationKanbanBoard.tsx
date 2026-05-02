@@ -6,7 +6,6 @@ import {
   FileText, 
   Bell, 
   Wrench,
-  CheckCircle2,
   Inbox
 } from 'lucide-react';
 import type { KanbanColumn, AlertItem } from '@/hooks/useAlerts';

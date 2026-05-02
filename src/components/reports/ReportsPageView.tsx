@@ -51,8 +51,16 @@ const CategorySection: React.FC<{
       else setPageSize(9);
     };
     compute();
-    window.addEventListener('resize', compute);
-    return () => window.removeEventListener('resize', compute);
+    let timer: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(timer);
+      timer = setTimeout(compute, 150);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -128,6 +136,7 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
     isExportingAll,
     kpis,
     kpisError,
+    loadKpis,
     openPanel,
     filteredReports,
     financialPrintData,
@@ -201,9 +210,18 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({ page }) => {
 
         {kpisError && (
           <div className="p-6 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/30">
-            <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-sm font-bold">
-              <AlertCircle size={20} />
-              {kpisError}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-sm font-bold">
+                <AlertCircle size={20} />
+                {kpisError}
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadKpis()}
+                className="text-xs font-bold text-red-600 hover:underline shrink-0"
+              >
+                إعادة المحاولة
+              </button>
             </div>
           </div>
         )}

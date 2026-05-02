@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DbService } from '@/services/mockDb';
 import { ReportDefinition } from '@/types';
 import { useToast } from '@/context/ToastContext';
@@ -32,6 +32,7 @@ export const useReports = () => {
   const { openPanel } = useSmartModal();
   const toast = useToast();
   const dbSignal = useDbSignal();
+  const kpisTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setReports(DbService.getAvailableReports());
@@ -81,7 +82,13 @@ export const useReports = () => {
   }, []);
 
   useEffect(() => {
-    loadKpis();
+    if (kpisTimerRef.current) clearTimeout(kpisTimerRef.current);
+    kpisTimerRef.current = setTimeout(() => {
+      void loadKpis();
+    }, 400);
+    return () => {
+      if (kpisTimerRef.current) clearTimeout(kpisTimerRef.current);
+    };
   }, [loadKpis, dbSignal]);
 
   const filteredReports = useMemo(() => {
@@ -186,6 +193,7 @@ export const useReports = () => {
     isExportingAll,
     kpis,
     kpisError,
+    loadKpis,
     openPanel,
     filteredReports,
     financialPrintData,

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useSmartModal } from '@/context/ModalContext';
 import { useToast } from '@/context/ToastContext';
@@ -120,11 +120,11 @@ const KNOWN_ORDER = [
 
 const HIDDEN_KEYS = new Set(['demo_data_loaded']);
 
-let systemTestsAutorunStarted = false;
-
 export const useSystemMaintenance = (isVisible: boolean) => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const autorunStartedRef = useRef(false);
   const toast = useToast();
   const { openPanel } = useSmartModal();
   const dbSignal = useDbSignal();
@@ -347,43 +347,37 @@ export const useSystemMaintenance = (isVisible: boolean) => {
     const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_AUTORUN_SYSTEM_TESTS;
     if (typeof flag === 'string') return flag.toLowerCase() === 'true';
     try {
-      if (typeof window !== 'undefined') {
-        const qs = new URLSearchParams(window.location.search);
-        const v = qs.get('autorun');
-        if (v) return String(v).toLowerCase() === 'true' || v === '1';
-      }
+      const qs = new URLSearchParams(location.search);
+      const v = qs.get('autorun');
+      if (v) return String(v).toLowerCase() === 'true' || v === '1';
     } catch (_err) {
       // ignore
     }
     return !!flag;
-  }, []);
+  }, [location.search]);
 
   const isIntegrationDataEnabled = useMemo(() => {
     const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_ENABLE_INTEGRATION_TEST_DATA;
     if (typeof flag === 'string') return flag.toLowerCase() === 'true';
     try {
-      if (typeof window !== 'undefined') {
-        const qs = new URLSearchParams(window.location.search);
-        const v = qs.get('integrationData');
-        if (v) return String(v).toLowerCase() === 'true' || v === '1';
-      }
+      const qs = new URLSearchParams(location.search);
+      const v = qs.get('integrationData');
+      if (v) return String(v).toLowerCase() === 'true' || v === '1';
     } catch (_err) {
       // ignore
     }
     return !!flag;
-  }, []);
+  }, [location.search]);
 
   useEffect(() => {
-    if (!isAutorunEnabled || systemTestsAutorunStarted || testingRunning || testResults) return;
-    systemTestsAutorunStarted = true;
+    if (!isAutorunEnabled || autorunStartedRef.current || testingRunning || testResults) return;
+    autorunStartedRef.current = true;
     const forceMutation = (() => {
       const flag = (import.meta as unknown as ViteMeta)?.env?.VITE_AUTORUN_SYSTEM_TESTS_MUTATION;
       if (typeof flag === 'string') return flag.toLowerCase() === 'true';
       try {
-        if (typeof window !== 'undefined') {
-          const v = new URLSearchParams(window.location.search).get('mutation');
-          if (v) return String(v).toLowerCase() === 'true' || v === '1';
-        }
+        const v = new URLSearchParams(location.search).get('mutation');
+        if (v) return String(v).toLowerCase() === 'true' || v === '1';
       } catch (_err) {
         // ignore
       }
@@ -415,7 +409,7 @@ export const useSystemMaintenance = (isVisible: boolean) => {
         }
       }
     })();
-  }, [isAutorunEnabled, isIntegrationDataEnabled, testResults, testingRunning, toast]);
+  }, [isAutorunEnabled, isIntegrationDataEnabled, location.search, testResults, testingRunning, toast]);
 
   const handleResetAllData = useCallback(() => {
     if (user?.الدور !== 'SuperAdmin') { toast.error('هذه العملية متاحة للسوبر أدمن فقط'); return; }

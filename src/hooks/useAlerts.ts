@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DbService } from '@/services/mockDb';
-import { tbl_Alerts, AlertCategory } from '../types/types';
+import {
+  tbl_Alerts,
+  AlertCategory,
+  type العقود_tbl,
+  type الكمبيالات_tbl,
+  type الأشخاص_tbl,
+  type العقارات_tbl,
+} from '../types/types';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { useToast } from '@/context/ToastContext';
 import { notificationCenter } from '@/services/notificationCenter';
@@ -70,42 +77,70 @@ function inferMerjeaAljadwalFromNcCategory(category: string): string | undefined
   return undefined;
 }
 
-function enrichAlert(raw: tbl_Alerts): AlertItem {
+/** فهارس O(1) لـ enrichAlert — تُبنى مرة واحدة لكل loadAlerts */
+type EnrichAlertIndexes = {
+  contractsById: Map<string, العقود_tbl>;
+  installmentsById: Map<string, الكمبيالات_tbl>;
+  peopleById: Map<string, الأشخاص_tbl>;
+  propertiesById: Map<string, العقارات_tbl>;
+};
+
+function buildEnrichAlertIndexes(): EnrichAlertIndexes {
+  const allContracts = DbService.getContracts();
+  const allInstallments = DbService.getInstallments?.() ?? [];
+  const allPeople = DbService.getPeople();
+  const allProperties = DbService.getProperties();
+
+  const contractsById = new Map<string, العقود_tbl>();
+  for (const c of allContracts) {
+    contractsById.set(String(c.رقم_العقد), c);
+  }
+  const installmentsById = new Map<string, الكمبيالات_tbl>();
+  for (const i of allInstallments) {
+    installmentsById.set(String(i.رقم_الكمبيالة), i);
+  }
+  const peopleById = new Map<string, الأشخاص_tbl>();
+  for (const p of allPeople) {
+    peopleById.set(String(p.رقم_الشخص), p);
+  }
+  const propertiesById = new Map<string, العقارات_tbl>();
+  for (const pr of allProperties) {
+    propertiesById.set(String(pr.رقم_العقار), pr);
+  }
+  return { contractsById, installmentsById, peopleById, propertiesById };
+}
+
+function enrichAlert(raw: tbl_Alerts, idx: EnrichAlertIndexes): AlertItem {
   let tenantName = raw.tenantName || '';
   let propertyCode = raw.propertyCode || '';
 
   if ((!tenantName || !propertyCode) && raw.مرجع_المعرف && raw.مرجع_المعرف !== 'batch') {
     const table = raw.مرجع_الجدول || '';
+    const ref = String(raw.مرجع_المعرف);
 
     if (table === 'الكمبيالات_tbl' || table === 'العقود_tbl') {
-      let contract = DbService.getContracts().find((c) => String(c.رقم_العقد) === String(raw.مرجع_المعرف));
+      let contract = idx.contractsById.get(ref);
       if (!contract && table === 'الكمبيالات_tbl') {
-        const inst = (DbService.getInstallments?.() || []).find(
-          (i) => String(i.رقم_الكمبيالة) === String(raw.مرجع_المعرف)
-        );
+        const inst = idx.installmentsById.get(ref);
         if (inst) {
-          contract = DbService.getContracts().find((c) => String(c.رقم_العقد) === String(inst.رقم_العقد));
+          contract = idx.contractsById.get(String(inst.رقم_العقد));
         }
       }
       if (contract) {
-        const person = DbService.getPeople()
-          .find(p => String(p.رقم_الشخص) === String(contract.رقم_المستاجر));
-        const property = DbService.getProperties()
-          .find(pr => String(pr.رقم_العقار) === String(contract.رقم_العقار));
+        const person = idx.peopleById.get(String(contract.رقم_المستاجر));
+        const property = idx.propertiesById.get(String(contract.رقم_العقار));
         tenantName = tenantName || person?.الاسم || '';
         propertyCode = propertyCode || property?.الكود_الداخلي || property?.العنوان || '';
       }
     }
 
     if (table === 'الأشخاص_tbl') {
-      const person = DbService.getPeople()
-        .find(p => String(p.رقم_الشخص) === String(raw.مرجع_المعرف));
+      const person = idx.peopleById.get(ref);
       tenantName = tenantName || person?.الاسم || '';
     }
 
     if (table === 'العقارات_tbl') {
-      const property = DbService.getProperties()
-        .find(pr => String(pr.رقم_العقار) === String(raw.مرجع_المعرف));
+      const property = idx.propertiesById.get(ref);
       propertyCode = propertyCode || property?.الكود_الداخلي || property?.العنوان || '';
     }
   }
@@ -193,6 +228,7 @@ export const useAlerts = (isVisible: boolean, intent?: AlertPanelIntent): UseAle
   const loadAlerts = useCallback(() => {
     setIsLoading(true);
     try {
+      const enrichIdx = buildEnrichAlertIndexes();
       const dbAlerts = DbService.getAlerts() || [];
       const ncItems = notificationCenter.getItems() || [];
 
@@ -217,7 +253,7 @@ export const useAlerts = (isVisible: boolean, intent?: AlertPanelIntent): UseAle
           مرجع_المعرف: item.entityId ? String(item.entityId) : undefined,
           priority: item.urgent ? 'urgent' : 'normal',
         };
-        return enrichAlert(raw);
+        return enrichAlert(raw, enrichIdx);
       });
 
       const mappedNcDeduped = dedupeNcMappedAlerts(mappedNc);
@@ -228,7 +264,7 @@ export const useAlerts = (isVisible: boolean, intent?: AlertPanelIntent): UseAle
 
       for (const da of dbAlerts) {
         if (!seenBaseIds.has(normalizeAlertIdForDedup(da.id))) {
-          merged.push(enrichAlert(da));
+          merged.push(enrichAlert(da, enrichIdx));
           seenBaseIds.add(normalizeAlertIdForDedup(da.id));
         }
       }
@@ -363,7 +399,7 @@ export const useAlerts = (isVisible: boolean, intent?: AlertPanelIntent): UseAle
 
   const archiveBulk = useCallback(
     (ids: string[]) => {
-      // In this system, archiving is equivalent to marking as read for now
+      // الأرشفة تساوي التعليم بالقراءة حتى يدعم النظام أرشفة حقيقية مستقبلاً
       markAsRead(ids);
     },
     [markAsRead]

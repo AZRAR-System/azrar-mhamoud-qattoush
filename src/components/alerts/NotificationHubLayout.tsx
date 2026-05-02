@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSmartModal } from '@/context/ModalContext';
-import { useToast } from '@/context/ToastContext';
 import {
   executeNavigateForAlert,
   getAlertPrimarySpec,
@@ -40,7 +40,7 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
   const [layerModal, setLayerModal] = useState<AlertLayerModalKind | null>(null);
   const [activeCategory, setActiveCategory] = useState<AlertCategoryTab>('all');
   const { openPanel, openModal } = useSmartModal();
-  const toast = useToast();
+  const navigate = useNavigate();
 
   /* ── Flat sorted list from kanban columns ── */
   const allAlerts = useMemo(() => {
@@ -53,14 +53,21 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
     });
   }, [page.columns]);
 
+  const alertCategoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    page.columns.forEach((col) => {
+      col.alerts.forEach((a) => {
+        map.set(a.id, col.id);
+      });
+    });
+    return map;
+  }, [page.columns]);
+
   /* ── Category filter ── */
   const filteredAlerts = useMemo(() => {
     if (activeCategory === 'all') return allAlerts;
-    return allAlerts.filter((a) => {
-      const col = page.columns.find((c) => c.alerts.some((x) => x.id === a.id));
-      return col?.id === activeCategory;
-    });
-  }, [allAlerts, activeCategory, page.columns]);
+    return allAlerts.filter((a) => alertCategoryMap.get(a.id) === activeCategory);
+  }, [allAlerts, activeCategory, alertCategoryMap]);
 
   /* ── Column counts for tabs ── */
   const columnCounts = useMemo(() => {
@@ -135,8 +142,8 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
   );
 
   const handleBulkWhatsApp = useCallback(() => {
-    toast.info('سيتم فتح نافذة إرسال واتساب للعملاء المحددين');
-  }, [toast]);
+    navigate(ROUTE_PATHS.ALERTS_BULK);
+  }, [navigate]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
@@ -175,7 +182,10 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
             alert={page.selectedAlert}
             onClose={() => page.setSelectedAlert(null)}
             onAction={handleAction}
-            onSaveNote={(note) => page.saveNote(page.selectedAlert!.id, note)}
+            onSaveNote={(note) => {
+              const sel = page.selectedAlert;
+              if (sel) page.saveNote(sel.id, note);
+            }}
           />
         )}
       </div>
@@ -215,9 +225,10 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
                   <InstallmentAlertBlock alert={page.selectedAlert} />
                 ) : undefined
               }
-              onOpenFullDetails={() =>
-                executeNavigateForAlert(page.selectedAlert!, openPanel, openModal)
-              }
+              onOpenFullDetails={() => {
+                const sel = page.selectedAlert;
+                if (sel) void executeNavigateForAlert(sel, openPanel, openModal);
+              }}
             />
           )}
           {layerModal === 'whatsapp' && (
@@ -241,7 +252,7 @@ export const NotificationHubLayout: React.FC<NotificationHubLayoutProps> = ({ pa
               open
               onClose={() => setLayerModal(null)}
               alert={page.selectedAlert}
-              onOpenMaintenance={() => { window.location.hash = ROUTE_PATHS.MAINTENANCE; }}
+              onOpenMaintenance={() => { navigate(ROUTE_PATHS.MAINTENANCE); }}
             />
           )}
           {layerModal === 'legal_file' && (

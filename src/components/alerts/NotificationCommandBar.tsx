@@ -10,12 +10,12 @@ interface NotificationCommandBarProps {
   columnCounts: Record<string, number>;
   searchQuery: string;
   activeFilter: 'unread' | 'all';
-  activePeriod: 'today' | 'week' | 'month';
+  activePeriod: 'today' | 'week' | 'month' | 'all';
   activeCategory: AlertCategoryTab;
   isScanning: boolean;
   onSearch: (q: string) => void;
   onFilterChange: (f: 'unread' | 'all') => void;
-  onPeriodChange: (p: 'today' | 'week' | 'month') => void;
+  onPeriodChange: (p: 'today' | 'week' | 'month' | 'all') => void;
   onCategoryChange: (c: AlertCategoryTab) => void;
   onScan: () => void;
 }

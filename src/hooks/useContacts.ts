@@ -6,7 +6,8 @@ import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 import { useToast } from '@/context/ToastContext';
 import { exportToXlsx, readSpreadsheet } from '@/utils/xlsx';
 import { buildCompanyLetterheadSheet } from '@/utils/companySheet';
-import { useSmartModal } from '@/context/ModalContext';
+import { useNavigate } from 'react-router-dom';
+import { ROUTE_PATHS } from '@/routes/paths';
 import { useDbSignal } from '@/hooks/useDbSignal';
 
 export type PersonRow = {
@@ -54,7 +55,7 @@ export function useContacts() {
   const [q, setQ] = useState('');
   const importRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
-  const { openPanel } = useSmartModal();
+  const navigate = useNavigate();
   const dbSignal = useDbSignal();
 
   const reload = () => {
@@ -221,7 +222,9 @@ export function useContacts() {
     e.target.value = '';
   };
 
-  const handleOpenBulkWhatsApp = () => { openPanel('BULK_WHATSAPP'); };
+  const handleOpenBulkWhatsApp = () => {
+    navigate(ROUTE_PATHS.ALERTS_BULK);
+  };
 
   return {
     t, i18n, q, setQ, rows, grouped, importRef,

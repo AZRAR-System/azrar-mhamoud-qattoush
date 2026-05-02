@@ -203,7 +203,7 @@ export function useDashboard() {
 
     NAV_ITEMS.forEach(n => visit(n));
     out.push({ label: 'اتصالات', path: ROUTE_PATHS.CONTACTS, group: 'أدوات' });
-    out.push({ label: 'إرسال واتساب جماعي', path: ROUTE_PATHS.BULK_WHATSAPP, group: 'أدوات' });
+    out.push({ label: 'إرسال واتساب جماعي', path: ROUTE_PATHS.ALERTS_BULK, group: 'أدوات' });
     out.push({ label: 'مستندات', path: ROUTE_PATHS.DOCUMENTS, group: 'أدوات' });
 
     const q = pagesSearch.trim().toLowerCase();

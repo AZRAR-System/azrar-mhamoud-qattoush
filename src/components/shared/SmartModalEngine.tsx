@@ -15,7 +15,6 @@ import {
   MessageCircle,
   ScrollText,
   ServerCog,
-  Settings,
   Sparkles,
   User,
   Users,
@@ -24,7 +23,6 @@ import {
 } from 'lucide-react';
 import { AppModal } from '@/components/ui/AppModal';
 import { lockBodyScroll, unlockBodyScroll } from '@/utils/scrollLock';
-import { ScrollToTopButton } from '@/components/shared/ScrollToTopButton';
 import { ROUTE_ICONS, ROUTE_TITLES } from '@/routes/registry';
 import { EmbeddedViewRoot } from '@/context/EmbeddedViewContext';
 
@@ -240,26 +238,6 @@ const PANEL_COMPONENTS: Record<string, PanelComponent> = {
   SHORTCUTS_HELP: ShortcutsHelpPanel as unknown as PanelComponent,
   QUICK_ADD: QuickAddPanel as unknown as PanelComponent,
 };
-
-/** لوحات عرض تفاصيل (ليست نماذج إدخال) — تُعرض كمنزلق جانبي بدل النافذة المنبثقة المركزية */
-const SLIDE_OVER_DETAIL_PANELS = new Set<PanelType>([
-  'PERSON_DETAILS',
-  'PROPERTY_DETAILS',
-  'CONTRACT_DETAILS',
-  'SALES_LISTING_DETAILS',
-  'REPORT_VIEWER',
-  'LEGAL_NOTICE_GENERATOR',
-  'CLEARANCE_REPORT',
-  'CLEARANCE_WIZARD',
-  'PAYMENT_NOTIFICATIONS',
-  'NOTIFICATION_CENTER',
-  'SECTION_VIEW',
-  'CONTRACT_WHATSAPP_SEND',
-  'MARQUEE_ADS',
-  'CALENDAR_EVENTS',
-  'SQL_SYNC_LOG',
-  'FINANCIAL_REPORT_PRINT',
-]);
 
 const PANEL_TITLES: Partial<Record<PanelType, string>> = {
   PERSON_DETAILS: 'تفاصيل الملف',
@@ -680,15 +658,6 @@ export const SmartModalEngine: React.FC = () => {
         const isWidePanel = panel.type === 'CALENDAR_EVENTS' || panel.type === 'SQL_SYNC_LOG';
         const size = isSectionView ? '6xl' : isWidePanel ? '5xl' : '3xl';
         const handleClose = () => closePanel(panel.id);
-        const titleStr = String(panel.props?.title ?? PANEL_TITLES[panel.type] ?? '');
-        const titleId = `panel-drawer-title-${panel.id}`;
-
-        const useSlideOver = false;
-        const drawerMaxClass = isSectionView
-          ? 'max-w-6xl'
-          : isWidePanel
-            ? 'max-w-5xl'
-            : 'max-w-3xl';
 
         // Slide-over drawers are disabled. All panels open as centered modals with minimize support.
 

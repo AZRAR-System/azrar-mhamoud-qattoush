@@ -102,6 +102,8 @@ export const ROUTE_TITLES: Record<string, string> = (() => {
   titles[ROUTE_PATHS.LOGOUT] = 'تسجيل الخروج';
   titles[ROUTE_PATHS.SMART_TOOLS] = 'أدوات ذكية';
   titles[ROUTE_PATHS.CONTACTS] = 'اتصالات';
+  titles[ROUTE_PATHS.ALERTS_BULK] = 'إرسال واتساب جماعي';
+  titles[ROUTE_PATHS.ALERTS_TEMPLATES] = 'نماذج الرسائل';
   titles[ROUTE_PATHS.BULK_WHATSAPP] = 'إرسال واتساب جماعي';
   titles[ROUTE_PATHS.DOCUMENTS] = 'مستندات';
   titles[ROUTE_PATHS.COMPREHENSIVE_TESTS] = 'الاختبارات الشاملة';
@@ -132,6 +134,8 @@ export const ROUTE_SUBTITLES: Record<string, string> = {
   [ROUTE_PATHS.COMMISSIONS]: 'تتبع صافي العمولات من العقود والعمليات الخارجية الشهرية',
   [ROUTE_PATHS.MAINTENANCE]: 'إدارة طلبات الصيانة وتكاليف الإصلاح',
   [ROUTE_PATHS.ALERTS]: 'مركز العمليات: متابعة التحصيل، جودة البيانات، والمخاطر',
+  [ROUTE_PATHS.ALERTS_BULK]: 'اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح',
+  [ROUTE_PATHS.ALERTS_TEMPLATES]: 'تعديل قوالب واتساب المرتبطة بالتنبيهات والرسائل',
   [ROUTE_PATHS.REPORTS]: 'توليد تقارير تفصيلية عن جميع عمليات النظام مع إمكانية التصدير والطباعة.',
   [ROUTE_PATHS.LEGAL]: 'توليد وإدارة الإنذارات والإشعارات القانونية للمستأجرين.',
   [ROUTE_PATHS.BUILDER]: 'إدارة الحقول + الجداول + النماذج الديناميكية',

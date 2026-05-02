@@ -376,6 +376,8 @@ export const useSmartTools = (isVisible: boolean) => {
       }
     }
 
+    // على Desktop Fast ، properties وpeople مصفوفتان فارغتان
+    // الرسالة تعرض المعرّف (ID) بدل الاسم — acceptable graceful degradation
     const prop = properties.find((p) => p.رقم_العقار === propertyId);
     const tenant = people.find((p) => p.رقم_الشخص === tenantId);
 

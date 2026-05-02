@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DbService } from '@/services/mockDb';
 import { العقارات_tbl, العقود_tbl, الأشخاص_tbl, DynamicFormField } from '@/types';
@@ -30,6 +31,7 @@ import type {
 } from '@/components/properties/propertiesTypes';
 
 export function useProperties() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const pageSize = PROPERTIES_PAGE_SIZE;
   const [properties, setProperties] = useState<العقارات_tbl[]>([]);
@@ -149,24 +151,6 @@ export function useProperties() {
 
   // Support deep links: #/properties?occupancy=rented|vacant&q=...&id=ID
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search || window.location.hash.split('?')[1]);
-    const q = params.get('q') || params.get('search');
-    const occ = params.get('occupancy');
-    const id = params.get('id');
-
-    if (q) setSearchTerm(q);
-    if (occ === 'rented' || occ === 'vacant') setOccupancy(occ);
-
-    if (id) {
-      // Clear ID from URL
-      const newUrl = window.location.pathname + window.location.hash.split('?')[0];
-      window.history.replaceState({}, '', newUrl);
-      openPanel('PROPERTY_DETAILS', id);
-    }
-  }, [setSearchTerm, setOccupancy, openPanel]);
-
-  // Support deep links: #/properties?occupancy=rented|vacant&q=...
-  useEffect(() => {
     const applyFromHash = () => {
       try {
         const raw = String(window.location.hash || '').startsWith('#')
@@ -186,8 +170,16 @@ export function useProperties() {
           if (occ === 'vacant') setFilters((prev) => ({ ...prev, status: prev.status || 'شاغر' }));
         }
 
-        if (params.has('q')) {
-          setSearchTerm(String(params.get('q') || ''));
+        const qVal = params.get('q') ?? params.get('search');
+        if (qVal != null && String(qVal).length > 0) {
+          setSearchTerm(String(qVal));
+        }
+
+        const id = String(params.get('id') || '').trim();
+        if (id) {
+          const newUrl = window.location.pathname + window.location.hash.split('?')[0];
+          window.history.replaceState({}, '', newUrl);
+          openPanel('PROPERTY_DETAILS', id);
         }
       } catch {
         // ignore
@@ -1050,11 +1042,11 @@ export function useProperties() {
     const pid = String(propertyId || '').trim();
     if (!pid) return;
     try {
-      localStorage.setItem('ui_sales_prefill_property_id', pid);
+      sessionStorage.setItem('ui_sales_prefill_property_id', pid);
     } catch {
-      // ignore
+      /* ignore */
     }
-    window.location.hash = '#' + ROUTE_PATHS.SALES;
+    navigate(ROUTE_PATHS.SALES);
   };
 
   const loading = isDesktopFast ? desktopLoading : listLoading;

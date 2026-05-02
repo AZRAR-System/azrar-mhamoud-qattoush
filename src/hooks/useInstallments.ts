@@ -163,7 +163,7 @@ export function useInstallments() {
     { name: string; filters: Record<string, unknown> }[]
   >(() => {
     try {
-      const stored = localStorage.getItem('fav_installment_filters');
+      const stored = sessionStorage.getItem('fav_installment_filters');
       return stored
         ? (JSON.parse(stored) as { name: string; filters: Record<string, unknown> }[])
         : [];
@@ -190,7 +190,7 @@ export function useInstallments() {
       },
     ];
     setFavoriteFilters(newFavs);
-    localStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
+    sessionStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
     toast.success('تم حفظ الفلتر في المفضلة');
   }, [favoriteFilters, filter, search, filterStartDate, filterEndDate, filterMinAmount, filterMaxAmount, filterPaymentMethod, toast]);
 
@@ -209,7 +209,7 @@ export function useInstallments() {
   const deleteFavFilter = useCallback((name: string) => {
     const newFavs = favoriteFilters.filter((f) => f.name !== name);
     setFavoriteFilters(newFavs);
-    localStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
+    sessionStorage.setItem('fav_installment_filters', JSON.stringify(newFavs));
   }, [favoriteFilters]);
 
   // Confirmation Dialog State

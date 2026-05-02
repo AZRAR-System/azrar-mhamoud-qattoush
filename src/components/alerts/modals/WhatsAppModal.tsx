@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { AlertModalShell } from '@/components/alerts/AlertModalShell';
 import type { tbl_Alerts } from '@/types';
 import type { WhatsAppPayload } from '@/services/alerts/alertActionTypes';
-import { buildDefaultWhatsAppPrefillBody } from '@/services/alerts/alertActionPayloadBuild';
+import { inferWhatsAppTemplateKey } from '@/services/alerts/alertActionPayloadBuild';
+import { resolveWhatsAppBodyForAlert } from '@/services/alerts/resolveWhatsAppBodyForAlert';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 
@@ -17,26 +18,24 @@ export interface WhatsAppModalProps {
 }
 
 export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ open, onClose, alert, payload, onSend }) => {
+  const [templatesVersion, setTemplatesVersion] = useState(0);
+
+  useEffect(() => {
+    const onChange = () => setTemplatesVersion((v) => v + 1);
+    window.addEventListener('azrar:message-templates-changed', onChange);
+    return () => window.removeEventListener('azrar:message-templates-changed', onChange);
+  }, []);
+
   const preview = useMemo(() => {
+    void templatesVersion;
     if (payload) {
       const raw = payload.prefillBody?.trim();
       if (raw) return raw;
-      return buildDefaultWhatsAppPrefillBody(alert, payload.templateKey);
+      return resolveWhatsAppBodyForAlert(alert, payload.templateKey);
     }
-    if (alert.count && alert.count > 1 && alert.category === 'Financial') {
-      return `مرحباً ${alert.tenantName}،\nنود تذكيركم قبل الاستحقاق بوجود ${alert.count} دفعات قريبة الاستحقاق للعقار (${alert.propertyCode}).\n${alert.الوصف}.\nيرجى السداد قبل موعد الاستحقاق.`;
-    }
-    if (alert.category === 'Financial') {
-      return `مرحباً ${alert.tenantName}،\nنود تذكيركم قبل الاستحقاق بوجود دفعة قريبة الاستحقاق للعقار (${alert.propertyCode}).\n${alert.الوصف}.\nيرجى السداد قبل موعد الاستحقاق.`;
-    }
-    if (alert.category === 'Expiry') {
-      return `مرحباً ${alert.tenantName}،\nعقد الإيجار الخاص بالعقار (${alert.propertyCode}) قارب على الانتهاء.\nيرجى مراجعة المكتب للتجديد.`;
-    }
-    if (alert.category === 'Risk') {
-      return `مرحباً ${alert.tenantName}،\nيرجى مراجعة المكتب للأهمية بخصوص تسوية الذمم المالية العالقة.`;
-    }
-    return `مرحباً ${alert.tenantName}،\nإشعار بخصوص العقار (${alert.propertyCode}):\n${alert.الوصف}`;
-  }, [alert, payload]);
+    const key = inferWhatsAppTemplateKey(alert);
+    return resolveWhatsAppBodyForAlert(alert, key);
+  }, [alert, payload, templatesVersion]);
 
   const handleSend = () => {
     if (payload?.phone) {

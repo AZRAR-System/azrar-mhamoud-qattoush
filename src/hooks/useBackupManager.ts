@@ -24,13 +24,6 @@ export type BackupStats = {
   files: BackupFile[];
 };
 
-export type BackupLogEntry = {
-  ts: string;
-  ok: boolean;
-  trigger: 'auto' | 'manual';
-  message?: string;
-};
-
 export type BackupAutomationSettings = {
   v: 1;
   enabled?: boolean;
@@ -63,7 +56,6 @@ export const useBackupManager = () => {
   // --- State ---
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<BackupStats | null>(null);
-  const [, setLogs] = useState<BackupLogEntry[]>([]);
   const [automation, setAutomation] = useState<BackupAutomationSettings | null>(null);
   const [encryption, setEncryption] = useState<EncryptionSettings | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -100,23 +92,21 @@ export const useBackupManager = () => {
     if (!isDesktop) return;
     setLoading(true);
     try {
-      const [s, l, a, e, sync] = await Promise.all([
+      const [s, a, e, sync] = await Promise.all([
         window.desktopDb?.getLocalBackupStats?.(),
-        window.desktopDb?.getLocalBackupLog?.({ limit: 10 }),
         window.desktopDb?.getLocalBackupAutomationSettings?.(),
         window.desktopDb?.getBackupEncryptionSettings?.(),
         window.desktopDb?.getAttachmentSyncStats?.(),
       ]);
 
       if ((s as BackupStats)?.ok) setStats(s as BackupStats);
-      if (Array.isArray(l)) setLogs(l);
 
       const autoData = a as BackupAutomationSettings;
       if (autoData) {
         setAutomation(autoData);
-        setAutoTime((prev) => prev || autoData.timeHHmm || '02:00');
-        setAutoRetention((prev) => prev || autoData.retentionDays || 30);
-        setAutoEnabled((prev) => prev || autoData.enabled || false);
+        if (autoData.timeHHmm) setAutoTime(autoData.timeHHmm);
+        if (autoData.retentionDays) setAutoRetention(autoData.retentionDays);
+        setAutoEnabled(!!autoData.enabled);
       }
 
       const encData = e as EncryptionSettings;
@@ -182,7 +172,7 @@ export const useBackupManager = () => {
     if (!deleteFile || !stats?.backupDir) return;
     setDeleting(true);
     try {
-      const fullPath = stats.backupDir + '\\' + deleteFile.name;
+      const fullPath = deleteFile.path ?? `${stats.backupDir}\\${deleteFile.name}`;
       const res = (await window.desktopDb?.deleteLocalBackupFile?.(fullPath)) as {
         success: boolean;
         message?: string;
@@ -206,7 +196,7 @@ export const useBackupManager = () => {
     if (!restoreFile || !stats?.backupDir) return;
     setRestoring(true);
     try {
-      const fullPath = stats.backupDir + '\\' + restoreFile.name;
+      const fullPath = restoreFile.path ?? `${stats.backupDir}\\${restoreFile.name}`;
       const res = (await window.desktopDb?.restoreLocalBackupFile?.(fullPath)) as {
         success: boolean;
         message?: string;

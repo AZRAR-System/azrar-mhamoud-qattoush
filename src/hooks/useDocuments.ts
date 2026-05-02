@@ -13,6 +13,28 @@ import { useDbSignal } from '@/hooks/useDbSignal';
 import { storage } from '@/services/storage';
 import { domainGetSmart } from '@/services/domainQueries';
 
+const MAX_RESOLVE_PER_TYPE = 400;
+
+async function resolveInChunks<T>(
+  ids: string[],
+  fetch: (id: string) => Promise<T | null>,
+  isCancelled: () => boolean
+): Promise<Array<[string, T]>> {
+  const CHUNK = 20;
+  const results: Array<[string, T]> = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    if (isCancelled()) break;
+    const chunk = ids.slice(i, i + CHUNK);
+    const pairs = await Promise.all(
+      chunk.map(async (id) => [id, await fetch(id)] as [string, T | null])
+    );
+    for (const [id, val] of pairs) {
+      if (val) results.push([id, val]);
+    }
+  }
+  return results;
+}
+
 export function useDocuments() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [search, setSearch] = useState('');
@@ -38,7 +60,6 @@ export function useDocuments() {
   const [fastContractsById, setFastContractsById] = useState<Map<string, العقود_tbl>>(() => new Map());
 
   const peopleById = useMemo(() => {
-    void dbSignal;
     if (desktopUnsupported) return new Map<string, الأشخاص_tbl>();
     if (isDesktopFast) return fastPeopleById;
     const m = new Map<string, الأشخاص_tbl>();
@@ -50,7 +71,6 @@ export function useDocuments() {
   }, [dbSignal, desktopUnsupported, isDesktopFast, fastPeopleById]);
 
   const propertiesById = useMemo(() => {
-    void dbSignal;
     if (desktopUnsupported) return new Map<string, العقارات_tbl>();
     if (isDesktopFast) return fastPropertiesById;
     const m = new Map<string, العقارات_tbl>();
@@ -62,7 +82,6 @@ export function useDocuments() {
   }, [dbSignal, desktopUnsupported, isDesktopFast, fastPropertiesById]);
 
   const contractsById = useMemo(() => {
-    void dbSignal;
     if (desktopUnsupported) return new Map<string, العقود_tbl>();
     if (isDesktopFast) return fastContractsById;
     const m = new Map<string, العقود_tbl>();
@@ -76,43 +95,92 @@ export function useDocuments() {
   useEffect(() => {
     if (!isDesktopFast) return;
     let cancelled = false;
-    const MAX_RESOLVE_PER_TYPE = 400;
-
-    const collectIds = (type: ReferenceType): string[] => {
-      const ids = new Set<string>();
-      for (const a of attachments || []) {
-        if (a?.referenceType === type) {
-          const id = String(a?.referenceId || '').trim();
-          if (id) ids.add(id);
-        }
+    const ids = new Set<string>();
+    for (const a of attachments || []) {
+      if (a?.referenceType === 'Person') {
+        const id = String(a?.referenceId || '').trim();
+        if (id) ids.add(id);
       }
-      return Array.from(ids);
+    }
+    const toResolve = Array.from(ids)
+      .filter((id) => !fastPeopleById.has(id))
+      .slice(0, MAX_RESOLVE_PER_TYPE);
+    if (toResolve.length === 0) return;
+    void resolveInChunks(toResolve, (id) => domainGetSmart('people', id), () => cancelled)
+      .then((pairs) => {
+        if (!cancelled && pairs.length > 0) {
+          setFastPeopleById((p) => {
+            const n = new Map(p);
+            for (const [id, x] of pairs) n.set(id, x);
+            return n;
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
     };
+  }, [attachments, isDesktopFast, fastPeopleById]);
 
-    const resolvePeople = async () => {
-      const ids = collectIds('Person').filter((id) => !fastPeopleById.has(id)).slice(0, MAX_RESOLVE_PER_TYPE);
-      if (ids.length === 0) return;
-      const pairs = await Promise.all(ids.map(async (id) => [id, await domainGetSmart('people', id)] as const));
-      if (!cancelled) setFastPeopleById((p) => { const n = new Map(p); for(const [id, x] of pairs) if(x) n.set(id, x); return n; });
+  useEffect(() => {
+    if (!isDesktopFast) return;
+    let cancelled = false;
+    const ids = new Set<string>();
+    for (const a of attachments || []) {
+      if (a?.referenceType === 'Property') {
+        const id = String(a?.referenceId || '').trim();
+        if (id) ids.add(id);
+      }
+    }
+    const toResolve = Array.from(ids)
+      .filter((id) => !fastPropertiesById.has(id))
+      .slice(0, MAX_RESOLVE_PER_TYPE);
+    if (toResolve.length === 0) return;
+    void resolveInChunks(toResolve, (id) => domainGetSmart('properties', id), () => cancelled)
+      .then((pairs) => {
+        if (!cancelled && pairs.length > 0) {
+          setFastPropertiesById((p) => {
+            const n = new Map(p);
+            for (const [id, x] of pairs) n.set(id, x);
+            return n;
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
     };
+  }, [attachments, isDesktopFast, fastPropertiesById]);
 
-    const resolveProperties = async () => {
-      const ids = collectIds('Property').filter((id) => !fastPropertiesById.has(id)).slice(0, MAX_RESOLVE_PER_TYPE);
-      if (ids.length === 0) return;
-      const pairs = await Promise.all(ids.map(async (id) => [id, await domainGetSmart('properties', id)] as const));
-      if (!cancelled) setFastPropertiesById((p) => { const n = new Map(p); for(const [id, x] of pairs) if(x) n.set(id, x); return n; });
+  useEffect(() => {
+    if (!isDesktopFast) return;
+    let cancelled = false;
+    const ids = new Set<string>();
+    for (const a of attachments || []) {
+      if (a?.referenceType === 'Contract') {
+        const id = String(a?.referenceId || '').trim();
+        if (id) ids.add(id);
+      }
+    }
+    const toResolve = Array.from(ids)
+      .filter((id) => !fastContractsById.has(id))
+      .slice(0, MAX_RESOLVE_PER_TYPE);
+    if (toResolve.length === 0) return;
+    void resolveInChunks(toResolve, (id) => domainGetSmart('contracts', id), () => cancelled)
+      .then((pairs) => {
+        if (!cancelled && pairs.length > 0) {
+          setFastContractsById((p) => {
+            const n = new Map(p);
+            for (const [id, x] of pairs) n.set(id, x);
+            return n;
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
     };
-
-    const resolveContracts = async () => {
-      const ids = collectIds('Contract').filter((id) => !fastContractsById.has(id)).slice(0, MAX_RESOLVE_PER_TYPE);
-      if (ids.length === 0) return;
-      const pairs = await Promise.all(ids.map(async (id) => [id, await domainGetSmart('contracts', id)] as const));
-      if (!cancelled) setFastContractsById((p) => { const n = new Map(p); for(const [id, x] of pairs) if(x) n.set(id, x); return n; });
-    };
-
-    Promise.all([resolvePeople(), resolveProperties(), resolveContracts()]).catch(() => {});
-    return () => { cancelled = true; };
-  }, [attachments, isDesktopFast, fastPeopleById, fastPropertiesById, fastContractsById]);
+  }, [attachments, isDesktopFast, fastContractsById]);
 
   const formatSize = (bytes: number) => {
     if (!bytes) return '0 B';

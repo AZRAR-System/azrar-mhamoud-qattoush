@@ -15,6 +15,9 @@ import { Loader2 } from 'lucide-react';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { validateRoutes } from '@/routes/validate';
 import { AppShellErrorBoundary } from '@/components/shared/AppShellErrorBoundary';
+import { AlertsHubLayout } from './components/alerts/AlertsHubLayout';
+import { AlertsBulkRoute } from './components/alerts/AlertsBulkRoute';
+import { AlertsTemplatesRoute } from './components/alerts/AlertsTemplatesRoute';
 
 // Lazy Load Pages
 const Dashboard = React.lazy(() =>
@@ -94,9 +97,6 @@ const Documentation = React.lazy(() =>
 );
 const Contacts = React.lazy(() =>
   import('./pages/Contacts').then((module) => ({ default: module.Contacts }))
-);
-const BulkWhatsApp = React.lazy(() =>
-  import('./pages/BulkWhatsApp').then((module) => ({ default: module.BulkWhatsApp }))
 );
 const Documents = React.lazy(() =>
   import('./pages/Documents').then((module) => ({ default: module.Documents }))
@@ -430,7 +430,11 @@ const AppRoutes: React.FC = () => {
             <Route path={ROUTE_PATHS.ADMIN_PANEL} element={<AdminControlPanel />} />
 
             <Route path={ROUTE_PATHS.BUILDER} element={<DynamicBuilder />} />
-            <Route path={ROUTE_PATHS.ALERTS} element={<Alerts />} />
+            <Route path={`${ROUTE_PATHS.ALERTS}/*`} element={<AlertsHubLayout />}>
+              <Route index element={<Alerts />} />
+              <Route path="bulk" element={<AlertsBulkRoute />} />
+              <Route path="templates" element={<AlertsTemplatesRoute />} />
+            </Route>
             <Route path={ROUTE_PATHS.OPERATIONS} element={<Operations />} />
             <Route path={ROUTE_PATHS.SETTINGS} element={<Settings />} />
             <Route path={ROUTE_PATHS.BACKUP} element={<BackupManager />} />
@@ -439,7 +443,10 @@ const AppRoutes: React.FC = () => {
             <Route path={ROUTE_PATHS.SMART_TOOLS} element={<SmartTools />} />
             <Route path={ROUTE_PATHS.DOCS} element={<Documentation />} />
             <Route path={ROUTE_PATHS.CONTACTS} element={<Contacts />} />
-            <Route path={ROUTE_PATHS.BULK_WHATSAPP} element={<BulkWhatsApp />} />
+            <Route
+              path={ROUTE_PATHS.BULK_WHATSAPP}
+              element={<Navigate to={ROUTE_PATHS.ALERTS_BULK} replace />}
+            />
             <Route path={ROUTE_PATHS.DOCUMENTS} element={<Documents />} />
             <Route path={ROUTE_PATHS.OWNER_PORTAL} element={<OwnerPortal />} />
             <Route path={ROUTE_PATHS.COMPREHENSIVE_TESTS} element={<ComprehensiveTests />} />

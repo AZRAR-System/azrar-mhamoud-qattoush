@@ -188,9 +188,7 @@ export function InstallmentsPageView({ page }: Props) {
                 setMessageModalOpen(false);
                 setMessageContext(null);
               }}
-              onSent={(messageText: string) => {
-                console.warn('Message sent:', messageText);
-              }}
+              onSent={() => {}}
             />
           </AppModal>
         )}

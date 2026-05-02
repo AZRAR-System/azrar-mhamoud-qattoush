@@ -25,6 +25,12 @@ module.exports = {
 		'src/services/db/properties.ts': { branches: 60, functions: 60, lines: 60, statements: 60 },
 		'src/services/db/financial.ts': { branches: 60, functions: 60, lines: 60, statements: 60 },
 		'src/services/storage.ts': { branches: 60, functions: 60, lines: 60, statements: 60 },
+		'src/services/alerts/alertActionPayloadBuild.ts': {
+			branches: 82,
+			functions: 100,
+			lines: 100,
+			statements: 97,
+		},
 		// Excluded — facades/desktop-only/stubs (TODO: raise gradually)
 		// 'src/services/mockDb.ts' — facade, stubs intentional
 		// 'src/services/domainQueries.ts' — desktop IPC only

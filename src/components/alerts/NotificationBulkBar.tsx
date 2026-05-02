@@ -6,7 +6,6 @@ import {
   X,
   Zap
 } from 'lucide-react';
-import { cn } from '@/utils/cn';
 
 interface NotificationBulkBarProps {
   selectedCount: number;

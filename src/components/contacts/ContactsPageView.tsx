@@ -186,20 +186,24 @@ export const ContactsPageView: React.FC<ContactsPageViewProps> = ({ page }) => {
             t={t}
           />
         ))}
-        <ContactsGroupCard
-          title={t('بدون دور')}
-          list={grouped.noRole}
-          onCall={handleCall}
-          onWhatsApp={handleWhatsApp}
-          t={t}
-        />
-        <ContactsGroupCard
-          title={t('محليين')}
-          list={grouped.locals}
-          onCall={handleCall}
-          onWhatsApp={handleWhatsApp}
-          t={t}
-        />
+        {grouped.noRole.length > 0 && (
+          <ContactsGroupCard
+            title={t('بدون دور')}
+            list={grouped.noRole}
+            onCall={handleCall}
+            onWhatsApp={handleWhatsApp}
+            t={t}
+          />
+        )}
+        {grouped.locals.length > 0 && (
+          <ContactsGroupCard
+            title={t('محليين')}
+            list={grouped.locals}
+            onCall={handleCall}
+            onWhatsApp={handleWhatsApp}
+            t={t}
+          />
+        )}
       </div>
     </PageLayout>
   );

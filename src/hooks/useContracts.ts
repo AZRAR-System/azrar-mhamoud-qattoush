@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DbService } from '@/services/mockDb';
 import {
@@ -158,16 +159,7 @@ export function useContracts(isVisible = true) {
 
   useEffect(() => {
     applyFiltersFromHash();
-    let lastHashContracts = window.location.hash;
-    const onHashChangeContracts = () => {
-      const current = window.location.hash;
-      if (current === lastHashContracts) return;
-      lastHashContracts = current;
-      applyFiltersFromHash();
-    };
-    window.addEventListener('hashchange', onHashChangeContracts);
-    return () => window.removeEventListener('hashchange', onHashChangeContracts);
-  }, [applyFiltersFromHash]);
+  }, [location.search, applyFiltersFromHash]);
 
   const importRef = useRef<HTMLInputElement>(null);
 

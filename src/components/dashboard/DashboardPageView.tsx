@@ -10,7 +10,6 @@ import {
   Activity,
   Search,
 } from 'lucide-react';
-import { DbService } from '@/services/mockDb';
 import { KPICards } from '@/components/dashboard/layers/KPICards';
 import { SkeletonCardGrid } from '@/components/shared/SkeletonCard';
 import { OverviewLayer } from '@/components/dashboard/layers/OverviewLayer';
@@ -22,8 +21,6 @@ import { QuickActionsBar } from '@/components/dashboard/layers/QuickActionsBar';
 import { DailySummaryWidget } from '@/components/dashboard/DailySummaryWidget';
 import { MarqueeWidget } from '@/components/dashboard/MarqueeWidget';
 import type { UseDashboardReturn, LayerConfig } from '@/hooks/useDashboard';
-import { getPaymentMonth } from '@/hooks/useDashboard';
-import type { الكمبيالات_tbl } from '@/types';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
 import { PageLayout } from '@/components/shared/PageLayout';
 import { DS } from '@/constants/designSystem';
@@ -158,21 +155,10 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
                   const perf = dashboardData.performance;
                   const isPerfReady = !!perf && perf.monthKey === monthKey && perf.prevMonthKey === prevMonthKey;
 
-                  let curCol = 0, prevCol = 0, paidCount = 0, dueUnpaid = 0;
-                  if (isPerfReady) {
-                    curCol = Number(perf?.currentMonthCollections || 0);
-                    prevCol = Number(perf?.previousMonthCollections || 0);
-                    paidCount = Number(perf?.paidCountThisMonth || 0);
-                    dueUnpaid = Number(perf?.dueUnpaidThisMonth || 0);
-                  } else {
-                    const inst = DbService.getInstallments();
-                    const isPaid = (i: الكمبيالات_tbl) => String(i?.حالة_الكمبيالة) === 'مدفوع';
-                    const paidSum = (m: string) => inst.filter(i => isPaid(i) && getPaymentMonth(i) === m).reduce((s, i) => s + Number(i.القيمة || 0), 0);
-                    curCol = paidSum(monthKey);
-                    prevCol = paidSum(prevMonthKey);
-                    paidCount = inst.filter(i => isPaid(i) && getPaymentMonth(i) === monthKey).length;
-                    dueUnpaid = inst.filter(i => !isPaid(i) && String(i.تاريخ_استحقاق || '').slice(0, 7) === monthKey).reduce((s, i) => s + Number(i.القيمة_المتبقية ?? i.القيمة ?? 0), 0);
-                  }
+                  const curCol = isPerfReady ? Number(perf?.currentMonthCollections || 0) : 0;
+                  const prevCol = isPerfReady ? Number(perf?.previousMonthCollections || 0) : 0;
+                  const paidCount = isPerfReady ? Number(perf?.paidCountThisMonth || 0) : 0;
+                  const dueUnpaid = isPerfReady ? Number(perf?.dueUnpaidThisMonth || 0) : 0;
 
                   return (
                     <div className="space-y-4">
@@ -206,7 +192,7 @@ export const DashboardPageView: FC<{ page: UseDashboardReturn }> = ({ page }) =>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           <div className="lg:col-span-7 xl:col-span-8 min-w-0 order-1">
-            <DailySummaryWidget data={dashboardData} isDesktopFast={isDesktopFast} />
+            <DailySummaryWidget stats={dashboardData.dailySummaryStats} />
           </div>
           <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6 min-w-0 order-2">
             <div className={`${DS.components.filterBar} flex-col !items-start p-6 sm:p-8`} dir="rtl">
