@@ -41,6 +41,29 @@ export const PeopleSchema = z.object({
   حقول_ديناميكية: DynamicFieldsSchema,
 });
 
+/** Legacy / import rows may omit these or store numbers as strings. */
+const contractPaymentMethodIn = (v: unknown) => {
+  if (v == null || v === '') return 'Postpaid';
+  const s = String(v).trim();
+  return s || 'Postpaid';
+};
+
+const lateFeeTypeEnum = z.enum(['fixed', 'percentage', 'daily', 'none']);
+type LateFeeType = z.infer<typeof lateFeeTypeEnum>;
+
+const contractLateFeeTypeIn = (v: unknown): LateFeeType => {
+  if (v == null || v === '') return 'none';
+  const s = String(v).trim().toLowerCase();
+  if (s === 'fixed' || s === 'percentage' || s === 'daily' || s === 'none') return s;
+  return 'none';
+};
+
+const nonNegNumber = (v: unknown, fallback: number) => {
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : Number(v);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return n;
+};
+
 export const PropertySchema = z.object({
   رقم_العقار: z.string().min(1),
   الكود_الداخلي: z.string().min(1),
@@ -90,7 +113,7 @@ export const ContractSchema = z.object({
   نص_كيفية_أداء_البدل: z.string().optional(),
   القيمة_السنوية: z.number().min(0),
   تكرار_الدفع: z.number().min(1),
-  طريقة_الدفع: z.string(),
+  طريقة_الدفع: z.preprocess(contractPaymentMethodIn, z.string().min(1)),
   قيمة_التأمين: z.number().min(0).optional(),
   يوجد_دفعة_اولى: z.boolean().optional(),
   قيمة_الدفعة_الاولى: z.number().min(0).optional(),
@@ -107,9 +130,9 @@ export const ContractSchema = z.object({
   terminationDate: z.string().optional(),
   terminationReason: z.string().optional(),
   autoRenew: z.boolean().optional(),
-  lateFeeType: z.enum(['fixed', 'percentage', 'daily', 'none']),
-  lateFeeValue: z.number().min(0),
-  lateFeeGraceDays: z.number().min(0),
+  lateFeeType: z.preprocess(contractLateFeeTypeIn, lateFeeTypeEnum),
+  lateFeeValue: z.preprocess((v) => nonNegNumber(v, 0), z.number().min(0)),
+  lateFeeGraceDays: z.preprocess((v) => nonNegNumber(v, 0), z.number().min(0)),
   lateFeeMaxAmount: z.number().min(0).optional(),
   حقول_ديناميكية: DynamicFieldsSchema,
 });

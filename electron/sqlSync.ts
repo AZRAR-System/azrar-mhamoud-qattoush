@@ -2168,9 +2168,9 @@ export async function pullKvStoreOnce(
   applyRemoteChange: (row: SqlKvPullRow) => Promise<void>,
   sinceOverride?: Date,
   sinceKeyOverride?: string
-): Promise<void> {
+): Promise<number> {
   const settings = await loadSqlSettings();
-  if (!settings.enabled) return;
+  if (!settings.enabled) return 0;
 
   const st = await loadState();
   const parsedSince = st.lastPullAt ? new Date(st.lastPullAt) : new Date(0);
@@ -2224,6 +2224,29 @@ export async function pullKvStoreOnce(
       lastError: undefined,
     };
   }
+
+  return rows.length;
+}
+
+/**
+ * Repeats {@link pullKvStoreOnce} until a page returns 0 rows (KvStore can exceed 500 keys).
+ * Use after {@link resetSqlPullState} when the local DB is empty but the server has a snapshot.
+ */
+export async function pullKvStoreDrain(
+  applyRemoteChange: (row: SqlKvPullRow) => Promise<void>,
+  opts?: { maxRounds?: number }
+): Promise<{ rounds: number; rows: number }> {
+  const maxRounds = Math.max(1, opts?.maxRounds ?? 10_000);
+  let rounds = 0;
+  let rows = 0;
+  for (;;) {
+    rounds += 1;
+    if (rounds > maxRounds) break;
+    const n = await pullKvStoreOnce(applyRemoteChange);
+    rows += n;
+    if (n === 0) break;
+  }
+  return { rounds, rows };
 }
 
 /**

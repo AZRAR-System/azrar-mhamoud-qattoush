@@ -67,8 +67,8 @@ describe('Schemas Logic - Strengthened Suite', () => {
     expect(res.valid).toBe(false);
   });
 
-  // 7. Installment - Invalid Type for Fee
-  test('Contract - invalid lateFeeType value fails', () => {
+  // 7. Contract - legacy / import: unknown lateFeeType coerces to none (save must not block)
+  test('Contract - unknown lateFeeType coerces to none', () => {
     const data = {
       رقم_العقد: 'C1', رقم_العقار: 'Prop1', رقم_المستاجر: 'T1',
       تاريخ_البداية: '2026-01-01', تاريخ_النهاية: '2026-12-31', مدة_العقد_بالاشهر: 12,
@@ -76,7 +76,27 @@ describe('Schemas Logic - Strengthened Suite', () => {
       isArchived: false, lateFeeType: 'INVALID_TYPE', lateFeeValue: 0, lateFeeGraceDays: 0
     };
     const res = validateBeforeSave(KEYS.CONTRACTS, [data]);
-    expect(res.valid).toBe(false);
+    expect(res.valid).toBe(true);
+  });
+
+  test('Contract - missing payment/late-fee fields (legacy JSON)', () => {
+    const data = {
+      رقم_العقد: 'C1', رقم_العقار: 'Prop1', رقم_المستاجر: 'T1',
+      تاريخ_البداية: '2026-01-01', تاريخ_النهاية: '2026-12-31', مدة_العقد_بالاشهر: 12,
+      القيمة_السنوية: 12000, تكرار_الدفع: 12, حالة_العقد: 'نشط',
+      isArchived: false,
+    };
+    expect(validateBeforeSave(KEYS.CONTRACTS, [data]).valid).toBe(true);
+  });
+
+  test('Contract - lateFee numeric fields as strings coerce', () => {
+    const data = {
+      رقم_العقد: 'C1', رقم_العقار: 'Prop1', رقم_المستاجر: 'T1',
+      تاريخ_البداية: '2026-01-01', تاريخ_النهاية: '2026-12-31', مدة_العقد_بالاشهر: 12,
+      القيمة_السنوية: 12000, تكرار_الدفع: 12, طريقة_الدفع: 'Prepaid', حالة_العقد: 'نشط',
+      isArchived: false, lateFeeType: 'fixed', lateFeeValue: '25' as unknown as number, lateFeeGraceDays: '3' as unknown as number,
+    };
+    expect(validateBeforeSave(KEYS.CONTRACTS, [data]).valid).toBe(true);
   });
 
   // 8. Property - Valid

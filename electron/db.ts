@@ -7,6 +7,7 @@ import fsSync from 'node:fs';
 import crypto from 'node:crypto';
 
 import { normalizeKvValueOnWrite } from './utils/kvInvariants';
+import { ALL_KV_DATA_KEYS } from '../src/services/db/keys';
 
 type SqliteDb = InstanceType<typeof BetterSqlite3>;
 
@@ -4972,6 +4973,40 @@ export function kvApplyRemoteDelete(key: string, deletedAtIso: string): void {
 export function kvKeys(): string[] {
   const rows = getDb().prepare('SELECT k FROM kv ORDER BY k').all() as Array<{ k: string }>;
   return rows.map((r) => r.k);
+}
+
+function isKvSnapshotValueSemanticallyEmpty(raw: unknown): boolean {
+  const t = String(raw ?? '').trim();
+  if (!t || t === '[]' || t === 'null') return true;
+  try {
+    const j = JSON.parse(t) as unknown;
+    if (Array.isArray(j)) return j.length === 0;
+    if (j && typeof j === 'object') return Object.keys(j as Record<string, unknown>).length === 0;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** True for keys in {@link ALL_KV_DATA_KEYS} whose value is empty `[]` / `{}` / missing (used to avoid wiping SQL on first push). */
+export function isKvSnapshotEmptyForSqlSkip(key: string, value: string): boolean {
+  if (!ALL_KV_DATA_KEYS.includes(key)) return false;
+  return isKvSnapshotValueSemanticallyEmpty(value);
+}
+
+/**
+ * True when every canonical KV snapshot key has no meaningful data (fresh install / empty SQLite)
+ * so SQL sync should reset pull cursor and drain from server before pushing local rows.
+ */
+export function isLocalBusinessDataEmptyForInitialSqlHydration(): boolean {
+  try {
+    for (const key of ALL_KV_DATA_KEYS) {
+      if (!isKvSnapshotValueSemanticallyEmpty(kvGet(key))) return false;
+    }
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 export function kvListUpdatedSince(

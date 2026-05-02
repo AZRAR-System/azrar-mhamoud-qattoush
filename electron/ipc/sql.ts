@@ -10,6 +10,7 @@ import {
   kvGetMeta,
   kvKeys,
   kvSetWithUpdatedAt,
+  isLocalBusinessDataEmptyForInitialSqlHydration,
 } from '../db';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -31,6 +32,7 @@ import {
   provisionSqlServer,
   pullAttachmentFilesForAttachmentsJson,
   pullKvStoreOnce,
+  pullKvStoreDrain,
   pushKvUpsert,
   resetSqlPullState,
   restoreServerBackupFromServer,
@@ -896,7 +898,7 @@ export function registerSql(deps: IpcDeps): void {
       let pullDeletes = 0;
   
       try {
-        await pullKvStoreOnce(async (row) => {
+        await pullKvStoreDrain(async (row) => {
           const r = await ipc.applySqlRemoteKvRow(row);
           if (r === 'upsert') pullUpserts += 1;
           else if (r === 'delete') pullDeletes += 1;
@@ -957,80 +959,77 @@ export function registerSql(deps: IpcDeps): void {
   
       let pullUpserts = 0;
       let pullDeletes = 0;
-  
-      await startBackgroundPull(
-        async (row) => {
-          const localMeta = kvGetMeta(row.k);
-          const localDeletedAt = kvGetDeletedAt(row.k);
-          const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
-  
-          const remoteTs = row.updatedAt;
-          const isRemoteNewer =
-            !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
-          if (!isRemoteNewer) return;
-  
-          if (row.isDeleted) {
-            kvApplyRemoteDelete(row.k, remoteTs);
-            ipc.broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
-            ipc.addSqlSyncLogEntry({
-              direction: 'pull',
-              action: 'delete',
-              key: row.k,
-              status: 'ok',
-              ts: remoteTs,
-            });
-            pullDeletes += 1;
-          } else {
-            kvSetWithUpdatedAt(row.k, row.v, remoteTs);
-            ipc.broadcastDbRemoteUpdate({
-              key: row.k,
-              value: row.v,
-              isDeleted: false,
-              updatedAt: remoteTs,
-            });
-            ipc.addSqlSyncLogEntry({
-              direction: 'pull',
-              action: 'upsert',
-              key: row.k,
-              status: 'ok',
-              ts: remoteTs,
-            });
-            pullUpserts += 1;
-  
-            // Attachments: ensure the actual files exist locally after syncing metadata.
-            if (row.k === 'db_attachments') {
-              try {
-                const res = await pullAttachmentFilesForAttachmentsJson(row.v);
-                if (res.downloaded > 0) {
-                  ipc.addSqlSyncLogEntry({
-                    direction: 'system',
-                    action: 'attachments:pull',
-                    status: 'ok',
-                    message: `تم تنزيل ${res.downloaded} مرفق/مرفقات`,
-                  });
-                }
-                if (res.missingRemote > 0) {
-                  ipc.addSqlSyncLogEntry({
-                    direction: 'system',
-                    action: 'attachments:pull',
-                    status: 'error',
-                    message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}`,
-                  });
-                }
-              } catch (e: unknown) {
+
+      await resetSqlPullState();
+      await pullKvStoreDrain(async (row) => {
+        const localMeta = kvGetMeta(row.k);
+        const localDeletedAt = kvGetDeletedAt(row.k);
+        const localBestTs = localDeletedAt || localMeta?.updatedAt || '';
+
+        const remoteTs = row.updatedAt;
+        const isRemoteNewer =
+          !localBestTs || new Date(remoteTs).getTime() > new Date(localBestTs).getTime();
+        if (!isRemoteNewer) return;
+
+        if (row.isDeleted) {
+          kvApplyRemoteDelete(row.k, remoteTs);
+          ipc.broadcastDbRemoteUpdate({ key: row.k, isDeleted: true, updatedAt: remoteTs });
+          ipc.addSqlSyncLogEntry({
+            direction: 'pull',
+            action: 'delete',
+            key: row.k,
+            status: 'ok',
+            ts: remoteTs,
+          });
+          pullDeletes += 1;
+        } else {
+          kvSetWithUpdatedAt(row.k, row.v, remoteTs);
+          ipc.broadcastDbRemoteUpdate({
+            key: row.k,
+            value: row.v,
+            isDeleted: false,
+            updatedAt: remoteTs,
+          });
+          ipc.addSqlSyncLogEntry({
+            direction: 'pull',
+            action: 'upsert',
+            key: row.k,
+            status: 'ok',
+            ts: remoteTs,
+          });
+          pullUpserts += 1;
+
+          if (row.k === 'db_attachments') {
+            try {
+              const res = await pullAttachmentFilesForAttachmentsJson(row.v);
+              if (res.downloaded > 0) {
+                ipc.addSqlSyncLogEntry({
+                  direction: 'system',
+                  action: 'attachments:pull',
+                  status: 'ok',
+                  message: `تم تنزيل ${res.downloaded} مرفق/مرفقات`,
+                });
+              }
+              if (res.missingRemote > 0) {
                 ipc.addSqlSyncLogEntry({
                   direction: 'system',
                   action: 'attachments:pull',
                   status: 'error',
-                  message: toErrorMessage(e, 'فشل تنزيل المرفقات'),
+                  message: `مرفقات غير موجودة على المخدم: ${res.missingRemote}`,
                 });
               }
+            } catch (e: unknown) {
+              ipc.addSqlSyncLogEntry({
+                direction: 'system',
+                action: 'attachments:pull',
+                status: 'error',
+                message: toErrorMessage(e, 'فشل تنزيل المرفقات'),
+              });
             }
           }
-        },
-        { runImmediately: true, forceFullPull: true }
-      );
-  
+        }
+      });
+
       const msg = `تم السحب من المخدم: تعديل ${pullUpserts} / حذف ${pullDeletes}`;
       ipc.addSqlSyncLogEntry({ direction: 'system', action: 'syncNow', status: 'ok', message: msg });
       return { ok: true, message: msg };
@@ -1456,12 +1455,43 @@ export function registerSql(deps: IpcDeps): void {
         });
         const res = await connectAndEnsureDatabase(settings);
         if (res.ok) {
+          const needsSqlHydration = isLocalBusinessDataEmptyForInitialSqlHydration();
+          if (needsSqlHydration) {
+            ipc.addSqlSyncLogEntry({
+              direction: 'system',
+              action: 'connect',
+              status: 'ok',
+              message: 'لا توجد بيانات محلية للعقارات/العقود — جاري سحب كامل من المخدم قبل الرفع',
+            });
+            await resetSqlPullState();
+            try {
+              const drain = await pullKvStoreDrain(async (row) => {
+                await ipc.applySqlRemoteKvRow(row);
+              });
+              ipc.addSqlSyncLogEntry({
+                direction: 'system',
+                action: 'connect',
+                status: 'ok',
+                message: `اكتمل السحب الأولي: ${drain.rows} صف (${drain.rounds} دفعة)`,
+              });
+            } catch (e: unknown) {
+              ipc.addSqlSyncLogEntry({
+                direction: 'system',
+                action: 'connect',
+                status: 'error',
+                message: toErrorMessage(e, 'فشل السحب الكامل عند عدم وجود بيانات محلية'),
+              });
+            }
+          }
+
           await ipc.startSqlPullLoop();
-  
+
           // Automatic push: initial full push once, then periodic delta pushes.
           void (async () => {
             try {
-              const st = await ipc.pushAllLocalToRemote();
+              const st = await ipc.pushAllLocalToRemote({
+                skipEmptySnapshotKeys: needsSqlHydration,
+              });
               ipc.addSqlSyncLogEntry({
                 direction: 'system',
                 action: 'syncNow',
@@ -1472,7 +1502,7 @@ export function registerSql(deps: IpcDeps): void {
               // ignore
             }
           })();
-  
+
           ipc.startAutoSyncPushLoop();
         } else {
           ipc.addSqlSyncLogEntry({

@@ -35,6 +35,8 @@ jest.mock('../../electron/db', () => ({
   kvGetDeletedAt: jest.fn(() => ({})),
   kvSetWithUpdatedAt: jest.fn(),
   kvApplyRemoteDelete: jest.fn(),
+  isLocalBusinessDataEmptyForInitialSqlHydration: jest.fn(() => false),
+  isKvSnapshotEmptyForSqlSkip: jest.fn(() => false),
 }));
 
 jest.mock('../../electron/sqlSync', () => ({
@@ -53,7 +55,8 @@ jest.mock('../../electron/sqlSync', () => ({
   provisionSqlServer: jest.fn(async () => ({ ok: true })),
   runSetupScript: jest.fn(async () => ({ ok: true })),
   checkIsAdmin: jest.fn(async () => ({ ok: true })),
-  pullKvStoreOnce: jest.fn(async () => ({ ok: true })),
+  pullKvStoreOnce: jest.fn(async () => 0),
+  pullKvStoreDrain: jest.fn(async () => ({ rounds: 0, rows: 0 })),
   startBackgroundPull: jest.fn(),
   resetSqlPullState: jest.fn(),
   pushKvUpsert: jest.fn(),

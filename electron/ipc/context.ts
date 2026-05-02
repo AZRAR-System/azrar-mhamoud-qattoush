@@ -12,6 +12,7 @@ import {
   getDbPath,
   exportDatabaseToMany,
   importDatabase,
+  isKvSnapshotEmptyForSqlSkip,
 } from '../db';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -541,7 +542,10 @@ export async function startSqlPullLoop(): Promise<void> {
   );
 }
 
-export async function pushAllLocalToRemote(): Promise<{
+export async function pushAllLocalToRemote(opts?: {
+  /** When true, skip pushing empty JSON arrays for core domain keys (avoids wiping SQL before hydration). */
+  skipEmptySnapshotKeys?: boolean;
+}): Promise<{
   upsertsOk: number;
   deletesOk: number;
   errors: number;
@@ -588,6 +592,9 @@ export async function pushAllLocalToRemote(): Promise<{
       const meta = kvGetMeta(k);
       const v = kvGet(k);
       if (typeof v !== 'string') continue;
+      if (opts?.skipEmptySnapshotKeys && isKvSnapshotEmptyForSqlSkip(k, v)) {
+        continue;
+      }
       const updatedAt = meta?.updatedAt || new Date().toISOString();
       try {
         await pushKvUpsert({ key: k, value: v, updatedAt });
