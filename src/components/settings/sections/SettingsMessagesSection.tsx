@@ -1,5 +1,7 @@
 import { BadgeDollarSign, Bell, FileText, MessageCircle, Phone } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { SettingsMessageTemplatesSection } from '@/components/settings/sections/SettingsMessageTemplatesSection';
+import { parseMessageTemplateSourceGroup } from '@/services/messageTemplateSourceGroups';
 import { ROUTE_PATHS } from '@/routes/paths';
 import { Button } from '@/components/ui/Button';
 import { RBACGuard } from '@/components/shared/RBACGuard';
@@ -8,6 +10,10 @@ import type { SettingsPageModel } from '@/hooks/useSettingsPage';
 type Props = { page: SettingsPageModel };
 
 export function SettingsMessagesSection({ page }: Props) {
+  const [searchParams] = useSearchParams();
+  const highlightedTemplateId = String(searchParams.get('template') || '').trim() || undefined;
+  const sourceGroupFilter = parseMessageTemplateSourceGroup(searchParams.get('msgGroup'));
+
   const {
     inputClass,
     labelClass,
@@ -62,7 +68,11 @@ export function SettingsMessagesSection({ page }: Props) {
           </div>
         </section>
 
-        <SettingsMessageTemplatesSection page={page} />
+        <SettingsMessageTemplatesSection
+          page={page}
+          highlightedTemplateId={highlightedTemplateId}
+          sourceGroupFilter={sourceGroupFilter}
+        />
     
         <section className="settings-section-panel">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">

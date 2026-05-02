@@ -1,10 +1,16 @@
 import { Suspense, lazy } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { parseMessageTemplateSourceGroup } from '@/services/messageTemplateSourceGroups';
 
 const MessageTemplatesEditor = lazy(() =>
   import('@/components/messaging/MessageTemplatesEditor').then((m) => ({ default: m.MessageTemplatesEditor }))
 );
 
 export function AlertsTemplatesRoute() {
+  const [searchParams] = useSearchParams();
+  const sourceGroupFilter = parseMessageTemplateSourceGroup(searchParams.get('msgGroup'));
+  const highlightedTemplateId = String(searchParams.get('template') || '').trim() || undefined;
+
   return (
     <Suspense
       fallback={
@@ -14,7 +20,10 @@ export function AlertsTemplatesRoute() {
       }
     >
       <div className="p-4 pt-2">
-        <MessageTemplatesEditor />
+        <MessageTemplatesEditor
+          sourceGroupFilter={sourceGroupFilter}
+          highlightedTemplateId={highlightedTemplateId}
+        />
       </div>
     </Suspense>
   );

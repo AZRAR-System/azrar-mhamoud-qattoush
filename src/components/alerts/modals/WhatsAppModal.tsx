@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ExternalLink, MessageCircle } from 'lucide-react';
 import { AlertModalShell } from '@/components/alerts/AlertModalShell';
 import type { tbl_Alerts } from '@/types';
 import type { WhatsAppPayload } from '@/services/alerts/alertActionTypes';
 import { inferWhatsAppTemplateKey } from '@/services/alerts/alertActionPayloadBuild';
 import { resolveWhatsAppBodyForAlert } from '@/services/alerts/resolveWhatsAppBodyForAlert';
+import { buildSettingsMessageTemplatesHrefForWhatsApp } from '@/services/messageTemplateSourceGroups';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
 
@@ -26,6 +28,11 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ open, onClose, ale
     return () => window.removeEventListener('azrar:message-templates-changed', onChange);
   }, []);
 
+  const effectiveTemplateKey = useMemo(
+    () => payload?.templateKey ?? inferWhatsAppTemplateKey(alert),
+    [alert, payload?.templateKey]
+  );
+
   const preview = useMemo(() => {
     void templatesVersion;
     if (payload) {
@@ -33,9 +40,13 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ open, onClose, ale
       if (raw) return raw;
       return resolveWhatsAppBodyForAlert(alert, payload.templateKey);
     }
-    const key = inferWhatsAppTemplateKey(alert);
-    return resolveWhatsAppBodyForAlert(alert, key);
-  }, [alert, payload, templatesVersion]);
+    return resolveWhatsAppBodyForAlert(alert, effectiveTemplateKey);
+  }, [alert, payload, templatesVersion, effectiveTemplateKey]);
+
+  const editTemplatesHref = useMemo(
+    () => buildSettingsMessageTemplatesHrefForWhatsApp(alert, effectiveTemplateKey),
+    [alert, effectiveTemplateKey]
+  );
 
   const handleSend = () => {
     if (payload?.phone) {
@@ -90,10 +101,18 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({ open, onClose, ale
           <button
             type="button"
             onClick={handleSend}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-xs font-black text-white shadow-md hover:bg-green-700"
+            className="inline-flex flex-1 min-w-[120px] items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-xs font-black text-white shadow-md hover:bg-green-700"
           >
             <MessageCircle size={16} /> إرسال
           </button>
+          <Link
+            to={editTemplatesHref}
+            onClick={onClose}
+            className="inline-flex min-w-[120px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-700 px-4 py-2.5 text-xs font-black text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+          >
+            <ExternalLink size={14} />
+            تعديل القالب
+          </Link>
           <button
             type="button"
             onClick={onClose}

@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/context/ToastContext';
 import { isRole, isSuperAdmin } from '@/utils/roles';
 import { ROUTE_PATHS } from '@/routes/paths';
+import { useLocation } from 'react-router-dom';
 import { useDbSignal } from '@/hooks/useDbSignal';
 import { getErrorMessage } from '@/utils/errors';
 import { exportToXlsx } from '@/utils/xlsx';
@@ -59,6 +60,7 @@ export type UseSettingsPageProps = {
 };
 
 export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSettingsPageProps) {
+  const location = useLocation();
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState<string>(() => {
     if (serverOnly) return 'server';
@@ -1131,6 +1133,21 @@ export function useSettingsPage({ initialSection, serverOnly, embedded }: UseSet
       return true;
     });
   }, [user, serverOnly]);
+
+  /** فتح قسم معيّن من الرابط: `#/settings?section=messages` واختياريًا `&template=` و `&msgGroup=` */
+  useEffect(() => {
+    if (serverOnly) return;
+    try {
+      const sp = new URLSearchParams(location.search);
+      const sec = String(sp.get('section') || '').trim();
+      if (!sec) return;
+      if (visibleTabs.some((t) => t.id === sec)) {
+        setActiveSection(sec);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [location.search, visibleTabs, serverOnly]);
 
   useEffect(() => {
     if (serverOnly) {

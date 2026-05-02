@@ -1,8 +1,10 @@
 import React from 'react';
-import { PenTool } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ExternalLink, PenTool } from 'lucide-react';
 import { AlertModalShell } from '@/components/alerts/AlertModalShell';
 import type { tbl_Alerts } from '@/types';
 import type { LegalFilePayload } from '@/services/alerts/alertActionTypes';
+import { buildSettingsMessageTemplatesHref } from '@/services/messageTemplateSourceGroups';
 
 export interface LegalFileModalProps {
   open: boolean;
@@ -18,7 +20,13 @@ export const LegalFileModal: React.FC<LegalFileModalProps> = ({
   alert,
   payload,
   onOpenGenerator,
-}) => (
+}) => {
+  const legalTemplatesHref = buildSettingsMessageTemplatesHref({
+    sourceGroup: 'legal',
+    templateId: 'wa_legal_notice',
+  });
+
+  return (
   <AlertModalShell
     open={open}
     onClose={onClose}
@@ -32,6 +40,14 @@ export const LegalFileModal: React.FC<LegalFileModalProps> = ({
     }
     sectionContext={
       <>
+        <Link
+          to={legalTemplatesHref}
+          onClick={onClose}
+          className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-2.5 text-xs font-black text-indigo-800 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200 dark:hover:bg-indigo-900/50"
+        >
+          <ExternalLink size={14} />
+          تعديل قوالب الإخطار القانوني / واتساب
+        </Link>
         {payload ? (
           <dl className="mb-4 grid grid-cols-1 gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-800/50 p-3 text-xs font-bold text-slate-700 dark:text-slate-200">
             <div className="flex justify-between gap-2">
@@ -80,4 +96,5 @@ export const LegalFileModal: React.FC<LegalFileModalProps> = ({
       </>
     }
   />
-);
+  );
+};

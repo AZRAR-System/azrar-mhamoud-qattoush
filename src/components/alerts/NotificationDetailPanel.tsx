@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   X,
   MessageSquare,
@@ -17,10 +18,12 @@ import {
   Scale,
   Bell,
   ArrowUpRight,
+  FileEdit,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import type { AlertItem } from '@/hooks/useAlerts';
 import { getAlertPrimarySpec, resolveSecondaryActions } from '@/services/alerts/alertActionPolicy';
+import { buildSettingsMessageTemplatesHrefForAlert } from '@/services/messageTemplateSourceGroups';
 
 interface NotificationDetailPanelProps {
   alert: AlertItem;
@@ -134,6 +137,20 @@ export const NotificationDetailPanel: React.FC<NotificationDetailPanelProps> = (
           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">تفاصيل الإشعار</h4>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             {alert.الوصف}
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">مصدر نص الرسالة</h4>
+          <Link
+            to={buildSettingsMessageTemplatesHrefForAlert(alert)}
+            className="flex items-center gap-2 w-full p-3 rounded-xl border border-indigo-200/70 dark:border-indigo-800/60 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-800 dark:text-indigo-200 hover:bg-indigo-100/70 dark:hover:bg-indigo-900/30 transition-colors"
+          >
+            <FileEdit size={16} className="shrink-0 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-xs font-bold leading-snug">فتح قوالب الرسائل المناسبة لهذا الإشعار</span>
+          </Link>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed">
+            يوجّهك إلى الإعدادات → الرسائل مع تصفية القوالب حسب نوع التنبيه (تذكير، تحصيل، تجديد، …).
           </p>
         </section>
 

@@ -1,11 +1,14 @@
-import React from 'react';
-import { MessageCircle, PauseCircle, PlayCircle } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { ExternalLink, FileEdit, MessageCircle, PauseCircle, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BulkWhatsAppSmartFilterBar } from './BulkWhatsAppSmartFilterBar';
 import { UseBulkWhatsAppReturn, normalizePhoneLoose } from '@/hooks/useBulkWhatsApp';
 import { PageLayout } from '@/components/shared/PageLayout';
 import { SmartPageHero } from '@/components/shared/SmartPageHero';
+import { ROUTE_PATHS } from '@/routes/paths';
+import { buildSettingsMessageTemplatesHref } from '@/services/messageTemplateSourceGroups';
 
 interface BulkWhatsAppPageViewProps {
   page: UseBulkWhatsAppReturn;
@@ -20,6 +23,9 @@ export const BulkWhatsAppPageView: React.FC<BulkWhatsAppPageViewProps> = ({ page
     contactsPage, setContactsPage, contactsPageCount
   } = page;
 
+  /** قوالب النظام (KV) — منفصلة عن «رسائل محفوظة» المحلية (`bulk_whatsapp_templates_v1`). */
+  const settingsKvTemplatesHref = useMemo(() => buildSettingsMessageTemplatesHref({}), []);
+
   return (
     <PageLayout>
       <SmartPageHero
@@ -28,6 +34,29 @@ export const BulkWhatsAppPageView: React.FC<BulkWhatsAppPageViewProps> = ({ page
         description="اكتب رسالة وافتح محادثات واتساب لعدة جهات اتصال مع مهلة بين كل فتح"
         icon={<MessageCircle size={32} />}
       />
+
+      <div className="mt-4 flex flex-col gap-2 rounded-xl border border-indigo-200/70 bg-indigo-50/50 px-4 py-3 dark:border-indigo-900/50 dark:bg-indigo-950/20 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[11px] font-bold leading-relaxed text-slate-600 dark:text-slate-300">
+          «رسائل محفوظة» أعلاه تُحفظ محلياً لهذه الشاشة. قوالب التنبيهات والواتساب الموحّدة (تذكير، تحصيل، تجديد، …)
+          تُعدَّل من الإعدادات أو من تبويب القوالب في مركز التنبيهات.
+        </p>
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+          <Link
+            to={settingsKvTemplatesHref}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-black text-white shadow-sm transition-colors hover:bg-indigo-700"
+          >
+            <FileEdit size={13} />
+            الإعدادات → قوالب الرسائل
+          </Link>
+          <Link
+            to={ROUTE_PATHS.ALERTS_TEMPLATES}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-[11px] font-black text-indigo-800 transition-colors hover:bg-indigo-50 dark:border-indigo-700 dark:bg-slate-900 dark:text-indigo-200 dark:hover:bg-indigo-950/40"
+          >
+            <ExternalLink size={13} />
+            محرّر القوالب (التنبيهات)
+          </Link>
+        </div>
+      </div>
 
       <BulkWhatsAppSmartFilterBar
         q={q}

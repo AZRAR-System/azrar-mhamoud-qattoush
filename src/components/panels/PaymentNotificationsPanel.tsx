@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Clock, AlertTriangle, Send, X, Users, Phone } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CheckCircle, Clock, AlertTriangle, Send, X, Users, Phone, FileEdit } from 'lucide-react';
 import { DbService, PaymentNotificationTarget } from '@/services/mockDb';
 import { formatDateOnly, parseDateOnly, toDateOnly, daysBetweenDateOnly } from '@/utils/dateOnly';
 import { notificationService } from '@/services/notificationService';
@@ -9,6 +10,7 @@ import { fillTemplate, NotificationTemplates } from '@/services/notificationTemp
 import { getTemplate } from '@/services/db/messageTemplates';
 import { paymentNotificationTargetsSmart } from '@/services/domainQueries';
 import { useSmartModal } from '@/context/ModalContext';
+import { buildSettingsMessageTemplatesHref } from '@/services/messageTemplateSourceGroups';
 
 interface PaymentNotificationsPanelProps {
   onClose: () => void;
@@ -284,6 +286,16 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
             متأخرة: {totals.overdue} • اليوم: {totals.today} • خلال {daysAhead} أيام:{' '}
             {totals.upcoming} • الإجمالي: {totals.amount.toLocaleString()} د.أ
           </p>
+          <Link
+            to={buildSettingsMessageTemplatesHref({
+              sourceGroup: 'reminder',
+              templateId: INSTALLMENT_REMINDER_SUMMARY_TEMPLATE_ID,
+            })}
+            className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200"
+          >
+            <FileEdit size={12} />
+            تعديل قالب رسالة التذكير (الإعدادات)
+          </Link>
         </div>
         <button
           onClick={onClose}

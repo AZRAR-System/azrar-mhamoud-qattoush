@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   Clock,
   MessageSquare,
@@ -12,10 +13,12 @@ import {
   RefreshCw,
   User,
   Hammer,
+  FileEdit,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import type { AlertItem } from '@/hooks/useAlerts';
 import { getAlertPrimarySpec, classifyAlert } from '@/services/alerts/alertActionPolicy';
+import { buildSettingsMessageTemplatesHrefForAlert } from '@/services/messageTemplateSourceGroups';
 
 interface NotificationCardProps {
   alert: AlertItem;
@@ -196,6 +199,17 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
       <p className="text-[11.5px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
         {alert.الوصف}
       </p>
+
+      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+        <Link
+          to={buildSettingsMessageTemplatesHrefForAlert(alert)}
+          title="قوالب الرسائل المناسبة لهذا الإشعار"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40 transition-colors"
+        >
+          <FileEdit size={11} />
+          القوالب
+        </Link>
+      </div>
 
       {/* Footer — Priority + Source + Date */}
       <div className="flex items-center justify-between">

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { MessageCircle, CalendarClock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ExternalLink, MessageCircle, CalendarClock } from 'lucide-react';
 import { AlertModalShell } from '@/components/alerts/AlertModalShell';
 import type { tbl_Alerts, الكمبيالات_tbl } from '@/types';
 import type { RenewContractPayload } from '@/services/alerts/alertActionTypes';
@@ -7,6 +8,7 @@ import { DbService } from '@/services/mockDb';
 import { getInstallmentPaidAndRemaining } from '@/services/db/installments';
 import type { ExpiryKind } from '@/services/alerts/renewExpiryWhatsAppSend';
 import { sendRenewExpiryWhatsApp } from '@/services/alerts/renewExpiryWhatsAppSend';
+import { buildSettingsMessageTemplatesHref } from '@/services/messageTemplateSourceGroups';
 
 export interface RenewContractModalProps {
   open: boolean;
@@ -99,6 +101,17 @@ export const RenewContractModal: React.FC<RenewContractModalProps> = ({
       }
       sectionContext={
         <div className="space-y-4">
+          <Link
+            to={buildSettingsMessageTemplatesHref({
+              sourceGroup: 'renewal',
+              templateId: 'wa_renewal_offer',
+            })}
+            onClick={onClose}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-2.5 text-xs font-black text-indigo-800 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200 dark:hover:bg-indigo-900/50"
+          >
+            <ExternalLink size={14} />
+            تعديل قوالب التجديد وواتساب التنبيهات
+          </Link>
           {payload ? (
             <>
               <dl className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-800/50 p-3 text-xs font-bold text-slate-700 dark:text-slate-200">
