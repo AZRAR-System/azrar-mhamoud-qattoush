@@ -5005,7 +5005,9 @@ export function isLocalBusinessDataEmptyForInitialSqlHydration(): boolean {
     }
     return true;
   } catch {
-    return true;
+    // A read/open failure is not the same as a fresh empty install. Returning true here
+    // would enable first-run SQL hydration and skip empty snapshot pushes on a broken DB.
+    return false;
   }
 }
 
