@@ -287,40 +287,114 @@ function removeSqliteSidecarFilesSync(dbFilePath: string): void {
   }
 }
 
-function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
-  try {
-    const dataDir = path.dirname(corruptedPath);
-    const backupRoot = path.join(dataDir, 'backups');
+/**
+ * يجمع كل مسارات SQLite الصالحة للاستعادة (نسخ يومية، نسخ ما قبل التحديث، ملفات مباشرة تحت backups/)
+ * ويختار الأحدث حسب mtime. يستبعد الملف التالف نفسه.
+ */
+function findLatestSqliteBackupForRepairSync(corruptedPath: string): string | null {
+  const corruptedResolved = path.resolve(corruptedPath);
+  const candidates: { full: string; mtimeMs: number }[] = [];
 
-    let backupPath: string | null = null;
+  const pushIfValid = (candidatePath: string) => {
+    try {
+      const resolved = path.resolve(candidatePath);
+      if (resolved === corruptedResolved) return;
+      if (!fsSync.existsSync(candidatePath)) return;
+      const st = fsSync.statSync(candidatePath);
+      if (!st.isFile() || st.size <= 0) return;
+      candidates.push({ full: candidatePath, mtimeMs: st.mtimeMs });
+    } catch {
+      /* ignore */
+    }
+  };
 
-    if (fsSync.existsSync(backupRoot)) {
-      // Find latest backup folder YYYY-MM-DD, sorted descending
-      const folders = fsSync
-        .readdirSync(backupRoot)
-        .filter((f) => /^\d{4}-\d{2}-\d{2}$/.test(f))
-        .sort((a, b) => b.localeCompare(a));
+  const dataDir = path.dirname(corruptedPath);
+  const backupRoot = path.join(dataDir, 'backups');
 
-      for (const dateDir of folders) {
-        // Try named file first, then any .sqlite file in the folder
-        const namedPath = path.join(backupRoot, dateDir, 'khaberni.sqlite');
-        if (fsSync.existsSync(namedPath)) {
-          backupPath = namedPath;
-          break;
-        }
-        // Fallback: find any .sqlite file in this date folder
-        try {
-          const entries = fsSync.readdirSync(path.join(backupRoot, dateDir));
-          const sqliteFile = entries.find((e) => e.toLowerCase().endsWith('.sqlite'));
-          if (sqliteFile) {
-            backupPath = path.join(backupRoot, dateDir, sqliteFile);
-            break;
+  if (fsSync.existsSync(backupRoot)) {
+    // 1) Preferred: dated folders YYYY-MM-DD (newest folder name first), first sqlite hit per folder
+    const datedFolders = fsSync
+      .readdirSync(backupRoot, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(e.name))
+      .map((e) => e.name)
+      .sort((a, b) => b.localeCompare(a));
+
+    for (const dateDir of datedFolders) {
+      const namedPath = path.join(backupRoot, dateDir, 'khaberni.sqlite');
+      pushIfValid(namedPath);
+      try {
+        const entries = fsSync.readdirSync(path.join(backupRoot, dateDir));
+        for (const e of entries) {
+          if (e.toLowerCase().endsWith('.sqlite')) {
+            pushIfValid(path.join(backupRoot, dateDir, e));
           }
-        } catch {
-          // continue searching
         }
+      } catch {
+        /* ignore */
       }
     }
+
+    // 2) Any other subfolder under backups/ (non-ISO names, manual copies)
+    try {
+      for (const ent of fsSync.readdirSync(backupRoot, { withFileTypes: true })) {
+        if (!ent.isDirectory()) continue;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(ent.name)) continue;
+        const sub = path.join(backupRoot, ent.name);
+        try {
+          for (const f of fsSync.readdirSync(sub)) {
+            if (f.toLowerCase().endsWith('.sqlite')) {
+              pushIfValid(path.join(sub, f));
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // 3) SQLite files placed directly under backups/
+    try {
+      for (const ent of fsSync.readdirSync(backupRoot, { withFileTypes: true })) {
+        if (!ent.isFile()) continue;
+        if (ent.name.toLowerCase().endsWith('.sqlite')) {
+          pushIfValid(path.join(backupRoot, ent.name));
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 4) Pre-update / mandatory backups (electron/ipc/context.ts) — same userData tree
+  try {
+    const mandatoryRoot = path.join(app.getPath('userData'), 'mandatory-backups');
+    if (fsSync.existsSync(mandatoryRoot)) {
+      for (const name of fsSync.readdirSync(mandatoryRoot)) {
+        if (!name.toLowerCase().endsWith('.sqlite')) continue;
+        pushIfValid(path.join(mandatoryRoot, name));
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (candidates.length === 0) return null;
+  const bestByPath = new Map<string, number>();
+  for (const c of candidates) {
+    const key = path.resolve(c.full);
+    const prev = bestByPath.get(key);
+    if (prev === undefined || c.mtimeMs > prev) bestByPath.set(key, c.mtimeMs);
+  }
+  const deduped = [...bestByPath.entries()].map(([full, mtimeMs]) => ({ full, mtimeMs }));
+  deduped.sort((a, b) => b.mtimeMs - a.mtimeMs || b.full.localeCompare(a.full));
+  return deduped[0]?.full ?? null;
+}
+
+function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
+  try {
+    const backupPath = findLatestSqliteBackupForRepairSync(corruptedPath);
 
     if (!backupPath) {
       dialog.showMessageBoxSync({
