@@ -294,7 +294,15 @@ $stage = Join-Path (Get-Location) $stageName
 $final = Join-Path (Get-Location) 'release2_build'
 
 function Stop-LockingProcesses {
-  $names = @('AZRAR','electron','electron-builder','app-builder','app-builder-bin')
+  # أسماء شائعة تقفل app.asar أو win-unpacked أثناء/بعد التغليف (لا نقتل node عاماً — قد يشغّل npm هذا السكربت).
+  $names = @(
+    'AZRAR',
+    'electron',
+    'electron-builder',
+    'app-builder',
+    'app-builder-bin',
+    'AppBuilder'
+  )
   foreach ($n in $names) {
     try {
       Get-Process -Name $n -ErrorAction SilentlyContinue | ForEach-Object {
@@ -305,6 +313,60 @@ function Stop-LockingProcesses {
     }
   }
 }
+
+function Stop-ProcessesHoldingReleaseBuild {
+  param([Parameter(Mandatory = $false)][string]$RepoRoot)
+  if (-not $RepoRoot -or -not $RepoRoot.Trim()) {
+    $RepoRoot = (Get-Location).Path
+  }
+  try {
+    $RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd('\', '/')
+  } catch {
+    return
+  }
+  $tail = 'release2_build' + [char]0x5C + 'win-unpacked'
+  $tailAlt = 'release2_build/win-unpacked'
+  $myPid = $PID
+  try {
+    $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
+    if (-not $procs) { return }
+    foreach ($p in $procs) {
+      $procId = 0
+      try { $procId = [int]$p.ProcessId } catch { continue }
+      if ($procId -le 4 -or $procId -eq $myPid) { continue }
+
+      $cmd = [string]$p.CommandLine
+      $exePath = [string]$p.ExecutablePath
+      $hit = $false
+      if ($cmd) {
+        if ($cmd.IndexOf($tail, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $hit = $true }
+        elseif ($cmd.IndexOf($tailAlt, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $hit = $true }
+      }
+      if (-not $hit -and $exePath) {
+        if ($exePath.IndexOf($tail, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $hit = $true }
+        elseif ($exePath.IndexOf($tailAlt, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $hit = $true }
+      }
+      if (-not $hit) { continue }
+
+      $nm = [string]$p.Name
+      if ($nm -match '^(csrss|winlogon|services|System|smss|Registry|Secure System)$') { continue }
+
+      try {
+        Write-Host ('[desktop-dist] Stopping process locking release2_build\win-unpacked: ' + $nm + ' (PID ' + $procId + ')')
+        Stop-Process -Id $procId -Force -ErrorAction Stop
+      } catch {
+        # ignore
+      }
+    }
+  } catch {
+    # ignore (CIM unavailable, etc.)
+  }
+}
+
+Write-Host '[desktop-dist] Releasing locks that affect packaging (AZRAR / Electron / win-unpacked)...'
+Stop-LockingProcesses
+Stop-ProcessesHoldingReleaseBuild -RepoRoot (Get-Location).Path
+Start-Sleep -Milliseconds 250
 
 function Remove-DirBestEffort(
   [Parameter(Mandatory=$true)][string]$Path,
@@ -432,6 +494,11 @@ try {
 if ($LASTEXITCODE -ne 0) {
   throw ('electron-builder failed with exit code ' + $LASTEXITCODE)
 }
+
+# أداة التغليف قد تترك مقابض؛ وأي AZRAR يعمل من win-unpacked يمنع النسخ — إغلاق قبل دمج المخرجات.
+Stop-LockingProcesses
+Stop-ProcessesHoldingReleaseBuild -RepoRoot (Get-Location).Path
+Start-Sleep -Milliseconds 250
 
 New-Item -ItemType Directory -Force -Path $final | Out-Null
 
