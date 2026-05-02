@@ -275,6 +275,18 @@ function getJournalMode(): 'WAL' | 'DELETE' {
   return 'WAL';
 }
 
+/** إزالة ملفات SQLite المرافقة؛ بعد تلف القاعدة غالباً تبقى -wal/-shm وتفسد النسخة المستعادة */
+function removeSqliteSidecarFilesSync(dbFilePath: string): void {
+  for (const suf of ['-wal', '-shm', '-journal'] as const) {
+    try {
+      const sidecar = `${dbFilePath}${suf}`;
+      if (fsSync.existsSync(sidecar)) fsSync.unlinkSync(sidecar);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
   try {
     const dataDir = path.dirname(corruptedPath);
@@ -331,6 +343,8 @@ function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
       db = null;
     }
 
+    removeSqliteSidecarFilesSync(corruptedPath);
+
     // Save corrupted file before overwriting
     const malformedPath = `${corruptedPath}.malformed.${Date.now()}`;
     try {
@@ -339,6 +353,8 @@ function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
       // If rename fails (e.g. lock), try removing
       try { fsSync.unlinkSync(corruptedPath); } catch { /* ignore */ }
     }
+
+    removeSqliteSidecarFilesSync(corruptedPath);
 
     // Restore backup
     fsSync.copyFileSync(backupPath, corruptedPath);
@@ -353,6 +369,64 @@ function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
     return true;
   } catch (_err) {
     return false;
+  }
+}
+
+export function isSqliteCorruptionMessage(msg: string): boolean {
+  const m = String(msg || '').toLowerCase();
+  return (
+    m.includes('database disk image is malformed') ||
+    m.includes('sqlite_corrupt') ||
+    m.includes('database is malformed') ||
+    m.includes('malformed database schema')
+  );
+}
+
+/**
+ * بعد فشل استعلام (أو رمي) بسبب تلف الملف: إغلاق الاتصال ومحاولة الاستعادة من أحدث نسخة احتياطية
+ * (نفس منطق فتح القاعدة عند أول تشغيل).
+ */
+export function tryRecoverCorruptedDatabaseRuntimeSync(): boolean {
+  try {
+    if (db) {
+      try {
+        db.close();
+      } catch {
+        /* ignore */
+      }
+      db = null;
+    }
+    return repairCorruptedDatabaseSync(getDbPath());
+  } catch {
+    return false;
+  }
+}
+
+/** إعادة تنفيذ استعلام domain عند { ok:false } ورسالة تلف SQLite، مرة واحدة بعد الاستعادة */
+export function runDomainQueryWithCorruptionRetry<T extends { ok: boolean; message?: string }>(
+  run: () => T
+): T {
+  const first = run();
+  if (first.ok) return first;
+  const msg = String(first.message ?? '');
+  if (!isSqliteCorruptionMessage(msg)) return first;
+  if (!tryRecoverCorruptedDatabaseRuntimeSync()) return first;
+  return run();
+}
+
+/**
+ * يغطي أخطاء التلف سواء أُرجعت كـ { ok:false, message } أو رُميت من getDb()/الاستعلام.
+ */
+export function runDomainIpcWithSqliteCorruptionRetry<T extends { ok: boolean; message?: string }>(
+  run: () => T
+): T {
+  try {
+    return runDomainQueryWithCorruptionRetry(run);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e ?? '');
+    if (!isSqliteCorruptionMessage(msg)) throw e;
+    if (!tryRecoverCorruptedDatabaseRuntimeSync()) throw e;
+    return runDomainQueryWithCorruptionRetry(run);
   }
 }
 

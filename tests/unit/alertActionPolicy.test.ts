@@ -4,6 +4,7 @@ import type { OpenModalFn } from '@/context/ModalContext';
 import {
   ALERT_TITLE_REMINDER_7D,
   ALERT_TITLE_RISK_COLLECTION,
+  buildAlertsHashSuffix,
   classifyAlert,
   executeAction,
   executeNavigateForAlert,
@@ -444,5 +445,181 @@ describe('alertActionPolicy', () => {
     });
     const secDest = resolveSecondaryActions(dest);
     expect(secDest.some((x) => x.type === 'navigate')).toBe(true);
+  });
+
+  it('buildAlertsHashSuffix skips blank values', () => {
+    expect(buildAlertsHashSuffix({})).toBe('');
+    expect(buildAlertsHashSuffix({ a: '', b: undefined })).toBe('');
+    expect(buildAlertsHashSuffix({ tab: 'alerts', id: '  ' })).toBe('?tab=alerts');
+  });
+
+  it('classifyAlert maps categories and table refs', () => {
+    expect(classifyAlert(base({ category: 'SmartBehavior' }))).toBe('smart_behavior');
+    expect(classifyAlert(base({ category: 'Risk' }))).toBe('risk');
+    expect(classifyAlert(base({ category: 'DataQuality' }))).toBe('data_quality');
+    expect(classifyAlert(base({ مرجع_الجدول: 'تذاكر_الصيانة_tbl' }))).toBe('maintenance');
+    expect(classifyAlert(base({ مرجع_الجدول: 'العقارات_tbl', category: 'System' }))).toBe(
+      'property'
+    );
+    expect(classifyAlert(base({ مرجع_الجدول: 'الأشخاص_tbl', category: 'System' }))).toBe('person');
+    expect(classifyAlert(base({ مرجع_الجدول: 'الكمبيالات_tbl', category: 'System' }))).toBe(
+      'installment'
+    );
+    expect(classifyAlert(base({ مرجع_الجدول: 'System', category: 'System' }))).toBe('system');
+    expect(classifyAlert(base({ category: 'System', مرجع_الجدول: '' }))).toBe('generic');
+  });
+
+  it('resolveSecondaryActions risk on person adds profile layer', () => {
+    const a = base({
+      category: 'Risk',
+      مرجع_الجدول: 'الأشخاص_tbl',
+      مرجع_المعرف: 'per-99',
+    });
+    const sec = resolveSecondaryActions(a);
+    expect(sec.some((x) => x.type === 'layer' && x.layer === 'person_profile')).toBe(true);
+  });
+
+  it('getAlertPrimarySpec SmartBehavior contract vs smart tools default', () => {
+    const contractSmart = base({
+      category: 'SmartBehavior',
+      مرجع_الجدول: 'العقود_tbl',
+      مرجع_المعرف: 'c-77',
+    });
+    expect(getAlertPrimarySpec(contractSmart).label).toBe('فتح العقد');
+    const otherSmart = base({
+      category: 'SmartBehavior',
+      مرجع_الجدول: 'العقارات_tbl',
+      مرجع_المعرف: 'pr-77',
+    });
+    expect(getAlertPrimarySpec(otherSmart).label).toContain('الأدوات');
+  });
+
+  it('getAlertPrimarySpec covers batch and empty mid destinations', () => {
+    expect(
+      getAlertPrimarySpec(
+        base({ category: 'System', مرجع_الجدول: 'الكمبيالات_tbl', مرجع_المعرف: 'batch' })
+      ).label
+    ).toContain('مستحقة');
+    expect(
+      getAlertPrimarySpec(base({ category: 'System', مرجع_الجدول: 'العقارات_tbl', مرجع_المعرف: '' }))
+        .label
+    ).toContain('قائمة العقارات');
+    expect(
+      getAlertPrimarySpec(base({ category: 'System', مرجع_الجدول: 'الأشخاص_tbl', مرجع_المعرف: '' }))
+        .label
+    ).toContain('قائمة الأشخاص');
+    expect(
+      getAlertPrimarySpec(base({ category: 'System', مرجع_الجدول: 'العقود_tbl', مرجع_المعرف: '' }))
+        .label
+    ).toContain('قائمة العقود');
+  });
+
+  it('getAlertPrimarySpec System and installment contract paths', () => {
+    expect(
+      getAlertPrimarySpec(base({ category: 'System', مرجع_الجدول: 'System', مرجع_المعرف: 'x' }))
+        .label
+    ).toContain('العمليات');
+    expect(
+      getAlertPrimarySpec(
+        base({ category: 'System', مرجع_الجدول: 'الكمبيالات_tbl', مرجع_المعرف: 'inst-1' })
+      ).label
+    ).toContain('الدفعات');
+    expect(
+      getAlertPrimarySpec(
+        base({ category: 'System', مرجع_الجدول: 'العقارات_tbl', مرجع_المعرف: 'prop-1' })
+      ).label
+    ).toBe('فتح العقار');
+    expect(
+      getAlertPrimarySpec(
+        base({ category: 'System', مرجع_الجدول: 'الأشخاص_tbl', مرجع_المعرف: 'per-1' })
+      ).label
+    ).toBe('فتح الملف');
+  });
+
+  it('shouldOpenModalFirst Risk uses details length for non-contract refs', () => {
+    expect(
+      shouldOpenModalFirst(
+        base({
+          category: 'Risk',
+          مرجع_الجدول: 'الأشخاص_tbl',
+          details: [{}, {}, {}] as tbl_Alerts['details'],
+        })
+      )
+    ).toBe(true);
+    expect(
+      shouldOpenModalFirst(
+        base({
+          category: 'Risk',
+          مرجع_الجدول: 'الأشخاص_tbl',
+          details: [{}] as tbl_Alerts['details'],
+        })
+      )
+    ).toBe(false);
+  });
+
+  it('resolveSecondaryActions maintenance adds technician layer', () => {
+    const a = base({ category: 'System', مرجع_الجدول: 'تذاكر_الصيانة_tbl' });
+    expect(
+      resolveSecondaryActions(a).some(
+        (x) => x.type === 'layer' && 'layer' in x && x.layer === 'assign_technician'
+      )
+    ).toBe(true);
+  });
+
+  it('getAlertPrimarySpec generic modal fallback', () => {
+    const a = base({ category: 'System', مرجع_الجدول: '', مرجع_المعرف: '' });
+    expect(getAlertPrimarySpec(a).mode).toBe('modal');
+    expect(getAlertPrimarySpec(a).label).toContain('مراجعة');
+  });
+
+  it('getAlertPrimarySpec DataQuality modal label', () => {
+    expect(getAlertPrimarySpec(base({ category: 'DataQuality' })).label).toContain('البيانات');
+  });
+
+  it('getAlertPrimarySpec Financial modal hint', () => {
+    const spec = getAlertPrimarySpec(base({ category: 'Financial' }));
+    expect(spec.mode).toBe('modal');
+    expect(spec.hint || '').toMatch(/واتساب|تحصيل/);
+  });
+
+  it('getAlertPrimarySpec Risk modal when contract ref', () => {
+    expect(
+      getAlertPrimarySpec(
+        base({ category: 'Risk', مرجع_الجدول: 'العقود_tbl', مرجع_المعرف: 'c1' })
+      ).label
+    ).toContain('المخاطر');
+  });
+
+  it('resolveSecondaryActions data_quality adds whatsapp only', () => {
+    const a = base({ category: 'DataQuality' });
+    const sec = resolveSecondaryActions(a);
+    expect(sec.some((x) => x.type === 'layer' && 'layer' in x && x.layer === 'whatsapp')).toBe(true);
+    expect(
+      sec.some((x) => x.type === 'layer' && 'layer' in x && x.layer === 'record_payment')
+    ).toBe(false);
+  });
+
+  it('resolveSecondaryActions expiry contract includes renew and insurance', () => {
+    const a = base({
+      category: 'Expiry',
+      مرجع_الجدول: 'العقود_tbl',
+      مرجع_المعرف: 'c-exp-1',
+    });
+    const sec = resolveSecondaryActions(a);
+    expect(sec.some((x) => x.type === 'layer' && 'layer' in x && x.layer === 'renew_contract')).toBe(
+      true
+    );
+    expect(sec.some((x) => x.type === 'layer' && 'layer' in x && x.layer === 'insurance')).toBe(
+      true
+    );
+  });
+
+  it('resolveSecondaryActions financial batch omits legal layer', () => {
+    const a = base({
+      category: 'Financial',
+      مرجع_المعرف: 'batch',
+    });
+    const sec = resolveSecondaryActions(a);
+    expect(sec.some((x) => x.type === 'layer' && x.layer === 'legal_file')).toBe(false);
   });
 });

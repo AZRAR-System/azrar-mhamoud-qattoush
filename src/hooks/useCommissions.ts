@@ -67,6 +67,12 @@ const contractPropertyId = (c: unknown) =>
   pickRecordField(c, ['رقم_العقار', 'property_id', 'propertyId']);
 const contractTenantId = (c: unknown) =>
   pickRecordField(c, ['رقم_المستاجر', 'tenant_id', 'tenantId']);
+/** كفيل العقد: الحقل الأساسي ثم الاحتياطي من النموذج */
+const contractGuarantorId = (c: unknown) => {
+  const g = pickRecordField(c, ['رقم_الكفيل', 'guarantor_id', 'guarantorId']);
+  if (g) return g;
+  return pickRecordField(c, ['رقم_الكفيل_1', 'guarantor_id_1', 'guarantorId1']);
+};
 const propertyOwnerId = (p: unknown) =>
   pickRecordField(p, ['رقم_المالك', 'owner_id', 'ownerId']);
 const propertyInternalCode = (p: unknown) =>
@@ -497,9 +503,12 @@ export const useCommissions = (isVisible: boolean) => {
           const ownerId = propertyOwnerId(prop);
           const tenant = tenantId ? fastPersonByIdRef.current.get(tenantId.toLowerCase()) : null;
           const owner = ownerId ? fastPersonByIdRef.current.get(ownerId.toLowerCase()) : null;
+          const gid = contractGuarantorId(contract);
+          const guarantor = gid ? fastPersonByIdRef.current.get(gid.toLowerCase()) : null;
           return {
             p1: personDisplayName(owner) || '—',
             p2: personDisplayName(tenant) || '—',
+            p3: gid ? personDisplayName(guarantor) || '—' : '',
           };
         }
         if (type === 'Sale' && agreementId) {
@@ -507,36 +516,53 @@ export const useCommissions = (isVisible: boolean) => {
           const buyerId = pickRecordField(agreement, ['رقم_المشتري', 'buyer_id', 'buyerId']);
           const propId = pickRecordField(agreement, ['رقم_العقار', 'property_id', 'propertyId']);
           const prop = propId ? fastPropertyByIdRef.current.get(propId.toLowerCase()) : null;
-          const sellerId = propertyOwnerId(prop);
+          const sellerIdFromAgreement = pickRecordField(agreement, [
+            'رقم_البائع',
+            'seller_id',
+            'sellerId',
+          ]);
+          const sellerId = sellerIdFromAgreement || propertyOwnerId(prop);
           const buyer = buyerId ? fastPersonByIdRef.current.get(buyerId.toLowerCase()) : null;
           const seller = sellerId ? fastPersonByIdRef.current.get(sellerId.toLowerCase()) : null;
           return {
             p1: personDisplayName(seller) || '—',
             p2: personDisplayName(buyer) || '—',
+            p3: '',
           };
         }
-        return { p1: '—', p2: '—' };
+        return { p1: '—', p2: '—', p3: '' };
       }
 
       if (type === 'Rental') {
         const contract = contracts.find((c) => idEq(c.رقم_العقد, contractId));
-        if (!contract) return { p1: '—', p2: '—' };
-        const tenant = people.find((p) => idEq(p.رقم_الشخص, contract.رقم_المستاجر));
-        const prop = properties.find((p) => idEq(p.رقم_العقار, contract.رقم_العقار));
-        const owner = prop ? people.find((p) => idEq(p.رقم_الشخص, prop.رقم_المالك)) : undefined;
+        if (!contract) return { p1: '—', p2: '—', p3: '' };
+        const tenantId = contractTenantId(contract);
+        const propId = contractPropertyId(contract);
+        const tenant = tenantId ? people.find((p) => idEq(p.رقم_الشخص, tenantId)) : undefined;
+        const prop = propId ? properties.find((p) => idEq(p.رقم_العقار, propId)) : undefined;
+        const ownerId = prop ? propertyOwnerId(prop) : '';
+        const owner = ownerId ? people.find((p) => idEq(p.رقم_الشخص, ownerId)) : undefined;
+        const gid = contractGuarantorId(contract);
+        const guarantor = gid ? people.find((p) => idEq(p.رقم_الشخص, gid)) : undefined;
         return {
           p1: String(owner?.الاسم || '').trim() || '—',
           p2: String(tenant?.الاسم || '').trim() || '—',
+          p3: gid ? String(guarantor?.الاسم || '').trim() || '—' : '',
         };
       } else {
         const agreement = agreements.find((a) => idEq(a.id, agreementId));
-        if (!agreement) return { p1: '—', p2: '—' };
-        const prop = properties.find((p) => idEq(p.رقم_العقار, agreement.رقم_العقار));
-        const seller = prop ? people.find((p) => idEq(p.رقم_الشخص, prop.رقم_المالك)) : undefined;
-        const buyer = people.find((p) => idEq(p.رقم_الشخص, agreement.رقم_المشتري));
+        if (!agreement) return { p1: '—', p2: '—', p3: '' };
+        const propId = pickRecordField(agreement, ['رقم_العقار', 'property_id', 'propertyId']);
+        const prop = propId ? properties.find((p) => idEq(p.رقم_العقار, propId)) : undefined;
+        const sellerIdFromA = pickRecordField(agreement, ['رقم_البائع', 'seller_id', 'sellerId']);
+        const sellerId = sellerIdFromA || (prop ? propertyOwnerId(prop) : '');
+        const seller = sellerId ? people.find((p) => idEq(p.رقم_الشخص, sellerId)) : undefined;
+        const buyerId = pickRecordField(agreement, ['رقم_المشتري', 'buyer_id', 'buyerId']);
+        const buyer = buyerId ? people.find((p) => idEq(p.رقم_الشخص, buyerId)) : undefined;
         return {
           p1: String(seller?.الاسم || '').trim() || '—',
           p2: String(buyer?.الاسم || '').trim() || '—',
+          p3: '',
         };
       }
     },
@@ -643,6 +669,7 @@ export const useCommissions = (isVisible: boolean) => {
         prop,
         names.p1,
         names.p2,
+        names.p3,
         String(c.رقم_الفرصة || ''),
         type === 'Rental' ? 'إيجار' : 'بيع',
       ]
@@ -710,6 +737,14 @@ export const useCommissions = (isVisible: boolean) => {
                 const tid = personIdFromRow(details.tenant);
                 if (tid) fastPersonByIdRef.current.set(tid.toLowerCase(), details.tenant);
               }
+              const gid = contractGuarantorId(details.contract);
+              if (gid) {
+                const gn = gid.toLowerCase();
+                if (!fastPersonByIdRef.current.has(gn)) {
+                  const gPerson = await domainGetSmart('people', gid);
+                  if (gPerson) fastPersonByIdRef.current.set(gn, gPerson);
+                }
+              }
               changed = true;
             }
           } catch { /* ignore */ }
@@ -746,6 +781,14 @@ export const useCommissions = (isVisible: boolean) => {
                   if (t) fastPersonByIdRef.current.set(tenantIdNormal, t);
                 }
               }
+              const gid = contractGuarantorId(c);
+              if (gid) {
+                const gn = gid.toLowerCase();
+                if (!fastPersonByIdRef.current.has(gn)) {
+                  const gPerson = await domainGetSmart('people', gid);
+                  if (gPerson) fastPersonByIdRef.current.set(gn, gPerson);
+                }
+              }
               changed = true;
             }
           } catch { /* ignore */ }
@@ -758,33 +801,43 @@ export const useCommissions = (isVisible: boolean) => {
         try {
           const agreement = await domainGetSmart('agreements', aid);
           if (agreement) {
-            fastAgreementByIdRef.current.set(aid, agreement);
+            fastAgreementByIdRef.current.set(String(aid).toLowerCase(), agreement);
             const pid = pickRecordField(agreement, ['رقم_العقار', 'property_id', 'propertyId']);
             const sid = pickRecordField(agreement, ['رقم_البائع', 'seller_id', 'sellerId']);
             const bid = pickRecordField(agreement, ['رقم_المشتري', 'buyer_id', 'buyerId']);
 
             if (pid) {
-              let prop = fastPropertyByIdRef.current.get(pid);
+              const propIdNorm = pid.toLowerCase();
+              let prop = fastPropertyByIdRef.current.get(propIdNorm);
               if (!prop) {
                 prop = await domainGetSmart('properties', pid);
-                if (prop) fastPropertyByIdRef.current.set(pid, prop);
+                if (prop) fastPropertyByIdRef.current.set(propIdNorm, prop);
               }
               if (prop) {
                 const oid = propertyOwnerId(prop);
                 // Try to resolve seller via property if sid is missing
-                if (!sid && oid && !fastPersonByIdRef.current.has(oid)) {
-                  const owner = await domainGetSmart('people', oid);
-                  if (owner) fastPersonByIdRef.current.set(oid, owner);
+                if (!sid && oid) {
+                  const ownerIdNorm = oid.toLowerCase();
+                  if (!fastPersonByIdRef.current.has(ownerIdNorm)) {
+                    const owner = await domainGetSmart('people', oid);
+                    if (owner) fastPersonByIdRef.current.set(ownerIdNorm, owner);
+                  }
                 }
               }
             }
-            if (sid && !fastPersonByIdRef.current.has(sid)) {
-              const person = await domainGetSmart('people', sid);
-              if (person) fastPersonByIdRef.current.set(sid, person);
+            if (sid) {
+              const sn = sid.toLowerCase();
+              if (!fastPersonByIdRef.current.has(sn)) {
+                const person = await domainGetSmart('people', sid);
+                if (person) fastPersonByIdRef.current.set(sn, person);
+              }
             }
-            if (bid && !fastPersonByIdRef.current.has(bid)) {
-              const person = await domainGetSmart('people', bid);
-              if (person) fastPersonByIdRef.current.set(bid, person);
+            if (bid) {
+              const bn = bid.toLowerCase();
+              if (!fastPersonByIdRef.current.has(bn)) {
+                const person = await domainGetSmart('people', bid);
+                if (person) fastPersonByIdRef.current.set(bn, person);
+              }
             }
             changed = true;
           }
@@ -1118,6 +1171,7 @@ export const useCommissions = (isVisible: boolean) => {
       { key: 'k_property_code', header: 'كود العقار' },
       { key: 'k_p1', header: 'المالك / البائع' },
       { key: 'k_p2', header: 'المستأجر / المشتري' },
+      { key: 'k_p3', header: 'الكفيل (إن وجد)' },
       { key: 'k_c1', header: 'عمولة المالك/البائع' },
       { key: 'k_c2', header: 'عمولة المستأجر/المشتري' },
       { key: 'k_total', header: 'المجموع' },
@@ -1140,6 +1194,7 @@ export const useCommissions = (isVisible: boolean) => {
         k_property_code: prop,
         k_p1: names.p1,
         k_p2: names.p2,
+        k_p3: names.p3 || '',
         k_c1: Number((isSale ? c.عمولة_البائع : c.عمولة_المالك) || 0),
         k_c2: Number((isSale ? c.عمولة_المشتري : c.عمولة_المستأجر) || 0),
         k_total: Number(c.المجموع || 0),

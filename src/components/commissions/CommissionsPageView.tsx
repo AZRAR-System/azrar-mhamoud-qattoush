@@ -12,6 +12,7 @@ import {
   CornerDownRight,
   Trash2,
   Tags,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
@@ -526,7 +527,9 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
                                   </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-2 border-r border-slate-200 dark:border-slate-800 pr-6">
+                                <div
+                                  className={`flex items-center gap-2 ${names.p3 ? 'border-r border-slate-200 dark:border-slate-800 pr-6' : ''}`}
+                                >
                                   <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                                     <Users size={16} />
                                   </div>
@@ -539,6 +542,21 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
                                     </span>
                                   </div>
                                 </div>
+                                {!isSale && names.p3 ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-700 dark:text-amber-400">
+                                      <ShieldCheck size={16} aria-hidden />
+                                    </div>
+                                    <div>
+                                      <span className="block text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                                        الكفيل
+                                      </span>
+                                      <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                        {names.p3}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : null}
                               </>
                             );
                           })()}

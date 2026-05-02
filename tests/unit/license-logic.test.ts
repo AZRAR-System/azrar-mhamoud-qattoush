@@ -73,4 +73,18 @@ describe('Licensing Service - Comprehensive Logic Suite', () => {
     await expect(verifyLicenseFile(lic as any, { deviceId: 'DEV-123' }))
       .rejects.toThrow('انتهت صلاحية ملف التفعيل');
   });
+
+  test('verifyLicenseFile - rejects non-finite expiresAt', async () => {
+    const lic = { payload: { ...validPayload, expiresAt: 'not-a-date' }, sig: validSig };
+    await expect(verifyLicenseFile(lic as any, { deviceId: 'DEV-123' })).rejects.toThrow(
+      'غير صالح'
+    );
+  });
+
+  test('verifyLicenseFile - rejects signature or key byte length', async () => {
+    const lic = { payload: { ...validPayload }, sig: 'dGVzdA==' };
+    await expect(verifyLicenseFile(lic as any, { deviceId: 'DEV-123' })).rejects.toThrow(
+      'صيغة التوقيع'
+    );
+  });
 });

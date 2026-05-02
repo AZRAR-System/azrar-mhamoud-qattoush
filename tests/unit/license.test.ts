@@ -32,6 +32,14 @@ describe('canonicalizeLicensePayloadV1', () => {
     expect(parsed.features).toBeUndefined();
   });
 
+  test('excludes features when value is not an array', () => {
+    const r = canonicalizeLicensePayloadV1({
+      ...basePayload,
+      features: 'not-array' as unknown as string[],
+    });
+    expect(JSON.parse(r).features).toBeUndefined();
+  });
+
   test('includes expiresAt when provided', () => {
     const r = canonicalizeLicensePayloadV1({ ...basePayload, expiresAt: '2027-01-01T00:00:00Z' });
     const parsed = JSON.parse(r);
@@ -42,6 +50,17 @@ describe('canonicalizeLicensePayloadV1', () => {
     const r = canonicalizeLicensePayloadV1({ ...basePayload, customer: 'خبرني' });
     const parsed = JSON.parse(r);
     expect(parsed.customer).toBe('خبرني');
+  });
+
+  test('drops blank customer and expiresAt', () => {
+    const r = canonicalizeLicensePayloadV1({
+      ...basePayload,
+      customer: '   ',
+      expiresAt: '  ',
+    });
+    const parsed = JSON.parse(r);
+    expect(parsed.customer).toBeUndefined();
+    expect(parsed.expiresAt).toBeUndefined();
   });
 });
 

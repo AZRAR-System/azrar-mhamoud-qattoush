@@ -10,6 +10,17 @@ import type { PropertiesPageModel } from '@/hooks/useProperties';
 
 type Props = { page: PropertiesPageModel };
 
+/** مسار SQL يعيد active كملخص؛ مسار الذاكرة يعيد عقداً كاملاً — نميّز بينهما لعرض الأسماء */
+function activeAsFullContract(a: unknown): العقود_tbl | null {
+  if (!a || typeof a !== 'object') return null;
+  return 'رقم_العقد' in (a as object) ? (a as العقود_tbl) : null;
+}
+
+function activeAsSummary(a: unknown): DesktopPropertyPickerItem['active'] | null {
+  if (!a || typeof a !== 'object') return null;
+  return 'رقم_العقد' in (a as object) ? null : (a as DesktopPropertyPickerItem['active']);
+}
+
 function PropertiesResultsToolbar({ page }: Props) {
   const {
     t,
@@ -147,9 +158,15 @@ export function PropertiesCardsGrid({ page }: Props) {
               const p = isDesktopFast ? desktopItem?.property : (rowOrProperty as العقارات_tbl);
               if (!p) return null;
 
-              const activeDesktop = isDesktopFast ? desktopItem?.active : null;
+              const activeDesktopRaw = isDesktopFast ? desktopItem?.active : null;
               const activeLegacy = !isDesktopFast
                 ? activeContractByPropertyId.get(String(p.رقم_العقار))
+                : null;
+              const activeDeskContract = isDesktopFast
+                ? activeAsFullContract(activeDesktopRaw)
+                : null;
+              const activeDeskSummary = isDesktopFast
+                ? activeAsSummary(activeDesktopRaw)
                 : null;
 
               const tenant = activeLegacy?.رقم_المستاجر
@@ -158,27 +175,63 @@ export function PropertiesCardsGrid({ page }: Props) {
               const guarantor = activeLegacy?.رقم_الكفيل
                 ? peopleMap.get(String(activeLegacy.رقم_الكفيل))
                 : undefined;
-              const hasActive = Boolean(isDesktopFast ? activeDesktop : activeLegacy);
+              const hasActive = Boolean(
+                isDesktopFast ? activeDesktopRaw || activeDeskContract : activeLegacy
+              );
 
               const ownerColor = getPersonColorClasses(String(p.رقم_المالك ?? ''));
 
               const ownerName = isDesktopFast
-                ? String(desktopItem?.ownerName || t('غير معروف'))
+                ? (() => {
+                    const fromSql = String(desktopItem?.ownerName || '').trim();
+                    if (fromSql) return fromSql;
+                    const id = String(p.رقم_المالك || '').trim();
+                    if (!id) return t('غير معروف');
+                    return String(peopleMap.get(id)?.الاسم || '').trim() || t('غير معروف');
+                  })()
                 : getOwnerName(p.رقم_المالك);
               const tenantName = isDesktopFast
-                ? String(activeDesktop?.tenantName || (hasActive ? t('غير معروف') : ''))
+                ? (() => {
+                    const fromSql = String(activeDeskSummary?.tenantName || '').trim();
+                    if (fromSql) return fromSql;
+                    const tid = activeDeskContract?.رقم_المستاجر;
+                    if (tid) {
+                      const nm = String(peopleMap.get(String(tid))?.الاسم || '').trim();
+                      if (nm) return nm;
+                    }
+                    return hasActive ? t('غير معروف') : '';
+                  })()
                 : String(tenant?.الاسم || '');
               const tenantPhone = isDesktopFast
-                ? String(activeDesktop?.tenantPhone || '')
+                ? (() => {
+                    const fromSql = String(activeDeskSummary?.tenantPhone || '').trim();
+                    if (fromSql) return fromSql;
+                    const tid = activeDeskContract?.رقم_المستاجر;
+                    return tid ? String(peopleMap.get(String(tid))?.رقم_الهاتف || '').trim() : '';
+                  })()
                 : String(tenant?.رقم_الهاتف || '');
               const contractId = isDesktopFast
-                ? String(activeDesktop?.contractId || '')
+                ? String(
+                    activeDeskSummary?.contractId ||
+                      activeDeskContract?.رقم_العقد ||
+                      ''
+                  )
                 : String(activeLegacy?.رقم_العقد || '');
               const guarantorName = isDesktopFast
-                ? String(activeDesktop?.guarantorName || '')
+                ? (() => {
+                    const fromSql = String(activeDeskSummary?.guarantorName || '').trim();
+                    if (fromSql) return fromSql;
+                    const gid = activeDeskContract?.رقم_الكفيل;
+                    return gid ? String(peopleMap.get(String(gid))?.الاسم || '').trim() : '';
+                  })()
                 : String(guarantor?.الاسم || '');
               const guarantorPhone = isDesktopFast
-                ? String(activeDesktop?.guarantorPhone || '')
+                ? (() => {
+                    const fromSql = String(activeDeskSummary?.guarantorPhone || '').trim();
+                    if (fromSql) return fromSql;
+                    const gid = activeDeskContract?.رقم_الكفيل;
+                    return gid ? String(peopleMap.get(String(gid))?.رقم_الهاتف || '').trim() : '';
+                  })()
                 : String(guarantor?.رقم_الهاتف || '');
 
               const furnishingText = String(

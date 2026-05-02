@@ -21,8 +21,9 @@ import {
 } from '@/components/installments/installmentsUtils';
 import { daysBetweenDateOnlySafe, todayDateOnlyISO } from '@/utils/dateOnly';
 import { SearchEngine, type FilterRule } from '@/services/searchEngine';
-import { normalizeDigitsLoose } from '@/utils/searchNormalize';
+import { normalizeDigitsLoose, normalizeSearchText } from '@/utils/searchNormalize';
 import { getInstallmentPaidAndRemaining } from '@/utils/installments';
+import { getTenancyStatusScore, isTenancyRelevant } from '@/utils/tenancy';
 
 export type DomainEntity = DomainEntityType;
 
@@ -111,6 +112,29 @@ type PaymentNotificationTarget = {
 };
 
 const isDesktop = () => typeof window !== 'undefined' && !!window.desktopDb;
+
+/** إرشاد للمستخدم عند أخطاء SQLite الشائعة المرتبطة بتلف أو عدم اتساق ملف القاعدة */
+function sqliteFileCorruptionUserHint(sqlError: string): string {
+  if (
+    /database disk image is malformed|sqlite_corrupt|malformed database schema/i.test(
+      String(sqlError)
+    )
+  ) {
+    return ' يُنصح بإغلاق البرنامج بالكامل ثم إعادة تشغيله. إن تكرّر التحذير، استعد نسخة احتياطية من الإعدادات ← النسخ الاحتياطي (احتفظ بنسخة من ملف القاعدة الحالي للدعم الفني إن لزم).';
+  }
+  return '';
+}
+
+function formatDesktopKvMemoryFallbackError(sqlError: string): string {
+  const e = String(sqlError || '').trim();
+  return `${e} — عرض احتياطي من البيانات المحلية.${sqliteFileCorruptionUserHint(e)}`;
+}
+
+function formatDesktopSqlFailureOnly(sqlError: string, fallbackWhenEmpty: string): string {
+  const e = String(sqlError || '').trim();
+  const base = e || fallbackWhenEmpty;
+  return `${base}${sqliteFileCorruptionUserHint(base)}`;
+}
 
 export async function domainSearchGlobalSmart(
   query: string
@@ -233,6 +257,8 @@ export async function propertyPickerSearchSmart(
     } catch {
       // fall back
     }
+    const cap = Math.max(1, Math.min(200, Math.trunc(Number(payload.limit) || 200)));
+    return propertyPickerSearchPagedMemoryFallback({ ...payload, offset: 0, limit: cap }).items;
   }
 
   // Fallback: minimal, no joins.
@@ -240,20 +266,303 @@ export async function propertyPickerSearchSmart(
   return props.map((p) => ({ property: p }));
 }
 
+/** When domain SQL is unavailable, page properties from renderer KV (hydrated localStorage). */
+function propertyPickerSearchPagedMemoryFallback(
+  payload: PropertyPickerSearchPayload
+): { items: PropertyPickerItem[]; total: number } {
+  const properties = DbService.getProperties() || [];
+  if (!properties.length) return { items: [], total: 0 };
+
+  const people = DbService.getPeople() || [];
+  const contracts = DbService.getContracts() || [];
+
+  const peopleMap = new Map(people.map((p) => [String(p.رقم_الشخص), p]));
+
+  const activeContractByPropertyId = new Map<string, العقود_tbl>();
+  for (const c of contracts) {
+    if (!c?.رقم_العقار) continue;
+    if (!isTenancyRelevant(c)) continue;
+    const key = String(c.رقم_العقار);
+    const prev = activeContractByPropertyId.get(key);
+    if (!prev) {
+      activeContractByPropertyId.set(key, c);
+      continue;
+    }
+    const prevScore = getTenancyStatusScore(prev.حالة_العقد);
+    const nextScore = getTenancyStatusScore(c.حالة_العقد);
+    if (nextScore > prevScore) {
+      activeContractByPropertyId.set(key, c);
+      continue;
+    }
+    if (nextScore < prevScore) continue;
+    const a = String(prev.تاريخ_البداية || '');
+    const b = String(c.تاريخ_البداية || '');
+    if (b.localeCompare(a) > 0) activeContractByPropertyId.set(key, c);
+  }
+
+  const qRaw = String(payload.query || '').trim();
+  const qNorm = normalizeSearchText(qRaw);
+  const qDigits = normalizeDigitsLoose(qRaw);
+
+  const buildBlob = (p: العقارات_tbl): string => {
+    const propertyId = String(p.رقم_العقار ?? '');
+    const ownerName = normalizeSearchText(peopleMap.get(String(p.رقم_المالك))?.الاسم || '');
+    const currentContract = activeContractByPropertyId.get(propertyId);
+    const tenantName = currentContract?.رقم_المستاجر
+      ? normalizeSearchText(
+          peopleMap.get(String(currentContract.رقم_المستاجر))?.الاسم || ''
+        )
+      : '';
+    const guarantorId = currentContract?.رقم_الكفيل;
+    const guarantorName = guarantorId
+      ? normalizeSearchText(peopleMap.get(String(guarantorId))?.الاسم || '')
+      : '';
+    const parts = [
+      p.الكود_الداخلي,
+      p.العنوان,
+      p.النوع,
+      p.حالة_العقار,
+      p.رقم_قطعة,
+      p.رقم_لوحة,
+      p.رقم_شقة,
+      ownerName,
+      currentContract?.رقم_العقد,
+      tenantName,
+      guarantorName,
+    ]
+      .map((x) => normalizeSearchText(String(x ?? '')))
+      .filter(Boolean);
+    return parts.join(' ');
+  };
+
+  const extras = (p: العقارات_tbl) =>
+    p as unknown as {
+      نوع_التاثيث?: unknown;
+      isForRent?: unknown;
+      IsRented?: unknown;
+      isForSale?: unknown;
+      salePrice?: unknown;
+    };
+
+  const status = String(payload.status || '').trim();
+  const type = String(payload.type || '').trim();
+  const furnishing = String(payload.furnishing || '').trim();
+  const forceVacant = !!payload.forceVacant;
+  const occupancy = String(payload.occupancy || 'all');
+  const sale = String(payload.sale || '').trim();
+  const rent = String(payload.rent || '').trim();
+  const contractLink = String(payload.contractLink || 'all');
+
+  let result = properties.filter((p) => {
+    if (qNorm || qDigits) {
+      const blob = buildBlob(p);
+      let ok = !qNorm || blob.includes(qNorm);
+      if (!ok && qDigits) {
+        const owner = peopleMap.get(String(p.رقم_المالك));
+        const codeDigits = normalizeDigitsLoose(String(p.الكود_الداخلي || ''));
+        const ownerPhone = normalizeDigitsLoose(owner?.رقم_الهاتف || '');
+        const ownerNid = normalizeDigitsLoose(owner?.الرقم_الوطني || '');
+        ok =
+          codeDigits.includes(qDigits) ||
+          ownerPhone.includes(qDigits) ||
+          ownerNid.includes(qDigits);
+      }
+      if (!ok) return false;
+    }
+
+    const furnishingType = String(extras(p).نوع_التاثيث || '');
+    if (furnishing && furnishingType !== furnishing) return false;
+
+    const isForRent = extras(p).isForRent !== false;
+    if (rent === 'for-rent' && !isForRent) return false;
+    if (rent === 'not-for-rent' && isForRent === false) return false;
+
+    const isRentedValue = extras(p).IsRented;
+    const isRented =
+      typeof isRentedValue === 'boolean'
+        ? isRentedValue
+        : String(p.حالة_العقار || '').trim() === 'مؤجر';
+
+    if (forceVacant && isRented) return false;
+
+    const statusNorm = normalizeSearchText(status);
+    if (statusNorm === 'شاغر') {
+      if (isRented) return false;
+    } else if (statusNorm === 'مؤجر') {
+      if (!isRented) return false;
+    } else if (status && String(p.حالة_العقار || '').trim() !== status) {
+      return false;
+    }
+
+    if (type && String(p.النوع || '') !== type) return false;
+
+    if (occupancy === 'rented' && !isRented) return false;
+    if (occupancy === 'vacant' && isRented) return false;
+
+    const isForSale = !!extras(p).isForSale;
+    if (sale === 'for-sale' && !isForSale) return false;
+    if (sale === 'not-for-sale' && isForSale) return false;
+
+    const pid = String(p.رقم_العقار || '');
+    if (contractLink === 'linked' && !activeContractByPropertyId.has(pid)) return false;
+    if (contractLink === 'unlinked' && activeContractByPropertyId.has(pid)) return false;
+
+    return true;
+  });
+
+  const minArea = String(payload.minArea || '').trim();
+  const maxArea = String(payload.maxArea || '').trim();
+  const floor = String(payload.floor || '').trim();
+  if (minArea || maxArea || floor) {
+    const rules: FilterRule[] = [];
+    if (minArea) rules.push({ field: 'المساحة', operator: 'gte', value: minArea });
+    if (maxArea) rules.push({ field: 'المساحة', operator: 'lte', value: maxArea });
+    if (floor) rules.push({ field: 'الطابق', operator: 'contains', value: floor });
+    if (rules.length) result = SearchEngine.applyFilters(result, rules);
+  }
+
+  const minPrice = String(payload.minPrice || '').trim();
+  const maxPrice = String(payload.maxPrice || '').trim();
+  if (minPrice || maxPrice) {
+    const minN = Number(minPrice.replace(/[\s,]/g, '')) || 0;
+    const maxN = Number(maxPrice.replace(/[\s,]/g, '')) || Infinity;
+    result = result.filter((p) => {
+      const ex = extras(p);
+      const price = ex.isForSale
+        ? Number(ex.salePrice || 0)
+        : Number((p as unknown as { الإيجار_التقديري?: unknown }).الإيجار_التقديري || 0);
+      return price >= minN && price <= maxN;
+    });
+  }
+
+  const sort = String(payload.sort || 'code-asc').trim();
+  const updatedKey = (p: العقارات_tbl) => {
+    const anyP = p as unknown as Record<string, unknown>;
+    return String(anyP['updatedAt'] ?? anyP['تاريخ_التعديل'] ?? '').trim();
+  };
+  const idKey = (p: العقارات_tbl) => String(p.رقم_العقار || '').trim();
+  const codeKey = (p: العقارات_tbl) => String(p.الكود_الداخلي || '').trim();
+
+  const sorted = [...result];
+  if (sort === 'updated-asc') {
+    sorted.sort(
+      (a, b) => updatedKey(a).localeCompare(updatedKey(b)) || idKey(a).localeCompare(idKey(b))
+    );
+  } else if (sort === 'updated-desc') {
+    sorted.sort(
+      (a, b) => updatedKey(b).localeCompare(updatedKey(a)) || idKey(b).localeCompare(idKey(a))
+    );
+  } else if (sort === 'code-desc') {
+    sorted.sort(
+      (a, b) => codeKey(b).localeCompare(codeKey(a)) || idKey(b).localeCompare(idKey(a))
+    );
+  } else {
+    sorted.sort(
+      (a, b) => codeKey(a).localeCompare(codeKey(b)) || idKey(a).localeCompare(idKey(b))
+    );
+  }
+
+  const offset = Math.max(0, Math.trunc(Number(payload.offset) || 0));
+  const limit = Math.max(1, Math.min(500, Math.trunc(Number(payload.limit) || 200)));
+  const total = sorted.length;
+  const page = sorted.slice(offset, offset + limit);
+
+  const items: PropertyPickerItem[] = page.map((p) => {
+    const owner = peopleMap.get(String(p.رقم_المالك));
+    const activeContract = activeContractByPropertyId.get(String(p.رقم_العقار));
+    const tenant = activeContract?.رقم_المستاجر
+      ? peopleMap.get(String(activeContract.رقم_المستاجر))
+      : undefined;
+    const guarantor = activeContract?.رقم_الكفيل
+      ? peopleMap.get(String(activeContract.رقم_الكفيل))
+      : undefined;
+    const activeSummary = activeContract
+      ? {
+          contractId: String(activeContract.رقم_العقد || ''),
+          status: activeContract.حالة_العقد,
+          startDate: activeContract.تاريخ_البداية,
+          endDate: activeContract.تاريخ_النهاية,
+          tenantName: tenant ? String(tenant.الاسم || '').trim() : '',
+          tenantPhone: tenant ? String(tenant.رقم_الهاتف || '').trim() : '',
+          guarantorName: guarantor ? String(guarantor.الاسم || '').trim() : '',
+          guarantorPhone: guarantor ? String(guarantor.رقم_الهاتف || '').trim() : '',
+        }
+      : undefined;
+    return {
+      property: p,
+      ownerName: owner ? String(owner.الاسم || '').trim() : '',
+      ownerPhone: owner ? String(owner.رقم_الهاتف || '') : '',
+      ownerNationalId: owner ? String(owner.الرقم_الوطني || '') : '',
+      active: activeSummary as unknown as PropertyPickerItem['active'],
+    };
+  });
+
+  return { items, total };
+}
+
 export async function propertyPickerSearchPagedSmart(
   payload: PropertyPickerSearchPayload
-): Promise<{ items: PropertyPickerItem[]; total: number }> {
+): Promise<{ items: PropertyPickerItem[]; total: number; error?: string }> {
   if (isDesktop() && window.desktopDb?.domainPropertyPickerSearch) {
-    try {
-      const res: unknown = await window.desktopDb.domainPropertyPickerSearch(payload);
+    let sqlError = '';
+    const trySql = async (): Promise<{ items: PropertyPickerItem[]; total: number } | null> => {
+      const res: unknown = await window.desktopDb!.domainPropertyPickerSearch!(payload);
       if (isRecord(res) && hasUnknownProp(res, 'ok') && res.ok === true) {
         return {
           items: hasUnknownProp(res, 'items') ? asArray<PropertyPickerItem>(res.items) : [],
           total: hasUnknownProp(res, 'total') ? asNumber(res.total) : 0,
         };
       }
-    } catch {
-      // fall back
+      sqlError =
+        isRecord(res) && hasUnknownProp(res, 'message')
+          ? asString(res.message) || 'فشل تحميل العقارات (Desktop SQL)'
+          : 'فشل تحميل العقارات (Desktop SQL)';
+      return null;
+    };
+
+    try {
+      const first = await trySql();
+      if (first) return first;
+
+      if (window.desktopDb?.domainMigrate) {
+        try {
+          await window.desktopDb.domainMigrate();
+          const second = await trySql();
+          if (second) return second;
+        } catch {
+          // ignore
+        }
+      }
+
+      const mem = propertyPickerSearchPagedMemoryFallback(payload);
+      if (mem.total > 0 || mem.items.length > 0) {
+        return {
+          ...mem,
+          error: sqlError ? formatDesktopKvMemoryFallbackError(sqlError) : undefined,
+        };
+      }
+      return {
+        items: [],
+        total: 0,
+        error: sqlError?.trim() ? formatDesktopSqlFailureOnly(sqlError, '') : undefined,
+      };
+    } catch (e: unknown) {
+      sqlError =
+        isRecord(e) && hasUnknownProp(e, 'message')
+          ? asString(e.message) || 'فشل تحميل العقارات (Desktop SQL)'
+          : 'فشل تحميل العقارات (Desktop SQL)';
+      const mem = propertyPickerSearchPagedMemoryFallback(payload);
+      if (mem.total > 0 || mem.items.length > 0) {
+        return {
+          ...mem,
+          error: formatDesktopKvMemoryFallbackError(sqlError),
+        };
+      }
+      return {
+        items: [],
+        total: 0,
+        error: sqlError?.trim() ? formatDesktopSqlFailureOnly(sqlError, '') : undefined,
+      };
     }
   }
 
@@ -561,10 +870,14 @@ export async function contractPickerSearchPagedSmart(payload: {
       if (mem.total > 0 || mem.items.length > 0) {
         return {
           ...mem,
-          error: sqlError ? `${sqlError} — عرض احتياطي من البيانات المحلية.` : undefined,
+          error: sqlError ? formatDesktopKvMemoryFallbackError(sqlError) : undefined,
         };
       }
-      return { items: [], total: 0, error: sqlError || 'فشل تحميل العقود (Desktop SQL)' };
+      return {
+        items: [],
+        total: 0,
+        error: formatDesktopSqlFailureOnly(sqlError, 'فشل تحميل العقود (Desktop SQL)'),
+      };
     } catch (e: unknown) {
       sqlError =
         isRecord(e) && hasUnknownProp(e, 'message')
@@ -574,10 +887,14 @@ export async function contractPickerSearchPagedSmart(payload: {
       if (mem.total > 0 || mem.items.length > 0) {
         return {
           ...mem,
-          error: `${sqlError} — عرض احتياطي من البيانات المحلية.`,
+          error: formatDesktopKvMemoryFallbackError(sqlError),
         };
       }
-      return { items: [], total: 0, error: sqlError };
+      return {
+        items: [],
+        total: 0,
+        error: formatDesktopSqlFailureOnly(sqlError, 'فشل تحميل العقود (Desktop SQL)'),
+      };
     }
   }
 
@@ -861,10 +1178,12 @@ export async function contractDetailsSmart(
     }
   }
 
-  // Desktop safety: do not fall back to in-memory scans.
-  if (isDesktop()) return null;
-
-  return DbService.getContractDetails(cid) || null;
+  // Renderer KV / in-memory snapshot (desktop + web) when IPC أو المسار الكامل غير متاحين
+  try {
+    return DbService.getContractDetails(cid) || null;
+  } catch {
+    return null;
+  }
 }
 
 type SimpleResult = { success: boolean; message: string };

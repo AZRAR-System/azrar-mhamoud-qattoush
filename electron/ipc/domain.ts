@@ -22,6 +22,7 @@ import {
   domainPersonDetails,
   domainPersonTenancyContracts,
   domainPropertyContracts,
+  runDomainIpcWithSqliteCorruptionRetry,
 } from '../db';
 import { toErrorMessage } from '../utils/errors';
 import { isRecord } from '../utils/unknown';
@@ -30,7 +31,7 @@ export function registerDomain(deps: IpcDeps): void {
   void deps;
   ipcMain.handle('domain:status', () => {
     try {
-      return { ok: true, ...domainStatus() };
+      return runDomainIpcWithSqliteCorruptionRetry(() => ({ ok: true, ...domainStatus() }));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'تعذر قراءة حالة الجداول') };
     }
@@ -38,7 +39,7 @@ export function registerDomain(deps: IpcDeps): void {
   
   ipcMain.handle('domain:migrate', () => {
     try {
-      return domainMigrateFromKvIfNeeded();
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainMigrateFromKvIfNeeded());
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل الترحيل') };
     }
@@ -46,7 +47,7 @@ export function registerDomain(deps: IpcDeps): void {
   
   ipcMain.handle('domain:rebuildFromKv', () => {
     try {
-      return domainRebuildFromKv();
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainRebuildFromKv());
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل إعادة بناء الجداول من التخزين المحلي') };
     }
@@ -56,7 +57,7 @@ export function registerDomain(deps: IpcDeps): void {
     try {
       const id = ipc.getStringField(payload, 'id').trim();
       if (!id) return { ok: false, message: 'معرّف التقرير غير صالح' };
-      return runSqlReport(id);
+      return runDomainIpcWithSqliteCorruptionRetry(() => runSqlReport(id));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل توليد التقرير') };
     }
@@ -65,7 +66,7 @@ export function registerDomain(deps: IpcDeps): void {
   ipcMain.handle('domain:searchGlobal', (_e, payload: unknown) => {
     try {
       const q = ipc.trimString(ipc.getStringField(payload, 'query'), 128, 'نص البحث');
-      return domainSearchGlobal(q);
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainSearchGlobal(q));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل البحث') };
     }
@@ -79,7 +80,7 @@ export function registerDomain(deps: IpcDeps): void {
   
       const q = ipc.trimString(ipc.getStringField(payload, 'query'), 128, 'نص البحث');
       const limit = ipc.getOptionalNumberField(payload, 'limit');
-      return domainSearch(entity, q, limit);
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainSearch(entity, q, limit));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل البحث') };
     }
@@ -91,7 +92,7 @@ export function registerDomain(deps: IpcDeps): void {
       const entity: ipc.DomainEntity | null = ipc.isDomainEntity(entityRaw) ? entityRaw : null;
       if (!entity) return { ok: false, message: 'نوع غير مدعوم' };
       const id = ipc.trimString(ipc.getStringField(payload, 'id'), 128, 'المعرف');
-      return domainGetEntityById(entity, id);
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainGetEntityById(entity, id));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل قراءة البيانات') };
     }
@@ -99,7 +100,7 @@ export function registerDomain(deps: IpcDeps): void {
   
   ipcMain.handle('domain:counts', () => {
     try {
-      return domainCounts();
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainCounts());
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل قراءة الأعداد') };
     }
@@ -109,7 +110,9 @@ export function registerDomain(deps: IpcDeps): void {
     try {
       const todayYMD = ipc.trimString(ipc.getStringField(payload, 'todayYMD'), 10, 'تاريخ اليوم');
       const weekYMD = ipc.trimString(ipc.getStringField(payload, 'weekYMD'), 10, 'تاريخ الأسبوع');
-      return domainDashboardSummary({ todayYMD, weekYMD });
+      return runDomainIpcWithSqliteCorruptionRetry(() =>
+        domainDashboardSummary({ todayYMD, weekYMD })
+      );
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل ملخص لوحة التحكم') };
     }
@@ -119,7 +122,9 @@ export function registerDomain(deps: IpcDeps): void {
     try {
       const monthKey = ipc.trimString(ipc.getStringField(payload, 'monthKey'), 7, 'شهر');
       const prevMonthKey = ipc.trimString(ipc.getStringField(payload, 'prevMonthKey'), 7, 'شهر سابق');
-      return domainDashboardPerformance({ monthKey, prevMonthKey });
+      return runDomainIpcWithSqliteCorruptionRetry(() =>
+        domainDashboardPerformance({ monthKey, prevMonthKey })
+      );
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل الأداء المالي') };
     }
@@ -128,7 +133,7 @@ export function registerDomain(deps: IpcDeps): void {
   ipcMain.handle('domain:dashboard:highlights', (_e, payload: unknown) => {
     try {
       const todayYMD = ipc.trimString(ipc.getStringField(payload, 'todayYMD'), 10, 'تاريخ اليوم');
-      return domainDashboardHighlights({ todayYMD });
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainDashboardHighlights({ todayYMD }));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل مؤشرات لوحة التحكم') };
     }
@@ -142,7 +147,9 @@ export function registerDomain(deps: IpcDeps): void {
       );
       const todayYmdRaw = ipc.getStringField(payload, 'todayYMD');
       const todayYMD = todayYmdRaw ? ipc.trimString(todayYmdRaw, 10, 'تاريخ اليوم') : undefined;
-      return domainPaymentNotificationTargets({ daysAhead, todayYMD });
+      return runDomainIpcWithSqliteCorruptionRetry(() =>
+        domainPaymentNotificationTargets({ daysAhead, todayYMD })
+      );
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل إشعارات الدفعات') };
     }
@@ -152,7 +159,7 @@ export function registerDomain(deps: IpcDeps): void {
     try {
       const personId = String(ipc.getField(payload, 'personId') ?? payload ?? '').trim();
       if (!personId) return { ok: false, message: 'معرف غير صالح' };
-      return domainPersonDetails(personId);
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainPersonDetails(personId));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل قراءة بيانات الشخص') };
     }
@@ -162,7 +169,7 @@ export function registerDomain(deps: IpcDeps): void {
     try {
       const personId = String(ipc.getField(payload, 'personId') ?? payload ?? '').trim();
       if (!personId) return { ok: false, message: 'معرف غير صالح' };
-      return domainPersonTenancyContracts(personId);
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainPersonTenancyContracts(personId));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل جلب عقود الشخص') };
     }
@@ -173,7 +180,7 @@ export function registerDomain(deps: IpcDeps): void {
       const propertyId = String(ipc.getField(payload, 'propertyId') ?? payload ?? '').trim();
       if (!propertyId) return { ok: false, message: 'معرف غير صالح' };
       const limit = ipc.getOptionalNumberField(payload, 'limit');
-      return domainPropertyContracts(propertyId, limit);
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainPropertyContracts(propertyId, limit));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل قراءة عقود العقار') };
     }
@@ -183,7 +190,7 @@ export function registerDomain(deps: IpcDeps): void {
     try {
       const contractId = String(ipc.getField(payload, 'contractId') ?? payload ?? '').trim();
       if (!contractId) return { ok: false, message: 'معرف غير صالح' };
-      return domainContractDetails(contractId);
+      return runDomainIpcWithSqliteCorruptionRetry(() => domainContractDetails(contractId));
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل تفاصيل العقد') };
     }
@@ -537,25 +544,27 @@ export function registerDomain(deps: IpcDeps): void {
       const sort = ipc.trimString(ipc.getStringField(payload, 'sort'), 32, 'الترتيب');
       const offset = Math.max(0, Math.trunc(Number(ipc.getField(payload, 'offset')) || 0));
       const limit = ipc.getOptionalNumberField(payload, 'limit');
-      return domainPropertyPickerSearch({
-        query: q,
-        status,
-        type,
-        furnishing,
-        forceVacant,
-        occupancy: occupancy as unknown as 'all' | 'rented' | 'vacant',
-        sale: sale as unknown as 'for-sale' | 'not-for-sale' | '',
-        rent: rent as unknown as 'for-rent' | 'not-for-rent' | '',
-        minArea,
-        maxArea,
-        floor,
-        minPrice,
-        maxPrice,
-        contractLink: contractLink as unknown as '' | 'linked' | 'unlinked' | 'all',
-        sort,
-        offset,
-        limit,
-      });
+      return runDomainIpcWithSqliteCorruptionRetry(() =>
+        domainPropertyPickerSearch({
+          query: q,
+          status,
+          type,
+          furnishing,
+          forceVacant,
+          occupancy: occupancy as unknown as 'all' | 'rented' | 'vacant',
+          sale: sale as unknown as 'for-sale' | 'not-for-sale' | '',
+          rent: rent as unknown as 'for-rent' | 'not-for-rent' | '',
+          minArea,
+          maxArea,
+          floor,
+          minPrice,
+          maxPrice,
+          contractLink: contractLink as unknown as '' | 'linked' | 'unlinked' | 'all',
+          sort,
+          offset,
+          limit,
+        })
+      );
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل البحث عن العقارات') };
     }
@@ -604,20 +613,22 @@ export function registerDomain(deps: IpcDeps): void {
       const minValue = minValueRaw ? Number(minValueRaw) : undefined;
       const maxValue = maxValueRaw ? Number(maxValueRaw) : undefined;
   
-      return domainContractPickerSearch({
-        query: q,
-        offset,
-        limit,
-        tab,
-        sort,
-        createdMonth,
-        startDateFrom,
-        startDateTo,
-        endDateFrom,
-        endDateTo,
-        minValue: Number.isFinite(minValue as number) ? (minValue as number) : undefined,
-        maxValue: Number.isFinite(maxValue as number) ? (maxValue as number) : undefined,
-      });
+      return runDomainIpcWithSqliteCorruptionRetry(() =>
+        domainContractPickerSearch({
+          query: q,
+          offset,
+          limit,
+          tab,
+          sort,
+          createdMonth,
+          startDateFrom,
+          startDateTo,
+          endDateFrom,
+          endDateTo,
+          minValue: Number.isFinite(minValue as number) ? (minValue as number) : undefined,
+          maxValue: Number.isFinite(maxValue as number) ? (maxValue as number) : undefined,
+        })
+      );
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل البحث عن العقود') };
     }
@@ -634,18 +645,24 @@ export function registerDomain(deps: IpcDeps): void {
     const sort = ipc.trimString(ipc.getStringField(payload, 'sort'), 32, 'الترتيب');
     const offset = Math.max(0, Math.trunc(Number(ipc.getField(payload, 'offset')) || 0));
     const limit = Math.max(1, Math.min(200, Math.trunc(Number(ipc.getField(payload, 'limit')) || 48)));
-    return domainPeoplePickerSearch({
-      query: q,
-      role,
-      onlyIdleOwners,
-      address,
-      nationalId,
-      classification,
-      minRating,
-      sort,
-      offset,
-      limit,
-    });
+    try {
+      return runDomainIpcWithSqliteCorruptionRetry(() =>
+        domainPeoplePickerSearch({
+          query: q,
+          role,
+          onlyIdleOwners,
+          address,
+          nationalId,
+          classification,
+          minRating,
+          sort,
+          offset,
+          limit,
+        })
+      );
+    } catch (e: unknown) {
+      return { ok: false, message: toErrorMessage(e, 'فشل البحث عن الأشخاص') };
+    }
   });
   
   ipcMain.handle('domain:installments:contracts', (_e, payload: unknown) => {
@@ -668,18 +685,20 @@ export function registerDomain(deps: IpcDeps): void {
       const filterMaxAmount = ipc.getOptionalNumberField(payload, 'filterMaxAmount');
       const filterPaymentMethodRaw = ipc.getStringField(payload, 'filterPaymentMethod').trim().slice(0, 24);
       const filterPaymentMethod = filterPaymentMethodRaw || 'all';
-      return domainInstallmentsContractsSearch({
-        query: q,
-        filter,
-        sort,
-        offset,
-        limit,
-        filterStartDate,
-        filterEndDate,
-        filterMinAmount,
-        filterMaxAmount,
-        filterPaymentMethod,
-      });
+      return runDomainIpcWithSqliteCorruptionRetry(() =>
+        domainInstallmentsContractsSearch({
+          query: q,
+          filter,
+          sort,
+          offset,
+          limit,
+          filterStartDate,
+          filterEndDate,
+          filterMinAmount,
+          filterMaxAmount,
+          filterPaymentMethod,
+        })
+      );
     } catch (e: unknown) {
       return { ok: false, message: toErrorMessage(e, 'فشل تحميل الأقساط') };
     }
