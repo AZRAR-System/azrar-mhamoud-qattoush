@@ -132,7 +132,7 @@ export const NotificationCommandBar: React.FC<NotificationCommandBarProps> = ({
       </div>
 
       {/* Row 3: Category tabs */}
-      <div className="flex items-center gap-1.5 px-5 pb-3 overflow-x-auto scrollbar-hide">
+      <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-5 pb-3">
         {CATEGORY_TABS.map((tab) => {
           const Icon = tab.icon;
           const count = tab.id === 'all' ? totalCount : (columnCounts[tab.id] ?? 0);

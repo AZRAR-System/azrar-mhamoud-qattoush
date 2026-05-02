@@ -5,6 +5,7 @@
 import type { tbl_Alerts } from '@/types';
 import { العقود_tbl, الأشخاص_tbl, العقارات_tbl, الكمبيالات_tbl } from '@/types';
 import { notificationCenter } from '@/services/notificationCenter';
+import { hasArabicText, localizeNotificationCategory } from '@/services/notificationArabic';
 import { get, save } from './kv';
 import { KEYS } from './keys';
 import { logOperationInternal } from './operations/logger';
@@ -29,10 +30,18 @@ export function syncExistingAlertsToNotificationCenter() {
 
 function pushNewTblAlertToNotificationCenter(alert: tbl_Alerts) {
   try {
+    const kind = String(alert.نوع_التنبيه ?? '').trim();
+    const titleAr =
+      kind && hasArabicText(kind)
+        ? kind.length > 120
+          ? `${kind.slice(0, 117)}…`
+          : kind
+        : localizeNotificationCategory(String(alert.category ?? '')) || 'تنبيه';
+
     notificationCenter.add({
       id: `nc-tbl-${alert.id}`,
       type: alert.نوع_التنبيه === 'error' ? 'error' : 'warning',
-      title: String(alert.category ?? 'تنبيه'),
+      title: titleAr,
       message: String(alert.الوصف ?? ''),
       category: String(alert.category ?? 'alerts'),
       entityId: alert.مرجع_المعرف ? String(alert.مرجع_المعرف) : undefined,

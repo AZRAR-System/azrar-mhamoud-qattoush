@@ -13,6 +13,7 @@ import {
   Trash2,
   Tags,
   ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AppModal } from '@/components/ui/AppModal';
@@ -50,6 +51,12 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
     setExternalPage,
     commissionsForSelectedMonth,
     filteredCommissions,
+    filteredRenewalCommissions,
+    commissionsRenewalForSelectedMonth,
+    renewalTotalOwner,
+    renewalTotalTenant,
+    renewalGrandTotal,
+    getRenewalParentContractId,
     filteredExternal,
     filteredEmployeeRows,
     visibleEmployeeRows,
@@ -445,6 +452,221 @@ export const CommissionsPageView: FC<CommissionsPageViewProps> = ({ page }) => {
             </div>
           </StatsCardRow>
 
+          {/* عقود التجديد فقط — عقد إيجار مرتبط بعقد سابق (عقد_مرتبط) */}
+          <div className="app-card ring-1 ring-indigo-200/80 dark:ring-indigo-800/60 shadow-sm shadow-indigo-500/5">
+            <div className="flex flex-col gap-3 border-b border-indigo-100 bg-gradient-to-l from-indigo-50/90 to-white p-4 dark:border-indigo-900/40 dark:from-indigo-950/40 dark:to-slate-900 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/25">
+                  <RefreshCw size={20} aria-hidden />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white">عمولات عقود التجديد</h3>
+                  <p className="mt-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
+                    إيجار فقط — عقود لها عقد سابق (تجديد). الشهر {selectedMonth}
+                    {contractSearchTerm.trim() ? ' — يُطبَّق عليها نفس بحث العقود أعلاه' : ''}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs font-bold">
+                <span className="rounded-lg bg-white/80 px-2.5 py-1.5 text-indigo-800 shadow-sm dark:bg-slate-800 dark:text-indigo-200">
+                  {commissionsRenewalForSelectedMonth.length} عملية
+                </span>
+                <span className="rounded-lg bg-white/80 px-2.5 py-1.5 text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
+                  إجمالي: {formatCurrencyJOD(renewalGrandTotal)}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-3 p-4">
+              {commissionsForSelectedMonth.length === 0 ? (
+                <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-6">
+                  لا عمولات لهذا الشهر — لن تظهر عمولات التجديد حتى تُسجَّل عمولات للشهر.
+                </p>
+              ) : commissionsRenewalForSelectedMonth.length === 0 ? (
+                <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-6">
+                  لا توجد عمولات لعقود تجديد في هذا الشهر (لا عقود إيجار مرتبطة بعقد سابق ضمن العمولات المعروضة).
+                </p>
+              ) : filteredRenewalCommissions.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                  <Inbox className="h-9 w-9 text-slate-300 dark:text-slate-600" strokeWidth={1.25} aria-hidden />
+                  <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                    لا نتائج تطابق البحث ضمن عمولات التجديد
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setContractSearchTerm('')}>
+                    مسح البحث
+                  </Button>
+                </div>
+              ) : (
+                <div className="max-h-[min(28rem,70vh)] space-y-3 overflow-y-auto pr-1">
+                  {filteredRenewalCommissions.map((c) => {
+                    const parentId = getRenewalParentContractId(c);
+                    return (
+                      <div
+                        key={c.رقم_العمولة}
+                        className="app-card border border-indigo-100/80 bg-white/60 p-4 dark:border-indigo-900/30 dark:bg-slate-900/50"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
+                                تجديد
+                              </span>
+                              <span className="font-bold text-slate-800 dark:text-white">عمولة عقد</span>
+                              <span className="font-mono text-sm text-slate-500 dark:text-slate-400">
+                                #{formatContractNumberShort(c.رقم_العقد)}
+                              </span>
+                              {parentId ? (
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                  العقد السابق:{' '}
+                                  <b className="text-slate-700 dark:text-slate-200" dir="ltr">
+                                    #{formatContractNumberShort(parentId)}
+                                  </b>
+                                </span>
+                              ) : null}
+                              <span className="text-slate-500 dark:text-slate-400 text-sm">
+                                | عقار:{' '}
+                                <b className="text-slate-700 dark:text-slate-200">{getPropCode(c)}</b>
+                              </span>
+                            </div>
+                            <div className="text-sm text-slate-600 dark:text-slate-400">
+                              التاريخ:{' '}
+                              <b className="text-slate-700 dark:text-slate-200">{c.تاريخ_العقد}</b>
+                            </div>
+                            <div className="text-sm text-slate-600 dark:text-slate-400">
+                              رقم الفرصة:{' '}
+                              <b className="text-slate-900 dark:text-white" dir="ltr">
+                                {String(c.رقم_الفرصة || '—')}
+                              </b>
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 py-2.5 px-4 rounded-xl bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60">
+                              {(() => {
+                                const names = getNames(c);
+                                return (
+                                  <>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                        <Briefcase size={16} />
+                                      </div>
+                                      <div>
+                                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                          المالك
+                                        </span>
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                          {names.p1}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 border-r border-slate-200 pr-6 dark:border-slate-800">
+                                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                        <Users size={16} />
+                                      </div>
+                                      <div>
+                                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                          المستأجر
+                                        </span>
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                          {names.p2}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {names.p3 ? (
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                          <ShieldCheck size={16} aria-hidden />
+                                        </div>
+                                        <div>
+                                          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                            الكفيل
+                                          </span>
+                                          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                            {names.p3}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            {String(c.تاريخ_تحصيل_مؤجل || '').trim() ? (
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                تحصيل مؤجل إلى:{' '}
+                                <b className="text-slate-700 dark:text-slate-200">
+                                  {String(c.تاريخ_تحصيل_مؤجل)}
+                                </b>
+                                {String(c.جهة_تحصيل_مؤجل || '').trim() ? (
+                                  <span> — ({String(c.جهة_تحصيل_مؤجل)})</span>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditContractModal(c)}
+                              className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                              <Pencil size={16} aria-hidden /> تعديل
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handlePostponeCommissionCollection(c)}
+                              className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-200 dark:hover:bg-indigo-900/30"
+                            >
+                              <CornerDownRight size={16} aria-hidden /> تأجيل التحصيل
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteContractCommission(c)}
+                              className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30"
+                            >
+                              <Trash2 size={16} aria-hidden /> حذف
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                          <div className="rounded-xl bg-gray-50 p-3 dark:bg-slate-800">
+                            <div className="text-xs font-bold text-slate-500 dark:text-slate-400">عمولة المالك</div>
+                            <div className="text-lg font-bold text-slate-800 dark:text-white">
+                              {formatCurrencyJOD(Number(c.عمولة_المالك || 0))}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-gray-50 p-3 dark:bg-slate-800">
+                            <div className="text-xs font-bold text-slate-500 dark:text-slate-400">عمولة المستأجر</div>
+                            <div className="text-lg font-bold text-slate-800 dark:text-white">
+                              {formatCurrencyJOD(Number(c.عمولة_المستأجر || 0))}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-indigo-50 p-3 dark:bg-indigo-900/20">
+                            <div className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                              المجموع {c.يوجد_ادخال_عقار && (
+                                <span className="text-indigo-500">(+ إدخال)</span>
+                              )}
+                            </div>
+                            <div className="text-lg font-bold text-indigo-700 dark:text-indigo-300">
+                              {formatCurrencyJOD(Number(c.المجموع || 0))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            {(renewalTotalOwner > 0 || renewalTotalTenant > 0) && commissionsRenewalForSelectedMonth.length > 0 ? (
+              <div className="flex flex-wrap gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-400">
+                <span>
+                  من الملاك (تجديد):{' '}
+                  <b className="text-slate-900 dark:text-white">{formatCurrencyJOD(renewalTotalOwner)}</b>
+                </span>
+                <span className="hidden sm:inline text-slate-300 dark:text-slate-600">|</span>
+                <span>
+                  من المستأجرين (تجديد):{' '}
+                  <b className="text-slate-900 dark:text-white">{formatCurrencyJOD(renewalTotalTenant)}</b>
+                </span>
+              </div>
+            ) : null}
+          </div>
 
           <div className="app-card">
             <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between">

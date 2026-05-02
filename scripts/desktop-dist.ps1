@@ -339,6 +339,30 @@ function Remove-DirBestEffort(
   return $false
 }
 
+function Copy-WinUnpackedTree([string]$SourceRoot, [string]$DestRoot) {
+  New-Item -ItemType Directory -Force -Path $DestRoot | Out-Null
+
+  $null = (& robocopy $SourceRoot $DestRoot /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD resources)
+  if ($LASTEXITCODE -ge 8) {
+    throw ('robocopy (root) failed with exit code ' + $LASTEXITCODE)
+  }
+
+  $srcRes = Join-Path $SourceRoot 'resources'
+  $dstRes = Join-Path $DestRoot 'resources'
+  if (Test-Path $srcRes) {
+    New-Item -ItemType Directory -Force -Path $dstRes | Out-Null
+
+    $null = (& robocopy $srcRes $dstRes /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP)
+    if ($LASTEXITCODE -ge 8) {
+      Write-Host 'resources copy had errors (likely app.asar lock); retrying without app.asar'
+      $null = (& robocopy $srcRes $dstRes /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XF app.asar)
+      if ($LASTEXITCODE -ge 8) {
+        throw ('robocopy (resources) failed with exit code ' + $LASTEXITCODE)
+      }
+    }
+  }
+}
+
 if (Test-Path $stage) {
   Stop-LockingProcesses
   $null = Remove-DirBestEffort -Path $stage
@@ -472,13 +496,15 @@ if ($srcMap) {
 }
 
 $srcWU = Join-Path $stage 'win-unpacked'
+$winUnpackedKeepExtras = @()
 if (-not $SkipWinUnpacked -and (Test-Path $srcWU)) {
   $dstWU = Join-Path $final 'win-unpacked'
   $canReplace = $true
   # Prefer a clean destination, but do not hard-fail on locks unless StrictWinUnpacked was requested.
   if (Test-Path $dstWU) {
+    Stop-LockingProcesses
     try {
-      $removed = Remove-DirBestEffort -Path $dstWU
+      $removed = Remove-DirBestEffort -Path $dstWU -Retries 8 -DelayMs 450
       if (-not $removed) {
         throw ('Failed to remove directory after retries: ' + $dstWU)
       }
@@ -488,38 +514,38 @@ if (-not $SkipWinUnpacked -and (Test-Path $srcWU)) {
       if ($StrictWinUnpacked) {
         throw $msg
       }
-      Write-Warning ($msg -replace 'Will update in-place', 'Will skip copying win-unpacked')
+      Write-Warning ($msg -replace 'Will update in-place', 'Will copy to a stamped folder beside win-unpacked')
     }
   }
   if (-not $canReplace) {
-    Write-Warning 'Skipping win-unpacked copy due to file lock. Installer and update files were still generated.'
-  } else {
-    New-Item -ItemType Directory -Force -Path $dstWU | Out-Null
-
-    $null = (& robocopy $srcWU $dstWU /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD resources)
-    # robocopy exit codes: 0-7 success (including "mismatch" and "extra"); 8+ indicates a failure.
-    if ($LASTEXITCODE -ge 8) {
-      throw ('robocopy (root) failed with exit code ' + $LASTEXITCODE)
+    $stampForDir = Get-Date -Format 'yyyyMMdd_HHmmss'
+    $altWU = Join-Path $final ('win-unpacked_' + $stampForDir)
+    try {
+      Copy-WinUnpackedTree -SourceRoot $srcWU -DestRoot $altWU
+      $winUnpackedKeepExtras += (Split-Path $altWU -Leaf)
+      $hint = @(
+        $altWU
+        ''
+        'release2_build\win-unpacked is still locked (often AZRAR.exe or Explorer preview). Close the app and rebuild to refresh the default folder, or run AZRAR.exe from the path above.'
+      ) -join "`r`n"
+      Set-Content -LiteralPath (Join-Path $final 'WIN_UNPACKED_LATEST.txt') -Encoding utf8 -Value $hint
+      $winUnpackedKeepExtras += 'WIN_UNPACKED_LATEST.txt'
+      Write-Host ('Fresh win-unpacked for this build: ' + $altWU)
+    } catch {
+      Write-Warning ('Stamped win-unpacked copy failed: ' + $_.Exception.Message)
+      Write-Warning 'Skipping win-unpacked copy due to file lock. Installer and update files were still generated.'
     }
-
-    $srcRes = Join-Path $srcWU 'resources'
-    $dstRes = Join-Path $dstWU 'resources'
-    if (Test-Path $srcRes) {
-      New-Item -ItemType Directory -Force -Path $dstRes | Out-Null
-
-      $null = (& robocopy $srcRes $dstRes /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP)
-      if ($LASTEXITCODE -ge 8) {
-        Write-Host 'resources copy had errors (likely app.asar lock); retrying without app.asar'
-        $null = (& robocopy $srcRes $dstRes /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XF app.asar)
-        if ($LASTEXITCODE -ge 8) {
-          throw ('robocopy (resources) failed with exit code ' + $LASTEXITCODE)
-        }
-      }
+  } else {
+    try {
+      Copy-WinUnpackedTree -SourceRoot $srcWU -DestRoot $dstWU
+      Remove-Item -LiteralPath (Join-Path $final 'WIN_UNPACKED_LATEST.txt') -Force -ErrorAction SilentlyContinue
+    } catch {
+      throw
     }
   }
 }
 
-$keepNames = @($expectedExeName,$expectedMapName,'win-unpacked','.icon-ico')
+$keepNames = @($expectedExeName,$expectedMapName,'win-unpacked','.icon-ico') + $winUnpackedKeepExtras
 foreach ($meta in @('latest.yml','builder-effective-config.yaml','builder-debug.yml')) {
   if (Test-Path (Join-Path $final $meta)) {
     $keepNames += $meta

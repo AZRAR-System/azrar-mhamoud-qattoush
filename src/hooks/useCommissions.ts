@@ -82,6 +82,10 @@ const personDisplayName = (p: unknown) =>
 const personIdFromRow = (p: unknown) =>
   pickRecordField(p, ['رقم_الشخص', 'id', 'personId']);
 
+/** عقد إيجار ناتج عن تجديد: يشير إلى العقد السابق */
+const contractRenewalParentId = (contract: unknown) =>
+  pickRecordField(contract, ['عقد_مرتبط', 'parentContractId', 'previousContractId']);
+
 export const useCommissions = (isVisible: boolean) => {
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     try {
@@ -654,30 +658,84 @@ export const useCommissions = (isVisible: boolean) => {
     [commissions, selectedMonth]
   );
 
+  const commissionIsRenewalRental = useCallback(
+    (comm: العمولات_tbl): boolean => {
+      if ((comm.نوع_العمولة || 'Rental') === 'Sale') return false;
+      const contractId = String(comm.رقم_العقد || '').trim();
+      if (!contractId) return false;
+
+      if (isDesktopFast) {
+        void fastCacheVersion;
+        const contract = fastContractByIdRef.current.get(contractId.toLowerCase());
+        if (!contract) return false;
+        return Boolean(asTrimmedString(contractRenewalParentId(contract)));
+      }
+
+      const contract = contracts.find((x) => idEq(x.رقم_العقد, contractId));
+      if (!contract) return false;
+      return Boolean(asTrimmedString(contractRenewalParentId(contract)));
+    },
+    [isDesktopFast, fastCacheVersion, contracts]
+  );
+
+  const getRenewalParentContractId = useCallback(
+    (comm: العمولات_tbl): string => {
+      if ((comm.نوع_العمولة || 'Rental') === 'Sale') return '';
+      const contractId = String(comm.رقم_العقد || '').trim();
+      if (!contractId) return '';
+      if (isDesktopFast) {
+        void fastCacheVersion;
+        const contract = fastContractByIdRef.current.get(contractId.toLowerCase());
+        return asTrimmedString(contractRenewalParentId(contract));
+      }
+      const contract = contracts.find((x) => idEq(x.رقم_العقد, contractId));
+      return asTrimmedString(contractRenewalParentId(contract));
+    },
+    [isDesktopFast, fastCacheVersion, contracts]
+  );
+
+  const commissionsRenewalForSelectedMonth = useMemo(
+    () => commissionsForSelectedMonth.filter(commissionIsRenewalRental),
+    [commissionsForSelectedMonth, commissionIsRenewalRental]
+  );
+
+  const applyContractCommissionSearch = useCallback(
+    (list: العمولات_tbl[]) => {
+      const q = contractSearchTerm.trim().toLowerCase();
+      if (!q) return list;
+      return list.filter((c) => {
+        const type = c.نوع_العمولة || 'Rental';
+        const ref = type === 'Rental' ? (c.رقم_العقد || '') : (c.رقم_الاتفاقية || '');
+        const prop = getPropCode(c);
+        const names = getNames(c);
+        const blob = [
+          formatContractNumberShort(ref),
+          String(ref),
+          prop,
+          names.p1,
+          names.p2,
+          names.p3,
+          String(c.رقم_الفرصة || ''),
+          type === 'Rental' ? 'إيجار' : 'بيع',
+        ]
+          .join(' ')
+          .toLowerCase();
+        return blob.includes(q);
+      });
+    },
+    [contractSearchTerm, getNames, getPropCode]
+  );
+
   /** قائمة العرض (شهر + بحث نصي داخل التبويب) */
-  const filteredCommissions = useMemo(() => {
-    const q = contractSearchTerm.trim().toLowerCase();
-    if (!q) return commissionsForSelectedMonth;
-    return commissionsForSelectedMonth.filter((c) => {
-      const type = c.نوع_العمولة || 'Rental';
-      const ref = type === 'Rental' ? (c.رقم_العقد || '') : (c.رقم_الاتفاقية || '');
-      const prop = getPropCode(c);
-      const names = getNames(c);
-      const blob = [
-        formatContractNumberShort(ref),
-        String(ref),
-        prop,
-        names.p1,
-        names.p2,
-        names.p3,
-        String(c.رقم_الفرصة || ''),
-        type === 'Rental' ? 'إيجار' : 'بيع',
-      ]
-        .join(' ')
-        .toLowerCase();
-      return blob.includes(q);
-    });
-  }, [commissionsForSelectedMonth, contractSearchTerm, getNames, getPropCode]);
+  const filteredCommissions = useMemo(
+    () => applyContractCommissionSearch(commissionsForSelectedMonth),
+    [commissionsForSelectedMonth, applyContractCommissionSearch]
+  );
+
+  const filteredRenewalCommissions = useMemo(
+    () => applyContractCommissionSearch(commissionsRenewalForSelectedMonth),
+    [commissionsRenewalForSelectedMonth, applyContractCommissionSearch]
+  );
 
   /** سطح المكتب السريع: تحميل العقد/الاتفاقية ثم العقار والأطراف */
   useEffect(() => {
@@ -796,10 +854,24 @@ export const useCommissions = (isVisible: boolean) => {
       }
 
       // 2. Hydrate Sales Agreements (and related Property/Person)
+      // Desktop: domainGet does not include 'agreements' — domainGetSmart returns null; use KV cache.
+      const agreementsFromKv = (): اتفاقيات_البيع_tbl[] => {
+        try {
+          return DbService.getSalesAgreements();
+        } catch {
+          return [];
+        }
+      };
+
       for (const aid of agreementIds.slice(0, 150)) {
         if (!alive) return;
         try {
-          const agreement = await domainGetSmart('agreements', aid);
+          let agreement = (await domainGetSmart('agreements', aid)) as اتفاقيات_البيع_tbl | null;
+          if (!agreement) {
+            agreement =
+              agreementsFromKv().find((a) => idEq(a.id, aid)) ||
+              null;
+          }
           if (agreement) {
             fastAgreementByIdRef.current.set(String(aid).toLowerCase(), agreement);
             const pid = pickRecordField(agreement, ['رقم_العقار', 'property_id', 'propertyId']);
@@ -953,6 +1025,17 @@ export const useCommissions = (isVisible: boolean) => {
     return acc + Number((isSale ? curr.عمولة_المشتري : curr.عمولة_المستأجر) || 0);
   }, 0);
   const grandTotalContracts = totalOwner + totalTenant;
+
+  const renewalTotalOwner = commissionsRenewalForSelectedMonth.reduce(
+    (acc, curr) => acc + Number(curr.عمولة_المالك || 0),
+    0
+  );
+  const renewalTotalTenant = commissionsRenewalForSelectedMonth.reduce(
+    (acc, curr) => acc + Number(curr.عمولة_المستأجر || 0),
+    0
+  );
+  const renewalGrandTotal = renewalTotalOwner + renewalTotalTenant;
+
   const totalExternal = filteredExternal.reduce((acc, curr) => acc + curr.القيمة, 0);
 
   const externalMonthTotal = useMemo(() => {
@@ -1253,6 +1336,12 @@ export const useCommissions = (isVisible: boolean) => {
     setExternalPage,
     commissionsForSelectedMonth,
     filteredCommissions,
+    filteredRenewalCommissions,
+    commissionsRenewalForSelectedMonth,
+    renewalTotalOwner,
+    renewalTotalTenant,
+    renewalGrandTotal,
+    getRenewalParentContractId,
     filteredExternal,
     filteredEmployeeRows,
     visibleEmployeeRows,

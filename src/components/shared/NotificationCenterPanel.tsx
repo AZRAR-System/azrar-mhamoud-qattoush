@@ -19,6 +19,7 @@ import { applyOfficialBrandSignature } from '@/utils/brandSignature';
 import { openExternalUrl } from '@/utils/externalLink';
 import type { العقود_tbl, الكمبيالات_tbl } from '@/types';
 import { cn } from '@/utils/cn';
+import { localizeNotificationCategory, localizeNotificationTitle } from '@/services/notificationArabic';
 
 /* ─── helpers ─── */
 
@@ -103,16 +104,6 @@ function iconBg(type: NotificationCenterType, urgent?: boolean, category?: strin
     default:        return 'bg-indigo-50 dark:bg-indigo-900/20';
   }
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  Financial: 'مالي', financial: 'مالي', payment: 'تحصيل', overdue: 'متأخرات',
-  contracts: 'عقود', installments: 'أقساط', maintenance: 'صيانة',
-  system: 'نظام', info: 'معلومات', contract_renewal: 'تجديد عقد',
-  blacklist: 'قائمة سوداء', risk: 'مخاطر', collection: 'تحصيل',
-  payments: 'دفعات', scheduled_financial_report: 'تقرير مالي',
-  whatsapp_auto: 'واتساب تلقائي', whatsapp_auto_before: 'تذكير واتساب',
-  whatsapp_auto_due: 'استحقاق واتساب', whatsapp_auto_late: 'تأخر واتساب',
-};
 
 /* ─── main component ─── */
 
@@ -263,61 +254,86 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
         style={{ maxHeight: 'calc(100vh - 90px)' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/20">
-            <Bell size={16} />
+      {/* ── Header + شريط التصنيف (كتلة واحدة لتفادي خط مزدوج أو شريط بعيد عن المحتوى) ── */}
+      <div className="shrink-0 border-b border-slate-200/90 dark:border-slate-700/90 bg-white dark:bg-slate-900">
+        <div className="flex items-center justify-between gap-2 px-4 pt-3.5 pb-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="shrink-0 rounded-xl bg-indigo-600 p-2 text-white shadow-md shadow-indigo-500/20">
+              <Bell size={16} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-black leading-none text-slate-800 dark:text-white">
+                الإشعارات
+              </h2>
+              {unreadCount > 0 && (
+                <p className="mt-0.5 text-[10px] font-bold text-indigo-500">{unreadCount} غير مقروء</p>
+              )}
+            </div>
           </div>
-          <div>
-            <h2 className="text-[15px] font-black text-slate-800 dark:text-white leading-none">الإشعارات</h2>
+          <div className="flex shrink-0 items-center gap-0.5">
             {unreadCount > 0 && (
-              <p className="text-[10px] text-indigo-500 font-bold mt-0.5">{unreadCount} غير مقروء</p>
+              <button
+                type="button"
+                onClick={() => markAllRead()}
+                title="قراءة الكل"
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-400"
+              >
+                <CheckCheck size={14} /> <span className="hidden sm:inline">قراءة الكل</span>
+              </button>
             )}
+            <button
+              type="button"
+              onClick={() => clear()}
+              title="مسح الكل"
+              className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-900/20"
+            >
+              <Trash2 size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          {unreadCount > 0 && (
-            <button onClick={() => markAllRead()}
-              title="قراءة الكل"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-400 transition-colors">
-              <CheckCheck size={14} /> قراءة الكل
-            </button>
-          )}
-          <button onClick={() => clear()}
-            title="مسح الكل"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors">
-            <Trash2 size={14} />
-          </button>
-          <button onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-      </div>
 
-      {/* ── Category tabs ── */}
-      <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-hide shrink-0">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0',
-              tab === t.id
-                ? t.activeColor + ' shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-            )}
+        <div className="px-3 pb-3 pt-1">
+          <div
+            role="tablist"
+            aria-label="تصفية الإشعارات"
+            className="no-scrollbar flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-2xl bg-slate-100/90 p-1 ring-1 ring-slate-200/80 dark:bg-slate-800/80 dark:ring-slate-600/60"
           >
-            {t.label}
-            {t.id !== 'all' && items.filter(i => matchesTab(i, t.id) && !i.read).length > 0 && (
-              <span className={cn('text-[9px] font-black px-1 py-0.5 rounded-full leading-none',
-                tab === t.id ? 'bg-white/20' : 'bg-white dark:bg-slate-700 text-slate-500')}>
-                {items.filter(i => matchesTab(i, t.id) && !i.read).length}
-              </span>
-            )}
-          </button>
-        ))}
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-[11px] font-bold transition-all',
+                  tab === t.id
+                    ? `${t.activeColor} shadow-sm ring-1 ring-black/5 dark:ring-white/10`
+                    : 'text-slate-600 hover:bg-white/80 dark:text-slate-300 dark:hover:bg-slate-700/80'
+                )}
+              >
+                {t.label}
+                {t.id !== 'all' && items.filter((i) => matchesTab(i, t.id) && !i.read).length > 0 && (
+                  <span
+                    className={cn(
+                      'rounded-full px-1 py-0.5 text-[9px] font-black leading-none',
+                      tab === t.id ? 'bg-white/25 text-inherit' : 'bg-white text-slate-600 dark:bg-slate-600 dark:text-slate-200'
+                    )}
+                  >
+                    {items.filter((i) => matchesTab(i, t.id) && !i.read).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── List ── */}
@@ -355,7 +371,7 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className={cn('text-[13px] leading-snug', !item.read ? 'font-bold text-slate-800 dark:text-white' : 'font-medium text-slate-500 dark:text-slate-400')}>
-                        {item.title}
+                        {localizeNotificationTitle(item.title, item.category)}
                         {item.urgent && (
                           <span className="mr-1.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 align-middle">عاجل</span>
                         )}
@@ -370,8 +386,8 @@ export const NotificationCenterPanel: React.FC<Props> = ({ onClose }) => {
                     </p>
 
                     <div className="flex items-center gap-1.5 mt-1.5">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
-                        {CATEGORY_LABELS[item.category] || item.category}
+                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                        {localizeNotificationCategory(item.category)}
                       </span>
                     </div>
 
