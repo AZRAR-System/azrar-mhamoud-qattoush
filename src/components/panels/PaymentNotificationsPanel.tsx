@@ -5,7 +5,8 @@ import { formatDateOnly, parseDateOnly, toDateOnly, daysBetweenDateOnly } from '
 import { notificationService } from '@/services/notificationService';
 import { openWhatsAppForPhones } from '@/utils/whatsapp';
 import { getDefaultWhatsAppCountryCodeSync } from '@/services/geoSettings';
-import { NotificationTemplates } from '@/services/notificationTemplates';
+import { fillTemplate, NotificationTemplates } from '@/services/notificationTemplates';
+import { getTemplate } from '@/services/db/messageTemplates';
 import { paymentNotificationTargetsSmart } from '@/services/domainQueries';
 import { useSmartModal } from '@/context/ModalContext';
 
@@ -34,6 +35,8 @@ const getOptionalNumberProp = (value: unknown, key: string): number | undefined 
   return undefined;
 };
 
+/** نفس المعرّف في محرر النماذج (M2) وفي `notificationTemplates` الافتراضية */
+const INSTALLMENT_REMINDER_SUMMARY_TEMPLATE_ID = 'installment_reminder_upcoming_summary_fixed';
 
 const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
   const isDesktop = typeof window !== 'undefined' && !!window.desktopDb;
@@ -98,18 +101,29 @@ const buildWhatsAppMessage = (t: PaymentNotificationTarget) => {
     })
     .join('\n');
 
-  const fixed = NotificationTemplates.getById('installment_reminder_upcoming_summary_fixed');
-  if (fixed && fixed.enabled) {
-    const base = NotificationTemplates.fill(fixed, {
-      اسم_المستأجر: t.tenantName,
-      جزء_العقار: t.propertyCode ? ` للعقار (${t.propertyCode})` : '',
-      المستحقات_القريبة: lines,
-      الإجمالي: Number(total || 0).toLocaleString('en-US'),
-    });
+  const fillCtx = {
+    اسم_المستأجر: t.tenantName,
+    جزء_العقار: t.propertyCode ? ` للعقار (${t.propertyCode})` : '',
+    المستحقات_القريبة: lines,
+    الإجمالي: Number(total || 0).toLocaleString('en-US'),
+  };
 
-    const hasPayInfo = base.includes('طريقة الدفع');
-    const extra = `\n\nبيانات الدفع:\n• نظام الدفع بالعقد: ${paymentPlanLabel}\n• تكرار الدفع: ${freqLabel}\n\n${paymentInstructions}`;
-    return hasPayInfo ? base : `${base}${extra}`;
+  const meta = NotificationTemplates.getById(INSTALLMENT_REMINDER_SUMMARY_TEMPLATE_ID);
+  if (meta && meta.enabled === false) {
+    // القالب معطّل في مدير النماذج — لا نستخدم نص المستخدم ولا المدمج
+  } else {
+    // M2: قوالب قابلة للتعديل (تجاوزات KV) ثم نفس نص المدمج عبر getTemplate
+    const rawFromStore = getTemplate(INSTALLMENT_REMINDER_SUMMARY_TEMPLATE_ID);
+    if (String(rawFromStore || '').trim()) {
+      try {
+        const base = fillTemplate(rawFromStore, fillCtx);
+        const hasPayInfo = base.includes('طريقة الدفع');
+        const extra = `\n\nبيانات الدفع:\n• نظام الدفع بالعقد: ${paymentPlanLabel}\n• تكرار الدفع: ${freqLabel}\n\n${paymentInstructions}`;
+        return hasPayInfo ? base : `${base}${extra}`;
+      } catch {
+        // يكمل إلى الاحتياطي المضمّن
+      }
+    }
   }
 
   // Fallback if the fixed template is missing or disabled
@@ -127,6 +141,8 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [selectedGuarantors, setSelectedGuarantors] = useState<Record<string, boolean>>({});
   const [isSending, setIsSending] = useState(false);
+  /** يحدّث ذاكرة التخزين المؤقت لسجلات «تم الإرسال اليوم» بعد كل إرسال */
+  const [sendLogEpoch, setSendLogEpoch] = useState(0);
   const { openPanel } = useSmartModal();
 
   const loadTargets = useCallback(async () => {
@@ -164,7 +180,7 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
     };
   }, [loadTargets]);
 
-  const sentTodayByContract = (() => {
+  const sentTodayByContract = useMemo(() => {
     const logs = DbService.getNotificationSendLogs();
     const todayIso = formatDateOnly(new Date());
     const sent = new Set<string>();
@@ -174,7 +190,7 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
       if (date === todayIso && l.contractId) sent.add(l.contractId);
     }
     return sent;
-  })();
+  }, [sendLogEpoch, targets]);
 
   const totals = useMemo(() => {
     const allItems = targets.flatMap((t) => t.items);
@@ -222,6 +238,7 @@ export const PaymentNotificationsPanel: React.FC<PaymentNotificationsPanelProps>
       sentAt: new Date().toISOString(),
       message,
     });
+    setSendLogEpoch((e) => e + 1);
 
     const settings = DbService.getSettings();
     await openWhatsAppForPhones(message, phones, {
