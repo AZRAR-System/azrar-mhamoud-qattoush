@@ -29,6 +29,11 @@ win-unpacked/
 .icon-ico/
 .icon-icns/
 
+# Local / IDE noise (never commit)
+.claude/
+# Accidental esbuild outdir if `%TEMP%` was passed literally on Windows
+%TEMP%/
+
 # Logs
 logs/
 *.log
