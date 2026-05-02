@@ -27,6 +27,10 @@ module.exports = {
         'scale-up': 'scaleUp 0.2s ease-out',
         marquee: 'marquee 40s linear infinite',
         'pulse-subtle': 'pulseSubtle 2s ease-in-out infinite',
+        /** أيقونات شريط التطبيق — حركة لمرة واحدة عند hover */
+        'header-bell-nudge': 'headerBellNudge 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97) 1',
+        'header-sun-wink': 'headerSunWink 0.65s ease-out 1',
+        'header-server-breathe': 'headerServerBreathe 2.2s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -48,6 +52,22 @@ module.exports = {
         marquee: {
           '0%': { transform: 'translateX(100%)' },
           '100%': { transform: 'translateX(-100%)' },
+        },
+        headerBellNudge: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '20%': { transform: 'rotate(-14deg)' },
+          '40%': { transform: 'rotate(12deg)' },
+          '60%': { transform: 'rotate(-8deg)' },
+          '80%': { transform: 'rotate(4deg)' },
+        },
+        headerSunWink: {
+          '0%, 100%': { transform: 'rotate(0deg) scale(1)' },
+          '35%': { transform: 'rotate(-18deg) scale(1.08)' },
+          '65%': { transform: 'rotate(14deg) scale(1.05)' },
+        },
+        headerServerBreathe: {
+          '0%, 100%': { filter: 'drop-shadow(0 0 0 transparent)' },
+          '50%': { filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.45))' },
         },
       },
     },

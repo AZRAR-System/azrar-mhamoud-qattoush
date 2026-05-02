@@ -412,28 +412,42 @@ const Header = memo(({
 
         <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></div>
 
-        <div className="flex items-center gap-2">
+        <div
+          className="flex items-center gap-0.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/55 bg-gradient-to-b from-white/95 via-slate-50/90 to-slate-100/85 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:from-slate-800/90 dark:via-slate-900/85 dark:to-slate-950/90 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+          role="toolbar"
+          aria-label="أدوات سريعة"
+        >
           {hasDesktopBridge && sqlStatus && (
             <button
+              type="button"
+              aria-label="إعدادات المخدم والمزامنة"
               onClick={() =>
                 onOpenPanel('SERVER_DRAWER', undefined, {
                   title: 'إعدادات المخدم',
                   initialSection: 'server',
                 })
               }
-              className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 transition-all hover:scale-105 active:scale-95 ${
+              className={`group/sql relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl outline-none transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-indigo-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.96] dark:focus-visible:ring-offset-slate-900 ${
                 sqlStatus?.enabled
                   ? sqlStatus?.connected
-                    ? 'text-emerald-600 dark:text-emerald-400 shadow-emerald-500/10'
-                    : 'text-red-600 dark:text-red-400 shadow-red-500/10'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`}
+                    ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/[0.12] dark:hover:bg-emerald-400/[0.12] hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.55)]'
+                    : 'text-red-600 dark:text-red-400 hover:bg-red-500/[0.1] dark:hover:bg-red-400/[0.1] hover:shadow-[0_0_18px_-6px_rgba(239,68,68,0.45)]'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/50'
+              } hover:scale-105`}
             >
-              <Server size={20} />
+              <Server
+                size={20}
+                strokeWidth={2}
+                className={`transition-transform duration-200 group-hover/sql:scale-110 ${
+                  sqlStatus?.enabled && sqlStatus?.connected ? 'motion-safe:animate-header-server-breathe' : ''
+                }`}
+              />
               {sqlStatus?.enabled && (
                 <span
-                  className={`absolute top-2 right-2 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 animate-pulse ${
-                    sqlStatus?.connected ? 'bg-emerald-500' : 'bg-red-500'
+                  className={`pointer-events-none absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-white/95 dark:ring-slate-900 motion-safe:animate-pulse ${
+                    sqlStatus?.connected
+                      ? 'bg-emerald-500 shadow-[0_0_10px_2px_rgba(16,185,129,0.45)]'
+                      : 'bg-red-500 shadow-[0_0_8px_2px_rgba(239,68,68,0.35)]'
                   }`}
                 />
               )}
@@ -442,26 +456,44 @@ const Header = memo(({
 
           <button
             type="button"
+            aria-label={isDark ? 'التبديل إلى الوضع الفاتح' : 'التبديل إلى الوضع الداكن'}
             onClick={toggleTheme}
-            className="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-yellow-300 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm active:rotate-12"
+            className="group/theme relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 outline-none transition-all duration-200 ease-out hover:scale-105 hover:bg-slate-200/70 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-indigo-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-slate-400 dark:hover:bg-slate-700/55 dark:hover:text-amber-300 dark:focus-visible:ring-offset-slate-900 hover:text-indigo-600"
           >
-            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+            {isDark ? (
+              <Sun
+                size={20}
+                strokeWidth={2}
+                className="origin-center text-inherit transition-colors duration-300 motion-safe:group-hover/theme:animate-header-sun-wink group-hover/theme:text-amber-400"
+              />
+            ) : (
+              <Moon
+                size={20}
+                strokeWidth={2}
+                className="origin-center text-inherit transition-[transform,color] duration-300 group-hover/theme:-rotate-12 group-hover/theme:text-indigo-600"
+              />
+            )}
           </button>
 
           <button
             type="button"
+            aria-label="الإشعارات"
             onClick={onNotificationsClick}
-            className={`relative p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm ${
+            className={`group/bell relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl outline-none transition-all duration-200 ease-out hover:scale-105 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-indigo-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
               unreadCount === 0
-                ? 'text-slate-500 dark:text-slate-400 hover:text-indigo-600'
+                ? 'text-slate-500 hover:bg-slate-200/70 dark:text-slate-400 dark:hover:bg-slate-700/50 hover:text-indigo-600 dark:hover:text-indigo-300'
                 : headerBadgeVariant === 'urgent'
-                  ? 'text-red-600 dark:text-red-400 hover:text-red-700'
+                  ? 'text-red-600 hover:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/15'
                   : headerBadgeVariant === 'collection'
-                    ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+                    ? 'text-blue-600 hover:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/15'
+                    : 'text-slate-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-700/50 hover:text-indigo-600'
             }`}
           >
-            <Bell size={20} />
+            <Bell
+              size={20}
+              strokeWidth={2}
+              className="origin-top motion-safe:group-hover/bell:animate-header-bell-nudge"
+            />
             <span className="pointer-events-none absolute -top-1 -right-1 flex h-[26px] min-w-[26px] items-center justify-center">
               {hasUnreadUrgent && unreadCount > 0 && (
                 <span

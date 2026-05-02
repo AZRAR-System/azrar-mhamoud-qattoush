@@ -233,17 +233,25 @@ export const SmartFilterBar: React.FC<SmartFilterBarProps> = (props) => {
   );
 
   // Compatibility Logic: Row 2 (Filters)
-  const renderFilters = () => {
+  // ملاحظة: مصفوفة فلاتر فارغة [] تُعدّ truthy في JS؛ يجب دمج children (مثل شهر العمولات) وليس استبداله.
+  const renderFilterChips = (): React.ReactNode => {
     if (React.isValidElement(filters) || typeof filters === 'string') {
-        return filters;
+      return filters;
     }
-    if (Array.isArray(filters)) {
-        return (filters as FilterChipProps[]).map((f) => <FilterChip key={f.id} {...f} />);
+    if (Array.isArray(filters) && filters.length > 0) {
+      return (filters as FilterChipProps[]).map((f) => <FilterChip key={f.id} {...f} />);
     }
     return null;
   };
 
-  const finalFilters = renderFilters() || children;
+  const chips = renderFilterChips();
+  const finalFilters =
+    chips || children ? (
+      <>
+        {chips}
+        {children}
+      </>
+    ) : null;
 
   // Compatibility Logic: Row 3
   const finalPagination = pagination || (

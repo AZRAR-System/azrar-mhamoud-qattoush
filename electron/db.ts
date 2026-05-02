@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { app, dialog, safeStorage } from 'electron';
+import { app, dialog, safeStorage, shell } from 'electron';
 import { createRequire } from 'node:module';
 import type BetterSqlite3 from 'better-sqlite3';
 import fs from 'node:fs/promises';
@@ -287,6 +287,65 @@ function removeSqliteSidecarFilesSync(dbFilePath: string): void {
   }
 }
 
+/** يجمع مرشحي *.sqlite تحت مجلد backups/ (نسخ يومية، مجلدات يدوية، ملفات مسطّحة). */
+function collectSqliteBackupsFromBackupTreeSync(
+  backupRoot: string,
+  pushIfValid: (candidatePath: string) => void
+): void {
+  if (!fsSync.existsSync(backupRoot)) return;
+
+  const datedFolders = fsSync
+    .readdirSync(backupRoot, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(e.name))
+    .map((e) => e.name)
+    .sort((a, b) => b.localeCompare(a));
+
+  for (const dateDir of datedFolders) {
+    const namedPath = path.join(backupRoot, dateDir, 'khaberni.sqlite');
+    pushIfValid(namedPath);
+    try {
+      const entries = fsSync.readdirSync(path.join(backupRoot, dateDir));
+      for (const e of entries) {
+        if (e.toLowerCase().endsWith('.sqlite')) {
+          pushIfValid(path.join(backupRoot, dateDir, e));
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  try {
+    for (const ent of fsSync.readdirSync(backupRoot, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(ent.name)) continue;
+      const sub = path.join(backupRoot, ent.name);
+      try {
+        for (const f of fsSync.readdirSync(sub)) {
+          if (f.toLowerCase().endsWith('.sqlite')) {
+            pushIfValid(path.join(sub, f));
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    for (const ent of fsSync.readdirSync(backupRoot, { withFileTypes: true })) {
+      if (!ent.isFile()) continue;
+      if (ent.name.toLowerCase().endsWith('.sqlite')) {
+        pushIfValid(path.join(backupRoot, ent.name));
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * يجمع كل مسارات SQLite الصالحة للاستعادة (نسخ يومية، نسخ ما قبل التحديث، ملفات مباشرة تحت backups/)
  * ويختار الأحدث حسب mtime. يستبعد الملف التالف نفسه.
@@ -311,65 +370,34 @@ function findLatestSqliteBackupForRepairSync(corruptedPath: string): string | nu
   const dataDir = path.dirname(corruptedPath);
   const backupRoot = path.join(dataDir, 'backups');
 
-  if (fsSync.existsSync(backupRoot)) {
-    // 1) Preferred: dated folders YYYY-MM-DD (newest folder name first), first sqlite hit per folder
-    const datedFolders = fsSync
-      .readdirSync(backupRoot, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(e.name))
-      .map((e) => e.name)
-      .sort((a, b) => b.localeCompare(a));
+  collectSqliteBackupsFromBackupTreeSync(backupRoot, pushIfValid);
 
-    for (const dateDir of datedFolders) {
-      const namedPath = path.join(backupRoot, dateDir, 'khaberni.sqlite');
-      pushIfValid(namedPath);
+  // مجلدات تطبيق أخرى تحت نفس مستوى Roaming (تغيير اسم المنتج يترك نسخاً في مجلد سابق)
+  try {
+    const roamingParent = path.dirname(dataDir);
+    const selfName = path.basename(dataDir);
+    for (const dirName of safeReaddirDirsSync(roamingParent)) {
+      if (dirName === selfName) continue;
+      collectSqliteBackupsFromBackupTreeSync(path.join(roamingParent, dirName, 'backups'), pushIfValid);
       try {
-        const entries = fsSync.readdirSync(path.join(backupRoot, dateDir));
-        for (const e of entries) {
-          if (e.toLowerCase().endsWith('.sqlite')) {
-            pushIfValid(path.join(backupRoot, dateDir, e));
+        const sibMandatory = path.join(roamingParent, dirName, 'mandatory-backups');
+        if (fsSync.existsSync(sibMandatory)) {
+          for (const name of fsSync.readdirSync(sibMandatory)) {
+            if (!name.toLowerCase().endsWith('.sqlite')) continue;
+            pushIfValid(path.join(sibMandatory, name));
           }
         }
       } catch {
         /* ignore */
       }
     }
-
-    // 2) Any other subfolder under backups/ (non-ISO names, manual copies)
-    try {
-      for (const ent of fsSync.readdirSync(backupRoot, { withFileTypes: true })) {
-        if (!ent.isDirectory()) continue;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(ent.name)) continue;
-        const sub = path.join(backupRoot, ent.name);
-        try {
-          for (const f of fsSync.readdirSync(sub)) {
-            if (f.toLowerCase().endsWith('.sqlite')) {
-              pushIfValid(path.join(sub, f));
-            }
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-
-    // 3) SQLite files placed directly under backups/
-    try {
-      for (const ent of fsSync.readdirSync(backupRoot, { withFileTypes: true })) {
-        if (!ent.isFile()) continue;
-        if (ent.name.toLowerCase().endsWith('.sqlite')) {
-          pushIfValid(path.join(backupRoot, ent.name));
-        }
-      }
-    } catch {
-      /* ignore */
-    }
+  } catch {
+    /* ignore */
   }
 
-  // 4) Pre-update / mandatory backups (electron/ipc/context.ts) — same userData tree
+  // 4) Pre-update / mandatory backups — بجانب ملف القاعدة (يعمل مع AZRAR_DESKTOP_DB_PATH أيضاً)
   try {
-    const mandatoryRoot = path.join(app.getPath('userData'), 'mandatory-backups');
+    const mandatoryRoot = path.join(dataDir, 'mandatory-backups');
     if (fsSync.existsSync(mandatoryRoot)) {
       for (const name of fsSync.readdirSync(mandatoryRoot)) {
         if (!name.toLowerCase().endsWith('.sqlite')) continue;
@@ -397,13 +425,41 @@ function repairCorruptedDatabaseSync(corruptedPath: string): boolean {
     const backupPath = findLatestSqliteBackupForRepairSync(corruptedPath);
 
     if (!backupPath) {
-      dialog.showMessageBoxSync({
+      const dataDir = path.dirname(corruptedPath);
+      const backupsHint = path.join(dataDir, 'backups');
+      const mandatoryHint = path.join(dataDir, 'mandatory-backups');
+      const roamingSiblingHint = path.dirname(dataDir);
+      const detailLines = [
+        'لا يمكن إصلاح الملف التالف تلقائياً دون ملف .sqlite سليم (نسخة احتياطية).',
+        '',
+        `• ملف القاعدة الحالي:\n  ${corruptedPath}`,
+        '',
+        `• انسخ أي نسخة سليمة ثم أعد تشغيل التطبيق (بعد إغلاقه بالكامل)، إلى أحد المسارين:`,
+        `  - ${path.join(backupsHint, 'YYYY-MM-DD', 'khaberni.sqlite')}  (أنشئ مجلد التاريخ إن لزم)`,
+        `  - ${mandatoryHint}`,
+        '',
+        `• إن وُجد مجلد تطبيق قديم بجانب الحالي، راجع مجلد backups داخله تحت:\n  ${roamingSiblingHint}`,
+        '',
+        '• بدء قاعدة فارغة (فقدان كل البيانات المحلية): أغلق التطبيق، احذف الملف أعلاه وملفات khaberni.sqlite-wal و khaberni.sqlite-shm، ثم شغّل التطبيق من جديد.',
+        '',
+        'يمكنك التواصل مع الدعم الفني إن لم تملك أي نسخة خارجية.',
+      ];
+      const choice = dialog.showMessageBoxSync({
         type: 'error',
         title: 'فشل استعادة البيانات',
         message: 'تم اكتشاف تلف في قاعدة البيانات ولكن تعذر العثور على أي نسخ احتياطية لاستعادتها.',
-        detail: 'يرجى التواصل مع الدعم الفني لإصلاح المشكلة يدوياً.',
-        buttons: ['إغلاق'],
+        detail: detailLines.join('\n'),
+        buttons: ['فتح مجلد بيانات التطبيق', 'إغلاق'],
+        defaultId: 1,
+        cancelId: 1,
       });
+      if (choice === 0) {
+        try {
+          void shell.openPath(dataDir);
+        } catch {
+          /* ignore */
+        }
+      }
       return false;
     }
 
