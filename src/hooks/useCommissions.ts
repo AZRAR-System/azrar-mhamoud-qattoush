@@ -639,15 +639,23 @@ export const useCommissions = (isVisible: boolean) => {
   const getCommissionMonthKey = (c: العمولات_tbl) => {
     const paidMonth = asTrimmedString(c.شهر_دفع_العمولة);
     if (/^\d{4}-\d{2}$/.test(paidMonth)) return paidMonth;
-    
-    // Fallback to تاريخ_العقد
-    const dateStr = asTrimmedString(c.تاريخ_العقد);
+
+    let dateStr = asTrimmedString(c.تاريخ_العقد);
+    if (dateStr.includes('T')) {
+      dateStr = asTrimmedString(dateStr.split('T')[0]);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr.slice(0, 7);
     if (/^\d{4}-\d{2}/.test(dateStr)) return dateStr.slice(0, 7);
-    
-    // Support DD/MM/YYYY if found
+
     if (/\d{1,2}\/\d{1,2}\/\d{4}/.test(dateStr)) {
       const parts = dateStr.split('/');
-      return `${parts[2]}-${parts[1].padStart(2, '0')}`;
+      if (parts.length >= 3) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}`;
+      }
+    }
+    const loose = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(dateStr);
+    if (loose) {
+      return `${loose[1]}-${loose[2].padStart(2, '0')}`;
     }
     return '';
   };

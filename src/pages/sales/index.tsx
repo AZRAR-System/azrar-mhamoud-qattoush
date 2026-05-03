@@ -101,22 +101,41 @@ const SalesComponent: React.FC = () => {
     }
   }, [selectedListing, toast, loadData]);
 
-  const handleCreateAgreement = useCallback(async (data: Partial<اتفاقيات_البيع_tbl>) => {
-    const res = selectedAgreement?.id 
-      ? DbService.updateSalesAgreement(selectedAgreement.id, data)
-      : DbService.addSalesAgreement({ ...data, listingId: selectedListing?.id });
-      
-    if (res.success) {
-      toast.success(res.message);
-      setIsAgreementModalOpen(false);
-      setSelectedAgreement(null);
-      loadData();
-    } else {
-      toast.error(res.message);
-    }
-  }, [selectedAgreement, selectedListing, toast, loadData]);
+  const handleCreateAgreement = useCallback(
+    async (data: Partial<اتفاقيات_البيع_tbl>) => {
+      const listingId = String(data.listingId || selectedListing?.id || '').trim();
+      const buyerId = String(data.رقم_المشتري || '').trim();
+
+      if (!listingId) {
+        toast.error('يرجى اختيار عرض البيع (العقار) المرتبط بالاتفاقية من الخطوة الأولى.');
+        return;
+      }
+      if (!buyerId) {
+        toast.error('يرجى تحديد المشتري: اختر عرض شراء معلّق، أو أدخل رقم المشتري عند غياب العروض.');
+        return;
+      }
+
+      const payload: Partial<اتفاقيات_البيع_tbl> = { ...data, listingId, رقم_المشتري: buyerId };
+
+      const res = selectedAgreement?.id
+        ? DbService.updateSalesAgreement(selectedAgreement.id, payload)
+        : DbService.addSalesAgreement(payload);
+
+      if (res.success) {
+        toast.success(res.message);
+        setIsAgreementModalOpen(false);
+        setSelectedAgreement(null);
+        setSelectedListing(null);
+        loadData();
+      } else {
+        toast.error(res.message);
+      }
+    },
+    [selectedAgreement, selectedListing, toast, loadData]
+  );
 
   const handleEditAgreement = useCallback((agreement: اتفاقيات_البيع_tbl) => {
+    setSelectedListing(null);
     setSelectedAgreement(agreement);
     setIsAgreementModalOpen(true);
   }, []);
@@ -162,7 +181,11 @@ const SalesComponent: React.FC = () => {
         listingMarketingFilter={listingMarketingFilter}
         setListingMarketingFilter={setListingMarketingFilter}
         onNewListing={() => setIsListingModalOpen(true)}
-        onNewAgreement={() => setIsAgreementModalOpen(true)}
+        onNewAgreement={() => {
+          setSelectedAgreement(null);
+          setSelectedListing(null);
+          setIsAgreementModalOpen(true);
+        }}
         totalResults={
           activeTab === 'listings' ? listings.length :
           activeTab === 'offers' ? offers.length :
@@ -239,7 +262,11 @@ const SalesComponent: React.FC = () => {
 
       <AgreementModal
         isOpen={isAgreementModalOpen}
-        onClose={() => setIsAgreementModalOpen(false)}
+        onClose={() => {
+          setIsAgreementModalOpen(false);
+          setSelectedAgreement(null);
+          setSelectedListing(null);
+        }}
         onSubmit={handleCreateAgreement}
         listings={listings}
         offers={offers}

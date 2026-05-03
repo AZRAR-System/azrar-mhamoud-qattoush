@@ -127,6 +127,28 @@ export const upsertCommissionForContract = (
   return ok(record);
 };
 
+/** تطبيع تاريخ العمولة إلى YYYY-MM-DD واشتقاق شهر محاسبي YYYY-MM */
+const normalizeCommissionDateAndMonth = (raw?: string): { ymd: string; ym: string } => {
+  const fallbackYmd = new Date().toISOString().split('T')[0]!;
+  const s0 = String(raw || '').trim();
+  const s = s0.includes('T') ? String(s0.split('T')[0] || '').trim() : s0;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return { ymd: s, ym: s.slice(0, 7) };
+  if (/^\d{4}-\d{2}$/.test(s)) return { ymd: `${s}-01`, ym: s };
+  if (/\d{1,2}\/\d{1,2}\/\d{4}/.test(s)) {
+    const p = s.split('/');
+    if (p.length >= 3) {
+      const ymd = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+      return { ymd, ym: ymd.slice(0, 7) };
+    }
+  }
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+  if (m) {
+    const ymd = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    return { ymd, ym: ymd.slice(0, 7) };
+  }
+  return { ymd: fallbackYmd, ym: fallbackYmd.slice(0, 7) };
+};
+
 export const upsertCommissionForSale = (
   agreementId: string,
   data: {
@@ -142,10 +164,13 @@ export const upsertCommissionForSale = (
   const existingId = `COM-SALE-${agreementId}`;
   const idx = all.findIndex((c) => c.رقم_العمولة === existingId);
 
+  const { ymd: dateYmd, ym: paidMonth } = normalizeCommissionDateAndMonth(data.date);
+
   const record: العمولات_tbl = {
     رقم_العمولة: existingId,
     رقم_الاتفاقية: agreementId,
-    تاريخ_العقد: data.date || new Date().toISOString().split('T')[0],
+    تاريخ_العقد: dateYmd,
+    شهر_دفع_العمولة: paidMonth,
     نوع_العمولة: 'Sale',
     عمولة_البائع: data.sellerComm,
     عمولة_المشتري: data.buyerComm,

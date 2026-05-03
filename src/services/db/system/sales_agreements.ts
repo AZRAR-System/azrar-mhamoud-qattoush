@@ -201,14 +201,27 @@ export function createSalesHandlers(deps: SalesDeps) {
   const addSalesAgreement = (agreement: Partial<اتفاقيات_البيع_tbl>): DbResult<اتفاقيات_البيع_tbl> => {
     if (!agreement.listingId) return fail('رقم عرض البيع مطلوب');
     if (!agreement.رقم_المشتري) return fail('رقم المشتري مطلوب');
-  
+
     const all = get<اتفاقيات_البيع_tbl>(KEYS.SALES_AGREEMENTS);
+    const dup = all.find((a) => a.listingId === agreement.listingId && !a.isCompleted);
+    if (dup) return fail('توجد اتفاقية قيد الإجراء لهذا العرض بالفعل — أكملها أو عدّلها قبل إنشاء اتفاقية جديدة.');
+
+    const listings = get<عروض_البيع_tbl>(KEYS.SALES_LISTINGS);
+    const lIdx = listings.findIndex((l) => l.id === agreement.listingId);
+    if (lIdx !== -1 && listings[lIdx].الحالة === 'Active') {
+      listings[lIdx].الحالة = 'Pending';
+      save(KEYS.SALES_LISTINGS, listings);
+    }
+
     const next: اتفاقيات_البيع_tbl = {
       id: `AGR-${Date.now()}`,
       listingId: agreement.listingId,
       رقم_المشتري: agreement.رقم_المشتري,
       رقم_العقار: agreement.رقم_العقار,
       رقم_البائع: agreement.رقم_البائع,
+      رقم_الفرصة: agreement.رقم_الفرصة,
+      يوجد_ادخال_عقار: agreement.يوجد_ادخال_عقار,
+      اسم_المستخدم: agreement.اسم_المستخدم,
       السعر_النهائي: agreement.السعر_النهائي || 0,
       عمولة_البائع: agreement.عمولة_البائع || 0,
       عمولة_المشتري: agreement.عمولة_المشتري || 0,
@@ -218,9 +231,10 @@ export function createSalesHandlers(deps: SalesDeps) {
       تاريخ_الاتفاقية: agreement.تاريخ_الاتفاقية || new Date().toISOString().split('T')[0],
       طريقة_الدفع: agreement.طريقة_الدفع || 'Cash',
       isCompleted: false,
-      ملاحظات: agreement.ملاحظات
+      ملاحظات: agreement.ملاحظات,
+      transferDate: agreement.transferDate,
     };
-  
+
     all.push(next);
     save(KEYS.SALES_AGREEMENTS, all);
 
@@ -242,7 +256,8 @@ export function createSalesHandlers(deps: SalesDeps) {
   const updateSalesAgreement = (id: string, updates: Partial<اتفاقيات_البيع_tbl>): DbResult<null> => {
     const all = get<اتفاقيات_البيع_tbl>(KEYS.SALES_AGREEMENTS);
     const idx = all.findIndex((a) => a.id === id);
-    if (idx === -1) return fail('Agreement not found');
+    if (idx === -1) return fail('الاتفاقية غير موجودة');
+    if (all[idx].isCompleted) return fail('لا يمكن تعديل اتفاقية بعد إتمام نقل الملكية');
 
     const prev = all[idx];
     all[idx] = { ...prev, ...updates };

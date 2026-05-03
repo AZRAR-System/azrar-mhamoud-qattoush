@@ -155,6 +155,19 @@ describe('upsertCommissionForSale', () => {
     expect(r.success).toBe(true);
     expect((r.data as any).المجموع).toBe(800);
     expect((r.data as any).نوع_العمولة).toBe('Sale');
+    expect((r.data as any).شهر_دفع_العمولة).toMatch(/^\d{4}-\d{2}$/);
+    expect((r.data as any).تاريخ_العقد).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test('sets accounting month from ISO datetime date string', () => {
+    const r = upsertCommissionForSale('AGR-DT', {
+      sellerComm: 10,
+      buyerComm: 20,
+      date: '2024-03-18T12:00:00.000Z',
+    });
+    expect(r.success).toBe(true);
+    expect((r.data as any).شهر_دفع_العمولة).toBe('2024-03');
+    expect((r.data as any).تاريخ_العقد).toBe('2024-03-18');
   });
 
   test('updates existing sale commission', () => {
@@ -177,6 +190,7 @@ describe('upsertCommissionForSale', () => {
     expect(r.success).toBe(true);
     expect((r.data as any).المجموع).toBe(900);
     expect((r.data as any).يوجد_ادخال_عقار).toBe(true);
+    expect((r.data as any).شهر_دفع_العمولة).toMatch(/^\d{4}-\d{2}$/);
   });
 });
 

@@ -5,6 +5,7 @@ import { Check, FileSignature, AlertCircle, Coins, BadgePercent, CheckCircle } f
 import { Modal } from '@/components/shared/Modal';
 import { اتفاقيات_البيع_tbl, عروض_البيع_tbl, عروض_الشراء_tbl } from '@/types';
 import { formatCurrencyJOD } from '@/utils/format';
+import { useToast } from '@/context/ToastContext';
 
 const t = (s: string) => s;
 
@@ -31,6 +32,7 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
   employees,
   initialData
 }) => {
+  const toast = useToast();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<اتفاقيات_البيع_tbl>>({
     listingId: '',
@@ -59,6 +61,7 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
   // Load initial data
   useEffect(() => {
     if (initialData && isOpen) {
+      setStep(1);
       setFormData({
         ...initialData,
         تاريخ_الاتفاقية: initialData.تاريخ_الاتفاقية || new Date().toISOString().split('T')[0],
@@ -69,8 +72,9 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
         buyer: (Number(initialData.عمولة_المشتري) / price) * 100
       });
     } else if (!initialData && isOpen) {
-       // Reset for new creation
-       setFormData({
+      setStep(1);
+      // Reset for new creation
+      setFormData({
         listingId: '',
         عرض_الشراء_الرقم: '',
         رقم_المشتري: '',
@@ -86,11 +90,17 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
         transferDate: '',
         ملاحظات: '',
         موظف_إدخال_العقار: '',
-        عمولة_إدخال_عقار: 0
+        عمولة_إدخال_عقار: 0,
       });
       setCommPercentages({ seller: 0, buyer: 0 });
     }
   }, [initialData, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setStep(1);
+    }
+  }, [isOpen]);
 
   // Handle Percentage Changes
   const handlePctChange = (type: 'seller' | 'buyer', pct: string) => {
@@ -148,18 +158,37 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
   }, [offers, formData.listingId, formData.عرض_الشراء_الرقم]);
 
   const handleSubmit = () => {
+    const listingId = String(formData.listingId || '').trim();
+    const buyerId = String(formData.رقم_المشتري || '').trim();
+    if (!listingId) {
+      toast.warning('اختر عرض البيع من الخطوة الأولى قبل الاعتماد.');
+      setStep(1);
+      return;
+    }
+    if (!buyerId) {
+      toast.warning('حدد المشتري: اختر عرض شراء معلّق، أو أدخل رقم المشتري (معرّف الشخص) عند غياب العروض.');
+      setStep(1);
+      return;
+    }
+    const price = Number(formData.السعر_النهائي) || 0;
+    if (price <= 0) {
+      toast.warning('أدخل سعر البيع النهائي (أكبر من صفر) في خطوة السعر والعمولة.');
+      setStep(2);
+      return;
+    }
+
     onSubmit({
       ...formData,
-      السعر_النهائي: Number(formData.السعر_النهائي),
+      listingId,
+      رقم_المشتري: buyerId,
+      السعر_النهائي: price,
       عمولة_البائع: Number(formData.عمولة_البائع),
       عمولة_المشتري: Number(formData.عمولة_المشتري),
       العمولة_الإجمالية: Number(formData.العمولة_الإجمالية),
       إجمالي_المصاريف: Number(formData.إجمالي_المصاريف),
       موظف_إدخال_العقار: formData.موظف_إدخال_العقار,
-      عمولة_إدخال_عقار: Number(formData.عمولة_إدخال_عقار)
+      عمولة_إدخال_عقار: Number(formData.عمولة_إدخال_عقار),
     });
-    onClose();
-    setStep(1);
   };
 
   const handleListingChange = (id: string) => {
@@ -246,9 +275,30 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
                       ))}
                     </select>
                   ) : (
-                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-xl text-sm flex items-center gap-2 border border-amber-100 dark:border-amber-800">
-                      <AlertCircle size={18} />
-                      {t('لا توجد عروض شراء معلقة لهذا العقار. يمكنك المتابعة بدون ربط عرض محدد.')}
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                        <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                        <span>
+                          {t(
+                            'لا توجد عروض شراء معلّقة لهذا العرض. أدخل أدناه معرّف المشتري (رقم الشخص) يدوياً لإكمال الاتفاقية.'
+                          )}
+                        </span>
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-xs font-black text-slate-600 dark:text-slate-400">
+                          {t('معرّف المشتري (رقم الشخص) — مطلوب')}
+                        </label>
+                        <Input
+                          type="text"
+                          dir="ltr"
+                          className="font-mono"
+                          value={formData.رقم_المشتري || ''}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, رقم_المشتري: e.target.value.trim() }))
+                          }
+                          placeholder={t('رقم الشخص من سجل الأشخاص')}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -437,9 +487,32 @@ export const AgreementModal: React.FC<AgreementModalProps> = ({
           )}
           <div className="flex-1" />
           {step < steps.length ? (
-            <Button 
-              type="button" 
-              onClick={() => setStep(step + 1)} 
+            <Button
+              type="button"
+              onClick={() => {
+                if (step === 1) {
+                  if (!String(formData.listingId || '').trim()) {
+                    toast.warning('اختر عرض البيع أولاً.');
+                    return;
+                  }
+                  if (availableOffers.length > 0 && !String(formData.عرض_الشراء_الرقم || '').trim()) {
+                    toast.warning('اختر عرض الشراء المرتبط، أو انتظر قبول عرض قبل إنشاء الاتفاقية.');
+                    return;
+                  }
+                  if (!String(formData.رقم_المشتري || '').trim()) {
+                    toast.warning('حدد المشتري عبر عرض الشراء أو أدخل رقم الشخص في الحقل أعلاه.');
+                    return;
+                  }
+                }
+                if (step === 2) {
+                  const p = Number(formData.السعر_النهائي) || 0;
+                  if (p <= 0) {
+                    toast.warning('أدخل السعر النهائي للبيع (أكبر من صفر).');
+                    return;
+                  }
+                }
+                setStep(step + 1);
+              }}
               disabled={step === 1 && !formData.listingId}
               className="px-12 rounded-xl font-black h-12 bg-indigo-600 shadow-lg shadow-indigo-600/20"
             >
