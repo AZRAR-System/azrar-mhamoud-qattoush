@@ -1404,3 +1404,6 @@ export const useCommissions = (isVisible: boolean) => {
     loadData,
   };
 };
+
+/** نموذج حالة صفحة العمولات — alias واحد مع شكل إرجاع الـ hook (لا حقول منسوخة) */
+export type CommissionsPageModel = ReturnType<typeof useCommissions>;

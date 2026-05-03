@@ -170,7 +170,7 @@ describe('CommissionsPageView', () => {
     expect(screen.getByText('العمولات والإيرادات')).toBeInTheDocument();
     expect(screen.getByText(/الشهر المحاسبي النشط/)).toBeInTheDocument();
     expect(screen.getByText('2025-06')).toBeInTheDocument();
-    expect(screen.getByText('لوحة مقارنة سريعة')).toBeInTheDocument();
+    expect(screen.getByText('إجماليات سريعة')).toBeInTheDocument();
     expect(screen.getByTestId('commissions-filter-bar')).toHaveAttribute('data-active-tab', 'contracts');
   });
 
