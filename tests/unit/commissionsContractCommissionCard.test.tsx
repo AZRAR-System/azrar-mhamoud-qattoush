@@ -147,8 +147,12 @@ describe('CommissionsContractCommissionCard', () => {
     expect(screen.getByText(/\(مالك\)/)).toBeInTheDocument();
   });
 
-  test('flags property intro in total cell when يوجد_ادخال_عقار', () => {
-    const c: العمولات_tbl = { ...baseRental(), يوجد_ادخال_عقار: true };
+  test('flags property intro line when يوجد_ادخال_عقار', () => {
+    const c: العمولات_tbl = {
+      ...baseRental(),
+      يوجد_ادخال_عقار: true,
+      عمولة_إدخال_عقار: 10,
+    };
     render(
       <CommissionsContractCommissionCard
         c={c}
@@ -160,6 +164,6 @@ describe('CommissionsContractCommissionCard', () => {
         onDelete={onDelete}
       />
     );
-    expect(screen.getByText(/\+ إدخال عقار/)).toBeInTheDocument();
+    expect(screen.getByText(/إدخال عقار \(5% للموظف فقط\)/)).toBeInTheDocument();
   });
 });

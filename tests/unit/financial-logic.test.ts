@@ -46,13 +46,15 @@ describe('Financial Logic - Comprehensive Suite', () => {
       نوع_العمولة: 'Sale',
       عمولة_البائع: 1000,
       عمولة_المشتري: 1000,
-      عمولة_إدخال_عقار: 500,
-      المجموع: 2500
+      يوجد_ادخال_عقار: true,
+      عمولة_إدخال_عقار: 100,
+      المجموع: 2000,
     }];
     (get as jest.Mock).mockReturnValue(existing);
     const result = updateCommission('COM-SALE-1', { عمولة_المشتري: 2000 });
     expect(result.success).toBe(true);
-    expect((result.data as any).المجموع).toBe(3500);
+    expect((result.data as any).المجموع).toBe(3000);
+    expect((result.data as any).عمولة_إدخال_عقار).toBe(150);
   });
 
   // 3. Upsert Contract Commission (New)
@@ -68,13 +70,15 @@ describe('Financial Logic - Comprehensive Suite', () => {
   });
 
   // 4. Upsert Sale Commission (Sync Legacy)
-  test('upsertCommissionForSale - syncs legacy fields and calculates total', () => {
+  test('upsertCommissionForSale - parties total excludes intro; intro is 5% for employee only', () => {
     (get as jest.Mock).mockReturnValue([]);
     const result = upsertCommissionForSale('AG-1', { sellerComm: 500, buyerComm: 300, listingComm: 50 });
     expect(result.success).toBe(true);
     const data = result.data as any;
     expect(data.عمولة_المالك).toBe(500);
-    expect(data.المجموع).toBe(850);
+    expect(data.المجموع).toBe(800);
+    expect(data.عمولة_إدخال_عقار).toBe(40);
+    expect(data.يوجد_ادخال_عقار).toBe(true);
   });
 
   // 5. Postpone Collection

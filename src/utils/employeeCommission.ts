@@ -29,6 +29,20 @@ const clampNonNegative = (n: unknown) => {
   return Math.max(0, x);
 };
 
+/** إجمالي عمولة المكتب بين طرفي العملية فقط (لا يشمل إدخال العقار للموظف) */
+export const commissionPartiesOfficeTotal = (c: {
+  نوع_العمولة?: 'Rental' | 'Sale';
+  عمولة_البائع?: number;
+  عمولة_المشتري?: number;
+  عمولة_المالك?: number;
+  عمولة_المستأجر?: number;
+}): number => {
+  if (c.نوع_العمولة === 'Sale') {
+    return clampNonNegative(c.عمولة_البائع) + clampNonNegative(c.عمولة_المشتري);
+  }
+  return clampNonNegative(c.عمولة_المالك) + clampNonNegative(c.عمولة_المستأجر);
+};
+
 export const getRentalTier = (
   officeCommissionTotal: number
 ): { tierId: RentalTierId | '0-499'; rate: number } => {

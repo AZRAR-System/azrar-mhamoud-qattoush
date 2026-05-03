@@ -59,11 +59,44 @@ describe('updateCommission', () => {
   });
 
   test('recalculates total for Sale type', () => {
-    kv.save(KEYS.COMMISSIONS, [{ ...makeComm('COM-2', 'Sale'), عمولة_البائع: 300, عمولة_المشتري: 200, عمولة_إدخال_عقار: 50 }]);
+    kv.save(KEYS.COMMISSIONS, [
+      {
+        ...makeComm('COM-2', 'Sale'),
+        عمولة_البائع: 300,
+        عمولة_المشتري: 200,
+        يوجد_ادخال_عقار: true,
+        عمولة_إدخال_عقار: 25,
+        المجموع: 500,
+      },
+    ]);
     buildCache();
     const r = updateCommission('COM-2', { عمولة_البائع: 400 });
     expect(r.success).toBe(true);
-    expect((r.data as any).المجموع).toBe(650);
+    expect((r.data as any).المجموع).toBe(600);
+    expect((r.data as any).عمولة_إدخال_عقار).toBe(30);
+  });
+
+  test('preserves manual عمولة_إدخال_عقار when it is included in patch', () => {
+    kv.save(KEYS.COMMISSIONS, [
+      {
+        ...makeComm('COM-MAN', 'Sale'),
+        عمولة_البائع: 100,
+        عمولة_المشتري: 100,
+        يوجد_ادخال_عقار: true,
+        عمولة_إدخال_عقار: 10,
+        المجموع: 200,
+      },
+    ]);
+    buildCache();
+    const r = updateCommission('COM-MAN', {
+      عمولة_البائع: 200,
+      عمولة_المشتري: 100,
+      عمولة_إدخال_عقار: 77,
+      يوجد_ادخال_عقار: true,
+    });
+    expect(r.success).toBe(true);
+    expect((r.data as any).المجموع).toBe(300);
+    expect((r.data as any).عمولة_إدخال_عقار).toBe(77);
   });
 });
 
@@ -183,12 +216,16 @@ describe('upsertCommissionForSale', () => {
     expect((r.data as any).المجموع).toBe(1000);
   });
 
-  test('includes listingComm in total', () => {
+  test('listingComm enables intro; المجموع is parties only (intro not added)', () => {
     const r = upsertCommissionForSale('AGR-2', {
-      sellerComm: 500, buyerComm: 300, listingComm: 100, listingEmployee: 'emp1',
+      sellerComm: 500,
+      buyerComm: 300,
+      listingComm: 100,
+      listingEmployee: 'emp1',
     });
     expect(r.success).toBe(true);
-    expect((r.data as any).المجموع).toBe(900);
+    expect((r.data as any).المجموع).toBe(800);
+    expect((r.data as any).عمولة_إدخال_عقار).toBe(40);
     expect((r.data as any).يوجد_ادخال_عقار).toBe(true);
     expect((r.data as any).شهر_دفع_العمولة).toMatch(/^\d{4}-\d{2}$/);
   });

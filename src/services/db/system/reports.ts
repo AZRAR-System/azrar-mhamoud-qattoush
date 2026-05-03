@@ -13,7 +13,11 @@ import {
 import { INSTALLMENT_STATUS } from '../installmentConstants';
 import { getInstallmentPaidAndRemaining } from '../installments';
 import { toDateOnly, parseDateOnly } from '../utils/dates';
-import { computeEmployeeCommission, getRentalTier } from '@/utils/employeeCommission';
+import {
+  commissionPartiesOfficeTotal,
+  computeEmployeeCommission,
+  getRentalTier,
+} from '@/utils/employeeCommission';
 import { MOCK_REPORTS } from '../mockDbConstants';
 
 const asUnknownRecord = (value: unknown): Record<string, unknown> =>
@@ -95,7 +99,8 @@ export const runReport = (id: string): ReportResult => {
     commissions.forEach((c) => {
       if (c.نوع_العمولة === 'Sale') return;
       const key = `${norm(c.اسم_المستخدم)}|${getMonthKey(c)}`;
-      monthlyUserRentalTotals[key] = (monthlyUserRentalTotals[key] || 0) + Number(c.المجموع || 0);
+      monthlyUserRentalTotals[key] =
+        (monthlyUserRentalTotals[key] || 0) + commissionPartiesOfficeTotal(c);
     });
 
     // Pass 2: Calculate individual rows
@@ -153,8 +158,8 @@ export const runReport = (id: string): ReportResult => {
         }
       }
 
-      // Calculate breakdown using AGGREGATED total for rentals
-      const officeCommission = Number(c.المجموع || 0);
+      // عمولة المكتب بين الأطراف فقط (بدون إدخال العقار — حصة الموظف تُحسب منفصلة)
+      const officeCommission = commissionPartiesOfficeTotal(c);
       const _breakdown = computeEmployeeCommission({
         rentalOfficeCommissionTotal: type === 'Rental' ? monthlyRentalTotal : 0,
         saleOfficeCommissionTotal: type === 'Sale' ? officeCommission : 0,

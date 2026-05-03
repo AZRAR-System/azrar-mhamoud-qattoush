@@ -16,7 +16,7 @@ import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useDbSignal } from '@/hooks/useDbSignal';
-import { getRentalTier } from '@/utils/employeeCommission';
+import { commissionPartiesOfficeTotal, getRentalTier } from '@/utils/employeeCommission';
 import { storage } from '@/services/storage';
 import { contractDetailsSmart, domainGetSmart } from '@/services/domainQueries';
 import { useResponsivePageSize } from '@/hooks/useResponsivePageSize';
@@ -404,18 +404,23 @@ export const useCommissions = (isVisible: boolean) => {
       return;
     }
 
+    const partiesTotal = c1 + c2;
+    const introEnabled = !!editingContractComm.يوجد_ادخال_عقار;
+    const introAmt = introEnabled ? partiesTotal * 0.05 : 0;
+
     const res = DbService.updateCommission(editingContractComm.رقم_العمولة, {
       تاريخ_العقد: editingContractComm.تاريخ_العقد,
       شهر_دفع_العمولة: /^\d{4}-\d{2}/.test(String(editingContractComm.تاريخ_العقد || ''))
         ? String(editingContractComm.تاريخ_العقد).slice(0, 7)
         : undefined,
       رقم_الفرصة: asTrimmedString(editingContractComm.رقم_الفرصة) || undefined,
-      يوجد_ادخال_عقار: !!editingContractComm.يوجد_ادخال_عقار,
+      يوجد_ادخال_عقار: introEnabled,
+      عمولة_إدخال_عقار: introAmt,
       اسم_المستخدم: asTrimmedString(editingContractComm.اسم_المستخدم) || undefined,
-      ...(isSale 
-        ? { عمولة_البائع: c1, عمولة_المشتري: c2, المجموع: c1 + c2 + (Number(editingContractComm.عمولة_إدخال_عقار) || 0) }
-        : { عمولة_المالك: c1, عمولة_المستأجر: c2, المجموع: c1 + c2 }
-      )
+      ...(isSale
+        ? { عمولة_البائع: c1, عمولة_المشتري: c2, المجموع: partiesTotal }
+        : { عمولة_المالك: c1, عمولة_المستأجر: c2, المجموع: partiesTotal }
+      ),
     });
 
     if (res.success) {
@@ -1096,8 +1101,8 @@ export const useCommissions = (isVisible: boolean) => {
       rate = 0.40; // Flat 40% for sales
     } else {
       const monthRentalOfficeTotal = commissionsForSelectedMonth
-        .filter(c => c.نوع_العمولة !== 'Sale')
-        .reduce((sum, c) => sum + (Number(c.المجموع) || 0), 0);
+        .filter((c) => c.نوع_العمولة !== 'Sale')
+        .reduce((sum, c) => sum + commissionPartiesOfficeTotal(c), 0);
       const tier = getRentalTier(monthRentalOfficeTotal);
       rate = tier.rate;
       tierId = tier.tierId;
@@ -1265,7 +1270,7 @@ export const useCommissions = (isVisible: boolean) => {
       { key: 'k_p3', header: 'الكفيل (إن وجد)' },
       { key: 'k_c1', header: 'عمولة المالك/البائع' },
       { key: 'k_c2', header: 'عمولة المستأجر/المشتري' },
-      { key: 'k_total', header: 'المجموع' },
+      { key: 'k_total', header: 'مجموع الأطراف (بدون إدخال عقار)' },
     ] as Array<XlsxColumn<Record<string, unknown>>>;
 
     const rows: Record<string, unknown>[] = commissionsForSelectedMonth.map((c) => {
@@ -1288,7 +1293,7 @@ export const useCommissions = (isVisible: boolean) => {
         k_p3: names.p3 || '',
         k_c1: Number((isSale ? c.عمولة_البائع : c.عمولة_المالك) || 0),
         k_c2: Number((isSale ? c.عمولة_المشتري : c.عمولة_المستأجر) || 0),
-        k_total: Number(c.المجموع || 0),
+        k_total: commissionPartiesOfficeTotal(c),
       };
     });
 

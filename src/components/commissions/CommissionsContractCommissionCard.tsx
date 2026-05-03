@@ -3,6 +3,7 @@ import { Briefcase, CornerDownRight, Pencil, RefreshCw, ShieldCheck, Trash2, Use
 import type { العمولات_tbl } from '@/types';
 import { formatContractNumberShort } from '@/utils/contractNumber';
 import { formatCurrencyJOD } from '@/utils/format';
+import { commissionPartiesOfficeTotal } from '@/utils/employeeCommission';
 import { cn } from '@/utils/cn';
 
 export type CommissionsContractCardVariant = 'default' | 'renewal';
@@ -32,6 +33,11 @@ export const CommissionsContractCommissionCard: FC<CommissionsContractCommission
   const isSale = c.نوع_العمولة === 'Sale';
   const ref = isSale ? c.رقم_الاتفاقية : c.رقم_العقد;
   const names = getNames(c);
+  const partiesTotal = commissionPartiesOfficeTotal(c);
+  const introEmployee =
+    c.يوجد_ادخال_عقار
+      ? Math.max(0, Number(c.عمولة_إدخال_عقار || 0)) || partiesTotal * 0.05
+      : 0;
 
   return (
     <article
@@ -178,11 +184,16 @@ export const CommissionsContractCommissionCard: FC<CommissionsContractCommission
         </div>
         <div className="rounded-xl border border-indigo-100 bg-indigo-50/90 px-3 py-2.5 dark:border-indigo-900/40 dark:bg-indigo-950/40">
           <div className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
-            المجموع {c.يوجد_ادخال_عقار ? <span className="text-indigo-400">(+ إدخال عقار)</span> : null}
+            مجموع طرفي العقد
           </div>
           <div className="mt-0.5 text-lg font-black tabular-nums text-indigo-800 dark:text-indigo-200">
-            {formatCurrencyJOD(Number(c.المجموع || 0))}
+            {formatCurrencyJOD(partiesTotal)}
           </div>
+          {c.يوجد_ادخال_عقار ? (
+            <div className="mt-1 text-[10px] font-bold text-indigo-600/90 dark:text-indigo-300/90">
+              إدخال عقار (5% للموظف فقط): {formatCurrencyJOD(introEmployee)}
+            </div>
+          ) : null}
         </div>
       </div>
     </article>

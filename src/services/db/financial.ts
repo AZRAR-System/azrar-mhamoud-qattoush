@@ -28,19 +28,33 @@ export const updateCommission = (id: string, patch: Partial<العمولات_tbl
     'عمولة_البائع',
     'عمولة_المشتري',
     'عمولة_إدخال_عقار',
+    'يوجد_ادخال_عقار',
   ].some((key) => key in patch);
+
+  /** إذا وُجدت في الـ patch تُعتبر تعديلاً صريحاً ولا يُستبدل بالحساب التلقائي 5% */
+  const introExplicitlyPatched = Object.prototype.hasOwnProperty.call(patch, 'عمولة_إدخال_عقار');
 
   if (changedAny) {
     const isSale = next.نوع_العمولة === 'Sale';
     if (isSale) {
-      next.المجموع = 
-        Number(next.عمولة_البائع || 0) + 
-        Number(next.عمولة_المشتري || 0) + 
-        Number(next.عمولة_إدخال_عقار || 0);
+      const parties =
+        Number(next.عمولة_البائع || 0) + Number(next.عمولة_المشتري || 0);
+      next.المجموع = parties;
+      // إدخال عقار: لا يُضاف للمجموع؛ القيمة اليدوية تُحترم إذا أُرسلت في patch
+      if (!next.يوجد_ادخال_عقار) {
+        next.عمولة_إدخال_عقار = 0;
+      } else if (!introExplicitlyPatched) {
+        next.عمولة_إدخال_عقار = parties * 0.05;
+      }
     } else {
-      next.المجموع = 
-        Number(next.عمولة_المالك || 0) + 
-        Number(next.عمولة_المستأجر || 0);
+      const parties =
+        Number(next.عمولة_المالك || 0) + Number(next.عمولة_المستأجر || 0);
+      next.المجموع = parties;
+      if (!next.يوجد_ادخال_عقار) {
+        next.عمولة_إدخال_عقار = 0;
+      } else if (!introExplicitlyPatched) {
+        next.عمولة_إدخال_عقار = parties * 0.05;
+      }
     }
   }
 
@@ -155,6 +169,8 @@ export const upsertCommissionForSale = (
     sellerComm: number;
     buyerComm: number;
     listingComm?: number;
+    /** صريح من الاتفاقية؛ إن لم يُمرَّر يُستنتج من listingComm > 0 */
+    propertyIntroEnabled?: boolean;
     listingEmployee?: string;
     closingEmployee?: string;
     date?: string;
@@ -166,6 +182,15 @@ export const upsertCommissionForSale = (
 
   const { ymd: dateYmd, ym: paidMonth } = normalizeCommissionDateAndMonth(data.date);
 
+  const partiesTotal = Number(data.sellerComm || 0) + Number(data.buyerComm || 0);
+  const introEnabled =
+    data.propertyIntroEnabled === true
+      ? true
+      : data.propertyIntroEnabled === false
+        ? false
+        : (Number(data.listingComm) || 0) > 0;
+  const introAmount = introEnabled ? partiesTotal * 0.05 : 0;
+
   const record: العمولات_tbl = {
     رقم_العمولة: existingId,
     رقم_الاتفاقية: agreementId,
@@ -176,11 +201,11 @@ export const upsertCommissionForSale = (
     عمولة_المشتري: data.buyerComm,
     عمولة_المالك: data.sellerComm, // Legacy field sync
     عمولة_المستأجر: data.buyerComm, // Legacy field sync
-    عمولة_إدخال_عقار: data.listingComm || 0,
+    عمولة_إدخال_عقار: introAmount,
     موظف_إدخال_العقار: data.listingEmployee,
     اسم_المستخدم: data.closingEmployee,
-    المجموع: data.sellerComm + data.buyerComm + (data.listingComm || 0),
-    يوجد_ادخال_عقار: (data.listingComm || 0) > 0,
+    المجموع: partiesTotal,
+    يوجد_ادخال_عقار: introEnabled,
   };
 
   if (idx !== -1) {

@@ -29,6 +29,7 @@ export type SalesDeps = {
       sellerComm: number;
       buyerComm: number;
       listingComm?: number;
+      propertyIntroEnabled?: boolean;
       listingEmployee?: string;
       closingEmployee?: string;
       date?: string;
@@ -243,9 +244,10 @@ export function createSalesHandlers(deps: SalesDeps) {
       sellerComm: next.عمولة_البائع,
       buyerComm: next.عمولة_المشتري,
       listingComm: next.عمولة_إدخال_عقار,
+      propertyIntroEnabled: !!(next.يوجد_ادخال_عقار || (next.عمولة_إدخال_عقار || 0) > 0),
       listingEmployee: next.موظف_إدخال_العقار,
-      closingEmployee: 'system', 
-      date: next.تاريخ_الاتفاقية
+      closingEmployee: 'system',
+      date: next.تاريخ_الاتفاقية,
     });
 
     logOperation('system', 'ADD_AGREEMENT', 'sales_agreements', next.id, `إنشاء اتفاقية بيع لعقار ${next.رقم_العقار}`);
@@ -268,8 +270,9 @@ export function createSalesHandlers(deps: SalesDeps) {
       sellerComm: all[idx].عمولة_البائع,
       buyerComm: all[idx].عمولة_المشتري,
       listingComm: all[idx].عمولة_إدخال_عقار,
+      propertyIntroEnabled: !!(all[idx].يوجد_ادخال_عقار || (all[idx].عمولة_إدخال_عقار || 0) > 0),
       listingEmployee: all[idx].موظف_إدخال_العقار,
-      date: all[idx].تاريخ_الاتفاقية
+      date: all[idx].تاريخ_الاتفاقية,
     });
 
     logOperation('system', 'UPDATE_AGREEMENT', 'sales_agreements', id, `تحديث اتفاقية بيع لعقار ${all[idx].رقم_العقار}`);
