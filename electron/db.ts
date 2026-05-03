@@ -3843,6 +3843,15 @@ function safeJsonParseArray(value: string | null): unknown[] {
   }
 }
 
+function parseKvArrayForSync(value: string): unknown[] | null {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function kvUpdatedAtIso(key: string): string {
   const meta = kvGetMeta(key);
   const ts = meta?.updatedAt ? String(meta.updatedAt) : '';
@@ -4322,11 +4331,11 @@ export function domainSyncAfterKvSet(key: string, value: string): { ok: boolean;
 }
 
 function syncInstallmentsKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
-  const installments = safeJsonParseArray(value);
+  const installments = parseKvArrayForSync(value);
 
-  // Guard: Avoid deleting all data if payload is empty/malformed
-  if (installments.length === 0) {
-    console.warn('[db] syncInstallmentsKvPayload: payload فارغ — تم التجاهل');
+  // Guard: malformed/non-array payloads must not erase the mirror.
+  if (!installments) {
+    console.warn('[db] syncInstallmentsKvPayload: payload غير صالح — تم التجاهل');
     return;
   }
 
@@ -4380,11 +4389,11 @@ function syncInstallmentsKvPayload(dbh: SqliteDb, value: string, nowIso: string)
 }
 
 function syncContractsKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
-  const contracts = safeJsonParseArray(value);
+  const contracts = parseKvArrayForSync(value);
 
-  // Guard: Avoid deleting all data if payload is empty/malformed
-  if (contracts.length === 0) {
-    console.warn('[db] syncContractsKvPayload: payload فارغ — تم التجاهل');
+  // Guard: malformed/non-array payloads must not erase the mirror.
+  if (!contracts) {
+    console.warn('[db] syncContractsKvPayload: payload غير صالح — تم التجاهل');
     return;
   }
 
@@ -4392,6 +4401,7 @@ function syncContractsKvPayload(dbh: SqliteDb, value: string, nowIso: string): v
     'INSERT INTO contracts (id, propertyId, tenantId, guarantorId, status, startDate, endDate, annualValue, paymentFrequency, paymentMethod, isArchived, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET propertyId=excluded.propertyId, tenantId=excluded.tenantId, guarantorId=excluded.guarantorId, status=excluded.status, startDate=excluded.startDate, endDate=excluded.endDate, annualValue=excluded.annualValue, paymentFrequency=excluded.paymentFrequency, paymentMethod=excluded.paymentMethod, isArchived=excluded.isArchived, data=excluded.data, updatedAt=excluded.updatedAt'
   );
   const tx = dbh.transaction(() => {
+    dbh.exec('DELETE FROM contracts');
     for (const c of contracts) {
       const cRec = toRecord(c);
       const id = String(cRec['رقم_العقد'] ?? '').trim();
@@ -4413,15 +4423,20 @@ function syncContractsKvPayload(dbh: SqliteDb, value: string, nowIso: string): v
       );
     }
   });
-  tx();
+  dbh.pragma('foreign_keys = OFF');
+  try {
+    tx();
+  } finally {
+    dbh.pragma('foreign_keys = ON');
+  }
 }
 
 function syncPeopleKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
-  const people = safeJsonParseArray(value);
+  const people = parseKvArrayForSync(value);
 
-  // Guard: Avoid deleting all data if payload is empty/malformed
-  if (people.length === 0) {
-    console.warn('[db] syncPeopleKvPayload: payload فارغ — تم التجاهل');
+  // Guard: malformed/non-array payloads must not erase the mirror.
+  if (!people) {
+    console.warn('[db] syncPeopleKvPayload: payload غير صالح — تم التجاهل');
     return;
   }
 
@@ -4429,6 +4444,7 @@ function syncPeopleKvPayload(dbh: SqliteDb, value: string, nowIso: string): void
     'INSERT INTO people (id, name, nationalId, phone, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, nationalId=excluded.nationalId, phone=excluded.phone, data=excluded.data, updatedAt=excluded.updatedAt'
   );
   const tx = dbh.transaction(() => {
+    dbh.exec('DELETE FROM people');
     for (const p of people) {
       const pRec = toRecord(p);
       const id = String(pRec['رقم_الشخص'] ?? '').trim();
@@ -4447,15 +4463,20 @@ function syncPeopleKvPayload(dbh: SqliteDb, value: string, nowIso: string): void
       );
     }
   });
-  tx();
+  dbh.pragma('foreign_keys = OFF');
+  try {
+    tx();
+  } finally {
+    dbh.pragma('foreign_keys = ON');
+  }
 }
 
 function syncPropertiesKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
-  const properties = safeJsonParseArray(value);
+  const properties = parseKvArrayForSync(value);
 
-  // Guard: Avoid deleting all data if payload is empty/malformed
-  if (properties.length === 0) {
-    console.warn('[db] syncPropertiesKvPayload: payload فارغ — تم التجاهل');
+  // Guard: malformed/non-array payloads must not erase the mirror.
+  if (!properties) {
+    console.warn('[db] syncPropertiesKvPayload: payload غير صالح — تم التجاهل');
     return;
   }
 
@@ -4463,6 +4484,7 @@ function syncPropertiesKvPayload(dbh: SqliteDb, value: string, nowIso: string): 
     'INSERT INTO properties (id, internalCode, ownerId, type, status, address, city, area, isRented, isForSale, isForRent, salePrice, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET internalCode=excluded.internalCode, ownerId=excluded.ownerId, type=excluded.type, status=excluded.status, address=excluded.address, city=excluded.city, area=excluded.area, isRented=excluded.isRented, isForSale=excluded.isForSale, isForRent=excluded.isForRent, salePrice=excluded.salePrice, data=excluded.data, updatedAt=excluded.updatedAt'
   );
   const tx = dbh.transaction(() => {
+    dbh.exec('DELETE FROM properties');
     for (const pr of properties) {
       const prRec = toRecord(pr);
       const id = String(prRec['رقم_العقار'] ?? '').trim();
@@ -4487,15 +4509,20 @@ function syncPropertiesKvPayload(dbh: SqliteDb, value: string, nowIso: string): 
       );
     }
   });
-  tx();
+  dbh.pragma('foreign_keys = OFF');
+  try {
+    tx();
+  } finally {
+    dbh.pragma('foreign_keys = ON');
+  }
 }
 
 function syncMaintenanceKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
-  const maintenance = safeJsonParseArray(value);
+  const maintenance = parseKvArrayForSync(value);
 
-  // Guard: Avoid deleting all data if payload is empty/malformed
-  if (maintenance.length === 0) {
-    console.warn('[db] syncMaintenanceKvPayload: payload فارغ — تم التجاهل');
+  // Guard: malformed/non-array payloads must not erase the mirror.
+  if (!maintenance) {
+    console.warn('[db] syncMaintenanceKvPayload: payload غير صالح — تم التجاهل');
     return;
   }
 
@@ -4503,6 +4530,7 @@ function syncMaintenanceKvPayload(dbh: SqliteDb, value: string, nowIso: string):
     'INSERT INTO maintenance_tickets (id, propertyId, tenantId, createdDate, status, priority, issue, closedDate, data, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET propertyId=excluded.propertyId, tenantId=excluded.tenantId, createdDate=excluded.createdDate, status=excluded.status, priority=excluded.priority, issue=excluded.issue, closedDate=excluded.closedDate, data=excluded.data, updatedAt=excluded.updatedAt'
   );
   const tx = dbh.transaction(() => {
+    dbh.exec('DELETE FROM maintenance_tickets');
     for (const t of maintenance) {
       const tRec = toRecord(t);
       const id = String(tRec['رقم_التذكرة'] ?? '').trim();
@@ -4521,15 +4549,20 @@ function syncMaintenanceKvPayload(dbh: SqliteDb, value: string, nowIso: string):
       );
     }
   });
-  tx();
+  dbh.pragma('foreign_keys = OFF');
+  try {
+    tx();
+  } finally {
+    dbh.pragma('foreign_keys = ON');
+  }
 }
 
 function syncRolesKvPayload(dbh: SqliteDb, value: string, _nowIso: string): void {
-  const roles = safeJsonParseArray(value);
+  const roles = parseKvArrayForSync(value);
 
-  // Guard: Avoid deleting all data if payload is empty/malformed
-  if (roles.length === 0) {
-    console.warn('[db] syncRolesKvPayload: payload فارغ — تم التجاهل');
+  // Guard: malformed/non-array payloads must not erase the mirror.
+  if (!roles) {
+    console.warn('[db] syncRolesKvPayload: payload غير صالح — تم التجاهل');
     return;
   }
 
@@ -4548,11 +4581,11 @@ function syncRolesKvPayload(dbh: SqliteDb, value: string, _nowIso: string): void
 }
 
 function syncBlacklistKvPayload(dbh: SqliteDb, value: string, nowIso: string): void {
-  const blacklist = safeJsonParseArray(value);
+  const blacklist = parseKvArrayForSync(value);
 
-  // Guard: Avoid deleting all data if payload is empty/malformed
-  if (blacklist.length === 0) {
-    console.warn('[db] syncBlacklistKvPayload: payload فارغ — تم التجاهل');
+  // Guard: malformed/non-array payloads must not erase the mirror.
+  if (!blacklist) {
+    console.warn('[db] syncBlacklistKvPayload: payload غير صالح — تم التجاهل');
     return;
   }
 
@@ -4560,6 +4593,7 @@ function syncBlacklistKvPayload(dbh: SqliteDb, value: string, nowIso: string): v
     'INSERT INTO blacklist (personId, isActive, data, updatedAt) VALUES (?, ?, ?, ?) ON CONFLICT(personId) DO UPDATE SET isActive=excluded.isActive, data=excluded.data, updatedAt=excluded.updatedAt'
   );
   const tx = dbh.transaction(() => {
+    dbh.exec('DELETE FROM blacklist');
     for (const b of blacklist) {
       const bRec = toRecord(b);
       const personId = String(bRec.personId ?? '').trim();
